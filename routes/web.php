@@ -24,7 +24,7 @@ use App\Http\Controllers\DigiflazzCallbackController;
 use App\Http\Controllers\RiwayatPembelian;
 use App\Http\Controllers\Admin\UserDepositController;
 use App\Http\Controllers\MemberController;
-use App\Http\Controllers\Admin\WhatsappController;
+// use App\Http\Controllers\Admin\WhatsappController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VoucherController;
@@ -280,7 +280,7 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     // Route::post('/member/update',                                                [MemberController::class, 'patch'])->name('member.detail.update');
     Route::get('/user-deposit',                                                  [UserDepositController::class, 'create'])->name('userdeposit');
     Route::get('/user-deposit/{id}/{status}',                                    [UserDepositController::class, 'patch'])->name('confirm.deposit');
-    Route::get('/whatsapp',                                                      [WhatsappController::class, 'create'])->name('whatsapp');
+    // Route::get('/whatsapp',                                                      [WhatsappController::class, 'create'])->name('whatsapp');
     Route::get('/voucher',                                                       [VoucherController::class, 'create'])->name('voucher');
     Route::post('/voucher',                                                      [VoucherController::class, 'store'])->name('voucher.post');
     Route::get('/voucher/{id}/delete',                                           [VoucherController::class, 'destroy'])->name('voucher.delete');

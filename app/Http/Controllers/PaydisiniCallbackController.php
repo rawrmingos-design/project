@@ -204,10 +204,11 @@ class PaydisiniCallbackController extends Controller
                         $order['data']['status'] = true;
                     }else{
                         $order['data']['status'] = false;
-                    } elseif ($provider === "joki" || $provider === "jokigendong") {
-                $provider_order_id = '';
-                $order['data']['status'] = true;
-            }
+                    }
+                } elseif ($provider === "joki" || $provider === "jokigendong") {
+                    $provider_order_id = '';
+                    $order['data']['status'] = true;
+                }
 
         // Cek status order dan perbarui pembelian
         if ($order['data']['status']) {
