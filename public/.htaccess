@@ -1,0 +1,120 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Redirect to HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Block direct access to index.php
+    RewriteCond %{THE_REQUEST} ^[A-Z]{3,9}\ /index\.php\ HTTP/
+    RewriteRule ^index\.php$ / [R=301,L]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+
+
+<IfModule mod_negotiation.c>
+    Options -MultiViews -Indexes
+</IfModule>
+
+<IfModule mime_module>
+    AddHandler application/x-httpd-ea-php83___lsphp .php .php8 .php83 .phtml
+</IfModule>
+
+<IfModule php8_module>
+    php_flag display_errors Off
+    php_value max_execution_time 30
+    php_value max_input_time 60
+    php_value max_input_vars 1000
+    php_value memory_limit 512M
+    php_value post_max_size 512M
+    php_value session.gc_maxlifetime 1440
+    php_value session.save_path "/var/cpanel/php/sessions/ea-php83"
+    php_value upload_max_filesize 512M
+    php_flag zlib.output_compression Off
+</IfModule>
+
+# Aktifkan modul mod_cache untuk caching
+<IfModule mod_cache.c>
+    CacheQuickHandler off
+    CacheLock on
+    CacheLockPath "/tmp/mod_cache-lock"
+    CacheLockMaxAge 5
+    CacheIgnoreCacheControl On
+    CacheDefaultExpire 3600
+    CacheIgnoreNoLastMod On
+    CacheMaxFileSize 1000000
+    CacheStoreExpired Off
+    CacheStoreNoStore Off
+    CacheStorePrivate Off
+    CacheMaxExpire 86400
+</IfModule>
+
+# Aktifkan kompresi gzip pada konten
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/x-javascript application/json image/svg+xml
+</IfModule>
+
+# Aktifkan KeepAlive Connections
+<IfModule mod_headers.c>
+    Header set Connection keep-alive
+</IfModule>
+
+# Gabung dan minimalkan file CSS dan JavaScript
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)\.min\.(css|js)$ $1.$2 [L]
+</IfModule>
+
+# Aktifkan HTTP/2
+<IfModule http2_module>
+    Protocols h2 h2c http/1.1
+</IfModule>
+
+# Optimalisasi Konfigurasi PHP
+<IfModule php8_module>
+    php_value opcache.enable 1
+    php_value opcache.enable_cli 1
+    php_value opcache.memory_consumption 128
+    php_value opcache.max_accelerated_files 4000
+    php_value opcache.validate_timestamps 1
+</IfModule>
+
+
+Options -Indexes
+
+<FilesMatch "(^\.env|\.git|\.htaccess)">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Content-Security-Policy "frame-ancestors 'self' https://4billstore.com"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always edit Set-Cookie (.*) "$1; Secure"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(); microphone=(); camera=();"
+    Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    Header unset X-Powered-By
+    Header unset Server
+</IfModule>
+
