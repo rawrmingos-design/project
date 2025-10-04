@@ -12,6 +12,7 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
+use App\Filament\Admin\Widgets\DashboardStatsWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -26,10 +27,16 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('filament')
+            ->path('admin')
             ->login()
+            ->brandName('Game Top-Up Admin')
+            ->favicon(asset('/assets/logo/favicon.ico'))
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Orange,
+                'secondary' => Color::Gray,
+                'success' => Color::Green,
+                'warning' => Color::Amber,
+                'danger' => Color::Red,
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\Filament\Admin\Pages')
@@ -38,8 +45,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->widgets([
+                DashboardStatsWidget::class,
                 AccountWidget::class,
                 FilamentInfoWidget::class,
+            ])
+            ->navigationGroups([
+                'Produk & Layanan',
+                'Transaksi & Pesanan',
+                'User Management',
+                'Konfigurasi',
+                'Laporan',
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -54,6 +69,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                'check.role',
             ]);
     }
 }
