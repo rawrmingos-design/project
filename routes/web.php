@@ -199,11 +199,6 @@ Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, '
 Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])->name('ipay88.callback');
 Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])->name('ipay88.backend');
 
-Route::prefix('egy')->middleware(['xss',  'sanitize',])->group(function () {
-    Route::get('/admin',                                                   [AdminLoginController::class, 'create'])->name('adminlogin');
-    Route::post('/admin',                                                  [AdminLoginController::class, 'store'])->name('post.adminlogin');
-});
-
 Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard');
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
