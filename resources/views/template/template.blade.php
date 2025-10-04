@@ -17,24 +17,6 @@
     <meta name="author" content="{{ env('APP_NAME') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{url('')}}">
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "url": "{{url('')}}",
-            "name": "{{ !$config ? '' : $config->judul_web }}",
-            "keywords": "{{ !$config ? '' : $config->keywords }}",
-            "description": "{{ !$config ? '' : $config->deskripsi_web }}",
-            "publisher": {
-                "@type": "Organization",
-                "name": "{{ !$config ? '' : $config->judul_web }}",
-                "logo": {
-                    "@type": "ImageObject",
-                    "url": "{{ !$config ? '' : $config->logo_favicon }}"
-                }
-            }
-        }
-    </script>
     
     <!-- Favicon -->
     <link rel="shortcut icon" href="{{ url('') }}{{ !$config ? '' : $config->logo_favicon }}">

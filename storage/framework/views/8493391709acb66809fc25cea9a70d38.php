@@ -17,23 +17,6 @@
     <meta name="author" content="<?php echo e(env('APP_NAME')); ?>">
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
     <link rel="canonical" href="<?php echo e(url('')); ?>">
-    <script type="application/ld+json">
-        {
-            "@type": "WebSite",
-            "url": "<?php echo e(url('')); ?>",
-            "name": "<?php echo e(!$config ? '' : $config->judul_web); ?>",
-            "keywords": "<?php echo e(!$config ? '' : $config->keywords); ?>",
-            "description": "<?php echo e(!$config ? '' : $config->deskripsi_web); ?>",
-            "publisher": {
-                "@type": "Organization",
-                "name": "<?php echo e(!$config ? '' : $config->judul_web); ?>",
-                "logo": {
-                    "@type": "ImageObject",
-                    0 "url": "<?php echo e(!$config ? '' : $config->logo_favicon); ?>"
-                }
-            }
-        }
-    </script>
     
     <!-- Favicon -->
     <link rel="shortcut icon" href="<?php echo e(url('')); ?><?php echo e(!$config ? '' : $config->logo_favicon); ?>">
@@ -56,15 +39,18 @@
         --warna_1: <?= $config->warna1; ?>;
         --warna_2: <?= $config->warna2; ?>;
         --warna_3: <?= $config->warna3; ?>;
-        --warna_4: <?= $config->warna4; ?>         
+        --warna_4: <?= $config->warna4; ?>;         
     } 
     .bg-weji { 
--tw-bg-opacity: 1;
-background-color: var(--warna_4);
---tw-text-opacity: 1;
-color: rgb(255 255 255/var(--tw-text-opacity));
- background-image: url(https://cdn.bangjeff.com/meta/background.png);
- background-repeat: repeat-x, no-repeat; background-position: top; background-size: clamp(20rem, 80em, 100%) auto, cover; } 
+        --tw-bg-opacity: 1;
+        background-color: var(--warna_4);
+        --tw-text-opacity: 1;
+        color: rgb(255 255 255/var(--tw-text-opacity));
+        background-image: url(https://cdn.bangjeff.com/meta/background.png);
+        background-repeat: repeat-x, no-repeat; 
+        background-position: top; 
+        background-size: clamp(20rem, 80em, 100%) auto, cover; 
+    } 
         
    .prose :where(ol > li):not(:where([class~=not-prose] *))::marker {
     font-weight: 400;
@@ -154,7 +140,6 @@ color: rgb(255 255 255/var(--tw-text-opacity));
 
 
      <?php echo $__env->yieldPushContent('custom_script'); ?>
-     <?php endif; ?>
     </body>
 </html>
 <?php /**PATH D:\Backend-game-topup\web\project\resources\views/template/template.blade.php ENDPATH**/ ?>
