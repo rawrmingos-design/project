@@ -14,26 +14,34 @@ class DashboardStatsWidget extends StatsOverviewWidget
 {
     protected function getStats(): array
     {
-        return [
-            Stat::make('Total Users', User::count())
-                ->description('Registered users')
-                ->descriptionIcon('heroicon-m-users')
-                ->color('success'),
-                
-            Stat::make('Total Games', Kategori::count())
-                ->description('Available games')
-                ->descriptionIcon('heroicon-m-puzzle-piece')
-                ->color('info'),
-                
-            Stat::make('Total Products', Layanan::count())
-                ->description('Available products')
-                ->descriptionIcon('heroicon-m-shopping-bag')
-                ->color('warning'),
-                
-            Stat::make('Total Orders', Pembelian::count())
-                ->description('All time orders')
-                ->descriptionIcon('heroicon-m-shopping-cart')
-                ->color('primary'),
-        ];
+        try {
+            return [
+                Stat::make('Total Users', User::count() ?? 0)
+                    ->description('Registered users')
+                    ->descriptionIcon('heroicon-m-users')
+                    ->color('success'),
+                    
+                Stat::make('Total Games', Kategori::count() ?? 0)
+                    ->description('Available games')
+                    ->descriptionIcon('heroicon-m-puzzle-piece')
+                    ->color('info'),
+                    
+                Stat::make('Total Products', Layanan::count() ?? 0)
+                    ->description('Available products')
+                    ->descriptionIcon('heroicon-m-shopping-bag')
+                    ->color('warning'),
+                    
+                Stat::make('Total Orders', Pembelian::count() ?? 0)
+                    ->description('All time orders')
+                    ->descriptionIcon('heroicon-m-shopping-cart')
+                    ->color('primary'),
+            ];
+        } catch (\Exception $e) {
+            return [
+                Stat::make('Error', 'N/A')
+                    ->description('Unable to load stats')
+                    ->color('danger'),
+            ];
+        }
     }
 }
