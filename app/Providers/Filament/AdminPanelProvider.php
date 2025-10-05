@@ -50,11 +50,11 @@ class AdminPanelProvider extends PanelProvider
                 FilamentInfoWidget::class,
             ])
             ->navigationGroups([
-                'Produk & Layanan',
-                'Transaksi & Pesanan',
+                'Products',
+                'Transactions',
                 'User Management',
-                'Konfigurasi',
-                'Laporan',
+                'Configuration',
+                'Reports',
             ])
             ->middleware([
                 EncryptCookies::class,
