@@ -11,7 +11,8 @@ class LanguageDetectMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $language = substr($request->server('HTTP_ACCEPT_LANGUAGE'), 0, 2);
+        $acceptLanguage = $request->server('HTTP_ACCEPT_LANGUAGE');
+        $language = $acceptLanguage ? substr($acceptLanguage, 0, 2) : 'en';
 
         $availableLanguages = ['en', 'id'];
         if (in_array($language, $availableLanguages)) {
