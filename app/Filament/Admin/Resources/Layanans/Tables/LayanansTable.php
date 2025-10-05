@@ -21,7 +21,7 @@ class LayanansTable
             ->columns([
                 ImageColumn::make('product_logo')
                     ->label('Logo')
-                    ->disk('asset')
+                    ->disk('assets')
                     ->circular()
                     ->size(40),
                     

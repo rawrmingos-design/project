@@ -59,14 +59,14 @@ class KategoriForm
                         FileUpload::make('thumbnail')
                             ->label('Thumbnail')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('kategoris/thumbnails')
                             ->visibility('public'),
                             
                         FileUpload::make('banner')
                             ->label('Banner')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('kategoris/banners')
                             ->visibility('public'),
                     ])

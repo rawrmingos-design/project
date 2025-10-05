@@ -21,7 +21,7 @@ class KategorisTable
             ->columns([
                 ImageColumn::make('thumbnail')
                     ->label('Thumbnail')
-                    ->disk('asset')
+                    ->disk('assets')
                     ->circular()
                     ->size(50),
                     

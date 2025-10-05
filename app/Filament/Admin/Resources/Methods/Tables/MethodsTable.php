@@ -20,7 +20,7 @@ class MethodsTable
             ->columns([
                 ImageColumn::make('images')
                     ->label('Logo')
-                    ->disk('asset')
+                    ->disk('assets')
                     ->circular()
                     ->size(40),
                     
