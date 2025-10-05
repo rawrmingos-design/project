@@ -27,8 +27,8 @@ class Kernel extends HttpKernel
              \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \App\Http\Middleware\AddExpirationDateToCookie::class,
-             \App\Http\Middleware\TrackVisitors::class,
-               \App\Http\Middleware\LanguageDetectMiddleware::class,
+            \App\Http\Middleware\TrackVisitors::class,
+            \App\Http\Middleware\LanguageDetectMiddleware::class,
         ],
 
         'api' => [
