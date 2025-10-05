@@ -143,6 +143,7 @@ class LayananForm
                         FileUpload::make('banner_flash_sale')
                             ->label('Banner Flash Sale')
                             ->image()
+                            ->disk('asset')
                             ->directory('flash-sale/banners')
                             ->visible(fn ($get) => $get('is_flash_sale')),
                     ])
@@ -153,6 +154,7 @@ class LayananForm
                         FileUpload::make('product_logo')
                             ->label('Logo Produk')
                             ->image()
+                            ->disk('asset')
                             ->directory('products/logos'),
                             
                         Textarea::make('catatan')
