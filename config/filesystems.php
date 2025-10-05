@@ -20,7 +20,7 @@ return [
             'visibility' => 'public',
         ],
 
-        'asset' => [
+        'assets' => [
             'driver' => 'local',
             'root' => public_path('assets'),
             'url' => env('APP_URL').'/assets',

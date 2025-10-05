@@ -85,7 +85,7 @@ class MethodForm
                         FileUpload::make('images')
                             ->label('Logo/Icon')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('payment-methods')
                             ->visibility('public'),
                             
