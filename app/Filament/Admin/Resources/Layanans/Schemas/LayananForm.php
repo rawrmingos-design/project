@@ -155,17 +155,6 @@ class LayananForm
                     
                 Section::make('Lainnya')
                     ->schema([
-                        FileUpload::make('product_logo')
-                            ->label('Logo Produk')
-                            ->image()
-                            ->disk('assets')
-                            ->directory('products/logos')
-                            ->imagePreviewHeight('150')
-                            ->panelAspectRatio('1:1')
-                            ->panelLayout('integrated')
-                            ->removeUploadedFileButtonPosition('right')
-                            ->uploadButtonPosition('left'),
-                            
                         Textarea::make('catatan')
                             ->label('Catatan')
                             ->rows(4),

@@ -19,11 +19,6 @@ class LayanansTable
     {
         return $table
             ->columns([
-                ImageColumn::make('product_logo')
-                    ->label('Logo')
-                    ->disk('assets')
-                    ->circular()
-                    ->size(40),
                     
                 TextColumn::make('layanan')
                     ->label('Nama Layanan')

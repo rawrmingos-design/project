@@ -1,0 +1,60 @@
+<?php
+
+namespace App\Filament\Admin\Resources\Produks;
+
+use App\Filament\Admin\Resources\Produks\Pages\CreateProduk;
+use App\Filament\Admin\Resources\Produks\Pages\EditProduk;
+use App\Filament\Admin\Resources\Produks\Pages\ListProduks;
+use App\Filament\Admin\Resources\Produks\Schemas\ProdukForm;
+use App\Filament\Admin\Resources\Produks\Tables\ProduksTable;
+use App\Models\Produk;
+use BackedEnum;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Table;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
+
+class ProdukResource extends Resource
+{
+    protected static ?string $model = Produk::class;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
+
+    protected static ?string $recordTitleAttribute = 'layanan';
+    
+    protected static ?string $navigationLabel = 'Product Management';
+    
+    protected static ?int $navigationSort = 3;
+    
+    protected static ?string $modelLabel = 'Produk';
+    
+    protected static ?string $pluralModelLabel = 'Produk';
+
+    public static function form(Schema $schema): Schema
+    {
+        return ProdukForm::configure($schema);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return ProduksTable::configure($table);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            //
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListProduks::route('/'),
+            'create' => CreateProduk::route('/create'),
+            'edit' => EditProduk::route('/{record}/edit'),
+        ];
+    }
+}

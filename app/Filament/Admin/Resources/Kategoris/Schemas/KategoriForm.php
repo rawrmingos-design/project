@@ -41,6 +41,10 @@ class KategoriForm
                                 'voucher' => 'Voucher',
                                 'pulsa' => 'Pulsa',
                                 'data' => 'Data',
+                                'app' => 'App',
+                                'vilogml' => 'VilogML',
+                                'joki' => 'Joki',
+                                'populer' => 'Populer',
                             ])
                             ->default('game')
                             ->required(),
@@ -61,7 +65,7 @@ class KategoriForm
                             ->label('Thumbnail')
                             ->image()
                             ->disk('assets')
-                            ->directory('kategoris/thumbnails')
+                            ->directory('thumbnails')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('1:1')
@@ -73,7 +77,7 @@ class KategoriForm
                             ->label('Banner')
                             ->image()
                             ->disk('assets')
-                            ->directory('kategoris/banners')
+                            ->directory('banners')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('3:1')
@@ -85,33 +89,20 @@ class KategoriForm
                     
                 Section::make('Konfigurasi')
                     ->schema([
-                        Textarea::make('brand')
-                            ->label('Brand')
-                            ->rows(3),
                             
                         Toggle::make('server_id')
                             ->label('Memerlukan Server ID')
                             ->default(false),
-                            
-                        TextInput::make('petunjuk')
-                            ->label('Petunjuk')
-                            ->maxLength(255),
-                            
-                        TextInput::make('keterangan_input_satu')
-                            ->label('Keterangan Input 1')
-                            ->maxLength(255),
                     ]),
                     
                 Section::make('Deskripsi')
                     ->schema([
                         RichEditor::make('deskripsi_game')
                             ->label('Deskripsi Game')
-                            ->toHtml()
                             ->required(),
                             
                         RichEditor::make('deskripsi_field')
                             ->label('Deskripsi Field')
-                            ->toHtml()
                             ->required(),
                     ])
                     ->columns(1),
