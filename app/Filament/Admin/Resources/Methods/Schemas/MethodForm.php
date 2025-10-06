@@ -8,7 +8,8 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
+
 
 
 class MethodForm
@@ -86,8 +87,8 @@ class MethodForm
                         FileUpload::make('images')
                             ->label('Logo/Icon')
                             ->image()
-                            ->disk('asset')
-                            ->directory('payment-methods')
+                            ->disk('assets')
+                            ->directory('payment')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->loadingIndicatorPosition('left')
