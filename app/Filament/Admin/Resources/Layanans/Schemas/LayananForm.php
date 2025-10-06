@@ -8,7 +8,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\DateTimePicker;
 use App\Models\Kategori;
 
@@ -142,7 +142,7 @@ class LayananForm
                         FileUpload::make('banner_flash_sale')
                             ->label('Banner Flash Sale')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('flash-sale/banners')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('3:1')
@@ -158,7 +158,7 @@ class LayananForm
                         FileUpload::make('product_logo')
                             ->label('Logo Produk')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('products/logos')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('1:1')

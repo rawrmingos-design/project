@@ -3,12 +3,13 @@
 namespace App\Filament\Admin\Resources\Kategoris\Schemas;
 
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Section;
+use Filament\Forms\Components\RichEditor;
 
 
 class KategoriForm
@@ -59,7 +60,7 @@ class KategoriForm
                         FileUpload::make('thumbnail')
                             ->label('Thumbnail')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('kategoris/thumbnails')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
@@ -71,7 +72,7 @@ class KategoriForm
                         FileUpload::make('banner')
                             ->label('Banner')
                             ->image()
-                            ->disk('asset')
+                            ->disk('assets')
                             ->directory('kategoris/banners')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
@@ -103,13 +104,15 @@ class KategoriForm
                     
                 Section::make('Deskripsi')
                     ->schema([
-                        Textarea::make('deskripsi_game')
+                        RichEditor::make('deskripsi_game')
                             ->label('Deskripsi Game')
-                            ->rows(4),
+                            ->toHtml()
+                            ->required(),
                             
-                        Textarea::make('deskripsi_field')
+                        RichEditor::make('deskripsi_field')
                             ->label('Deskripsi Field')
-                            ->rows(4),
+                            ->toHtml()
+                            ->required(),
                     ])
                     ->columns(1),
             ]);
