@@ -10,6 +10,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Section;
 
+
 class KategoriForm
 {
     public static function configure(Schema $schema): Schema
@@ -53,22 +54,31 @@ class KategoriForm
                             ->required(),
                     ])
                     ->columns(2),
-                    
                 Section::make('Media')
                     ->schema([
                         FileUpload::make('thumbnail')
                             ->label('Thumbnail')
                             ->image()
-                            ->disk('assets')
+                            ->disk('asset')
                             ->directory('kategoris/thumbnails')
-                            ->visibility('public'),
+                            ->visibility('public')
+                            ->imagePreviewHeight('150')
+                            ->panelAspectRatio('1:1')
+                            ->panelLayout('integrated')
+                            ->removeUploadedFileButtonPosition('right')
+                            ->uploadButtonPosition('left'),
                             
                         FileUpload::make('banner')
                             ->label('Banner')
                             ->image()
-                            ->disk('assets')
+                            ->disk('asset')
                             ->directory('kategoris/banners')
-                            ->visibility('public'),
+                            ->visibility('public')
+                            ->imagePreviewHeight('150')
+                            ->panelAspectRatio('3:1')
+                            ->panelLayout('integrated')
+                            ->removeUploadedFileButtonPosition('right')
+                            ->uploadButtonPosition('left'),
                     ])
                     ->columns(2),
                     

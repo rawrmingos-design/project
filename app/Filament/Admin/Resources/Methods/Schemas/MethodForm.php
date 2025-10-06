@@ -10,6 +10,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Section;
 
+
 class MethodForm
 {
     public static function configure(Schema $schema): Schema
@@ -85,9 +86,16 @@ class MethodForm
                         FileUpload::make('images')
                             ->label('Logo/Icon')
                             ->image()
-                            ->disk('assets')
+                            ->disk('asset')
                             ->directory('payment-methods')
-                            ->visibility('public'),
+                            ->visibility('public')
+                            ->imagePreviewHeight('150')
+                            ->loadingIndicatorPosition('left')
+                            ->panelAspectRatio('2:1')
+                            ->panelLayout('integrated')
+                            ->removeUploadedFileButtonPosition('right')
+                            ->uploadButtonPosition('left')
+                            ->uploadProgressIndicatorPosition('left'),
                             
                         Toggle::make('statuspayment')
                             ->label('Status Aktif')
