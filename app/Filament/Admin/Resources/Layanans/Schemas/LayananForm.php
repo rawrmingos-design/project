@@ -137,14 +137,18 @@ class LayananForm
                             ->visible(fn ($get) => $get('is_flash_sale')),
                             
                         DateTimePicker::make('expired_flash_sale')
-                            ->label('Expired Flash Sale')
                             ->visible(fn ($get) => $get('is_flash_sale')),
                             
                         FileUpload::make('banner_flash_sale')
                             ->label('Banner Flash Sale')
                             ->image()
-                            ->disk('assets')
+                            ->disk('asset')
                             ->directory('flash-sale/banners')
+                            ->imagePreviewHeight('150')
+                            ->panelAspectRatio('3:1')
+                            ->panelLayout('integrated')
+                            ->removeUploadedFileButtonPosition('right')
+                            ->uploadButtonPosition('left')
                             ->visible(fn ($get) => $get('is_flash_sale')),
                     ])
                     ->columns(2),
@@ -154,8 +158,13 @@ class LayananForm
                         FileUpload::make('product_logo')
                             ->label('Logo Produk')
                             ->image()
-                            ->disk('assets')
-                            ->directory('products/logos'),
+                            ->disk('asset')
+                            ->directory('products/logos')
+                            ->imagePreviewHeight('150')
+                            ->panelAspectRatio('1:1')
+                            ->panelLayout('integrated')
+                            ->removeUploadedFileButtonPosition('right')
+                            ->uploadButtonPosition('left'),
                             
                         Textarea::make('catatan')
                             ->label('Catatan')
