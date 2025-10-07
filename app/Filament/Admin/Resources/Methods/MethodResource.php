@@ -23,8 +23,6 @@ class MethodResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
     
-    protected static UnitEnum | string | null  $navigationGroup = 'Configuration';
-    
     protected static ?string $navigationLabel = 'Payment Methods';
     
     protected static ?int $navigationSort = 1;

@@ -23,8 +23,6 @@ class KategoriResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nama';
     
-    protected static UnitEnum | string | null  $navigationGroup = 'Produk dan Layanan';
-    
     protected static ?string $navigationLabel = 'Kategori Game';
     
     protected static ?int $navigationSort = 1;
