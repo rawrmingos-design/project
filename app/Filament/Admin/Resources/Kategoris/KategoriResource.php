@@ -21,6 +21,8 @@ class KategoriResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';
 
+    protected static string|UnitEnum|null $navigationGroup = 'Manajemen Produk';
+
     protected static ?string $recordTitleAttribute = 'nama';
     
     protected static ?string $navigationLabel = 'Kategori Game';

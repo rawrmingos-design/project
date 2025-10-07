@@ -20,6 +20,7 @@ class MethodResource extends Resource
     protected static ?string $model = Method::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';
+    protected static string|UnitEnum|null $navigationGroup = 'Metode Pembayaran';
 
     protected static ?string $recordTitleAttribute = 'name';
     
