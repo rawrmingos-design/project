@@ -45,9 +45,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->widgets([
-                DashboardStatsWidget::class,
+                \App\Filament\Admin\Widgets\UserStatsOverview::class,
+                \App\Filament\Admin\Widgets\UserTierChart::class,
+                \App\Filament\Admin\Widgets\RecentActivities::class,
                 AccountWidget::class,
-                FilamentInfoWidget::class,
+                // FilamentInfoWidget::class, // Remove default info widget for cleaner dashboard
             ])
             ->navigationGroups([
                 'Products',
