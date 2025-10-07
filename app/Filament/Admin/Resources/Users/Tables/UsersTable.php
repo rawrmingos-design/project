@@ -204,8 +204,7 @@ class UsersTable
                                 'Platinum' => 'Platinum Member',
                                 'Gold' => 'Gold Member',
                                 'Member' => 'Regular Member',
-                            ])
-                            ->required(),
+                            ]),
                     ])
                     ->action(function ($record, array $data) {
                         $oldRole = $record->role;
