@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Widgets;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\User;
-use App\Models\Produk;
+use App\Models\Layanan;
 use App\Models\Kategori;
 
 class UserStatsOverview extends StatsOverviewWidget
@@ -21,9 +21,9 @@ class UserStatsOverview extends StatsOverviewWidget
         $newUsersThisMonth = User::whereMonth('created_at', now()->month)->count();
         
         // Product Statistics
-        $totalProducts = Produk::count();
-        $activeProducts = Produk::where('status', 'active')->count();
-        $flashSaleProducts = Produk::where('is_flash_sale', true)->count();
+        $totalProducts = Layanan::count();
+        $activeProducts = Layanan::where('status', 'available')->count();
+        $flashSaleProducts = Layanan::where('is_flash_sale', true)->count();
         
         // Category Statistics
         $totalCategories = Kategori::count();
