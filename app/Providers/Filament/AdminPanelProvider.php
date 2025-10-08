@@ -48,6 +48,10 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Admin\Widgets\UserStatsOverview::class,
                 \App\Filament\Admin\Widgets\UserTierChart::class,
                 \App\Filament\Admin\Widgets\RecentActivities::class,
+                \App\Filament\Admin\Widgets\UserGrowthChart::class,
+                \App\Filament\Admin\Widgets\ProductMetrics::class,
+                \App\Filament\Admin\Widgets\ProfitAnalysis::class,
+                \App\Filament\Admin\Widgets\RevenueChart::class,
                 AccountWidget::class,
                 // FilamentInfoWidget::class, // Remove default info widget for cleaner dashboard
             ])

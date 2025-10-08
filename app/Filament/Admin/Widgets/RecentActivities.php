@@ -5,6 +5,8 @@ namespace App\Filament\Admin\Widgets;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Actions\Action;
+
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -55,7 +57,7 @@ class RecentActivities extends BaseWidget
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
-                Tables\Actions\Action::make('view')
+                Action::make('view')
                     ->label('View')
                     ->icon('heroicon-o-eye')
                     ->url(fn (User $record): string => route('filament.admin.resources.users.edit', $record))
