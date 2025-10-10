@@ -57,7 +57,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationGroups([
                 'Products',
-                'Transactions',
+                'Manajemen Transaksi',
                 'User Management',
                 'Configuration',
                 'Reports',
