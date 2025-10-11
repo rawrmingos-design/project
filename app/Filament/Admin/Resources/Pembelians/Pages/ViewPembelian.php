@@ -10,6 +10,11 @@ use Filament\Notifications\Notification;
 class ViewPembelian extends ViewRecord
 {
     protected static string $resource = PembelianResource::class;
+    
+    public function getView(): string
+    {
+        return 'filament.admin.resources.pembelians.pages.view-pembelian';
+    }
 
     protected function getHeaderActions(): array
     {
