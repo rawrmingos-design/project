@@ -23,7 +23,7 @@ class IndexController extends Controller
         $banner = Berita::where('tipe', 'banner')->get();
         $logoheader = Berita::where('tipe', 'logoheader')->latest()->first();
         $logofooter = Berita::where('tipe', 'logofooter')->latest()->first();
-        $popup = Berita::where('tipe', 'popupp')->latest()->first();
+        $popup = Berita::where('tipe', 'popup')->latest()->first();
         $pay_method = \App\Models\Method::all();
         // Fetch flash sale items from Layanan model
         $flashsale = \App\Models\Layanan::join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')

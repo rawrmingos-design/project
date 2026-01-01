@@ -7,5 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Berita extends Model
 {
+    protected $fillable = [
+        'path',
+        'tipe',
+        'deskripsi'
+    ];
+
     use HasFactory;
 }

@@ -14,10 +14,10 @@
 </style>
 <section id="hero" class="relative mb-4 bg-transparent py-4 shadow-2xl ">
     <div class="hero-swiper swiper  container ">
-        <div  id="heroo"  class="swiper-wrapper ">
+        <div id="heroo"  class="swiper-wrapper ">
             @foreach($banner as $key => $data)
             <div class="swiper-slide">
-                <img  src="{{ $data->path }}" class="w-full h-auto object-cover  rounded-3xl "/>
+                <img src="{{ asset($data->path) }}" class="w-full h-auto object-cover  rounded-3xl "/>
             </div>
             @endforeach
         </div>
@@ -125,7 +125,7 @@
                                         class="assdafsdvsvasgdsgsdgwgreragwgwrgeargwrgergegsvdsDVSVcsdvdszvsbwtergerg43t34f34343ff34g34gG2">
                                         <div id="special_deals">
                                             <div class="list swiper-wrapper marquee-content">
-                                                @for ($i = 0; $i < 5; $i++)
+                                                @for ($i = 0; $i < $flashsale->count(); $i++)
                                                     @foreach ($flashsale as $fs)
                                                         @php
                                                             $discount = round(
@@ -144,7 +144,7 @@
                                                                 </div>
                                                                 <img alt=""
                                                                     class="flash-sale-img lazyloaded rounded-lg"
-                                                                    src="{{ $fs->gmr_thumb }}" />
+                                                                    src="{{ asset($fs->gmr_thumb) }}" />
                                                                 <div class="T truncatee">
                                                                     <h2 class="sku text-white text-center">
                                                                         <figcaption
@@ -215,7 +215,7 @@
                 @for ($i = 0; $i < 0.01; $i+= 0.1)                
                 <a href="{{url('/id')}}/{{$category->kode}}" class="melpaSlideUp" style="animation-delay: {{$i}}s;">
                         <div class="bg-title-product flex items-center gap-x-1.5 rounded-2xl p-1.5 duration-300 ease-in-out hover:shadow-2xl hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 md:gap-x-3 md:rounded-2xl md:p-3">                            
-                                    <img src="{{$category->thumbnail}}" class="aspect-square h-14 w-14 rounded-lg !object-cover !object-center ring-1 ring-murky-600 md:h-20 md:w-20 md:rounded-xl" alt="{{$category->nama}}" />
+                                    <img src="{{asset('assets/'.$category->thumbnail)}}" class="aspect-square h-14 w-14 rounded-lg !object-cover !object-center ring-1 ring-murky-600 md:h-20 md:w-20 md:rounded-xl" alt="{{$category->nama}}" />
                             <div
                                 class="relative flex w-full flex-col">
                                 <h2 class="w-[100px] truncate text-xxs font-semibold sm:w-[200px] md:w-[275px] md:text-base"> {{$category->nama}} </h2>
@@ -279,8 +279,8 @@
                                             <!-- end event -->
                                            <div class="w-full aspect-square"><img alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                                     class="h-full w-full object-cover object-center"
-                                                    srcset="{{ $category->thumbnail }}"
-                                                    src="{{ $category->thumbnail }}" style="color: transparent;"></div>
+                                                    srcset="{{ asset('assets/' . $category->thumbnail) }}"
+                                                    src="{{ asset('assets/' . $category->thumbnail) }}" style="color: transparent;"></div>
                                             <div class="bg-weji neverzoom py-2">
                                                 <div class="flex flex-col px-3 py-1">
                                                     <h2 class="truncate text-sm font-semibold text-foreground sm:text-base">{{ $category->nama }}</h2>
@@ -307,8 +307,8 @@
                                          <div class="group category-item relative transform overflow-hidden rounded-xl bg-muted duration-300 ease-in-out hover:rotate-3 hover:shadow-2xl hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-background" >                                            
                                             <div class="w-full aspect-square"><img alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                                     class="h-full w-full object-cover object-center"
-                                                    srcset="{{ $category->thumbnail }}"
-                                                    src="{{ $category->thumbnail }}" style="color: transparent;"></div>
+                                                    srcset="{{ asset('assets/' . $category->thumbnail) }}"
+                                                    src="{{ asset('assets/' . $category->thumbnail) }}" style="color: transparent;"></div>
                                             <div class="bg-weji neverzoom py-2">
                                                 <div class="flex flex-col px-3 py-1">
                                                     <h2 class="truncate text-sm font-semibold text-foreground sm:text-base">{{ $category->nama }}</h2>
@@ -331,8 +331,8 @@
                                          <div class="group category-item relative transform overflow-hidden rounded-xl bg-muted duration-300 ease-in-out hover:rotate-3 hover:shadow-2xl hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-background" >                                            
                                             <div class="w-full aspect-square"><img alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                                     class="h-full w-full object-cover object-center"
-                                                    srcset="{{ $category->thumbnail }}"
-                                                    src="{{ $category->thumbnail }}" style="color: transparent;"></div>
+                                                    srcset="{{ asset('assets/' . $category->thumbnail) }}"
+                                                    src="{{ asset('assets/' . $category->thumbnail) }}" style="color: transparent;"></div>
                                             <div class="bg-weji neverzoom py-2">
                                                 <div class="flex flex-col px-3 py-1">
                                                     <h2 class="truncate text-sm font-semibold text-foreground sm:text-base">{{ $category->nama }}</h2>
@@ -368,8 +368,8 @@
                                             <!-- end event -->
                                            <div class="w-full aspect-square"><img alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                                     class="h-full w-full object-cover object-center"
-                                                    srcset="{{ $category->thumbnail }}"
-                                                    src="{{ $category->thumbnail }}" style="color: transparent;"></div>
+                                                    srcset="{{ asset('assets/' . $category->thumbnail) }}"
+                                                    src="{{ asset('assets/' . $category->thumbnail) }}" style="color: transparent;"></div>
                                             <div class="bg-weji neverzoom py-2">
                                                 <div class="flex flex-col px-3 py-1">
                                                     <h2 class="truncate text-sm font-semibold text-foreground sm:text-base">{{ $category->nama }}</h2>
@@ -391,8 +391,8 @@
                                          <div class="group category-item relative transform overflow-hidden rounded-xl bg-muted duration-300 ease-in-out hover:rotate-3 hover:shadow-2xl hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-background" >                                            
                                             <div class="w-full aspect-square"><img alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                                     class="h-full w-full object-cover object-center"
-                                                    srcset="{{ $category->thumbnail }}"
-                                                    src="{{ $category->thumbnail }}" style="color: transparent;"></div>
+                                                    srcset="{{ asset('assets/' . $category->thumbnail) }}"
+                                                    src="{{ asset('assets/' . $category->thumbnail) }}" style="color: transparent;"></div>
                                             <div class="bg-weji neverzoom py-2">
                                                 <div class="flex flex-col px-3 py-1">
                                                     <h2 class="truncate text-sm font-semibold text-foreground sm:text-base">{{ $category->nama }}</h2>
@@ -486,8 +486,8 @@
                     <div class="w-full pb-4">
                         <div><img alt="" fetchpriority="high" width="0" height="0" decoding="async"
                                 class="object-center" sizes="100vw"
-                                srcset="{{ isset($popup->path) ? $popup->path : '' }}"
-                                src="{{ isset($popup->path) ? $popup->path : '' }}"
+                                srcset="{{ isset($popup->path) ? asset($popup->path) : '' }}"
+                                src="{{ isset($popup->path) ? asset($popup->path) : '' }}"
                                 style="color: transparent; width: 100%; height: auto;" /></div>
 
                         <div class="relative flex flex-col items-center pt-4 text-foreground">
@@ -500,12 +500,7 @@
                             
                             <!-- Gunakan x-html untuk menampilkan HTML mentah dari deskripsi -->
                             <div class="prose prose-sm px-4 pb-4 text-xs text-white">
-                                <p class="text-center" x-html="`{!! isset($popup->deskripsi)
-                                    ? $popup->deskripsi
-                                    : '<span class="custom-span">Selamat datang di ' .
-                                        htmlspecialchars(ENV('APP_NAME'), ENT_QUOTES, 'UTF-8') .
-                                        ' Selamat berbelanja.</span>' !!}`">
-                                </p>
+                                <p class="text-center" x-html="{!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars(ENV('APP_NAME'), ENT_QUOTES, 'UTF-8') . ' Selamat berbelanja.' !!}"></p>
                             </div>
 
                             <div class="flex w-full items-center justify-start px-4 pb-2">

@@ -141,8 +141,8 @@
       
     <div class="load"></div>
     <div class="relative h-56 w-full bg-murky-800 lg:h-[340px]">
-    <!-- <img src="{{ $kategori->banner }}" class="object-cover object-center"
-        style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;"/> -->
+    <img src="{{ asset('assets/'.$kategori->banner) }}" class="object-cover object-center"
+        style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;"/>
       <ul class="circles">
      
      <section class="relative flex items-center overflow-hidden bg-secondary/50 px-4 py-m lg:min-h-[521.96px]">
@@ -204,7 +204,7 @@
  </ul>
     <div class="container relative top-10 z-20 flex h-full w-full flex-col justify-end gap-4 py-4 md:top-[5rem] lg:py-8">
                 <article class="flex items-start gap-4">
-                    <div class="product-thumbnail-container"><img src="{{ $kategori->thumbnail }}" width="100" height="100" class="z-20 -mb-14 aspect-square w-32 rounded-2xl object-cover shadow-2xl md:-mb-20 md:w-60" style="color: transparent;" alt="{{ $kategori->nama }}"
+                    <div class="product-thumbnail-container"><img src="{{ asset('assets/'.$kategori->thumbnail) }}" width="100" height="100" class="z-20 -mb-14 aspect-square w-32 rounded-2xl object-cover shadow-2xl md:-mb-20 md:w-60" style="color: transparent;" alt="{{ $kategori->nama }}"
                         /></div>
                 </article>
             </div>
@@ -808,7 +808,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                                 @if($nom['product_logo'])
                                 <div class="flex aspect-square w-8 items-center">
-                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                                 </div>
                                 @endif
                                 <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -864,7 +864,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                             @if($nom['product_logo'])
                             <div class="flex aspect-square w-8 items-center">
-                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                             </div>
                             @endif
                             <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -1323,7 +1323,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ $kategori->thumbnail }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -1822,7 +1822,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                                 @if($nom['product_logo'])
                                 <div class="flex aspect-square w-8 items-center">
-                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                                 </div>
                                 @endif
                                 <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -1878,7 +1878,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                             @if($nom['product_logo'])
                             <div class="flex aspect-square w-8 items-center">
-                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                             </div>
                             @endif
                             <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -1950,9 +1950,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 @endfor
             </div>
               <dl id="paymentList" class="flex w-full flex-col space-y-4 p-4 sm:p-6 hidden" x-data="{ selected: null, paymentSelected: '' }">
-                  
-      
-                
+
                   <!--QRIS-->
                 @foreach($pay_method as $p) 
                     @if($p->tipe == 'qris')
@@ -2021,7 +2019,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -2032,7 +2030,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 3 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 3 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'e-walet') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -2076,7 +2074,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -2087,14 +2085,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo5" x-bind:style="selected == 5 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 5 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'virtual-account') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
                 </div>
                 <!-- Convenience Store -->
-                  
-                 <!-- Convenience Store -->
                 <div class="flex w-full transform flex-col justify-between rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">
                   <dt>
                     <button class="w-full disabled:opacity-75" id="disclosure-button-3" type="button" @click="selected !== 4 ? selected = 4 : selected = null" aria-expanded="false" aria-controls="disclosure-panel-3">
@@ -2131,7 +2127,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -2142,71 +2138,11 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 4 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 4 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'convenience-store') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
                 </div>
-                <!-- pulsa -->
-                
-                <!--<div class="flex w-full transform flex-col justify-between rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">-->
-                <!--  <dt>-->
-                <!--    <button class="w-full disabled:opacity-75" id="disclosure-button-3" type="button" @click="selected !== 9 ? selected = 9 : selected = null" aria-expanded="false" aria-controls="disclosure-panel-3">-->
-                <!--      <div class="flex w-full justify-between px-4 py-2">-->
-                <!--        <span class="transform text-base font-medium leading-7 duration-300">-->
-                <!--          <div>Pulsa</div>-->
-                <!--        </span>-->
-                <!--        <span class="ml-6 flex h-7 items-center">-->
-                <!--          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-6 w-6 transform duration-300" x-bind:class="selected == 9 ? 'rotate-180' : 'rotate-0'">-->
-                <!--            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>-->
-                <!--          </svg>-->
-                <!--        </span>-->
-                <!--      </div>-->
-                <!--    </button>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 duration-700" x-ref="container3" x-bind:style="selected == 9 ? 'max-height: ' + $refs.container3.scrollHeight + 'px' : 'max-height: 0'" style="max-height: 239px;">-->
-                <!--      <div class="px-4 pt-2 pb-4 text-sm text-murky-300" id="disclosure-panel-3">-->
-                <!--        <div id="radiogroup-3" role="radiogroup" aria-labelledby="label-3">-->
-                <!--          <div id="convenienceStoreList" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3" role="none"> -->
-                <!--          @foreach($pay_method as $p) @if($p->tipe == 'pulsa') -->
-                         
-                <!--          <div x-bind:class="{ 'bg-white bj-shadow ring-2 ring-primary-500 ring-offset-2 ring-offset-murky-800 duration-300 ease-in-out': paymentSelected === '{{$p->code}}', 'bg-murky-200 ': paymentSelected !== '{{$p->code}}' }" method-id="{{$p->code}}" class="method-list relative flex cursor-pointer overflow-hidden payment-method rounded-xl border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white bj-shadow hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out" id="radio-group-{{$p->code}}" role="radio" aria-checked="false" method-id="{{$p->code}}" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" tabindex="0" aria-labelledby="label-{{$p->code}}:" aria-describedby="description-{{$p->code}}" @click="paymentSelected = '{{$p->code}}'">-->
-                <!--              <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />-->
-                <!--              <label for="method_{{$p->id}}"></label>-->
-                <!--              <span class="flex w-full">-->
-                <!--                <span class="flex w-full flex-col justify-between">-->
-                <!--                  <div>-->
-                <!--                    <span class="block text-xs font-semibold text-murky-800">-->
-                <!--                      {{$p->name}}-->
-                <!--                    </span>-->
-                <!--                    <span class="mt-0 flex items-center text-xxs text-murky-600">{{$p->keterangan}}</span>-->
-                <!--                     <hr>-->
-                <!--                  </div>-->
-                <!--                  <div class="flex w-full items-center justify-between">-->
-                <!--                    <div class="mt-1">-->
-                <!--                      <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800  text-dark.meltihhh" id="">-->
-                <!--                        <h6 class="hargapembayaran" id="{{$p->code}}"></h6>-->
-                <!--                      </div>-->
-                <!--                    </div>-->
-                <!--                    <div class="relative aspect-[6/2] w-10">-->
-                <!--                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />-->
-                <!--                    </div>-->
-                <!--                  </div>-->
-                <!--                </span>-->
-                <!--              </span>-->
-                <!--            </div> @endif @endforeach </div>-->
-                <!--        </div>-->
-                <!--      </div>-->
-                <!--    </div>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 9 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 9 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">-->
-                <!--      <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'pulsa') <div class="relative aspect-[6/2] w-10">-->
-                <!--          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />-->
-                <!--        </div> @endif @endforeach </div>-->
-                <!--    </div>-->
-                <!--  </dt>-->
-                <!--</div>-->
-                
-                
-                
               </dl>
             </div>
 
@@ -2283,7 +2219,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ $kategori->thumbnail }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -2748,7 +2684,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                                 @if($nom['product_logo'])
                                 <div class="flex aspect-square w-8 items-center">
-                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                                 </div>
                                 @endif
                                 <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -2804,7 +2740,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                             @if($nom['product_logo'])
                             <div class="flex aspect-square w-8 items-center">
-                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                             </div>
                             @endif
                             <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -2854,65 +2790,7 @@ document.addEventListener("DOMContentLoaded", function() {
             <div class="absolute block w-square-diagonal py-1 text-center text-xxs font-semibold uppercase bottom-0 right-0 rotate-45 origin-bottom-right shadow-sm bg-orange-500 text-white">BEST PRICE</div>
         </div>
     </div>
-</div>
-
-                <!--saldo1-->
-                <!--saldo-->
-                @if(Auth::check())
-                <!--<div class="flex w-full transform flex-col justify-between rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">-->
-                <!--  <dt>-->
-                <!--    <button class="w-full disabled:opacity-75" id="disclosure-button-:rbb:" type="button" @click="selected !== 8 ? selected = 8 : selected = null" aria-expanded="false" aria-controls="disclosure-panel-:rc8:">-->
-                <!--      <div class="flex w-full justify-between px-4 py-2">-->
-                <!--        <span class="transform text-base font-medium leading-7 duration-300">-->
-                <!--          <div>Saldo</div>-->
-                <!--        </span>-->
-                <!--        <span class="ml-6 flex h-7 items-center">-->
-                <!--          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-6 w-6 transform duration-300 rotate-0" x-bind:class="selected == 1 ? 'rotate-180' : 'rotate-0'">-->
-                <!--            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>-->
-                <!--          </svg>-->
-                <!--        </span>-->
-                <!--      </div>-->
-                <!--    </button>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 duration-700" x-ref="container1" x-bind:style="selected == 8 ? 'max-height: ' + $refs.container1.scrollHeight + 'px' : 'max-height: 0'" style="max-height: 0;">-->
-                <!--      <div class="px-4 pt-2 pb-4 text-sm text-murky-300" id="disclosure-panel-:rc8:">-->
-                <!--        <div id="radiogroup-:rc9:" role="radiogroup" aria-labelledby="label-:rca:">-->
-                <!--          <div id="eWalletList" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3" role="none"> @foreach($pay_method as $p) @if($p->tipe == 'SALDO') <div x-bind:class="{ 'bg-white bj-shadow': paymentSelected === '{{$p->code}}', 'bg-murky-200': paymentSelected !== '{{$p->code}}' }" class="method-list relative flex cursor-pointer overflow-hidden payment-method rounded-xl border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white bj-shadow hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out " role="radio" aria-checked="false" method-id="{{$p->code}}" name="paymentMethod" @click="paymentSelected = '{{$p->code}}'">-->
-                <!--              <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />-->
-                <!--              <label for="method_{{$p->id}}"></label>-->
-                <!--              <span class="flex w-full">-->
-                <!--                <span class="flex w-full flex-col justify-between">-->
-                <!--                  <div>-->
-                <!--                    <span class="block text-xs font-semibold text-murky-800">-->
-                <!--                      {{$p->name}}-->
-                <!--                    </span>-->
-                <!--                    <span class="mt-0 flex items-center text-xxs text-murky-600">{{$p->keterangan}}</span>-->
-                <!--                  </div>-->
-                <!--                  <div class="flex w-full items-center justify-between">-->
-                <!--                    <div class="mt-1">-->
-                <!--                      <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800  text-dark.meltihhh">-->
-                <!--                        <h6 class="hargapembayaran" id="{{$p->code}}"></h6>-->
-                <!--                      </div>-->
-                <!--                    </div>-->
-                <!--                    <div class="relative aspect-[6/2] w-10">-->
-                <!--                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />-->
-                <!--                    </div>-->
-                <!--                  </div>-->
-                <!--                </span>-->
-                <!--              </span>-->
-                <!--            </div> @endif @endforeach </div>-->
-                <!--        </div>-->
-                <!--      </div>-->
-                <!--    </div>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300 px-4 pt-2.5 pb-5" x-ref="logo1" x-bind:style="selected == 8 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 8 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'" style="max-height: 30px;">-->
-                <!--      <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'SALDO') <div class="relative aspect-[6/2] w-10">-->
-                <!--          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />-->
-                <!--        </div> @endif @endforeach </div>-->
-                <!--    </div>-->
-                <!--  </dt>-->
-                <!--</div>-->
-                @endif
-                
-                <!--QRIS-->
+</div>          
               <div class="flex w-full transform flex-col justify-between rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">
                   <dt>
 
@@ -2950,7 +2828,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -2961,7 +2839,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 7 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 7 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'qris') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -3007,7 +2885,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -3018,7 +2896,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 3 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 3 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'e-walet') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -3061,7 +2939,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -3072,7 +2950,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo5" x-bind:style="selected == 5 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 5 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'virtual-account') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -3115,7 +2993,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -3126,75 +3004,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 4 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 4 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'convenience-store') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
                 </div>
-                <!-- pulsa -->
-                
-                <!--<div class="flex w-full transform flex-col justify-between rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">-->
-                <!--  <dt>-->
-                <!--    <button class="w-full disabled:opacity-75" id="disclosure-button-3" type="button" @click="selected !== 9 ? selected = 9 : selected = null" aria-expanded="false" aria-controls="disclosure-panel-3">-->
-                <!--      <div class="flex w-full justify-between px-4 py-2">-->
-                <!--        <span class="transform text-base font-medium leading-7 duration-300">-->
-                <!--          <div>Pulsa</div>-->
-                <!--        </span>-->
-                <!--        <span class="ml-6 flex h-7 items-center">-->
-                <!--          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-6 w-6 transform duration-300" x-bind:class="selected == 9 ? 'rotate-180' : 'rotate-0'">-->
-                <!--            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>-->
-                <!--          </svg>-->
-                <!--        </span>-->
-                <!--      </div>-->
-                <!--    </button>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 duration-700" x-ref="container3" x-bind:style="selected == 9 ? 'max-height: ' + $refs.container3.scrollHeight + 'px' : 'max-height: 0'" style="max-height: 239px;">-->
-                <!--      <div class="px-4 pt-2 pb-4 text-sm text-murky-300" id="disclosure-panel-3">-->
-                <!--        <div id="radiogroup-3" role="radiogroup" aria-labelledby="label-3">-->
-                <!--          <div id="convenienceStoreList" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3" role="none"> -->
-                <!--          @foreach($pay_method as $p) @if($p->tipe == 'pulsa') -->
-                         
-                <!--          <div x-bind:class="{ 'bg-white bj-shadow ring-2 ring-primary-500 ring-offset-2 ring-offset-murky-800 duration-300 ease-in-out': paymentSelected === '{{$p->code}}', 'bg-murky-200 ': paymentSelected !== '{{$p->code}}' }" method-id="{{$p->code}}" class="method-list relative flex cursor-pointer overflow-hidden payment-method rounded-xl border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white bj-shadow hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out" id="radio-group-{{$p->code}}" role="radio" aria-checked="false" method-id="{{$p->code}}" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" tabindex="0" aria-labelledby="label-{{$p->code}}:" aria-describedby="description-{{$p->code}}" @click="paymentSelected = '{{$p->code}}'">-->
-                <!--              <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />-->
-                <!--              <label for="method_{{$p->id}}"></label>-->
-                <!--              <span class="flex w-full">-->
-                <!--                <span class="flex w-full flex-col justify-between">-->
-                <!--                  <div>-->
-                <!--                    <span class="block text-xs font-semibold text-murky-800">-->
-                <!--                      {{$p->name}}-->
-                <!--                    </span>-->
-                <!--                    <span class="mt-0 flex items-center text-xxs text-murky-600">{{$p->keterangan}}</span>-->
-                <!--                  </div>-->
-                <!--                  <div class="flex w-full items-center justify-between">-->
-                <!--                    <div class="mt-1">-->
-                <!--                      <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800  text-dark.meltihhh" id="">-->
-                <!--                        <h6 class="hargapembayaran" id="{{$p->code}}"></h6>-->
-                <!--                      </div>-->
-                <!--                    </div>-->
-                <!--                    <div class="relative aspect-[6/2] w-10">-->
-                <!--                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />-->
-                <!--                    </div>-->
-                <!--                  </div>-->
-                <!--                </span>-->
-                <!--              </span>-->
-                <!--            </div> @endif @endforeach </div>-->
-                <!--        </div>-->
-                <!--      </div>-->
-                <!--    </div>-->
-                <!--    <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 9 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 9 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">-->
-                <!--      <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'pulsa') <div class="relative aspect-[6/2] w-10">-->
-                <!--          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />-->
-                <!--        </div> @endif @endforeach </div>-->
-                <!--    </div>-->
-                <!--  </dt>-->
-                <!--</div>-->
-                
-                
-                
-              </dl>
+               </dl>
             </div>
-                
-        
-
                  <div class="rounded-xl bg-murky-800 shadow-2xl" id="promooo">
                   <div class="flex border-b border-murky-600">
                     <div class="flex items-center justify-center rounded-tl-xl bg-gradient-to-b bg-primary-500  px-4 py-2 text-xl font-semibold">5</div>
@@ -3270,7 +3086,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="flex items-start justify-start space-x-2 rounded-lg  p-4 text-sm bg-secondary md:hidden selected-element" style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ $kategori->thumbnail }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1">
                         <div class="text-xs cana select glowing-text selected-order"> Pilih layanan terlebih dahulu</div>
@@ -3779,7 +3595,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                                 @if($nom['product_logo'])
                                 <div class="flex aspect-square w-8 items-center">
-                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                                 </div>
                                 @endif
                                 <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -3835,7 +3651,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                             @if($nom['product_logo'])
                             <div class="flex aspect-square w-8 items-center">
-                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                             </div>
                             @endif
                             <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -3978,7 +3794,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -3989,7 +3805,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 3 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 3 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'e-walet') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -4033,7 +3849,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -4044,7 +3860,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo5" x-bind:style="selected == 5 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 5 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'virtual-account') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -4088,7 +3904,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -4099,7 +3915,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 4 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 4 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'convenience-store') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -4179,7 +3995,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ $kategori->thumbnail }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -4505,7 +4321,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                                 @if($nom['product_logo'])
                                 <div class="flex aspect-square w-8 items-center">
-                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                    <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                                 </div>
                                 @endif
                                 <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -4560,7 +4376,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                             @if($nom['product_logo'])
                             <div class="flex aspect-square w-8 items-center">
-                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ $nom['product_logo'] }}" style="color: transparent;" />
+                                <img alt="{{ $nom['layanan'] }}" fetchpriority="high" width="300" height="300" decoding="async" data-nimg="1" class="object-contain object-right" sizes="80vh" src="{{ asset($nom['product_logo']) }}" style="color: transparent;" />
                             </div>
                             @endif
                             <div x-bind:class="{ 'block': selectedProduct === '{{ $nom['id'] }}', 'hidden': selectedProduct !== '{{ $nom['id'] }}' }"></div>
@@ -4701,31 +4517,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             </div>
                         </div>
                         
-                        @elseif($p->tipe == 'qris' && $p->statuspayment == 0)
-                             <div  class="relative flex cursor-pointer rounded-md border border-transparent bg-murky-200 p-4 shadow-sm outline-none md:p-4 hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out disabled" readonly>
-                                <div class="flex items-center gap-2 max-w-xs">
-                                    <img src="{{$p->images}}" alt="qris" width="35" height="10" />
-                                    <div>
-                                        <span class="block  text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{$p->name}}</span>
-                                        <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->code}}">Rp 0</p>
-                                        
-                                    </div>
-                                </div>
-                                <div class="max-w-xs">
-                                    <div class="relative text-sm font-semibold text-murky-800 sm:text-base">
-                                    </div>
-                                </div>
-                                <div class="flex aspect-square w-8 items-center">
-                                    <div class="w-[4rem] absolute aspect-square -top-[9px] -right-[9px] overflow-hidden rounded-sm">
-                                        <div class="absolute top-0 left-0 bg-orange-500 h-2 w-2"></div>
-                                        <div class="absolute bottom-0 right-0 bg-orange-500 h-2 w-2"></div>
-                                        <div class="absolute block w-square-diagonal py-1 text-center text-xxs font-semibold uppercase bottom-0 right-0 rotate-45 origin-bottom-right shadow-sm bg-orange-500 text-white">⚠️MAINTENANCE</div>
-                                    </div>
-                                </div>
-                            </div>
-                  
-              
-                                      @endif
+                        @endif
                                 @endforeach
                 
                 
@@ -4792,7 +4584,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                             </div>
                                             <div class="relative aspect-[6/2] w-10">
                                               <img 
-                                                src="{{ $p->images }}" 
+                                                src="{{ asset($p->images) }}" 
                                                 x-bind:class="{ 
                                                   'grayscale-0': paymentSelected === '{{ $p->code }}', 
                                                   'grayscale': paymentSelected !== '{{ $p->code }}' 
@@ -4806,40 +4598,6 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </span>
                                     </div>
                                 
-                                  @elseif($p->tipe == 'e-walet' && $p->statuspayment == 0)
-                                    <!-- Inactive Payment Method -->
-                                    <div 
-                                      class="relative flex cursor-pointer overflow-hidden payment-method rounded-md border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white  hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out disabled" readonly>
-                                      <span class="flex w-full">
-                                        <span class="flex w-full flex-col justify-between">
-                                          <div>
-                                            <span class="block text-xs font-semibold text-murky-800">
-                                              {{ $p->name }}
-                                            </span>
-                                            <span class="mt-0 flex items-center text-xxs text-murky-600">⚠️MAINTENANCE</span>
-                                            <hr>
-                                          </div>
-                                          <div class="flex w-full items-center justify-between">
-                                            <div class="mt-1">
-                                              <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800">
-                                                <h6 class="hargapembayaran" id="{{ $p->code }}"></h6>
-                                              </div>
-                                            </div>
-                                            <div class="relative aspect-[6/2] w-10">
-                                              <img 
-                                                src="{{ $p->images }}" 
-                                                x-bind:class="{ 
-                                                  'grayscale-0': paymentSelected === '{{ $p->code }}', 
-                                                  'grayscale': paymentSelected !== '{{ $p->code }}' 
-                                                }" 
-                                                class="object-scale-down grayscale-0" 
-                                                style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" 
-                                              />
-                                            </div>
-                                          </div>
-                                        </span>
-                                      </span>
-                                    </div>
                                   @endif
                                 @endforeach
 
@@ -4849,7 +4607,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 3 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 3 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'e-walet') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -4921,7 +4679,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                             </div>
                                             <div class="relative aspect-[6/2] w-10">
                                               <img 
-                                                src="{{ $p->images }}" 
+                                                src="{{ asset($p->images) }}" 
                                                 x-bind:class="{ 
                                                   'grayscale-0': paymentSelected === '{{ $p->code }}', 
                                                   'grayscale': paymentSelected !== '{{ $p->code }}' 
@@ -4935,40 +4693,6 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </span>
                                     </div>
                                 
-                                  @elseif($p->tipe == 'virtual-account' && $p->statuspayment == 0)
-                                    <!-- Inactive Payment Method -->
-                                    <div 
-                                      class="relative flex cursor-pointer overflow-hidden payment-method rounded-md border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white  hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out disabled" readonly>
-                                      <span class="flex w-full">
-                                        <span class="flex w-full flex-col justify-between">
-                                          <div>
-                                            <span class="block text-xs font-semibold text-murky-800">
-                                              {{ $p->name }}
-                                            </span>
-                                            <span class="mt-0 flex items-center text-xxs text-murky-600">⚠️MAINTENANCE</span>
-                                            <hr>
-                                          </div>
-                                          <div class="flex w-full items-center justify-between">
-                                            <div class="mt-1">
-                                              <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800">
-                                                <h6 class="hargapembayaran" id="{{ $p->code }}"></h6>
-                                              </div>
-                                            </div>
-                                            <div class="relative aspect-[6/2] w-10">
-                                              <img 
-                                                src="{{ $p->images }}" 
-                                                x-bind:class="{ 
-                                                  'grayscale-0': paymentSelected === '{{ $p->code }}', 
-                                                  'grayscale': paymentSelected !== '{{ $p->code }}' 
-                                                }" 
-                                                class="object-scale-down grayscale-0" 
-                                                style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" 
-                                              />
-                                            </div>
-                                          </div>
-                                        </span>
-                                      </span>
-                                    </div>
                                   @endif
                                 @endforeach
                             
@@ -4978,7 +4702,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo5" x-bind:style="selected == 5 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 5 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'virtual-account') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -5050,7 +4774,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                             </div>
                                             <div class="relative aspect-[6/2] w-10">
                                               <img 
-                                                src="{{ $p->images }}" 
+                                                src="{{ asset($p->images) }}" 
                                                 x-bind:class="{ 
                                                   'grayscale-0': paymentSelected === '{{ $p->code }}', 
                                                   'grayscale': paymentSelected !== '{{ $p->code }}' 
@@ -5064,41 +4788,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </span>
                                     </div>
                                 
-                                  @elseif($p->tipe == 'convenience-store' && $p->statuspayment == 0)
-                                    <!-- Inactive Payment Method -->
-                                    <div 
-                                      class="relative flex cursor-pointer overflow-hidden payment-method rounded-md border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white  hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out disabled" readonly>
-                                      <span class="flex w-full">
-                                        <span class="flex w-full flex-col justify-between">
-                                          <div>
-                                            <span class="block text-xs font-semibold text-murky-800">
-                                              {{ $p->name }}
-                                            </span>
-                                            <span class="mt-0 flex items-center text-xxs text-murky-600">⚠️MAINTENANCE</span>
-                                            <hr>
-                                          </div>
-                                          <div class="flex w-full items-center justify-between">
-                                            <div class="mt-1">
-                                              <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800">
-                                                <h6 class="hargapembayaran" id="{{ $p->code }}"></h6>
-                                              </div>
-                                            </div>
-                                            <div class="relative aspect-[6/2] w-10">
-                                              <img 
-                                                src="{{ $p->images }}" 
-                                                x-bind:class="{ 
-                                                  'grayscale-0': paymentSelected === '{{ $p->code }}', 
-                                                  'grayscale': paymentSelected !== '{{ $p->code }}' 
-                                                }" 
-                                                class="object-scale-down grayscale-0" 
-                                                style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" 
-                                              />
-                                            </div>
-                                          </div>
-                                        </span>
-                                      </span>
-                                    </div>
-                                  @endif
+                                 @endif
                                 @endforeach
                             
                             
@@ -5108,7 +4798,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo4" x-bind:style="selected == 4 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 4 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'convenience-store') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -5185,7 +4875,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             </div>
                             
                     <div class="rounded-lg border border-dashed bg-secondary p-2 rounded-md text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
-                                <div class="mb-1 aspect-square timmel-5"><img alt="icon" sizes="100vw" src="{{ $kategori->thumbnail }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy"
+                                <div class="mb-1 aspect-square timmel-5"><img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy"
                                         style="color: transparent"></div>
                                 <div class="flex w-full flex-col space-y-1 ml-3">
                                     <div class="text-xs font-semibold selected-order">{{ $kategori->nama }}</div>

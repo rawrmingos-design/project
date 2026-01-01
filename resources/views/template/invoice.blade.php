@@ -96,7 +96,7 @@
                         <div
                             class="relative mt-2 aspect-[4/6] h-32 flex-none overflow-hidden rounded-lg bg-murky-600 object-cover object-center print:hidden sm:h-56 md:mt-0 md:block">
                             <img alt="{{ $namas }}" fetchpriority="high" decoding="async" data-nimg="fill"
-                                class="object-cover object-center" sizes="100vw" src="{{ $thumbnails }}"
+                                class="object-cover object-center" sizes="100vw" src="{{ asset('assets/' . $thumbnails) }}"
                                 style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                         </div>
                         <div>
@@ -126,12 +126,14 @@
                                                 <p class="break-words">{{ $data->loginvia_joki }}</p>
                                             </div>
                                         </div>
+                                        @if($data->nickname_joki)
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">NIckname :</div>
                                             <div class="col-span-2">
                                                 <p class="break-words">{{ $data->nickname_joki }}</p>
                                             </div>
                                         </div>
+                                        @endif
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">Request :</div>
                                             <div class="col-span-2">
@@ -162,12 +164,14 @@
                                     </div>
                                 @else
                                     <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
+                                        @if($data->nickname)
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">Nickname</div>
                                             <div class="col-span-2">
                                                 <p class="break-words">{{ $data->nickname }}</p>
                                             </div>
                                         </div>
+                                        @endif
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">ID</div>
                                             <div class="col-span-2">

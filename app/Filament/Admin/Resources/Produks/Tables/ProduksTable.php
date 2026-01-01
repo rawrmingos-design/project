@@ -9,7 +9,6 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\Action;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Columns\IconColumn;
@@ -28,12 +27,6 @@ class ProduksTable
     {
         return $table
             ->columns([
-                ImageColumn::make('product_logo')
-                    ->label('Logo')
-                    ->disk('assets')
-                    ->circular()
-                    ->size(40)
-                    ->defaultImageUrl(url('/assets/default-product.png')),
                     
                 TextColumn::make('layanan')
                     ->label('Nama Produk')
@@ -83,18 +76,63 @@ class ProduksTable
                     ->label('Harga Member')
                     ->money('IDR')
                     ->sortable()
-                    ->alignEnd(),
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('harga_platinum')
+                    ->label('Harga Platinum')
+                    ->money('IDR')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('harga_gold')
+                    ->label('Harga Gold')
+                    ->money('IDR')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('harga_flash_sale')
+                    ->label('Harga Flash Sale')
+                    ->money('IDR')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->color('danger')
+                    ->weight('bold'),
                     
                 TextColumn::make('profit')
-                    ->label('Profit')
+                    ->label('Profit Public')
                     ->suffix('%')
                     ->sortable()
                     ->alignEnd()
                     ->color(fn (string $state): string => match (true) {
-                        $state >= 20 => 'success',
-                        $state >= 10 => 'warning',
+                        $state >= 5 => 'success',
+                        $state >= 2 => 'warning',
                         default => 'danger',
                     }),
+                    
+                TextColumn::make('profit_member')
+                    ->label('Profit Member')
+                    ->suffix('%')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('profit_platinum')
+                    ->label('Profit Platinum')
+                    ->suffix('%')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                    
+                TextColumn::make('profit_gold')
+                    ->label('Profit Gold')
+                    ->suffix('%')
+                    ->sortable()
+                    ->alignEnd()
+                    ->toggleable(isToggledHiddenByDefault: true),
                     
                 IconColumn::make('is_flash_sale')
                     ->label('Flash Sale')
@@ -112,6 +150,35 @@ class ProduksTable
                         'warning' => 'maintenance',
                         'secondary' => 'out_of_stock',
                     ]),
+                    
+                TextColumn::make('judul_flash_sale')
+                    ->label('Judul Flash Sale')
+                    ->searchable()
+                    ->limit(30)
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('N/A'),
+                    
+                TextColumn::make('stock_flash_sale')
+                    ->label('Stock Flash Sale')
+                    ->numeric()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->color('warning'),
+                    
+                TextColumn::make('expired_flash_sale')
+                    ->label('Expired Flash Sale')
+                    ->dateTime('d M Y H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->color('danger'),
+                    
+                TextColumn::make('catatan')
+                    ->label('Catatan')
+                    ->limit(50)
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->placeholder('No notes')
+                    ->wrap(),
                     
                 TextColumn::make('created_at')
                     ->label('Created')

@@ -183,7 +183,7 @@ class PembeliansTable
                     ->color('danger')
                     ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing']))
                     ->action(function ($record) {
-                        $record->update(['status' => 'Failed', 'message' => 'Cancelled by admin']);
+                        $record->update(['status' => 'Failed', 'log' => 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
                         Notification::make()
                             ->title('Order cancelled successfully')
                             ->success()
@@ -198,7 +198,7 @@ class PembeliansTable
                     ->visible(fn ($record) => $record->status === 'Success')
                     ->action(function ($record) {
                         // Add refund logic here
-                        $record->update(['message' => 'Refund processed by admin']);
+                        $record->update(['log' => 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s')]);
                         Notification::make()
                             ->title('Refund processed successfully')
                             ->success()
@@ -247,7 +247,7 @@ class PembeliansTable
                         ->action(function (Collection $records) {
                             $count = $records->whereIn('status', ['Pending', 'Processing'])->count();
                             $records->whereIn('status', ['Pending', 'Processing'])->each(function ($record) {
-                                $record->update(['status' => 'Failed', 'message' => 'Bulk cancelled by admin']);
+                                $record->update(['status' => 'Failed', 'log' => 'Bulk cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
                             });
                             
                             Notification::make()

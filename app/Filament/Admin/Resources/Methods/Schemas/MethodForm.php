@@ -37,8 +37,8 @@ class MethodForm
                                 'bank' => 'Bank Transfer',
                                 'ewallet' => 'E-Wallet',
                                 'qris' => 'QRIS',
-                                'virtual_account' => 'Virtual Account',
-                                'convenience_store' => 'Convenience Store',
+                                'virtual-account' => 'Virtual Account',
+                                'convenience-store' => 'Convenience Store',
                             ])
                             ->required(),
                             
@@ -87,6 +87,9 @@ class MethodForm
                         FileUpload::make('images')
                             ->label('Logo/Icon')
                             ->image()
+                            ->validationMessages([
+                                'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
+                            ])
                             ->disk('assets')
                             ->directory('payment')
                             ->visibility('public')
