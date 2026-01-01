@@ -10,6 +10,8 @@ use Filament\Notifications\Notification;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use App\Models\Kategori;
+use App\Models\Layanan;
+use App\Http\Controllers\digiFlazzController;
 
 class ListProduks extends ListRecords
 {
@@ -19,6 +21,66 @@ class ListProduks extends ListRecords
     {
         return [
             CreateAction::make(),
+            
+            Action::make('sync_digiflazz')
+                ->label('Sync DigiFlazz')
+                ->icon('heroicon-o-arrow-path')
+                ->color('primary')
+                ->action(function () {
+                    try {
+                        $digi = new digiFlazzController;
+                        $data = $digi->harga();
+                        
+                        if ($data && isset($data['data'])) {
+                            $updatedCount = 0;
+                            
+                            foreach ($data['data'] as $product) {
+                                if ($product['buyer_product_status'] == true) {
+                                    $dataGames = Kategori::where('nama', $product['brand'])->first();
+                                    $dataProduct = Layanan::where('provider_id', $product['buyer_sku_code'])->first();
+
+                                    if ($dataGames && $dataProduct) {
+                                        $profit = $dataProduct->profit;
+                                        $profit_member = $dataProduct->profit_member;
+                                        $profit_platinum = $dataProduct->profit_platinum;
+                                        $profit_gold = $dataProduct->profit_gold;
+
+                                        $harga = $product['price'];
+                                        $dataProduct->harga = $harga + ($harga * $profit / 100);
+                                        $dataProduct->harga_member = $harga + ($harga * $profit_member / 100);
+                                        $dataProduct->harga_platinum = $harga + ($harga * $profit_platinum / 100);
+                                        $dataProduct->harga_gold = $harga + ($harga * $profit_gold / 100);
+                                        $dataProduct->save();
+                                        
+                                        $updatedCount++;
+                                    }
+                                }
+                            }
+                            
+                            Notification::make()
+                                ->title('DigiFlazz Sync Completed')
+                                ->body("Successfully updated {$updatedCount} products from DigiFlazz")
+                                ->success()
+                                ->send();
+                        } else {
+                            Notification::make()
+                                ->title('DigiFlazz Sync Failed')
+                                ->body('Invalid data received from DigiFlazz API')
+                                ->danger()
+                                ->send();
+                        }
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Error')
+                            ->body('An error occurred: ' . $e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                })
+                ->requiresConfirmation()
+                ->modalHeading('Sync DigiFlazz Products')
+                ->modalDescription('This will fetch and update all product prices from DigiFlazz API. This may take a few moments.')
+                ->modalSubmitActionLabel('Sync Now'),
             
             Action::make('sync_bangjeff')
                 ->label('Sync BangJeff')

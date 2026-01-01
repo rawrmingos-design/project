@@ -14,10 +14,11 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
         "simplesoftwareio/simple-qrcode": "^4.2",
-        "xendit/xendit-php": "^2.17"
+        "spatie/laravel-settings": "^3.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "kitloong/laravel-migrations-generator": "^7.2",
         "laravel/sail": "^1.29",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.0",

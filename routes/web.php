@@ -115,6 +115,16 @@ Route::get('/wip', function () {
     return response()->json(['ip' => $ipAddress]);
 });
 
+Route::get('/test-whitelisted', function () {
+    $count = \App\Models\WhitelistIp::count();
+    $data = \App\Models\WhitelistIp::limit(10)->get();
+    return response()->json([
+        'count' => $count,
+        'table' => (new \App\Models\WhitelistIp())->getTable(),
+        'sample_data' => $data
+    ]);
+});
+
 Route::get(
     '/weji-mt',
     function () {

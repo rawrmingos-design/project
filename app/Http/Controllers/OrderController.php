@@ -17,6 +17,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\digiFlazzController;
 use App\Http\Controllers\ApiCheckController;
+use App\Http\Controllers\PaydisiniController;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
 use App\Http\Controllers\provider\VipResellerController;
@@ -40,7 +41,7 @@ class OrderController extends Controller
 
         if (in_array($kategori->tipe, ['game', 'voucher', 'pulsa', 'app', 'populer'])) {
 
-            $data = Kategori::where('kode', $kategori->kode)->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode', 'deskripsi_game', 'deskripsi_field', 'banner', 'tipe')->first();
+            $data = Kategori::where('kode', $kategori->kode)->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode',  'deskripsi_game', 'deskripsi_field', 'banner', 'tipe')->first();
             if ($data == null) return back();
         } else {
 
@@ -435,6 +436,7 @@ class OrderController extends Controller
         ];
 
         if (in_array($dataKategori->kode, $daftarGameValidasi)) {
+            $data = [];
             if ($dataKategori->kode == 'mobile-legends') {
                 $data = $apicheck->check($request->uid, $request->zone, 'Mobile Legends');
             } else if ($dataKategori->kode == "free-fire") {
@@ -669,10 +671,16 @@ class OrderController extends Controller
                 $data = $apicheck->check($request->uid, null, 'Moonlight Blade M');
             } elseif ($dataKategori->kode == "king-of-avalon") {
                 $data = $apicheck->check($request->uid, null, 'King of Avalon');
-            }
-            Log::info($dataKategori);
+            } else {
             $data = $apicheck->check($request->uid, $request->zone, $dataKategori->kode);
-
+            }
+            
+            if (!isset($data['status']['code']) || $data['status']['code'] !== 200 || empty($data['data']['username'])) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'User ID tidak ditemukan atau tidak valid. Silakan periksa kembali.'
+                ]);
+            }
 
             $username = isset($data['data']['username']) ? $data['data']['username'] : 'Not Found.';
 
@@ -705,8 +713,8 @@ class OrderController extends Controller
                 $dataLayanan->harga = $dataLayanan->harga + 1500;
             } elseif ($request->payment_method == "22") {
                 $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "QRIS") {
-                $dataLayanan->harga = $dataLayanan->harga + (100 + ($dataLayanan->harga * (0.70 / 100)));
+            } elseif ($request->payment_method == "QRISREALTIME") {
+                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (1.70 / 100));
             } elseif ($request->payment_method == "QRIS2" || $request->payment_method == "QRIS2") {
                 $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.7 / 100) + 750);
             } elseif ($request->payment_method == "QRIS_CUSTOM"  || $request->payment_method == "QRIS_CUSTOM") {
@@ -833,10 +841,10 @@ class OrderController extends Controller
                 $dataLayanan->harga = $dataLayanan->harga + 1500;
             } elseif ($request->payment_method == "22") {
                 $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "QRIS") {
-                $dataLayanan->harga = $dataLayanan->harga + (100 + ($dataLayanan->harga * (0.70 / 100)));
-            } elseif ($request->payment_method == "QRIS2" || $request->payment_method == "QRIS2") {
+            } elseif ($request->payment_method == "QRISREALTIME") {
                 $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (1.70 / 100));
+            } elseif ($request->payment_method == "QRIS2" || $request->payment_method == "QRIS2") {
+                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.7 / 100) + 750);
             } elseif ($request->payment_method == "QRIS_CUSTOM"  || $request->payment_method == "QRIS_CUSTOM") {
                 $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2.70 / 100));
             } elseif ($request->payment_method == "SHOPEEPAY_REALTIME" || $request->payment_method == "SHOPEEPAY_REALTIME") {
@@ -1155,6 +1163,7 @@ class OrderController extends Controller
         } else {
             if ($dataMethod->payment == "tokopay") {
                 $tokopayres = $tokopay->createOrder($dataLayanan->harga, $order_id, $request->payment_method);
+                Log::info($tokopayres);
                 if ($tokopayres['status'] != 'Success') return response()->json(['status' => false, 'data' => 'error']);
 
                 if (isset($tokopayres['data'])) {
@@ -1217,9 +1226,6 @@ class OrderController extends Controller
                 "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
                 "INI ADALAH PESAN OTOMATIS";
         } else {
-
-
-
             $pesan =
                 "*Menunggu Pembayaran*\n\n" .
                 "No Invoice: *$order_id*\n" .
@@ -1616,21 +1622,20 @@ class OrderController extends Controller
     public function msg($nomor, $msg)
 
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $apiUrl = 'https://wa.egymarket.id/send-message';
+         $api = \DB::table('setting_webs')->where('id', 1)->first();
+        $apiUrl = 'https://api.fonnte.com/send';
         $token = $api->wa_key;
-
+    
         $postData = [
-            'number' => "$nomor",
+            'target' => $nomor,
             'message' => $msg,
-            'sender' => "$api->wa_number",
-            'api_key' => $token,
+            'countryCode' => '62',
         ];
-
+    
         $headers = [
             'Authorization: ' . $token,
         ];
-
+    
         $curl = curl_init();
         curl_setopt_array($curl, [
             CURLOPT_URL => $apiUrl,
@@ -1644,12 +1649,12 @@ class OrderController extends Controller
             CURLOPT_POSTFIELDS => $postData,
             CURLOPT_HTTPHEADER => $headers,
         ]);
-
+    
         $response = curl_exec($curl);
         $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
+    
         curl_close($curl);
-
+    
         if ($statusCode === 200) {
             return [
                 'success' => true,
@@ -1705,33 +1710,33 @@ class OrderController extends Controller
                 $finalPrice += 1500;
             } elseif ($paymentMethod == "22") {
                 $finalPrice += 3500;
-            } elseif ($paymentMethod == "QRIS") {
-                $finalPrice += (100 + ($basePrice * (0.70 / 100)));
+            } elseif ($paymentMethod == "QRISREALTIME") {
+                $finalPrice += ($basePrice(1.70 / 100));
             } elseif ($paymentMethod == "QRIS2") {
-                $finalPrice += ($basePrice * (1.70 / 100));
+                $finalPrice += ($basePrice * (0.7 / 100) + 750);
             } elseif ($paymentMethod == "QRIS_CUSTOM") {
                 $finalPrice += ($basePrice * (2.70 / 100));
             } elseif ($paymentMethod == "SHOPEEPAY_REALTIME") {
                 $finalPrice += ($basePrice * (3 / 100));
             } elseif ($paymentMethod == "DANA_REALTIME") {
                 $finalPrice += ($basePrice * (3.20 / 100));
-            } elseif ($paymentMethod == "GOPAY" || $paymentMethod == "LINKAJA") {
+            } elseif (in_array($paymentMethod, ["GOPAY", "LINKAJA"])) {
                 $finalPrice += ($basePrice * (3 / 100));
-            } elseif ($paymentMethod == "DANA" || $paymentMethod == "SHOPEEPAY" || $paymentMethod == "OVOPUSH" || $paymentMethod == "ASTRAPAY") {
+            } elseif (in_array($paymentMethod, ["DANA", "SHOPEEPAY", "OVOPUSH", "ASTRAPAY"])) {
                 $finalPrice += ($basePrice * (2.5 / 100));
             } elseif ($paymentMethod == "VIRGO") {
                 $finalPrice += ($basePrice * (2 / 100));
             } elseif ($paymentMethod == "BCAVA") {
                 $finalPrice += 4200;
-            } elseif ($paymentMethod == "BNIVA" || $paymentMethod == "MANDIRIVA" || $paymentMethod == "BSIVA") {
+            } elseif (in_array($paymentMethod, ["BNIVA", "MANDIRIVA", "BSIVA"])) {
                 $finalPrice += 3500;
-            } elseif ($paymentMethod == "BNCVA" || $paymentMethod == "PERMATAVAA") {
+            } elseif (in_array($paymentMethod, ["BNCVA", "PERMATAVAA"])) {
                 $finalPrice += 3000;
-            } elseif ($paymentMethod == "CIMBVA" || $paymentMethod == "DANAMONVA") {
+            } elseif (in_array($paymentMethod, ["CIMBVA", "DANAMONVA"])) {
                 $finalPrice += 2500;
             } elseif ($paymentMethod == "PERMATAVA") {
                 $finalPrice += 2000;
-            } elseif ($paymentMethod == "ALFAMART" || $paymentMethod == "INDOMARET" || $paymentMethod == "ALFAMIDI") {
+            } elseif (in_array($paymentMethod, ["ALFAMART", "INDOMARET", "ALFAMIDI"])) {
                 $finalPrice += 3000;
             }
 
