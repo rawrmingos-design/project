@@ -391,7 +391,7 @@ a.bg-primary:hover, a.bg-primary:focus {
                             </div>
                           </div>
                           <div class="flex-grow-1">
-                            <span class="fw-semibold d-block">{{ ENV('APP_NAME') }}</span>
+                            <span class="fw-semibold d-block">{{ $config->judul_web }}</span>
                             <small class="text-muted">Admin</small>
                           </div>
                         </div>
@@ -449,7 +449,7 @@ a.bg-primary:hover, a.bg-primary:focus {
                     document.write(new Date().getFullYear());
                   </script>
                   Copyright
-                  <a href="/" target="_blank" class="footer-link fw-bolder text-white">IMHAF.</a>
+                  <a href="/" target="_blank" class="footer-link fw-bolder text-white">{{ $config->judul_web }}.</a>
                 </div>
               </div>
             </footer>

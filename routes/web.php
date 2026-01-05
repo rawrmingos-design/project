@@ -194,7 +194,8 @@ Route::post('/wlip',                                                       [Whit
 Route::middleware(['xss', 'sanitize',])->group(function () {
     Route::get('/id/{kategori:kode}',                                            [OrderController::class, 'create']);
     Route::post('/id/harga',                                                     [OrderController::class, 'price'])->name('ajax.price');
-    Route::post('/id/konfirmasi-data',                                           [OrderController::class, 'confirm'])->name('ajax.confirmation');
+    Route::post('/id/konfirmasi-data',          [OrderController::class, 'confirm'])->name('ajax.confirmation');
+    Route::post('/ajax/check-account',          [OrderController::class, 'checkAccount'])->name('ajax.check-account');
     Route::post('/id',                                                           [OrderController::class, 'store'])->name('ordered');
     Route::get('/id/invoices/{order}',                                           [InvoiceController::class, 'create'])->name('pembelian');
     Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->name('rating.pembelian');

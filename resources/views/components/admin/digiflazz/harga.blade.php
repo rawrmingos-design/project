@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Digiflazz
+    {{ $config->judul_web }} - Digiflazz
 @endsection
 @section('css')
     <!--datatable css-->

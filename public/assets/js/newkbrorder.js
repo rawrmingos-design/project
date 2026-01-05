@@ -336,3 +336,62 @@ function showToast(e, a = "error") {
         o()
     }))
 }));
+
+// Real-time Account Check Logic
+$(document).ready(function () {
+    $("#user_id, #zone").on("blur", function () {
+        var uid = $("#user_id").val();
+        var zone = $("#zone").val();
+        var kategoriKode = window.kategoriKode;
+
+        // Ensure UID is present. Zone is optional depending on game, but we send it anyway.
+        if (uid && kategoriKode) {
+            $("#nickname-display").text("Checking ID...").removeClass("text-green-500 text-red-500").addClass("text-gray-500");
+
+            $.ajax({
+                url: window.routes.checkAccount,
+                type: "POST",
+                dataType: "JSON",
+                data: {
+                    _token: window.csrfToken,
+                    uid: uid,
+                    zone: zone,
+                    kategori_kode: kategoriKode
+                },
+                success: function (response) {
+                    if (response.status && response.status.code === 200) {
+                        $("#nickname-display").html("Valid: " + response.data.username).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                    } else {
+                        $("#nickname-display").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500");
+                    }
+                },
+                error: function () {
+                    // Silent fail or minimal error
+                    $("#nickname-display").text("").removeClass("text-gray-500");
+                }
+            });
+        }
+    });
+});
+
+// Smart Paste for Mobile Legends ID (Zone)
+$("#user_id").on("paste", function (e) {
+    var pastedData = (e.originalEvent || e).clipboardData.getData('text');
+
+    // Regex to match "12345678 (1234)" or "12345678(1234)"
+    // Captures ID in group 1 and Zone in group 2
+    var match = pastedData.match(/^(\w+)\s*\((\w+)\)$/);
+
+    if (match && match.length === 3) {
+        e.preventDefault(); // Stop default paste
+
+        var uid = match[1];
+        var zone = match[2];
+
+        $("#user_id").val(uid);
+        $("#zone").val(zone);
+
+        // Trigger blur to run validation immediately
+        $("#user_id").trigger("blur");
+    }
+});

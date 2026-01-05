@@ -5,20 +5,24 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DigiFlazzController extends Controller
 {
     public function order($uid, $zone, $service, $order_id)
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
 
         $target = $uid . $zone;
-        $sign = md5($api->username_digi . $api->api_key_digi . strval($order_id));
+        $sign = md5($username . $apiKey . strval($order_id));
         $api_postdata = [
             'username' => $api->username_digi,
             'buyer_sku_code' => $service,
             'customer_no' => $target,
             'ref_id' => strval($order_id),
+            'testing' => env('APP_ENV') === 'local',
             'sign' => $sign,
         ];
 
@@ -30,10 +34,12 @@ class DigiFlazzController extends Controller
         $api = DB::table('setting_webs')->where('id', 1)->first();
 
         $target = $uid . $zone;
-        $sign = md5($api->username_digi . $api->api_key_digi . strval($poid));
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
+        $sign = md5($username . $apiKey . $poid);
         $data = [
             'command' => 'status-pasca',
-            'username' => $api->username_digi,
+            'username' => $username,
             'buyer_sku_code' => $pid,
             'customer_no' => $target,
             'ref_id' => $poid,
@@ -47,10 +53,12 @@ class DigiFlazzController extends Controller
     public function harga()
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
 
-        $sign = md5($api->username_digi . $api->api_key_digi . "pricelist");
+        $sign = md5($username . $apiKey . "pricelist");
         $data = [
-            'username' => $api->username_digi,
+            'username' => $username,
             'sign' => $sign,
 
         ];
@@ -61,10 +69,12 @@ class DigiFlazzController extends Controller
     public function cekSaldo()
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
 
-        $sign = md5($api->username_digi . $api->api_key_digi . "depositsaldo");
+        $sign = md5($username . $apiKey . "depositsaldo");
         $data = [
-            'username' => $api->username_digi,
+            'username' => $username,
             'cmd' => 'deposit',
             'sign' => $sign,
             
@@ -78,9 +88,12 @@ class DigiFlazzController extends Controller
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
 
-        $sign = md5($api->username_digi . $api->api_key_digi . "manual");
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
+
+        $sign = md5($username . $apiKey . "manual");
         $data = [
-            'username' => $api->username_digi,
+            'username' => $username,
             'cmd' => 'manual',
             'testing' => true,
             'sign' => $sign,
@@ -92,10 +105,12 @@ class DigiFlazzController extends Controller
     public function cekProduk()
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
 
-        $sign = md5($api->username_digi . $api->api_key_digi . "pricelist");
+        $sign = md5($username . $apiKey . "pricelist");
         $data = [
-            'username' => $api->username_digi,
+            'username' => $username,
             'sign' => $sign,
 
         ];
@@ -107,9 +122,12 @@ class DigiFlazzController extends Controller
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
 
-        $sign = md5($api->username_digi . $api->api_key_digi . strval($deposit_id));
+        $username = trim($api->username_digi);
+        $apiKey = trim($api->api_key_digi);
+
+        $sign = md5($username . $apiKey . strval($deposit_id));
         $data = [
-            'username' => $api->username_digi,
+            'username' => $username,
             'amount' => $amount,
             'bank' => $bank,
             'ref_id' => $deposit_id,

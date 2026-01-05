@@ -196,23 +196,27 @@ class OrderController extends Controller
             $data->harga *= $qty;
         }
 
-        if (isset($request->voucher)) {
+
+        if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-            if ($voucher) {
-                if ($voucher->stock > 0) {
-                    $potongan = $data->harga * ($voucher->promo / 100);
-                    if ($potongan > $voucher->max_potongan) {
-                        $potongan = $voucher->max_potongan;
-                    }
-                    $data->harga -= $potongan;
+            if ($voucher && $voucher->stock > 0) {
+                $potongan = $data->harga * ($voucher->promo / 100);
+                if ($potongan > $voucher->max_potongan) {
+                    $potongan = $voucher->max_potongan;
                 }
+                $data->harga -= $potongan;
             }
         }
 
-        $methods = Method::select('code', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
-            ->get()
-            ->keyBy('code');
-        Log::info('Payment methods retrieved', ['methods' => $methods, 'data' => $data]);
+        // OPTIMIZATION: Cache methods query for 60 minutes to reduce DB load
+        $methods = \Illuminate\Support\Facades\Cache::remember('payment_methods_price_calc', 60 * 60, function () {
+            return Method::select('code', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
+                ->get()
+                ->keyBy('code');
+        });
+
+        // REMOVED: Log::info to prevent I/O latency
+        
         return response()->json([
             'status' => true,
             'harga' => $data->harga,
@@ -297,7 +301,7 @@ class OrderController extends Controller
             $dataLayanan->harga *= $qty;
         }
         // voucher
-        if (isset($request->voucher)) {
+        if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
 
             if (!$voucher) {
@@ -685,932 +689,226 @@ class OrderController extends Controller
             $username = isset($data['data']['username']) ? $data['data']['username'] : 'Not Found.';
 
 
-            $dataMethod = Method::where('code', $request->payment_method)
-                ->select('name', 'payment', 'tipe', 'code')
-                ->first();
-            Log::info('Payment method retrieved', ['method' => $dataMethod]);
-            if ($request->payment_method == "11" || $request->payment_method == "17") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.70 / 100));
-            } elseif ($request->payment_method == "20") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.90 / 100));
-            } elseif ($request->payment_method == "23") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2 / 100));
-            } elseif ($request->payment_method == "13") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "12" || $request->payment_method == "14") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "1") {
-                $dataLayanan->harga = $dataLayanan->harga + 4900;
-            } elseif ($request->payment_method == "4") {
-                $dataLayanan->harga = $dataLayanan->harga + 4000;
-            } elseif ($request->payment_method == "2" || $request->payment_method == "3" || $request->payment_method == "5" || $request->payment_method == "7" || $request->payment_method == "8") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "9" || $request->payment_method == "10") {
-                $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "18" || $request->payment_method == "19") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "21") {
-                $dataLayanan->harga = $dataLayanan->harga + 1500;
-            } elseif ($request->payment_method == "22") {
-                $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "QRISREALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (1.70 / 100));
-            } elseif ($request->payment_method == "QRIS2" || $request->payment_method == "QRIS2") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.7 / 100) + 750);
-            } elseif ($request->payment_method == "QRIS_CUSTOM"  || $request->payment_method == "QRIS_CUSTOM") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2.70 / 100));
-            } elseif ($request->payment_method == "SHOPEEPAY_REALTIME" || $request->payment_method == "SHOPEEPAY_REALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "DANA_REALTIME" || $request->payment_method == "DANA_REALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3.20 / 100));
-            } elseif ($request->payment_method == "GOPAY" || $request->payment_method == "LINKAJA") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "DANA" || $request->payment_method == "SHOPEEPAY" || $request->payment_method == "OVO" || $request->payment_method == "ASTRAPAY") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "VIRGO") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2 / 100));
-            } elseif ($request->payment_method == "BCAVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 4250;
-            } elseif ($request->payment_method == "BNIVA" || $request->payment_method == "MANDIRIVA" || $request->payment_method == "BSIVA" || $request->payment_method == "BRIVA" || $request->payment_method == "OTHERBANKVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 4250;
-            } elseif ($request->payment_method == "BNCVA" || $request->payment_method == "PERMATAVAA") {
-                $dataLayanan->harga = $dataLayanan->harga + 3000;
-            } elseif ($request->payment_method == "CIMBVA" || $request->payment_method == "DANAMONVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "PERMATAVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 2000;
-            } elseif ($request->payment_method == "ALFAMART" || $request->payment_method == "INDOMARET" || $request->payment_method == "ALFAMIDI") {
-                $dataLayanan->harga = $dataLayanan->harga + 3000;
-            } else {
-                $dataLayanan->harga = $dataLayanan->harga;
-            }
-
-
-            $sendData = "
-                <div class='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700'>
-                    <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' aria-hidden='true' class='h-6 w-6 text-emerald-500'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'></path>
-                    </svg>
-                </div>
-                
-                <h3 class='text-lg font-bold leading-6 mt-4'>Buat Pesanan</h3>
-                <div class='my-3 mt-3'>
-                    <p class='text-sm'>Pastikan data akun Anda dan produk yang Anda pilih valid dan sesuai.</p>
-                </div>
-                
-                <div class='mt-4' style='background-color: #494949; padding: 12px; border-radius: 10px;'>
-                    <div class='flex items-center gap-2'>
-                        <div class='divider'></div>
-                        <h4 class='shrink-0 pr-4 text-sm font-semibold'>Data Player</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>User ID</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $request->uid;
-
-            if (isset($request->zone) && !empty($request->zone)) {
-                $sendData .= " ";
-            }
-
-            $sendData .= "</h4></div>";
-
-            if (isset($request->zone) && !empty($request->zone)) {
-                $sendData .= "
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Zone</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $request->zone . "</h4>
-                    </div>";
-            }
-
-            $sendData .= "
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Username</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold nick' id='nick'>" . urldecode($username) . "</h4>
-                    </div>
-                    <br>
-                    <div class='flex items-center gap-2'>
-                        <div class='divider'></div>
-                        <h4 class='shrink-0 pr-4 text-sm font-semibold'>Ringkasan Pembelian</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Item</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $item->layanan . "</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Product</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $produk->nama . "</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Price</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "</h4>
-                    </div>
-                <div class='flex justify-between'>
-                    <h4 class='shrink-0 pr-4 text-sm'>Payment</h4>
-                    <h4 class='shrink-0 pr-4 text-sm font-bold truncatee'>
-                       " . strtoupper($dataMethod->name) . "
-                    </h4>
-                </div>
-                </div>";
-
-            return response()->json([
-                'status' => true,
-                'data' => $sendData
-            ]);
-        } else {
-
-            if ($request->payment_method == "11" || $request->payment_method == "17") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.70 / 100));
-            } elseif ($request->payment_method == "20") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.90 / 100));
-            } elseif ($request->payment_method == "23") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2 / 100));
-            } elseif ($request->payment_method == "13") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "12" || $request->payment_method == "14") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "1") {
-                $dataLayanan->harga = $dataLayanan->harga + 4900;
-            } elseif ($request->payment_method == "4") {
-                $dataLayanan->harga = $dataLayanan->harga + 4000;
-            } elseif ($request->payment_method == "2" || $request->payment_method == "3" || $request->payment_method == "5" || $request->payment_method == "7" || $request->payment_method == "8") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "9" || $request->payment_method == "10") {
-                $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "18" || $request->payment_method == "19") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "21") {
-                $dataLayanan->harga = $dataLayanan->harga + 1500;
-            } elseif ($request->payment_method == "22") {
-                $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "QRISREALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (1.70 / 100));
-            } elseif ($request->payment_method == "QRIS2" || $request->payment_method == "QRIS2") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (0.7 / 100) + 750);
-            } elseif ($request->payment_method == "QRIS_CUSTOM"  || $request->payment_method == "QRIS_CUSTOM") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2.70 / 100));
-            } elseif ($request->payment_method == "SHOPEEPAY_REALTIME" || $request->payment_method == "SHOPEEPAY_REALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "DANA_REALTIME" || $request->payment_method == "DANA_REALTIME") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3.20 / 100));
-            } elseif ($request->payment_method == "GOPAY" || $request->payment_method == "LINKAJA") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (3 / 100));
-            } elseif ($request->payment_method == "DANA" || $request->payment_method == "SHOPEEPAY" || $request->payment_method == "OVOPUSH" || $request->payment_method == "ASTRAPAY") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2.5 / 100));
-            } elseif ($request->payment_method == "VIRGO") {
-                $dataLayanan->harga = $dataLayanan->harga + ($dataLayanan->harga * (2 / 100));
-            } elseif ($request->payment_method == "BCAVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 4200;
-            } elseif ($request->payment_method == "BNIVA" || $request->payment_method == "MANDIRIVA" || $request->payment_method == "BSIVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 3500;
-            } elseif ($request->payment_method == "BNCVA" || $request->payment_method == "PERMATAVAA") {
-                $dataLayanan->harga = $dataLayanan->harga + 3000;
-            } elseif ($request->payment_method == "CIMBVA" || $request->payment_method == "DANAMONVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 2500;
-            } elseif ($request->payment_method == "PERMATAVA") {
-                $dataLayanan->harga = $dataLayanan->harga + 2000;
-            } elseif ($request->payment_method == "ALFAMART" || $request->payment_method == "INDOMARET" || $request->payment_method == "ALFAMIDI") {
-                $dataLayanan->harga = $dataLayanan->harga + 3000;
-            } else {
-                $dataLayanan->harga = $dataLayanan->harga;
-            }
-
-            if ($request->ktg_tipe === 'jokigendong') {
-                $sendData = "<div class='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700'>
-        <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' aria-hidden='true' class='h-6 w-6 text-emerald-500'>
-        <path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'></path>
-        </svg>
-        </div>
-        
-        <h3 class='text-lg font-bold leading-6 mt-4'>Buat Pesanan</h3>
-        <div class='my-3 mt-3'><p class='text-sm '>Pastikan data akun jokigendong yang anda pilih valid dan sesuai.</p></div>
-        
-        <div class='' style='background-color: #494949;padding: 12px;border-radius: 10px;'>
-        <div class='flex items-center gap-2'>
-        <div class='divider' style='border-color: #fff;'></div><h4 class='shrink-0 pr-4 text-sm font-semibold'>Data jokigendong</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Nickname</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->nickname_joki</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Role</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->loginvia_joki</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Tanggal Main</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->tglmain_joki</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Jam Booking</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->jambooking_joki</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Catatan</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->catatan_joki</h4></div>
-        <br>
-        <div class='flex items-center gap-2'>
-        <div class='divider' style='border-color: #fff;'>
-        </div><h4 class='shrink-0 pr-4 text-sm font-semibold '>Ringkasan Pembelian</h4></div>
-        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Price</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>Rp. " . number_format($dataLayanan->harga, 0, '.', ',') .
-                    "</h4></div>
-        </div>";
-            } elseif ($request->ktg_tipe === 'joki') {
-                $sendData = "<div class='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700'>
-                        <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' aria-hidden='true' class='h-6 w-6 text-emerald-500'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'></path>
-                        </svg>
-                        </div>
-                        
-                        <h3 class='text-lg font-bold leading-6 mt-4'>Buat Pesanan</h3>
-                        <div class='my-3 mt-3'><p class='text-sm '>Pastikan data akun Joki yang anda pilih valid dan sesuai.</p></div>
-                        
-                        <div class='' style='background-color: #494949;padding: 12px;border-radius: 10px;'>
-                        <div class='flex items-center gap-2'>
-                        <div class='divider' style='border-color: #fff;'></div><h4 class='shrink-0 pr-4 text-sm font-semibold'>Data Joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Email</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->email_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Password</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->password_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Login Via</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->loginvia_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Nickname</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->nickname_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Request</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->request_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Catatan</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->catatan_joki</h4></div>
-                        <br>
-                        <div class='flex items-center gap-2'>
-                        <div class='divider' style='border-color: #fff;'>
-                        </div><h4 class='shrink-0 pr-4 text-sm font-semibold '>Ringkasan Pembelian</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Price</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>Rp. " . number_format($dataLayanan->harga, 0, '.', ',') .
-                    "</h4></div>
-                        </div>";
-            } elseif ($request->ktg_tipe === 'vilogml') {
-                $sendData = "<div class='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700'>
-                        <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' aria-hidden='true' class='h-6 w-6 text-emerald-500'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'></path>
-                        </svg>
-                        </div>
-                        
-                        <h3 class='text-lg font-bold leading-6 mt-4'>Buat Pesanan</h3>
-                        <div class='my-3 mt-3'><p class='text-sm '>Pastikan data Vilog ML yang anda pilih valid dan sesuai.</p></div>
-                        
-                        <div class='' style='background-color: #494949;padding: 12px;border-radius: 10px;'>
-                        <div class='flex items-center gap-2'>
-                        <div class='divider' style='border-color: #fff;'></div><h4 class='shrink-0 pr-4 text-sm font-semibold'>Data Joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Email</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->email_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Password</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->password_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Login Via</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->loginvia_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>User ID</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->nickname_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Server ID</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->request_joki</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Catatan</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>$request->catatan_joki</h4></div>
-                        <br>
-                        <div class='flex items-center gap-2'>
-                        <div class='divider' style='border-color: #fff;'>
-                        </div><h4 class='shrink-0 pr-4 text-sm font-semibold '>Ringkasan Pembelian</h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Item</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>" . $produk->nama . "
-                        </h4></div>
-                        <div class='flex justify-between'><h4 class='shrink-0 pr-4 text-sm '>Price</h4><h4 class='shrink-0 pr-4 text-sm font-bold'>Rp. " . number_format($dataLayanan->harga, 0, '.', ',') .
-                    "</h4></div>
-                        </div>";
-            } else {
-                $sendData = "
-                <div class='mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-700'>
-                    <svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='currentColor' aria-hidden='true' class='h-6 w-6 text-emerald-500'>
-                        <path stroke-linecap='round' stroke-linejoin='round' d='M4.5 12.75l6 6 9-13.5'></path>
-                    </svg>
-                </div>
-                
-                <h3 class='text-lg font-bold leading-6 mt-4'>Buat Pesanan</h3>
-                <div class='my-3 mt-3'>
-                    <p class='text-sm'>Pastikan data akun Anda dan produk yang Anda pilih valid dan sesuai.</p>
-                </div>
-                
-                <div class='mt-4' style='background-color: #494949; padding: 12px; border-radius: 10px;'>
-                    <div class='flex items-center gap-2'>
-                        <div class='divider'></div>
-                        <h4 class='shrink-0 pr-4 text-sm font-semibold'>Data Player</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>User ID</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $request->uid;
-
-                if (isset($request->zone) && !empty($request->zone)) {
-                    $sendData .= " ";
-                }
-
-                $sendData .= "</h4></div>";
-
-                if (isset($request->zone) && !empty($request->zone)) {
-                    $sendData .= "
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Zone</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $request->zone . "</h4>
-                    </div>";
-                }
-
-                $sendData .= "
-                    <div class='flex justify-between'>
-                    </div>
-                    <br>
-                    <div class='flex items-center gap-2'>
-                        <div class='divider'></div>
-                        <h4 class='shrink-0 pr-4 text-sm font-semibold'>Ringkasan Pembelian</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Item</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $item->layanan . "</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Product</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>" . $produk->nama . "</h4>
-                    </div>
-                    <div class='flex justify-between'>
-                        <h4 class='shrink-0 pr-4 text-sm'>Price</h4>
-                        <h4 class='shrink-0 pr-4 text-sm font-bold'>Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "</h4>
-                    </div>
-                </div>";
-            }
-
-
-
-
-
-            return response()->json([
-                'status' => true,
-                'data' => $sendData
-            ]);
         }
+
+        // Initialize username if not set (for games not in validation list)
+        if (!isset($username)) {
+            $username = null;
+        }
+
+        $dataMethod = Method::where('code', $request->payment_method)
+            ->select('name', 'payment', 'tipe', 'code', 'fee_percent', 'fix_fee')
+            ->first();
+       
+        if ($dataMethod) {
+            // Formula: Price + FixFee + (Price * FeePercent / 100)
+            $fee = $dataMethod->fix_fee + ($dataLayanan->harga * ($dataMethod->fee_percent / 100));
+            $dataLayanan->harga += $fee;
+        }
+
+        $sendData = view('template.components.order_confirmation', compact(
+            'request', 'dataLayanan', 'dataMethod', 'produk', 'item', 'username'
+        ))->render();
+
+        return response()->json([
+            'status' => true,
+            'data' => $sendData
+        ]);
     }
 
     public function store(Request $request)
     {
+        // 1. Validation
+        $this->validateOrder($request);
 
-        if ($request->ktg_tipe === 'jokigendong') {
-            $request->validate([
-                'nickname_joki' => 'required|string|max:255',
-                'tglmain_joki' => 'required|string|max:255',
-                'jambooking_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required',
-                'catatan_joki' => 'required',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        } elseif ($request->ktg_tipe === 'joki') {
-            $request->validate([
-                'email_joki' => 'required|string|max:255',
-                'password_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required|string|max:255',
-                'nickname_joki' => 'required|string|max:255',
-                'request_joki' => 'required|string|max:255',
-                'catatan_joki' => 'required|string|max:255',
-                'qty' => 'required|numeric|max:30',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        } elseif ($request->ktg_tipe === 'vilogml') {
-            $request->validate([
-                'email_joki' => 'required|string|max:255',
-                'password_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required|string|max:255',
-                'nickname_joki' => 'required|string|max:255',
-                'request_joki' => 'required|string|max:255',
-                'catatan_joki' => 'required|string|max:255',
-                'qty' => 'required|numeric|max:30',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        } else {
-            $request->validate([
-                'uid' => 'required|max:25',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        }
-
-
+        // 2. Initial Setup
         if (Auth::check()) {
-            if (Auth::user()->role == "Member") {
-                $dataLayanan = Layanan::where('id', $request->service)->select('layanan', 'harga_member AS harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
-            } else if (Auth::user()->role == "Platinum") {
-                $dataLayanan = Layanan::where('id', $request->service)->select('layanan', 'harga_platinum AS harga', 'kategori_id', 'provider_id', 'provider', 'profit_platinum AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
-            } else if (Auth::user()->role == "Gold" || Auth::user()->role == "Admin") {
-                $dataLayanan = Layanan::where('id', $request->service)->select('layanan', 'harga_gold AS harga', 'kategori_id', 'provider_id', 'provider', 'profit_gold AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
-            }
+            $role = Auth::user()->role;
+            $column = match($role) {
+                'Member' => 'harga_member',
+                'Platinum' => 'harga_platinum',
+                'Gold', 'Admin' => 'harga_gold',
+                default => 'harga'
+            };
+            $profitCol = match($role) {
+                'Member' => 'profit_member',
+                'Platinum' => 'profit_platinum',
+                'Gold', 'Admin' => 'profit_gold',
+                default => 'profit'
+            };
+            
+            $dataLayanan = Layanan::where('id', $request->service)
+                ->select('layanan', "$column AS harga", 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->first();
         } else {
-            $dataLayanan = Layanan::where('id', $request->service)->select('layanan', 'harga AS harga', 'kategori_id', 'provider_id', 'provider', 'profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
+            $dataLayanan = Layanan::where('id', $request->service)
+                ->select('layanan', 'harga AS harga', 'kategori_id', 'provider_id', 'provider', 'profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->first();
         }
 
-        if ($dataLayanan->is_flash_sale == 1 && $dataLayanan->expired_flash_sale >= date('Y-m-d H:i:s') && $dataLayanan->stock_flash_sale > 0) {
-            $sisa = $dataLayanan->stock_flash_sale - 1;
-            $updatesisa = Layanan::where('id', $request->service)->update(['stock_flash_sale' => $sisa]);
+        if (!$dataLayanan) return response()->json(['status' => false, 'data' => 'Layanan tidak ditemukan']);
+
+        // Flash Sale Logic
+        if ($dataLayanan->is_flash_sale == 1 && $dataLayanan->expired_flash_sale >=now() && $dataLayanan->stock_flash_sale > 0) {
+            Layanan::where('id', $request->service)->decrement('stock_flash_sale');
             $dataLayanan->harga = $dataLayanan->harga_flash_sale;
         }
 
+        // Joki Quantity Logic
         if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $qty = $request->qty;
-            if ($qty <= 0) {
-                $qty = 1;
-            }
-
+            $qty = $request->qty > 0 ? $request->qty : 1;
             $dataLayanan->harga *= $qty;
         }
 
-
-
-        if (isset($request->voucher)) {
+        // Voucher Logic (Calculation Only)
+        if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-
-            if (!$voucher) {
-                $dataLayanan->harga = $dataLayanan->harga;
-            } else {
-                if ($voucher->stock == 0) {
-                    $dataLayanan->harga = $dataLayanan->harga;
-                } else {
-                    $potongan = $dataLayanan->harga * ($voucher->promo / 100);
-                    if ($potongan > $voucher->max_potongan) {
-                        $potongan = $voucher->max_potongan;
-                    }
-
-                    $dataLayanan->harga = round($dataLayanan->harga - $potongan);
-                    $voucher->decrement('stock');
-                }
-            }
-        }
-
-
-        $kategori = Kategori::where('id', $dataLayanan->kategori_id)->select('kode')->first();
-        $prefik = DB::table('setting_webs')->where('id', 1)->first();
-        $unik = date('Hs');
-        $characters = '0123456789';
-        $code = '';
-
-        for ($i = 0; $i < 8; $i++) {
-            $randomIndex = rand(0, strlen($characters) - 1);
-            $code .= $characters[$randomIndex];
-        }
-        $kode_unik = $code;
-        $order_id = $prefik->order_prefik . $unik . $kode_unik;
-        $tokopay = new TokoPayController();
-        $tripay = new TriPayController();
-        $rand = rand(1, 1000);
-        $no_pembayaran = '';
-        $amount = '';
-        $reference = '';
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $dataMethod = Method::where('code', $request->payment_method)->select('name', 'payment', 'tipe', 'code')->first();
-
-
-        if ($request->payment_method == "SALDO") {
-            $amount = $dataLayanan->harga;
-        } else if ($request->payment_method == "OVO") {
-            $amount = $dataLayanan->harga + $rand;
-            $reference = '';
-            if ($request->payment_method == "OVO") {
-                $no_pembayaran = $api->ovo_admin;
-                if ($amount < 10000) {
-                    return response()->json(['status' => false, 'data' => 'Minimum jumlah pembayaran untuk metode pembayaran ini adalah Rp 10.000']);
-                }
-            } else {
-                $no_pembayaran = $api->gopay_admin;
-                if ($amount < 1000) {
-                    return response()->json(['status' => false, 'data' => 'Minimum jumlah pembayaran untuk metode pembayaran ini adalah Rp 1.000']);
-                }
-            }
-        } else {
-            if ($dataMethod->payment == "tokopay") {
-                $tokopayres = $tokopay->createOrder($dataLayanan->harga, $order_id, $request->payment_method);
-                Log::info($tokopayres);
-                if ($tokopayres['status'] != 'Success') return response()->json(['status' => false, 'data' => 'error']);
-
-                if (isset($tokopayres['data'])) {
-                    $no_pembayaran = $tokopayres['data']['pay_url'];
-                    if (isset($tokopayres['data']['nomor_va'])) {
-                        $no_pembayaran = $tokopayres['data']['nomor_va'];
-                    } else if (isset($tokopayres['data']['qr_link'])) {
-                        $no_pembayaran = $tokopayres['data']['qr_link'];
-                    } else if (isset($tokopayres['data']['checkout_url'])) {
-                        $no_pembayaran = $tokopayres['data']['checkout_url'];
-                    }
-
-                    $reference = $tokopayres['data']['trx_id'];
-                    $amount = $tokopayres['data']['total_bayar'];
-                }
-            } else if ($dataMethod->payment == "tripay") {
-                $listchannel = [];
-                $channelResponse = $tripay->channel();
-                Log::info('Tripay channel response', ['response' => $channelResponse]);
-                if (isset($channelResponse->data) && is_array($channelResponse->data)) {
-                    foreach ($channelResponse->data as $channel) {
-                        if (isset($channel->code)) {
-                            array_push($listchannel, $channel->code);
-                        }
-                    }
-                }
-
-                if (!in_array($request->payment_method, $listchannel)) {
-                    return response()->json([
-                        'status' => false,
-                        'data'   => "Tipe pembayaran tidak sah"
+            Log::info('Voucher found', ['voucher' => $voucher]);
+            if ($voucher && $voucher->stock > 0) {
+                $potongan = $dataLayanan->harga * ($voucher->promo / 100);
+                if ($potongan > $voucher->max_potongan) $potongan = $voucher->max_potongan;
+                
+                if ($voucher->mintrx && $dataLayanan->harga < $voucher->mintrx) {
+                     return response()->json([
+                        'status' => false, 
+                        'data' => 'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.')
                     ]);
                 }
-
-                $tripayres = $tripay->request($order_id, $dataLayanan->harga, $request->payment_method, $order_id . '@email.com', $request->nomor);
-
-                if (!isset($tripayres['success']) || $tripayres['success'] != true) {
-                    return response()->json(['status' => false, 'data' => $tripayres['msg'] ?? 'Gagal memproses pembayaran']);
-                }
-
-                $no_pembayaran = $tripayres['no_pembayaran'] ?? null;
-                $reference = $tripayres['reference'] ?? null;
-                $amount = $tripayres['amount'] ?? null;
+                $dataLayanan->harga = round($dataLayanan->harga - $potongan);
             }
         }
 
-
+        // Generate Order ID
+        $setting = DB::table('setting_webs')->where('id', 1)->first();
+        $order_id = $setting->order_prefik . date('Hs') . Str::random(8); // Simplified random
+        
+        // Payment Method Info
+        $dataMethod = Method::where('code', $request->payment_method)->first();
+        
+        // 3. Process based on Payment Method
         if ($request->payment_method == "SALDO") {
+            // --- BALANCE PAYMENT FLOW ---
+            if (!Auth::check()) return response()->json(['status' => false, 'data' => 'Harap login terlebih dahulu']);
 
-            $pesan =
-                "*Pembayaran Berhasil*\n\n" .
-                "No Invoice: *$order_id*\n" .
-                "Layanan: *$dataLayanan->layanan*\n" .
-                "ID : *$request->uid*\n" .
-                "Server : *$request->zone*\n" .
-                "Nickname : *$request->nickname*\n" .
-                "Harga: *Rp. " . number_format($amount, 0, '.', ',') . "*\n" .
-                "Status Pembayaran: *Dibayar*\n" .
-                "Metode Pembayaran: *$dataMethod->name*\n\n" .
-                "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                "INI ADALAH PESAN OTOMATIS";
-        } else {
-            $pesan =
-                "*Menunggu Pembayaran*\n\n" .
-                "No Invoice: *$order_id*\n" .
-                "Layanan: *$dataLayanan->layanan*\n" .
-                "ID : *$request->uid*\n" .
-                "Server : *$request->zone*\n" .
-                "Nickname : *$request->nickname*\n" .
-                "Harga: *Rp. " . number_format($amount, 0, '.', ',') . "*\n" .
-                "Status: *Menunggu Pembayaran*\n" .
-                "Metode Pembayaran: *$dataMethod->name*\n" .
-                "Kode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n" .
-
-                "*Harap Dibayar Sebelum 3 Jam!* Segera lakukan pembayaran sesuai dengan kode bayar / nomor VA yang tercantum. Pastikan nominal pembayaran juga sesuai dengan total bayar.\n\n" .
-                "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                "INI ADALAH PESAN OTOMATIS";
-        }
-
-        $tipe = '';
-
-        if ($request->ktg_tipe == 'joki') {
-            $tipe = 'joki';
-        } else if ($request->ktg_tipe == 'voucher') {
-            $tipe = 'voucher';
-        } else if ($request->ktg_tipe == 'vilogml') {
-            $tipe = 'vilogml';
-        } else if ($request->ktg_tipe == 'jokigendong') {
-            $tipe = 'jokigendong';
-        } else {
-            $tipe = 'game';
-        }
-
-
-
-        if ($request->payment_method != "SALDO") {
-
-            $requestPesan = $this->msg($request->nomor, $pesan);
-            $ipController = new IPAddressController();
-            $ipAddress = $ipController->getIPAddress($request);
-
-
-            $pembelian = new Pembelian();
-            $pembelian->order_id = $order_id;
-            $pembelian->user_id = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong'  && $request->ktg_tipe !== 'vilogml') ? $request->uid : '-';
-            $pembelian->zone = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong'  && $request->ktg_tipe !== 'vilogml') ? $request->zone : '-';
-            $pembelian->nickname = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong'  && $request->ktg_tipe !== 'vilogml') ? $request->nickname : ($request->ktg_tipe !== 'joki' ? $request->nickname_joki : '-');
-
-            $pembelian->status = 'Pending';
-            $pembelian->tipe_transaksi = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? $tipe : $request->ktg_tipe;
-            $pembelian->layanan = $dataLayanan->layanan;
-            $pembelian->harga = $amount;
-            $pembelian->profit = $amount * $dataLayanan->profit / 100;
-            $pembelian->ip_address = $ipAddress;
-            $pembelian->save();
-
-            $pembayaran = new Pembayaran();
-            $pembayaran->order_id = $order_id;
-            $pembayaran->harga = $amount;
-            $pembayaran->no_pembayaran = $no_pembayaran;
-            $pembayaran->no_pembeli = $request->nomor;
-            $pembayaran->status = 'Belum Lunas';
-            $pembayaran->metode = $request->payment_method;
-            $pembayaran->reference = $reference;
-            $pembayaran->save();
-
-
-            if ($request->ktg_tipe == 'joki' || $request->ktg_tipe == 'jokigendong' || $request->ktg_tipe == 'vilogml') {
-                $jokian = DB::table('data_joki')->insert([
-                    'order_id' => $order_id,
-                    'email_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->email_joki : '-',
-                    'password_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->password_joki : '-',
-                    'loginvia_joki' => $request->loginvia_joki,
-                    'nickname_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->nickname_joki : '-',
-                    'request_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->request_joki : '-',
-                    'catatan_joki' => $request->catatan_joki,
-
-                    'tglmain_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->tglmain_joki,
-                    'jambooking_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->jambooking_joki,
-                    'qty' => $request->qty,
-                    'status_joki' => 'Pending',
-                    'created_at' => now(),
-                    'updated_at' => now()
-                ]);
-            }
-        } else if ($request->payment_method == "SALDO") {
-            $userKey = 'user_transaction_' . Auth::user()->id;
-
-            // Cek apakah pengguna mencoba melakukan spam transaksi
-            if (Cache::has($userKey)) {
-                Log::info('Pengguna mencoba spam transaksi: ' . Auth::user()->username);
-                return response()->json(['status' => false, 'data' => 'Respons Spam']);
-            }
-
-            // Set cache agar pengguna tidak bisa melakukan transaksi lagi dalam 1 menit
+            $userKey = 'user_transaction_' . Auth::id();
+            if (Cache::has($userKey)) return response()->json(['status' => false, 'data' => 'Transaksi terlalu cepat, harap tunggu sebentar.']);
             Cache::put($userKey, true, now()->addMinutes(1));
 
-            // Mulai transaksi database
             DB::beginTransaction();
-
-            // Ambil transaksi terakhir pengguna
-            $latestOrder = Pembelian::where('username', Auth::user()->username)
-                ->where('created_at', '<', now())
-                ->latest()
-                ->lockForUpdate()
-                ->first();
-
-            if ($latestOrder) {
-                $latestPayment = Pembelian::where('username', $latestOrder->username)
-                    ->latest()
-                    ->first();
-
-                if ($latestPayment) {
-                    $latestPaymentDate = new \DateTime($latestPayment->created_at);
-                    $diffrentTime = $latestPaymentDate->diff(new \DateTime(now()));
-                    $totalMinutes = ($diffrentTime->days * 24 * 60) + ($diffrentTime->h * 60) + $diffrentTime->i;
-
-                    // Cek apakah ada order yang dibuat dalam 1 menit terakhir
-                    if ($totalMinutes <= 1) {
-                        DB::rollBack();
-                        Log::warning('Pengguna ' . Auth::user()->username . ' mencoba transaksi terlalu cepat.');
-                        return response()->json(['status' => false, 'data' => 'Harap tunggu 1 menit sebelum melakukan transaksi lagi.']);
-                    }
-                }
-            }
-
-            // Cek saldo pengguna
-            $user = User::where('username', Auth::user()->username)->lockForUpdate()->first();
-            if ($dataLayanan->harga > $user->balance) {
-                DB::rollBack();
-                Log::warning('Pengguna ' . Auth::user()->username . ' mencoba transaksi dengan saldo tidak mencukupi.');
-                return response()->json(['status' => false, 'data' => 'Saldo anda tidak mencukupi']);
-            }
-
-            // Update saldo pengguna
-            $newBalance = $user->balance - $dataLayanan->harga;
-            $user->update(['balance' => $newBalance]);
-
-            DB::commit();
-            Cache::forget($userKey);
-
-            // Log saldo terbaru pengguna
-            Log::info('Saldo pengguna ' . Auth::user()->username . ' setelah transaksi: ' . $newBalance);
-
-            if ($dataLayanan->provider == "digiflazz") {
-                $digi = new digiFlazzController;
-                $random_part = Str::random(18, '123456789');
-                $provider_order_id = 'WEJIZY' . $random_part;
-                $order = $digi->order($request->uid, $request->zone, $dataLayanan->provider_id, $provider_order_id);
-
-                if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "apigames") {
-                $provider_order_id = rand(1, 10000);
-                $apigames = new ApiGamesController;
-                $order = $apigames->order($request->uid, $request->zone, $dataLayanan->provider_id, $provider_order_id);
-
-                if ($order['data']['status'] == "Sukses") {
-                    $order['transactionId'] = $provider_order_id;
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "vip") {
-                $vip = new VipResellerController;
-                $order = $vip->order($request->uid, $request->zone, $dataLayanan->provider_id);
-
-                if ($order['result']) {
-                    $order['status'] = true;
-                    $provider_order_id = $order['data']['trxid'];
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "bangjeff") {
-                $bangjeffo = new BangJeffController;
-
-                $requestData = [
-                    [
-                        'name' => 'ID',
-                        'value' => $request->uid
-                    ]
-                ];
-
-                if ($request->has('zone')) {
-                    $requestData[] = [
-                        'name' => 'Server',
-                        'value' => $request->zone
-                    ];
+            try {
+                // Rate Limiting Check (Last transaction < 1 min)
+                $lastOrder = Pembelian::where('username', Auth::user()->username)->latest()->first();
+                if ($lastOrder && $lastOrder->created_at->diffInMinutes(now()) < 1) {
+                    throw new \Exception('Harap tunggu 1 menit sebelum transaksi lagi.');
                 }
 
-                $order = $bangjeffo->order($dataLayanan->provider_id, $order_id, 1, $requestData);
-
-                if ($order['error'] == false) {
-                    $provider_order_id = $order['data']['invoiceNumber'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "topupedia") {
-                $topupedia = new TopupediaController;
-
-                $requestData = [
-                    [
-                        'name' => 'ID',
-                        'value' => $request->uid
-                    ]
-                ];
-
-                if ($request->has('zone')) {
-                    $requestData[] = [
-                        'name' => 'Server',
-                        'value' => $request->zone
-                    ];
+                $user = User::where('username', Auth::user()->username)->lockForUpdate()->first();
+                if ($dataLayanan->harga > $user->balance) {
+                    throw new \Exception('Saldo tidak mencukupi');
                 }
 
-                $order = $topupedia->order($dataLayanan->provider_id, $order_id, 1, $requestData);
-
-                if ($order['error'] == false) {
-                    $provider_order_id = $order['data']['invoiceNumber'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
+                // Voucher Stock Decrement
+                if ($request->voucher) {
+                    $voucher = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
+                    if (!$voucher || $voucher->stock <= 0) throw new \Exception('Voucher habis');
+                    $voucher->decrement('stock');
                 }
-            } else if ($dataLayanan->provider == "moogold") {
-                $moo = new MoogoldController();
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = 'WEJIZY-MG' . $random_part;
-                $order = $moo->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
-                Log::info('callback moogold', $order);
-                if (isset($order['status'])) {
-                    $provider_order_id = $order['order_id'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "gameshop") {
-                $gameshop =  new GameShopProvider;
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = 'WEJIZY-GS' . $random_part;
-                $order = $gameshop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
-                Log::info('callback gameshop ' . json_encode($order));
-                if (isset($order['data']['order_no'])) {
-                    $provider_order_id = $order['data']['order_no'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "strleyashop") {
-                $strleyashop =  new StrleyaShopProvider;
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = 'WEJIZY-SS' . $random_part;
-                $order = $strleyashop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
-                Log::info('callback strleyashop ' . json_encode($order));
-                if (isset($order['order_details']['bot_order_id'])) {
-                    $provider_order_id = $order['order_details']['bot_order_id'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "yezzpay") {
-                $yezzpay =  new YezzpayProvider;
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                $order = $yezzpay->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
-                Log::info('response order yezzpay ' . json_encode($order));
-                if (isset($order['data']['trx_id'])) {
-                    $provider_order_id = $provider_order_id;
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "elitedias") {
-                $elitedias =  new EliteDiasProvider;
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = 'WEJIZY-ED' . $random_part;
-                $order = $elitedias->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
-                Log::info('response order elitedias ' . json_encode($order));
-                if (isset($order['order_id'])) {
-                    $provider_order_id = $order['order_id'];
-                    $order['status'] = true;
-                } else {
-                    $order['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "joki") {
-                $provider_order_id = '';
-                $order['status'] = true;
-            } else if ($dataLayanan->provider == "jokigendong") {
-                $provider_order_id = '';
-                $order['status'] = true;
-            } else if ($dataLayanan->provider == "vilogml") {
-                $provider_order_id = '';
-                $order['status'] = true;
-            }
 
-
-            if ($order['status']) {
-                $pesanSukses =
-                    "*Pembelian Sukses*\n\n" .
-                    "No Invoice: *$order_id*\n" .
-                    "Layanan: *$dataLayanan->layanan*\n" .
-                    "ID : *$request->uid*\n" .
-                    "Server : *$request->zone*\n" .
-                    "Nickname : *$request->nickname*\n" .
-                    "Harga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\n" .
-                    "Status Pembelian: *Sukses*\n" .
-                    "Metode Pembayaran: *$dataMethod->name*\n\n" .
-                    "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                    "INI ADALAH PESAN OTOMATIS";
-
-                $pesanSuksesAdmin =
-                    "*Pembelian Sukses*\n\n" .
-                    "No Invoice: *$order_id*\n" .
-                    "Layanan: *$dataLayanan->layanan*\n" .
-                    "ID : *$request->uid*\n" .
-                    "Server : *$request->zone*\n" .
-                    "Nickname : *$request->nickname*\n" .
-                    "Harga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\n" .
-                    "Status Pembelian: *Sukses*\n" .
-                    "Metode Pembayaran: *$dataMethod->name*\n\n" .
-
-                    "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                    "INI ADALAH PESAN OTOMATIS";
-
-                $requestPesanSukses = $this->msg($request->nomor, $pesanSukses);
-                $requestPesanSuksesAdmin = $this->msg($api->nomor_admin, $pesanSuksesAdmin);
-
+                // Deduct Balance
+                $user->decrement('balance', $dataLayanan->harga);
+                // Process Game Provider
+                $providerResult = $this->processGameProvider($dataLayanan, $request, $order_id);
+                // Create Record
+                $tipe = match($request->ktg_tipe) {
+                    'joki' => 'joki', 'voucher' => 'voucher', 'vilogml' => 'vilogml', 'jokigendong' => 'jokigendong', default => 'game'
+                };
+                
+                // IP Address
                 $ipController = new IPAddressController();
                 $ipAddress = $ipController->getIPAddress($request);
 
+                $status_pembelian = $providerResult['status'] ? 'Proses' : 'Pending'; // Or whatever default for failed/pending provider
+                $provider_order_id = $providerResult['provider_order_id'];
+                $log_data = json_encode($providerResult['order_data']);
 
+                $this->createOrderRecord(
+                    $request, $dataLayanan, $order_id, $dataLayanan->harga, $dataMethod, 
+                    'Lunas', 'Balance Payment', '', $status_pembelian, 
+                    $provider_order_id, $log_data, $ipAddress, $tipe
+                );
 
+                DB::commit();
+                Cache::forget($userKey);
 
-                $pembelian = new Pembelian();
-                $pembelian->username = Auth::user()->username;
-                $pembelian->order_id = $order_id;
-                $pembelian->user_id = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? $request->uid : '-';
-                $pembelian->zone = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? $request->zone : '-';
-                $pembelian->nickname = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? $request->nickname : '-';
-                $pembelian->log = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? json_encode($order) : '';
-                $pembelian->status = ($request->ktg_tipe !== 'joki' && $request->ktg_tipe !== 'jokigendong' && $request->ktg_tipe !== 'vilogml') ? 'Proses' : 'Proses';
+                // Send Success Message
+                $pesanSukses = "*Pembelian Sukses*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\nStatus Pembelian: *Sukses*\nMetode Pembayaran: *SALDO*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
+                $this->msg($request->nomor, $pesanSukses);
 
-                $pembelian->layanan = $dataLayanan->layanan;
-                $pembelian->harga = $dataLayanan->harga;
-                $pembelian->profit = $dataLayanan->harga * $dataLayanan->profit / 100;
-                $pembelian->provider_order_id = $provider_order_id ? $provider_order_id : "";
-                $pembelian->tipe_transaksi = $tipe;
-                $pembelian->ip_address = $ipAddress;
-                $pembelian->save();
-
-                $pembayaran = new Pembayaran();
-                $pembayaran->order_id = $order_id;
-                $pembayaran->harga = $dataLayanan->harga;
-                $pembayaran->no_pembayaran = "Balance Payment";
-                $pembayaran->no_pembeli = $request->nomor;
-                $pembayaran->status = 'Lunas';
-                $pembayaran->metode = $request->payment_method;
-                $pembayaran->reference = $reference;
-                $pembayaran->save();
-
-
-                if ($request->ktg_tipe == 'joki' || $request->ktg_tipe == 'jokigendong' || $request->ktg_tipe == 'vilogml') {
-                    $jokian = DB::table('data_joki')->insert([
-                        'order_id' => $order_id,
-                        'email_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->email_joki : '-',
-                        'password_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->password_joki : '-',
-                        'loginvia_joki' => $request->loginvia_joki,
-                        'nickname_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->nickname_joki : '-',
-                        'request_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->request_joki : '-',
-                        'catatan_joki' => $request->catatan_joki,
-
-                        'tglmain_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->tglmain_joki,
-                        'jambooking_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->jambooking_joki,
-                        'qty' => $request->qty,
-                        'status_joki' => 'Proses',
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                }
-            } else {
-                return response()->json([
-                    'status' => false,
-                    'data' => 'Server Error'
-                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Cache::forget($userKey);
+                return response()->json(['status' => false, 'data' => $e->getMessage()]);
             }
+
+        } else {
+            // --- EXTERNAL PAYMENT GATEWAY FLOW ---
+            $amount = $dataLayanan->harga;
+            $no_pembayaran = '';
+            $reference = '';
+
+            // Gateway Processing
+            $gatewayResult = ['status' => false, 'msg' => 'Metode pembayaran tidak tersedia'];
+            
+            if ($dataMethod->payment == "tokopay") {
+                $tokopay = new TokoPayController();
+                $res = $tokopay->createOrder($amount, $order_id, $request->payment_method);
+                if ($res['status'] == 'Success') {
+                    $gatewayResult = [
+                        'status' => true,
+                        'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'],
+                        'reference' => $res['data']['trx_id'],
+                        'amount' => $res['data']['total_bayar']
+                    ];
+                }
+            } else if ($dataMethod->payment == "tripay") {
+                $tripay = new TriPayController();
+                $res = $tripay->request($order_id, $amount, $request->payment_method, $order_id . '@email.com', $request->nomor);
+                if ($res['success']) {
+                    $gatewayResult = [
+                        'status' => true,
+                        'no_pembayaran' => $res['no_pembayaran'],
+                        'reference' => $res['reference'],
+                        'amount' => $res['amount']
+                    ];
+                } else {
+                     $gatewayResult['msg'] = $res['msg'];
+                }
+            }
+
+            if (!$gatewayResult['status']) {
+                return response()->json(['status' => false, 'data' => $gatewayResult['msg'] ?? 'Gagal memproses pembayaran']);
+            }
+
+            $amount = $gatewayResult['amount'];
+            $no_pembayaran = $gatewayResult['no_pembayaran'];
+            $reference = $gatewayResult['reference'];
+
+            // Create Record (Pending)
+            $tipe = match($request->ktg_tipe) {
+                'joki' => 'joki', 'voucher' => 'voucher', 'vilogml' => 'vilogml', 'jokigendong' => 'jokigendong', default => 'game'
+            };
+            $ipController = new IPAddressController();
+            $ipAddress = $ipController->getIPAddress($request);
+
+            $this->createOrderRecord(
+                $request, $dataLayanan, $order_id, $amount, $dataMethod, 
+                'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
+                '', '', $ipAddress, $tipe
+            );
+
+            // Send Pending Message
+            $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum 3 Jam!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
+            $this->msg($request->nomor, $pesanPending);
         }
 
         return response()->json([
@@ -1685,59 +983,10 @@ class OrderController extends Controller
             $basePrice = $layanan->harga * $qty;
 
             // Hitung fee payment method (logic harus sama persis dengan ringkasan modal!)
-            $finalPrice = $basePrice;
-            if ($paymentMethod == "11" || $paymentMethod == "17") {
-                $finalPrice += ($basePrice * (0.70 / 100));
-            } elseif ($paymentMethod == "20") {
-                $finalPrice += ($basePrice * (0.90 / 100));
-            } elseif ($paymentMethod == "23") {
-                $finalPrice += ($basePrice * (2 / 100));
-            } elseif ($paymentMethod == "13") {
-                $finalPrice += ($basePrice * (3 / 100));
-            } elseif ($paymentMethod == "12" || $paymentMethod == "14") {
-                $finalPrice += ($basePrice * (3 / 100));
-            } elseif ($paymentMethod == "1") {
-                $finalPrice += 4900;
-            } elseif ($paymentMethod == "4") {
-                $finalPrice += 4000;
-            } elseif ($paymentMethod == "2" || $paymentMethod == "3" || $paymentMethod == "5" || $paymentMethod == "7" || $paymentMethod == "8") {
-                $finalPrice += 2500;
-            } elseif ($paymentMethod == "9" || $paymentMethod == "10") {
-                $finalPrice += 3500;
-            } elseif ($paymentMethod == "18" || $paymentMethod == "19") {
-                $finalPrice += 2500;
-            } elseif ($paymentMethod == "21") {
-                $finalPrice += 1500;
-            } elseif ($paymentMethod == "22") {
-                $finalPrice += 3500;
-            } elseif ($paymentMethod == "QRISREALTIME") {
-                $finalPrice += ($basePrice(1.70 / 100));
-            } elseif ($paymentMethod == "QRIS2") {
-                $finalPrice += ($basePrice * (0.7 / 100) + 750);
-            } elseif ($paymentMethod == "QRIS_CUSTOM") {
-                $finalPrice += ($basePrice * (2.70 / 100));
-            } elseif ($paymentMethod == "SHOPEEPAY_REALTIME") {
-                $finalPrice += ($basePrice * (3 / 100));
-            } elseif ($paymentMethod == "DANA_REALTIME") {
-                $finalPrice += ($basePrice * (3.20 / 100));
-            } elseif (in_array($paymentMethod, ["GOPAY", "LINKAJA"])) {
-                $finalPrice += ($basePrice * (3 / 100));
-            } elseif (in_array($paymentMethod, ["DANA", "SHOPEEPAY", "OVOPUSH", "ASTRAPAY"])) {
-                $finalPrice += ($basePrice * (2.5 / 100));
-            } elseif ($paymentMethod == "VIRGO") {
-                $finalPrice += ($basePrice * (2 / 100));
-            } elseif ($paymentMethod == "BCAVA") {
-                $finalPrice += 4200;
-            } elseif (in_array($paymentMethod, ["BNIVA", "MANDIRIVA", "BSIVA"])) {
-                $finalPrice += 3500;
-            } elseif (in_array($paymentMethod, ["BNCVA", "PERMATAVAA"])) {
-                $finalPrice += 3000;
-            } elseif (in_array($paymentMethod, ["CIMBVA", "DANAMONVA"])) {
-                $finalPrice += 2500;
-            } elseif ($paymentMethod == "PERMATAVA") {
-                $finalPrice += 2000;
-            } elseif (in_array($paymentMethod, ["ALFAMART", "INDOMARET", "ALFAMIDI"])) {
-                $finalPrice += 3000;
+            // Hitung fee payment method (dynamic from DB)
+            $method = Method::where('code', $paymentMethod)->first();
+            if ($method) {
+                $finalPrice += $method->fix_fee + ($basePrice * ($method->fee_percent / 100));
             }
 
             // Promo logic jika ada
@@ -1755,6 +1004,295 @@ class OrderController extends Controller
                 'success' => false,
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function checkAccount(Request $request)
+    {
+        // 1. Validate Input
+        $request->validate([
+            'uid' => 'required',
+            'kategori_kode' => 'required',
+        ]);
+
+        $kategoriKode = $request->kategori_kode;
+        $uid = $request->uid;
+        $zone = $request->zone;
+
+        // 2. Define Supported Games
+        $daftarGameValidasi = [
+            'arena-breakout', 'mobile-legends', 'free-fire', '8-ball-pool', 'point-blank',
+            'arena-of-valor', 'genshin-impact', 'dragon-raja', 'valorant', 'metal-slug-awakening',
+            'sausage-man', 'ea-sports-fc-mobile', 'undawn', 'call-of-duty-mobile', 'pubg-mobile-tp',
+            'honor-of-kings-tp', 'honkai-star-rail', 'steam-wallet-code-indonesia', 'free-fire-max',
+            'astra-knights-of-veda ', 'au2-mobile', 'advent-of-godlegends', 'aether-gazer',
+            'among-heroes-fantasy-samkok', 'angel-squad-dg', 'aov-dg', 'arcane-saga', 'arena-breakout',
+            'arena-mania-magic-heroes', 'asphalt-9-legends', 'atlantica-online-dg',
+            'astral-guardians-cyber-fantasy', 'auto-chess', 'azur-lane', 'bleach-mobile-3d',
+            'badlanders', 'barbarq', 'battlenet-dg', 'be-the-king-judge-destiny', 'bermuda',
+            'bigo-live', 'bigo-live-voucher', 'Bilibili-dg', 'bioskop-online', 'blade-x-odyssey-of-heroes',
+            'bleach-mobile-3d-dg', 'blizzard-gift-card-dg', 'blood-strike', 'boxing-star-dg',
+            'captain-tsubasa-ace', 'captain-tsubasa-dream-team', 'city-of-crime-gang-wars',
+            'clash-royale', 'clash-of-clans', 'cooking-adventure', 'crasher-origin',
+            'dead-target-zombie-games-3d', 'dg-mini-games-dg', 'dark-continent-mist',
+            'diablo-immortal', 'garena-dg', 'ragnarok-m-eternal-love-big-cat-coin', 'laplace-m',
+            'speed-drifters', 'era-of-celestials', 'higgs-domino', 'heroes-evolved', 'lifeafter',
+            'marvel-snap', 'hago', 'tom-and-jerry-chase', 'one-punch-man-the-strongest', 'dragon-raja',
+            'ludo-club', 'league-of-legends', 'league-of-legends-wild-rift-dg', 'state-of-survival',
+            'ys-6-mobile-vng', 'tower-of-fantasy-a', 'stumble-guys', 'honkai-impact-3',
+            'goddes-victory-nikke-tp', 'ragnarok-x-next-generation', 'revelation-infinite-journey',
+            'lita', 'teen-patti-gold', 'hay-day', 'zepeto', 'kings-choice', 'harry-potter-magic-awakened',
+            'life-makeover', 'brawl-stars', 'growtopia', 'identity-v', 'farlight-84', 'football-master-2',
+            'eos-red', 'eggy-party', 'snowbreak-containment-zone', 'rhythm-hive', 'asphalt-9-legends',
+            'teamfight-tactics-mobile', 'punishing-gray-raven', 'octopath-traveler-cotc',
+            'love-and-deepspace', 'pixel-gun-3d', 'the-legend-of-neverland-dg', 'heroic-uncle-kim-idle-rpg',
+            'world-war-heroes', 'moonlight-blade-m', 'king-of-avalon'
+        ];
+
+        if (!in_array($kategoriKode, $daftarGameValidasi)) {
+             return response()->json([
+                'status' => ['code' => 400, 'message' => 'Game not supported for validation']
+            ]);
+        }
+
+        // 3. Map Category Code to Game Name for API
+        $apicheck = new ApiCheckController();
+        $data = [];
+
+        // Simplified mapping based on common patterns
+        switch($kategoriKode) {
+            case 'mobile-legends': $gameName = 'Mobile Legends'; break;
+            case 'free-fire': $gameName = 'Free Fire'; break;
+            case 'free-fire-max': $gameName = 'Free Fire MAX'; break;
+            case 'honkai-star-rail': $gameName = 'Honkai Star Rail'; break;
+            case 'genshin-impact': $gameName = 'Genshin Impact'; break;
+            case 'valorant': $gameName = 'Valorant'; break; 
+            case 'pubg-mobile-tp': $gameName = 'PUBG Mobile'; break;
+            case 'honor-of-kings-tp': $gameName = 'Honor of Kings'; break;
+            case 'garena-dg': $gameName = 'Garena Shell'; break;
+            case 'higgs-domino': $gameName = 'Higgs Domino'; break;
+            default:
+                 // Fallback: Try converting slug to Title Case
+                 $gameName = ucwords(str_replace('-', ' ', $kategoriKode));
+                 break;
+        }
+
+        // Use the API Check
+        $data = $apicheck->check($uid, $zone, $gameName);
+        
+        return response()->json($data);
+    }
+    private function validateOrder(Request $request)
+    {
+        $rules = [
+            'service' => 'required|numeric',
+            'payment_method' => 'required',
+            'nomor' => 'required|numeric',
+            'voucher' => 'string',
+        ];
+
+        if ($request->ktg_tipe === 'jokigendong') {
+            $rules += [
+                'nickname_joki' => 'required|string|max:255',
+                'tglmain_joki' => 'required|string|max:255',
+                'jambooking_joki' => 'required|string|max:255',
+                'loginvia_joki' => 'required',
+                'catatan_joki' => 'required',
+            ];
+        } elseif ($request->ktg_tipe === 'joki' || $request->ktg_tipe === 'vilogml') {
+            $rules += [
+                'email_joki' => 'required|string|max:255',
+                'password_joki' => 'required|string|max:255',
+                'loginvia_joki' => 'required|string|max:255',
+                'nickname_joki' => 'required|string|max:255',
+                'request_joki' => 'required|string|max:255',
+                'catatan_joki' => 'required|string|max:255',
+                'qty' => 'required|numeric|max:30',
+            ];
+        } else {
+            $rules['uid'] = 'required|max:25';
+        }
+
+        $request->validate($rules);
+    }
+
+    private function processGameProvider($dataLayanan, $request, $order_id)
+    {
+        $provider_order_id = '';
+        $status = false;
+        $order = [];
+
+        try {
+            switch ($dataLayanan->provider) {
+                case "digiflazz":
+                    $digi = new digiFlazzController;
+                    $order = $digi->order($request->uid, $request->zone, $dataLayanan->provider_id, $order_id);
+                    $status = in_array($order['data']['status'], ["Pending", "Sukses"]);
+                    Log::info('Digiflazz Order: ', ['order' => $order, 'status' => $status]);
+                    break;
+
+                case "apigames":
+                    $apigames = new ApiGamesController;
+                    $order = $apigames->order($request->uid, $request->zone, $dataLayanan->provider_id, $order_id);
+                    if ($order['data']['status'] == "Sukses") {
+                        $order['transactionId'] = $order_id;
+                        $status = true;
+                    }
+                    break;
+
+                case "vip":
+                    $vip = new VipResellerController;
+                    $order = $vip->order($request->uid, $request->zone, $dataLayanan->provider_id);
+                    if ($order['result']) {
+                        $status = true;
+                        $provider_order_id = $order['data']['trxid'];
+                    }
+                    break;
+
+                case "bangjeff":
+                    $bangjeffo = new BangJeffController;
+                    $requestData = [['name' => 'ID', 'value' => $request->uid]];
+                    if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
+                    
+                    $order = $bangjeffo->order($dataLayanan->provider_id, $order_id, 1, $requestData);
+                    if ($order['error'] == false) {
+                        $provider_order_id = $order['data']['invoiceNumber'];
+                        $status = true;
+                    }
+                    break;
+
+                case "topupedia":
+                    $topupedia = new TopupediaController;
+                    $requestData = [['name' => 'ID', 'value' => $request->uid]];
+                    if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
+                    
+                    $order = $topupedia->order($dataLayanan->provider_id, $order_id, 1, $requestData);
+                    if ($order['error'] == false) {
+                        $provider_order_id = $order['data']['invoiceNumber'];
+                        $status = true;
+                    }
+                    break;
+
+                case "moogold":
+                    $moo = new MoogoldController();
+                    $provider_order_id = 'WEJIZY-MG' . mt_rand(100000, 999999);
+                    $order = $moo->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    if (isset($order['status'])) {
+                        $provider_order_id = $order['order_id'];
+                        $status = true;
+                    }
+                    break;
+
+                case "gameshop":
+                    $gameshop = new GameShopProvider;
+                    $provider_order_id = 'WEJIZY-GS' . mt_rand(100000, 999999);
+                    $order = $gameshop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    if (isset($order['data']['order_no'])) {
+                        $provider_order_id = $order['data']['order_no'];
+                        $status = true;
+                    }
+                    break;
+
+                case "strleyashop":
+                    $strleyashop = new StrleyaShopProvider;
+                    $provider_order_id = 'WEJIZY-SS' . mt_rand(100000, 999999);
+                    $order = $strleyashop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    if (isset($order['order_details']['bot_order_id'])) {
+                        $provider_order_id = $order['order_details']['bot_order_id'];
+                        $status = true;
+                    }
+                    break;
+
+                case "yezzpay":
+                    $yezzpay = new YezzpayProvider;
+                    $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
+                    $order = $yezzpay->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    if (isset($order['data']['trx_id'])) {
+                        $status = true;
+                    }
+                    break;
+
+                case "elitedias":
+                    $elitedias = new EliteDiasProvider;
+                    $provider_order_id = 'WEJIZY-ED' . mt_rand(100000, 999999);
+                    $order = $elitedias->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    if (isset($order['order_id'])) {
+                        $provider_order_id = $order['order_id'];
+                        $status = true;
+                    }
+                    break;
+
+                case "joki":
+                case "jokigendong":
+                case "vilogml":
+                    $status = true;
+                    break;
+            }
+        } catch (\Exception $e) {
+            Log::error('Provider Order Error: ' . $e->getMessage());
+            $status = false;
+        }
+
+        return [
+            'status' => $status,
+            'provider_order_id' => $provider_order_id,
+            'order_data' => $order
+        ];
+    }
+
+    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe) {
+        $user_id = Auth::check() ? Auth::user()->username : null; // Consistent with original code
+        
+        $pembelian = new Pembelian();
+        $pembelian->username = $user_id; 
+        $pembelian->order_id = $order_id;
+        
+        // Define standard values
+        $is_joki = in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml']);
+        
+        $pembelian->user_id = !$is_joki ? $request->uid : '-';
+        $pembelian->zone = !$is_joki ? $request->zone : '-';
+        $pembelian->nickname = !$is_joki ? $request->nickname : ($request->ktg_tipe !== 'joki' ? $request->nickname_joki : '-');
+        
+        $pembelian->log = $order_log;
+        $pembelian->status = $order_status; // 'Pending' or 'Proses'
+        $pembelian->tipe_transaksi = $tipe;
+        
+        $pembelian->layanan = $dataLayanan->layanan;
+        $pembelian->harga = $amount;
+        $pembelian->profit = $amount * $dataLayanan->profit / 100;
+        $pembelian->provider_order_id = $provider_order_id;
+        $pembelian->ip_address = $ipAddress;
+        $pembelian->voucher = $request->voucher ?? null;
+        $pembelian->save();
+
+        $pembayaran = new Pembayaran();
+        $pembayaran->order_id = $order_id;
+        $pembayaran->harga = $amount;
+        $pembayaran->no_pembayaran = $no_pembayaran;
+        $pembayaran->no_pembeli = $request->nomor;
+        $pembayaran->status = $status_pembayaran; // 'Belum Lunas' or 'Lunas'
+        $pembayaran->metode = $request->payment_method;
+        $pembayaran->reference = $reference;
+        $pembayaran->save();
+
+        if ($is_joki) {
+            DB::table('data_joki')->insert([
+                'order_id' => $order_id,
+                'email_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->email_joki : '-',
+                'password_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->password_joki : '-',
+                'loginvia_joki' => $request->loginvia_joki,
+                'nickname_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->nickname_joki : '-',
+                'request_joki' => $request->ktg_tipe !== 'jokigendong' ? $request->request_joki : '-',
+                'catatan_joki' => $request->catatan_joki,
+
+                'tglmain_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->tglmain_joki,
+                'jambooking_joki' => $request->ktg_tipe !== 'jokigendong' ? '-' : $request->jambooking_joki,
+                'qty' => $request->qty ?? 1,
+                'status_joki' => $order_status == 'Proses' ? 'Proses' : 'Pending', // Sync with order status
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
         }
     }
 }

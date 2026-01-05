@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Kelola Kategori
+    {{ $config->judul_web }} - Kelola Kategori
 @endsection
 @section('css')
     <style>

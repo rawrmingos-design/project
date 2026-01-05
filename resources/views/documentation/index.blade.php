@@ -51,9 +51,9 @@
                         class="inline-flex items-center border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary text-primary-foreground hover:bg-primary/80 rounded-md"
                     >
                     </div>
-                    <h1 class="pt-4 text-xl font-semibold uppercase">Documentation API {{ ENV('APP_NAME') }}</h1>
+                    <h1 class="pt-4 text-xl font-semibold uppercase">Documentation API {{ $config->judul_web }}</h1>
 <p class="pt-2 text-sm font-medium">
-    Selamat datang di dokumentasi integrasi API {{ ENV('APP_NAME') }}. Panduan ini akan membantu Anda memahami cara mengintegrasikan layanan kami dengan mudah dan efisien.
+    Selamat datang di dokumentasi integrasi API {{ $config->judul_web }}. Panduan ini akan membantu Anda memahami cara mengintegrasikan layanan kami dengan mudah dan efisien.
 </p>
 
                 </div>
@@ -67,10 +67,10 @@
 <div class="max-w-3xl">
     <h2 class="text-lg font-semibold">Authorization</h2>
     <p class="pt-2 text-sm font-medium">
-        - TOKEN API dapat diperoleh dari Administrator {{ ENV('APP_NAME') }} untuk memverifikasi identitas Anda.
+        - TOKEN API dapat diperoleh dari Administrator {{ $config->judul_web }} untuk memverifikasi identitas Anda.
     </p>
     <p class="pt-2 text-sm font-medium">
-        - Untuk menambahkan IP SERVER ke whitelist, silakan hubungi Administrator {{ ENV('APP_NAME') }}.
+        - Untuk menambahkan IP SERVER ke whitelist, silakan hubungi Administrator {{ $config->judul_web }}.
     </p>
 </div>
 
@@ -155,7 +155,7 @@
         <div>&nbsp;&nbsp;<span class="json-key">"code"</span>: <span class="json-number">200</span>,</div>
         <div>&nbsp;&nbsp;<span class="json-key">"message"</span>: <span class="json-string">"Success"</span>,</div>
         <div>&nbsp;&nbsp;<span class="json-key">"data"</span>: {</div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"name"</span>: <span class="json-string">"{{ ENV('APP_NAME') }}"</span>,</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"name"</span>: <span class="json-string">"{{ $config->judul_web }}"</span>,</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"telp"</span>: <span class="json-string">"62xxxxxx"</span>,</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"email"</span>: <span class="json-string">"fahmiaksannugroho@gmail.com"</span>,</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"membership"</span>: <span class="json-string">"Gold"</span>,</div>

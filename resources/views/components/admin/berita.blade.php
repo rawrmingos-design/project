@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Sliders
+    {{ $config->judul_web }} - Sliders
 @endsection
 @section('css')
     <style>

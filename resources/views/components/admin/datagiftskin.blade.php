@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Pesanan Gift Skin
+    {{ $config->judul_web }} - Pesanan Gift Skin
 @endsection
 @section('css')
     <style>

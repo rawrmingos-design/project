@@ -1,5 +1,5 @@
 @extends('layouts.master')
-@section('title') {{ ENV('APP_NAME') }} - Dashboard Admin @endsection
+@section('title') {{ $config->judul_web }} - Dashboard Admin @endsection
 @section('css')
     <link href="{{ URL::asset('assets/admin/libs/aos/aos.css') }}" rel="stylesheet">
 

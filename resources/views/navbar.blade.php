@@ -57,10 +57,10 @@
 <div class="container flex h-16 items-center justify-between gap-4">
             <div class="flex items-center justify-start">
                 <a href="/" style="outline:none">
-                    <span class="sr-only">{{ env('APP_NAME') }}.</span>
+                    <span class="sr-only">{{ $config->judul_web }}.</span>
                 <a href="/" style="outline:none">
-                    <span class="sr-only">{{ env('APP_NAME') }}.</span>
-                <img alt="{{ env('APP_NAME') }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ !$config ? '' : $config->logo_header }}" style="color:transparent"></a>
+                    <span class="sr-only">{{ $config->judul_web }}.</span>
+                <img alt="{{ $config->judul_web }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ !$config ? '' : $config->logo_header }}" style="color:transparent"></a>
             </div>
             <div class="flex flex-1 items-center justify-end gap-2">
                 <div class="relative w-full hidden md:flex">
@@ -174,7 +174,7 @@
                                  <div class="px-4 py-3" role="none">
                             <p class="text-sm" role="none">Telah masuk sebagai</p>
                             <p class="truncate text-sm font-medium text-white" role="none">
-                                {{Str::title(Auth()->user()->name)}}
+                                {{Str::title(Auth()->user()->username)}}
                             </p>
                         </div>
                                 <div class="py-1" role="none">
@@ -441,7 +441,7 @@
                                  <div class="px-4 py-3" role="none">
                             <p class="text-sm" role="none">Telah masuk sebagai</p>
                             <p class="truncate text-sm font-medium text-white" role="none">
-                                {{Str::title(Auth()->user()->name)}}
+                                {{Str::title(Auth()->user()->username)}}
                             </p>
                         </div>
                                 <div class="py-1" role="none">
@@ -544,8 +544,8 @@
                         <button type="button" class="absolute right-4 top-4 rounded-lg opacity-70 ring-offset-white transition-opacity hover:opacity-100  focus:outline-none disabled:pointer-events-none data-[state=open]:bg-slate-100 dark:data-[state=open]:bg-slate-800 text-red-500 text-2xl bg-primary-500 p-1.5"  @click="open = false" x-ref="closeButton" :class="{'focus:outline-none': !usedKeyboard}" tabindex="0"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x h-4 w-4"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg><span class="sr-only">Close</span></button>
                         <div class="flex">
                             <a href="/" style="outline: none;">
-                                <span class="sr-only"> {{ env('APP_NAME') }}.</span>
-                                <img src="{{ !$config ? '' : $config->logo_header }}"  class="h-7 w-auto" width="100" height="43" style="color: transparent;" alt="{{ env('APP_NAME') }}." />
+                                <span class="sr-only"> {{ $config->judul_web }}.</span>
+                                <img src="{{ !$config ? '' : $config->logo_header }}"  class="h-7 w-auto" width="100" height="43" style="color: transparent;" alt="{{ $config->judul_web }}." />
                             </a>
                         </div>
                     </div>

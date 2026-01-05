@@ -50,7 +50,7 @@
 		<div class="absolute inset-0 z-10 bg-transparent">
 		</div>
 			<div class="container relative z-20 py-12 ">
-			     <img src="{{url('')}}{{ !$config ? '' : $config->logo_header }}" width="100" height="100" class="mx-auto h-32 w-auto" style="color: transparent;" alt="{{ env('APP_NAME') }}"/>
+			     <img src="{{url('')}}{{ !$config ? '' : $config->logo_header }}" width="100" height="100" class="mx-auto h-32 w-auto" style="color: transparent;" alt="{{ $config->judul_web }}"/>
 			<h2 class="mx-auto max-w-2xl text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">Leaderboard!</h2>
                         <div class="mt-6 mx-auto max-w-2xl text-center">    <span class="text-baser">Reseller, saatnya jadi juara! Raih posisi Top 10 di leaderboard Top Up sebanyak mungkin dan dapatkan hadiah menarik! Tingkatkan penjualanmu sekarang!</span></div>
             </div>

@@ -16,7 +16,7 @@ class DigiflazzCallbackController extends Controller
 
     public function handle(Request $request)
     {
-        $secret = 'WEJIDEV';
+        $secret = 'WEJIZYSEC18';
         $post_data = file_get_contents('php://input');
         $signature = hash_hmac('sha1', $post_data, $secret);
 

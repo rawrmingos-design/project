@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Semua Pesanan
+    {{ $config->judul_web }} - Semua Pesanan
 @endsection
 @section('css')
 <style>

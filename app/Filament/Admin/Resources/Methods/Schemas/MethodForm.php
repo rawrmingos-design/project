@@ -39,6 +39,7 @@ class MethodForm
                                 'qris' => 'QRIS',
                                 'virtual-account' => 'Virtual Account',
                                 'convenience-store' => 'Convenience Store',
+                                'SALDO' => 'Saldo',
                             ])
                             ->required(),
                             
@@ -91,7 +92,7 @@ class MethodForm
                                 'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
                             ])
                             ->disk('assets')
-                            ->directory('payment')
+                            ->directory('assets/payment')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->loadingIndicatorPosition('left')

@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Get Produk
+    {{ $config->judul_web }} - Get Produk
 @endsection
 @section('css')
     <style>

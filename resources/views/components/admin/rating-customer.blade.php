@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Kelola Rating
+    {{ $config->judul_web }} - Kelola Rating
 @endsection
 @section('css')
     <style>

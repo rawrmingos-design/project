@@ -6,15 +6,15 @@
 <div class="container pt-4 md:mx-auto md:pt-16">
     <div class="rounded-md bg-murky-700 p-8 shadow-lg">
         <div class="flex flex-col gap-4">
-            <div class="text-xl"><h1>Privacy Policy for {{ ENV('APP_NAME') }}</h1></div>
+            <div class="text-xl"><h1>Privacy Policy for {{ $config->judul_web }}</h1></div>
             <div class="flex flex-col gap-1">
                 <p class="text-xs">
-                    At {{ ENV('APP_NAME') }}, accessible from  {{ ENV('APP_URL') }}, one of our main priorities is the privacy of our visitors. This Privacy Policy document contains types of information that is collected and recorded by {{ ENV('APP_NAME') }}
+                    At {{ $config->judul_web }}, accessible from  {{ ENV('APP_URL') }}, one of our main priorities is the privacy of our visitors. This Privacy Policy document contains types of information that is collected and recorded by {{ $config->judul_web }}
                     and how we use it.
                 </p>
                 <p class="text-xs">If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us.</p>
                 <p class="text-xs">
-                    This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in {{ ENV('APP_NAME') }}. This policy is not applicable to any
+                    This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in {{ $config->judul_web }}. This policy is not applicable to any
                     information collected offline or via channels other than this website. Our Privacy Policy was created with the help of the
                     <a class="text-primary-500" href="https://www.privacypolicyonline.com/privacy-policy-generator/">Online Generator of Privacy Policy</a>.
                 </p>
@@ -43,13 +43,13 @@
                 </ul>
                 <h2 class="mt-4 underline underline-offset-2">Log Files</h2>
                 <p class="text-xs">
-                    {{ ENV('APP_NAME') }} follows a standard procedure of using log files. These files log visitors when they visit websites. All hosting companies do this and a part of hosting services' analytics. The information collected by log
+                    {{ $config->judul_web }} follows a standard procedure of using log files. These files log visitors when they visit websites. All hosting companies do this and a part of hosting services' analytics. The information collected by log
                     files include internet protocol (IP) addresses, browser type, Internet Service Provider (ISP), date and time stamp, referring/exit pages, and possibly the number of clicks. These are not linked to any information that is
                     personally identifiable. The purpose of the information is for analyzing trends, administering the site, tracking users' movement on the website, and gathering demographic information.
                 </p>
                 <h2 class="mt-4 underline underline-offset-2">Cookies and Web Beacons</h2>
                 <p class="text-xs">
-                    Like any other website, {{ ENV('APP_NAME') }} uses 'cookies'. These cookies are used to store information including visitors' preferences, and the pages on the website that the visitor accessed or visited. The information is used to
+                    Like any other website, {{ $config->judul_web }} uses 'cookies'. These cookies are used to store information including visitors' preferences, and the pages on the website that the visitor accessed or visited. The information is used to
                     optimize the users' experience by customizing our web page content based on visitors' browser type and/or other information.
                 </p>
                 <p class="text-xs">For more general information on cookies, please read <a href="https://www.privacypolicyonline.com/what-are-cookies/">'What Are Cookies' from Cookie Consent</a>.</p>

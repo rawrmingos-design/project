@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Paket Layanan
+    {{ $config->judul_web }} - Paket Layanan
 @endsection
 @section('css')
     <style>

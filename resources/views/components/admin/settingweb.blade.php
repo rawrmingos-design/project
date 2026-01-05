@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Settings Web
+    {{ $config->judul_web }} - Settings Web
 @endsection
 @section('css')
     <style>
