@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Payment
+    {{ $config->judul_web }} - Payment
 @endsection
 @section('css')
     <style>

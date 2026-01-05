@@ -5,19 +5,19 @@
         <!-- Dark Logo-->
         <a href="{{ url('/') }}" target="_blank" class="logo logo-dark">
             <span class="logo-sm">
-                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ env('APP_NAME') }}" height="22">
+                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ $config->judul_web }}" height="22">
             </span>
             <span class="logo-lg">
-                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ env('APP_NAME') }}" height="22">17">
+                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ $config->judul_web }}" height="22">17">
             </span>
         </a>
         <!-- Light Logo-->
         <a href="{{ url('/') }}" target="_blank" class="logo logo-light">
             <span class="logo-sm">
-                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ env('APP_NAME') }}" height="22">
+                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ $config->judul_web }}" height="22">
             </span>
             <span class="logo-lg">
-                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ env('APP_NAME') }}" height="22">17">
+                <img src="{{ !$config ? '' : $config->logo_header }}" alt="{{ $config->judul_web }}" height="22">17">
             </span>
         </a>
         <button type="button" class="btn btn-sm p-0 fs-20 header-item float-end btn-vertical-sm-hover" id="vertical-hover">
@@ -29,7 +29,7 @@
         <button type="button" class="btn material-shadow-none" id="page-header-user-dropdown" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false">
             <span class="d-flex align-items-center gap-2">
-                <img class="rounded header-profile-user" src="assets/admin/images/users/avatar-1.jpg" alt="{{ env('APP_NAME') }}" height="22"> }}">
+                <img class="rounded header-profile-user" src="assets/admin/images/users/avatar-1.jpg" alt="{{ $config->judul_web }}" height="22"> }}">
                 <span class="text-start">
                     <span class="d-block fw-medium sidebar-user-name-text">{{ Str::title(Auth()->user()->username) }}</span>
                     <span class="d-block fs-14 sidebar-user-name-sub-text"><i

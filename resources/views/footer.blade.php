@@ -3,7 +3,7 @@
  .rounded-\[9999px\], .rounded-full { border-radius: 9999px; } .w-1\/4 { width: 25%; } .h-1 { height: .25rem; } .bg-murky-9000 { --tw-bg-opacity: 1; background-color: #28282A; } .hover\:animate-bounce:hover { animation: bounce 1s; } .to-secondary { --tw-gradient-to: #3f3f3f; } .from-70\% { --tw-gradient-from-position: 70%; } .from-transparent { --tw-gradient-from: transparent var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); } .bg-gradient-to-b { position: relative; background-image: linear-gradient(to bottom, var(--tw-gradient-stops)); } .bg-gradient-to-b::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; filter: blur(0px); z-index: 1; } .mt-12 { margin-top: 3rem; } .overlay-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; color: white; font-size: 2rem; } .text-followus-foreground { color: #fffdfd; } .text-xl { font-size: 1.25rem; line-height: 1.75rem; } .bg-followus-background { background-color: #737373; } .rounded-full { border-radius: 9999px; } .justify-center { justify-content: center; } .items-center { align-items: center; } .w-11 { width: 2.75rem; } .h-11 { height: 2.75rem; } .mb-mp { margin-bottom: 4rem; } 
 
         </style>
-        <div class="mt-12 bg-gradient-to-b from-transparent from-70% to-secondary"><div class="overlay-content"></div><img src="{{ !$config ? '' : $config->logo_footer }}" alt="{{ env('APP_NAME') }}" width="100" style="width: 100%; height: auto;" class="object-cover object-bottom"></div>
+        <div class="mt-12 bg-gradient-to-b from-transparent from-70% to-secondary"><div class="overlay-content"></div><img src="{{ !$config ? '' : $config->logo_footer }}" alt="{{ $config->judul_web }}" width="100" style="width: 100%; height: auto;" class="object-cover object-bottom"></div>
 <footer class="bg-murky-9000 text-text-color " >
     
     <h2 id="footer-heading" class="sr-only">Footer</h2>
@@ -82,8 +82,8 @@
             </div>
         </div>
         <div class="mt-16 border-t border-bg-color pt-8 sm:mt-20 lg:mt-24 text-center">
-            <p class="text-xs leading-5 text-text-color">© {{ date("Y") }} {{ ENV('APP_NAME') }}. All rights reserved.</p>
-            <p class="text-xs leading-5 text-text-color">IMHAF.</p></div>
+            <p class="text-xs leading-5 text-text-color">© {{ date("Y") }} {{ $config->judul_web }}. All rights reserved.</p>
+            <p class="text-xs leading-5 text-text-color">{{ $config->judul_web }}.</p></div>
     </div>
 </footer>
 
@@ -114,7 +114,7 @@
         <path d="M4 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z"></path>
         <path d="M15 14a2 2 0 0 1 2 -2h1a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-1a2 2 0 0 1 -2 -2v-3z"></path>
     </svg>
-    <span class="hidden text-xs font-medium md:inline">CS {{ ENV('APP_NAME') }}</span>
+    <span class="hidden text-xs font-medium md:inline">CS {{ $config->judul_web }}</span>
 </a>
 
 <!-- Customer Service Chat End -->

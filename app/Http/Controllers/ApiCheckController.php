@@ -92,8 +92,8 @@ class ApiCheckController extends Controller
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         // Tambahkan timeout agar tidak menunggu terlalu lama
-        curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 5 ); // 5 detik timeout koneksi
-        curl_setopt( $ch, CURLOPT_TIMEOUT, 10 ); // 10 detik timeout total
+        curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT, 3 ); // 3 detik timeout koneksi
+        curl_setopt( $ch, CURLOPT_TIMEOUT, 5 ); // 5 detik timeout total
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Content-Length: ' . strlen($jsonData)

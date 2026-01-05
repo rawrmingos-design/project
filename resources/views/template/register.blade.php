@@ -17,7 +17,7 @@
     <main class="relative">
         <div id="app">
             <div class="relative min-h-screen grid grid-cols-1 md:grid-cols-2 items-center justify-center ">
-                <div class="relative col-span-1 hidden md:block"><img alt="{{ env('APP_NAME') }}" src="{{ URL::asset('assets/image/register.jpg')}}" loading="lazy" decoding="async" class="object-cover object-center w-full h-screen" />
+                <div class="relative col-span-1 hidden md:block"><img alt="{{ $config->judul_web }}" src="{{ URL::asset('assets/image/register.jpg')}}" loading="lazy" decoding="async" class="object-cover object-center w-full h-screen" />
                     <div class="absolute inset-0 "></div>
                 </div>
                 <div class="z-20 w-full col-span-1 px-4">

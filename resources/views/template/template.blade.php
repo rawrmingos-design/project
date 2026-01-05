@@ -14,7 +14,7 @@
     <meta name="title" content="{{ !$config ? '' : $config->judul_web }}">
     <meta name="keywords" content="{{ !$config ? '' : $config->keywords }}">
     <meta name="description" content="{{ !$config ? '' : $config->deskripsi_web }}">
-    <meta name="author" content="{{ env('APP_NAME') }}">
+    <meta name="author" content="{{ $config->judul_web }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{url('')}}">
     

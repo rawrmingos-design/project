@@ -500,7 +500,7 @@
                             
                             <!-- Gunakan x-html untuk menampilkan HTML mentah dari deskripsi -->
                             <div class="prose prose-sm px-4 pb-4 text-xs text-white">
-                                <p class="text-center" x-html="{!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars(ENV('APP_NAME'), ENT_QUOTES, 'UTF-8') . ' Selamat berbelanja.' !!}"></p>
+                                <p class="text-center" x-html="{!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars($config->judul_web , ENT_QUOTES, 'UTF-8') . ' Selamat berbelanja.' !!}"></p>
                             </div>
 
                             <div class="flex w-full items-center justify-start px-4 pb-2">

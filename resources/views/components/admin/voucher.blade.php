@@ -1,6 +1,6 @@
 @extends('layouts.master')
 @section('title')
-    {{ ENV('APP_NAME') }} - Manage Vouchers
+    {{ $config->judul_web }} - Manage Vouchers
 @endsection
 @section('css')
     <style>

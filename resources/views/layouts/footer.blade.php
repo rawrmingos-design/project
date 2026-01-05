@@ -2,11 +2,11 @@
     <div class="container-fluid">
         <div class="row">
             <div class="col-sm-6">
-                <script>document.write(new Date().getFullYear())</script> © IMHAF.
+                <script>document.write(new Date().getFullYear())</script> © {{ $config->judul_web }}.
             </div>
             <div class="col-sm-6">
                 <div class="text-sm-end d-none d-sm-block">
-                    Develop by IMHAF. All rights reserved.
+                    Develop by {{ $config->judul_web }}. All rights reserved.
                 </div>
             </div>
         </div>

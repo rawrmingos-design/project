@@ -167,7 +167,7 @@ table {
                             GET (H2H). Silahkan baca <a href="/id/docs"
                                 class="font-semibold underline decoration-primary-500 underline-offset-2" target="_blank"
                                 rel="noopener noreferrer" style="outline: none;">Dokumentasi</a> untuk
-                            memulai integrasi dengan {{ ENV('APP_NAME') }}. </p>
+                            memulai integrasi dengan {{ $config->judul_web }}. </p>
                     </div>
                 </div>
             </div>
