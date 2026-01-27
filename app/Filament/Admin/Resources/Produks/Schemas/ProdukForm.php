@@ -11,6 +11,8 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Grid;
 use App\Models\Kategori;
 
 class ProdukForm
@@ -225,6 +227,61 @@ class ProdukForm
                     ->columnSpan(3)
                     ->collapsible(),
                     
+
+                Section::make('Multi-Provider Sources')
+                    ->description('Atur sumber provider untuk layanan ini. Sistem akan otomatis memilih harga termurah & status available dari list ini.')
+                    ->schema([
+                        Repeater::make('provider_paths')
+                            ->relationship()
+                            ->label('Provider Sources')
+                            ->schema([
+                                Select::make('provider_code')
+                                    ->label('Provider')
+                                    ->options([
+                                        'digiflazz' => 'Digiflazz',
+                                        'bangjeff' => 'BangJeff',
+                                        'vip' => 'VIP Reseller',
+                                        'apigames' => 'API Games',
+                                        'manual' => 'Manual / Joki',
+                                    ])
+                                    ->required(),
+
+                                TextInput::make('provider_sku')
+                                    ->label('Kode SKU Provider')
+                                    ->required(),
+
+                                TextInput::make('modal_price')
+                                    ->label('Harga Modal')
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->default(0)
+                                    ->required(),
+                                    
+                                TextInput::make('priority')
+                                    ->label('Prioritas')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->helperText('1 = Utama'),
+                                    
+                                Select::make('status')
+                                    ->options([
+                                        'available' => 'Available',
+                                        'empty' => 'Kosong',
+                                        'maintenance' => 'Gangguan',
+                                        'error' => 'Error',
+                                    ])
+                                    ->default('available')
+                                    ->required()
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(4)
+                            ->defaultItems(0)
+                            ->reorderableWithButtons()
+                            ->collapsible()
+                            ->itemLabel(fn (array $state): ?string => ($state['provider_code'] ?? '') . ' - ' . ($state['provider_sku'] ?? '')),
+                    ]),
+
                 Section::make('Additional Information')
                     ->schema([
                         Textarea::make('catatan')

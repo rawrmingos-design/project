@@ -11,16 +11,20 @@ class TokoPayController extends Controller
 {
 
     private $apiUrl;
+    private $merchantId;
+    private $secretKey;
 
     public function __construct()
     {
         $this->apiUrl = 'https://api.tokopay.id';
+        $api = \DB::table('setting_webs')->where('id', 1)->first();
+        $this->merchantId = $api->tokopay_merchant_id;
+        $this->secretKey = $api->tokopay_secret_key;
     }
     
     public function createAdvanceOrder($ref_id, $channel, $jumlah, $nickname, $phone_number, $service){
-        $api = \DB::table('setting_webs')->where('id',1)->first();
-        $merchantid = $api->tokopay_merchant_id;
-        $secretkey = $api->tokopay_secret_key;
+        $merchantid = $this->merchantId;
+        $secretkey = $this->secretKey;
         
         $formula = $merchantid . ":" . $secretkey . ":" . $ref_id;
         $signatureTrx = md5($formula);
@@ -69,9 +73,8 @@ class TokoPayController extends Controller
     
      public function createOrder($nominal, $refId, $kodeChannel)
     {
-        $api = \DB::table('setting_webs')->where('id',1)->first();
-        $mid = $api->tokopay_merchant_id;
-        $secret = $api->tokopay_secret_key;
+        $mid = $this->merchantId;
+        $secret = $this->secretKey;
         
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -94,9 +97,8 @@ class TokoPayController extends Controller
     
        public function akun()
     {
-        $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $merchantId = $api->tokopay_merchant_id;
-        $secretKey = $api->tokopay_secret_key;
+        $merchantId = $this->merchantId;
+        $secretKey = $this->secretKey;
     
         $signature = md5($merchantId . ":" . $secretKey);
         $url = $this->apiUrl . "/v1/merchant/balance?merchant={$merchantId}&signature={$signature}";
@@ -126,9 +128,8 @@ class TokoPayController extends Controller
     
     public function tarikSaldo(Request $request)
     {
-        $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $merchantid = $api->tokopay_merchant_id;
-        $secretkey = $api->tokopay_secret_key;
+        $merchantid = $this->merchantId;
+        $secretkey = $this->secretKey;
         $nominal = $request->input('nominal');
         $signature = md5($merchantid . ":" . $secretkey . ":" . $nominal);
     

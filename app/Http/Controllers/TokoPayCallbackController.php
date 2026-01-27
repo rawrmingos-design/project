@@ -140,94 +140,96 @@ class TokoPayCallbackController extends Controller
                             ]);
                         }
                     } else {
-                        if ($dataLayanan->provider == "digiflazz") {
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'REF-WEJIZY' . $random_part;
-                        $digiFlazz = new digiFlazzController;
-                        $order = $digiFlazz->order($uid, $zone, $provider_id, $provider_order_id);
-                    
-                        if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
-                            $order['data']['status'] = true;
-                            $order['transactionId'] = $provider_order_id;
+                        // START Multi-Provider Integration
+                        $routingService = new \App\Services\ProviderRoutingService();
+                        $bestRoute = $routingService->findBestProvider($dataLayanan);
+
+                        if (!$bestRoute) {
+                            $order['data']['status'] = false;
+                            \Log::error("TokoPay Callback: No provider found for Layanan {$dataLayanan->layanan}");
                         } else {
-                            $order['data']['status'] = false;
-                        }
-                        } else if($dataLayanan->provider == "vip"){
-                    $vip = new VipResellerController;
-                    $order = $vip->order($uid, $zone, $provider_id);
-                    
-                    if($order['result']){
-                        $order['data']['status'] = $order['result'];
-                        $order['transactionId'] = $order['data']['trxid'];
-                    }else{
-                        $order['data']['status'] = false;
-                    }
-                } elseif ($dataLayanan->provider == "topupedia") {
-                            $topupedia = new TopupediaController;
+                            $providerCode = $bestRoute['provider_code'];
+                            $sku = $bestRoute['sku'];
+                            $credentials = $bestRoute['credentials'] ?? [];
                             
-                            $ttlpembelian = [
-                                [
-                                    "name" => "id",
-                                    "value" => $dataPembeli->user_id
-                                ]
-                            ];
-                        
-                            if ($dataPembeli->zone != null) {
-                                $ttlpembelian[] = [
-                                    "name" => "server",
-                                    "value" => $dataPembeli->zone
-                                ];
-                            }
+                            \Log::info("TokoPay Callback routed to $providerCode with SKU $sku");
+
+                            if ($providerCode == "digiflazz") {
+                                $random_part = mt_rand(100000, 999999);
+                                $provider_order_id = 'REF-WEJIZY' . $random_part;
+                                $digiFlazz = new digiFlazzController($credentials);
+                                $order = $digiFlazz->order($uid, $zone, $sku, $provider_order_id);
                             
-                            $order = $topupedia->order($provider_id, $order_id, 1, $ttlpembelian);
-                        
-                            if ($order['error'] == false) {
-                                $order['transactionId'] = $order['data']['invoiceNumber'];
+                                if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
+                                    $order['data']['status'] = true;
+                                    $order['transactionId'] = $provider_order_id;
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } else if ($providerCode == "vip" || $providerCode == "vip_reseller") {
+                                $vip = new VipResellerController($credentials);
+                                $order = $vip->order($uid, $zone, $sku);
+                                
+                                if ($order['result']) {
+                                    $order['data']['status'] = true;
+                                    $order['transactionId'] = $order['data']['trxid'];
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } elseif ($providerCode == "apigames") {
+                                // ApiGames logic from TriPay pattern (missing in original TokoPay callback but good to add if supported)
+                                $provider_order_id = rand(1, 10000);
+                                $apigames = new ApigamesController($credentials);
+                                $order = $apigames->order($uid, $zone, $sku, $provider_order_id);
+
+                                if ($order['data']['status'] == "Sukses") {
+                                    $order['transactionId'] = $provider_order_id;
+                                    $order['data']['status'] = true;
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } elseif ($providerCode == "topupedia") {
+                                $topupedia = new TopupediaController($credentials);
+                                $ttlpembelian = [['name' => 'id', 'value' => $uid]];
+                                if ($zone != null) $ttlpembelian[] = ['name' => 'server', 'value' => $zone];
+                                
+                                $order = $topupedia->order($sku, $order_id, 1, $ttlpembelian);
+                                if ($order['error'] == false) {
+                                    $order['transactionId'] = $order['data']['invoiceNumber'];
+                                    $order['data']['status'] = true;
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } elseif ($providerCode == "bangjeff") {
+                                $bangjef = new BangjeffController($credentials);
+                                $ttlpembelian = [['name' => 'id', 'value' => $uid]];
+                                if ($zone != null) $ttlpembelian[] = ['name' => 'server', 'value' => $zone];
+                                
+                                $order = $bangjef->order($sku, $order_id, 1, $ttlpembelian);
+                                if ($order['error'] == false) {
+                                    $order['transactionId'] = $order['data']['invoiceNumber'];
+                                    $order['data']['status'] = true;
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } elseif ($providerCode == "moogold") {
+                                $moo = new MoogoldController();
+                                $random_part = mt_rand(100000, 999999);
+                                $provider_order_id = 'WEJIZY-REFF' . $random_part;
+                                $order = $moo->order($uid, $sku, $provider_order_id, $zone);
+                                \Log::info('callback moogold', $order);
+                                if(isset($order['status'])){ // Corrected check from OrderController
+                                    $order['transactionId'] = $order['order_id'];
+                                    $order['data']['status'] = true;
+                                } else {
+                                    $order['data']['status'] = false;
+                                }
+                            } elseif (in_array($providerCode, ["joki", "jokigendong", "vilogml", "manual"])) {
+                                $provider_order_id = '';
                                 $order['data']['status'] = true;
-                            } else {
-                                $order['data']['status'] = false;
                             }
-                        } elseif ($dataLayanan->provider == "bangjeff") {
-                            $bangjef = new BangjeffController;
-                            
-                            $ttlpembelian = [
-                                [
-                                    "name" => "id",
-                                    "value" => $dataPembeli->user_id
-                                ]
-                            ];
-                        
-                            if ($dataPembeli->zone != null) {
-                                $ttlpembelian[] = [
-                                    "name" => "server",
-                                    "value" => $dataPembeli->zone
-                                ];
-                            }
-                            
-                            $order = $bangjef->order($provider_id, $order_id, 1, $ttlpembelian);
-                        
-                            if ($order['error'] == false) {
-                                $order['transactionId'] = $order['data']['invoiceNumber'];
-                                $order['data']['status'] = true;
-                            } else {
-                                $order['data']['status'] = false;
-                            }
-                        } else if ($dataLayanan->provider == "moogold") {
-                        $moo = new MoogoldController();
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'WEJIZY-REFF' . $random_part;
-                        $order = $moo->order($user_id, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback moogold', $order);
-                        if(isset($order['data']['status'])){
-                            $provider_order_id = $order['order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
                         }
-                    } elseif ($dataLayanan->provider == "joki" || $dataLayanan->provider == "jokigendong" || $dataLayanan->provider == "vilogml") {
-                            $provider_order_id = '';
-                            $order['data']['status'] = true;
-                        }
+                        // END Multi-Provider Integration
 
 
                         if ($order['data']['status']) {

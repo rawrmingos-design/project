@@ -867,14 +867,28 @@ class OrderController extends Controller
             
             if ($dataMethod->payment == "tokopay") {
                 $tokopay = new TokoPayController();
-                $res = $tokopay->createOrder($amount, $order_id, $request->payment_method);
-                if ($res['status'] == 'Success') {
+                // Parameters: $ref_id, $channel, $jumlah, $nickname, $phone_number, $service
+                $res = $tokopay->createAdvanceOrder(
+                    $order_id, 
+                    $request->payment_method, 
+                    $amount, 
+                    $request->nickname ?? 'Guest', 
+                    $request->nomor, 
+                    $dataLayanan->layanan
+                );
+                
+                if (isset($res['status']) && $res['status'] == 'Success') {
                     $gatewayResult = [
                         'status' => true,
+                        // Advance order checks for different fields? 
+                        // Docs say: checkout_url, or other fields.
+                        // Existing code checks: nomor_va, qr_link, checkout_url, pay_url
                         'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'],
                         'reference' => $res['data']['trx_id'],
                         'amount' => $res['data']['total_bayar']
                     ];
+                } else {
+                     $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';
                 }
             } else if ($dataMethod->payment == "tripay") {
                 $tripay = new TriPayController();
@@ -1128,18 +1142,39 @@ class OrderController extends Controller
         $status = false;
         $order = [];
 
+        // Use ProviderRoutingService to find best provider
+        $routingService = new \App\Services\ProviderRoutingService();
+        $bestRoute = $routingService->findBestProvider($dataLayanan);
+
+        if (!$bestRoute) {
+            Log::error("No provider found for Layanan ID: {$dataLayanan->id}");
+            return [
+                'status' => false,
+                'provider_order_id' => '',
+                'order_data' => ['message' => 'Layanan sedang gangguan (No Provider)']
+            ];
+        }
+
+        $providerCode = $bestRoute['provider_code'];
+        $sku = $bestRoute['sku'];
+        
+        // Record which provider was used for this transaction
+        Log::info("Order $order_id routed to $providerCode with SKU $sku");
+
+        $credentials = $bestRoute['credentials'] ?? [];
+
         try {
-            switch ($dataLayanan->provider) {
+            switch ($providerCode) {
                 case "digiflazz":
-                    $digi = new digiFlazzController;
-                    $order = $digi->order($request->uid, $request->zone, $dataLayanan->provider_id, $order_id);
+                    $digi = new digiFlazzController($credentials);
+                    $order = $digi->order($request->uid, $request->zone, $sku, $order_id);
                     $status = in_array($order['data']['status'], ["Pending", "Sukses"]);
                     Log::info('Digiflazz Order: ', ['order' => $order, 'status' => $status]);
                     break;
 
                 case "apigames":
-                    $apigames = new ApiGamesController;
-                    $order = $apigames->order($request->uid, $request->zone, $dataLayanan->provider_id, $order_id);
+                    $apigames = new ApiGamesController($credentials);
+                    $order = $apigames->order($request->uid, $request->zone, $sku, $order_id);
                     if ($order['data']['status'] == "Sukses") {
                         $order['transactionId'] = $order_id;
                         $status = true;
@@ -1147,8 +1182,9 @@ class OrderController extends Controller
                     break;
 
                 case "vip":
-                    $vip = new VipResellerController;
-                    $order = $vip->order($request->uid, $request->zone, $dataLayanan->provider_id);
+                case "vip_reseller": // Handle alias
+                    $vip = new VipResellerController($credentials);
+                    $order = $vip->order($request->uid, $request->zone, $sku);
                     if ($order['result']) {
                         $status = true;
                         $provider_order_id = $order['data']['trxid'];
@@ -1156,11 +1192,11 @@ class OrderController extends Controller
                     break;
 
                 case "bangjeff":
-                    $bangjeffo = new BangJeffController;
+                    $bangjeffo = new BangJeffController($credentials);
                     $requestData = [['name' => 'ID', 'value' => $request->uid]];
                     if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
                     
-                    $order = $bangjeffo->order($dataLayanan->provider_id, $order_id, 1, $requestData);
+                    $order = $bangjeffo->order($sku, $order_id, 1, $requestData);
                     if ($order['error'] == false) {
                         $provider_order_id = $order['data']['invoiceNumber'];
                         $status = true;
@@ -1168,11 +1204,11 @@ class OrderController extends Controller
                     break;
 
                 case "topupedia":
-                    $topupedia = new TopupediaController;
+                    $topupedia = new TopupediaController($credentials);
                     $requestData = [['name' => 'ID', 'value' => $request->uid]];
                     if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
                     
-                    $order = $topupedia->order($dataLayanan->provider_id, $order_id, 1, $requestData);
+                    $order = $topupedia->order($sku, $order_id, 1, $requestData);
                     if ($order['error'] == false) {
                         $provider_order_id = $order['data']['invoiceNumber'];
                         $status = true;
@@ -1182,7 +1218,7 @@ class OrderController extends Controller
                 case "moogold":
                     $moo = new MoogoldController();
                     $provider_order_id = 'WEJIZY-MG' . mt_rand(100000, 999999);
-                    $order = $moo->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    $order = $moo->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['status'])) {
                         $provider_order_id = $order['order_id'];
                         $status = true;
@@ -1192,7 +1228,7 @@ class OrderController extends Controller
                 case "gameshop":
                     $gameshop = new GameShopProvider;
                     $provider_order_id = 'WEJIZY-GS' . mt_rand(100000, 999999);
-                    $order = $gameshop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    $order = $gameshop->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['data']['order_no'])) {
                         $provider_order_id = $order['data']['order_no'];
                         $status = true;
@@ -1202,7 +1238,7 @@ class OrderController extends Controller
                 case "strleyashop":
                     $strleyashop = new StrleyaShopProvider;
                     $provider_order_id = 'WEJIZY-SS' . mt_rand(100000, 999999);
-                    $order = $strleyashop->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    $order = $strleyashop->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['order_details']['bot_order_id'])) {
                         $provider_order_id = $order['order_details']['bot_order_id'];
                         $status = true;
@@ -1212,7 +1248,7 @@ class OrderController extends Controller
                 case "yezzpay":
                     $yezzpay = new YezzpayProvider;
                     $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                    $order = $yezzpay->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    $order = $yezzpay->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['data']['trx_id'])) {
                         $status = true;
                     }
@@ -1221,7 +1257,7 @@ class OrderController extends Controller
                 case "elitedias":
                     $elitedias = new EliteDiasProvider;
                     $provider_order_id = 'WEJIZY-ED' . mt_rand(100000, 999999);
-                    $order = $elitedias->order($request->uid, $dataLayanan->provider_id, $provider_order_id, $request->zone);
+                    $order = $elitedias->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['order_id'])) {
                         $provider_order_id = $order['order_id'];
                         $status = true;
@@ -1231,7 +1267,13 @@ class OrderController extends Controller
                 case "joki":
                 case "jokigendong":
                 case "vilogml":
+                case "manual": // Add manual case
                     $status = true;
+                    break;
+                
+                default:
+                    Log::warning("Provider unknown or unhandled: $providerCode");
+                    $status = false;
                     break;
             }
         } catch (\Exception $e) {

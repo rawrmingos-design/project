@@ -25,4 +25,8 @@ class Layanan extends Model
         // Usually it's id. But original store method often fetched layanan name.
         // Let's check Pembelian.
     }
+    public function provider_paths()
+    {
+        return $this->hasMany(ProviderPath::class);
+    }
 }

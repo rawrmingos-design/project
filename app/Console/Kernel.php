@@ -19,9 +19,11 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         
-          $schedule->command('moogold:cek-status')->everyMinute();
+         $schedule->command('moogold:cek-status')->everyMinute();
         
          $schedule->command('Service')->everyMinute();
+
+         $schedule->job(new \App\Jobs\DigiflazzSyncJob)->hourly();
     }
 
     /**

@@ -7,15 +7,29 @@ use Illuminate\Http\Request;
 
 class ApiGamesController extends Controller
 {
+    protected $merchantId;
+    protected $secretKey;
+
+    public function __construct($config = [])
+    {
+        if (!empty($config)) {
+            $this->merchantId = $config['merchant_id'] ?? '';
+            $this->secretKey = $config['secret_key'] ?? '';
+        } else {
+            // Fallback
+            $api = \DB::table('setting_webs')->where('id', 1)->first();
+            $this->merchantId = $api->apigames_merchant;
+            $this->secretKey = $api->apigames_secret;
+        }
+    }
+
     public function order($uid = null, $zone = null, $service = null, $order_id = null)
     {
-        $api = \DB::table('setting_webs')->where('id',1)->first();
-        
         $target = $uid . $zone;
-        $sign = md5($api->apigames_secret . $api->apigames_merchant . $order_id . $service . $target);
+        $sign = md5($this->secretKey . $this->merchantId . $order_id . $service . $target);
         $api_postdata = array(
             'ref_id' => $order_id,
-            'merchant_id' => $api->apigames_merchant,
+            'merchant_id' => $this->merchantId,
             'produk' => "$service",
             'tujuan' => $target,
             'signature' => $sign,
@@ -28,11 +42,9 @@ class ApiGamesController extends Controller
         return $this->connect("/transaksi", $api_postdata, $header);
     }
 
-     public function status($poid)
+    public function status($poid)
     {
-        $api = \DB::table('setting_webs')->where('id',1)->first();
-        
-        return $this->connect("/merchant/" . $api->apigames_merchant . "/cektrx/$poid");
+        return $this->connect("/merchant/" . $this->merchantId . "/cektrx/$poid");
     }
 
     public function connect($url, $data = null, $header = null)

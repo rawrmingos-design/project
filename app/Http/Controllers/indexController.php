@@ -46,8 +46,10 @@ class IndexController extends Controller
                 $query->where('status', 'active');
             }])
             ->get();
+            
+        $articles = \App\Models\Artikel::where('status', 'active')->latest()->take(3)->get();
         
-        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method', 'flashsale', 'categoryTypes'));
+        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method', 'flashsale', 'categoryTypes', 'articles'));
 }
 
 
