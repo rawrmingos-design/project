@@ -824,6 +824,15 @@ class OrderController extends Controller
                 $user->decrement('balance', $dataLayanan->harga);
                 // Process Game Provider
                 $providerResult = $this->processGameProvider($dataLayanan, $request, $order_id);
+                
+                // ERROR HANDLING STRATEGY: 
+                // Jika provider gagal memproses (misal gangguan/maintenance/koneksi), 
+                // jangan buat order Pending yang 'menggantung'. Kembalikan saldo user.
+                if (!$providerResult['status']) {
+                    $errorMsg = isset($providerResult['order_data']['message']) ? $providerResult['order_data']['message'] : 'Terjadi kesalahan pada Provider';
+                    throw new \Exception($errorMsg);
+                }
+
                 // Create Record
                 $tipe = match($request->ktg_tipe) {
                     'joki' => 'joki', 'voucher' => 'voucher', 'vilogml' => 'vilogml', 'jokigendong' => 'jokigendong', default => 'game'
@@ -833,7 +842,7 @@ class OrderController extends Controller
                 $ipController = new IPAddressController();
                 $ipAddress = $ipController->getIPAddress($request);
 
-                $status_pembelian = $providerResult['status'] ? 'Proses' : 'Pending'; // Or whatever default for failed/pending provider
+                $status_pembelian = 'Proses'; // Karena sudah validated 'status' => true di atas (termasuk Pending provider)
                 $provider_order_id = $providerResult['provider_order_id'];
                 $log_data = json_encode($providerResult['order_data']);
 
@@ -853,6 +862,7 @@ class OrderController extends Controller
             } catch (\Exception $e) {
                 DB::rollBack();
                 Cache::forget($userKey);
+                // Return clear error message to user
                 return response()->json(['status' => false, 'data' => $e->getMessage()]);
             }
 
@@ -938,53 +948,50 @@ class OrderController extends Controller
     }
 
     public function msg($nomor, $msg)
-
     {
-         $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $apiUrl = 'https://api.fonnte.com/send';
-        $token = $api->wa_key;
-    
-        $postData = [
-            'target' => $nomor,
-            'message' => $msg,
-            'countryCode' => '62',
-        ];
-    
-        $headers = [
-            'Authorization: ' . $token,
-        ];
-    
-        $curl = curl_init();
-        curl_setopt_array($curl, [
-            CURLOPT_URL => $apiUrl,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $postData,
-            CURLOPT_HTTPHEADER => $headers,
-        ]);
-    
-        $response = curl_exec($curl);
-        $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    
-        curl_close($curl);
-    
-        if ($statusCode === 200) {
-            return [
-                'success' => true,
-                'message' => 'Message sent successfully',
-                'response' => $response,
-            ];
-        } else {
-            return [
-                'success' => false,
-                'message' => 'Failed to send message',
-                'response' => $response,
-            ];
+        try {
+            $api = DB::table('setting_webs')->where('id', 1)->first();
+            
+            if (!$api || !$api->wa_key || !$api->nomor_admin) {
+                Log::error('WhatsApp API (Fonnte) - Missing configuration.', ['wa_key_exists' => !empty($api->wa_key), 'nomor_admin_exists' => !empty($api->nomor_admin)]);
+                return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
+            }
+
+            $curl = curl_init();
+            
+            curl_setopt_array($curl, [
+                CURLOPT_URL => 'https://api.fonnte.com/send',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => [
+                    'target' => $nomor,
+                    'message' => $msg,
+                ],
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $api->wa_key,
+                ],
+            ]);
+
+            $response = curl_exec($curl);
+            $error = curl_error($curl);
+            curl_close($curl);
+
+            if ($error) {
+                Log::error('WhatsApp API (Fonnte) - Curl Error', ['error' => $error]);
+                return ['success' => false, 'message' => 'Connection Error: ' . $error];
+            }
+
+            Log::info('WhatsApp API (Fonnte) Response', ['response' => $response]);
+            return ['success' => true, 'response' => $response];
+
+        } catch (\Exception $e) {
+            Log::error('WhatsApp API (Fonnte) - Exception', ['error' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
         }
     }
 

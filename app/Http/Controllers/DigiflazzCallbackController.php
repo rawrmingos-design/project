@@ -80,49 +80,47 @@ class DigiflazzCallbackController extends Controller
     {
         try {
             $api = DB::table('setting_webs')->where('id', 1)->first();
+            
             if (!$api || !$api->wa_key || !$api->nomor_admin) {
-                Log::error('WhatsApp API - Data konfigurasi tidak lengkap.', ['data' => $api]);
-                return ['success' => false, 'message' => 'Konfigurasi pengiriman pesan tidak lengkap.'];
+                Log::error('WhatsApp API (Fonnte) - Missing configuration.', ['wa_key_exists' => !empty($api->wa_key), 'nomor_admin_exists' => !empty($api->nomor_admin)]);
+                return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
-            $apiUrl = 'https://wa.egymarket.id/send-message';
-            $postData = [
-                'api_key' => $api->wa_key,
-                'sender' => $api->nomor_admin,
-                'number' => $nomor,
-                'message' => $msg
-            ];
-            $headers = ['Content-Type: application/json',];
+
             $curl = curl_init();
+            
             curl_setopt_array($curl, [
-                CURLOPT_URL => $apiUrl,
+                CURLOPT_URL => 'https://api.fonnte.com/send',
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($postData),
-                CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_TIMEOUT => 10, // timeout 10 detik
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 15, // Slightly longer timeout for Digiflazz safety
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => [
+                    'target' => $nomor,
+                    'message' => $msg,
+                ],
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: ' . $api->wa_key,
+                ],
             ]);
+
             $response = curl_exec($curl);
             $error = curl_error($curl);
-            $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
             curl_close($curl);
+
             if ($error) {
-                Log::error('WhatsApp API - CURL error', ['error' => $error]);
-                return ['success' => false, 'message' => 'CURL Error: ' . $error];
+                Log::error('WhatsApp API (Fonnte) - Curl Error', ['error' => $error]);
+                return ['success' => false, 'message' => 'Connection Error: ' . $error];
             }
-            Log::info(
-                'WhatsApp API Response',
-                [
-                    'status' => $statusCode,
-                    'response' => $response
-                ]
-            );
-            return [
-                'success' => $statusCode === 200,
-                'response' => json_decode($response, true)
-            ];
+
+            Log::info('WhatsApp API (Fonnte) Response', ['response' => $response]);
+            return ['success' => true, 'response' => $response];
+
         } catch (\Exception $e) {
-            Log::error('WhatsApp API - Exception occurred', ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return ['success' => false, 'message' => 'Exception: ' . $e->getMessage()];
+            Log::error('WhatsApp API (Fonnte) - Exception', ['error' => $e->getMessage()]);
+            return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
         }
     }
 }
