@@ -7,9 +7,11 @@ use App\Models\User;
 
 class UserTierChart extends ChartWidget
 {
-    protected ?string $heading = 'User Tier Distribution';
+    protected ?string $heading = 'Buyer Statistics';
     
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 4;
+    
+    protected int | string | array $columnSpan = 1;
 
     protected function getData(): array
     {

@@ -48,23 +48,24 @@ class Settings extends Page implements HasForms
                         TextInput::make('judul_web')
                             ->label('Website Title')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Judul utama website yang tampil di browser'),
                             
                         TextInput::make('order_prefik')
                             ->label('Order Prefix')
-                            ->helperText('Prefix for order IDs (e.g., INV, ORD)')
-                            ->maxLength(10),
+                            ->helperText('Prefix untuk ID Order (contoh: INV, ORD). Maksimal 10 karakter'),
                             
                         Textarea::make('deskripsi_web')
                             ->label('Website Description')
                             ->rows(3)
                             ->required()
-                            ->columnSpanFull(),
+                            ->columnSpanFull()
+                            ->helperText('Deskripsi singkat website untuk SEO dan sharing link'),
                             
                         Textarea::make('keywords')
                             ->label('SEO Keywords')
                             ->rows(2)
-                            ->helperText('Comma separated keywords for SEO')
+                            ->helperText('Kata kunci pencarian, pisahkan dengan koma (contoh: topup, game, murah)')
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),
@@ -126,27 +127,32 @@ class Settings extends Page implements HasForms
                         TextInput::make('url_wa')
                             ->label('WhatsApp URL')
                             ->url()
-                            ->prefix('https://'),
+                            ->prefix('https://')
+                            ->helperText('Link WhatsApp Business (wa.me/...)'),
                             
                         TextInput::make('url_ig')
                             ->label('Instagram URL')
                             ->url()
-                            ->prefix('https://'),
+                            ->prefix('https://')
+                            ->helperText('Link profil Instagram'),
                             
                         TextInput::make('url_tiktok')
                             ->label('TikTok URL')
                             ->url()
-                            ->prefix('https://'),
+                            ->prefix('https://')
+                            ->helperText('Link profil TikTok'),
                             
                         TextInput::make('url_youtube')
                             ->label('YouTube URL')
                             ->url()
-                            ->prefix('https://'),
+                            ->prefix('https://')
+                            ->helperText('Link channel YouTube'),
                             
                         TextInput::make('url_fb')
                             ->label('Facebook URL')
                             ->url()
-                            ->prefix('https://'),
+                            ->prefix('https://')
+                            ->helperText('Link halaman Facebook'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -286,7 +292,8 @@ class Settings extends Page implements HasForms
                         TextInput::make('nomor_admin')
                             ->label('Admin Phone Number')
                             ->tel()
-                            ->prefix('+62'),
+                            ->prefix('+62')
+                            ->helperText('Nomor HP admin utama untuk notifikasi sistem (Format: 812...)'),
                             
                         TextInput::make('wa_key')
                             ->label('WhatsApp API Key')
@@ -356,7 +363,8 @@ class Settings extends Page implements HasForms
                             ->suffix('%')
                             ->minValue(0)
                             ->maxValue(100)
-                            ->default(0),
+                            ->default(0)
+                            ->helperText('Keuntungan dari user yang belum login'),
                             
                         TextInput::make('profit_member')
                             ->label('Member Profit (%)')

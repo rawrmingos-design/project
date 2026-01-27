@@ -66,12 +66,10 @@ use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
+use App\Http\Controllers\ArtikelController;
 
 Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequest']);
 Route::get('/senangpay/callback', [SenangpayController::class, 'handlePaymentResponse'])->name('senangpay.callback');
-
-
-Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequest']);
 
 # CRONJOB
 // /cronjob/update-gameshop
@@ -149,6 +147,10 @@ Route::redirect('/', '/id');
 
 Route::prefix('id')->middleware(['xss', 'sanitize'])->group(function () {
 
+    // Artikel Routes
+    Route::get('/artikel', [ArtikelController::class, 'index'])->name('artikel.index');
+    Route::get('/artikel/{slug}', [ArtikelController::class, 'show'])->name('artikel.show');
+
     Route::get('/',                                                              [IndexController::class, 'create'])->name('home');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
@@ -211,7 +213,7 @@ Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])->n
 Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])->name('ipay88.backend');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
-    Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard');
+    Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard.legacy');
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
     Route::get('/order-status/{order_id}/{status}',                              [AdminOrder::class, 'update']);
     Route::get('/process-order/{order_id}',                              [AdminOrder::class, 'reorder']);
@@ -247,7 +249,7 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::post('/kategori',                                                     [KategoriController::class, 'store'])->name('kategori.post');
     Route::get('/kategori/hapus/{id}',                                           [KategoriController::class, 'delete'])->name('kategori.delete');
     Route::get('/kategori-status/{id}/{status}',                                 [KategoriController::class, 'update'])->name('kategori.update');
-    Route::post('/kategori/update',                                              [KategoriController::class, 'patch'])->name('kategori.detail.update');
+    // Route::post('/kategori/update',                                              [KategoriController::class, 'patch'])->name('kategori.detail.update.legacy');
     Route::get('/kategori/{id}/detail',                                          [KategoriController::class, 'detail'])->name('kategori.detail');
     Route::post('/kategori/{id}/detail',                                         [KategoriController::class, 'patch'])->name('kategori.detail.update');
     Route::get('/produk/get/{provider?}',                                        [ProdukController::class, 'get'])->name('produk.get');
@@ -269,7 +271,7 @@ Route::middleware(['auth', 'check.role'])->group(function () {
 
     Route::resources(['paket' => PaketController::class, 'paket-layanan' => PaketLayananController::class]);
     Route::post('paket-layanan-get-layanan',                                     [PaketLayananController::class, 'get_layanan'])->name('paket-layanan.get-layanan');
-    Route::delete('/paket-layanan/destroy',                                      [PaketLayananController::class, 'destroy'])->name('paket-layanan.destroy');
+    Route::delete('/paket-layanan/destroy',                                      [PaketLayananController::class, 'destroy'])->name('paket-layanan.destroy.custom');
     Route::get('/method', [MethodController::class, 'create'])->name('method');
     Route::post('/method', [MethodController::class, 'store'])->name('method.post');
     Route::get('/method/hapus/{id}', [MethodController::class, 'delete'])->name('method.delete');
@@ -292,10 +294,6 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/voucher/{id}/delete',                                           [VoucherController::class, 'destroy'])->name('voucher.delete');
     Route::get('/voucher/{id}/detail',                                           [VoucherController::class, 'show'])->name('voucher.detail');
     Route::post('/voucher/{id}/update',                                          [VoucherController::class, 'patch'])->name('voucher.detail.update');
-    // Route::get('/data/giftskin',                                                 [DataGiftSkinController::class, 'dataGiftSkin']);
-    // Route::get('/giftskin-status/{order_id}/{status}',                           [DataGiftSkinController::class, 'statusGiftSkin']);
-    // Route::get('/giftskin/hapus/{id}',                                           [DataGiftSkinController::class, 'hapusGiftSkin']);
-    // Route::get('/gift-skin', 'GiftskinController@index')->name('gift-skin');
     Route::get('/setting/web',                                                   [SettingWebController::class, 'settingWeb']);
     Route::post('/setting/web',                                                  [SettingWebController::class, 'saveSettingWeb']);
     Route::post('/setting/warnaweb',                                             [SettingWebController::class, 'saveSettingWarna']);

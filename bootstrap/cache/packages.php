@@ -1,4 +1,26 @@
 <?php return array (
+  'abanoubnassem/filament-grecaptcha-field' => 
+  array (
+    'aliases' => 
+    array (
+      'FilamentGRecaptchaField' => 'AbanoubNassem\\FilamentGRecaptchaField\\Facades\\FilamentGRecaptchaField',
+    ),
+    'providers' => 
+    array (
+      0 => 'AbanoubNassem\\FilamentGRecaptchaField\\FilamentGRecaptchaFieldServiceProvider',
+    ),
+  ),
+  'anhskohbo/no-captcha' => 
+  array (
+    'aliases' => 
+    array (
+      'NoCaptcha' => 'Anhskohbo\\NoCaptcha\\Facades\\NoCaptcha',
+    ),
+    'providers' => 
+    array (
+      0 => 'Anhskohbo\\NoCaptcha\\NoCaptchaServiceProvider',
+    ),
+  ),
   'anourvalar/eloquent-serialize' => 
   array (
     'aliases' => 

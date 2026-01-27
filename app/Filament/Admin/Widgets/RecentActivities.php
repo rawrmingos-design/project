@@ -12,11 +12,11 @@ use Illuminate\Database\Eloquent\Builder;
 
 class RecentActivities extends BaseWidget
 {
-    protected static ?string $heading = 'Recent User Activities';
+    protected static ?string $heading = 'Leaderboard';
     
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 2;
     
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = 1;
 
     public function table(Table $table): Table
     {

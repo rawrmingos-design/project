@@ -20,13 +20,15 @@ class UserForm
                         TextInput::make('name')
                             ->label('Full Name')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Nama lengkap user'),
                             
                         TextInput::make('username')
                             ->label('Username')
                             ->unique(ignoreRecord: true)
                             ->default('anonim')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Digunakan untuk login'),
                             
                         TextInput::make('email')
                             ->label('Email Address')
@@ -39,7 +41,8 @@ class UserForm
                             ->label('WhatsApp Number')
                             ->tel()
                             ->placeholder('+62812345678')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Format: +628...'),
                             
                         Select::make('role')
                             ->label('User Role')
@@ -51,7 +54,8 @@ class UserForm
                             ])
                             ->required()
                             ->default('Member')
-                            ->native(false),
+                            ->native(false)
+                            ->helperText('Tingkatan level user'),
                             
                         TextInput::make('balance')
                             ->label('Account Balance')

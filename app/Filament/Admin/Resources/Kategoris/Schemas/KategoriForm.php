@@ -23,16 +23,19 @@ class KategoriForm
                         TextInput::make('nama')
                             ->label('Nama Kategori')
                             ->required()
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Contoh: Mobile Legends'),
                             
                         TextInput::make('sub_nama')
                             ->label('Sub Nama')
                             ->required()
-                            ->maxLength(225),
+                            ->maxLength(225)
+                            ->helperText('Contoh: Moonton'),
                             
                         TextInput::make('kode')
                             ->label('Kode')
-                            ->maxLength(255),
+                            ->maxLength(255)
+                            ->helperText('Kode unik, contoh: mlbb'),
                             
                         Select::make('tipe')
                             ->label('Tipe')
@@ -47,7 +50,22 @@ class KategoriForm
                                 'populer' => 'Populer',
                             ])
                             ->default('game')
-                            ->required(),
+                            ->required()
+                            ->helperText('Jenis kategori produk'),
+
+                        Select::make('category_type_id')
+                            ->label('Tab Kategori (Category Sequence)')
+                            ->relationship('categoryType', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                TextInput::make('name')
+                                    ->required()->maxLength(255),
+                                TextInput::make('slug')
+                                    ->required()->maxLength(255),
+                                TextInput::make('sort')
+                                    ->numeric()->default(0),
+                            ]),
                             
                         Select::make('status')
                             ->label('Status')
@@ -106,6 +124,27 @@ class KategoriForm
                             ->required(),
                     ])
                     ->columns(1),
+
+                Section::make('Advanced SEO Configuration')
+                    ->description('Optimasi SEO manual untuk halaman games ini. Kosongkan jika ingin auto-generated.')
+                    ->schema([
+                        TextInput::make('meta_title')
+                            ->label('Meta Title')
+                            ->placeholder('Ex: Top Up Mobile Legends Murah & Cepat - ' . config('app.name'))
+                            ->maxLength(255),
+                            
+                        Textarea::make('meta_description')
+                            ->label('Meta Description')
+                            ->placeholder('Ex: Beli Diamond MLBB termurah dengan proses instan 24 jam...')
+                            ->rows(3),
+                            
+                        Textarea::make('schema_markup')
+                            ->label('Custom Schema Markup (JSON-LD)')
+                            ->placeholder('<script type="application/ld+json">{ ... }</script>')
+                            ->rows(5)
+                            ->helperText('Pastikan format JSON valid. Sertakan tag <script> jika perlu.'),
+                    ])
+                    ->collapsible(),
             ]);
     }
 }

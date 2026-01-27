@@ -38,9 +38,16 @@ class IndexController extends Controller
         ->where('layanans.is_flash_sale', 1)
         ->where('layanans.expired_flash_sale', '>=', now())
         ->where('layanans.stock_flash_sale', '>', 0)
+        ->where('layanans.stock_flash_sale', '>', 0)
         ->get();
+
+        $categoryTypes = \App\Models\CategoryType::orderBy('sort', 'asc')
+            ->with(['kategoris' => function ($query) {
+                $query->where('status', 'active');
+            }])
+            ->get();
         
-        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method', 'flashsale' ));
+        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method', 'flashsale', 'categoryTypes'));
 }
 
 
