@@ -12,7 +12,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Grid;
+use Filament\Schemas\Components\Grid;
 use App\Models\Kategori;
 
 class ProdukForm
@@ -229,53 +229,64 @@ class ProdukForm
                     
 
                 Section::make('Multi-Provider Sources')
+                    ->columns(1)
+                    ->columnSpan(3)
                     ->description('Atur sumber provider untuk layanan ini. Sistem akan otomatis memilih harga termurah & status available dari list ini.')
                     ->schema([
                         Repeater::make('provider_paths')
                             ->relationship()
                             ->label('Provider Sources')
                             ->schema([
-                                Select::make('provider_code')
-                                    ->label('Provider')
-                                    ->options([
-                                        'digiflazz' => 'Digiflazz',
-                                        'bangjeff' => 'BangJeff',
-                                        'vip' => 'VIP Reseller',
-                                        'apigames' => 'API Games',
-                                        'manual' => 'Manual / Joki',
+                                Grid::make()
+                                    ->columns([
+                                        'default' => 1,
+                                        'sm' => 2,
+                                        'xl' => 4,
                                     ])
-                                    ->required(),
+                                    ->schema([
+                                        Select::make('provider_code')
+                                            ->label('Provider')
+                                            ->options([
+                                                'digiflazz' => 'Digiflazz',
+                                                'bangjeff' => 'BangJeff',
+                                                'vip' => 'VIP Reseller',
+                                                'apigames' => 'API Games',
+                                                'manual' => 'Manual / Joki',
+                                            ])
+                                            ->required(),
 
-                                TextInput::make('provider_sku')
-                                    ->label('Kode SKU Provider')
-                                    ->required(),
+                                        TextInput::make('provider_sku')
+                                            ->label('Kode SKU Provider')
+                                            ->required(),
 
-                                TextInput::make('modal_price')
-                                    ->label('Harga Modal')
-                                    ->numeric()
-                                    ->prefix('Rp')
-                                    ->default(0)
-                                    ->required(),
+                                        TextInput::make('modal_price')
+                                            ->label('Harga Modal')
+                                            ->numeric()
+                                            ->prefix('Rp')
+                                            ->default(0)
+                                            ->required(),
+                                            
+                                        TextInput::make('priority')
+                                            ->label('Prioritas')
+                                            ->numeric()
+                                            ->default(1)
+                                            ->minValue(1)
+                                            ->helperText('1 = Utama'),
+                                    ]),
                                     
-                                TextInput::make('priority')
-                                    ->label('Prioritas')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->helperText('1 = Utama'),
-                                    
-                                Select::make('status')
-                                    ->options([
-                                        'available' => 'Available',
-                                        'empty' => 'Kosong',
-                                        'maintenance' => 'Gangguan',
-                                        'error' => 'Error',
-                                    ])
-                                    ->default('available')
-                                    ->required()
-                                    ->columnSpanFull(),
+                                Grid::make(1)
+                                    ->schema([
+                                        Select::make('status')
+                                            ->options([
+                                                'available' => 'Available',
+                                                'empty' => 'Kosong',
+                                                'maintenance' => 'Gangguan',
+                                                'error' => 'Error',
+                                            ])
+                                            ->default('available')
+                                            ->required(),
+                                    ]),
                             ])
-                            ->columns(4)
                             ->defaultItems(0)
                             ->reorderableWithButtons()
                             ->collapsible()
