@@ -21,4 +21,9 @@ class Kategori extends Model
     {
         return $this->hasMany(Produk::class, 'kategori_id');
     }
+
+    public function categoryType()
+    {
+        return $this->belongsTo(CategoryType::class);
+    }
 }

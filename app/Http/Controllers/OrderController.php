@@ -147,10 +147,16 @@ class OrderController extends Controller
             ->where('layanans.stock_flash_sale', '>', 0)
             ->get();
 
-
+        // Extract SEO Data from Kategori ($data)
+        $appName = config('app.name');
+        $title = $data->meta_title ?? "Top Up {$data->nama} Murah - {$appName}";
+        $meta_description = $data->meta_description ?? "Top up {$data->nama} termurah dan terpercaya di {$appName}. Proses instan, layanan 24 jam.";
+        $schema_markup = $data->schema_markup;
 
         return view('template.order', [
-            'title' => $data->nama,
+            'title' => $title,
+            'meta_description' => $meta_description,
+            'schema_markup' => $schema_markup,
             'kategori' => $data,
             'nominal' => $layanan,
             'pakets' => $pakets,

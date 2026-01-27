@@ -1,0 +1,32 @@
+[2026-01-08 12:00:59] local.ERROR: Exception occurred: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:00:59] local.ERROR: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:01:26] local.ERROR: Exception occurred: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:01:26] local.ERROR: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:06:19] local.ERROR: Exception occurred: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:06:19] local.ERROR: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:06:22] local.ERROR: Exception occurred: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 
+[2026-01-08 12:06:22] local.ERROR: Declaration of App\Filament\Admin\Pages\Dashboard::getColumns(): array|string|int must be compatible with Filament\Pages\Dashboard::getColumns(): array|int {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Declaration of App\\Filament\\Admin\\Pages\\Dashboard::getColumns(): array|string|int must be compatible with Filament\\Pages\\Dashboard::getColumns(): array|int at D:\\Backend-game-topup\\web\\project\\app\\Filament\\Admin\\Pages\\Dashboard.php:9)
+[stacktrace]
+#0 {main}
+"} 

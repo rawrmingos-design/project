@@ -19,51 +19,35 @@ class KategorisTable
     {
         return $table
             ->columns([
-                ImageColumn::make('thumbnail')
-                    ->label('Thumbnail')
-                    ->disk('assets')
-                    ->circular()
-                    ->size(50),
-                    
-                TextColumn::make('nama')
-                    ->label('Nama Kategori')
-                    ->searchable()
+                TextColumn::make('created_at')
+                    ->label('Created At')
+                    ->dateTime('M d, Y H:i:s')
+                    ->description(fn ($record) => $record->updated_at?->format('M d, Y H:i:s'))
                     ->sortable(),
-                    
-                TextColumn::make('sub_nama')
-                    ->label('Sub Nama')
-                    ->searchable()
-                    ->sortable(),
-                    
-                TextColumn::make('kode')
-                    ->label('Kode')
+
+                TextColumn::make('id')
+                    ->label('ID')
                     ->searchable(),
-                    
-                BadgeColumn::make('tipe')
-                    ->label('Tipe')
-                    ->colors([
-                        'primary' => 'game',
-                        'success' => 'voucher',
-                        'warning' => 'pulsa',
-                        'info' => 'data',
-                    ]),
-                    
+
+                TextColumn::make('nama')
+                    ->label('Category Name')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('categoryType.name')
+                    ->label('Category Sequence')
+                    ->default('-'),
+
+                TextColumn::make('region')
+                    ->label('Region')
+                    ->default('Indonesia'),
+
                 BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
                         'success' => 'active',
                         'danger' => 'inactive',
                     ]),
-                    
-                BooleanColumn::make('server_id')
-                    ->label('Server ID')
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle'),
-                    
-                TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d M Y H:i')
-                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('tipe')

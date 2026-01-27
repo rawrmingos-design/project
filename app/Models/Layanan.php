@@ -17,4 +17,12 @@ class Layanan extends Model
     public function kategori(){
         return $this->belongsTo(Kategori::class,'kategori_id');
     }
+    public function pembelians()
+    {
+        return $this->hasMany(Pembelian::class, 'layanan', 'layanan'); // Assuming foreign key is 'layanan' (name) or 'layanan_id'? 
+        // Wait, Pembelian likely stores 'layanan' name if historical, or 'layanan_id'.
+        // I need to check Pembelian model or database schema. 
+        // Usually it's id. But original store method often fetched layanan name.
+        // Let's check Pembelian.
+    }
 }

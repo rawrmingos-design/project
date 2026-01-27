@@ -57,6 +57,7 @@ class ProdukForm
                             ->required()
                             ->maxLength(255)
                             ->unique(ignoreRecord: true)
+                            ->helperText('Contoh: ml5')
                             ->columnSpanFull(),
                             
                         Select::make('provider')

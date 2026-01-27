@@ -5,71 +5,55 @@ namespace App\Filament\Admin\Widgets;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Models\User;
-use App\Models\Layanan;
-use App\Models\Kategori;
 
 class UserStatsOverview extends StatsOverviewWidget
 {
+    protected static ?int $sort = 1;
+
+    protected int | string | array $columnSpan = 2;
+
+    protected function getColumns(): int
+    {
+        return 2;
+    }
+
     protected function getStats(): array
     {
-        // User Statistics
-        $totalUsers = User::count();
-        $adminUsers = User::where('role', 'Admin')->count();
-        $platinumUsers = User::where('role', 'Platinum')->count();
-        $goldUsers = User::where('role', 'Gold')->count();
-        $memberUsers = User::where('role', 'Member')->count();
-        $newUsersThisMonth = User::whereMonth('created_at', now()->month)->count();
+        // 1. Transaction Stats (Total Pembelian)
+        $totalTransactions = \App\Models\Pembelian::count();
+        $transactionsLastMonth = \App\Models\Pembelian::whereMonth('created_at', now()->subMonth()->month)->count();
+        $transactionGrowth = $transactionsLastMonth > 0 ? (($totalTransactions - $transactionsLastMonth) / $transactionsLastMonth) * 100 : 0;
         
-        // Product Statistics
-        $totalProducts = Layanan::count();
-        $activeProducts = Layanan::where('status', 'available')->count();
-        $flashSaleProducts = Layanan::where('is_flash_sale', true)->count();
-        
-        // Category Statistics
-        $totalCategories = Kategori::count();
-        
-        // Balance Statistics
-        $totalBalance = User::sum('balance');
-        $avgBalance = User::avg('balance');
-        
+        // 2. Sales Stats (Total Revenue from Solved Orders)
+        $totalSales = \App\Models\Pembelian::where('status', 'Success')->sum('harga'); // Assuming 'Success' or 'Lunas'
+        $salesLastMonth = \App\Models\Pembelian::where('status', 'Success')
+                            ->whereMonth('created_at', now()->subMonth()->month)
+                            ->sum('harga');
+        $salesGrowth = $salesLastMonth > 0 ? (($totalSales - $salesLastMonth) / $salesLastMonth) * 100 : 0;
+
+        $newUsersToday = User::whereDate('created_at', today())->count();
+        $newUsersYesterday = User::whereDate('created_at', today()->subDay())->count();
+        $userGrowth = $newUsersYesterday > 0 ? (($newUsersToday - $newUsersYesterday) / $newUsersYesterday) * 100 : 0;
+       
         return [
-            Stat::make('Total Users', $totalUsers)
-                ->description('Registered users in system')
-                ->descriptionIcon('heroicon-m-users')
-                ->color('primary')
-                ->chart([7, 12, 8, 15, 22, 18, $totalUsers]),
+            Stat::make('Transaction', number_format($totalTransactions))
+                ->description(number_format($transactionGrowth, 2) . '% from last month')
+                ->descriptionIcon($transactionGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->color($transactionGrowth >= 0 ? 'success' : 'danger')
+                ->chart([7, 2, 10, 3, 15, 4, 17]), 
                 
-            Stat::make('Premium Users', $platinumUsers + $goldUsers)
-                ->description("{$platinumUsers} Platinum, {$goldUsers} Gold")
-                ->descriptionIcon('heroicon-m-star')
-                ->color('warning')
-                ->chart([2, 4, 3, 6, 8, 7, $platinumUsers + $goldUsers]),
-                
-            Stat::make('New Users This Month', $newUsersThisMonth)
-                ->description('Monthly growth')
-                ->descriptionIcon('heroicon-m-arrow-trending-up')
-                ->color('success')
-                ->chart([1, 3, 2, 5, 4, 6, $newUsersThisMonth]),
-                
-            Stat::make('Active Products', $activeProducts)
-                ->description("Out of {$totalProducts} total products")
-                ->descriptionIcon('heroicon-m-cube')
-                ->color('info')
-                ->chart([45, 52, 48, 61, 58, 63, $activeProducts]),
-                
-            Stat::make('Flash Sale Items', $flashSaleProducts)
-                ->description('Currently on flash sale')
-                ->descriptionIcon('heroicon-m-fire')
-                ->color('danger')
-                ->chart([2, 5, 3, 8, 6, 4, $flashSaleProducts]),
-                
-            Stat::make('Total Balance', 'Rp ' . number_format($totalBalance, 0, ',', '.'))
-                ->description('Average: Rp ' . number_format($avgBalance, 0, ',', '.'))
-                ->descriptionIcon('heroicon-m-banknotes')
-                ->color('success')
-                ->chart([100000, 150000, 120000, 180000, 200000, 175000, $totalBalance / 1000]),
+            Stat::make('Sales', 'IDR ' . number_format($totalSales, 0, ',', '.'))
+                ->description(number_format($salesGrowth, 2) . '% from last month')
+                ->descriptionIcon($salesGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->color($salesGrowth >= 0 ? 'success' : 'danger')
+                ->chart([100000, 500000, 20000, 400000, 100000]),
+
+            Stat::make('New User', $newUsersToday)
+                ->description(number_format($userGrowth, 2) . '% from yesterday')
+                ->descriptionIcon($userGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
+                ->color($userGrowth >= 0 ? 'success' : 'danger')
+                ->chart([1, 0, 5, 2, 0, 1, 0])
+                ->columnSpan(2),    
         ];
     }
-    
-    protected static ?int $sort = 1;
 }

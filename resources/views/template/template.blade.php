@@ -6,15 +6,15 @@
     
     <!-- SEO Meta Tags -->
     <meta name="theme-color" content="#575757">
-    <meta property="og:title" content="{{ !$config ? '' : $config->judul_web }}">
+    <meta property="og:title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta property="og:type" content="website">
-    <meta property="og:description" content="{{ !$config ? '' : $config->deskripsi_web }}">
+    <meta property="og:description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:image" content="{{ !$config ? '' : $config->logo_favicon }}">
-    <meta name="title" content="{{ !$config ? '' : $config->judul_web }}">
-    <meta name="keywords" content="{{ !$config ? '' : $config->keywords }}">
-    <meta name="description" content="{{ !$config ? '' : $config->deskripsi_web }}">
-    <meta name="author" content="{{ $config->judul_web }}">
+    <meta property="og:image" content="{{ isset($thumbnail) ? $thumbnail : ($config ? $config->logo_favicon : '') }}">
+    <meta name="title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
+    <meta name="keywords" content="{{ isset($keywords) ? $keywords : ($config ? $config->keywords : '') }}">
+    <meta name="description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
+    <meta name="author" content="{{ $config ? $config->judul_web : '' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{url('')}}">
     
@@ -22,7 +22,12 @@
     <link rel="shortcut icon" href="{{ url('') }}{{ !$config ? '' : $config->logo_favicon }}">
     
     <!-- Title -->
-    <title>{{ !$config ? '' : $config->judul_web }}</title>
+    <title>{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}</title>
+    
+    <!-- Schema Markup -->
+    @if(isset($schema_markup) && $schema_markup)
+        {!! $schema_markup !!}
+    @endif
     
     <!-- Stylesheets and Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">

@@ -30,6 +30,7 @@ class ProduksTable
                     
                 TextColumn::make('layanan')
                     ->label('Nama Produk')
+                    ->prefix('📦 ')
                     ->searchable()
                     ->sortable()
                     ->limit(30)
@@ -43,6 +44,7 @@ class ProduksTable
                     
                 TextColumn::make('kategori.nama')
                     ->label('Kategori')
+                    ->prefix('🎮 ')
                     ->searchable()
                     ->sortable()
                     ->badge()
@@ -50,6 +52,7 @@ class ProduksTable
                     
                 TextColumn::make('provider_id')
                     ->label('Provider ID')
+                    ->prefix('🔌 ')
                     ->searchable()
                     ->copyable()
                     ->copyMessage('Provider ID copied')
@@ -68,12 +71,14 @@ class ProduksTable
                     
                 TextColumn::make('harga')
                     ->label('Harga Normal')
+                    ->prefix('💰 ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd(),
                     
                 TextColumn::make('harga_member')
                     ->label('Harga Member')
+                    ->prefix('💲 ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -81,6 +86,7 @@ class ProduksTable
                     
                 TextColumn::make('harga_platinum')
                     ->label('Harga Platinum')
+                    ->prefix('🤵 ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -88,6 +94,7 @@ class ProduksTable
                     
                 TextColumn::make('harga_gold')
                     ->label('Harga Gold')
+                    ->prefix('👑 ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -95,6 +102,7 @@ class ProduksTable
                     
                 TextColumn::make('harga_flash_sale')
                     ->label('Harga Flash Sale')
+                    ->prefix('⚡ ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -104,6 +112,7 @@ class ProduksTable
                     
                 TextColumn::make('profit')
                     ->label('Profit Public')
+                    ->prefix('📈 ')
                     ->suffix('%')
                     ->sortable()
                     ->alignEnd()
@@ -115,6 +124,7 @@ class ProduksTable
                     
                 TextColumn::make('profit_member')
                     ->label('Profit Member')
+                    ->prefix('📈 ')
                     ->suffix('%')
                     ->sortable()
                     ->alignEnd()
@@ -122,6 +132,7 @@ class ProduksTable
                     
                 TextColumn::make('profit_platinum')
                     ->label('Profit Platinum')
+                    ->prefix('📈 ')
                     ->suffix('%')
                     ->sortable()
                     ->alignEnd()
@@ -129,6 +140,7 @@ class ProduksTable
                     
                 TextColumn::make('profit_gold')
                     ->label('Profit Gold')
+                    ->prefix('📈 ')
                     ->suffix('%')
                     ->sortable()
                     ->alignEnd()
