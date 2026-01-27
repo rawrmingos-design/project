@@ -11,10 +11,17 @@ class BangJeffController extends Controller
 {
     private $api;
     
-    public function __construct()
+    public function __construct($config = [])
     {
-        $this->api = '42f81bcd-decb-404b-828f-07c88faf773c';
-        $this->url = 'https://api.bangjeff.com';
+        if (!empty($config)) {
+            $this->api = $config['api_key'] ?? '';
+            $this->url = $config['endpoint'] ?? 'https://api.bangjeff.com';
+        } else {
+            // Fallback
+            $api = \DB::table('setting_webs')->where('id', 1)->first();
+            $this->api = $api->apikey_bangjeff ?? '42f81bcd-decb-404b-828f-07c88faf773c';
+            $this->url = 'https://api.bangjeff.com';
+        }
     }
     
     public function balance()

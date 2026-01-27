@@ -26,13 +26,13 @@ class ProdukResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'layanan';
     
-    protected static ?string $navigationLabel = 'Service';
+    protected static ?string $navigationLabel = 'Produk';
     
     protected static ?int $navigationSort = 2;
     
-    protected static ?string $modelLabel = 'Service';
+    protected static ?string $modelLabel = 'Produk';
     
-    protected static ?string $pluralModelLabel = 'Service';
+    protected static ?string $pluralModelLabel = 'Produk';
 
     public static function form(Schema $schema): Schema
     {

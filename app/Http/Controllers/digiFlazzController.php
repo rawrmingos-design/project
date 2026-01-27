@@ -9,16 +9,31 @@ use Illuminate\Support\Facades\Log;
 
 class DigiFlazzController extends Controller
 {
+    protected $username;
+    protected $apiKey;
+    protected $endpoint;
+
+    public function __construct($config = [])
+    {
+        if (!empty($config)) {
+            $this->username = $config['username'] ?? '';
+            $this->apiKey = $config['api_key'] ?? '';
+            $this->endpoint = $config['endpoint'] ?? 'https://api.digiflazz.com'; // Default or from config
+        } else {
+            // Fallback to DB if no config provided (Backward Compatibility)
+            $api = DB::table('setting_webs')->where('id', 1)->first();
+            $this->username = trim($api->username_digi);
+            $this->apiKey = trim($api->api_key_digi);
+            $this->endpoint = 'https://api.digiflazz.com';
+        }
+    }
+
     public function order($uid, $zone, $service, $order_id)
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
         $target = $uid . $zone;
-        $sign = md5($username . $apiKey . strval($order_id));
+        $sign = md5($this->username . $this->apiKey . strval($order_id));
         $api_postdata = [
-            'username' => $api->username_digi,
+            'username' => $this->username,
             'buyer_sku_code' => $service,
             'customer_no' => $target,
             'ref_id' => strval($order_id),
@@ -31,20 +46,15 @@ class DigiFlazzController extends Controller
 
     public function status($poid, $pid, $uid, $zone)
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-
         $target = $uid . $zone;
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-        $sign = md5($username . $apiKey . $poid);
+        $sign = md5($this->username . $this->apiKey . $poid);
         $data = [
             'command' => 'status-pasca',
-            'username' => $username,
+            'username' => $this->username,
             'buyer_sku_code' => $pid,
             'customer_no' => $target,
             'ref_id' => $poid,
             'sign' => $sign,
-
         ];
 
         return $this->connect("/v1/transaction", $data);
@@ -52,15 +62,10 @@ class DigiFlazzController extends Controller
 
     public function harga()
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
-        $sign = md5($username . $apiKey . "pricelist");
+        $sign = md5($this->username . $this->apiKey . "pricelist");
         $data = [
-            'username' => $username,
+            'username' => $this->username,
             'sign' => $sign,
-
         ];
 
         return $this->connect('/v1/price-list', $data);
@@ -68,17 +73,11 @@ class DigiFlazzController extends Controller
 
     public function cekSaldo()
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
-        $sign = md5($username . $apiKey . "depositsaldo");
+        $sign = md5($this->username . $this->apiKey . "depositsaldo");
         $data = [
-            'username' => $username,
+            'username' => $this->username,
             'cmd' => 'deposit',
             'sign' => $sign,
-            
-
         ];
 
         return $this->connect('/v1/cek-saldo', $data);
@@ -86,14 +85,9 @@ class DigiFlazzController extends Controller
 
     public function cekSaldoManual()
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
-        $sign = md5($username . $apiKey . "manual");
+        $sign = md5($this->username . $this->apiKey . "manual");
         $data = [
-            'username' => $username,
+            'username' => $this->username,
             'cmd' => 'manual',
             'testing' => true,
             'sign' => $sign,
@@ -104,15 +98,10 @@ class DigiFlazzController extends Controller
 
     public function cekProduk()
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
-        $sign = md5($username . $apiKey . "pricelist");
+        $sign = md5($this->username . $this->apiKey . "pricelist");
         $data = [
-            'username' => $username,
+            'username' => $this->username,
             'sign' => $sign,
-
         ];
 
         return $this->connect('/v1/price-list', $data);
@@ -120,14 +109,9 @@ class DigiFlazzController extends Controller
 
     public function depositSaldo($bank, $amount, $deposit_id)
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-
-        $username = trim($api->username_digi);
-        $apiKey = trim($api->api_key_digi);
-
-        $sign = md5($username . $apiKey . strval($deposit_id));
+        $sign = md5($this->username . $this->apiKey . strval($deposit_id));
         $data = [
-            'username' => $username,
+            'username' => $this->username,
             'amount' => $amount,
             'bank' => $bank,
             'ref_id' => $deposit_id,
@@ -142,7 +126,7 @@ class DigiFlazzController extends Controller
     {
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
-        ])->post("https://api.digiflazz.com$url", $data);
+        ])->post($this->endpoint . $url, $data);
 
         return $response->json();
     }

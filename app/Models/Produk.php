@@ -64,4 +64,9 @@ class Produk extends Model
                $this->expired_flash_sale && 
                $this->expired_flash_sale > now();
     }
+
+    public function provider_paths()
+    {
+        return $this->hasMany(ProviderPath::class, 'layanan_id');
+    }
 }
