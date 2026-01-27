@@ -287,7 +287,7 @@ function showToast(e, a = "error") {
                             $(".load").addClass("show")
                         },
                         success: function (e) {
-                            $(".load").removeClass("show"), e.status ? (showToast("Berhasil membuat pesanan!", "success"), window.location = `/id/invoices/${e.order_id}`) : showToast(e.responseJSON.message, "error")
+                            $(".load").removeClass("show"), e.status ? (showToast("Berhasil membuat pesanan!", "success"), window.location = `/id/invoices/${e.order_id}`) : showToast(e.data || e.message || "Terjadi kesalahan", "error")
                         },
                         error: function (e) {
                             $(".load").removeClass("show"), console.log(e)

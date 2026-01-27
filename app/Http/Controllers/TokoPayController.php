@@ -44,8 +44,8 @@ class TokoPayController extends Controller
                     'product_code'=>'-',
                     'name'=> $service,
                     'price'=>$jumlah,
-                    'product_url'=>"/id/pembelian/invoice/$ref_id",
-                    'image_url'=>"/id/pembelian/invoice/$ref_id"
+                    'product_url'=> isset($_SERVER['HTTPS']) ? 'https://' : 'http://' . $_SERVER['HTTP_HOST'] . "/id/pembelian/invoice/$ref_id",
+                    'image_url'=> isset($_SERVER['HTTPS']) ? 'https://' : 'http://' . $_SERVER['HTTP_HOST'] . "/assets/logo/logo.png"
                 ]
             ]
         ];
@@ -68,6 +68,8 @@ class TokoPayController extends Controller
         $response = curl_exec($curl);
         curl_close($curl);
         
+        Log::info('TokoPay createAdvanceOrder Response:', ['response' => $response, 'order_id' => $ref_id]);
+
         return json_decode($response, true);
     }
     

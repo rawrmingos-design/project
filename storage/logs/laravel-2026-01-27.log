@@ -366,3 +366,33 @@
 #83 D:/Backend-game-topup/web/project/server.php(21): require_once('D://Backend-game...')
 #84 {main}
 "} 
+[2026-01-27 22:43:12] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"","game":"Mobile Legends"} 
+[2026-01-27 22:43:12] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:43:12] local.INFO: ApiCheckController:connect - Sending data to external API. {"url":"https://api-cek-id-game-ten.vercel.app/api/check-id-game","data":"{\"type_name\":\"mobile_legends\",\"userId\":\"41342880\",\"zoneId\":\"\"}"} 
+[2026-01-27 22:43:13] local.INFO: ApiCheckController:connect - Received response from external API. {"http_code":200,"response_body":"{\"message\":\"Zone ID is Required\",\"server_time\":\"2026-01-27 14:43:14\",\"status\":false,\"type_name\":\"MOBILE_LEGENDS\"}
+"} 
+[2026-01-27 22:43:13] local.ERROR: ApiCheckController:check - Failed to find user. {"error":"Zone ID is Required","api_response":{"message":"Zone ID is Required","server_time":"2026-01-27 14:43:14","status":false,"type_name":"MOBILE_LEGENDS"}} 
+[2026-01-27 22:43:20] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 22:43:20] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:43:20] local.INFO: ApiCheckController:connect - Sending data to external API. {"url":"https://api-cek-id-game-ten.vercel.app/api/check-id-game","data":"{\"type_name\":\"mobile_legends\",\"userId\":\"41342880\",\"zoneId\":\"2064\"}"} 
+[2026-01-27 22:43:22] local.INFO: ApiCheckController:connect - Received response from external API. {"http_code":200,"response_body":"{\"message\":\"Success Requesting to API\",\"nickname\":\"Thankinsomnia%c2%ae\",\"server_time\":\"2026-01-27 14:43:22\",\"status\":true,\"type_name\":\"MOBILE_LEGENDS\"}
+"} 
+[2026-01-27 22:43:22] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 
+[2026-01-27 22:43:23] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 22:43:23] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:43:23] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 
+[2026-01-27 22:43:48] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 22:43:48] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:43:48] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 
+[2026-01-27 22:44:57] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 22:44:57] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:44:57] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 
+[2026-01-27 22:47:21] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 22:47:21] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 22:47:21] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 
+[2026-01-27 23:08:06] local.INFO: ApiCheckController:check - Start processing request. {"user_id":"41342880","zone_id":"2064","game":"Mobile Legends"} 
+[2026-01-27 23:08:06] local.INFO: ApiCheckController:check - Parsed game name. {"original":"Mobile Legends","parsed":"mobile_legends"} 
+[2026-01-27 23:08:06] local.INFO: ApiCheckController:connect - Sending data to external API. {"url":"https://api-cek-id-game-ten.vercel.app/api/check-id-game","data":"{\"type_name\":\"mobile_legends\",\"userId\":\"41342880\",\"zoneId\":\"2064\"}"} 
+[2026-01-27 23:08:10] local.INFO: ApiCheckController:connect - Received response from external API. {"http_code":200,"response_body":"{\"message\":\"Success Requesting to API\",\"nickname\":\"Thankinsomnia%c2%ae\",\"server_time\":\"2026-01-27 15:08:08\",\"status\":true,\"type_name\":\"MOBILE_LEGENDS\"}
+"} 
+[2026-01-27 23:08:10] local.INFO: ApiCheckController:check - User found successfully. {"nickname":"Thankinsomnia%c2%ae","from_cache":true} 

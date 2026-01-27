@@ -858,10 +858,10 @@ class OrderController extends Controller
                 // Send Success Message
                 $pesanSukses = "*Pembelian Sukses*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\nStatus Pembelian: *Sukses*\nMetode Pembayaran: *SALDO*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
                 $this->msg($request->nomor, $pesanSukses);
-
             } catch (\Exception $e) {
                 DB::rollBack();
                 Cache::forget($userKey);
+                Log::error('Order Store Exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
                 // Return clear error message to user
                 return response()->json(['status' => false, 'data' => $e->getMessage()]);
             }
@@ -916,6 +916,7 @@ class OrderController extends Controller
             }
 
             if (!$gatewayResult['status']) {
+                Log::error('Order Store Gateway Failed', ['gatewayResult' => $gatewayResult]);
                 return response()->json(['status' => false, 'data' => $gatewayResult['msg'] ?? 'Gagal memproses pembayaran']);
             }
 

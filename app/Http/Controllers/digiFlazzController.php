@@ -124,10 +124,17 @@ class DigiFlazzController extends Controller
 
     public function connect($url, $data)
     {
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-        ])->post($this->endpoint . $url, $data);
+        try {
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+            ])->post($this->endpoint . $url, $data);
 
-        return $response->json();
+            Log::info("DigiFlazz Request to $url", ['data' => $data, 'status' => $response->status(), 'body' => $response->body()]);
+
+            return $response->json();
+        } catch (\Exception $e) {
+            Log::error("DigiFlazz Connection Error: " . $e->getMessage(), ['url' => $this->endpoint . $url, 'data' => $data]);
+            return ['data' => ['status' => 'Gagal', 'message' => 'Connection Error: ' . $e->getMessage()]];
+        }
     }
 }
