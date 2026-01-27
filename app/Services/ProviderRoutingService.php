@@ -40,6 +40,11 @@ class ProviderRoutingService
         }
 
         // 3. No provider found
+        Log::warning("ProviderRoutingService: No provider found for Service ID {$layanan->id} ({$layanan->layanan}).", [
+            'provider_paths_count' => $paths->count(),
+            'legacy_provider_id' => $layanan->provider_id,
+            'legacy_provider_nominal' => $layanan->provider_nomimal
+        ]);
         return null;
     }
 
@@ -59,7 +64,7 @@ class ProviderRoutingService
                 $credentials = [
                     'username' => $settings->username_digi,
                     'api_key' => $settings->api_key_digi,
-                    'endpoint' => 'https://api.digiflazz.com/v1/transaction',
+                    'endpoint' => 'https://api.digiflazz.com',
                 ];
                 break;
 

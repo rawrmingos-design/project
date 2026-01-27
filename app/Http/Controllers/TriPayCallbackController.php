@@ -129,10 +129,19 @@ class TriPayCallbackController extends Controller
                         $digiFlazz = new digiFlazzController($credentials);
                         $order = $digiFlazz->order($uid, $zone, $sku, $provider_order_id);
                         Log::info('Tripay Callback DigiFlazz Order', ['order' => $order]);
-                        if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
+                        
+                        if (!is_array($order)) {
+                            $order = [];
+                        }
+
+                        if (isset($order['data']['status']) && ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses")) {
                             $order['data']['status'] = true;
                             $order['transactionId'] = $provider_order_id;
                         } else {
+                            // Ensure data.status exists for downstream logic
+                            if (!isset($order['data'])) {
+                                $order['data'] = [];
+                            }
                             $order['data']['status'] = false;
                         }
                     } else if ($providerCode == "vip" || $providerCode == "vip_reseller") {
