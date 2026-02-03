@@ -141,7 +141,7 @@
       
     <div class="load"></div>
     <div class="relative h-56 w-full bg-murky-800 lg:h-[340px]">
-    <img src="{{ asset('assets/'.$kategori->banner) }}" class="object-cover object-center"
+    <img src="{{ asset($kategori->banner) }}" class="object-cover object-center"
         style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;"/>
       <ul class="circles">
      
@@ -204,7 +204,7 @@
  </ul>
     <div class="container relative top-10 z-20 flex h-full w-full flex-col justify-end gap-4 py-4 md:top-[5rem] lg:py-8">
                 <article class="flex items-start gap-4">
-                    <div class="product-thumbnail-container"><img src="{{ asset('assets/'.$kategori->thumbnail) }}" width="100" height="100" class="z-20 -mb-14 aspect-square w-32 rounded-2xl object-cover shadow-2xl md:-mb-20 md:w-60" style="color: transparent;" alt="{{ $kategori->nama }}"
+                    <div class="product-thumbnail-container"><img src="{{ asset($kategori->thumbnail) }}" width="100" height="100" class="z-20 -mb-14 aspect-square w-32 rounded-2xl object-cover shadow-2xl md:-mb-20 md:w-60" style="color: transparent;" alt="{{ $kategori->nama }}"
                         /></div>
                 </article>
             </div>
@@ -1264,7 +1264,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset($kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -2160,7 +2160,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset($kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -3027,7 +3027,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="flex items-start justify-start space-x-2 rounded-lg  p-4 text-sm bg-secondary md:hidden selected-element" style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset($kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1">
                         <div class="text-xs cana select glowing-text selected-order"> Pilih layanan terlebih dahulu</div>
@@ -3936,7 +3936,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="rounded-lg border border-dashed bg-secondary p-2 text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
                       <div class="mb-1 aspect-square timmel-5">
-                        <img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
+                        <img alt="icon" sizes="100vw" src="{{ asset($kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy" style="color: transparent">
                       </div>
                       <div class="flex w-full flex-col space-y-1 ml-3">
                           
@@ -4824,7 +4824,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             </div>
                             
                     <div class="rounded-lg border border-dashed bg-secondary p-2 rounded-md text-sm text-secondary-foreground md:hidden selected-element " style="display: none;">
-                                <div class="mb-1 aspect-square timmel-5"><img alt="icon" sizes="100vw" src="{{ asset('assets/' . $kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy"
+                                <div class="mb-1 aspect-square timmel-5"><img alt="icon" sizes="100vw" src="{{ asset($kategori->thumbnail) }}" width="80" height="100" decoding="async" data-nimg="1" class="aspect-square timmel-5 rounded-lg object-cover" loading="lazy"
                                         style="color: transparent"></div>
                                 <div class="flex w-full flex-col space-y-1 ml-3">
                                     <div class="text-xs font-semibold selected-order">{{ $kategori->nama }}</div>

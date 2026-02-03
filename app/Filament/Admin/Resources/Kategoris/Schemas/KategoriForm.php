@@ -83,25 +83,27 @@ class KategoriForm
                             ->label('Thumbnail')
                             ->image()
                             ->disk('assets')
-                            ->directory('thumbnail')
+                            ->directory('assets/thumbnail')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('1:1')
                             ->panelLayout('integrated')
                             ->removeUploadedFileButtonPosition('right')
-                            ->uploadButtonPosition('left'),
+                            ->uploadButtonPosition('left')
+                            ->required(),
                             
                         FileUpload::make('banner')
                             ->label('Banner')
                             ->image()
                             ->disk('assets')
-                            ->directory('banner_game')
+                            ->directory('assets/banner_game')
                             ->visibility('public')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('3:1')
                             ->panelLayout('integrated')
                             ->removeUploadedFileButtonPosition('right')
-                            ->uploadButtonPosition('left'),
+                            ->uploadButtonPosition('left')
+                            ->required(),
                     ])
                     ->columns(2),
                     

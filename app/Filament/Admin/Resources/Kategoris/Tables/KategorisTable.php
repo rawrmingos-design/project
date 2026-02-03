@@ -34,6 +34,14 @@ class KategorisTable
                     ->searchable()
                     ->sortable(),
 
+                ImageColumn::make('thumbnail')
+                    ->label('Thumbnail')
+                    ->disk('assets')
+                    ->visibility('public')
+                    ->width(40)
+                    ->height(40)
+                    ->circular(),
+
                 TextColumn::make('categoryType.name')
                     ->label('Category Sequence')
                     ->default('-'),
