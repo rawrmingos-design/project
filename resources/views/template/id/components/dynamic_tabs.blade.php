@@ -25,8 +25,8 @@
                         <div class="w-full aspect-square"><img
                                 alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
                                 class="h-full w-full object-cover object-center"
-                                srcset="{{ asset('assets/' . $category->thumbnail) }}"
-                                src="{{ asset('assets/' . $category->thumbnail) }}"
+                                srcset="{{ asset($category->thumbnail) }}"
+                                src="{{ asset($category->thumbnail) }}"
                                 style="color: transparent;"></div>
                         <div class="bg-weji neverzoom py-2">
                             <div class="flex flex-col px-3 py-1">

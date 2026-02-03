@@ -30,78 +30,47 @@ class TriPayController extends Controller
             'signature'    => hash_hmac('sha256', $api->tripay_merchant_code . $idOrder . $jumlah, $api->tripay_private_key)
         ];
 
-        $curl = curl_init();
+        $url = (env("APP_ENV") == "local") 
+            ? 'https://tripay.co.id/api-sandbox/transaction/create' 
+            : 'https://tripay.co.id/api/transaction/create';
 
-        $url = "";
-        Log::info(env('APP_ENV'));
-        if (env("APP_ENV") == "local") {
-            $url = 'https://tripay.co.id/api-sandbox/transaction/create';
-        } else {
-            $url = 'https://tripay.co.id/api/transaction/create';
+        try {
+            $response = \Illuminate\Support\Facades\Http::withToken($api->tripay_api)
+                ->asForm()
+                ->post($url, $data);
+            
+            $response = $response->object(); // Returns stdClass
+        } catch (\Exception $e) {
+            Log::error('TriPay Request Failed', ['error' => $e->getMessage()]);
+            return ['success' => false, 'msg' => 'Connection Error'];
         }
 
-        curl_setopt_array($curl, [
-            CURLOPT_FRESH_CONNECT  => true,
-            CURLOPT_URL            => $url,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HEADER         => false,
-            CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $api->tripay_api],
-            CURLOPT_FAILONERROR    => false,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => http_build_query($data),
-            CURLOPT_IPRESOLVE      => CURL_IPRESOLVE_V4
-        ]);
-
-        $response = json_decode(curl_exec($curl));
-        // dd($response);
-        $error = curl_error($curl);
         $paymentNumber = '';
-        // if ($method == "QRISC" || $method == "QRISD" || $method == "QRIS" || $method == "QRISOP") {
-        //     $paymentNumber = $response->data->qr_url;
-        // } else if ($response->data->pay_code == null) {
-        //     $paymentNumber = $response->data->checkout_url;
-        // } else {
-        //     $paymentNumber = $response->data->pay_code;
-        // }
 
-
-        if ($response->success == true) {
-
-
+        if (isset($response->success) && $response->success == true) {
             if (empty($response->data->pay_code)) {
-
                 if (empty($response->data->pay_url)) {
-
                     $paymentNumber = $response->data->qr_url;
                 } else {
-
                     $paymentNumber = $response->data->pay_url;
                 }
             } else {
-
                 $paymentNumber = $response->data->pay_code;
             }
 
             return array('success' => $response->success, 'amount' => $response->data->amount, 'no_pembayaran' => $paymentNumber, 'reference' => $response->data->reference);
         } else {
-
-            $err = strtolower($response->message);
-
+            $err = isset($response->message) ? strtolower($response->message) : 'unknown error';
             $msg = '';
 
             if (str_contains($err, 'minimum')) {
-
                 $pch = explode('rp', $err);
-
-                $msg = 'Minimum jumlah pembayaran untuk metode pembayaran ini adalah Rp ' . $pch[1] . ' ';
+                $msg = 'Minimum jumlah pembayaran untuk metode pembayaran ini adalah Rp ' . ($pch[1] ?? '') . ' ';
             } elseif (str_contains($err, 'maximum')) {
-
                 $pch = explode('rp', $err);
-
-                $msg = 'Maksimal jumlah pembayaran untuk metode pembayaran ini adalah Rp ' . $pch[1] . ' ';
+                $msg = 'Maksimal jumlah pembayaran untuk metode pembayaran ini adalah Rp ' . ($pch[1] ?? '') . ' ';
             } else {
-
-                $msg = 'Metode pembayaran ini sedang tidak dapat digunakan';
+                $msg = 'Metode pembayaran ini sedang tidak dapat digunakan (' . $err . ')';
             }
 
             return array('success' => false, 'msg' => $msg);

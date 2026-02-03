@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use Filament\Http\Middleware\Authenticate;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
@@ -23,6 +24,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->multiFactorAuthentication([
+            AppAuthentication::make(),
+            ])
+            ->profile()
             ->login(\App\Filament\Admin\Pages\Auth\Login::class)
             ->sidebarCollapsibleOnDesktop()
             ->font('Poppins')

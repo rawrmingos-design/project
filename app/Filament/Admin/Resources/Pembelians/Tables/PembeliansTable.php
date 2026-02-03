@@ -29,15 +29,15 @@ class PembeliansTable
                     ->copyable()
                     ->weight('bold'),
                     
-                TextColumn::make('user.name')
-                    ->label('Customer')
+                TextColumn::make('nickname')
+                    ->label('Nickname')
                     ->searchable()
-                    ->sortable()
-                    ->default('N/A'),
+                    ->sortable(),
                     
                 TextColumn::make('username')
                     ->label('Username')
                     ->searchable()
+                    ->default('Anonim')
                     ->toggleable(isToggledHiddenByDefault: true),
                     
                 TextColumn::make('layanan')

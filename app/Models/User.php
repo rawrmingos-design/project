@@ -9,8 +9,10 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 
-class User extends Authenticatable implements FilamentUser
+
+class User extends Authenticatable implements FilamentUser, MustVerifyEmail, HasAppAuthentication
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -29,6 +31,8 @@ class User extends Authenticatable implements FilamentUser
         'no_wa',
         'otp',
         'api_key',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -39,6 +43,8 @@ class User extends Authenticatable implements FilamentUser
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -50,6 +56,32 @@ class User extends Authenticatable implements FilamentUser
         'email_verified_at' => 'datetime',
         'balance' => 'integer',
     ];
+
+    /**
+ * Get the app authentication (TOTP) secret.
+ */
+    public function getAppAuthenticationSecret(): ?string
+    {
+        return $this->two_factor_secret;
+    }
+
+/**
+ * Save the app authentication (TOTP) secret.
+ */
+    public function saveAppAuthenticationSecret(?string $secret): void
+    {
+        $this->two_factor_secret = $secret;
+        $this->save();
+    }
+
+/**
+ * Get the name shown in the authenticator app.
+ */
+    public function getAppAuthenticationHolderName(): string
+    {
+        return config('app.name') . ' (' . $this->email . ')';
+    }
+
 
     public function canAccessPanel(Panel $panel): bool
     {
