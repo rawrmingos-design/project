@@ -55,6 +55,9 @@ class SettingWeb extends Model
         'profit_member',
         'profit_platinum',
         'profit_gold',
+        'google_analytics_id',
+        'facebook_pixel_id',
+        'google_tag_manager_id',
     ];
     
     protected $casts = [

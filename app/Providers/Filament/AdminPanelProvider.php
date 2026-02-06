@@ -61,6 +61,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             // ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->widgets([
+                \App\Filament\Admin\Widgets\DigiflazzBalanceOverview::class,
                 \App\Filament\Admin\Widgets\UserStatsOverview::class,
                 \App\Filament\Admin\Widgets\ProductMetrics::class,
                 \App\Filament\Admin\Widgets\RecentActivities::class,
@@ -77,9 +78,7 @@ class AdminPanelProvider extends PanelProvider
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
-                AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,

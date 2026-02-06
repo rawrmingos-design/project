@@ -699,7 +699,7 @@ class OrderController extends Controller
 
         // Initialize username if not set (for games not in validation list)
         if (!isset($username)) {
-            $username = null;
+            $username = "Anonim";
         }
 
         $dataMethod = Method::where('code', $request->payment_method)
@@ -1297,7 +1297,7 @@ class OrderController extends Controller
     }
 
     private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe) {
-        $user_id = Auth::check() ? Auth::user()->username : null; // Consistent with original code
+        $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
         
         $pembelian = new Pembelian();
         $pembelian->username = $user_id; 
@@ -1320,6 +1320,7 @@ class OrderController extends Controller
         $pembelian->provider_order_id = $provider_order_id;
         $pembelian->ip_address = $ipAddress;
         $pembelian->voucher = $request->voucher ?? null;
+        $pembelian->traffic_source = $request->session()->get('traffic_source', 'Direct');
         $pembelian->save();
 
         $pembayaran = new Pembayaran();

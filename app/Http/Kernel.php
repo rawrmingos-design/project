@@ -28,6 +28,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\AddExpirationDateToCookie::class,
             \App\Http\Middleware\TrackVisitors::class,
             \App\Http\Middleware\LanguageDetectMiddleware::class,
+            \App\Http\Middleware\CaptureTrafficSource::class,
         ],
 
         'api' => [

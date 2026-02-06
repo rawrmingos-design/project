@@ -96,7 +96,7 @@
                         <div
                             class="relative mt-2 aspect-[4/6] h-32 flex-none overflow-hidden rounded-lg bg-murky-600 object-cover object-center print:hidden sm:h-56 md:mt-0 md:block">
                             <img alt="{{ $namas }}" fetchpriority="high" decoding="async" data-nimg="fill"
-                                class="object-cover object-center" sizes="100vw" src="{{ asset('assets/' . $thumbnails) }}"
+                                class="object-cover object-center" sizes="100vw" src="{{ asset($thumbnails) }}"
                                 style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                         </div>
                         <div>

@@ -26,7 +26,7 @@ class UserForm
                         TextInput::make('username')
                             ->label('Username')
                             ->unique(ignoreRecord: true)
-                            ->default('anonim')
+                            ->default('Anonim')
                             ->maxLength(255)
                             ->helperText('Digunakan untuk login'),
                             

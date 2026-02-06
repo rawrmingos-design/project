@@ -17,7 +17,8 @@ class Login extends BaseLogin
                 $this->getRememberFormComponent(),
 
                 GRecaptcha::make('captcha')
-                    ->required(),
+                    ->required()
+                    ->visible(fn () => blank($this->userUndertakingMultiFactorAuthentication)),
             ]);
     }
 

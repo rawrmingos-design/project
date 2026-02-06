@@ -73,7 +73,7 @@ class DigiFlazzController extends Controller
 
     public function cekSaldo()
     {
-        $sign = md5($this->username . $this->apiKey . "depositsaldo");
+        $sign = md5($this->username . $this->apiKey . "depo");
         $data = [
             'username' => $this->username,
             'cmd' => 'deposit',
