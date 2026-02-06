@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Source Simulation</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .card {
+        border: 1px solid #ddd;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 8px;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 10px 15px;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-right: 10px;
+      }
+
+      .facebook {
+        background-color: #3b5998;
+      }
+
+      .google {
+        background-color: #4285f4;
+      }
+
+      .tiktok {
+        background-color: #000000;
+      }
+
+      .other {
+        background-color: #28a745;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Manual E2E Testing: Traffic Source</h1>
+    <p>Use this page to simulate traffic coming from different sources. <br>
+      <strong>Note:</strong> You may need to clear your browser cookies/session for localhost before testing a new
+      source, as the logic preserves the <em>first</em> source.
+    </p>
+
+    <div class="card">
+      <h3>1. Simulate Social Media</h3>
+      <p>These links will send a `Referer` header corresponding to the platform.</p>
+      <!-- Note: Modern browsers might strip referrer in some localhost contexts, but standard linking usually works -->
+      <!-- We use a trick: meta referrer policy is default (strict-origin-when-cross-origin) -->
+
+      <a href="http://127.0.0.1:8000/id?ref=facebook" target="_blank" class="btn facebook">Visit from Mock Facebook</a>
+      <a href="http://127.0.0.1:8000/id?ref=google" target="_blank" class="btn google">Visit from Mock Google</a>
+      <a href="http://127.0.0.1:8000/id?ref=tiktok" target="_blank" class="btn tiktok">Visit from Mock TikTok</a>
+    </div>
+
+    <div class="card">
+      <h3>2. Verification Steps</h3>
+      <ol>
+        <li>Open Incognito Window (to ensure fresh session).</li>
+        <li>Drag this HTML file into the Incognito window.</li>
+        <li>Click one of the buttons above.</li>
+        <li>On the target site, place an order.</li>
+        <li>Check the Admin Panel > Pembelian > Export. The "AD SOURCE" column should match the button you clicked.</li>
+      </ol>
+    </div>
+
+    <script>
+      // Optional: We can try to force referrer via JS, but standard <a href> is best test
+      document.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', function (e) {
+          console.log("Navigating to " + this.href);
+        });
+      });
+    </script>
+  </body>
+
+</html>

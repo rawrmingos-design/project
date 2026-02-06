@@ -25,8 +25,8 @@ class UserStatsOverview extends StatsOverviewWidget
         $transactionGrowth = $transactionsLastMonth > 0 ? (($totalTransactions - $transactionsLastMonth) / $transactionsLastMonth) * 100 : 0;
         
         // 2. Sales Stats (Total Revenue from Solved Orders)
-        $totalSales = \App\Models\Pembelian::where('status', 'Success')->sum('harga'); // Assuming 'Success' or 'Lunas'
-        $salesLastMonth = \App\Models\Pembelian::where('status', 'Success')
+        $totalSales = \App\Models\Pembayaran::where('status', 'Lunas')->sum('harga');
+        $salesLastMonth = \App\Models\Pembayaran::where('status', 'Lunas')
                             ->whereMonth('created_at', now()->subMonth()->month)
                             ->sum('harga');
         $salesGrowth = $salesLastMonth > 0 ? (($totalSales - $salesLastMonth) / $salesLastMonth) * 100 : 0;

@@ -58,29 +58,50 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     ];
 
     /**
- * Get the app authentication (TOTP) secret.
- */
+    * Get the app authentication (TOTP) secret.
+    */
     public function getAppAuthenticationSecret(): ?string
     {
         return $this->two_factor_secret;
     }
 
-/**
- * Save the app authentication (TOTP) secret.
- */
+    /**
+    * Save the app authentication (TOTP) secret.
+    */
     public function saveAppAuthenticationSecret(?string $secret): void
     {
-        $this->two_factor_secret = $secret;
+        $this->two_factor_secret = $secret
+            ? strtoupper(trim($secret))
+            : null;
+
         $this->save();
     }
 
-/**
- * Get the name shown in the authenticator app.
- */
+    /**
+    * Get the name shown in the authenticator app.
+    */
     public function getAppAuthenticationHolderName(): string
     {
         return config('app.name') . ' (' . $this->email . ')';
     }
+
+    /**
+    * Get the recovery codes for app authentication.
+    */
+    public function getAppAuthenticationRecoveryCodes(): array
+    {
+        return json_decode($this->two_factor_recovery_codes ?? '[]', true);
+    }
+
+    /**
+    * Save the recovery codes for app authentication.
+    */
+    public function saveAppAuthenticationRecoveryCodes(array $codes): void
+    {
+        $this->two_factor_recovery_codes = json_encode($codes);
+        $this->save();
+    }
+
 
 
     public function canAccessPanel(Panel $panel): bool

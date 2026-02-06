@@ -15,6 +15,9 @@ use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
+use pxlrbt\FilamentExcel\Columns\Column;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 
 class PembeliansTable
 {
@@ -44,21 +47,52 @@ class PembeliansTable
                     ->label('Product')
                     ->searchable()
                     ->sortable()
-                    ->limit(30),
+                    ->limit(30)
+                    ->description(function ($record) {
+                        $source = $record->traffic_source ?? 'Original';
+                        // Image URLs (Reliable CDNs)
+                        $logos = [
+                            'facebook' => 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg',
+                            'instagram' => 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg',
+                            'tiktok' => 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg',
+                            'youtube' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg',
+                            'google' => 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                            'whatsapp' => 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
+                        ];
+                        
+                        $key = strtolower($source);
+                        if (isset($logos[$key])) {
+                            $imgSrc = $logos[$key];
+                             return new \Illuminate\Support\HtmlString(
+                                "<div class='flex items-center gap-1 mt-1'>
+                                    <img src='{$imgSrc}' height='16' width='16' class='h-4 w-4 mb-1 object-contain' alt='{$source}'>
+                                </div>"
+                            );
+                        } else {
+                             // Fallback for Direct / Others
+                             $icon = $key === 'direct' ? '🔗' : '🌐';
+                             return new \Illuminate\Support\HtmlString(
+                                "<span class='text-xs text-gray-500'>$icon $source</span>"
+                            );
+                        }
+                    }),
                     
                 BadgeColumn::make('status')
                     ->label('Status')
                     ->colors([
-                        'success' => 'Success',
+                        'success' => 'Sukses',
                         'warning' => 'Pending',
+                        'pending' => 'Pending',
                         'info' => 'Processing',
-                        'danger' => 'Failed',
+                        'info' => 'Proses',
+                        'danger' => 'Batal',
                     ])
                     ->icons([
-                        'heroicon-o-check-circle' => 'Success',
-                        'heroicon-o-clock' => 'Pending',
+                        'heroicon-o-check-circle' => 'Sukses',
+                        'heroicon-o-clock' => 'Proses',
                         'heroicon-o-arrow-path' => 'Processing',
-                        'heroicon-o-x-circle' => 'Failed',
+                        'heroicon-o-clock' => 'Pending',
+                        'heroicon-o-x-circle' => 'Batal',
                     ])
                     ->sortable(),
                     
@@ -86,7 +120,7 @@ class PembeliansTable
                     ->label('Nickname')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->default('N/A'),
-                    
+
                 TextColumn::make('tipe_transaksi')
                     ->label('Type')
                     ->badge()
@@ -208,26 +242,73 @@ class PembeliansTable
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    BulkAction::make('export_excel')
-                        ->label('Export to Excel')
-                        ->icon('heroicon-o-document-arrow-down')
-                        ->color('success')
-                        ->action(function (Collection $records) {
-                            // Export logic will be implemented
-                            Notification::make()
-                                ->title('Export started')
-                                ->body('Excel file will be generated shortly')
-                                ->info()
-                                ->send();
-                        }),
-                        
-                    BulkAction::make('bulk_process')
-                        ->label('Process Selected')
-                        ->icon('heroicon-o-play')
-                        ->color('success')
-                        ->action(function (Collection $records) {
-                            $count = $records->where('status', 'Pending')->count();
-                            $records->where('status', 'Pending')->each(function ($record) {
+                    ExportBulkAction::make()
+                        ->label('Export Data (Laporan Sales)')
+                        ->icon('heroicon-o-arrow-down-tray')
+                        ->exports([
+                            ExcelExport::make()
+                                ->askForFilename()
+                                ->askForWriterType()
+                                ->withFilename(fn () => 'laporan-sales-' . now()->format('Y-m-d'))
+                                ->withColumns([
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('order_id')
+                                        ->heading('INVOICE')
+                                        ->getStateUsing(fn ($record) => $record->order_id),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('created_at')
+                                        ->heading('TANGGAL')
+                                        ->getStateUsing(fn ($record) => $record->created_at?->format('d/m/Y H:i')),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('status')
+                                        ->heading('STATUS')
+                                        ->getStateUsing(fn ($record) => $record->status),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('user.no_wa')
+                                        ->heading('WHATSAPP')
+                                        ->getStateUsing(fn ($record) => $record->user?->no_wa),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('user.email')
+                                        ->heading('EMAIL')
+                                        ->getStateUsing(fn ($record) => $record->user?->email),
+                                        
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('layanan')
+                                        ->heading('PRODUK')
+                                        ->getStateUsing(fn ($record) => $record->layanan),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('harga')
+                                        ->heading('HARGA JUAL')
+                                        ->formatStateUsing(fn ($state) => 'Rp ' . number_format((float)$state, 0, ',', '.'))
+                                        ->getStateUsing(fn ($record) => $record->harga),
+                                        
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('profit')
+                                        ->heading('PROFIT')
+                                        ->formatStateUsing(fn ($state) => 'Rp ' . number_format((float)$state, 0, ',', '.'))
+                                        ->getStateUsing(fn ($record) => $record->profit),
+                                        
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('traffic_source')
+                                        ->heading('AD SOURCE')
+                                        ->getStateUsing(fn ($record) => $record->traffic_source),
+
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('zone')
+                                        ->heading('ZONE / SERVER')
+                                        ->getStateUsing(fn ($record) => $record->zone),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('nickname')
+                                        ->heading('GAME NICKNAME')
+                                        ->getStateUsing(fn ($record) => $record->nickname),
+                                    
+                                    \pxlrbt\FilamentExcel\Columns\Column::make('provider_order_id')
+                                        ->heading('TRX ID PROVIDER')
+                                        ->getStateUsing(fn ($record) => $record->provider_order_id),
+                                ]),
+                        ]),
+                BulkAction::make('bulk_process')
+                    ->label('Process Selected')
+                    ->icon('heroicon-o-play')
+                    ->color('success')
+                    ->action(function (Collection $records) {
+                        $count = $records->where('status', 'Pending')->count();
+                        $records->where('status', 'Pending')->each(function ($record) {
                                 $record->update(['status' => 'Processing']);
                             });
                             
@@ -239,13 +320,12 @@ class PembeliansTable
                         })
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion(),
-                        
-                    BulkAction::make('bulk_cancel')
-                        ->label('Cancel Selected')
-                        ->icon('heroicon-o-x-mark')
-                        ->color('danger')
-                        ->action(function (Collection $records) {
-                            $count = $records->whereIn('status', ['Pending', 'Processing'])->count();
+                BulkAction::make('bulk_cancel')
+                    ->label('Cancel Selected')
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->action(function (Collection $records) {
+                        $count = $records->whereIn('status', ['Pending', 'Processing'])->count();
                             $records->whereIn('status', ['Pending', 'Processing'])->each(function ($record) {
                                 $record->update(['status' => 'Failed', 'log' => 'Bulk cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
                             });

@@ -67,7 +67,7 @@ return [
     |
     */
 
-    'timezone' => 'Asia/Kuala_Lumpur',
+    'timezone' => 'Asia/Jakarta',
 
 
     /*
@@ -81,7 +81,7 @@ return [
     |
     */
 
-    'locale' => 'ms_MY',
+    'locale' => 'id',
 
     /*
     |--------------------------------------------------------------------------

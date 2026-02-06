@@ -1,0 +1,19 @@
+- 2fa
+- live response transaksi
+
+- icon refer ke sosmed
+- export data table order pembayaran custom nomor invoice status transaksi nomor telpon email jumlah diamond
+- report sales
+
+- google analityc
+- gsc & fb pixel
+- total saldo digiflazz
+- template notif
+
+- tambahin duitku
+
+- affiliator/affiliasi
+- affiliate bisa bisa narik saldo tapi gk bisa topup
+
+- nickname table
+- tier sesuai dengan orderan pembelian

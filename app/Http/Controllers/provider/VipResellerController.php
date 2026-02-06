@@ -55,9 +55,20 @@ class VipResellerController extends Controller
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
         curl_setopt($ch, CURLOPT_POST, TRUE);
-        // Fixed undefined variables by assuming $type='get-nickname' based on function name context, though original was broken.
-        // Assuming standard VIP Reseller check ID format
         curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiKey . "&sign=$sign&type=get-nickname&service=$service&data_no=$uid&data_zone=$zone");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        $res = json_decode(curl_exec($ch), true);
+        return $res;
+    }
+
+    public function profile()
+    {
+        $sign = md5($this->apiId . $this->apiKey);
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
+        curl_setopt($ch, CURLOPT_POST, TRUE);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiKey . "&sign=$sign&type=profile");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         $res = json_decode(curl_exec($ch), true);

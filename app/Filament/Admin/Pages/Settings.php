@@ -69,6 +69,29 @@ class Settings extends Page implements HasForms
                             ->columnSpanFull(),
                     ])
                     ->collapsible(),
+
+                // Analytics & Tracking
+                Section::make('Analytics & Tracking')
+                    ->description('Google Analytics, Facebook Pixel, and Tag Manager')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('google_analytics_id')
+                            ->label('Google Analytics 4 (GA4) ID')
+                            ->placeholder('G-XXXXXXXXXX')
+                            ->helperText('Measurement ID dari GA4'),
+                        
+                        TextInput::make('facebook_pixel_id')
+                            ->label('Facebook Pixel ID')
+                            ->placeholder('XXXXXXXXXXXXXXX')
+                            ->helperText('Pixel ID (Angka saja)'),
+
+                        TextInput::make('google_tag_manager_id')
+                            ->label('Google Tag Manager ID')
+                            ->placeholder('GTM-XXXXXXX')
+                            ->helperText('Container ID dari GTM (Optional)'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
                     
                 // Branding
                 Section::make('Logo & Colors')
