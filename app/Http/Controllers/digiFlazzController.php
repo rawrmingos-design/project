@@ -39,6 +39,7 @@ class DigiFlazzController extends Controller
             'ref_id' => strval($order_id),
             'testing' => env('APP_ENV') === 'local',
             'sign' => $sign,
+            'cb_url' => env('APP_URL_CALLBACK') . '/wejizy/digi/payload',
         ];
 
         return $this->connect("/v1/transaction", $api_postdata);
@@ -55,6 +56,7 @@ class DigiFlazzController extends Controller
             'customer_no' => $target,
             'ref_id' => $poid,
             'sign' => $sign,
+            'cb_url' => env('APP_URL_CALLBACK') . '/wejizy/digi/payload',
         ];
 
         return $this->connect("/v1/transaction", $data);

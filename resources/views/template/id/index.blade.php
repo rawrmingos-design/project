@@ -86,118 +86,14 @@
 </section>
 
 
-            <div class="flex flex-col gap-y-8 pb-8 pt-4 sm:p-0 md:pt-8">
-            @if($flashsale->count() > 0)
-            <div class="container">
-              <div class="rounded-2xl bg-muted/50">
-                <div class="px-4 pb-3 pt-4">
-                    <h3 class="flex items-center space-x-4 text-foreground">
-                         <div class="text-lg font-semibold uppercase leading-relaxed tracking-wider flex items-center">
-                        <lottie-player 
-                            src="https://lottie.host/72527c22-6566-4eda-b453-dc61dd77ef2b/rt3d8phYjG.json" 
-                            speed="1" 
-                            style="width: 25px; height: 30px;" 
-                            loop 
-                            autoplay 
-                            direction="1" 
-                            mode="normal">
-                        </lottie-player>
-                         FLASHSALE
-                    </div>
-                           <div class="flex items-center gap-1 text-sm capitalize">
-                                    <div class="fs-countdown ml-3">
-                                        <div class="time" id="hours"></div>
-                                        <div class="separator">:</div>
-                                        <div class="time" id="minutes"></div>
-                                        <div class="separator">:</div>
-                                        <div class="time" id="seconds"></div>
-                              </div>
-                        </div>
-                    </h3>
-                    <p class="pl-6 text-xs text-foreground">Pesan sekarang! Persediaan terbatas.</p>
-                </div>
-                    <div class="relative flex h-full w-full flex-col items-center justify-center overflow-hidden pb-2 pt-1">
-                        <div
-                            class="group flex overflow-hidden p-2 [--gap:1rem] [gap:var(--gap)] flex-row container [--duration:20s]">
-                            <div data-run-marquee="true" data-run-marquee-vertical="false" class="flex shrink-0 justify-around [gap:var(--gap)] data-[run-marquee-vertical=true]:animate-marquee-vertical data-[run-marquee=true]:animate-marquee data-[run-marquee]:flex-row data-[run-marquee-vertical=true]:flex-col group-hover:[animation-play-state:paused]">
-                                <div class=" flex">
-                                    <div
-                                        class="assdafsdvsvasgdsgsdgwgreragwgwrgeargwrgergegsvdsDVSVcsdvdszvsbwtergerg43t34f34343ff34g34gG2">
-                                        <div id="special_deals">
-                                            <div class="list swiper-wrapper marquee-content">
-                                                @for ($i = 0; $i < $flashsale->count(); $i++)
-                                                    @foreach ($flashsale as $fs)
-                                                        @php
-                                                            $discount = round(
-                                                                (($fs->harga - $fs->harga_flash_sale) / $fs->harga) *
-                                                                    100,
-                                                            );
-                                                        @endphp
-                                                        <a class="swiper-slide-link"
-                                                            href="{{ url('/id') }}/{{ $fs->kode_game }}">
-                                                            <div class="item relative" data-item-theme="0722">
-                                                                <div class="popular-tag-container">
-                                                                    <div class="popular-tag-content">
-                                                                        <div class="rate">{{ $fs->kategori->nama }}</div>
-                                                                    </div>
-                                                                    <div class="popular-tag-overlay"></div>
-                                                                </div>
-                                                                <img alt=""
-                                                                    class="flash-sale-img lazyloaded rounded-lg"
-                                                                    src="{{ asset($fs->gmr_thumb) }}" />
-                                                                <div class="T truncatee">
-                                                                    <h2 class="sku text-white text-center">
-                                                                        <figcaption
-                                                                            class="text-sm font-medium text-foreground">
-                                                                            {{ $fs->judul_flash_sale }}</figcaption>
-                                                                    </h2>
-                                                                    @php
-                                                                        $total_stok = 100; // Asumsi total stok awal
-                                                                        $progress =
-                                                                            ($fs->sisa_stok / $total_stok) * 100;
-                                                                    @endphp
-                                                                    <div class="bar">
-                                                                        <div class="progress"
-                                                                            style="width: 100%; background-color: #e7e6e63f ">
-                                                                            <div class="progress-bar"
-                                                                                style="width: {{ $progress }}%; background-color: var(--warna_3); height: 100%;">
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <span class="progress-text">Tersisa:
-                                                                            {{ $fs->sisa_stok }}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            <div class="promo">
-                                                                <div class="rate">Rp.
-                                                                    {{ number_format($fs->harga_flash_sale, 0, '.', ',') }}
-                                                                </div>
-                                                                <div class="price">
-                                                                    <b><del class="red-line-through">Rp.
-                                                                            {{ number_format($fs->harga, 0, '.', ',') }}</del></b>
-                                                                    <figcaption class="text-sm font-bold">HEMAT Rp
-                                                                        {{ number_format($fs->harga - $fs->harga_flash_sale, 0, '.', ',') }}
-                                                                    </figcaption>
-                                                                </div>
-                                                            </div>
-                                                        </a>
-                                                    @endforeach
-                                                @endfor
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-@endif  
+            <div class="flex flex-col pb-8 pt-4 sm:p-0 md:pt-8">
+            {{-- Flashsale Section - Livewire Lazy Load --}}
+            @livewire('home.flashsale', [], key('flashsale'))
           <div id="content-melpa"  class="container ">   
           <div class="mb-5">
               <h3 class="text-lg font-semibold leading-relaxed tracking-wider flex">
-             <lottie-player 
+             {{-- Lottie player disabled due to CDN 403 errors --}}
+             {{-- <lottie-player 
             src="https://lottie.host/105ce5c3-7e93-4dbc-bfc8-6e4c816320e5/8kDtYqEr0W.json" 
             speed="1" 
             style="width: 25px; height: 25px;" 
@@ -205,7 +101,8 @@
             autoplay 
             direction="1" 
             mode="normal">
-        </lottie-player> POPULER!
+        </lottie-player> --}}
+        <i class="fa fa-fire text-orange-500 mr-2" style="font-size: 20px;"></i> POPULER!
         </h3>
          <p class="pl-6 text-xs">Beberapa produk yang paling populer saat ini.</p>
       </div>
@@ -230,132 +127,11 @@
        </div>
      </div>
 
-                 <section id="mobile-game" class="relative w-full overflow-hidden pb-6 md:pb-8 lg:pb-10 bg-secondary-950 ">
- 
-                    <div class="container mx-auto">
-                        
-                        <div class="flex items-center gap-2">
-                    <div class="block lg:hidden"><button id="scrollLeft" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-card text-primary-foreground hover:bg-primary/90 h-9 w-9"
-                            type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left h-4 w-4"><path d="m15 18-6-6 6-6"></path></svg></button></div>
-                    <div
-                        class="tabs-container flex overflow-x-auto scroll-smooth">                        @foreach ($categoryTypes as $type)
-                            <button
-                                class="tab-button whitespace-nowrap melpazoom rounded-xl border border-secondary-600 px-4 py-2 text-sm text-text-color shadow-xl outline-none duration-300 hover:bg-secondary-500 focus:bg-secondary-500 focus-visible:bg-secondary-500 bg-transparent"
-                                id="headlessui-tabs-tab-:{{ $type->slug }}:" role="tab" type="button" aria-selected="false"
-                                tabindex="0" data-headlessui-state="false"
-                                aria-controls="headlessui-tabs-panel-:{{ $type->slug }}:"
-                                data-tabs-toggle="#headlessui-tabs-panel-{{ $type->slug }}">
-                                {{ $type->name }}
-                            </button>
-                        @endforeach</div>
-                <div
-                    class="block lg:hidden"><button id="scrollRight" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-card text-primary-foreground hover:bg-primary/90 h-9 w-9"
-                        type="button"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right h-4 w-4"><path d="m9 18 6-6-6-6"></path></svg></button></div>
-            </div>
-                    
-                        <div class="my-8">
-                                                          @include('template.id.components.dynamic_tabs')
+                 {{-- Category Tabs Section - Livewire Lazy Load --}}
+                 @livewire('home.category-tabs', [], key('category-tabs'))
 
-                                
-                                
-
-                                
-                                                                                    
-
-                            
-                        </div>
-                    </div>
-                    </div>
-                    </div>                   
-</section>
-
-<!-- Article Recommendation Section -->
-<section class="relative w-full overflow-hidden pb-16 pt-8 bg-transparent">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-        
-        <!-- Section Header -->
-        <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-                <h3 class="text-2xl md:text-3xl font-black uppercase italic tracking-tighter text-white flex items-center gap-3">
-                    <span class="text-primary-500 text-4xl">
-                        <i class="fa fa-bolt"></i>
-                    </span>
-                    Berita & Artikel
-                </h3>
-                <p class="text-gray-400 text-sm mt-2 max-w-lg">
-                    Dapatkan informasi terbaru seputar update game, promo eksklusif, dan tips & trik terbaik.
-                </p>
-            </div>
-            <a href="{{ url('/artikel') }}" class="group flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-primary-600 hover:border-primary-500">
-                Lihat Semua
-                <i class="fa fa-arrow-right transition-transform group-hover:translate-x-1"></i>
-            </a>
-        </div>
-
-        @if(isset($articles) && $articles->count() > 0)
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            @foreach($articles as $article)
-            <a href="{{ url('/artikel/' . $article->slug) }}" class="group relative block h-full">
-                <!-- Card Container -->
-                <div class="relative h-full overflow-hidden rounded-3xl bg-secondary-900 border border-white/5 transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_0_40px_-10px_rgba(var(--warna_1_rgb),0.3)] hover:border-primary-500/30">
-                    
-                    <!-- Image Wrapper -->
-                    <div class="aspect-[16/9] w-full overflow-hidden relative">
-                        <!-- Badge -->
-                        <div class="absolute top-4 left-4 z-20">
-                            <span class="inline-flex items-center gap-1.5 rounded-lg bg-black/60 backdrop-blur-md px-3 py-1.5 text-xs font-bold text-white border border-white/10">
-                                <i class="fa fa-calendar text-primary-400"></i>
-                                {{ $article->created_at->format('d M Y') }}
-                            </span>
-                        </div>
-                        
-                        <!-- Image -->
-                        <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 group-hover:rotate-1">
-                        
-                        <!-- Overlay Gradient -->
-                        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-secondary-950/20 to-secondary-950/90"></div>
-                    </div>
-
-                    <!-- Content -->
-                    <div class="relative p-6 -mt-10 z-10">
-                         <!-- Glass Effect Background for Text -->
-                        <div class="absolute inset-0 bg-gradient-to-b from-transparent to-secondary-900/90 z-0"></div>
-                        
-                        <div class="relative z-10">
-                             <!-- Tags (Optional) -->
-                             <!-- <div class="mb-3 flex flex-wrap gap-2 text-xs font-semibold text-primary-400 uppercase tracking-wider">
-                                <span>GAMES</span> • <span>UPDATE</span>
-                            </div> -->
-
-                            <h4 class="mb-3 text-xl font-bold leading-tight text-white transition-colors group-hover:text-primary-400 line-clamp-2">
-                                {{ $article->title }}
-                            </h4>
-                            
-                            <p class="mb-5 text-sm leading-relaxed text-gray-400 line-clamp-2">
-                                {{ \Illuminate\Support\Str::limit(strip_tags($article->content), 120) }}
-                            </p>
-
-                            <div class="flex items-center gap-2 text-sm font-bold text-white border-t border-white/5 pt-4">
-                                <span class="group-hover:text-primary-400 transition-colors">Baca Selengkapnya</span>
-                                <i class="fa fa-arrow-right text-xs text-primary-500 transition-transform -rotate-45 group-hover:rotate-0 group-hover:translate-x-1"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </a>
-            @endforeach
-        </div>
-        @else
-        <div class="flex flex-col items-center justify-center py-20 text-center rounded-3xl border border-dashed border-white/10 bg-white/5">
-            <div class="mb-4 rounded-full bg-white/5 p-6">
-                <i class="fa fa-newspaper-o text-4xl text-gray-600"></i>
-            </div>
-            <h4 class="text-lg font-bold text-white">Belum ada artikel terbaru</h4>
-            <p class="text-sm text-gray-500 mt-1">Nantikan update menarik dari kami segera.</p>
-        </div>
-        @endif
-    </div>
-</section>
+{{-- Article Recommendation Section - Livewire Lazy Load --}}
+@livewire('home.articles', [], key('articles'))
 
 <style>
             .bg-black\/80 {
@@ -419,9 +195,9 @@
                             </div>
                             
                             
-                            <!-- Gunakan x-html untuk menampilkan HTML mentah dari deskripsi -->
-                            <div class="prose prose-sm px-4 pb-4 text-xs text-white">
-                                <p class="text-center" x-html="{!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars($config->judul_web , ENT_QUOTES, 'UTF-8') . ' Selamat berbelanja.' !!}"></p>
+                            <!-- Display HTML content from popup description -->
+                            <div class="prose prose-sm px-4 pb-4 text-xs text-white text-center">
+                                {!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars($config->judul_web , ENT_QUOTES, 'UTF-8') . '. Selamat berbelanja.' !!}
                             </div>
 
                             <div class="flex w-full items-center justify-start px-4 pb-2">
@@ -444,16 +220,8 @@
 
 @include('../footer')
 @push('custom_script')
-<script>
-function updateTimer() {
-@foreach($flashsale as $fs)@php
-$expiredFlashSale = new DateTime($fs->expired_flash_sale);
-$formattedDate = $expiredFlashSale->format('Y-m-d H:i:s');
-@endphp
-var countDownDate=new Date("{{ $formattedDate }}").getTime(),x=setInterval(function(){var t=new Date().getTime(),e=countDownDate-t;e>0?(document.getElementById("hours").textContent=Math.floor(e%864e5/36e5).toString().padStart(2,"0"),document.getElementById("minutes").textContent=Math.floor(e%36e5/6e4).toString().padStart(2,"0"),document.getElementById("seconds").textContent=Math.floor(e%6e4/1e3).toString().padStart(2,"0")):(clearInterval(x),document.getElementById("hours").textContent="00",document.getElementById("minutes").textContent="00",document.getElementById("seconds").textContent="00",document.getElementById("expired_time_flash_sale").textContent="Waktu sudah habis!")},1e3);
-@endforeach
-}document.addEventListener("DOMContentLoaded", function() {updateTimer();});
-</script>
+{{-- Flashsale countdown moved to Livewire component --}}
+
 
  
 @endpush

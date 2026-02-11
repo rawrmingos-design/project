@@ -14,6 +14,7 @@ class Pembelian extends Model
     
     protected $casts = [
         'harga' => 'integer',
+        'email_pembeli' => 'string', // Assuming email_pembeli is a string, not integer
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -22,6 +23,11 @@ class Pembelian extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'username', 'username');
+    }
+
+    public function pembayaran()
+    {
+        return $this->hasOne(Pembayaran::class, 'order_id', 'order_id');
     }
 
     // Note: layanan field stores product name, not ID

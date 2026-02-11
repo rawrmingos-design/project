@@ -43,6 +43,22 @@ class RegisterController extends Controller
             $no_wa = '62' . substr($no_wa, 1);
         }
 
+        // Generate Referral Code
+        do {
+            $referralCode = 'REF-' . Str::upper(Str::random(6));
+        } while (User::where('referral_code', $referralCode)->exists());
+
+        // Check Uplink (Referral)
+        $uplink = null;
+        if ($request->filled('kode_referral')) {
+            $uplinkUser = User::where('referral_code', $request->kode_referral)->first();
+            if ($uplinkUser) {
+                $uplink = $uplinkUser->username; // Or ID, migration comment said username/ID. Let's stick to username for readability or ID for strictness. 
+                // Migration comment said: "Stores uplink username or ID". 
+                // Let's use username to match current pattern where relationships often use username (e.g. Pembelian).
+            }
+        }
+
         // Simpan data pengguna
         $user = new User();
         $user->name = htmlspecialchars($request->nama, ENT_QUOTES, 'UTF-8');
@@ -53,6 +69,8 @@ class RegisterController extends Controller
         $user->balance = 0;
         $user->no_wa = htmlspecialchars($no_wa, ENT_QUOTES, 'UTF-8');
         $user->role = 'Member';
+        $user->referral_code = $referralCode;
+        $user->uplink = $uplink;
         $user->save();
 
         return redirect(route('login'))->with('success', 'Berhasil mendaftar silahkan login menggunakan akun anda.');

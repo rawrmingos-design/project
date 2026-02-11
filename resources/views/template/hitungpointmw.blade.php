@@ -1,4 +1,4 @@
-@extends('template.template')
+  @extends('template.template')
 
 @section('custom_style')
 
@@ -8,20 +8,9 @@
 @section('content')
 
 @include('../navbar')
- <section id="magicWheel" class="relative overflow-hidden">
+ <section id="magicWheel" class="relative overflow-hidden lg:py-24 md:py-16 py-12">
         <div class="mx-auto w-full max-w-xl space-y-8 px-4 pt-24 pb-48">
           <div>
-            <a href="/" style="outline: none;">
-              <img
-                src="{{url('')}}{{ !$config ? '' : $config->logo_header }}"
-                width="300"
-                height="300"
-                alt="Bangweb LOGO"
-                class="mx-auto h-32 w-auto"
-                style="color: transparent;"
-                alt="Logo"
-              />
-            </a>
             <h2 class="mt-2 text-center text-3xl font-bold tracking-tight text-white">Kalkulator Magic Wheel</h2>
             <p class="mt-2 text-center text-sm text-white">
               Digunakan untuk mengetahui total maksimal diamond yang dibutuhkan untuk mendapatkan skin Legends.

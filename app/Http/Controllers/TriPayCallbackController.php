@@ -7,21 +7,11 @@ use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\Layanan;
 use App\Models\Kategori;
-use App\Models\Voucher;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\digiFlazzController;
-use App\Http\Controllers\provider\VipResellerController;
-use App\Http\Controllers\provider\ApiGamesController;
-use App\Http\Controllers\provider\BangJeffController;
-use App\Http\Controllers\provider\TopupediaController;;
-
-use App\Http\Controllers\provider\MoogoldController;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\provider\ApiGamesV2Controller;
-use App\Http\Controllers\provider\MengtopupController;
-use App\Http\Controllers\provider\AlpharamzController;
+use App\Services\WhatsappNotificationService;
+use App\Services\ProviderRoutingService;
+use App\Services\OrderProcessingService;
 
 class TriPayCallbackController extends Controller
 {
@@ -67,240 +57,129 @@ class TriPayCallbackController extends Controller
             $order_id = $invoice->order_id;
             $dataPembeli = Pembelian::where('order_id', $order_id)->first();
             $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
-            $dataKategori = Kategori::where('id', $dataLayanan->kategori_id)->first();
 
-            $zoneSend = $dataPembeli->zone == null ? "" : "($dataPembeli->zone)\n";
-            $nickname = $dataPembeli->nickname == null ? '' : "Nickname : $dataPembeli->nickname\n";
-
-            $pesanPembeli =
-                "*Pembayaran Berhasil*\n\n" .
-                "No Invoice: *$order_id*\n" .
-                "Layanan : *$dataPembeli->layanan*\n" .
-                "ID : *$dataPembeli->user_id*\n" .
-                "Server : *$dataPembeli->zone*\n" .
-                "Nickname : *$dataPembeli->nickname*\n" .
-                "Harga : *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                "Status Pembelian: *Diproses*\n" .
-                "Estimasi Proses: *1-5 Menit Max 24 Jam*\n\n" .
-                "INI ADALAH PESAN OTOMATIS";
-
-            $pesanAdmin =
-                "*Pembayaran Berhasil*\n\n" .
-                "No Invoice: *$order_id*\n" .
-                "Layanan : $dataPembeli->layanan\n" .
-                "ID : $dataPembeli->user_id\n" .
-                "Server : $dataPembeli->zone\n" .
-                $nickname .
-                "Metode Pembayaran : $invoice->metode\n" .
-                "Harga : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
-                "*Kontak Pembeli*\n" .
-                "No HP : $invoice->no_pembeli\n" .
-                "Invoice : " . env("APP_URL") . "/id/invoices/$order_id";
-
-            $uid = $dataPembeli->user_id;
-            $zone = $dataPembeli->zone;
-            $provider_id = $dataLayanan->provider_id;
-
+            // Check Amount
             if (intval($data->total_amount) !== (int) $invoice->harga) {
                 DB::rollBack();
                 return 'Invalid amount';
             }
 
             if ($data->status == "PAID") {
-                $requestPesan = $this->msg($this->api->nomor_admin, $pesanAdmin);
-                $pesanPembeli = $this->msg($invoice->no_pembeli, $pesanPembeli);
+                // Initialize Services
+                $waService = new WhatsappNotificationService();
+                $routingService = new ProviderRoutingService();
+                $orderProcessor = new OrderProcessingService($routingService);
 
-                // Use ProviderRoutingService logic
-                $routingService = new \App\Services\ProviderRoutingService();
-                $bestRoute = $routingService->findBestProvider($dataLayanan);
-                
-                if (!$bestRoute) {
-                    $order['data']['status'] = false;
-                    Log::error("TriPay Callback: No provider found for Layanan {$dataLayanan->layanan}");
-                } else {
-                    $providerCode = $bestRoute['provider_code'];
-                    $sku = $bestRoute['sku'];
-                    $credentials = $bestRoute['credentials'] ?? [];
-                    
-                    Log::info("TriPay Callback routed to $providerCode with SKU $sku");
+                // 1. Notify Admin 
+                // Using existing hardcoded text format for Admin for now, or could use template later
+                // Reconstructing strict text to match previous style if needed, or just simple one
+                $pesanAdmin = "*Pembayaran Berhasil*\n\n" .
+                    "No Invoice: *$order_id*\n" .
+                    "Layanan : $dataPembeli->layanan\n" .
+                    "ID : $dataPembeli->user_id\n" .
+                    "Server : $dataPembeli->zone\n" .
+                    "Nickname : $dataPembeli->nickname\n" .
+                    "Metode Pembayaran : $invoice->metode\n" .
+                    "Harga : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
+                    "*Kontak Pembeli*\n" .
+                    "No HP : $invoice->no_pembeli\n";
 
-                    if ($providerCode == "digiflazz") {
-                        $provider_order_id = rand(1, 10000); // Note: OrderController uses auto-generation inside controller sometimes, distinct here?
-                        $digiFlazz = new digiFlazzController($credentials);
-                        $order = $digiFlazz->order($uid, $zone, $sku, $provider_order_id);
-                        Log::info('Tripay Callback DigiFlazz Order', ['order' => $order]);
-                        
-                        if (!is_array($order)) {
-                            $order = [];
-                        }
+                $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
 
-                        if (isset($order['data']['status']) && ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses")) {
-                            $order['data']['status'] = true;
-                            $order['transactionId'] = $provider_order_id;
-                        } else {
-                            // Ensure data.status exists for downstream logic
-                            if (!isset($order['data'])) {
-                                $order['data'] = [];
-                            }
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($providerCode == "vip" || $providerCode == "vip_reseller") {
-                        $vip = new VipResellerController($credentials);
-                        $order = $vip->order($uid, $zone, $sku);
+                // 2. Process Order
+                $result = $orderProcessor->process($dataPembeli);
+                $transactionId = $result['transaction_id'] ?? null;
+                $orderSuccess = $result['success'];
 
-                        if ($order['result']) {
-                            $order['data']['status'] = $order['result'];
-                            $order['transactionId'] = $order['data']['trxid'];
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($providerCode == "apigames") {
-                        $provider_order_id = rand(1, 10000);
-                        $apigames = new ApiGamesController($credentials);
-                        $order = $apigames->order($uid, $zone, $sku, $provider_order_id);
-
-                        if ($order['data']['status'] == "Sukses") {
-                            $order['transactionId'] = $provider_order_id;
-                            $order['data']['status'] = true;
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($providerCode == "bangjeff") {
-                         $bangjeffo = new BangJeffController($credentials);
-                         $requestData = [['name' => 'ID', 'value' => $uid]];
-                         if (!empty($zone)) $requestData[] = ['name' => 'Server', 'value' => $zone];
-                         
-                         $order = $bangjeffo->order($sku, $order_id, 1, $requestData);
-                         if ($order['error'] == false) {
-                             $order['transactionId'] = $order['data']['invoiceNumber'];
-                             $order['data']['status'] = true;
-                         } else {
-                             $order['data']['status'] = false;
-                         }
-                    } else if ($providerCode == "topupedia") {
-                         $topupedia = new TopupediaController($credentials);
-                         $requestData = [['name' => 'ID', 'value' => $uid]];
-                         if (!empty($zone)) $requestData[] = ['name' => 'Server', 'value' => $zone];
-                         
-                         $order = $topupedia->order($sku, $order_id, 1, $requestData);
-                         if ($order['error'] == false) {
-                             $order['transactionId'] = $order['data']['invoiceNumber'];
-                             $order['data']['status'] = true;
-                         } else {
-                             $order['data']['status'] = false;
-                         }
-                    } else if ($providerCode == "moogold") {
-                         $moo = new MoogoldController();
-                         $provider_order_id = 'WEJIZY-MG' . mt_rand(100000, 999999);
-                         $order = $moo->order($uid, $sku, $provider_order_id, $zone);
-                         if (isset($order['status'])) {
-                             $order['transactionId'] = $order['order_id'];
-                             $order['data']['status'] = true;
-                         } else {
-                            $order['data']['status'] = false;
-                         }
-                    } else if ($providerCode == "gameshop") {
-                         $gameshop = new \App\Libraries\Provider\GameShopProvider;
-                         $provider_order_id = 'WEJIZY-GS' . mt_rand(100000, 999999);
-                         $order = $gameshop->order($uid, $sku, $provider_order_id, $zone);
-                         if (isset($order['data']['order_no'])) {
-                             $order['transactionId'] = $order['data']['order_no'];
-                             $order['data']['status'] = true;
-                         } else {
-                             $order['data']['status'] = false;
-                         }
-                    } else if ($providerCode == "strleyashop") {
-                        $strleyashop = new \App\Libraries\Provider\StrleyaShopProvider;
-                        $provider_order_id = 'WEJIZY-SS' . mt_rand(100000, 999999);
-                        $order = $strleyashop->order($uid, $sku, $provider_order_id, $zone);
-                        if (isset($order['order_details']['bot_order_id'])) {
-                            $order['transactionId'] = $order['order_details']['bot_order_id'];
-                            $order['data']['status'] = true;
-                        } else {
-                             $order['data']['status'] = false;
-                        }
-                    } else if ($providerCode == "yezzpay") {
-                        $yezzpay = new \App\Libraries\Provider\YezzpayProvider;
-                        $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                        $order = $yezzpay->order($uid, $sku, $provider_order_id, $zone);
-                        if (isset($order['data']['trx_id'])) {
-                            $order['data']['status'] = true;
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($providerCode == "elitedias") {
-                        $elitedias = new \App\Libraries\Provider\EliteDiasProvider; // Verify namespace
-                        $provider_order_id = 'WEJIZY-ED' . mt_rand(100000, 999999);
-                        $order = $elitedias->order($uid, $sku, $provider_order_id, $zone);
-                         if (isset($order['order_id'])) {
-                            $order['transactionId'] = $order['order_id'];
-                            $order['data']['status'] = true;
-                         } else {
-                            $order['data']['status'] = false;
-                         }
-                    } else if (in_array($providerCode, ["apigamesv2", "meng", "alpha", "joki", "jokigendong", "vilogml", "manual", "gift_skin", "dm_vilog"])) {
-                        // Keep simple pass-throughs or specific legacy controllers if needed
-                        // For brevity, assuming manual/legacy handling matches
-                        $order['data']['status'] = true;
-                    } else {
-                        Log::warning("Callback: Provider not handled: $providerCode");
-                         $order['data']['status'] = false;
+                // 3. Update Invoice/Transaction
+                if ($orderSuccess) {
+                    $orderData = ['status' => 'Sukses']; 
+                    if ($transactionId) {
+                        $orderData['provider_order_id'] = $transactionId;
                     }
-                }
-
-
-                if ($order['data']['status']) { // Jika pembelian sukses                
-
-                    $pesanSukses =
-                        "*Pembayaran Kamu berhasil✨*\n\n" .
-                        "Terima kasih berikut detail transaksinya  :\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan: *$dataPembeli->layanan*\n" .
-                        "ID : *$dataPembeli->user_id*\n" .
-                        "Server : *$dataPembeli->zone*\n" .
-                        "Nickname : *$dataPembeli->nickname*\n" .
-                        "No Whatsapp: *$invoice->no_pembeli*\n" .
-                        "Harga: *Rp. " . number_format($invoice->harga, 0, '.', ',') . "*\n\n" .
-                        "Invoice : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                        "*Ditunggu orderan selanjutnya! Terimakasih.*\n";
-
-                    $pesanSuksesAdmin =
-                        "*Pembelian Sukses*\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan: *$dataPembeli->layanan*\n" .
-                        "ID : *$dataPembeli->user_id*\n" .
-                        "Server : *$dataPembeli->zone*\n" .
-                        "Nickname : *$dataPembeli->nickname*\n" .
-                        "Harga: *Rp. " . number_format($invoice->harga, 0, '.', ',') . "*\n" .
-                        "Status Pembelian: *Sukses*\n\n" .
-                        "*Kontak Pembeli*\n" .
-                        "No HP : $invoice->no_pembeli\n" .
-                        "*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\n" .
-                        "INI ADALAH PESAN OTOMATIS";
-
-                    $pesanAdmin = $this->msg($this->api->nomor_admin, $pesanSuksesAdmin);
-                    $pesanUser = $this->msg($invoice->no_pembeli, $pesanSukses);
-
-                    $invoice->update(['status' => 'Sukses']);
-
-                    $dataPembeli->update([
-                        'provider_order_id' => isset($order['transactionId']) ? $order['transactionId'] : 0,
-                        'status' => 'Sukses',
-                        'log' => json_encode($order)
+                    $dataPembeli->update($orderData);
+                    
+                    // Notify Buyer (Success/Processing)
+                    $waService->sendNotification($invoice->no_pembeli, 'transaction_success', [
+                        'nickname' => $dataPembeli->nickname,
+                        'order_id' => $order_id,
+                        'product' => $dataPembeli->layanan,
+                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                        'sn' => 'Sedang Diproses', 
                     ]);
-                } else { //jika pembelian gagal
 
-                    $dataPembeli->update([
-                        'status' => 'Batal',
-                        'log' => json_encode($order)
+                    // Notify Buyer (Email)
+                    $emailService = new \App\Services\EmailNotificationService();
+                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                    if ($recipientEmail) {
+                        $emailService->sendTransactionEmail($recipientEmail, [
+                            'order_id' => $order_id,
+                            'product' => $dataPembeli->layanan,
+                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                            'status' => 'Success',
+                            'nickname' => $dataPembeli->nickname,
+                            'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                        ]);
+                    }
+
+                } else {
+                    $dataPembeli->update(['status' => 'Pending']); 
+                    Log::warning("Order processing failed for {$order_id}: " . $result['message']);
+                    
+                    // Notify Buyer (Pending/Failed)
+                    $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
+                        'nickname' => $dataPembeli->nickname,
+                        'order_id' => $order_id,
+                        'product' => $dataPembeli->layanan,
+                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                        'status' => 'Menunggu Provider',
                     ]);
+
+                    // Notify Buyer (Email)
+                    $emailService = new \App\Services\EmailNotificationService();
+                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                    if ($recipientEmail) {
+                        $emailService->sendTransactionEmail($recipientEmail, [
+                            'order_id' => $order_id,
+                            'product' => $dataPembeli->layanan,
+                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                            'status' => 'Pending',
+                            'nickname' => $dataPembeli->nickname,
+                            'note' => 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.'
+                        ]);
+                    }
                 }
 
                 $invoice->update(['status' => 'Lunas']);
                 DB::commit();
                 return response()->json(['success' => true]);
+
             } else if ($data->status == "EXPIRED" || $data->status == "FAILED") {
                 $invoice->update(['status' => 'Batal']);
+                
+                // Notify Buyer (Failed)
+                $waService = new WhatsappNotificationService();
+                $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
+                    'nickname' => $dataPembeli->nickname ?? 'Pelanggan',
+                    'order_id' => $order_id,
+                    'product' => $dataPembeli->layanan,
+                    'reason' => 'Pembayaran Kadaluarsa/Gagal',
+                ]);
+
+                // Notify Buyer (Email)
+                $emailService = new \App\Services\EmailNotificationService();
+                $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                if ($recipientEmail) {
+                    $emailService->sendTransactionEmail($recipientEmail, [
+                        'order_id' => $order_id,
+                        'product' => $dataPembeli->layanan,
+                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                        'status' => 'Failed',
+                        'nickname' => $dataPembeli->nickname,
+                        'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.'
+                    ]);
+                }
+
                 DB::commit();
                 return response()->json(['success' => true]);
             } else {
@@ -311,54 +190,6 @@ class TriPayCallbackController extends Controller
             DB::rollBack();
             Log::error('Tripay callback fatal error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return response()->json(['error' => 'Fatal error: ' . $e->getMessage()], 500);
-        }
-    }
-
-    public function msg($nomor, $msg)
-    {
-        try {
-            $api = DB::table('setting_webs')->where('id', 1)->first();
-            
-            if (!$api || !$api->wa_key || !$api->nomor_admin) {
-                Log::error('WhatsApp API (Fonnte) - Missing configuration.', ['wa_key_exists' => !empty($api->wa_key), 'nomor_admin_exists' => !empty($api->nomor_admin)]);
-                return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
-            }
-
-            $curl = curl_init();
-            
-            curl_setopt_array($curl, [
-                CURLOPT_URL => 'https://api.fonnte.com/send',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => [
-                    'target' => $nomor,
-                    'message' => $msg,
-                ],
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: ' . $api->wa_key,
-                ],
-            ]);
-
-            $response = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            if ($error) {
-                Log::error('WhatsApp API (Fonnte) - Curl Error', ['error' => $error]);
-                return ['success' => false, 'message' => 'Connection Error: ' . $error];
-            }
-
-            Log::info('WhatsApp API (Fonnte) Response', ['response' => $response]);
-            return ['success' => true, 'response' => $response];
-
-        } catch (\Exception $e) {
-            Log::error('WhatsApp API (Fonnte) - Exception', ['error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
         }
     }
 }

@@ -16,7 +16,8 @@ class VerifyCsrfToken extends \Illuminate\Foundation\Http\Middleware\VerifyCsrfT
         'callback',
         'callbackpl',
         'payload',
-        'callback/*'
+        'callback/*',
+        '/wejizy/digi/payload',
     ];
     
     /**

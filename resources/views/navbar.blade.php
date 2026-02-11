@@ -60,7 +60,7 @@
                     <span class="sr-only">{{ $config->judul_web }}.</span>
                 <a href="/" style="outline:none">
                     <span class="sr-only">{{ $config->judul_web }}.</span>
-                <img alt="{{ $config->judul_web }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ !$config ? '' : $config->logo_header }}" style="color:transparent"></a>
+                <img alt="{{ $config->judul_web }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ asset($config ? $config->logo_header : '') }}" style="color:transparent"></a>
             </div>
             <div class="flex flex-1 items-center justify-end gap-2">
                 <div class="relative w-full hidden md:flex">

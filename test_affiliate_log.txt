@@ -1,0 +1,10 @@
+--- Affiliate System Verification ---
+Uplink User: test_uplink (Balance: 0)
+Downlink User: test_downlink (Uplink: test_uplink)
+Commission Rate: 20%
+Creating Success Transaction...
+Transaction Created: Order ID ORD-pYsD0hCK
+Uplink New Balance: 2000
+PASSED: Balance updated correctly (+2000)
+PASSED: History record found. Amount: 2000
+--- Verification Complete ---

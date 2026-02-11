@@ -103,4 +103,21 @@ class InvoiceController extends Controller
     }
 }
 
+    public function checkStatus($order)
+    {
+        $data = Pembelian::where('pembayarans.order_id', $order)
+            ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
+            ->select('pembayarans.status AS status_pembayaran', 'pembelians.status AS status_pembelian')
+            ->first();
+
+        if ($data) {
+            return response()->json([
+                'success' => true,
+                'status_pembayaran' => $data->status_pembayaran,
+                'status_pembelian' => $data->status_pembelian
+            ]);
+        }
+
+        return response()->json(['success' => false], 404);
+    }
 }

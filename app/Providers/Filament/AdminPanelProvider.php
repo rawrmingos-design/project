@@ -62,6 +62,8 @@ class AdminPanelProvider extends PanelProvider
             // ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->widgets([
                 \App\Filament\Admin\Widgets\DigiflazzBalanceOverview::class,
+                \App\Filament\Admin\Widgets\RevenueChart::class, // Added Revenue Chart
+                \App\Filament\Admin\Widgets\ProfitAnalysis::class, // Added Profit Analysis
                 \App\Filament\Admin\Widgets\UserStatsOverview::class,
                 \App\Filament\Admin\Widgets\ProductMetrics::class,
                 \App\Filament\Admin\Widgets\RecentActivities::class,

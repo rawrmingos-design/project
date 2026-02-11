@@ -48,23 +48,29 @@ class DigiflazzCallbackController extends Controller
                     $updatePesanan = Pembayaran::where('order_id', $invoice->order_id)->where('metode', 'SALDO')->first();
 
                     if ($updatePesanan) {
-                        $pesanSukses = "*Pembelian Sukses*\n\n" .
-                            "No Invoice: *$invoice->order_id*\n" .
-                            "Layanan: *$invoice->layanan*\n" .
-                            "ID : *$invoice->user_id*\n" .
-                            "Server : *$invoice->zone*\n" .
-                            "Nickname : *$invoice->nickname*\n" .
-                            "Harga: *Rp. " . number_format($invoice->harga, 0, '.', ',') . "*\n" .
-                            "Status Pembelian: *Sukses*\n" .
-                            "Metode Pembayaran: *$updatePesanan->metode*\n\n" .
-                            "*Invoice* : " . env("APP_URL") . "/id/invoice/$invoice->order_id\n\n" .
-                            "INI ADALAH PESAN OTOMATIS";
-
-                        // Kirim WhatsApp dengan timeout kecil dan tanpa blocking callback
                         try {
-                            $this->msg($updatePesanan->no_pembeli, $pesanSukses);
+                            $waService = new \App\Services\WhatsappNotificationService();
+                            $waService->sendNotification($updatePesanan->no_pembeli, 'transaction_success', [
+                                'nickname' => $invoice->nickname,
+                                'order_id' => $invoice->order_id,
+                                'product' => $invoice->layanan,
+                                'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                'sn' => $ser_n, // Actual SN from provider
+                            ]);
+
+                            // Notify Buyer (Email)
+                            $emailService = new \App\Services\EmailNotificationService();
+                            $emailService->sendTransactionEmail($invoice->email_pembeli ?? ($updatePesanan->user->email ?? ''), [ // Use invoice email or fallback to user email
+                                'order_id' => $invoice->order_id,
+                                'product' => $invoice->layanan,
+                                'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                'status' => 'Success',
+                                'nickname' => $invoice->nickname,
+                                'note' => 'Terima kasih telah berbelanja.'
+                            ]);
+
                         } catch (\Exception $e) {
-                            Log::error('WhatsApp send error (DigiflazzCallback)', ['error' => $e->getMessage()]);
+                            Log::error('Notification send error (DigiflazzCallback)', ['error' => $e->getMessage()]);
                         }
                     }
                 } else {
@@ -74,53 +80,5 @@ class DigiflazzCallbackController extends Controller
         }
         // Selalu return response agar Digiflazz tidak timeout
         return response()->json(['success' => true]);
-    }
-
-    public function msg($nomor, $msg)
-    {
-        try {
-            $api = DB::table('setting_webs')->where('id', 1)->first();
-            
-            if (!$api || !$api->wa_key || !$api->nomor_admin) {
-                Log::error('WhatsApp API (Fonnte) - Missing configuration.', ['wa_key_exists' => !empty($api->wa_key), 'nomor_admin_exists' => !empty($api->nomor_admin)]);
-                return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
-            }
-
-            $curl = curl_init();
-            
-            curl_setopt_array($curl, [
-                CURLOPT_URL => 'https://api.fonnte.com/send',
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 15, // Slightly longer timeout for Digiflazz safety
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => [
-                    'target' => $nomor,
-                    'message' => $msg,
-                ],
-                CURLOPT_HTTPHEADER => [
-                    'Authorization: ' . $api->wa_key,
-                ],
-            ]);
-
-            $response = curl_exec($curl);
-            $error = curl_error($curl);
-            curl_close($curl);
-
-            if ($error) {
-                Log::error('WhatsApp API (Fonnte) - Curl Error', ['error' => $error]);
-                return ['success' => false, 'message' => 'Connection Error: ' . $error];
-            }
-
-            Log::info('WhatsApp API (Fonnte) Response', ['response' => $response]);
-            return ['success' => true, 'response' => $response];
-
-        } catch (\Exception $e) {
-            Log::error('WhatsApp API (Fonnte) - Exception', ['error' => $e->getMessage()]);
-            return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
-        }
     }
 }

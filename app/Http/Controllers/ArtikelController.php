@@ -6,18 +6,27 @@ use App\Models\Artikel;
 use App\Models\Berita;
 use Illuminate\Http\Request;
 
+use Illuminate\Support\Facades\Cache;
+
 class ArtikelController extends Controller
 {
     public function index()
     {
-        $featured = Artikel::where('status', 'active')->latest()->first();
+        $ttl = 300; // 5 minutes
+
+        $featured = Cache::remember('article_featured', $ttl, function () {
+            return Artikel::where('status', 'active')->latest()->first();
+        });
         
-        $articles = Artikel::where('status', 'active')
-            ->when($featured, function ($query) use ($featured) {
-                return $query->where('id', '!=', $featured->id);
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(9);
+        $page = request()->get('page', 1);
+        $articles = Cache::remember('articles_index_page_' . $page, $ttl, function () use ($featured) {
+            return Artikel::where('status', 'active')
+                ->when($featured, function ($query) use ($featured) {
+                    return $query->where('id', '!=', $featured->id);
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(9);
+        });
 
         $title = 'Berita & Artikel Game Terbaru';
         $meta_description = 'Baca berita dan artikel terbaru seputar game, tips & trik, dan update event mobile legends, free fire, pubg, dan lainnya.';
@@ -40,11 +49,13 @@ class ArtikelController extends Controller
         $keywords = $article->keywords;
         $thumbnail = asset($article->thumbnail);
 
-        $recent_articles = Artikel::where('status', 'active')
-            ->where('id', '!=', $article->id)
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
+        $recent_articles = Cache::remember('recent_articles_show_' . $article->id, 300, function () use ($article) {
+            return Artikel::where('status', 'active')
+                ->where('id', '!=', $article->id)
+                ->orderBy('created_at', 'desc')
+                ->limit(5)
+                ->get();
+        });
 
         // Determine layout (default to 'show-default' if not set or file doesn't exist)
         $layout = $article->layout ? 'show-' . $article->layout : 'show-default';
