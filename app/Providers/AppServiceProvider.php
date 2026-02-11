@@ -5,6 +5,9 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use View;
 
+use App\Models\Pembelian;
+use App\Observers\PembelianObserver;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -24,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        Pembelian::observe(PembelianObserver::class);
+        
         try {
             $config = \DB::table('setting_webs')->where('id',1)->first();
             

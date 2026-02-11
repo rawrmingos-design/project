@@ -11,7 +11,6 @@ use App\Models\CategoryType;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use UnitEnum;
 
@@ -19,7 +18,7 @@ class CategoryTypeResource extends Resource
 {
     protected static ?string $model = CategoryType::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
 
     protected static string|UnitEnum|null $navigationGroup = 'Manajemen Produk';
 

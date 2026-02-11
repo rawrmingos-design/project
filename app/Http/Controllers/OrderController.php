@@ -37,121 +37,106 @@ class OrderController extends Controller
 {
     public function create(Kategori $kategori)
     {
+        $role = Auth::check() ? Auth::user()->role : 'Guest';
+        $cacheKey = "order_page:{$kategori->kode}:{$role}";
+        $ttl = 300; // 5 minutes
 
-
-        if (in_array($kategori->tipe, ['game', 'voucher', 'pulsa', 'app', 'populer'])) {
-
-            $data = Kategori::where('kode', $kategori->kode)->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode',  'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
-            if ($data == null) return back();
-        } else {
-
-            $data = Kategori::where('kode', $kategori->kode)->select('nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode', 'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
-            if ($data == null) return back();
-        }
-
-
-        if (Auth::check()) {
-            if (Auth::user()->role == "Member") {
-                $layanan = Layanan::where('kategori_id', $data->id)->where('status', 'available')->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo')->orderBy('harga', 'asc')->get();
-            } else if (Auth::user()->role == "Platinum") {
-                $layanan = Layanan::where('kategori_id', $data->id)->where('status', 'available')->select('id', 'layanan', 'harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo')->orderBy('harga', 'asc')->get();
-            } else if (Auth::user()->role == "Gold" || Auth::user()->role == "Admin") {
-                $layanan = Layanan::where('kategori_id', $data->id)->where('status', 'available')->select('id', 'layanan', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo')->orderBy('harga', 'asc')->get();
+        // Cache the entire data preparation for the view
+        $viewData = Cache::remember($cacheKey, $ttl, function () use ($kategori, $role) {
+            
+            if (in_array($kategori->tipe, ['game', 'voucher', 'pulsa', 'app', 'populer'])) {
+                $data = Kategori::where('kode', $kategori->kode)->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode',  'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
+            } else {
+                $data = Kategori::where('kode', $kategori->kode)->select('nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode', 'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
             }
-        } else {
-            $layanan = Layanan::where('kategori_id', $data->id)->where('status', 'available')->select('id', 'layanan', 'product_logo', 'harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo')->orderBy('harga', 'asc')->get();
-        }
+            
+            if ($data == null) return null;
 
-        $ratings = DB::table('ratings')
-            ->join('pembelians', 'ratings.rating_id', '=', 'pembelians.order_id')
-            ->join('pembayarans', 'ratings.rating_id', '=', 'pembayarans.order_id')
-            ->select(
-                'ratings.bintang',
-                'ratings.comment',
-                'ratings.id',
-                'ratings.created_at',
-                'pembelians.username',
-                'pembelians.layanan',
-                'pembayarans.no_pembeli'
-            )
-            ->orderByDesc('ratings.id')
-            ->limit(10)
-            ->get();
+            // Layanan Query based on Role
+            $query = Layanan::where('kategori_id', $data->id)->where('status', 'available');
+            
+            if ($role == "Member") {
+                $query->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo');
+            } else if ($role == "Platinum") {
+                $query->select('id', 'layanan', 'harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo');
+            } else if ($role == "Gold" || $role == "Admin") {
+                $query->select('id', 'layanan', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo');
+            } else { // Guest
+                $query->select('id', 'layanan', 'product_logo', 'harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
+            }
+            $layanan = $query->orderBy('harga', 'asc')->get();
 
-
-        $pakets = [];
-        $userRole = Auth::check() ? Auth::user()->role : null;
-
-        foreach (Paket::all() as $paket) {
-            $layananIds = $paket->layanan->pluck('id')->toArray();
-            $layananData = Layanan::whereIn('id', $layananIds)
-                ->where('kategori_id', $data->id)
-                ->where(function ($query) use ($userRole) {
-                    if ($userRole == 'Member') {
-                        $query->where('harga_member', '>', 0);
-                    } elseif ($userRole == 'Platinum') {
-                        $query->where('harga_platinum', '>', 0);
-                    } elseif ($userRole == 'Gold' || $userRole == 'Admin') {
-                        $query->where('harga_gold', '>', 0);
-                    } else {
-                        $query->where('harga', '>', 0);
-                    }
-                })
+            $ratings = DB::table('ratings')
+                ->join('pembelians', 'ratings.rating_id', '=', 'pembelians.order_id')
+                ->join('pembayarans', 'ratings.rating_id', '=', 'pembayarans.order_id')
+                ->select('ratings.bintang', 'ratings.comment', 'ratings.id', 'ratings.created_at', 'pembelians.username', 'pembelians.layanan', 'pembayarans.no_pembeli')
+                ->orderByDesc('ratings.id')
+                ->limit(10)
                 ->get();
 
-            $l = [];
-            foreach ($layananData as $lyn) {
-                $paketLayanan = PaketLayanan::where('paket_id', $paket->id)
-                    ->where('layanan_id', $lyn->id)
-                    ->first();
+            // Pakets Logic
+            $pakets = [];
+            foreach (Paket::all() as $paket) {
+                $layananIds = $paket->layanan->pluck('id')->toArray();
+                $layananData = Layanan::whereIn('id', $layananIds)
+                    ->where('kategori_id', $data->id)
+                    ->where(function ($query) use ($role) {
+                        if ($role == 'Member') $query->where('harga_member', '>', 0);
+                        elseif ($role == 'Platinum') $query->where('harga_platinum', '>', 0);
+                        elseif ($role == 'Gold' || $role == 'Admin') $query->where('harga_gold', '>', 0);
+                        else $query->where('harga', '>', 0);
+                    })->get();
 
-                if ($paketLayanan) {
-                    if ($userRole == 'Member') {
-                        $harga = $lyn->harga_member;
-                    } elseif ($userRole == 'Platinum') {
-                        $harga = $lyn->harga_platinum;
-                    } elseif ($userRole == 'Gold' || $userRole == 'Admin') {
-                        $harga = $lyn->harga_gold;
-                    } else {
-                        $harga = $lyn->harga;
+                $l = [];
+                foreach ($layananData as $lyn) {
+                    $paketLayanan = PaketLayanan::where('paket_id', $paket->id)->where('layanan_id', $lyn->id)->first();
+                    if ($paketLayanan) {
+                        if ($role == 'Member') $harga = $lyn->harga_member;
+                        elseif ($role == 'Platinum') $harga = $lyn->harga_platinum;
+                        elseif ($role == 'Gold' || $role == 'Admin') $harga = $lyn->harga_gold;
+                        else $harga = $lyn->harga;
+
+                        $l[] = [
+                            'id' => $lyn->id,
+                            'layanan' => $lyn->layanan,
+                            'product_logo' => $paketLayanan->product_logo,
+                            'harga' => $harga,
+                            'is_flash_sale' => $lyn->is_flash_sale,
+                            'expired_flash_sale' => $lyn->expired_flash_sale,
+                            'harga_flash_sale' => $lyn->harga_flash_sale,
+                            'updated_at' => $lyn->updated_at,
+                        ];
                     }
-
-                    $lynData = [
-                        'id' => $lyn->id,
-                        'layanan' => $lyn->layanan,
-                        'product_logo' => $paketLayanan->product_logo,
-                        'harga' => $harga,  // Use the dynamically set price
-                        'is_flash_sale' => $lyn->is_flash_sale,
-                        'expired_flash_sale' => $lyn->expired_flash_sale,
-                        'harga_flash_sale' => $lyn->harga_flash_sale,
-                        'updated_at' => $lyn->updated_at,
-                    ];
-
-                    $l[] = $lynData;
+                }
+                if (!empty($l)) {
+                    $pakets[] = ['nama' => $paket->nama, 'layanan' => $l];
                 }
             }
 
-            if (!empty($l)) {
-                $pakets[] = [
-                    'nama' => $paket->nama,
-                    'layanan' => $l,
-                ];
-            }
-        }
+            $flashsale = Layanan::join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
+                ->select('kategoris.thumbnail AS gmr_thumb', 'kategoris.kode AS kode_game', 'layanans.*')
+                ->where('layanans.is_flash_sale', 1)
+                ->where('layanans.expired_flash_sale', '>=', now())
+                ->where('layanans.stock_flash_sale', '>', 0)
+                ->get();
 
+            return compact('data', 'layanan', 'ratings', 'pakets', 'flashsale');
+        });
 
-        $flashsale = Layanan::join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
-            ->select('kategoris.thumbnail AS gmr_thumb', 'kategoris.kode AS kode_game', 'layanans.*')
-            ->where('layanans.is_flash_sale', 1)
-            ->where('layanans.expired_flash_sale', '>=', now())
-            ->where('layanans.stock_flash_sale', '>', 0)
-            ->get();
+        if ($viewData == null) return back();
+
+        extract($viewData); // Extract vars: $data, $layanan, $ratings, $pakets, $flashsale
 
         // Extract SEO Data from Kategori ($data)
         $appName = config('app.name');
         $title = !empty($data->meta_title) ? $data->meta_title : "Top Up {$data->nama} Murah - {$appName}";
         $meta_description = !empty($data->meta_description) ? $data->meta_description : "Top up {$data->nama} termurah dan terpercaya di {$appName}. Proses instan, layanan 24 jam.";
         $schema_markup = $data->schema_markup;
+
+        // Payment methods are cached separately in global cache or view composer usually, but here we can cache it short term
+        $pay_method = Cache::remember('payment_methods_all', 300, function() {
+            return \App\Models\Method::all();
+        });
 
         return view('template.order', [
             'title' => $title,
@@ -163,7 +148,7 @@ class OrderController extends Controller
             'harga' => $layanan,
             'ratings' => $ratings,
             'flashsale' => $flashsale,
-            'pay_method' => \App\Models\Method::all()
+            'pay_method' => $pay_method
         ]);
     }
 
@@ -1321,6 +1306,7 @@ class OrderController extends Controller
         $pembelian->ip_address = $ipAddress;
         $pembelian->voucher = $request->voucher ?? null;
         $pembelian->traffic_source = $request->session()->get('traffic_source', 'Direct');
+        $pembelian->email_pembeli = Auth::check() ? Auth::user()->email : ($request->email_pembeli ?? null);
         $pembelian->save();
 
         $pembayaran = new Pembayaran();

@@ -29,7 +29,7 @@ class ProviderResource extends Resource
 
     protected static ?string $title = 'Provider';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-server-stack';
 
     protected static ?string $recordTitleAttribute = 'name';
 

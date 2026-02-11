@@ -19,7 +19,14 @@
     <link rel="canonical" href="{{url('')}}">
     
     <!-- Favicon -->
-    <link rel="shortcut icon" href="{{ url('') }}{{ !$config ? '' : $config->logo_favicon }}">
+    <link rel="shortcut icon" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon.webp') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon-16x16.png') }}">
+    <link rel="manifest" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/site.webmanifest') }}">
+    
+    <!-- Livewire Styles -->
+    @livewireStyles
     
     <!-- Title -->
     <title>{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}</title>
@@ -147,8 +154,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>   
-    <script src="//cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script>
-    <script src="//cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script>
+    {{-- Alpine.js already included by Livewire, no need to load separately --}}
+    {{-- <script src="//cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
+    {{-- <script src="//cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
     <script>
         $.ajaxSetup({
             headers: {
@@ -192,6 +200,8 @@
     </script>
     <script src="{{ asset('/assets/js/oo324ddod2323sd2dd.js') }}"></script>
 
+    {{-- Livewire Scripts - Required for Livewire components to work --}}
+    @livewireScripts
 
      @stack('custom_script')
     </body>

@@ -3,92 +3,129 @@
 namespace App\Filament\Admin\Widgets;
 
 use Filament\Widgets\ChartWidget;
-use App\Models\Pembelian; // Asumsikan model ini ada
+use App\Models\Pembelian;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class RevenueChart extends ChartWidget
 {
-    // Judul Chart
-    protected ?string $heading = 'Revenue Analytics (Last 12 Months)';
+    protected ?string $heading = 'Revenue & Profit Analytics';
     
-    // Urutan Widget
     protected static ?int $sort = 5;
     
-    // Span Kolom (Menggunakan seluruh lebar)
     protected int | string | array $columnSpan = 'full';
     
-    /**
-     * Mengambil dan memformat data untuk chart.
-     */
+    public ?string $filter = 'month';
+
+    protected function getFilters(): ?array
+    {
+        return [
+            'week' => 'Last 7 Days',
+            'month' => 'Last 30 Days',
+            'year' => 'Last 12 Months',
+        ];
+    }
+
     protected function getData(): array
     {
-        $months = [];
-        $depositData = [];
-        $purchaseData = [];
-        $totalRevenueData = [];
+        $activeFilter = $this->filter;
         
-        // Generate last 12 months
-        for ($i = 11; $i >= 0; $i--) {
-            $date = Carbon::now()->subMonths($i);
-            $monthYear = $date->format('M Y');
-            $months[] = $monthYear;
-            
-            // Get deposits for this month (mock data for now)
-            // LAKUKAN KONEKSI KE DATABASE DI SINI, BUKAN MOCK DATA.
-            $monthlyDeposits = rand(5000000, 15000000); 
-            
-            // Get purchases for this month (mock data for now)
-            // LAKUKAN KONEKSI KE DATABASE DI SINI, BUKAN MOCK DATA.
-            $monthlyPurchases = rand(3000000, 10000000);
-            
-            $depositData[] = $monthlyDeposits;
-            $purchaseData[] = $monthlyPurchases;
-            $totalRevenueData[] = $monthlyDeposits + $monthlyPurchases;
+        $revenueData = [];
+        $profitData = [];
+        $labels = [];
+
+        if ($activeFilter === 'year') {
+            // Last 12 Months
+            for ($i = 11; $i >= 0; $i--) {
+                $date = Carbon::now()->subMonths($i);
+                $monthStart = $date->copy()->startOfMonth();
+                $monthEnd = $date->copy()->endOfMonth();
+                $label = $date->format('M Y');
+                
+                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
+                    ->whereBetween('created_at', [$monthStart, $monthEnd])
+                    ->select(
+                        DB::raw('SUM(harga) as total_revenue'),
+                        DB::raw('SUM(profit) as total_profit')
+                    )
+                    ->first();
+                    
+                $labels[] = $label;
+                $revenueData[] = $data->total_revenue ?? 0;
+                $profitData[] = $data->total_profit ?? 0;
+            }
+        } elseif ($activeFilter === 'week') {
+             // Last 7 Days
+             for ($i = 6; $i >= 0; $i--) {
+                $date = Carbon::now()->subDays($i);
+                $dayStart = $date->copy()->startOfDay();
+                $dayEnd = $date->copy()->endOfDay();
+                $label = $date->format('d M');
+                
+                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
+                    ->whereBetween('created_at', [$dayStart, $dayEnd])
+                    ->select(
+                        DB::raw('SUM(harga) as total_revenue'),
+                        DB::raw('SUM(profit) as total_profit')
+                    )
+                    ->first();
+                    
+                $labels[] = $label;
+                $revenueData[] = $data->total_revenue ?? 0;
+                $profitData[] = $data->total_profit ?? 0;
+             }
+        } else {
+            // Default: Month (Last 30 Days)
+            for ($i = 29; $i >= 0; $i--) {
+                $date = Carbon::now()->subDays($i);
+                $dayStart = $date->copy()->startOfDay();
+                $dayEnd = $date->copy()->endOfDay();
+                $label = $date->format('d M');
+                
+                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
+                    ->whereBetween('created_at', [$dayStart, $dayEnd])
+                    ->select(
+                        DB::raw('SUM(harga) as total_revenue'),
+                        DB::raw('SUM(profit) as total_profit')
+                    )
+                    ->first();
+                    
+                $labels[] = $label;
+                $revenueData[] = $data->total_revenue ?? 0;
+                $profitData[] = $data->total_profit ?? 0;
+            }
         }
         
         return [
             'datasets' => [
                 [
-                    'label' => 'Deposits',
-                    'data' => $depositData,
+                    'label' => 'Total Revenue',
+                    'data' => $revenueData,
                     'backgroundColor' => 'rgba(34, 197, 94, 0.1)',
                     'borderColor' => 'rgb(34, 197, 94)',
                     'borderWidth' => 2,
                     'fill' => true,
+                    'tension' => 0.4,
                 ],
                 [
-                    'label' => 'Purchases',
-                    'data' => $purchaseData,
+                    'label' => 'Total Profit',
+                    'data' => $profitData,
                     'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
                     'borderColor' => 'rgb(59, 130, 246)',
                     'borderWidth' => 2,
                     'fill' => true,
-                ],
-                [
-                    'label' => 'Total Revenue',
-                    'data' => $totalRevenueData,
-                    'backgroundColor' => 'rgba(245, 158, 11, 0.1)',
-                    'borderColor' => 'rgb(245, 158, 11)',
-                    'borderWidth' => 3,
-                    'fill' => false,
                     'tension' => 0.4,
                 ],
             ],
-            'labels' => $months,
+            'labels' => $labels,
         ];
     }
 
-    /**
-     * Menentukan tipe chart yang akan digunakan (Line Chart).
-     */
     protected function getType(): string
     {
         return 'line';
     }
     
-    /**
-     * Mengatur opsi tampilan ChartJS.
-     */
     protected function getOptions(): array
     {
         return [
@@ -97,20 +134,27 @@ class RevenueChart extends ChartWidget
                     'display' => true,
                     'position' => 'top',
                 ],
+                'tooltip' => [
+                    'mode' => 'index',
+                    'intersect' => false,
+                ],
             ],
             'scales' => [
                 'y' => [
                     'beginAtZero' => true,
-                    // Tambahkan callback untuk memformat label Y-axis sebagai mata uang (opsional)
-                    // 'ticks' => [
-                    //     'callback' => fn ($value) => 'Rp ' . number_format($value, 0, ',', '.'),
-                    // ],
+                    'ticks' => [
+                        'callback' => "function(value) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(value); }",
+                    ],
                 ],
                 'x' => [
                     'grid' => [
                         'display' => false,
                     ],
                 ],
+            ],
+            'interaction' => [
+                'intersect' => false,
+                'mode' => 'index',
             ],
             'responsive' => true,
             'maintainAspectRatio' => false,

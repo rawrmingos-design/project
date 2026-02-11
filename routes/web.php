@@ -201,6 +201,7 @@ Route::middleware(['xss', 'sanitize',])->group(function () {
     Route::post('/id',                                                           [OrderController::class, 'store'])->name('ordered');
     Route::get('/id/invoices/{order}',                                           [InvoiceController::class, 'create'])->name('pembelian');
     Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->name('rating.pembelian');
+    Route::get('/ajax/transaction-status/{order}',                               [InvoiceController::class, 'checkStatus'])->name('ajax.status');
     Route::post('/check-voucher',                                                [VoucherController::class, 'confirm'])->name('check.voucher');
 });
 

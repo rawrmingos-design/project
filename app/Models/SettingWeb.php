@@ -58,6 +58,9 @@ class SettingWeb extends Model
         'google_analytics_id',
         'facebook_pixel_id',
         'google_tag_manager_id',
+        'trx_count_gold',
+        'trx_count_platinum',
+        'commission_percent',
     ];
     
     protected $casts = [
@@ -65,5 +68,6 @@ class SettingWeb extends Model
         'profit_member' => 'integer',
         'profit_platinum' => 'integer',
         'profit_gold' => 'integer',
+        'commission_percent' => 'integer',
     ];
 }

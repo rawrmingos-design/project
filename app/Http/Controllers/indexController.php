@@ -6,50 +6,56 @@ use Illuminate\Http\Request;
 use App\Models\Kategori;
 use App\Models\Berita;
 use App\Models\Tabpills;
+use Illuminate\Support\Facades\Cache;
+
 class IndexController extends Controller
 {
      public function create()
     {
+        // Cache TTL: 5 minutes (300 seconds)
+        $ttl = 300;
+
         // $customOrder = [8507, 8639, 8640, 8641, 8644, 8663, 8646];
         $customOrder = [8507, 8639, 8640, 8641, 8644, 8664];
-        $kategori = Kategori::where('status', 'active')->get();
-        $mlbb = Kategori::whereIn('id', $customOrder)
-            ->orderByRaw("FIELD(id, " . implode(',', $customOrder) . ")")
-            ->get()
-            ->map(function ($item) {
-                $item->tipe = "mlbb";
-                return $item;
-            });
-        $banner = Berita::where('tipe', 'banner')->get();
-        $logoheader = Berita::where('tipe', 'logoheader')->latest()->first();
-        $logofooter = Berita::where('tipe', 'logofooter')->latest()->first();
-        $popup = Berita::where('tipe', 'popup')->latest()->first();
-        $pay_method = \App\Models\Method::all();
-        // Fetch flash sale items from Layanan model
-        $flashsale = \App\Models\Layanan::join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
-        ->join('paket_layanans', 'paket_layanans.layanan_id', '=', 'layanans.id')
-        ->select(
-            'kategoris.thumbnail AS gmr_thumb', 
-            'kategoris.kode AS kode_game', 
-            'layanans.*', 
-            'paket_layanans.product_logo', 
-            'layanans.stock_flash_sale AS sisa_stok'
-        )
-        ->where('layanans.is_flash_sale', 1)
-        ->where('layanans.expired_flash_sale', '>=', now())
-        ->where('layanans.stock_flash_sale', '>', 0)
-        ->where('layanans.stock_flash_sale', '>', 0)
-        ->get();
-
-        $categoryTypes = \App\Models\CategoryType::orderBy('sort', 'asc')
-            ->with(['kategoris' => function ($query) {
-                $query->where('status', 'active');
-            }])
-            ->get();
-            
-        $articles = \App\Models\Artikel::where('status', 'active')->latest()->take(3)->get();
         
-        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method', 'flashsale', 'categoryTypes', 'articles'));
+        $kategori = Cache::remember('kategori_active', $ttl, function () {
+            return Kategori::where('status', 'active')->get();
+        });
+
+        $mlbb = Cache::remember('kategori_mlbb', $ttl, function () use ($customOrder) {
+            return Kategori::whereIn('id', $customOrder)
+                ->orderByRaw("FIELD(id, " . implode(',', $customOrder) . ")")
+                ->get()
+                ->map(function ($item) {
+                    $item->tipe = "mlbb";
+                    return $item;
+                });
+        });
+
+        $banner = Cache::remember('banner_list', $ttl, function () {
+            return Berita::where('tipe', 'banner')->get();
+        });
+
+        $logoheader = Cache::remember('logo_header', $ttl, function () {
+            return Berita::where('tipe', 'logoheader')->latest()->first();
+        });
+
+        $logofooter = Cache::remember('logo_footer', $ttl, function () {
+            return Berita::where('tipe', 'logofooter')->latest()->first();
+        });
+
+        $popup = Cache::remember('popup_latest', $ttl, function () {
+            return Berita::where('tipe', 'popup')->latest()->first();
+        });
+
+        $pay_method = Cache::remember('payment_methods', $ttl, function () {
+            return \App\Models\Method::all();
+        });
+
+        // Flashsale, CategoryTypes, and Articles are now handled by Livewire components
+        // No need to fetch them here anymore
+        
+        return view('template.id.index', compact('kategori', 'mlbb', 'banner', 'logoheader', 'logofooter', 'popup', 'pay_method'));
 }
 
 

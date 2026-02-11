@@ -2,13 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\provider\bangjeff\BangJeffController;
-use App\Http\Controllers\provider\moogold\MoogoldController;
-use App\Http\Controllers\provider\topupedia\TopupediaController;
-use App\Libraries\Provider\ElitediasProvider;
-use App\Libraries\Provider\GameShopProvider;
-use App\Libraries\Provider\StrleyaShopProvider;
-use App\Libraries\Provider\YezzpayProvider;
+
 use App\Models\Deposit;
 use App\Models\Kategori;
 use App\Models\Layanan;
@@ -124,196 +118,104 @@ class CallbackController extends Controller
             if ($status === "00") {
                 // Hanya proses yang status transaksi sudah di bayar, sukses = dibayar
                 $ref_id = $orderid;
+                
                 if (isset($dataDeposit)) {
                     $userDeposit = User::where('username', $dataDeposit->username)->first();
 
-                    if ($dataDeposit->metode == "QRIS" || $dataDeposit->metode == "QRISREALTIME" || $dataDeposit->metode == "OVOPUSH" || $dataDeposit->metode == "GOPAY" || $dataDeposit->metode == "SHOPEEPAY" || $dataDeposit->metode == "DANA" || $dataDeposit->metode == "ASTRAPAY" || $dataDeposit->metode == "VIRGO" || $dataDeposit->metode == "BRIVA" || $dataDeposit->metode == "BCAVA" || $dataDeposit->metode == "BNIVA" || $dataDeposit->metode == "MANDIRIVA" || $dataDeposit->metode == "PERMATAVA" || $dataDeposit->metode == "CIMBVA" || $dataDeposit->metode == "DANAMONVA" || $dataDeposit->metode == "BSIVA" || $dataDeposit->metode == "ALFAMART" || $dataDeposit->metode == "INDOMARET") {
+                    if (in_array($dataDeposit->metode, ["QRIS", "QRISREALTIME", "OVOPUSH", "GOPAY", "SHOPEEPAY", "DANA", "ASTRAPAY", "VIRGO", "BRIVA", "BCAVA", "BNIVA", "MANDIRIVA", "PERMATAVA", "CIMBVA", "DANAMONVA", "BSIVA", "ALFAMART", "INDOMARET"])) {
                         $order['data']['status'] = true;
+                    } else {
+                        $order['data']['status'] = true; // Default true for others
                     }
 
-                    if ($order['data']['status']) { // Jika pembelian sukses
-
+                    if ($order['data']['status']) { 
                         $userDeposit->update([
                             'balance' => $dataDeposit->jumlah + $userDeposit->balance,
                         ]);
                         $dataDeposit->update([
                             'status' => 'Success'
                         ]);
-
                     } else {
                         $dataDeposit->update([
                             'status' => 'Gagal'
                         ]);
                     }
                 } else {
-                    if ($dataLayanan->provider == "digiflazz") {
-                        $random_part = strtoupper(uniqid());
-                        $provider_order_id = 'RM' . $random_part;
-                        $digiFlazz = new digiFlazzController;
-                        $order = $digiFlazz->order($uid, $zone, $provider_id, $provider_order_id);
+                    // START Multi-Provider Integration via Services
+                    $pembelian = $dataPembeli;
+                    $transaction = $invoice;
+
+                    $routingService = new \App\Services\ProviderRoutingService();
+                    $orderProcessor = new \App\Services\OrderProcessingService($routingService);
+                    $waService = new \App\Services\WhatsappNotificationService();
+
+                    // Process Order
+                    $result = $orderProcessor->process($pembelian);
                     
-                        if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
-                            $order['data']['status'] = true;
-                            $order['transactionId'] = $provider_order_id;
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } elseif ($dataLayanan->provider == "topupedia") {
-                        $topupedia = new TopupediaController;
-                        
-                        $ttlpembelian = [
-                            [
-                                "name" => "id",
-                                "value" => $dataPembeli->user_id
-                            ]
-                        ];
-                    
-                        if ($dataPembeli->zone != null) {
-                            $ttlpembelian[] = [
-                                "name" => "server",
-                                "value" => $dataPembeli->zone
-                            ];
-                        }
-                        
-                        $order = $topupedia->order($provider_id, $order_id, 1, $ttlpembelian);
-                    
-                        if ($order['error'] == false) {
-                            $order['transactionId'] = $order['data']['invoiceNumber'];
-                            $order['data']['status'] = true;
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } elseif ($dataLayanan->provider == "bangjeff") {
-                        $bangjef = new BangJeffController;
-                        
-                        $ttlpembelian = [
-                            [
-                                "name" => "id",
-                                "value" => $dataPembeli->user_id
-                            ]
-                        ];
-                    
-                        if ($dataPembeli->zone != null) {
-                            $ttlpembelian[] = [
-                                "name" => "server",
-                                "value" => $dataPembeli->zone
-                            ];
-                        }
-                        
-                        $order = $bangjef->order($provider_id, $order_id, 1, $ttlpembelian);
-                    
-                        if ($order['error'] == false) {
-                            $order['transactionId'] = $order['data']['invoiceNumber'];
-                            $order['data']['status'] = true;
-                        } else {
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "moogold") {
-                        $moo = new MoogoldController();
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'ACID-MG' . $random_part;
-                        $order = $moo->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback moogold', $order);
-                        if(isset($order['status'])){
-                            $provider_order_id = $order['order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "gameshop") {
-                        $gameshop =  new GameShopProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'ACID-MG' . $random_part;
-                        $order = $gameshop->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback gameshop ' . json_encode($order));
-                        if(isset($order['data']['order_no'])){
-                            $provider_order_id = $order['data']['order_no'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "strleyashop") {
-                        $strleyashop =  new StrleyaShopProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'ACID-MG' . $random_part;
-                        $order = $strleyashop->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback strleyashop ' . json_encode($order));
-                        if(isset($order['order_details']['bot_order_id'])){
-                            $provider_order_id = $order['order_details']['bot_order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "yezzpay") {
-                        $yezzpay =  new YezzpayProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                        $order = $yezzpay->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback yezzpay ' . json_encode($order));
-                        if(isset($order['data']['trx_id'])){
-                            $provider_order_id = $provider_order_id;
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "elitedias") {
-                        $elitedias =  new ElitediasProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID', true)));
-                        $order = $elitedias->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback order elitedias ' . json_encode($order));
-                        if(isset($order['order_id'])){
-                            $provider_order_id = $order['order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } elseif ($dataLayanan->provider == "joki" || $dataLayanan->provider == "jokigendong" || $dataLayanan->provider == "vilogml") {
-                        $provider_order_id = '';
-                        $order['data']['status'] = true;
+                    if ($result['success']) {
+                        $pembelian->update([
+                            'status' => 'Sukses',
+                            'provider_order_id' => $result['transaction_id'] ?? null,
+                            'log' => json_encode(['result' => $result])
+                        ]);
+
+                        // Notify Buyer (WhatsApp)
+                        $waService->sendNotification($transaction->no_pembeli, 'transaction_success', [
+                            'nickname' => $pembelian->nickname,
+                            'order_id' => $pembelian->order_id,
+                            'product' => $pembelian->layanan,
+                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                            'sn' => 'Sedang Diproses',
+                        ]);
+
+                        // Notify Buyer (Email)
+                        $emailService = new \App\Services\EmailNotificationService();
+                        $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
+                        if ($recipientEmail) {
+                            $emailService->sendTransactionEmail($recipientEmail, [
+                            'order_id' => $pembelian->order_id,
+                            'product' => $pembelian->layanan,
+                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                            'status' => 'Success',
+                            'nickname' => $pembelian->nickname,
+                            'note' => 'Terima kasih telah berbelanja.'
+                        ]);
                     }
 
-
-                    if ($order['data']['status']) {
-
-                        if ($dataPembeli->tipe_transaksi !== 'joki') {
-                            // Update status menjadi 'Proses' untuk tipe transaksi bukan 'joki'
-                            $dataPembeli->update([
-                                'provider_order_id' => isset($provider_order_id) ? $provider_order_id : 0,
-                                'status' => 'Proses',
-                                'log' => json_encode($order)
-                            ]);
-                            // Kirim pesan setelah status menjadi 'Diproses'
-                            $this->msg($invoice->no_pembeli, $pesanSukses);
-                        } else {
-                            // Update status menjadi 'Proses' untuk tipe transaksi 'joki'
-                            $dataPembeli->update([
-                                'provider_order_id' => '', 
-                                'status' => 'Proses',
-                                'log' => json_encode($order)
-                            ]);
-                            // Kirim pesan untuk joki setelah status 'Diproses'
-                            $this->msg($invoice->no_pembeli, $pesanJoki);
-                        }
                     } else {
-                        // Logika untuk order yang gagal
-                        if ($dataPembeli->tipe_transaksi !== 'joki') {
-                            $dataPembeli->update([
-                                'status' => 'Batal', // Update status menjadi 'Batal' untuk tipe transaksi bukan 'joki'
-                                'log' => json_encode($order)
-                            ]);
-                        } else {
-                            // Jika tipe transaksi adalah 'joki' dan transaksi gagal, Anda dapat menentukan logika khusus di sini
-                        }
+                        $pembelian->update([
+                            'status' => 'Pending', // Mark pending for retry
+                            'log' => json_encode(['error' => $result['message']])
+                        ]);
+
+                        // Notify Buyer Pending/Failed (WhatsApp)
+                        $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
+                            'nickname' => $pembelian->nickname,
+                            'order_id' => $pembelian->order_id,
+                            'product' => $pembelian->layanan,
+                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                            'status' => 'Menunggu Provider',
+                        ]);
+
+                        // Notify Buyer (Email)
+                        $emailService = new \App\Services\EmailNotificationService();
+                        $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
+                        if ($recipientEmail) {
+                            $emailService->sendTransactionEmail($recipientEmail, [
+                            'order_id' => $pembelian->order_id,
+                            'product' => $pembelian->layanan,
+                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                            'status' => 'Pending',
+                            'nickname' => $pembelian->nickname,
+                            'note' => 'Pesanan sedang menunggu respon provider.'
+                        ]);
                     }
+                    }
+                    // END Multi-Provider Integration
                 }
                 $invoice->update(['status' => 'Lunas']);
 
                 return true;
-                // Cek jika status transaksi berubah menjadi 'Sukses'
-                if ($dataPembeli->status === 'Sukses' && $dataPembeli->tipe_transaksi !== 'joki') {
-                    $this->msg($invoice->no_pembeli, $pesanSukses);
-                }
             } else {
                 return Response::json(['error' => "Status payment tidak success"]);
             }
@@ -321,55 +223,4 @@ class CallbackController extends Controller
             return Response::json(['error' => "Data json tidak sesuai"]);
         }
     }
-
-    public function msg($nomor, $msg)
-    {
-        $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $apiUrl = 'https://api.fonnte.com/send';
-        $token = $api->wa_key;
-    
-        $postData = [
-            'target' => $nomor,
-            'message' => $msg,
-            'countryCode' => '0',
-        ];
-    
-        $headers = [
-            'Authorization: ' . $token,
-        ];
-    
-        $curl = curl_init();
-        curl_setopt_array($curl, [
-            CURLOPT_URL => $apiUrl,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $postData,
-            CURLOPT_HTTPHEADER => $headers,
-        ]);
-    
-        $response = curl_exec($curl);
-        $statusCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    
-        curl_close($curl);
-    
-        if ($statusCode === 200) {
-            return [
-                'success' => true,
-                'message' => 'Message sent successfully',
-                'response' => $response,
-            ];
-        } else {
-            return [
-                'success' => false,
-                'message' => 'Failed to send message',
-                'response' => $response,
-            ];
-        }
-    }
-
 }

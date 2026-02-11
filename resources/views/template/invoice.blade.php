@@ -273,14 +273,13 @@
                                                 $data->status_pembelian == 'Success'
                                             ) {
                                                 $statuscolor = 'green';
-                                            } elseif ($data->status_pembelian == 'Proses') {
+                                            } elseif ($data->status_pembelian == 'Proses' || $data->status_pembelian == 'Processing') {
                                                 $statuscolor = 'cyan';
                                             } else {
                                                 $statuscolor = 'rose';
                                             }
                                         @endphp
-                                        <div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Status
-                                            Transaksi</div>
+                                        <div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Status Transaksi</div>
                                         <div class="col-span-5 md:col-span-4">
                                             <span
                                                 class="inline-flex rounded-sm  text-xs font-semibold leading-5 print:p-0 bg-{{ $statuscolor }}-300 text-{{ $statuscolor }}-800">
@@ -288,7 +287,7 @@
                                                     <div class="whitespace-nowrap"> <span
                                                             class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-yellow-300 text-emerald-900">Pending</span>
                                                     </div>
-                                                @elseif($data->status_pembelian == 'Proses')
+                                                @elseif($data->status_pembelian == 'Proses' || $data->status_pembelian == 'Processing')
                                                     <td
                                                         class="table-cell px-3 py-3.5 text-left text-xs font-medium text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
                                                         <div class="whitespace-nowrap">
@@ -851,6 +850,28 @@
     @include('../footer')
 
     @push('custom_script')
+    <script>
+        setInterval(function() {
+            let orderId = "{{ $data->id_pembelian }}";
+            let url = "{{ route('ajax.status', ':order') }}".replace(':order', orderId);
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let currentStatusPembelian = "{{ $data->status_pembelian }}";
+                        let currentStatusPembayaran = "{{ $data->status_pembayaran }}";
+                        
+                        // Check if status has changed
+                        if (data.status_pembelian !== currentStatusPembelian || data.status_pembayaran !== currentStatusPembayaran) {
+                           console.log('Status changed! Reloading...');
+                           location.reload();
+                        }
+                    }
+                })
+                .catch(error => console.error('Error polling status:', error));
+        }, 3000); // Check every 3 seconds
+    </script>
     @endpush
 
 

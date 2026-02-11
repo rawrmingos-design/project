@@ -7,24 +7,44 @@ use Illuminate\Http\Request;
 use App\Models\Layanan;
 use App\Models\Berita;
 
+use Illuminate\Support\Facades\Cache;
+
 class PricelistController extends Controller
 {
     public function create()
     {
-        
-        $datas = Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')
+        $ttl = 600; // 10 minutes for pricelist as it changes less frequently
+
+        $datas = Cache::remember('pricelist_data', $ttl, function () {
+            return Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')
                 ->where('kategoris.status', 'active')
                 ->orderBy('created_at', 'desc')
                 ->select('layanans.*', 'kategoris.nama AS nama_kategori')
                 ->get();
+        });
                 
-        $kategori = Kategori::get();
+        $kategori = Cache::remember('kategori_all', $ttl, function () {
+            return Kategori::get();
+        });
+
+        $logoheader = Cache::remember('logo_header', $ttl, function () {
+            return Berita::where('tipe', 'logoheader')->latest()->first();
+        });
+
+        $logofooter = Cache::remember('logo_footer', $ttl, function () {
+            return Berita::where('tipe', 'logofooter')->latest()->first();
+        });
+
+        $pay_method = Cache::remember('payment_methods_all', $ttl, function () {
+            return \App\Models\Method::all();
+        });
 
         return view('template.pricelist', [
-        'datas' => $datas, 'kategoris' => $kategori,
-        'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
-        'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-        'pay_method' => \App\Models\Method::all()
-   ]);
-}
+            'datas' => $datas, 
+            'kategoris' => $kategori,
+            'logoheader' => $logoheader,
+            'logofooter' => $logofooter,
+            'pay_method' => $pay_method
+        ]);
+    }
 }

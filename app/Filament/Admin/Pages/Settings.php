@@ -104,22 +104,27 @@ class Settings extends Page implements HasForms
                         FileUpload::make('logo_header')
                             ->label('Header Logo')
                             ->image()
-                            ->directory('logos')
+                            ->disk('assets')
+                            ->visibility('public')
+                            ->directory('assets/logo')
                             ->maxSize(2048)
                             ->columnSpan(1),
                             
                         FileUpload::make('logo_footer')
                             ->label('Footer Logo')
                             ->image()
-                            ->directory('logos')
+                            ->disk('assets')
+                            ->visibility('public')
+                            ->directory('assets/logo')
                             ->maxSize(2048)
                             ->columnSpan(1),
                             
                         FileUpload::make('logo_favicon')
                             ->label('Favicon')
                             ->image()
-                            ->directory('logos')
-                            ->maxSize(512)
+                            ->disk('assets')
+                            ->visibility('public')
+                            ->directory('assets/logo')
                             ->helperText('16x16 or 32x32 px')
                             ->columnSpan(1),
                             
@@ -412,6 +417,28 @@ class Settings extends Page implements HasForms
                             ->minValue(0)
                             ->maxValue(100)
                             ->default(0),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+
+                // Tier System Configuration
+                Section::make('Tier System Configuration')
+                    ->description('Set transaction thresholds for automatic role upgrades')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('trx_count_gold')
+                            ->label('Gold Tier Threshold')
+                            ->helperText('Jumlah transaksi sukses untuk naik ke Gold')
+                            ->numeric()
+                            ->default(50)
+                            ->required(),
+
+                        TextInput::make('trx_count_platinum')
+                            ->label('Platinum Tier Threshold')
+                            ->helperText('Jumlah transaksi sukses untuk naik ke Platinum')
+                            ->numeric()
+                            ->default(100)
+                            ->required(),
                     ])
                     ->collapsible()
                     ->collapsed(),

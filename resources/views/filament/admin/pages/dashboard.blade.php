@@ -33,6 +33,9 @@
                 @livewire(\App\Filament\Admin\Widgets\UserStatsOverview::class)
             </div>
             <div>
+                @livewire(\App\Filament\Admin\Widgets\RevenueChart::class)
+            </div>
+            <div>
                 @livewire(\App\Filament\Admin\Widgets\ProductMetrics::class)
             </div>
         </div>
@@ -41,6 +44,9 @@
         <div class="right-column">
             <div>
                 @livewire(\App\Filament\Admin\Widgets\RecentActivities::class)
+            </div>
+            <div>
+                @livewire(\App\Filament\Admin\Widgets\ProfitAnalysis::class)
             </div>
             <div>
                 @livewire(\App\Filament\Admin\Widgets\UserTierChart::class)

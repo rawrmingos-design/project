@@ -32,7 +32,10 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'otp',
         'api_key',
         'two_factor_secret',
+        'two_factor_secret',
         'two_factor_recovery_codes',
+        'referral_code',
+        'uplink',
     ];
 
     /**

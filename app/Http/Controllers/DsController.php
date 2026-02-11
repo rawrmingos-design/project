@@ -38,6 +38,41 @@ class DsController extends Controller
                         ->where('status', 'Batal')
                         ->count();
 
+    // --- Tier System Logic ---
+    $setting = \App\Models\SettingWeb::first();
+    $goldThreshold = $setting->trx_count_gold ?? 50;
+    $platinumThreshold = $setting->trx_count_platinum ?? 100;
+    
+    $currentCount = $banyakPembelianSuccess; // Total Success Transactions
+    $currentRole = Auth::user()->role;
+    $nextRole = '';
+    $progress = 0;
+    $target = 0;
+
+    if ($currentRole == 'Member') {
+        $target = $goldThreshold;
+        $nextRole = 'Gold';
+        $progress = ($currentCount / $target) * 100;
+    } elseif ($currentRole == 'Gold') {
+        $target = $platinumThreshold;
+        $nextRole = 'Platinum';
+        $progress = ($currentCount / $target) * 100;
+    } else {
+        $progress = 100; // Platinum or Admin
+        $nextRole = 'Max Level';
+    }
+    
+    // Cap progress at 100
+    if ($progress > 100) $progress = 100;
+
+    // --- Affiliate System Logic ---
+    $referralCode = Auth::user()->referral_code ?? '-';
+    $totalCommission = \App\Models\AffiliateHistory::where('uplink_id', Auth::user()->id)->sum('amount');
+    $affiliateHistory = \App\Models\AffiliateHistory::where('uplink_id', Auth::user()->id)
+                        ->latest()
+                        ->take(5)
+                        ->get();
+
     return view('template.dashboard', [
         'data' => \App\Models\Pembelian::where('username', $username)
                     ->whereDate('created_at', $today)
@@ -49,6 +84,16 @@ class DsController extends Controller
         'banyak_pembelian_pending' => $banyakPembelianPending,
         'banyak_pembelian_success' => $banyakPembelianSuccess,
         'banyak_pembelian_batal' => $banyakPembelianBatal,
+        // Tier Data
+        'tier_progress' => $progress,
+        'tier_current' => $currentRole,
+        'tier_next' => $nextRole,
+        'tier_count' => $currentCount,
+        'tier_target' => $target,
+        // Affiliate Data
+        'referral_code' => $referralCode,
+        'total_commission' => $totalCommission,
+        'affiliate_history' => $affiliateHistory,
     ]);
 }
     
