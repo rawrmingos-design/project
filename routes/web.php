@@ -17,6 +17,7 @@ use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\TokoPayCallbackController;
 use App\Http\Controllers\PaydisiniCallbackController;
+use App\Http\Controllers\DuitkuPaymentController;
 use App\Http\Controllers\digiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
@@ -32,7 +33,7 @@ use App\Http\Controllers\DeviceInfoController;
 use App\Http\Controllers\PricelistController;
 use App\Http\Controllers\DsController;
 use App\Http\Controllers\MethodController;
-use App\Http\Controllers\Admin\SettingWebController;
+
 use App\Http\Controllers\Admin\DataJokiController;
 // use App\Http\Controllers\GiftskinController;
 // use App\Http\Controllers\Admin\DataGiftSkinController;
@@ -95,32 +96,9 @@ Route::get('language/{lang}', function ($lang) {
 });
 
 
-Route::get('/moo/kategori', function () {
-    $moo = new MoogoldController();
-    $categories = $moo->categories();
-    return response()->json($categories);
-});
-
-Route::get('/moo/produk/{category}', function ($category) {
-    $moo = new MoogoldController();
-    $products = $moo->products($category);
-    return response()->json($products);
-});
-
-
 Route::get('/wip', function () {
     $ipAddress = request()->ip();
     return response()->json(['ip' => $ipAddress]);
-});
-
-Route::get('/test-whitelisted', function () {
-    $count = \App\Models\WhitelistIp::count();
-    $data = \App\Models\WhitelistIp::limit(10)->get();
-    return response()->json([
-        'count' => $count,
-        'table' => (new \App\Models\WhitelistIp())->getTable(),
-        'sample_data' => $data
-    ]);
 });
 
 Route::get(
@@ -143,6 +121,8 @@ Route::get(
 );
 
 
+
+
 Route::redirect('/', '/id');
 
 Route::prefix('id')->middleware(['xss', 'sanitize'])->group(function () {
@@ -158,11 +138,14 @@ Route::prefix('id')->middleware(['xss', 'sanitize'])->group(function () {
         Route::get('/settings',                                                      [DsController::class, 'editProfile'])->name('editProfile');
         Route::post('/settings',                                                     [DsController::class, 'saveEditProfile'])->name('saveEditProfile');
         Route::post('/id/logout',                                                    [LoginController::class, 'destroy'])->name('logout');
-        Route::get('/dashboard/reload',                                              [DepositController::class, 'reloadd'])->name('reload');
-        Route::get('/dashboard/reload/topup',                                        [DepositController::class, 'create'])->name('deposit');
-        Route::post('/dashboard/reload/topup',                                       [DepositController::class, 'store'])->name('deposit.store');
+        Route::get('/deposit/history',                                              [DepositController::class, 'reloadd'])->name('reload');
+        Route::get('/deposit',                                                      [DepositController::class, 'create'])->name('deposit');
+        Route::post('/deposit',                                                     [DepositController::class, 'store'])->name('deposit.store');
         Route::get('/deposit/{order}',                                               [InvoiceDepositController::class, 'create'])->name('deposit.invoice');
         Route::get('/dashboard/history',                                             [RiwayatPembelian::class, 'create'])->name('riwayat');
+        Route::get('/affiliate',                                                     [DsController::class, 'affiliate'])->name('affiliate');
+        Route::get('/withdrawal',                                                    [DsController::class, 'withdrawal'])->name('withdrawal');
+        Route::post('/withdrawal',                                                   [DsController::class, 'processWithdrawal'])->name('process.withdrawal');
     });
 
     // Rute publik
@@ -202,6 +185,7 @@ Route::middleware(['xss', 'sanitize',])->group(function () {
     Route::get('/id/invoices/{order}',                                           [InvoiceController::class, 'create'])->name('pembelian');
     Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->name('rating.pembelian');
     Route::get('/ajax/transaction-status/{order}',                               [InvoiceController::class, 'checkStatus'])->name('ajax.status');
+    Route::get('/ajax/deposit-status/{order}',                                   [InvoiceDepositController::class, 'checkStatus'])->name('ajax.deposit-status');
     Route::post('/check-voucher',                                                [VoucherController::class, 'confirm'])->name('check.voucher');
 });
 
@@ -210,6 +194,7 @@ Route::post('/wejizy/digi/payload',                                             
 Route::post('/wejizy/tokopay/callback',                                              [TokoPayCallbackController::class, 'handle']);
 Route::post('/wejizy/tripay/callback', [TriPayCallbackController::class, 'handle']);
 Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, 'callbackTransaction']);
+Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])->name('duitku.callback');
 Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])->name('ipay88.callback');
 Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])->name('ipay88.backend');
 
@@ -250,7 +235,7 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::post('/kategori',                                                     [KategoriController::class, 'store'])->name('kategori.post');
     Route::get('/kategori/hapus/{id}',                                           [KategoriController::class, 'delete'])->name('kategori.delete');
     Route::get('/kategori-status/{id}/{status}',                                 [KategoriController::class, 'update'])->name('kategori.update');
-    // Route::post('/kategori/update',                                              [KategoriController::class, 'patch'])->name('kategori.detail.update.legacy');
+
     Route::get('/kategori/{id}/detail',                                          [KategoriController::class, 'detail'])->name('kategori.detail');
     Route::post('/kategori/{id}/detail',                                         [KategoriController::class, 'patch'])->name('kategori.detail.update');
     Route::get('/produk/get/{provider?}',                                        [ProdukController::class, 'get'])->name('produk.get');
@@ -286,29 +271,15 @@ Route::middleware(['auth', 'check.role'])->group(function () {
 
     Route::post('/send-balance',                                                 [MemberController::class, 'send'])->name('saldo.post');
     Route::get('/member/{id}/detail',                                            [MemberController::class, 'show'])->name('member.detail');
-    // Route::post('/member/update',                                                [MemberController::class, 'patch'])->name('member.detail.update');
+
     Route::get('/user-deposit',                                                  [UserDepositController::class, 'create'])->name('userdeposit');
     Route::get('/user-deposit/{id}/{status}',                                    [UserDepositController::class, 'patch'])->name('confirm.deposit');
-    // Route::get('/whatsapp',                                                      [WhatsappController::class, 'create'])->name('whatsapp');
+
     Route::get('/voucher',                                                       [VoucherController::class, 'create'])->name('voucher');
     Route::post('/voucher',                                                      [VoucherController::class, 'store'])->name('voucher.post');
     Route::get('/voucher/{id}/delete',                                           [VoucherController::class, 'destroy'])->name('voucher.delete');
     Route::get('/voucher/{id}/detail',                                           [VoucherController::class, 'show'])->name('voucher.detail');
     Route::post('/voucher/{id}/update',                                          [VoucherController::class, 'patch'])->name('voucher.detail.update');
-    Route::get('/setting/web',                                                   [SettingWebController::class, 'settingWeb']);
-    Route::post('/setting/web',                                                  [SettingWebController::class, 'saveSettingWeb']);
-    Route::post('/setting/warnaweb',                                             [SettingWebController::class, 'saveSettingWarna']);
-    Route::post('/setting/tripay',                                               [SettingWebController::class, 'saveSettingTripay']);
-    Route::post('/setting/tokopay',                                              [SettingWebController::class, 'saveSettingTokopay']);
-
-    Route::post('/setting/paydisini',                                              [SettingWebController::class, 'saveSettingPaydisini']);
-
-    Route::post('/setting/digiflazz',                                            [SettingWebController::class, 'saveSettingDigiflazz']);
-    Route::post('/setting/vip',                                            [SettingWebController::class, 'saveSettingVip']);
-    Route::post('/setting/apigames',                                            [SettingWebController::class, 'saveSettingApigames']);
-    Route::post('/setting/wagateway',                                            [SettingWebController::class, 'saveSettingWagateway']);
-    Route::post('/setting/bangjeff',                                             [SettingWebController::class, 'saveSettingBangjeff']);
-    Route::post('/setting/prefik',                                             [SettingWebController::class, 'saveSettingPrefik']);
     Route::get('/data/joki',                                                     [DataJokiController::class, 'dataJoki']);
     Route::get('/joki-status/{order_id}/{status}',                               [DataJokiController::class, 'statusJoki']);
     Route::get('/joki/hapus/{id}',                                               [DataJokiController::class, 'hapusJoki']);

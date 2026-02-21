@@ -80,7 +80,7 @@
                                     <div class="flex flex-col items-start"><input
                                             class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
                                             type="text" id="kode_referral" placeholder="Kode Referral (Opsional)"
-                                            name="kode_referral"></div><span class="text-xs text-rose-500"></span>
+                                            name="kode_referral" value="{{ request('kode_referral') ?? \Illuminate\Support\Facades\Cookie::get('referral_code') }}"></div><span class="text-xs text-rose-500"></span>
                                 </div>
                                 <div class="flex space-x-4">
                                     <div class="w-1/2">

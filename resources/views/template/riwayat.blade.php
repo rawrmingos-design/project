@@ -11,43 +11,7 @@
 
  <div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
         <div class="col-span-1 hidden sm:block md:col-span-2">
-            <aside class="sticky top-20 print:hidden">
-                <nav class="h-full content-start lg:grid lg:content-between">
-                    <div class="space-y-4">
-                        <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="{{ route('dashboard') }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-                                ></path>
-                            </svg>
-                            <span class="hidden truncate md:block">Dashboard</span>
-                        </a>
-                        <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white from-primary-500" style="outline: none;" href="{{ route('riwayat') }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="hidden truncate md:block">Riwayat Transaksi</span>
-                        </a>
-                    </div>
-                    <div class="w-full pt-4">
-                       <form action="{{ route('logout') }}" method="POST" id="logout">
-                            @csrf                        
-                            <button type="submit" class="flex w-full items-center gap-3 rounded-md bg-gradient-to-r px-3 py-2 text-sm font-medium text-rose-500 hover:from-murky-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-                                    ></path>
-                                </svg>
-                                <span class="hidden md:block">Keluar</span>
-                            </button>
-                        </form>
-                    </div>
-                </nav>
-            </aside>
+            @include('components.sidebar-dashboard')
         </div>
         <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-7 md:col-start-3">
             <div class="pb-8 sm:flex sm:items-center">

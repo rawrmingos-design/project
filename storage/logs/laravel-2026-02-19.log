@@ -1,0 +1,4 @@
+[2026-02-19 07:32:59] local.INFO: WhatsappNotificationService Sent to 6287780901780 {"response":"{\"reason\":\"request invalid on disconnected device\",\"requestid\":387435525,\"status\":false}"} 
+[2026-02-19 07:32:59] local.WARNING: WhatsappNotificationService: Template 'deposit_success' not found or inactive.  
+[2026-02-19 07:36:25] local.INFO: WhatsappNotificationService Sent to 6287780901780 {"response":"{\"reason\":\"request invalid on disconnected device\",\"requestid\":387438802,\"status\":false}"} 
+[2026-02-19 07:36:25] local.WARNING: WhatsappNotificationService: Template 'deposit_success' not found or inactive.  

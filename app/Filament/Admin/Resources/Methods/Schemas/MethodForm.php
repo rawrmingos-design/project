@@ -50,6 +50,7 @@ class MethodForm
                                 'tokopay' => 'Tokopay',
                                 'paydisini' => 'Paydisini',
                                 'manual' => 'Manual',
+                                'duitku' => 'Duitku',
                             ])
                             ->required(),
                     ])
@@ -92,8 +93,8 @@ class MethodForm
                                 'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
                             ])
                             ->disk('assets')
-                            ->directory('assets/payment')
-                            ->visibility('public')
+                            ->directory('assets/thumbnail')
+                            ->visibility('public')  
                             ->imagePreviewHeight('150')
                             ->loadingIndicatorPosition('left')
                             ->panelAspectRatio('2:1')
@@ -101,6 +102,7 @@ class MethodForm
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
                             ->uploadProgressIndicatorPosition('left'),
+                            
                             
                         Toggle::make('statuspayment')
                             ->label('Status Aktif')

@@ -56,7 +56,17 @@ class TriPayCallbackController extends Controller
 
             $order_id = $invoice->order_id;
             $dataPembeli = Pembelian::where('order_id', $order_id)->first();
-            $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
+            $isDeposit = false;
+
+            if (!$dataPembeli) {
+                 $dataDeposit = \App\Models\Deposit::where('order_id', $order_id)->first();
+                 if ($dataDeposit) {
+                     $isDeposit = true;
+                 } else {
+                     DB::rollBack();
+                     return 'Order/Deposit not found';
+                 }
+            }
 
             // Check Amount
             if (intval($data->total_amount) !== (int) $invoice->harga) {
@@ -67,117 +77,157 @@ class TriPayCallbackController extends Controller
             if ($data->status == "PAID") {
                 // Initialize Services
                 $waService = new WhatsappNotificationService();
-                $routingService = new ProviderRoutingService();
-                $orderProcessor = new OrderProcessingService($routingService);
-
-                // 1. Notify Admin 
-                // Using existing hardcoded text format for Admin for now, or could use template later
-                // Reconstructing strict text to match previous style if needed, or just simple one
-                $pesanAdmin = "*Pembayaran Berhasil*\n\n" .
-                    "No Invoice: *$order_id*\n" .
-                    "Layanan : $dataPembeli->layanan\n" .
-                    "ID : $dataPembeli->user_id\n" .
-                    "Server : $dataPembeli->zone\n" .
-                    "Nickname : $dataPembeli->nickname\n" .
-                    "Metode Pembayaran : $invoice->metode\n" .
-                    "Harga : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
-                    "*Kontak Pembeli*\n" .
-                    "No HP : $invoice->no_pembeli\n";
-
-                $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
-
-                // 2. Process Order
-                $result = $orderProcessor->process($dataPembeli);
-                $transactionId = $result['transaction_id'] ?? null;
-                $orderSuccess = $result['success'];
-
-                // 3. Update Invoice/Transaction
-                if ($orderSuccess) {
-                    $orderData = ['status' => 'Sukses']; 
-                    if ($transactionId) {
-                        $orderData['provider_order_id'] = $transactionId;
-                    }
-                    $dataPembeli->update($orderData);
+                
+                if ($isDeposit) {
+                    // === HANDLE DEPOSIT ===
+                    $dataDeposit->update(['status' => 'Success']);
                     
-                    // Notify Buyer (Success/Processing)
-                    $waService->sendNotification($invoice->no_pembeli, 'transaction_success', [
-                        'nickname' => $dataPembeli->nickname,
-                        'order_id' => $order_id,
-                        'product' => $dataPembeli->layanan,
-                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                        'sn' => 'Sedang Diproses', 
-                    ]);
-
-                    // Notify Buyer (Email)
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
-                    if ($recipientEmail) {
-                        $emailService->sendTransactionEmail($recipientEmail, [
-                            'order_id' => $order_id,
-                            'product' => $dataPembeli->layanan,
-                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'status' => 'Success',
-                            'nickname' => $dataPembeli->nickname,
-                            'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
-                        ]);
+                    // Add Balance to User (Credit NET amount)
+                    $user = \App\Models\User::where('username', $dataDeposit->username)->first();
+                    if ($user) {
+                        $user->update(['balance' => $user->balance + $dataDeposit->jumlah]);
                     }
+
+                    // Notify Admin
+                    $pesanAdmin = "*Deposit Berhasil via Tripay*\n\n" .
+                        "No Invoice: *{$invoice->order_id}*\n" .
+                        "Username : {$dataDeposit->username}\n" .
+                        "Metode Pembayaran : {$invoice->metode}\n" .
+                        "Jumlah : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
+                        "*Kontak Pembeli*\n" .
+                        "No HP : {$invoice->no_pembeli}\n";
+                    
+                    $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
+
+                    // Notify Buyer (WhatsApp)
+                    $waService->sendNotification($invoice->no_pembeli, 'deposit_success', [
+                        'username' => $dataDeposit->username,
+                        'order_id' => $invoice->order_id,
+                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                        'status' => 'Berhasil',
+                    ]);
 
                 } else {
-                    $dataPembeli->update(['status' => 'Pending']); 
-                    Log::warning("Order processing failed for {$order_id}: " . $result['message']);
-                    
-                    // Notify Buyer (Pending/Failed)
-                    $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
-                        'nickname' => $dataPembeli->nickname,
-                        'order_id' => $order_id,
-                        'product' => $dataPembeli->layanan,
-                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                        'status' => 'Menunggu Provider',
-                    ]);
+                    // === HANDLE PEMBELIAN (GAME TOPUP) ===
+                    $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
+                    $routingService = new ProviderRoutingService();
+                    $orderProcessor = new OrderProcessingService($routingService);
 
-                    // Notify Buyer (Email)
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
-                    if ($recipientEmail) {
-                        $emailService->sendTransactionEmail($recipientEmail, [
+                    // 1. Notify Admin 
+                    $pesanAdmin = "*Pembayaran Berhasil*\n\n" .
+                        "No Invoice: *$order_id*\n" .
+                        "Layanan : $dataPembeli->layanan\n" .
+                        "ID : $dataPembeli->user_id\n" .
+                        "Server : $dataPembeli->zone\n" .
+                        "Nickname : $dataPembeli->nickname\n" .
+                        "Metode Pembayaran : $invoice->metode\n" .
+                        "Harga : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
+                        "*Kontak Pembeli*\n" .
+                        "No HP : $invoice->no_pembeli\n";
+
+                    $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
+
+                    // 2. Process Order
+                    $result = $orderProcessor->process($dataPembeli);
+                    $transactionId = $result['transaction_id'] ?? null;
+                    $orderSuccess = $result['success'];
+
+                    // 3. Update Invoice/Transaction
+                    if ($orderSuccess) {
+                        $orderData = ['status' => 'Sukses']; 
+                        if ($transactionId) {
+                            $orderData['provider_order_id'] = $transactionId;
+                        }
+                        $dataPembeli->update($orderData);
+                        
+                        // Notify Buyer (Success/Processing)
+                        $waService->sendNotification($invoice->no_pembeli, 'transaction_success', [
+                            'nickname' => $dataPembeli->nickname,
                             'order_id' => $order_id,
                             'product' => $dataPembeli->layanan,
                             'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'status' => 'Pending',
-                            'nickname' => $dataPembeli->nickname,
-                            'note' => 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.'
+                            'sn' => 'Sedang Diproses', 
                         ]);
-                    }
-                }
 
-                $invoice->update(['status' => 'Lunas']);
+                        // Notify Buyer (Email)
+                        $emailService = new \App\Services\EmailNotificationService();
+                        $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                        if ($recipientEmail) {
+                            $emailService->sendTransactionEmail($recipientEmail, [
+                                'order_id' => $order_id,
+                                'product' => $dataPembeli->layanan,
+                                'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                                'status' => 'Success',
+                                'nickname' => $dataPembeli->nickname,
+                                'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                            ]);
+                        }
+
+                    } else {
+                        $dataPembeli->update(['status' => 'Pending']); 
+                        Log::warning("Order processing failed for {$order_id}: " . $result['message']);
+                        
+                        // Notify Buyer (Pending/Failed)
+                        $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
+                            'nickname' => $dataPembeli->nickname,
+                            'order_id' => $order_id,
+                            'product' => $dataPembeli->layanan,
+                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                            'status' => 'Menunggu Provider',
+                        ]);
+
+                        // Notify Buyer (Email)
+                        $emailService = new \App\Services\EmailNotificationService();
+                        $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                        if ($recipientEmail) {
+                            $emailService->sendTransactionEmail($recipientEmail, [
+                                'order_id' => $order_id,
+                                'product' => $dataPembeli->layanan,
+                                'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                                'status' => 'Pending',
+                                'nickname' => $dataPembeli->nickname,
+                                'note' => 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.'
+                            ]);
+                        }
+                    }
+                } // End else isDeposit
+
+                $invoice->update(['status' => 'Lunas', 'paid_at' => now()]);
                 DB::commit();
                 return response()->json(['success' => true]);
 
             } else if ($data->status == "EXPIRED" || $data->status == "FAILED") {
                 $invoice->update(['status' => 'Batal']);
                 
+                if ($isDeposit) {
+                     $dataDeposit->update(['status' => 'Gagal']);
+                } else {
+                     $dataPembeli->update(['status' => 'Gagal']);
+                }
+                
                 // Notify Buyer (Failed)
                 $waService = new WhatsappNotificationService();
                 $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
-                    'nickname' => $dataPembeli->nickname ?? 'Pelanggan',
+                    'nickname' => $isDeposit ? ($dataDeposit->username ?? 'Pelanggan') : ($dataPembeli->nickname ?? 'Pelanggan'),
                     'order_id' => $order_id,
-                    'product' => $dataPembeli->layanan,
+                    'product' => $isDeposit ? 'Deposit Saldo' : $dataPembeli->layanan,
                     'reason' => 'Pembayaran Kadaluarsa/Gagal',
                 ]);
 
-                // Notify Buyer (Email)
-                $emailService = new \App\Services\EmailNotificationService();
-                $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
-                if ($recipientEmail) {
-                    $emailService->sendTransactionEmail($recipientEmail, [
-                        'order_id' => $order_id,
-                        'product' => $dataPembeli->layanan,
-                        'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                        'status' => 'Failed',
-                        'nickname' => $dataPembeli->nickname,
-                        'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.'
-                    ]);
+                // Notify Buyer (Email) if not deposit (optional for deposit)
+                if (!$isDeposit) {
+                    $emailService = new \App\Services\EmailNotificationService();
+                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
+                    if ($recipientEmail) {
+                        $emailService->sendTransactionEmail($recipientEmail, [
+                            'order_id' => $order_id,
+                            'product' => $dataPembeli->layanan,
+                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
+                            'status' => 'Failed',
+                            'nickname' => $dataPembeli->nickname,
+                            'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.'
+                        ]);
+                    }
                 }
 
                 DB::commit();

@@ -219,7 +219,9 @@
                                                 Str::upper($data->metode_pembayaran) == 'BV' ||
                                                 Str::upper($data->metode_pembayaran) == 'IR' ||
                                                 Str::upper($data->metode_pembayaran) == 'FT' ||
-                                                Str::upper($data->metode_pembayaran) == 'BRIVA')
+                                                Str::upper($data->metode_pembayaran) == 'BRIVA' ||
+                                                Str::upper($data->metode_pembayaran) == 'BRIVA' ||
+                                                (Str::upper($data->metode_pembayaran) == 'DUITKU' && !Str::startsWith($data->no_pembayaran, ['http', 'https'])))
                                             <div
                                                 class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4 mt-3 mb-2">
                                                 No Pembayaran</div>
@@ -434,10 +436,12 @@
                                         Str::upper($data->metode_pembayaran) == 'GQ' ||
                                         Str::upper($data->metode_pembayaran) == 'SQ' ||
                                         Str::upper($data->metode_pembayaran) == 'SMARTFREN' || 
-                                        Str::upper($data->metode_pembayaran) == 'OVO')
-                                    <a href="{{ $data->no_pembayaran }}"><button
+                                        Str::upper($data->metode_pembayaran) == 'OVO' ||
+                                        Str::upper($data->metode_pembayaran) == 'OVO' ||
+                                        (Str::upper($data->metode_pembayaran) == 'DUITKU' && Str::startsWith($data->no_pembayaran, ['http', 'https'])))
+                                    <a target="_blank" href="{{ $data->no_pembayaran }}"><button
                                             class="mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto"
-                                            type="button"><span>Klik di sini untuk melakukan pembayaran</span><svg
+                                            type="button"><span>Bayar Sekarang</span><svg
                                                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                                 stroke-width="1.5" stroke="currentColor" aria-hidden="true"
                                                 class="h-4 w-4">
@@ -647,15 +651,49 @@
                                                 </span>
                                             </div>
                                         </li>
+                                    @else
+                                        <!-- Unpaid / Pending Steps -->
+                                        <li class="pb-5 relative">
+                                            <div class="absolute left-4 top-4 -ml-px mt-0.5 h-full w-0.5 bg-gray-300"
+                                                aria-hidden="true"></div>
+                                            <div class="group relative flex items-start">
+                                                <span class="flex h-9 items-center">
+                                                    <span
+                                                        class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-yellow-500 group-hover:bg-yellow-600 animate-pulse">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 text-white">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </span>
+                                                </span>
+                                                <span class="ml-4 flex min-w-0 flex-col">
+                                                    <span class="text-base font-medium text-yellow-500">Menunggu Pembayaran</span>
+                                                    <span class="text-murky-200 text-xs">Silakan selesaikan pembayaran Anda.</span>
+                                                </span>
+                                            </div>
+                                        </li>
+                                        <li class="pb-5 relative">
+                                            <div class="group relative flex items-start">
+                                                <span class="flex h-9 items-center">
+                                                    <span
+                                                        class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-gray-500 group-hover:bg-gray-600">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                            aria-hidden="true" class="h-5 w-5 text-white">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                    </span>
+                                                </span>
+                                                <span class="ml-4 flex min-w-0 flex-col">
+                                                    <span class="text-base font-medium text-gray-500">Selesai</span>
+                                                    <span class="text-murky-200 text-xs">Menunggu pembayaran dikonfirmasi.</span>
+                                                </span>
+                                            </div>
+                                        </li>
                                     @endif
                                 </ol>
                             </nav>
                         </div>
-
-
-
-
-
                         @if ($data->status_pembayaran == 'Belum Lunas')
                             <div class="border-l-4 border-yellow-300 bg-yellow-100 p-4 print:hidden">
                                 <div>

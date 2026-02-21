@@ -36,6 +36,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'two_factor_recovery_codes',
         'referral_code',
         'uplink',
+        'affiliate_status',
     ];
 
     /**
@@ -136,6 +137,22 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     public function isPremiumTier(): bool
     {
         return in_array($this->role, ['Gold', 'Platinum']);
+    }
+
+    // Affiliate Helper Methods
+    public function isAffiliateActive(): bool
+    {
+        return $this->affiliate_status === 'active';
+    }
+
+    public function isAffiliatePending(): bool
+    {
+        return $this->affiliate_status === 'pending';
+    }
+
+    public function isAffiliateInactive(): bool
+    {
+        return $this->affiliate_status === 'inactive';
     }
     
     // Scopes

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Berita;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cookie;
 
 class RegisterController extends Controller
 {
@@ -50,12 +51,12 @@ class RegisterController extends Controller
 
         // Check Uplink (Referral)
         $uplink = null;
-        if ($request->filled('kode_referral')) {
-            $uplinkUser = User::where('referral_code', $request->kode_referral)->first();
+        $kodeReferral = $request->kode_referral ?? Cookie::get('referral_code');
+
+        if ($kodeReferral) {
+            $uplinkUser = User::where('referral_code', $kodeReferral)->first();
             if ($uplinkUser) {
-                $uplink = $uplinkUser->username; // Or ID, migration comment said username/ID. Let's stick to username for readability or ID for strictness. 
-                // Migration comment said: "Stores uplink username or ID". 
-                // Let's use username to match current pattern where relationships often use username (e.g. Pembelian).
+                $uplink = $uplinkUser->username; 
             }
         }
 

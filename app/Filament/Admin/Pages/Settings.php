@@ -241,6 +241,21 @@ class Settings extends Page implements HasForms
                     ->collapsed(),
                     
                 // Payment Gateways
+                Section::make('Deposit Configuration')
+                    ->description('Select the active gateway for QRIS Deposits')
+                    ->schema([
+                        \Filament\Forms\Components\Select::make('deposit_jalur')
+                            ->label('Active Deposit Gateway (QRIS)')
+                            ->options([
+                                'duitku' => 'Duitku',
+                                'tripay' => 'TriPay',
+                                'tokopay' => 'TokoPay',
+                            ])
+                            ->default('duitku')
+                            ->required(),
+                    ])
+                    ->collapsible(),
+
                 Section::make('PayDisini')
                     ->schema([
                         TextInput::make('paydisini_apikey')
@@ -280,6 +295,56 @@ class Settings extends Page implements HasForms
                             ->label('Secret Key')
                             ->password()
                             ->revealable(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+                    
+                Section::make('Duitku')
+                    ->description('Configure Duitku payment gateway. Callback URL: '.config('app.url').'/wejizy/duitku/callback')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('duitku_merchant_code')
+                            ->label('Merchant Code')
+                            ->helperText('Merchant Code dari Duitku dashboard')
+                            ->columnSpan(1),
+                            
+                        TextInput::make('duitku_merchant_key')
+                            ->label('Merchant Key (API Key)')
+                            ->password()
+                            ->revealable()
+                            ->helperText('API Key untuk autentikasi')
+                            ->columnSpan(1),
+                            
+                        TextInput::make('duitku_callback_url')
+                            ->label('Callback URL')
+                            ->url()
+                            ->default(config('app.url').'/wejizy/duitku/callback')
+                            ->helperText('URL untuk menerima notifikasi pembayaran dari Duitku')
+                            ->columnSpan(1),
+                            
+                        TextInput::make('duitku_return_url')
+                            ->label('Return URL')
+                            ->url()
+                            ->default(config('app.url').'/id/invoices/')
+                            ->helperText('URL redirect setelah pembayaran selesai')
+                            ->columnSpan(1),
+                            
+                        \Filament\Forms\Components\Select::make('duitku_mode')
+                            ->label('Mode')
+                            ->options([
+                                'sandbox' => 'Sandbox (Testing)',
+                                'production' => 'Production (Live)',
+                            ])
+                            ->default('sandbox')
+                            ->required()
+                            ->helperText('Pilih sandbox untuk testing, production untuk live')
+                            ->columnSpan(1),
+                            
+                        Toggle::make('duitku_enabled')
+                            ->label('Enable Duitku Payment')
+                            ->helperText('Aktifkan untuk menggunakan Duitku sebagai payment gateway')
+                            ->default(false)
+                            ->columnSpan(1),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -466,6 +531,11 @@ class Settings extends Page implements HasForms
         // Get or create settings record
         $settings = SettingWeb::firstOrNew(['id' => 1]);
         
+        // Check if WA Number changed and trigger API update
+        if (isset($data['wa_number']) && $settings->wa_number !== $data['wa_number']) {
+             $this->changeNumber($data['wa_number'], $data['wa_key'] ?? $settings->wa_key);
+        }
+        
         // Update all fields
         $settings->fill($data);
         $settings->save();
@@ -475,5 +545,19 @@ class Settings extends Page implements HasForms
             ->body('Pengaturan website berhasil diperbarui.')
             ->success()
             ->send();
+    }
+
+    protected function changeNumber($number, $waKey)
+    {
+        try {
+            \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => $waKey,
+            ])->post("https://solo.wablas.com/api/device/change-number", [
+                'phone' => $number,
+            ]);
+        } catch (\Exception $e) {
+            // Log error or silently fail if not critical
+            \Illuminate\Support\Facades\Log::error('Failed to change WA number: ' . $e->getMessage());
+        }
     }
 }

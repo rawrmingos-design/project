@@ -204,24 +204,40 @@
                                     </div>
                                 </div>
                             </dl>
-                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" )
-                            <div class="relative mt-8 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-56 sm:w-56">
-                              <div id="qris-payment">
-                                  <center><img src="{{$data->no_pembayaran}}" width="200"></center>
-                              </div>
+                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" || Str::upper($data->metode_pembayaran) == "SQ")
+                            <div class="relative mt-8 flex flex-col items-center justify-center rounded-lg bg-white p-4">
+                                <h3 class="mb-4 text-gray-800 font-bold">Scan QRIS / Lanjut Bayar</h3>
+                                <div id="qris-payment" class="w-full flex justify-center">
+                                    {{-- Logic: If URL contains 'duitku', it's a payment page -> Show Button --}}
+                                    @if(str_contains($data->no_pembayaran, 'duitku') || str_contains($data->no_pembayaran, 'sandbox.duitku.com') || str_contains($data->no_pembayaran, 'passport.duitku.com'))
+                                         <a href="{{ $data->no_pembayaran }}" target="_blank" class="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all duration-300 hover:bg-blue-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                            Buka Halaman Pembayaran
+                                         </a>
+                                    {{-- Logic: If it is a URL but NOT Duitku, it's likely a QR Image (TriPay/TokoPay) -> Show Image --}}
+                                    @elseif(filter_var($data->no_pembayaran, FILTER_VALIDATE_URL))
+                                         <a href="{{ $data->no_pembayaran }}" target="_blank">
+                                            <img src="{{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto mb-2 max-w-[200px]">
+                                         </a>
+                                    {{-- Logic: If not a URL, it is a Raw QR String -> Generate QR Image --}}
+                                    @else
+                                         <div class="text-center">
+                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto mb-2">
+                                            <p class="mt-2 text-xs text-gray-400 font-mono break-all max-w-[200px] mx-auto">{{ $data->no_pembayaran }}</p>
+                                         </div>
+                                    @endif
+                                </div>
                             </div>
-                            @elseif(Str::upper($data->metode_pembayaran) == "SHOPEEPAY" || Str::upper($data->metode_pembayaran) == "OVOPUSH" || Str::upper($data->metode_pembayaran) == "DANA" || Str::upper($data->metode_pembayaran) == "LINKAJA" || Str::upper($data->metode_pembayaran) == "11" || Str::upper($data->metode_pembayaran) == "17" || Str::upper($data->metode_pembayaran) == "23")
-                            <a href="{{$data->no_pembayaran}}"><button class="mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto" type="button"><span>Klik di sini untuk melakukan pembayaran</span><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path></svg></button></a>
                             @endif
                             
-                            
-                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" )
-                            <!--<button-->
-                            <!--    class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 mt-2 w-64 py-1 !text-xs print:hidden sm:w-56"-->
-                            <!--    type="button"-->
-                            <!-->
-                            <!--    Unduh Kode QR-->
-                            <!--</button>-->
+                            @if(Str::upper($data->metode_pembayaran) == "SHOPEEPAY" || Str::upper($data->metode_pembayaran) == "OVOPUSH" || Str::upper($data->metode_pembayaran) == "DANA" || Str::upper($data->metode_pembayaran) == "LINKAJA" || Str::upper($data->metode_pembayaran) == "11" || Str::upper($data->metode_pembayaran) == "17" || Str::upper($data->metode_pembayaran) == "23")
+                            <a href="{{$data->no_pembayaran}}" target="_blank">
+                                <button class="mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto" type="button">
+                                    <span>Klik di sini untuk melakukan pembayaran</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path>
+                                    </svg>
+                                </button>
+                            </a>
                             @endif
                         </div>
                     </div>
@@ -324,6 +340,44 @@
                 location.reload()
             }
         }
+</script>
+
+<script>
+    $(document).ready(function() {
+        let orderId = "{{ $data->id_pembelian }}";
+        let isProcessing = false;
+
+        function checkStatus() {
+            if (isProcessing) return;
+            isProcessing = true;
+
+            $.ajax({
+                url: "{{ route('ajax.deposit-status', ['order' => ':order']) }}".replace(':order', orderId),
+                method: "GET",
+                success: function(response) {
+                    if (response.success) {
+                        let statusPembayaran = response.status_pembayaran;
+                        let statusDeposit = response.status_deposit;
+
+                        console.log("Status Check:", statusPembayaran, statusDeposit);
+
+                        if (statusPembayaran === 'Lunas' || statusPembayaran === 'PAID' || statusPembayaran === 'Success' || statusDeposit === 'Success') {
+                            toastr.success('Pembayaran berhasil! Halaman akan dimuat ulang...');
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        }
+                    }
+                },
+                complete: function() {
+                    isProcessing = false;
+                }
+            });
+        }
+
+        // Poll every 3 seconds
+        setInterval(checkStatus, 3000);
+    });
 </script>
 
 

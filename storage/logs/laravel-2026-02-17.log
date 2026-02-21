@@ -1,0 +1,8 @@
+[2026-02-17 19:32:24] local.ERROR: Exception occurred: Type of App\Filament\Admin\Resources\AffiliateHistoryResource::$navigationGroup must be UnitEnum|string|null (as in class Filament\Resources\Resource) {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Type of App\\Filament\\Admin\\Resources\\AffiliateHistoryResource::$navigationGroup must be UnitEnum|string|null (as in class Filament\\Resources\\Resource) at D:/Backend-game-topup/web/project/app/Filament/Admin/Resources/AffiliateHistoryResource.php:14)
+[stacktrace]
+#0 {main}
+"} 
+[2026-02-17 19:32:25] local.ERROR: Type of App\Filament\Admin\Resources\AffiliateHistoryResource::$navigationGroup must be UnitEnum|string|null (as in class Filament\Resources\Resource) {"exception":"[object] (Symfony\\Component\\ErrorHandler\\Error\\FatalError(code: 0): Type of App\\Filament\\Admin\\Resources\\AffiliateHistoryResource::$navigationGroup must be UnitEnum|string|null (as in class Filament\\Resources\\Resource) at D:/Backend-game-topup/web/project/app/Filament/Admin/Resources/AffiliateHistoryResource.php:14)
+[stacktrace]
+#0 {main}
+"} 
