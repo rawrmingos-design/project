@@ -29,6 +29,7 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\TrackVisitors::class,
             \App\Http\Middleware\LanguageDetectMiddleware::class,
             \App\Http\Middleware\CaptureTrafficSource::class,
+            \App\Http\Middleware\TrackReferral::class,
         ],
 
         'api' => [

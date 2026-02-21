@@ -1001,7 +1001,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             <div class="flex items-center gap-2 max-w-xs">
                                 <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />
                                 <label for="method_{{$p->id}}"></label>
-                                <img src="{{$p->images}}" alt="qris" width="55" height="40" />
+                                <img src="{{ $p->images }}" alt="qris" width="55" height="40" />
                                 <div>
                                     <span class="block font-bjcredits text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{$p->name}}</span>
                                     <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->code}}">Rp 0</p>
@@ -1117,7 +1117,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -1128,7 +1128,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     </div>
                     <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo5" x-bind:style="selected == 5 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 5 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
                       <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'virtual-account') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
+                          <img class="object-scale-down" src="{{asset($p->images)}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
                         </div> @endif @endforeach </div>
                     </div>
                   </dt>
@@ -1172,7 +1172,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                       </div>
                                     </div>
                                     <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                                      <img src="{{asset($p->images)}}" x-bind:class="{ 'grayscale-0': paymentSelected === 'QRIS', 'grayscale': paymentSelected !== 'QRIS' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                                     </div>
                                   </div>
                                 </span>
@@ -1899,7 +1899,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             <div class="flex items-center gap-2 max-w-xs">
                                 <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->name}}" class="peer hidden" />
                                 <label for="method_{{$p->id}}"></label>
-                                <img src="{{$p->images}}" alt="qris" width="55" height="40" />
+                                <img src="{{ $p->images }}" alt="qris" width="55" height="40" />
                                 <div>
                                     <span class="block font-bjcredits text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{$p->name}}</span>
                                     <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->name}}">Rp 0</p>
@@ -3674,7 +3674,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             <div class="flex items-center gap-2 max-w-xs">
                                 <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />
                                 <label for="method_{{$p->id}}"></label>
-                                <img src="{{$p->images}}" alt="qris" width="55" height="40" />
+                                <img src="{{ $p->images }}" alt="qris" width="55" height="40" />
                                 <div>
                                     <span class="block font-bjcredits text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{$p->name}}</span>
                                     <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->code}}">Rp 0</p>
@@ -4403,7 +4403,7 @@ document.addEventListener("DOMContentLoaded", function() {
                     @if($p->tipe == 'SALDO')
                     <div x-bind:class="{ 'bg-white': paymentSelected === '{{$p->code}}', 'bg-murky-200': paymentSelected !== '{{$p->code}}' }" class="relative flex cursor-pointer method-list rounded-md border border-transparent bg-murky-200 p-3 shadow-sm outline-none md:p-4 hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out melpa-sabled disabled"
                         role="radio" aria-checked="false" method-id="{{$p->code}}" name="paymentMethod" @click="paymentSelected = '{{$p->code}}'">
-                        <div class="flex items-center gap-2 max-w-xs"><input type="radio" id="method_92" name="paymentMethod" value="{{$p->code}}" class="peer hidden" /><label for="method_92"></label><img src="{{$p->images}}" alt="Coin" width="35" height="40" />
+                        <div class="flex items-center gap-2 max-w-xs"><input type="radio" id="method_92" name="paymentMethod" value="{{$p->code}}" class="peer hidden" /><label for="method_92"></label><img src="{{asset($p->images)}}" alt="Coin" width="35" height="40" />
                             <div><span class="block text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{ $p->name }}</span>
                                 <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->code}}">Rp 0</p>
                             </div>
@@ -4440,7 +4440,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             <div class="flex items-center gap-2 max-w-xs">
                                 <input type="radio" id="method_{{$p->id}}" name="paymentMethod" value="{{$p->code}}" class="peer hidden" />
                                 <label for="method_{{$p->id}}"></label>
-                                <img src="{{$p->images}}" alt="qris" width="35" height="10" />
+                                <img src="{{ asset($p->images) }}" alt="qris" width="35" height="10" />
                                 <div>
                                     <span class="block  text-xs font-semibold text-murky-800 sm:text-sm" id="headlessui-label-:riu:">{{$p->name}}</span>
                                     <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{$p->code}}">Rp 0</p>

@@ -213,7 +213,7 @@ class TokoPayCallbackController extends Controller
                         // END Multi-Provider Integration
                     }
                     
-                    $invoice->update(['status' => 'Lunas']);
+                    $invoice->update(['status' => 'Lunas', 'paid_at' => now()]);
                     return Response::json(['success' => true]);
 
                 } else {

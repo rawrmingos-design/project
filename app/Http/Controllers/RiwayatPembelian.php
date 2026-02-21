@@ -14,6 +14,4 @@ class RiwayatPembelian extends Controller
         $joki = \DB::table('data_joki')->get();
         return view('template.riwayat', ['data' => Pembelian::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->get(),'joki' => $joki]);
     }
-
-   
 }

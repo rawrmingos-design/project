@@ -18,9 +18,15 @@ class Withdrawal extends Model
         'total_transfer',
         'biaya_admin',
         'status',
+        'user_id',
         'created_at',
         'updated_at'
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     // Menentukan kolom timestamp jika Anda ingin mengelola timestamp secara manual
     // public $timestamps = true;

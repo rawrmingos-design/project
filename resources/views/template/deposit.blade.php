@@ -6,375 +6,280 @@
 
 @section('content')
 @include('../navbar')
- <div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
-        <div class="col-span-1 hidden sm:block md:col-span-2">
-            <aside class="sticky top-20 print:hidden">
-                <nav class="h-full content-start lg:grid lg:content-between">
-                    <div class="space-y-4">
-                        <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="/id/dashboard">
+<div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
+    <div class="col-span-1 hidden sm:block md:col-span-2">
+        <aside class="sticky top-20 print:hidden">
+            <nav class="h-full content-start lg:grid lg:content-between">
+                <div class="space-y-4">
+                    <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-gray-700"
+                        style="outline:none" href="/id/dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" aria-hidden="true" class="h-5 w-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25">
+                            </path>
+                        </svg>
+                        <span class="hidden truncate md:block">Dashboard</span>
+                    </a>
+                    <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-gray-700"
+                        style="outline:none" href="{{ route('riwayat') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" aria-hidden="true" class="h-5 w-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span class="hidden truncate md:block">Transaksi</span>
+                    </a>
+                    <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-gray-700"
+                        style="outline:none" href="{{ route('affiliate') }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" aria-hidden="true" class="h-5 w-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z">
+                            </path>
+                        </svg>
+                        <span class="hidden truncate md:block">Afiliasi</span>
+                    </a>
+            
+                    
+                </div>
+                <div class="w-full pt-4 ">
+                   <form action="{{ route('logout') }}" method="POST" id="logout">
+                        @csrf                        
+                        <button type="submit" class="flex w-full items-center gap-3 rounded-md bg-gradient-to-r px-3 py-2 text-sm font-medium text-rose-500 hover:from-gray-700">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
                                 <path
                                     stroke-linecap="round"
                                     stroke-linejoin="round"
-                                    d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+                                    d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
                                 ></path>
                             </svg>
-                            <span class="hidden truncate md:block">Dashboard</span>
-                        </a>
-                        <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="{{ route('riwayat') }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="hidden truncate md:block">Transaksi</span>
-                        </a>
-                    
-                    </div>
-                    <div class="w-full pt-4">
-                     
-   
-                           <form action="{{ route('logout') }}" method="POST" id="logout">
-                            @csrf                        
-                            <button type="submit" class="flex w-full items-center gap-3 rounded-md bg-gradient-to-r px-3 py-2 text-sm font-medium text-rose-500 hover:from-murky-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-                                    ></path>
-                                </svg>
-                                <span class="hidden md:block">Keluar</span>
-                            </button>
-                        </form>
-                    </div>
-                </nav>
-            </aside>
-        </div>
-       
-        
-        <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-7 md:col-start-3">
-            <div class="grid grid-cols-3 gap-4 md:gap-8">
-                <div class="col-span-3 space-y-8 xl:col-span-2">
-                    <div>
-                        <a class="inline-flex items-center space-x-2 outline-none" href="{{ route('reload') }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path
-                                    fill-rule="evenodd"
-                                    d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
-                                    clip-rule="evenodd"
-                                ></path>
-                            </svg>
-                            <span>Riwayat Deposit</span>
-                        </a>
-                    </div>
-                    
-                    <div class="block space-y-8 xl:hidden">
-                        <div class="rounded-lg border border-murky-600 bg-murky-700 p-6">
-                            <div class="flex flex-col items-start justify-between gap-4 sm:flex-row">
-                                <div>
-                                    <p class="text-sm font-medium">Saldo Anda</p>
-                                    <h3 class="mt-1 text-[24px] font-bold text-primary-500 lg:text-[26px]">Rp&nbsp;{{ number_format(Auth::user()->balance, 0, ',', '.') }}</h3>
-                                </div>
-                                <div class="flex items-center justify-center space-x-2">
-                                    <a class="rounded-md bg-murky-600 p-2 outline-none" href="{{ route('reload') }}">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="w-full border-t border-murky-600"></div>
-                        <div class="rounded-md bg-blue-50 p-4">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-blue-400">
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
-                                            clip-rule="evenodd"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div class="ml-3 flex-1 md:flex md:justify-start">
-                                    <p class="text-sm text-blue-700">
-                                        QRIS : 24 Jam
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-               
-
-
-
-<div  class="rounded-md">
-    
-     <form action="{{ route('deposit.store') }}" method="POST" class="my-form px-3 mt-2" id="topup-form">
-
-    @csrf
-
-    @if ($errors->any())
-        <div class="alert alert-danger">
-            <ul>
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    @if(session('success'))
-        <div class="alert alert-success">
-            <ul>
-                <li>{{ session('success') }}</li>
-            </ul>
-        </div>
-    @endif
-
-    				
-                    </div>
-                    <input type="hidden" id="selected_method" name="metode">
-                    <div id="payment-method-section" class="rounded-xl bg-murky-800 shadow-2xl">
-          
-            
-           
-            <div class="rounded-xl bg-murky-800 shadow-2xl" >
-              <div class="flex border-b border-murky-600">
-                <div class="flex items-center justify-center rounded-tl-xl bg-gradient-to-b from-primary-400 to-primary-600 px-4 py-2 text-xl font-semibold"> 1 </div>
-                <h3 class="flex w-full items-center justify-between rounded-tr-xl bg-gradient-to-b from-murky-800 to-murky-800 px-2 py-2 text-base font-semibold leading-6 text-white sm:px-4"> Masukkan Data Deposit </h3>
-              </div>
-              <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
-    <div>
-        <label for="id" class="block text-xs font-medium text-white pb-2">Jumlah Deposit</label>
-        <div class="flex flex-col items-start">
-            <input
-                class="relative block w-full appearance-none rounded-none border border-murky-600 bg-murky-700 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 !rounded-md !border-0 !bg-murky-200 !text-murky-800 !placeholder-murky-800 accent-murky-800 !ring-0 placeholder:text-xs focus:!border-transparent focus:!bg-white focus:!ring-transparent"
-                type="number"
-                name="jumlah"
-                placeholder="Ketikan Nominal Topup"
-                required
-            />
-        </div>
-    </div>
-    <div>
-        <label for="server" class="block text-xs font-medium text-white pb-2">No. WhatsApp</label>
-        <div class="flex flex-col items-start">
-            <input
-                class="relative block w-full appearance-none rounded-none border border-murky-600 bg-murky-700 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 !rounded-md !border-0 !bg-murky-200 !text-murky-800 !placeholder-murky-800 accent-murky-800 !ring-0 placeholder:text-xs focus:!border-transparent focus:!bg-white focus:!ring-transparent"
-                type="number" name="no_telfon" placeholder="No WhatsApp" required
-            />
-        </div>
-    </div>
-    </div>
-    </div>
-
-            
-            
-            <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-payment-channel">
-              <div class="flex border-b border-murky-600">
-                <div class="flex items-center justify-center rounded-tl-xl bg-gradient-to-b from-primary-400 to-primary-600 px-4 py-2 text-xl font-semibold"> 2 </div>
-                <h3 class="flex w-full items-center justify-between rounded-tr-xl bg-gradient-to-b from-murky-800 to-murky-800 px-2 py-2 text-base font-semibold leading-6 text-white sm:px-4"> Pilih Metode Pembayaran </h3>
-              </div>
-              <dl id="paymentList" class="flex w-full flex-col space-y-4 p-4 sm:p-6" x-data="{ selected: null, paymentSelected: '' }">
-                  
-               
-                
-                <!--QRIS-->
-              <div class="flex w-full transform flex-col justify-between rounded-md bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none accordion-header" data-state="">
-                  <dt>
-
-        <button class="w-full disabled:opacity-75" id="disclosure-button-:rbb:" type="button" @click="selected !== 7 ? selected = 7 : selected = null" aria-expanded="false" aria-controls="disclosure-panel-:rc8:">
-                      <div class="flex w-full justify-between px-4 py-2">
-                        <span class="transform text-base font-medium leading-7 duration-300">
-                          <div>QRIS</div>
-                        </span>
-                        <span class="ml-6 flex h-7 items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-6 w-6 transform duration-300" x-bind:class="selected == 7 ? 'rotate-180' : 'rotate-0'">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"></path>
-                          </svg>
-                        </span>
-                      </div>
-                    </button>
-                    <div class="relative overflow-hidden transition-all max-h-0 duration-700" x-ref="container1" x-bind:style="selected == 7 ? 'max-height: ' + $refs.container1.scrollHeight + 'px' : 'max-height: 0'" style="max-height: 239px;">
-                      <div class="px-4 pt-2 pb-4 text-sm text-murky-300" id="disclosure-panel-1">
-                        <div id="radiogroup-1" role="radiogroup" aria-labelledby="label-1">
-                          <label class="sr-only" id="label-1" role="none">Select a payment list</label>
-                          <div id="eWalletList" class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3" role="none"> @foreach($pay_method as $p) @if($p->tipe == 'qris') <div x-bind:class="{ 'bg-white bj-shadow': paymentSelected === '{{$p->code}}', 'bg-murky-200': paymentSelected !== '{{$p->code}}' }" method-id="{{$p->code}}" data-method="{{$p->code}}" class="method-list relative flex cursor-pointer overflow-hidden payment-method rounded-xl border border-transparent p-2.5 shadow-sm outline-none md:p-4 bg-white bj-shadow hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out " id="radio-group-{{$p->code}}" role="radio" aria-checked="false" method-id="{{$p->code}}" id="method_{{$p->id}}"   tabindex="0" aria-labelledby="label-{{$p->code}}:" aria-describedby="description-{{$p->code}}" @click="paymentSelected = '{{$p->code}}'">
-                          
-                              <label for="method_{{$p->id}}"></label>
-                              <span class="flex w-full">
-                                <span class="flex w-full flex-col justify-between">
-                                  <div>
-                                    <span class="block text-xs font-semibold text-murky-800">
-                                      {{$p->name}}
-                                    </span>
-                                    <span class="mt-0 flex items-center text-xxs text-murky-600">{{$p->keterangan}}</span>
-                                  </div>
-                                  <div class="flex w-full items-center justify-between">
-                                    <div class="mt-1">
-                                      <div class="relative z-30 mt-0 text-xs font-semibold leading-4 text-murky-800  text-dark.meltihhh">
-                                        <h6 class="hargapembayaran" id="{{$p->code}}"></h6>
-                                      </div>
-                                    </div>
-                                    <div class="relative aspect-[6/2] w-10">
-                                      <img src="{{$p->images}}" x-bind:class="{ 'grayscale-0': paymentSelected === '{{$p->code}}', 'grayscale': paymentSelected !== '{{$p->code}}' }" class="object-scale-down grayscale-0" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
-                                    </div>
-                                  </div>
-                                </span>
-                              </span>
-                            </div> @endif @endforeach </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="relative overflow-hidden transition-all max-h-0 w-full rounded-b-md bg-murky-300" x-ref="logo3" x-bind:style="selected == 7 ? 'max-height: 0' : 'max-height: 30px'" x-bind:class="selected == 7 ? 'px-0 py-0' : 'px-4 pt-2.5 pb-5'">
-                      <div class="flex justify-end gap-x-2"> @foreach($pay_method as $p) @if($p->tipe == 'qris') <div class="relative aspect-[6/2] w-10">
-                          <img class="object-scale-down" src="{{$p->images}}" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" alt="{{$p->name}}" />
-                        </div> @endif @endforeach </div>
-                    </div>
-                  </dt>
-                </div>
-                
-
-              </dl>
-            </div>
-       
-                    <div class="w-full border-t border-murky-600"></div>
-                    <button  type="submit" name="tombol" value="submit"
-                        class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 flex w-full items-center justify-center space-x-2"
-                        
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-                            ></path>
-                        </svg>
-                        <span>Topup Sekarang!</span>
-                    </button>
+                            <span class="hidden md:block">Keluar</span>
+                        </button>
                     </form>
                 </div>
-                <div class="hidden xl:block">
-                    <div class="sticky top-20 space-y-8">
-                        <div class="rounded-md bg-blue-50 p-4">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5 text-blue-400">
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
-                                            clip-rule="evenodd"
-                                        ></path>
-                                    </svg>
-                                </div>
-                                <div class="ml-3 flex-1 md:flex md:justify-start">
-                                    <p class="text-sm text-blue-700">
-                                        QRIS : 24 jam 
-                                    </p>
+            </nav>
+        </aside>
+    </div>
+
+    <!-- Main Content (Deposit Form) -->
+    <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-6 md:col-start-3">
+        
+        <!-- Success/Error Messages -->
+        @if(session('success'))
+        <div class="mb-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4 text-green-500 animate-fade-in-down">
+            <div class="flex items-center gap-3">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                <p class="text-sm font-medium">{{ session('success') }}</p>
+            </div>
+        </div>
+        @endif
+
+         @if ($errors->any())
+        <div class="mb-6 rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-500 animate-fade-in-down">
+             <div class="flex items-center gap-3">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <ul class="text-sm font-medium list-disc list-inside">
+                     @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+        @endif
+
+        <form action="{{ route('deposit.store') }}" method="POST" id="topup-form" class="space-y-8">
+            @csrf
+            <input type="hidden" id="selected_method" name="metode">
+
+            <!-- User Balance Card -->
+            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 p-6 shadow-xl">
+                <div class="absolute top-0 right-0 -mr-16 -mt-16 h-40 w-40 rounded-full bg-primary-500/10 blur-3xl"></div>
+                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+                    <div>
+                        <p class="text-sm font-medium text-gray-400">Saldo Tersedia</p>
+                        <h3 class="mt-1 text-3xl font-bold text-white tracking-tight">Rp {{ number_format(Auth::user()->balance, 0, ',', '.') }}</h3>
+                    </div>
+                     <a href="{{ route('reload') }}" class="inline-flex items-center gap-2 rounded-lg bg-gray-700/50 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 transition-colors border border-gray-600">
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Riwayat Deposit
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Column 1: Input Data -->
+                <div class="lg:col-span-1 space-y-8">
+                    <!-- Step 1 Card -->
+                    <div class="rounded-2xl bg-gray-800 border border-gray-700 p-6 shadow-lg">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 font-bold text-white">1</div>
+                            <h3 class="text-lg font-bold text-white">Nominal Deposit</h3>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="mb-2 block text-xs font-medium text-gray-300">Jumlah Deposit (Min Rp 10.000)</label>
+                                <div class="relative">
+                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <span class="text-gray-400">Rp</span>
+                                    </div>
+                                    <input type="number" style="padding-left: 40px; color: #000;" name="jumlah" class="block w-full rounded-lg border-gray-600 bg-gray-50 pl-10 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:ring-primary-500" placeholder="0" required min="10000">
                                 </div>
                             </div>
-                        </div>
-                        <div class="rounded-lg border border-murky-600 bg-murky-700 p-6">
-                            <div class="flex flex-col items-start justify-between gap-4 sm:flex-row">
-                                <div>
-                                    <p class="text-sm font-medium">Saldo Anda</p>
-                                    <h3 class="mt-1 text-[24px] font-bold text-primary-500 lg:text-[26px]">Rp&nbsp;{{ number_format(Auth::user()->balance, 0, ',', '.') }}</h3>
-                                </div>
-                                <div class="flex items-center justify-center space-x-2">
-                                    <a class="rounded-md bg-murky-600 p-2" href="{{ route('reload') }}" style="outline: none;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <div>
+                                <label class="mb-2 block text-xs font-medium text-gray-300">Nomor WhatsApp (Aktif)</label>
+                                <div class="relative">
+                                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-gray-400">
+                                            <path fill-rule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 011.465 1.175l.716 3.223a1.5 1.5 0 01-1.052 1.767l-.933.267c-.41.117-.643.555-.48.95a11.542 11.542 0 006.254 6.254c.395.163.833-.07.95-.48l.267-.933a1.5 1.5 0 011.767-1.052l3.223.716A1.5 1.5 0 0118 15.352V16.5a1.5 1.5 0 01-1.5 1.5H15c-1.149 0-2.263-.15-3.326-.43A13.022 13.022 0 012.43 8.326 13.019 13.019 0 012 5V3.5z" clip-rule="evenodd" />
                                         </svg>
-                                    </a>
+                                    </div>
+                                    <input type="number" style="padding-left: 40px; color: #000;" name="no_telfon" class="block w-full rounded-lg border-gray-600 bg-gray-50 pl-10 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:ring-primary-500" placeholder="08xxx" value="{{ Auth::user()->whatsapp ?? '' }}" required>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                     <!-- Instructions Card (Moved here for better flow) -->
+                    <div class="rounded-2xl bg-gray-800 border border-gray-700 p-6 shadow-lg">
+                        <div class="flex items-center gap-3 mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <h3 class="text-lg font-bold text-white">Panduan Deposit</h3>
+                        </div>
+                         <ul class="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                            <li>Isi nominal deposit yang diinginkan (Min. Rp 10.000).</li>
+                            <li>Masukkan nomor WhatsApp yang aktif.</li>
+                            <li>Pilih metode pembayaran yang tersedia.</li>
+                            <li>Klik tombol "Top Up Sekarang".</li>
+                            <li>Lakukan pembayaran sesuai instruksi.</li>
+                            <li>Saldo akan masuk otomatis setelah pembayaran berhasil.</li>
+                        </ul>
                     </div>
-                    
+                </div>
+
+                <!-- Column 2: Payment Methods -->
+                <div class="lg:col-span-2">
+                    <div class="rounded-2xl bg-gray-800 border border-gray-700 p-6 shadow-lg">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary-600 font-bold text-white">2</div>
+                            <h3 class="text-lg font-bold text-white">Pilih Metode Pembayaran</h3>
+                        </div>
+
+                         <!-- Method Grid -->
+                         <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" x-data="{ paymentSelected: '' }">
+                             @foreach($pay_method as $p)
+                            @if($p->tipe == 'qris')
+                            <div 
+                                class="payment-method relative group cursor-pointer overflow-hidden rounded-xl border transition-all duration-200"
+                                x-bind:class="{ 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500': paymentSelected === '{{$p->code}}', 'border-gray-600 bg-gray-700/50 hover:border-gray-500': paymentSelected !== '{{$p->code}}' }"
+                                @click="paymentSelected = '{{$p->code}}'; document.getElementById('selected_method').value = '{{$p->code}}'"
+                                id="{{$p->code}}"
+                                data-fee-percent="{{ $p->fee_percent ?? 0 }}"
+                                data-fix-fee="{{ $p->fix_fee ?? 0 }}"
+                            >
+                                <div class="p-4 flex flex-col h-full justify-between gap-4">
+                                    <!-- Header: Name -->
+                                    <div class="flex items-start justify-between">
+                                        <span class="text-xs font-bold text-white uppercase tracking-wider">{{ $p->name }}</span>
+                                        @if($p->tipe == 'qris')
+                                        <span class="inline-flex rounded-full bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-400">QRIS</span>
+                                        @endif
+                                    </div>
+
+                                    <!-- Image -->
+                                     <div class="h-8 w-full flex items-center justify-start">
+                                        <img src="{{ asset($p->images) }}" alt="{{ $p->name }}" class="h-full max-w-[80%] object-contain object-left" loading="lazy">
+                                    </div>
+
+                                     <!-- Price Calculation -->
+                                     <div class="pt-2 border-t border-white/5">
+                                         <span class="block text-[10px] text-gray-400">Total Pembayaran</span>
+                                         <div class="text-sm font-bold text-primary-400 showHarga" id="{{$p->code}}"></div>
+                                     </div>
+                                </div>
+
+                                <!-- Selected Indicator -->
+                                <div x-show="paymentSelected === '{{$p->code}}'" class="absolute -right-1 -top-1">
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-bl-lg rounded-tr-lg bg-primary-500 text-white">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    </span>
+                                </div>
+                            </div>
+                            @endif
+                            @endforeach
+                         </div>
                     </div>
-                    </div>
-                    </div>
-                    </div>
-                    
-                    
- <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
-    
-    <script>
-     document.addEventListener("DOMContentLoaded", function () {
-        const paymentMethods = document.querySelectorAll('.payment-method');
-        const accordionBody = document.querySelector('.accordion-body.bg-payment');
 
-        paymentMethods.forEach(function (method) {
-            method.addEventListener('click', function () {
-                paymentMethods.forEach(function (elem) {
-                    elem.classList.remove('selected');
-                });
-
-                this.classList.add('selected');
-                document.getElementById('selected_method').value = this.getAttribute('data-method');
-
-                accordionBody.classList.add('selected');
-            });
-        });
-    });
-    </script>
-		
-    <script>
-    const jumlahInput = document.querySelector('input[name="jumlah"]');
-
-jumlahInput.addEventListener('input', function(event) {
-    const nilaiJumlah = event.target.value;
-    const flexEndElements = document.querySelectorAll('.showHarga');
-
-    if (nilaiJumlah === '') {
-        flexEndElements.forEach(function(element) {
-            element.textContent = '';
-        });
-    } else {
-        flexEndElements.forEach(function(element) {
-            const paymentCode = element.id;
-            console.log(paymentCode);
-
-            if (paymentCode === 'DANA' || paymentCode === 'OVOPUSH' || paymentCode === 'SHOPEEPAY' || paymentCode === 'LINKAJA' || paymentCode === 'VIRGO' || paymentCode === 'ASTRAPAY') {
-                const nilaiDana = parseFloat(nilaiJumlah) + (parseFloat(nilaiJumlah) * 0.03);
-                element.textContent = formatRupiah(nilaiDana);
-            } else if(paymentCode === 'QRIS'){
-                const nilaiQris = parseFloat(nilaiJumlah) + (parseFloat(nilaiJumlah) * 0.01) + 100;
-                element.textContent = formatRupiah(nilaiQris);
-            }else if(paymentCode === 'TRI' || paymentCode === 'AXIS' || paymentCode === 'XL'){
-                const nilaiPulsa = parseFloat(nilaiJumlah) + (parseFloat(nilaiJumlah) * 0.25);
-                element.textContent = formatRupiah(nilaiPulsa);
-            }else if(paymentCode === 'TELKOMSEL'){
-                const nilaiPulsa = parseFloat(nilaiJumlah) + (parseFloat(nilaiJumlah) * 0.32);
-                element.textContent = formatRupiah(nilaiPulsa);
-            }else {
-                const nilaiVa = parseFloat(nilaiJumlah) + 5000;
-                element.textContent = formatRupiah(nilaiVa);
-            }
-        });
-    }
-});
-
-function formatRupiah(angka) {
-    var reverse = angka.toString().split('').reverse().join(''),
-        ribuan = reverse.match(/\d{1,3}/g);
-    ribuan = ribuan.join('.').split('').reverse().join('');
-    return 'Rp ' + ribuan;
-}
-
-    </script>
-
-
-
-
+                    <button type="submit" class="mt-8 w-full rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-primary-500/25 transition-all hover:bg-gradient-to-r hover:from-primary-500 hover:to-primary-400 hover:shadow-primary-500/40 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                         <span class="flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5 animate-pulse">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                            </svg>
+                            Top Up Sekarang
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
 @include('../footer')
 
 @push('custom_script')
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const jumlahInput = document.querySelector('input[name="jumlah"]');
 
+        if(jumlahInput){
+            jumlahInput.addEventListener('input', function(event) {
+                const nilaiJumlah = event.target.value;
+                const flexEndElements = document.querySelectorAll('.showHarga');
+
+                if (nilaiJumlah === '' || nilaiJumlah < 0) {
+                    flexEndElements.forEach(function(element) {
+                        element.textContent = '';
+                    });
+                } else {
+                    flexEndElements.forEach(function(element) {
+                        const paymentCode = element.id;
+                        const parentDiv = document.getElementById(paymentCode);
+                        let total = 0;
+
+                        if (parentDiv) {
+                            const feePercent = parseFloat(parentDiv.getAttribute('data-fee-percent')) || 0;
+                            const fixFee = parseFloat(parentDiv.getAttribute('data-fix-fee')) || 0;
+                            
+                            const fee = (parseFloat(nilaiJumlah) * (feePercent / 100)) + fixFee;
+                            total = parseFloat(nilaiJumlah) + fee;
+                        } else {
+                            total = parseFloat(nilaiJumlah);
+                        }
+                        
+                        element.textContent = formatRupiah(Math.ceil(total));
+                    });
+                }
+            });
+        }
+    });
+
+    function formatRupiah(angka) {
+        var reverse = angka.toString().split('').reverse().join(''),
+            ribuan = reverse.match(/\d{1,3}/g);
+        ribuan = ribuan.join('.').split('').reverse().join('');
+        return 'Rp ' + ribuan;
+    }
+</script>
 @endpush
-
 @endsection

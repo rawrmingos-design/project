@@ -10,6 +10,7 @@
     "require": {
         "php": "^8.2",
         "abanoubnassem/filament-grecaptcha-field": "^0.0.11",
+        "duitkupg/duitku-php": "dev-master",
         "filament/filament": "4.0",
         "filament/infolists": "4.0",
         "guzzlehttp/guzzle": "^7.0.1",

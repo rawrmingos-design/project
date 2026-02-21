@@ -42,4 +42,22 @@ class InvoiceDepositController extends Controller
         ]);
         
     }
+
+    public function checkStatus($order)
+    {
+        $data = Deposit::where('pembayarans.order_id', $order)
+            ->join('pembayarans', 'deposits.order_id', '=', 'pembayarans.order_id')
+            ->select('pembayarans.status AS status_pembayaran', 'deposits.status AS status_deposit')
+            ->first();
+
+        if ($data) {
+            return response()->json([
+                'success' => true,
+                'status_pembayaran' => $data->status_pembayaran,
+                'status_deposit' => $data->status_deposit
+            ]);
+        }
+
+        return response()->json(['success' => false], 404);
+    }
 }
