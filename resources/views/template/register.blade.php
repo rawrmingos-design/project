@@ -9,6 +9,38 @@
         .product .box {
             margin-bottom: 40px;
         }
+        /* Style khusus untuk input referral yang terkunci */
+        input#kode_referral[readonly] {
+            background-color: #2d2d30 !important; /* Warna lebih gelap */
+            color: #9ca3af !important;           /* Warna teks agak pudar */
+            cursor: not-allowed;                 /* Kursor tanda dilarang */
+            border-color: #3f3f46;               /* Warna border lebih redup */
+            pointer-events: none;                /* Mencegah klik/fokus sama sekali */
+        }
+        /* Style untuk tombol loading */
+        .btn-loading {
+            position: relative;
+            color: transparent !important;
+            pointer-events: none;
+        }
+        .btn-loading::after {
+            content: "";
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-top: -10px;
+            margin-left: -10px;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-right-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 @endsection
 
@@ -73,15 +105,19 @@
                                         WhatsApp</label>
                                     <div class="flex flex-col items-start"><input
                                             class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
-                                    required=""></div><span class="text-xs text-rose-500"></span>
+                                            type="number" id="wa" placeholder="No. WhatsApp" name="no_wa" required=""></div><span class="text-xs text-rose-500"></span>
                                 </div>
                                 <div><label for="kode_referral" class="block text-xs font-medium text-white pb-2">Kode
                                         Referral (Opsional)</label>
                                     <div class="flex flex-col items-start"><input
                                             class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
                                             type="text" id="kode_referral" placeholder="Kode Referral (Opsional)"
-                                            name="kode_referral" value="{{ request('kode_referral') ?? \Illuminate\Support\Facades\Cookie::get('referral_code') }}"></div><span class="text-xs text-rose-500"></span>
+                                            {{ request('ref') || \Illuminate\Support\Facades\Cookie::get('referral_code') ? 'readonly' : '' }}
+                                            name="kode_referral" value="{{ request('kode_referral') ?? request('ref') ?? \Illuminate\Support\Facades\Cookie::get('referral_code') }}"></div><span class="text-xs text-rose-500"></span>
                                 </div>
+                                @if(request('ref') || \Illuminate\Support\Facades\Cookie::get('referral_code'))
+                                    <span class="text-[10px] text-green-400 mt-1 italic">Kode referral otomatis diterapkan.</span>
+                                @endif
                                 <div class="flex space-x-4">
                                     <div class="w-1/2">
                                         <div x-data="{ isPassword: true }"><label for="password"
@@ -164,15 +200,17 @@
 
                             </div>
                             <div><button
-                                    class="items-center justify-center rounded-md px-4 py-2 text-sm font-medium duration-300 group relative flex w-full bg-primary-500 text-muted-foreground hover:bg-muted/75"
-                                    type="submit"><span class="absolute inset-y-0 left-0 flex items-center pl-3"><svg
+                                    class="items-center justify-center rounded-md px-4 py-2 text-sm font-medium duration-300 group relative flex w-full bg-primary-500 text-muted-foreground hover:bg-muted/75 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    id="btnRegister"
+                                    disabled
+                                    type="submit"><span class="absolute inset-y-0 left-0 flex items-center pl-3" id="iconRegister"><svg
                                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                             stroke-width="1.5" stroke="currentColor" aria-hidden="true"
                                             class="h-5 w-5 text-white ">
                                             <path stroke-linecap="round" stroke-linejoin="round"
                                                 d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z">
                                             </path>
-                                        </svg></span> Daftar </button></div>
+                                        </svg></span> <span id="textRegister">Daftar</span> </button></div>
                             <div class="relative flex justify-center text-sm"><span class="px-2 text-foreground">Sudah
                                     memiliki akun?</span></div><a
                                 class="items-center justify-center rounded-md px-4 py-2 text-sm font-medium duration-300 group relative flex w-full bg-primary-500 text-muted-foreground hover:bg-muted/75"
@@ -187,107 +225,70 @@
                                     </svg></span> Masuk </a>
                             <div class="mt-3"></div>
                         </form>
-                        <div class="flex items-center justify-center gap-4"><button
-                                class="items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-primary-foreground duration-300 hover:bg-primary/75 disabled:cursor-not-allowed disabled:opacity-75 hover:!bg-murky-100 group relative flex !bg-foreground !px-2 !text-background"
-                                type="button" disabled=""><svg xmlns="http://www.w3.org/2000/svg" x="0px" y="0px"
-                                    width="100" height="100" viewBox="0 0 48 48" class="h-5 w-5"
-                                    aria-hidden="true">
-                                    <path fill="#fbc02d"
-                                        d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12 s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20 s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z">
-                                    </path>
-                                    <path fill="#e53935"
-                                        d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039 l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z">
-                                    </path>
-                                    <path fill="#4caf50"
-                                        d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36 c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z">
-                                    </path>
-                                    <path fill="#1565c0"
-                                        d="M43.611,20.083L43.595,20L42,20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571 c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z">
-                                    </path>
-                                </svg></button><button
-                                class="items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-primary-foreground duration-300 hover:bg-primary/75 disabled:cursor-not-allowed disabled:opacity-75 hover:!bg-murky-100 group relative flex !bg-foreground !px-2 !text-background"
-                                type="button" disabled=""><svg xmlns="http://www.w3.org/2000/svg" width="1365.12"
-                                    height="1365.12" viewBox="0 0 14222 14222" class="h-5 w-5" aria-hidden="true">
-                                    <circle cx="7111" cy="7112" r="7111" fill="#1977f3"></circle>
-                                    <path
-                                        d="M9879 9168l315-2056H8222V5778c0-562 275-1111 1159-1111h897V2917s-814-139-1592-139c-1624 0-2686 984-2686 2767v1567H4194v2056h1806v4969c362 57 733 86 1111 86s749-30 1111-86V9168z"
-                                        fill="#fff"></path>
-                                </svg></button><button
-                                class="items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-primary-foreground duration-300 hover:bg-primary/75 disabled:cursor-not-allowed disabled:opacity-75 hover:!bg-murky-100 group relative flex !bg-foreground !px-2 !text-background"
-                                type="button" disabled=""><svg xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24" class="h-5 w-5 fill-black" aria-hidden="true">
-                                    <path
-                                        d="M11.6734 7.2221C10.7974 7.2221 9.44138 6.2261 8.01338 6.2621C6.12938 6.2861 4.40138 7.3541 3.42938 9.0461C1.47338 12.4421 2.92538 17.4581 4.83338 20.2181C5.76938 21.5621 6.87338 23.0741 8.33738 23.0261C9.74138 22.9661 10.2694 22.1141 11.9734 22.1141C13.6654 22.1141 14.1454 23.0261 15.6334 22.9901C17.1454 22.9661 18.1054 21.6221 19.0294 20.2661C20.0974 18.7061 20.5414 17.1941 20.5654 17.1101C20.5294 17.0981 17.6254 15.9821 17.5894 12.6221C17.5654 9.8141 19.8814 8.4701 19.9894 8.4101C18.6694 6.4781 16.6414 6.2621 15.9334 6.2141C14.0854 6.0701 12.5374 7.2221 11.6734 7.2221ZM14.7934 4.3901C15.5734 3.4541 16.0894 2.1461 15.9454 0.850098C14.8294 0.898098 13.4854 1.5941 12.6814 2.5301C11.9614 3.3581 11.3374 4.6901 11.5054 5.9621C12.7414 6.0581 14.0134 5.3261 14.7934 4.3901Z">
-                                    </path>
-                                </svg></button></div>
                     </div>
                 </div>
             </div>
         </div>
     </main>
-    
-    @push('custom_script')
-        <script>
-            document.getElementById('myForm').addEventListener('submit', function(e) {
-                e.preventDefault();  // Mencegah form terkirim untuk melakukan validasi terlebih dahulu
-            
-                let formIsValid = true;
-                // Validasi untuk username
-                const username = document.querySelector('input[name="username"]');
-                if (username.value.length < 6) {
-                    showError(username, 'Username harus minimal 6 karakter');
-                    formIsValid = false;
-                } else {
-                    clearError(username);
-                }
-                // Validasi untuk password
-                const password = document.querySelector('input[name="password"]');
-                if (password.value.length < 6) {
-                    showError(password, 'Password harus minimal 6 karakter');
-                    formIsValid = false;
-                } else {
-                    clearError(password);
-                }
-                // Validasi untuk konfirmasi password (harus sama dengan password)
-                const confirmPassword = document.querySelector('input[name="passwordd"]');
-                if (confirmPassword.value !== password.value) {
-                    showError(confirmPassword, 'Password dan Konfirmasi Password harus sama');
-                    formIsValid = false;
-                } else {
-                    clearError(confirmPassword);
-                }
-                // Validasi untuk checkbox agreement
-                const agreement = document.querySelector('input[name="tac"]');
-                if (!agreement.checked) {
-                    showError(agreement, 'Anda harus menyetujui syarat dan ketentuan');
-                    formIsValid = false;
-                } else {
-                    clearError(agreement);
-                }
-                // Jika semua validasi berhasil, bisa mengirim form atau melakukan aksi lainnya
-                if (formIsValid) {
-                    // Aksi setelah validasi sukses (misalnya mengirim form)
-                    e.target.submit(); // Uncomment jika ingin mengirim form setelah validasi sukses
-                }
-            });
-        
-            function showError(element, message) {
-                // Pastikan jika pesan error sudah ada, maka dihapus terlebih dahulu
-                clearError(element);
-            
-                // Menampilkan pesan error jika belum ada
-                const errorSpan = document.createElement('span');
-                errorSpan.classList.add('text-xs', 'text-rose-500');
-                errorSpan.textContent = message;
-                element.parentElement.appendChild(errorSpan);
+@push('custom_script')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('myForm');
+        const btnRegister = document.getElementById('btnRegister');
+        const textRegister = document.getElementById('textRegister');
+        const iconRegister = document.getElementById('iconRegister');
+
+        function checkValidity() {
+            // Kita ambil nilai terbaru langsung di dalam fungsi ini
+            const nama = document.getElementsByName('nama')[0]?.value.trim() || '';
+            const username = document.getElementsByName('username')[0]?.value.trim() || '';
+            const email = document.getElementsByName('email')[0]?.value.trim() || '';
+            const wa = document.getElementsByName('no_wa')[0]?.value.trim() || '';
+            const password = document.getElementsByName('password')[0]?.value || '';
+            const passwordd = document.getElementsByName('passwordd')[0]?.value || '';
+            const agreement = document.getElementById('tac')?.checked || false;
+
+            // Syarat tombol menyala:
+            const isValid = 
+                nama !== '' && 
+                username.length >= 6 && 
+                email.includes('@') && 
+                wa.length >= 10 && 
+                password.length >= 6 && 
+                password === passwordd && 
+                agreement === true;
+
+            // Update status tombol
+            btnRegister.disabled = !isValid;
+
+            // Update visual agar user tahu tombol sudah aktif
+            if (isValid) {
+                btnRegister.classList.remove('opacity-50', 'cursor-not-allowed');
+                btnRegister.classList.add('hover:bg-primary-400');
+            } else {
+                btnRegister.classList.add('opacity-50', 'cursor-not-allowed');
+                btnRegister.classList.remove('hover:bg-primary-400');
             }
+        }
+
+        // Pantau input dan perubahan (termasuk checkbox)
+        form.addEventListener('input', checkValidity);
+        form.addEventListener('change', checkValidity);
+
+        // Jalankan sekali saat halaman dimuat (untuk handle autofill browser)
+        setTimeout(checkValidity, 500);
+
+        // State Loading saat form dikirim
+        form.addEventListener('submit', function (e) {
+            // Mencegah klik ganda
+            btnRegister.disabled = true;
+            btnRegister.classList.add('btn-loading'); // Gunakan CSS spinner yang Anda buat
             
-            function clearError(element) {
-                const errorSpan = element.parentElement.querySelector('.text-xs.text-rose-500');
-                if (errorSpan) {
-                    errorSpan.remove();
-                }
-            }
-        </script>
-    @endpush
+            if (textRegister) textRegister.textContent = 'Memproses...';
+            if (iconRegister) iconRegister.style.display = 'none';
+        });
+        });
+    </script>
+@endpush
+
 @endsection

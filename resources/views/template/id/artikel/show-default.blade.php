@@ -110,7 +110,8 @@
                     </div> --}}
 
                     <div class="prose max-w-none text-gray-300">
-                        {!! $article->content !!}
+                        @safeHtml($article->content)
+
                     </div>
 
                     <!-- Share Section -->

@@ -16,21 +16,24 @@ class WebhookController extends Controller
     public function digiflazz(Request $request): JsonResponse
     {
         try {
-            Log::info('Digiflazz webhook received', $request->all());
-            
-            // Verify webhook signature if configured
-            if (config('providers.digiflazz.webhook_secret')) {
-                if (!$this->verifyDigiflazzSignature($request)) {
-                    Log::warning('Digiflazz webhook signature verification failed');
-                    return response()->json(['error' => 'Invalid signature'], 401);
-                }
+            // FIX #4: Signature check WAJIB — tolak jika secret tidak dikonfigurasi
+            $secret = config('providers.digiflazz.webhook_secret');
+            if (!$secret) {
+                Log::error('Digiflazz webhook secret not configured! Request blocked for security.');
+                return response()->json(['error' => 'Server misconfigured'], 500);
             }
-            
+
+            if (!$this->verifyDigiflazzSignature($request)) {
+                Log::warning('Digiflazz webhook signature verification failed', [
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json(['error' => 'Invalid signature'], 401);
+            }
+
+            Log::info('Digiflazz webhook received (verified)', $request->all());
             $data = $request->all();
-            
-            // Process webhook data
             $this->processDigiflazzWebhook($data);
-            
+
             return response()->json(['status' => 'success']);
         } catch (\Exception $e) {
             Log::error('Digiflazz webhook error: ' . $e->getMessage());
@@ -44,21 +47,24 @@ class WebhookController extends Controller
     public function bangjeff(Request $request): JsonResponse
     {
         try {
-            Log::info('BangJeff webhook received', $request->all());
-            
-            // Verify webhook signature if configured
-            if (config('providers.bangjeff.webhook_secret')) {
-                if (!$this->verifyBangJeffSignature($request)) {
-                    Log::warning('BangJeff webhook signature verification failed');
-                    return response()->json(['error' => 'Invalid signature'], 401);
-                }
+            // FIX #4: Signature check WAJIB — tolak jika secret tidak dikonfigurasi
+            $secret = config('providers.bangjeff.webhook_secret');
+            if (!$secret) {
+                Log::error('BangJeff webhook secret not configured! Request blocked for security.');
+                return response()->json(['error' => 'Server misconfigured'], 500);
             }
-            
+
+            if (!$this->verifyBangJeffSignature($request)) {
+                Log::warning('BangJeff webhook signature verification failed', [
+                    'ip' => $request->ip(),
+                ]);
+                return response()->json(['error' => 'Invalid signature'], 401);
+            }
+
+            Log::info('BangJeff webhook received (verified)', $request->all());
             $data = $request->all();
-            
-            // Process webhook data
             $this->processBangJeffWebhook($data);
-            
+
             return response()->json(['status' => 'success']);
         } catch (\Exception $e) {
             Log::error('BangJeff webhook error: ' . $e->getMessage());
@@ -71,19 +77,13 @@ class WebhookController extends Controller
      */
     public function generic(Request $request, string $provider): JsonResponse
     {
-        try {
-            Log::info("{$provider} webhook received", $request->all());
-            
-            $data = $request->all();
-            
-            // Process generic webhook data
-            $this->processGenericWebhook($provider, $data);
-            
-            return response()->json(['status' => 'success']);
-        } catch (\Exception $e) {
-            Log::error("{$provider} webhook error: " . $e->getMessage());
-            return response()->json(['error' => 'Internal server error'], 500);
-        }
+        // FIX #4: Generic webhook diblokir — tidak ada cara verifikasi identitas provider secara aman.
+        // Implementasikan handler spesifik per-provider dengan signature verification yang proper.
+        Log::warning("Generic webhook blocked for provider: {$provider}", [
+            'ip'   => $request->ip(),
+            'data' => $request->all(),
+        ]);
+        return response()->json(['error' => 'This endpoint is disabled for security reasons'], 403);
     }
 
     /**

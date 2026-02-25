@@ -94,7 +94,8 @@
 
                     <!-- Article Body -->
                     <div class="prose prose-lg prose-invert max-w-none text-gray-300">
-                        {!! $article->content !!}
+                        @safeHtml($article->content)
+
                     </div>
 
                     <!-- Share & Tags -->

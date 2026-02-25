@@ -103,6 +103,27 @@ class PembeliansTable
                     ->alignEnd()
                     ->weight('bold'),
                     
+                TextColumn::make('pembayaran.metode')
+                    ->label('Metode')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('info')
+                    ->getStateUsing(function ($record) {
+                        static $methodCache = null;
+                        if ($methodCache === null) {
+                            $methodCache = \App\Models\Method::pluck('payment', 'code')->toArray();
+                        }
+                        
+                        $metode = optional($record->pembayaran)->metode;
+                        if (!$metode) return '-';
+                        if (strtoupper($metode) === 'SALDO') return 'SALDO';
+                        
+                        $provider = $methodCache[$metode] ?? null;
+                        return $provider ? $provider . '.' . strtolower($metode) : $metode;
+                    })
+                    ->toggleable(),
+                    
                 TextColumn::make('profit')
                     ->label('Profit')
                     ->money('IDR')
@@ -196,6 +217,45 @@ class PembeliansTable
             ->recordActions([
                 ViewAction::make()
                     ->label('View Detail'),
+
+                Action::make('editStatus')
+                    ->label('Ubah Status')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('primary')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('status')
+                            ->label('Status Baru')
+                            ->options([
+                                'Success' => 'Sukses',
+                                'Pending' => 'Pending',
+                                'Proses' => 'Proses',
+                                'Processing' => 'Processing',
+                                'Failed' => 'Failed',
+                                'Batal' => 'Batal',
+                                'Gagal' => 'Gagal',
+                            ])
+                            ->required()
+                            ->default(fn ($record) => $record->status),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $oldStatus = $record->status;
+                        $newStatus = $data['status'];
+                        
+                        if ($oldStatus === $newStatus) return;
+
+                        $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
+                        $record->update(['status' => $newStatus, 'log' => $logMsg]);
+
+                        Notification::make()
+                            ->title('Status berhasil diubah')
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Ubah Status Pembelian')
+                    ->modalDescription('Apakah Anda yakin ingin mengubah status pembelian ini? Pastikan Anda sudah mengecek mutasi atau dashboard provider terkait.')
+                    ->modalSubmitActionLabel('Ya, Ubah Status'),
+                    
                     
                 Action::make('process')
                     ->label('Process')
@@ -217,9 +277,17 @@ class PembeliansTable
                     ->color('danger')
                     ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing']))
                     ->action(function ($record) {
-                        $record->update(['status' => 'Failed', 'log' => 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
+                        $logMsg = 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s');
+
+                        // Refund logic if SALDO
+                        if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
+                            $record->user->increment('balance', $record->harga);
+                            $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
+                        }
+
+                        $record->update(['status' => 'Failed', 'log' => $logMsg]);
                         Notification::make()
-                            ->title('Order cancelled successfully')
+                            ->title('Order cancelled & refunded if applicable')
                             ->success()
                             ->send();
                     })
@@ -231,8 +299,15 @@ class PembeliansTable
                     ->color('warning')
                     ->visible(fn ($record) => $record->status === 'Success')
                     ->action(function ($record) {
-                        // Add refund logic here
-                        $record->update(['log' => 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s')]);
+                        $logMsg = 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s');
+
+                        // Refund logic if SALDO
+                        if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
+                            $record->user->increment('balance', $record->harga);
+                            $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
+                        }
+
+                        $record->update(['status' => 'Batal', 'log' => $logMsg]); // Changed to Batal/Refunded
                         Notification::make()
                             ->title('Refund processed successfully')
                             ->success()
@@ -252,8 +327,9 @@ class PembeliansTable
                             $result = $processor->process($record);
                             
                             if ($result['success']) {
+                                $newStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Success' : 'Processing'; 
                                 $updateData = [
-                                    'status' => 'Processing', // Or 'Success' if instant? Let's say processing for safety or what returned
+                                    'status' => $newStatus,
                                     'log' => $record->log . "\n" . 'Retried by admin at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
                                 ];
                                 

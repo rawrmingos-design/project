@@ -17,7 +17,8 @@ class VerifyCsrfToken extends \Illuminate\Foundation\Http\Middleware\VerifyCsrfT
         'callbackpl',
         'payload',
         'callback/*',
-        '/wejizy/digi/payload',
+        'wejizy/digi/payload', // Hapus "/" di depan agar lebih konsisten
+        'wejizy/digi/*',       // Gunakan wildcard untuk keamanan jika path berubah
     ];
     
     /**

@@ -5,8 +5,8 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\WithdrawalResource\Pages;
 use App\Models\Withdrawal;
 use App\Models\User;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\FileUpload;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -89,26 +89,22 @@ class WithdrawalResource extends Resource
                     ]),
             ])
             ->actions([
-                Action::make('approve')
+                \Filament\Tables\Actions\Action::make('approve')
                     ->label('Setujui')
                     ->color('success')
                     ->icon('heroicon-o-check')
                     ->visible(fn (Withdrawal $record) => $record->status === 'pending')
-                    ->action(function (Withdrawal $record) {
+                    ->form([
+                        FileUpload::make('bukti_transfer')
+                            ->label('Bukti Transfer / Pembayaran')
+                            ->image()
+                            ->directory('bukti_withdraw')
+                            ->required(),
+                    ])
+                    ->action(function (array $data, Withdrawal $record) {
                         $record->status = 'success';
+                        $record->bukti_transfer = $data['bukti_transfer'];
                         $record->save();
-                        
-                        // Deduct balance? Wait, logic says affiliate withdraws COMMISSION.
-                        // Usually commission is already in a separate wallet or balance.
-                        // Or is it transfer from Commission Wallet to Main Wallet?
-                        // Or Main Wallet to Bank?
-                        
-                        // "bisa withdraw harus konfirmasi dari admin dlu" implies Bank Withdrawal.
-                        // We assume money is already deducted from balance when requesting withdrawal?
-                        // Or deducted upon approval?
-                        
-                        // We should check existing WithdrawalController logic if exists.
-                        // For now, simple status update.
                     })
                     ->requiresConfirmation(),
                     

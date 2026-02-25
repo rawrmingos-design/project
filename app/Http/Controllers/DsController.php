@@ -8,6 +8,7 @@ use App\Models\Pembelian;
 use App\Models\Pembayaran;
 use Illuminate\Support\Carbon;
 use App\Models\Kategori;
+use App\Models\AffiliateHistory;
 use Auth;
 
 
@@ -200,6 +201,7 @@ class DsController extends Controller
             'affiliate_history' => $affiliate_history,
             'referral_code' => $referral_code,
             'total_commission' => $total_commission,
+            'kategoris' => Kategori::where('status', 'active')->orderBy('nama', 'asc')->get()
         ]);
     }
 

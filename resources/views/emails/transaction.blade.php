@@ -22,7 +22,8 @@
         </div>
         <div class="content">
             @if(!empty($content))
-                {!! $content !!}
+                @safeHtml($content)
+
             @else
             <p>Halo,</p>
             <p>Berikut adalah update status untuk pesanan Anda:</p>

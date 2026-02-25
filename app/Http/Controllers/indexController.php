@@ -89,4 +89,54 @@ class IndexController extends Controller
             return $res;
         }
     }
+
+    public function recentPurchases()
+    {
+        // Cache for 30 seconds to prevent query spam on high traffic
+        $recent = Cache::remember('recent_purchases_popup', 30, function() {
+            return \App\Models\Pembelian::where('status', 'Success')
+                ->orWhere('status', 'Sukses')
+                ->latest('updated_at')
+                ->take(20)
+                ->get()
+                ->map(function ($pembelian) {
+                    $rawName = $pembelian->username;
+                    // Provide a default name if it's null
+                    $name = !empty($rawName) ? $rawName : 'Seseorang';
+                    
+                    // Mask username
+                    $len = strlen($name);
+                    if ($len > 3) {
+                        $visibleCount = max(1, floor($len / 2));
+                        $name = substr($name, 0, $visibleCount) . str_repeat('*', $len - $visibleCount);
+                    }
+
+                    // Manual lookup for Category and Image
+                    $layananData = \App\Models\Layanan::where('layanan', $pembelian->layanan)->first();
+                    $kategoriName = 'Sebuah Game';
+                    $kategoriImage = null;
+
+                    if ($layananData && $layananData->kategori_id) {
+                        $kategoriData = \App\Models\Kategori::find($layananData->kategori_id);
+                        if ($kategoriData) {
+                            $kategoriName = $kategoriData->nama;
+                            $kategoriImage = $kategoriData->thumbnail;
+                        }
+                    }
+
+                    $itemName = $pembelian->layanan ?? 'Item';
+                    $timeAgo = $pembelian->updated_at ? $pembelian->updated_at->diffForHumans() : 'Baru saja';
+                    
+                    return [
+                        'name' => $name,
+                        'item' => $itemName,
+                        'game' => $kategoriName,
+                        'time_ago' => $timeAgo,
+                        'image' => $kategoriImage
+                    ];
+                });
+        });
+
+        return response()->json($recent);
+    }
 }

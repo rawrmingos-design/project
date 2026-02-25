@@ -4,8 +4,32 @@
 
 <style>
     .bg-green-500 {
-    background-color: #34D399; 
-}
+        background-color: #34D399; 
+    }
+    /* Style untuk tombol loading */
+    .btn-loading {
+        position: relative;
+        color: transparent !important;
+        pointer-events: none;
+    }
+    .btn-loading::after {
+        content: "";
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-top: -10px;
+        margin-left: -10px;
+        border: 2px solid transparent;
+        border-top-color: #ffffff;
+        border-right-color: #ffffff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
 
 
@@ -79,9 +103,11 @@
               </div>
                         <div>
                             <button
-                                class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-75 group relative flex w-full"
+                                class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50 group relative flex w-full"
+                                id="btnMasuk"
+                                disabled
                                 type="submit" name="tombol" value="submit">
-                                <span class="absolute inset-y-0 left-0 flex items-center pl-3">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3" id="iconMasuk">
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
                                         fill="none"
@@ -98,7 +124,7 @@
                                         ></path>
                                     </svg>
                                 </span>
-                                Masuk
+                                <span id="textMasuk">Masuk</span>
                             </button>
                         </div>
                        <div class="relative flex justify-center text-sm"><span class="px-2 text-foreground">Belum memiliki akun?</span></div>
@@ -128,9 +154,35 @@
 
 
 @push('custom_script')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.querySelector('form');
+        const btnMasuk = document.getElementById('btnMasuk');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
 
+        function checkValidity() {
+            if (usernameInput.value.trim() !== '' && passwordInput.value.trim() !== '') {
+                btnMasuk.removeAttribute('disabled');
+            } else {
+                btnMasuk.setAttribute('disabled', 'true');
+            }
+        }
 
+        usernameInput.addEventListener('input', checkValidity);
+        passwordInput.addEventListener('input', checkValidity);
 
+        // Initial check in case browser auto-fills
+        checkValidity();
+
+        form.addEventListener('submit', function() {
+            // Ubah tombol menjadi state loading
+            btnMasuk.classList.add('btn-loading');
+            const iconMasuk = document.getElementById('iconMasuk');
+            if(iconMasuk) iconMasuk.style.display = 'none';
+        });
+    });
+</script>
 @endpush
 
 

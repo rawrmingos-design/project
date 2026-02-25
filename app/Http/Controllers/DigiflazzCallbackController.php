@@ -44,34 +44,66 @@ class DigiflazzCallbackController extends Controller
 
                     $invoice->update($updateData);
 
-                    // Cek apakah invoice ada sebelum mengakses properti 'order_id'
                     $updatePesanan = Pembayaran::where('order_id', $invoice->order_id)->where('metode', 'SALDO')->first();
 
-                    if ($updatePesanan) {
-                        try {
-                            $waService = new \App\Services\WhatsappNotificationService();
-                            $waService->sendNotification($updatePesanan->no_pembeli, 'transaction_success', [
-                                'nickname' => $invoice->nickname,
-                                'order_id' => $invoice->order_id,
-                                'product' => $invoice->layanan,
-                                'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                                'sn' => $ser_n, // Actual SN from provider
-                            ]);
+                    try {
+                        $waService = new \App\Services\WhatsappNotificationService();
+                        $emailService = new \App\Services\EmailNotificationService();
+                        $targetWa = $updatePesanan ? $updatePesanan->no_pembeli : ($invoice->user->no_wa ?? null);
+                        $targetEmail = $invoice->email_pembeli ?? ($invoice->user->email ?? '');
 
-                            // Notify Buyer (Email)
-                            $emailService = new \App\Services\EmailNotificationService();
-                            $emailService->sendTransactionEmail($invoice->email_pembeli ?? ($updatePesanan->user->email ?? ''), [ // Use invoice email or fallback to user email
-                                'order_id' => $invoice->order_id,
-                                'product' => $invoice->layanan,
-                                'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                                'status' => 'Success',
-                                'nickname' => $invoice->nickname,
-                                'note' => 'Terima kasih telah berbelanja.'
-                            ]);
+                        if (in_array(strtolower($updateStatus), ['gagal', 'batal', 'failed'])) {
+                            // Refund Saldo if payment method was SALDO
+                            if ($updatePesanan && $invoice->user) {
+                                $invoice->user->increment('balance', $invoice->harga);
+                                Log::info("Refunded Saldo for Order $refId to User " . $invoice->user->username);
+                            }
 
-                        } catch (\Exception $e) {
-                            Log::error('Notification send error (DigiflazzCallback)', ['error' => $e->getMessage()]);
+                            // Notification Failed
+                            if ($targetWa) {
+                                $waService->sendNotification($targetWa, 'transaction_failed', [
+                                    'nickname' => $invoice->nickname,
+                                    'order_id' => $invoice->order_id,
+                                    'product' => $invoice->layanan,
+                                    'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                    'note' => $msg_n ?? 'Transaksi dibatalkan oleh provider.'
+                                ]);
+                            }
+                            if ($targetEmail) {
+                                $emailService->sendTransactionEmail($targetEmail, [
+                                    'order_id' => $invoice->order_id,
+                                    'product' => $invoice->layanan,
+                                    'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                    'status' => 'Failed',
+                                    'nickname' => $invoice->nickname,
+                                    'note' => $msg_n ?? 'Transaksi dibatalkan oleh provider.'
+                                ]);
+                            }
+
+                        } elseif (in_array(strtolower($updateStatus), ['sukses', 'success'])) {
+                            // Notification Success
+                            if ($targetWa) {
+                                $waService->sendNotification($targetWa, 'transaction_success', [
+                                    'nickname' => $invoice->nickname,
+                                    'order_id' => $invoice->order_id,
+                                    'product' => $invoice->layanan,
+                                    'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                    'sn' => $ser_n, // Actual SN from provider
+                                ]);
+                            }
+                            if ($targetEmail) {
+                                $emailService->sendTransactionEmail($targetEmail, [
+                                    'order_id' => $invoice->order_id,
+                                    'product' => $invoice->layanan,
+                                    'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
+                                    'status' => 'Success',
+                                    'nickname' => $invoice->nickname,
+                                    'note' => 'Terima kasih telah berbelanja.'
+                                ]);
+                            }
                         }
+                    } catch (\Exception $e) {
+                        Log::error('Notification/Refund error (DigiflazzCallback)', ['error' => $e->getMessage()]);
                     }
                 } else {
                     Log::error("Invoice not found for ref_id: $refId");
