@@ -45,6 +45,21 @@ class LeaderboardController extends Controller
             ->limit(10)
             ->get();
 
+        $maskUsername = function($username) {
+            $len = strlen($username);
+            if ($len <= 3) return $username;
+            $visibleCount = max(1, floor($len / 2));
+            return substr($username, 0, $visibleCount) . str_repeat('*', $len - $visibleCount);
+        };
+
+        foreach ([$top10Today, $top10ThisWeek, $top10ThisMonth] as $collection) {
+            foreach ($collection as $item) {
+                if (!empty($item->username)) {
+                    $item->username = $maskUsername($item->username);
+                }
+            }
+        }
+
         return view('template.leaderboard.index', [
             'top10Today' => $top10Today,
             'top10ThisWeek' => $top10ThisWeek,

@@ -113,6 +113,61 @@
             </div>
         </div>
 
+        <!-- Alat Marketing -->
+        <div class="bg-gray-900/30 rounded-lg border border-gray-700 overflow-hidden mb-8">
+            <div class="px-4 py-3 border-b border-gray-700 bg-gray-800/50">
+                <h3 class="text-sm font-semibold text-white"><i class="fa fa-bullhorn text-primary-500 mr-2"></i> Alat Marketing (Otomatis)</h3>
+                <p class="text-xs text-gray-400 mt-1">Buat link referral spesifik untuk game tertentu dan bagikan ke sosial media.</p>
+            </div>
+            <div class="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Link Generator -->
+                <div>
+                    <label for="game_select" class="block text-xs font-medium text-gray-300 mb-2">Pilih Game / Layanan</label>
+                    <select id="game_select" style="color:black;" class="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-primary-500 focus:ring-primary-500 outline-none mb-3">
+                        <option value="{{ url('/') }}">Halaman Utama (Default)</option>
+                        @isset($kategoris)
+                        @foreach($kategoris as $kategori)
+                        <option value="{{ url('/id/' . $kategori->kode) }}">{{ $kategori->nama }}</option>
+                        @endforeach
+                        @endisset
+                    </select>
+
+                    <label class="block text-xs font-medium text-gray-300 mb-2">Link Referral Anda</label>
+                    <div class="flex items-center bg-black/50 rounded-md border border-gray-700 p-1">
+                        <input type="text" id="generated_link" readonly class="bg-transparent border-none text-sm text-primary-400 w-full px-3 py-1 outline-none" value="{{ url('/register?ref=' . $referral_code) }}">
+                        <button onclick="copyGeneratedLink()" class="bg-gray-700 hover:bg-gray-600 text-white rounded px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap">
+                            <i class="fa fa-copy mr-1"></i> Salin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Social Share -->
+                <div class="flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-700 pt-4 md:pt-0 md:pl-6">
+                    <p class="text-sm font-medium text-gray-300 mb-3 text-center md:text-left">Bagikan Cepat (Auto-Tracking)</p>
+                    <div class="grid grid-cols-3 gap-3">
+                        <!-- WhatsApp -->
+                        <button onclick="shareTo('wa')" class="flex flex-col items-center justify-center p-3 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-colors group">
+                            <i class="fa fa-whatsapp text-2xl text-[#25D366] mb-1 group-hover:scale-110 transition-transform"></i>
+                            <span class="text-[10px] text-gray-300">WhatsApp</span>
+                        </button>
+                        <!-- Facebook -->
+                        <button onclick="shareTo('fb')" class="flex flex-col items-center justify-center p-3 rounded-lg bg-[#1877F2]/10 border border-[#1877F2]/30 hover:bg-[#1877F2]/20 transition-colors group">
+                            <i class="fa fa-facebook text-2xl text-[#1877F2] mb-1 group-hover:scale-110 transition-transform"></i>
+                            <span class="text-[10px] text-gray-300">Facebook</span>
+                        </button>
+                        <!-- Twitter/X -->
+                        <button onclick="shareTo('tw')" class="flex flex-col items-center justify-center p-3 rounded-lg bg-gray-700/50 border border-gray-600 hover:bg-gray-600 transition-colors group">
+                            <i class="fa fa-twitter text-2xl text-gray-300 mb-1 group-hover:scale-110 transition-transform"></i>
+                            <span class="text-[10px] text-gray-300">X (Twitter)</span>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 mt-3 text-center md:text-left italic">
+                        *Share via tombol di atas akan otomatis menyisipkan source pelacakan.
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- History Table -->
         <div class="bg-gray-900/30 rounded-lg border border-gray-700 overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-700">
@@ -180,5 +235,58 @@
 </div>
 
 @include('../footer')
+
+@push('custom_script')
+<script>
+    const referralCode = '{{ $referral_code }}';
+    const gameSelect = document.getElementById('game_select');
+    const generatedLinkInput = document.getElementById('generated_link');
+
+    function updateLink() {
+        if(!gameSelect || !generatedLinkInput) return;
+        let baseUrl = gameSelect.value;
+        // Append ?ref=
+        let finalUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'ref=' + referralCode;
+        generatedLinkInput.value = finalUrl;
+    }
+
+    if(gameSelect) {
+        gameSelect.addEventListener('change', updateLink);
+        updateLink(); // initial calculation
+    }
+
+    function copyGeneratedLink() {
+        if(!generatedLinkInput) return;
+        generatedLinkInput.select();
+        document.execCommand('copy');
+        alert('Link berhasil disalin!');
+    }
+
+    function shareTo(platform) {
+        if(!generatedLinkInput) return;
+        let baseUrl = generatedLinkInput.value;
+        // Append source based on platform. Adding source parameter
+        let shareUrl = baseUrl + '&source=' + platform;
+        
+        let text = "Mau topup game murah, aman dan pastinya terpercaya? Yuk mampir cek harga di sini: ";
+        let encodedText = encodeURIComponent(text);
+        let encodedUrl = encodeURIComponent(shareUrl);
+        
+        let openUrl = '';
+        
+        if (platform === 'wa') {
+            openUrl = 'https://api.whatsapp.com/send?text=' + encodedText + '%0A' + encodedUrl;
+        } else if (platform === 'fb') {
+            openUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodedUrl + '&quote=' + encodedText;
+        } else if (platform === 'tw') {
+            openUrl = 'https://twitter.com/intent/tweet?text=' + encodedText + '&url=' + encodedUrl;
+        }
+        
+        if (openUrl) {
+            window.open(openUrl, '_blank', 'width=600,height=550');
+        }
+    }
+</script>
+@endpush
 
 @endsection

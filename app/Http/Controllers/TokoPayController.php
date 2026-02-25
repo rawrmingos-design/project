@@ -44,8 +44,13 @@ class TokoPayController extends Controller
                     'product_code'=>'-',
                     'name'=> $service,
                     'price'=>$jumlah,
-                    'product_url'=> isset($_SERVER['HTTPS']) ? 'https://' : 'http://' . $_SERVER['HTTP_HOST'] . "/id/pembelian/invoice/$ref_id",
-                    'image_url'=> isset($_SERVER['HTTPS']) ? 'https://' : 'http://' . $_SERVER['HTTP_HOST'] . "/assets/logo/logo.png"
+                    // Fallback to valid external URL if testing on localhost
+                    'product_url'=> (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false) 
+                        ? "https://example.com/id/invoice/$ref_id" 
+                        : (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . "/id/invoice/$ref_id",
+                    'image_url'=> (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)
+                        ? "https://example.com/assets/logo/logo.png"
+                        : (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . "/assets/logo/logo.png"
                 ]
             ]
         ];

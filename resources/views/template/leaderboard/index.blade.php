@@ -60,60 +60,115 @@
 <section id="leaderboard" class="relative pb-12">
    <div class="container">
       <!--<p class="mx-auto mt-6 max-w-3xl text-center text-lg leading-8 text-murky-400">Berikut ini adalah daftar 10 pembelian terbanyak yang dilakukan oleh pelanggan kami. Data ini diambil dari sistem kami dan selalu diperbaharui.</p>-->
-     <div class="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-8 md:grid-cols-2 lg:mx-0 lg:max-w-none xl:grid-cols-3">
+     <div class="isolate mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-3">
+    <!-- Top 10 Hari Ini -->
     <div>
-        <div class="flex justify-center">
-            <h2 class="ml-3 inline-flex rounded-md text-center bg-murky-700 shadow py-1 px-4 text-xs leading-6">Top 10 - Hari Ini</h2>
+        <div class="flex justify-center mb-4">
+            <h2 class="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-4 py-1.5 text-sm font-semibold text-primary-400 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Top 10 Hari Ini
+            </h2>
         </div>
 
-        <div class="relative rounded-md bg-murky-800 p-6">
-            <ul class="space-y-3 text-sm leading-6 text-white">
+        <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
+            <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10Today as $index => $item)
                     @if ($item->username)
-                        <li class="flex items-center justify-between gap-x-3">
-                            <div>{{ $index + 1 }}. {{ $item->username }} @if($index == 0)🏆 @elseif($index == 1) @elseif($index == 2) @endif</div>
-                            <div>Rp&nbsp;{{ number_format($item->total_harga, 0, '.', ',') }}</div>
+                        <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
+                            <div class="flex items-center gap-x-4">
+                                <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
+                                    @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
+                                </span>
+                                <div class="relative">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                    @if($index < 3)
+                                        <div class="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-green-500 ring-2 ring-secondary animate-pulse"></div>
+                                    @endif
+                                </div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
+                                <span class="text-[10px] text-murky-400 uppercase tracking-wider">Top Up Area</span>
+                            </div>
                         </li>
                     @endif
                 @endforeach
+                @if(count($top10Today) == 0)
+                    <li class="py-10 text-center text-murky-400 italic">Belum ada top up hari ini. Jadilah yang pertama!</li>
+                @endif
             </ul>
         </div>
     </div>
 
+    <!-- Top 10 Minggu Ini -->
     <div>
-        <div class="flex justify-center">
-            <h2 class="ml-3 inline-flex rounded-md text-center bg-murky-700 shadow py-1 px-4 text-xs leading-6">Top 10 - Minggu Ini</h2>
+        <div class="flex justify-center mb-4">
+            <h2 class="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-4 py-1.5 text-sm font-semibold text-primary-400 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                Top 10 Minggu Ini
+            </h2>
         </div>
 
-        <div class="relative rounded-md bg-murky-800 p-6">
-            <ul class="space-y-3 text-sm leading-6 text-white">
+        <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
+            <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10ThisWeek as $index => $item)
                     @if ($item->username)
-                        <li class="flex items-center justify-between gap-x-3">
-                            <div>{{ $index + 1 }}. {{ $item->username }} @if($index == 0)🏆 @elseif($index == 1) @elseif($index == 2) @endif</div>
-                            <div>Rp&nbsp;{{ number_format($item->total_harga, 0, '.', ',') }}</div>
+                        <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
+                            <div class="flex items-center gap-x-4">
+                                <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
+                                    @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
+                                </span>
+                                <div class="relative">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                </div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
+                            </div>
                         </li>
                     @endif
                 @endforeach
+                @if(count($top10ThisWeek) == 0)
+                    <li class="py-10 text-center text-murky-400 italic">Data minggu ini belum tersedia.</li>
+                @endif
             </ul>
         </div>
     </div>
 
+    <!-- Top 10 Bulan Ini -->
     <div>
-        <div class="flex justify-center">
-            <h2 class="ml-3 inline-flex rounded-md text-center bg-murky-700 shadow py-1 px-4 text-xs leading-6">Top 10 - Bulan Ini</h2>
+        <div class="flex justify-center mb-4">
+            <h2 class="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-4 py-1.5 text-sm font-semibold text-primary-400 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                Top 10 Bulan Ini
+            </h2>
         </div>
 
-        <div class="relative rounded-md bg-murky-800 p-6 ">
-            <ul class="space-y-3 text-sm leading-6 text-white">
+        <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
+            <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10ThisMonth as $index => $item)
                     @if ($item->username)
-                        <li class="flex items-center justify-between gap-x-3">
-                            <div>{{ $index + 1 }}. {{ $item->username }} @if($index == 0)🏆 @elseif($index == 1) @elseif($index == 2) @endif</div>
-                            <div>Rp&nbsp;{{ number_format($item->total_harga, 0, '.', ',') }}</div>
+                         <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
+                            <div class="flex items-center gap-x-4">
+                                <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
+                                    @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
+                                </span>
+                                <div class="relative">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                </div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                            </div>
+                            <div class="text-right flex flex-col items-end">
+                                <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
+                            </div>
                         </li>
                     @endif
                 @endforeach
+                @if(count($top10ThisMonth) == 0)
+                   <li class="py-10 text-center text-murky-400 italic">Data bulan ini belum tersedia.</li>
+                @endif
             </ul>
         </div>
     </div>

@@ -132,6 +132,7 @@ class OrderController extends Controller
         $appName = config('app.name');
         $title = !empty($data->meta_title) ? $data->meta_title : "Top Up {$data->nama} Murah - {$appName}";
         $meta_description = !empty($data->meta_description) ? $data->meta_description : "Top up {$data->nama} termurah dan terpercaya di {$appName}. Proses instan, layanan 24 jam.";
+        $keywords = "topup {$data->nama}, beli {$data->nama}, top up {$data->nama} murah, agen {$data->nama}, {$appName}";
         $schema_markup = $data->schema_markup;
 
         // Payment methods are cached separately in global cache or view composer usually, but here we can cache it short term
@@ -142,6 +143,7 @@ class OrderController extends Controller
         return view('template.order', [
             'title' => $title,
             'meta_description' => $meta_description,
+            'keywords' => $keywords,
             'schema_markup' => $schema_markup,
             'kategori' => $data,
             'nominal' => $layanan,
@@ -740,10 +742,24 @@ class OrderController extends Controller
 
         if (!$dataLayanan) return response()->json(['status' => false, 'data' => 'Layanan tidak ditemukan']);
 
-        // Flash Sale Logic
-        if ($dataLayanan->is_flash_sale == 1 && $dataLayanan->expired_flash_sale >=now() && $dataLayanan->stock_flash_sale > 0) {
-            Layanan::where('id', $request->service)->decrement('stock_flash_sale');
-            $dataLayanan->harga = $dataLayanan->harga_flash_sale;
+        // Flash Sale Logic — FIX #1: Atomic decrement untuk cegah race condition
+        // Gunakan satu query UPDATE dengan kondisi WHERE stock > 0 supaya thread-safe
+        $isFlashSale = $dataLayanan->is_flash_sale == 1
+            && $dataLayanan->expired_flash_sale >= now()
+            && $dataLayanan->stock_flash_sale > 0;
+        if ($isFlashSale) {
+            $decremented = Layanan::where('id', $request->service)
+                ->where('is_flash_sale', 1)
+                ->where('expired_flash_sale', '>=', now())
+                ->where('stock_flash_sale', '>', 0)
+                ->decrement('stock_flash_sale');
+
+            if ($decremented) {
+                $dataLayanan->harga = $dataLayanan->harga_flash_sale;
+            } else {
+                // Stok habis saat race condition — tolak order
+                return response()->json(['status' => false, 'data' => 'Maaf, stok flash sale sudah habis. Silakan coba produk lain.']);
+            }
         }
 
         // Joki Quantity Logic
@@ -770,9 +786,14 @@ class OrderController extends Controller
             }
         }
 
-        // Generate Order ID
+        // Generate Order ID — FIX #5: Tambah timestamp lebih panjang + uniqueness guard
         $setting = DB::table('setting_webs')->where('id', 1)->first();
-        $order_id = $setting->order_prefik . date('Hs') . Str::random(8); // Simplified random
+        $prefix   = $setting->order_prefik ?? 'TRX';
+        $order_id = $prefix . now()->format('ymdHis') . Str::upper(Str::random(6));
+        // Pastikan unik di DB (collision guard)
+        while (Pembelian::where('order_id', $order_id)->exists()) {
+            $order_id = $prefix . now()->format('ymdHis') . Str::upper(Str::random(6));
+        }
         
         // Payment Method Info
         $dataMethod = Method::where('code', $request->payment_method)->first();
@@ -828,7 +849,8 @@ class OrderController extends Controller
                 $ipController = new IPAddressController();
                 $ipAddress = $ipController->getIPAddress($request);
 
-                $status_pembelian = 'Proses'; // Karena sudah validated 'status' => true di atas (termasuk Pending provider)
+                // Map status from provider to system status
+                $status_pembelian = isset($providerResult['order_status']) && $providerResult['order_status'] === 'Sukses' ? 'Success' : 'Proses'; 
                 $provider_order_id = $providerResult['provider_order_id'];
                 $log_data = json_encode($providerResult['order_data']);
 
@@ -857,6 +879,22 @@ class OrderController extends Controller
             $amount = $dataLayanan->harga;
             $no_pembayaran = '';
             $reference = '';
+
+            // FIX #2: Voucher stock decrement di gateway payment (sebelumnya hanya di alur SALDO)
+            // Gunakan lockForUpdate di dalam transaksi untuk cegah double-use
+            if ($request->voucher) {
+                try {
+                    DB::transaction(function () use ($request) {
+                        $voucherGw = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
+                        if (!$voucherGw || $voucherGw->stock <= 0) {
+                            throw new \Exception('Voucher tidak valid atau sudah habis');
+                        }
+                        $voucherGw->decrement('stock');
+                    });
+                } catch (\Exception $e) {
+                    return response()->json(['status' => false, 'data' => $e->getMessage()]);
+                }
+            }
 
             // Gateway Processing
             $gatewayResult = ['status' => false, 'msg' => 'Metode pembayaran tidak tersedia'];
@@ -888,7 +926,12 @@ class OrderController extends Controller
                 }
             } else if ($dataMethod->payment == "tripay") {
                 $tripay = new TriPayController();
-                $res = $tripay->request($order_id, $amount, $request->payment_method, $order_id . '@email.com', $request->nomor);
+                // FIX #10: Gunakan email user yang sebenarnya, bukan email palsu
+                $customerEmail = Auth::check() && Auth::user()->email
+                    ? Auth::user()->email
+                    : ($request->email ?? config('mail.from.address', 'noreply@' . parse_url(config('app.url'), PHP_URL_HOST)));
+                $res = $tripay->request($order_id, $amount, $request->payment_method, $customerEmail, $request->nomor);
+
                 if ($res['success']) {
                     $gatewayResult = [
                         'status' => true,
@@ -1029,17 +1072,17 @@ class OrderController extends Controller
             // Hitung harga dasar
             $basePrice = $layanan->harga * $qty;
 
-            // Hitung fee payment method (logic harus sama persis dengan ringkasan modal!)
-            // Hitung fee payment method (dynamic from DB)
+            // FIX #6: Inisialisasi $finalPrice = $basePrice (sebelumnya undefined → hanya berisi fee saja)
+            $finalPrice = $basePrice;
+
+            // Tambahkan fee payment method
             $method = Method::where('code', $paymentMethod)->first();
             if ($method) {
                 $finalPrice += $method->fix_fee + ($basePrice * ($method->fee_percent / 100));
             }
 
-            // Promo logic jika ada
-            if ($promo && $promo == 'DISKON10') {
-                $finalPrice = $finalPrice * 0.9;
-            }
+            // FIX #7: Hapus promo DISKON10 hardcoded — gunakan sistem voucher DB
+            // Promo DISKON10 dihapus karena tidak ada expiry, limit penggunaan, dan bisa ditebak
 
             return response()->json([
                 'success' => true,
@@ -1167,6 +1210,7 @@ class OrderController extends Controller
     {
         $provider_order_id = '';
         $status = false;
+        $order_status = 'Pending';
         $order = [];
 
         // Use ProviderRoutingService to find best provider
@@ -1177,6 +1221,7 @@ class OrderController extends Controller
             Log::error("No provider found for Layanan ID: {$dataLayanan->id}");
             return [
                 'status' => false,
+                'order_status' => 'Gagal',
                 'provider_order_id' => '',
                 'order_data' => ['message' => 'Layanan sedang gangguan (No Provider)']
             ];
@@ -1196,6 +1241,7 @@ class OrderController extends Controller
                     $digi = new digiFlazzController($credentials);
                     $order = $digi->order($request->uid, $request->zone, $sku, $order_id);
                     $status = in_array($order['data']['status'], ["Pending", "Sukses"]);
+                    $order_status = $order['data']['status']; // 'Pending' or 'Sukses' or 'Gagal'
                     Log::info('Digiflazz Order: ', ['order' => $order, 'status' => $status]);
                     break;
 
@@ -1205,6 +1251,10 @@ class OrderController extends Controller
                     if ($order['data']['status'] == "Sukses") {
                         $order['transactionId'] = $order_id;
                         $status = true;
+                        $order_status = 'Sukses';
+                    } elseif ($order['data']['status'] == "Pending") {
+                        $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1215,6 +1265,7 @@ class OrderController extends Controller
                     if ($order['result']) {
                         $status = true;
                         $provider_order_id = $order['data']['trxid'];
+                        $order_status = $order['data']['status'] == 'success' ? 'Sukses' : 'Pending';
                     }
                     break;
 
@@ -1227,6 +1278,7 @@ class OrderController extends Controller
                     if ($order['error'] == false) {
                         $provider_order_id = $order['data']['invoiceNumber'];
                         $status = true;
+                        $order_status = 'Pending'; // Bangjeff is usually async
                     }
                     break;
 
@@ -1239,6 +1291,7 @@ class OrderController extends Controller
                     if ($order['error'] == false) {
                         $provider_order_id = $order['data']['invoiceNumber'];
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1249,6 +1302,7 @@ class OrderController extends Controller
                     if (isset($order['status'])) {
                         $provider_order_id = $order['order_id'];
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1259,6 +1313,7 @@ class OrderController extends Controller
                     if (isset($order['data']['order_no'])) {
                         $provider_order_id = $order['data']['order_no'];
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1269,6 +1324,7 @@ class OrderController extends Controller
                     if (isset($order['order_details']['bot_order_id'])) {
                         $provider_order_id = $order['order_details']['bot_order_id'];
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1278,6 +1334,7 @@ class OrderController extends Controller
                     $order = $yezzpay->order($request->uid, $sku, $provider_order_id, $request->zone);
                     if (isset($order['data']['trx_id'])) {
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1288,6 +1345,7 @@ class OrderController extends Controller
                     if (isset($order['order_id'])) {
                         $provider_order_id = $order['order_id'];
                         $status = true;
+                        $order_status = 'Pending';
                     }
                     break;
 
@@ -1310,6 +1368,7 @@ class OrderController extends Controller
 
         return [
             'status' => $status,
+            'order_status' => $order_status,
             'provider_order_id' => $provider_order_id,
             'order_data' => $order
         ];

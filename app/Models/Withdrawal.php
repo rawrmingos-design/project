@@ -12,13 +12,13 @@ class Withdrawal extends Model
     // Menentukan nama tabel yang digunakan oleh model ini
     protected $table = 'withdrawals';
 
-    // Menentukan kolom yang dapat diisi (mass assignable)
     protected $fillable = [
         'rekening',
         'total_transfer',
         'biaya_admin',
         'status',
         'user_id',
+        'bukti_transfer',
         'created_at',
         'updated_at'
     ];

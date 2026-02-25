@@ -129,6 +129,14 @@
                                     <span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 ring-1 ring-inset ring-gray-400/20">{{ ucfirst($w->status) }}</span>
                                 @endif
                                 
+                                @if((strtolower($w->status) == 'success' || strtolower($w->status) == 'sukses') && !empty($w->bukti_transfer))
+                                    <div class="mt-2">
+                                        <a href="{{ asset('storage/' . $w->bukti_transfer) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-primary-400 hover:text-primary-300 transition-colors">
+                                            <i class="fa fa-external-link"></i> Lihat Bukti
+                                        </a>
+                                    </div>
+                                @endif
+                                
                                 {{-- We don't have alasan_tolak property yet so leaving it out to avoid errors --}}
                             </td>
                         </tr>

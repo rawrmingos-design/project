@@ -239,7 +239,7 @@
             <div class="prose prose-sm px-4 py-2 pb-8 text-xs text-white sm:px-6">
               <div>
 
-                        {!! htmlspecialchars_decode($kategori->deskripsi_game) !!}
+                        @safeHtml($kategori->deskripsi_game)
               </div>
               <div class="mt-2 flex flex-col border-t border-dashed  text-card-foreground">
             <p> Note:&nbsp;<br> Jika Mengalami Kendala Silahkan hub CS IG <a href="{{ !$config ? '' : $config->url_ig }}" target="_blank">Instagram</a> dan CS WhatsApp <a href="{{ !$config ? '' : $config->url_wa }}" target="_blank">WhatsApp</a></p>
@@ -559,7 +559,7 @@
 
 					     <div class="px-4 pb-4 text-[10px] sm:px-6 sm:pb-6">
                             <div>
-                            <p><em>{!! $kategori->deskripsi_field !!}</em></p>
+                            <p><em>@safeHtml($kategori->deskripsi_field)</em></p>
                         </div>
                         
                             </div>
@@ -1606,7 +1606,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 					     <div class="px-4 pb-4 text-[10px] sm:px-6 sm:pb-6">
                             <div>
-                            <p><em>{!! $kategori->deskripsi_field !!}</em></p>
+                            <p><em>@safeHtml($kategori->deskripsi_field)</em></p>
                         </div>
                         
                             </div>
@@ -2462,7 +2462,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 					     <div class="px-4 pb-4 text-[10px] sm:px-6 sm:pb-6">
                             <div>
-                            <p><em>{!! $kategori->deskripsi_field !!}</em></p>
+                            <p><em>@safeHtml($kategori->deskripsi_field)</em></p>
                         </div>
                         
                             </div>
@@ -3379,7 +3379,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
 					     <div class="px-4 pb-4 text-[10px] sm:px-6 sm:pb-6">
                             <div>
-                            <p><em>{!! $kategori->deskripsi_field !!}</em></p>
+                            <p><em>@safeHtml($kategori->deskripsi_field)</em></p>
                         </div>
                         
                             </div>
@@ -4196,7 +4196,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             </svg>
                             <div>
                               <p style="color: #000;">
-                                <p><em>{!! $kategori->deskripsi_field !!}</em></p>
+                                <p><em>@safeHtml($kategori->deskripsi_field)</em></p>
                               </p>
                             </div>
                         </div>

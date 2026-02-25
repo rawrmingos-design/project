@@ -1,0 +1,1919 @@
+<!DOCTYPE html>
+<html lang="id" x-data="{
+    isSidebarOpen: false,
+    mobileMenu: false,
+    darkMode: localStorage.getItem('darkMode') === null ? true : localStorage.getItem('darkMode') === 'true',
+    initDarkMode() {
+        this.darkMode = localStorage.getItem('darkMode') === 'true';
+        this.updateDarkMode();
+    },
+    updateDarkMode() {
+        if (this.darkMode) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    },
+    toggleDarkMode() {
+        this.darkMode = !this.darkMode;
+        localStorage.setItem('darkMode', this.darkMode);
+        this.updateDarkMode();
+    }
+}" @darkmode.window="toggleDarkMode()" :class="darkMode ? 'dark' : ''" class="bg-theme-primary text-theme-text"
+  x-cloak>
+
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="Km21kIYtQSa3831g6QPYsEYu0OpSQsxSJhq2waxO">
+
+    <title>QPay</title>
+
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link rel="icon" type="image/png" href="https://qpay.my.id/logohot.png" sizes="32x32">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+
+    <link rel="preload" as="style" href="https://qpay.my.id/build/assets/app-6HI3neML.css" />
+    <link rel="modulepreload" href="https://qpay.my.id/build/assets/app-DNxiirP_.js" />
+    <link rel="stylesheet" href="https://qpay.my.id/build/assets/app-6HI3neML.css" data-navigate-track="reload" />
+    <script type="module" src="https://qpay.my.id/build/assets/app-DNxiirP_.js" data-navigate-track="reload"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet" />
+
+
+    <style>
+      /* Dark Mode Styles */
+      html.dark {
+        --color-bg-primary: #0a0a0f;
+        --color-bg-secondary: #1a1a24;
+        --color-text-primary: #f5f5f5;
+        --color-text-secondary: #a0a0a0;
+        --color-border: rgba(255, 255, 255, 0.1);
+      }
+
+      /* Light Mode Styles */
+      html:not(.dark) {
+        --color-bg-primary: #ffffff;
+        --color-bg-secondary: #f8f9fa;
+        --color-text-primary: #1a1a1a;
+        --color-text-secondary: #666666;
+        --color-border: rgba(0, 0, 0, 0.1);
+      }
+
+      html.dark body {
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
+      }
+
+      html:not(.dark) body {
+        background-color: var(--color-bg-primary);
+        color: var(--color-text-primary);
+      }
+    </style>
+    <style>
+      nav[role="navigation"] .hidden.sm\:flex-1>div:first-child {
+        display: none;
+      }
+
+      .perspective-1000 {
+        perspective: 1000px;
+      }
+
+      .coin-container {
+        position: relative;
+        transition: transform 0.8s;
+      }
+
+      .coin-inner {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        transform-style: preserve-3d;
+        animation: spin-3d 4s linear infinite;
+        /* Animasi berputar otomatis */
+      }
+
+      /* Base style untuk semua layer */
+      .coin-layer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-contain: contain;
+        backface-visibility: visible;
+      }
+
+      /* Layer Depan dan Belakang */
+      .front {
+        transform: translateZ(4px);
+      }
+
+      .back {
+        transform: translateZ(-4px) rotateY(180deg);
+      }
+
+      /* Layer Tengah (Menciptakan Ketebalan Tepi) */
+      .side-1 {
+        transform: translateZ(2px);
+        filter: brightness(0.8);
+      }
+
+      .side-2 {
+        transform: translateZ(0px);
+        filter: brightness(0.7);
+      }
+
+      .side-3 {
+        transform: translateZ(-2px);
+        filter: brightness(0.8);
+      }
+
+      .side-4 {
+        transform: translateZ(-3px);
+        filter: brightness(0.9);
+      }
+
+      /* Animasi Berputar */
+      @keyframes spin-3d {
+        from {
+          transform: rotateY(0deg);
+        }
+
+        to {
+          transform: rotateY(360deg);
+        }
+      }
+
+      /* Efek Hover: Berhenti berputar atau mempercepat */
+      .coin-container:hover .coin-inner {
+        animation-play-state: paused;
+      }
+
+      .coin-container-sm {
+        position: relative;
+      }
+
+      .coin-inner-sm {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        transform-style: preserve-3d;
+        animation: spin-3d-sm 3s linear infinite;
+      }
+
+      .coin-layer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        backface-visibility: visible;
+      }
+
+      /* Penyesuaian ketebalan untuk koin kecil (Max 2px) */
+      .front-sm {
+        transform: translateZ(1.5px);
+      }
+
+      .back-sm {
+        transform: translateZ(-1.5px) rotateY(180deg);
+      }
+
+      /* Layer tengah lebih sedikit saja untuk performa dan estetika */
+      .coin-inner-sm .side-1 {
+        transform: translateZ(0.5px);
+        filter: brightness(0.8);
+      }
+
+      .coin-inner-sm .side-2 {
+        transform: translateZ(-0.5px);
+        filter: brightness(0.7);
+      }
+
+      @keyframes spin-3d-sm {
+        from {
+          transform: rotateY(0deg);
+        }
+
+        to {
+          transform: rotateY(360deg);
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+    <style>
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Custom Swiper Bullet */
+      .swiper-pagination-bullet {
+        background: #fff !important;
+        width: 25px;
+        height: 4px;
+        border-radius: 2px;
+        opacity: 0.2;
+      }
+
+      .swiper-pagination-bullet-active {
+        background: #FDE046 !important;
+        opacity: 1;
+      }
+
+      /* Glass Card - Light & Dark Mode */
+      .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(10px);
+      }
+
+      html:not(.dark) .glass-card {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(10px);
+      }
+
+      /* Uniform Section Title Style */
+      .section-title {
+        font-size: 1.125rem;
+        /* text-3xl */
+        font-weight: 900;
+        font-style: italic;
+        text-transform: uppercase;
+        letter-spacing: -0.025em;
+      }
+
+      /* Bar Kuota Flash Sale */
+      .stock-bar {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .stock-progress {
+        height: 100%;
+        background: linear-gradient(90deg, #fde047, #facc15);
+        border-radius: 10px;
+        transition: width 1s ease-in-out;
+      }
+    </style>
+    <!-- Livewire Styles -->
+    <style>
+      [wire\:loading][wire\:loading],
+      [wire\:loading\.delay][wire\:loading\.delay],
+      [wire\:loading\.inline-block][wire\:loading\.inline-block],
+      [wire\:loading\.inline][wire\:loading\.inline],
+      [wire\:loading\.block][wire\:loading\.block],
+      [wire\:loading\.flex][wire\:loading\.flex],
+      [wire\:loading\.table][wire\:loading\.table],
+      [wire\:loading\.grid][wire\:loading\.grid],
+      [wire\:loading\.inline-flex][wire\:loading\.inline-flex] {
+        display: none;
+      }
+
+      [wire\:loading\.delay\.none][wire\:loading\.delay\.none],
+      [wire\:loading\.delay\.shortest][wire\:loading\.delay\.shortest],
+      [wire\:loading\.delay\.shorter][wire\:loading\.delay\.shorter],
+      [wire\:loading\.delay\.short][wire\:loading\.delay\.short],
+      [wire\:loading\.delay\.default][wire\:loading\.delay\.default],
+      [wire\:loading\.delay\.long][wire\:loading\.delay\.long],
+      [wire\:loading\.delay\.longer][wire\:loading\.delay\.longer],
+      [wire\:loading\.delay\.longest][wire\:loading\.delay\.longest] {
+        display: none;
+      }
+
+      [wire\:offline][wire\:offline] {
+        display: none;
+      }
+
+      [wire\:dirty]:not(textarea):not(input):not(select) {
+        display: none;
+      }
+
+      :root {
+        --livewire-progress-bar-color: #2299dd;
+      }
+
+      [x-cloak] {
+        display: none !important;
+      }
+
+      [wire\:cloak] {
+        display: none !important;
+      }
+    </style>
+  </head>
+
+  <body
+    class="min-h-screen overflow-x-hidden bg-white dark:bg-[#0a0a0f] text-gray-900 dark:text-white transition-colors duration-300">
+
+    <header x-data="{ mobileMenu: false, showSearch: false, userMenu: false }"
+      class="sticky top-0 z-50 backdrop-blur bg-white/80 dark:bg-[#1a1a24]/80 text-gray-900 dark:text-white shadow-sm w-full border-b border-gray-200 dark:border-white/10 transition-colors duration-300">
+
+      <div class="max-w-7xl mx-auto border-b border-gray-200 dark:border-white/10 transition-colors">
+        <div class="px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <a href="/" class="flex items-center space-x-2 shrink-0">
+            <img src="https://qpay.my.id/logohot.png" class="h-10 md:h-12 w-auto" alt="QPay Logo">
+            <div class="flex flex-col justify-center">
+              <span
+                class="text-md md:text-xl font-black leading-none tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-500">
+                QPay
+              </span>
+              <span
+                class="text-[9px] md:text-[10px] font-medium text-gray-600 dark:text-white leading-none mt-1 uppercase tracking-wider">
+                Sekali Klik, Top-up Beres!
+              </span>
+            </div>
+          </a>
+
+          <div class="flex items-center space-x-6 ml-auto">
+            <nav
+              class="hidden lg:flex items-center space-x-6 mr-4 border-r border-gray-200 dark:border-white/10 pr-6 transition-colors">
+              <a href="https://qpay.my.id/artikel"
+                class="text-sm font-medium text-gray-700 dark:text-white hover:text-yellow-400 dark:hover:text-yellow-400 transition">Artikel</a>
+
+            </nav>
+
+            <div class="hidden md:flex items-center space-x-3">
+              <a href="/login"
+                class="flex items-center gap-2 px-4 py-1.5 text-sm font-semibold text-yellow-400 border border-yellow-400 rounded-lg hover:bg-yellow-400 hover:text-black dark:hover:bg-yellow-400 dark:hover:text-black transition duration-300">
+                <i class="fa-solid fa-right-to-bracket"></i> Masuk
+              </a>
+              <a href="/register"
+                class="flex items-center gap-2 px-4 py-1.5 text-sm font-bold text-black bg-yellow-400 rounded-lg hover:bg-yellow-500 transition duration-300 shadow-lg shadow-yellow-400/20">
+                <i class="fa-solid fa-user-plus"></i> Daftar
+              </a>
+            </div>
+
+            <div class="flex items-center space-x-4 border-l border-gray-300 dark:border-white/10 pl-4">
+
+
+              <button @click="toggleDarkMode()"
+                class="hidden md:block relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none border border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-white/5"
+                :title="darkMode ? 'Beralih ke Light Mode' : 'Beralih ke Dark Mode'">
+
+
+                <span
+                  class="inline-block h-6 w-6 transform rounded-full bg-white dark:bg-yellow-400 shadow-md transition-transform duration-300 flex items-center justify-center"
+                  :class="darkMode ? 'translate-x-7' : 'translate-x-1'">
+
+
+                  <i class="fa-solid text-[10px]"
+                    :class="darkMode ? 'fa-moon text-gray-900' : 'fa-sun text-yellow-500'">
+                  </i>
+                </span>
+              </button>
+
+
+              <button @click="showSearch = !showSearch"
+                class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/5 transition-all duration-200 bg-gray-50 dark:bg-transparent">
+                <i class="fas text-base transition-all"
+                  :class="showSearch ? 'fa-xmark rotate-90' : 'fa-magnifying-glass'"></i>
+              </button>
+
+
+              <div class="md:hidden">
+                <button @click="isSidebarOpen = !isSidebarOpen" data-drawer-target="sidebar-multi-level-sidebar"
+                  data-drawer-toggle="sidebar-multi-level-sidebar" x-init="const target = document.getElementById('sidebar-multi-level-sidebar');
+                                const observer = new MutationObserver(() => {
+                                    isSidebarOpen = !target.classList.contains('-translate-x-full');
+                                });
+                                observer.observe(target, { attributes: true, attributeFilter: ['class'] });"
+                  class="h-10 w-10 flex items-center justify-center border rounded-full transition-all duration-300 focus:outline-none"
+                  :class="isSidebarOpen
+                                    ?
+                                    'bg-yellow-400 border-yellow-400 text-black shadow-lg shadow-yellow-400/40' :
+                                    'bg-gray-50 dark:bg-transparent border-gray-300 dark:border-white/10 text-gray-700 dark:text-gray-300'">
+
+                  <i class="fas text-base transition-all" :class="isSidebarOpen ? 'fa-xmark rotate-90' : 'fa-bars'">
+                  </i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div x-show="showSearch" x-transition class="px-4 pb-4 md:px-8 max-w-7xl mx-auto">
+          <div
+            wire:snapshot="{&quot;data&quot;:{&quot;searchQuery&quot;:&quot;&quot;,&quot;searchResults&quot;:[[],{&quot;s&quot;:&quot;arr&quot;}]},&quot;memo&quot;:{&quot;id&quot;:&quot;IKfOkr00WXDyYjPQ0XOD&quot;,&quot;name&quot;:&quot;search-products&quot;,&quot;path&quot;:&quot;\/&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;},&quot;checksum&quot;:&quot;4c6f67d3380226810ba82ed8c472e87164f3f711aa73cdd0833a491cbead651a&quot;}"
+            wire:effects="[]" wire:id="IKfOkr00WXDyYjPQ0XOD" class="relative">
+            <input type="text" placeholder="Cari game atau produk..." wire:model.live="searchQuery" class="w-full rounded-xl bg-gray-100 dark:bg-black/40
+           border border-yellow-400
+           focus:border-yellow-500
+           focus:ring-yellow-400 focus:ring-1
+           outline-none
+           px-4 py-3 text-sm transition-all text-gray-900 dark:text-white" />
+
+            <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+          </div>
+        </div>
+      </div>
+
+      <div class="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between py-1 overflow-x-auto no-scrollbar">
+          <nav class="flex space-x-8 text-sm whitespace-nowrap">
+            <a href="/"
+              class="group relative flex items-center gap-2 py-3 text-gray-700 dark:text-white transition hover:text-yellow-400">
+              <i class="fa-solid fa-bolt text-sm group-hover:animate-bounce"></i>
+              <span class="font-medium">Topup</span>
+              <span
+                class="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="https://qpay.my.id/check-transaction"
+              class="group relative flex items-center gap-2 py-3 text-gray-700 dark:text-white transition hover:text-yellow-400">
+              <i class="fa-solid fa-receipt text-sm group-hover:animate-bounce"></i>
+              <span class="font-medium">Cek Transaksi</span>
+              <span
+                class="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="#"
+              class="group relative flex items-center gap-2 py-3 text-gray-700 dark:text-white transition hover:text-yellow-400">
+              <i class="fa-solid fa-calculator text-sm group-hover:animate-bounce"></i>
+              <span class="font-medium">Kalkulator</span>
+              <span
+                class="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+            <a href="https://qpay.my.id/leaderboard"
+              class="group relative flex items-center gap-2 py-3 text-gray-700 dark:text-white transition hover:text-yellow-400">
+              <i class="fa-solid fa-trophy text-sm group-hover:animate-bounce"></i>
+              <span class="font-medium">Leaderboard</span>
+              <span
+                class="absolute bottom-0 left-0 w-0 h-0.5 bg-yellow-400 transition-all duration-300 group-hover:w-full"></span>
+            </a>
+          </nav>
+          <div class="pl-4">
+            <button
+              class="flex items-center gap-2 px-3 py-1.5 border border-gray-300 dark:border-white/10 rounded-lg text-gray-700 dark:text-white text-xs hover:bg-gray-100 dark:hover:bg-white/5 transition">
+              <img src="https://flagcdn.com/w40/id.png" class="w-4 h-3 rounded-sm" alt="ID">
+              <span class="font-bold">IDR / ID</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="fixed top-0 left-0 w-full h-1 z-50">
+      <div id="scroll-progress"
+        class="h-full bg-gradient-to-r from-theme-secondary to-theme-accent w-0 transition-all duration-100"></div>
+    </div>
+    <aside id="sidebar-multi-level-sidebar" x-data="{ openAccount: false }"
+      class="fixed top-0 left-0 z-[51] w-64 h-screen transition-transform -translate-x-full xl:translate-x-0 backdrop-blur-md bg-white dark:bg-[#1a1a24] text-gray-900 dark:text-white border-r border-gray-200 dark:border-white/10"
+      aria-label="Sidebar">
+
+      <div class="flex flex-col h-full px-3 py-4 overflow-y-auto">
+        <div class="mb-8 px-2 flex items-center justify-between">
+          <a href="/" class="flex items-center space-x-3">
+            <img src="https://qpay.my.id/logohot.png" class="h-10 w-auto" alt="Logo">
+            <span
+              class="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">QPay</span>
+          </a>
+          <button data-drawer-hide="sidebar-multi-level-sidebar" class="xl:hidden p-2 text-gray-900 dark:text-white">
+            <i class="fa-solid fa-xmark text-xl"></i>
+          </button>
+        </div>
+
+        <ul class="flex-grow space-y-2 text-sm font-medium">
+          <p class="px-4 text-[10px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-widest mb-1">
+            Main Menu</p>
+          <li><a href="/"
+              class="group flex items-center gap-3 px-4 py-3 rounded-xl transition-all bg-yellow-400 text-black dark:text-black">
+              <i class="fa-solid fa-bolt w-5 text-center group-hover:animate-bounce"></i><span>Topup</span></a>
+          </li>
+          <li><a href="https://qpay.my.id/check-transaction"
+              class="group flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white">
+              <i class="fa-solid fa-receipt w-5 text-center group-hover:animate-bounce"></i><span>Cek
+                Transaksi</span></a></li>
+
+          <li><a href="https://qpay.my.id/leaderboard"
+              class="group flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white">
+              <i class="fa-solid fa-trophy w-5 text-center group-hover:animate-bounce"></i><span>Leaderboard</span></a>
+          </li>
+
+          <div class="pt-4 mt-4 border-t border-gray-200 dark:border-white/5">
+            <p class="px-4 text-[10px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-widest mb-1">
+              Information</p>
+            <li><a href="https://qpay.my.id/artikel"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/70 transition "><i
+                  class="fa-solid fa-newspaper w-5"></i><span>Artikel</span></a></li>
+            <li><a href="#"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/70 transition"><i
+                  class="fa-solid fa-circle-info w-5"></i><span>About Us</span></a></li>
+            <li><a href="#"
+                class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-white/5 text-gray-700 dark:text-white/70 transition"><i
+                  class="fa-solid fa-crown w-5"></i><span>Membership</span></a></li>
+          </div>
+        </ul>
+
+        <div class="flex-none pt-4 mt-4 border-t border-gray-200 dark:border-white/10">
+
+          <div class="px-2 mb-4">
+            <div
+              class="flex items-center justify-between px-4 py-3 rounded-xl bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5">
+              <div class="flex items-center gap-3">
+                <i class="fa-solid w-5 text-center text-gray-500 dark:text-yellow-400"
+                  :class="darkMode ? 'fa-moon' : 'fa-sun'"></i>
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-white/70">Mode</span>
+              </div>
+
+
+              <button @click="toggleDarkMode()"
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none bg-gray-300 dark:bg-yellow-500">
+                <span
+                  class="inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-300"
+                  :class="darkMode ? 'translate-x-6' : 'translate-x-1'">
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2 px-2 xl:hidden">
+            <a href="/login"
+              class="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold text-yellow-400 border border-yellow-400 rounded-xl hover:bg-yellow-400 hover:text-black transition duration-300">
+              <i class="fa-solid fa-right-to-bracket mr-2"></i> Masuk
+            </a>
+            <a href="/register"
+              class="flex items-center justify-center w-full px-4 py-2.5 text-sm font-bold text-black bg-yellow-400 rounded-xl hover:bg-yellow-500 shadow-lg shadow-yellow-400/20 transition duration-300">
+              <i class="fa-solid fa-user-plus mr-2"></i> Daftar
+            </a>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="max-w-7xl mx-auto text-gray-900 dark:text-white antialiased transition-colors duration-300">
+      <div
+        wire:snapshot="{&quot;data&quot;:{&quot;selectedGenres&quot;:[[],{&quot;s&quot;:&quot;arr&quot;}]},&quot;memo&quot;:{&quot;id&quot;:&quot;AqhzRIeoV05xsFHiFWS5&quot;,&quot;name&quot;:&quot;homepage&quot;,&quot;path&quot;:&quot;\/&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;},&quot;checksum&quot;:&quot;31ed34c8b543314a1a8d03fa32288c619720b6418857978bce6fe6d24742de33&quot;}"
+        wire:effects="[]" wire:id="AqhzRIeoV05xsFHiFWS5"
+        class="max-w-[1400px] bg-white dark:bg-[#0a0a0f] mx-auto space-y-10 pb-20 overflow-hidden font-sans selection:bg-yellow-400 selection:text-black text-gray-900 dark:text-white transition-colors duration-300">
+
+
+        <section class="px-4 space-y-4 mt-10 md:mt-0" data-aos="fade-down">
+          <div
+            class="swiper mainSlider rounded-xl overflow-hidden shadow-2xl border border-white/10 dark:border-white/10 h-auto md:h-[450px]">
+            <div class="swiper-wrapper">
+              <div class="swiper-slide">
+                <img src="https://qpay.my.id/banner1.jpg" class="w-full h-auto md:h-full md:object-cover">
+              </div>
+              <div class="swiper-slide">
+                <img src="https://qpay.my.id/banner2.jpg" class="w-full h-auto md:h-full md:object-cover">
+              </div>
+              <div class="swiper-slide">
+                <img src="https://qpay.my.id/banner1.jpg" class="w-full h-auto md:h-full md:object-cover">
+              </div>
+            </div>
+
+            <div class="swiper-pagination !bottom-2 md:!bottom-6"></div>
+          </div>
+        </section>
+
+        <section class="px-4 py-6 md:py-8" data-aos="fade-up">
+          <div class="max-w-[1300px] mx-auto space-y-4 md:space-y-6">
+
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3 md:gap-5">
+
+                <div class="relative flex-shrink-0">
+                  <div
+                    class="relative w-11 h-11 md:w-14 md:h-14 bg-gray-100 dark:dark:bg-white/5 border-[1.5px] md:border-2 border-yellow-400 flex items-center justify-center rounded-lg shadow-[3px_3px_0px_0px_rgba(253,224,70,0.15)] dark:shadow-[3px_3px_0px_0px_rgba(253,224,70,0.15)]">
+                    <i class="fa-solid fa-bolt-lightning text-yellow-400 text-lg md:text-2xl"></i>
+                    <div
+                      class="absolute -top-0.5 -right-0.5 w-2 h-2 md:w-3 md:h-3 bg-yellow-400 rounded-full border-2 md:border-4 border-white dark:border-theme-primary">
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="flex flex-col min-w-0">
+                  <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+                    <h2
+                      class="text-xl md:text-4xl font-black text-gray-900 dark:text-white uppercase italic tracking-tight leading-none">
+                      Flash <span class="text-yellow-400">Sale</span>
+                    </h2>
+
+                    <div
+                      class="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/20">
+                      <span
+                        class="text-[8px] md:text-[10px] font-black text-yellow-400 uppercase tracking-tighter italic">Limited</span>
+                    </div>
+                  </div>
+                  <p
+                    class="text-gray-600 dark:text-white/40 text-[9px] md:text-xs font-bold uppercase tracking-wider mt-1 md:mt-2 flex items-center gap-2">
+                    <span class="hidden md:block w-8 h-[1px] bg-gray-300 dark:bg-white/10"></span>
+                    Harga promo khusus hari ini. Sikat sekarang!
+                  </p>
+                </div>
+              </div>
+
+
+              <div class="flex gap-1.5 md:gap-2">
+                <button
+                  class="flash-prev w-7 h-7 md:w-10 md:h-10 rounded-full border border-yellow-400/50 text-yellow-400 flex items-center justify-center hover:bg-yellow-400 hover:text-black dark:hover:text-black transition-all">
+                  <i class="fas fa-arrow-left text-[8px] md:text-xs"></i>
+                </button>
+                <button
+                  class="flash-next w-7 h-7 md:w-10 md:h-10 rounded-full border border-yellow-400/50 text-yellow-400 flex items-center justify-center hover:bg-yellow-400 hover:text-black dark:hover:text-black transition-all">
+                  <i class="fas fa-arrow-right text-[8px] md:text-xs"></i>
+                </button>
+              </div>
+            </div>
+
+
+            <div class="swiper flashSlider overflow-hidden is-limited-items">
+              <div class="swiper-wrapper">
+                <!--[if BLOCK]><![endif]-->
+                <div class="swiper-slide h-auto">
+                  <div
+                    class="glass-card p-2 md:p-3 rounded-xl flex items-stretch gap-3 md:gap-4 group hover:border-yellow-400/50 transition-all border border-white/5 dark:border-white/5 h-full">
+
+
+                    <div class="relative w-20 md:w-28 flex-shrink-0 self-stretch">
+                      <img
+                        src="https://www.ourastore.com/_next/image?url=https%3A%2F%2Fcdn.ourastore.com%2Fourastore.com%2Fproduct%2FMLBBIndofix-ezgif.com-optijpeg.jpg&amp;w=3840&amp;q=75"
+                        class="rounded-lg object-cover w-full h-full border border-white/5 dark:border-white/5">
+
+                      <div
+                        class="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] md:text-[9px] font-black px-1.5 py-0.5 rounded shadow-xl uppercase">
+                        <i class="fa-solid fa-fire me-0.5"></i>50% OFF
+                      </div>
+                    </div>
+
+
+                    <div class="flex-grow min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <h4
+                          class="text-[10px] md:text-sm font-black uppercase truncate text-gray-900 dark:text-white leading-tight">
+                          Ramdhan Keren
+                        </h4>
+                        <span
+                          class="block text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none -mt-0.5 md:-mt-0.5">
+                          MOBILE LEGENDS Weekly Diamond Pass 3x
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-yellow-400 font-bold text-xs md:text-lg tracking-tighter">IDR
+                            45.300</span>
+                          <span class="text-gray-500 dark:text-white/20 text-[8px] md:text-[10px] line-through italic">
+                            90.600
+                          </span>
+                        </div>
+                      </div>
+
+
+                      <div class="space-y-1 mt-2">
+                        <div class="flex justify-between text-[8px] md:text-[9px] font-bold uppercase tracking-tighter">
+                          <span class="text-gray-600 dark:text-white/40">
+                            Tersisa
+                          </span>
+                          <span class="text-yellow-400">
+                            10 Item
+                          </span>
+                        </div>
+                        <div class="stock-bar">
+                          <div class="stock-progress" style="width: 0%;">
+                          </div>
+                        </div>
+                      </div>
+
+
+                      <div class="flex items-stretch gap-1.5 mt-2">
+                        <div
+                          class="flex flex-shrink-0 items-center justify-center bg-white/5 dark:bg-white/5 px-2 rounded-lg border border-white/10 dark:border-white/10">
+                          <span
+                            class="text-gray-900 dark:text-white font-mono text-[9px] md:text-[11px] font-bold timer-display"
+                            data-end-time="2026-02-28T17:00:00+07:00">
+                            00:00:00
+                          </span>
+                        </div>
+
+                        <!--[if BLOCK]><![endif]--> <a href="https://qpay.my.id/mobile-legend?productid=11"
+                          class="flex-grow flex items-center justify-center py-2 md:py-2.5 bg-yellow-400 text-black rounded-lg hover:bg-white dark:hover:text-gray-900 transition-all">
+                          <i class="fa-solid fa-cart-plus text-[10px] md:text-xs"></i>
+                        </a>
+                        <!--[if ENDBLOCK]><![endif]-->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="swiper-slide h-auto">
+                  <div
+                    class="glass-card p-2 md:p-3 rounded-xl flex items-stretch gap-3 md:gap-4 group hover:border-yellow-400/50 transition-all border border-white/5 dark:border-white/5 h-full">
+
+
+                    <div class="relative w-20 md:w-28 flex-shrink-0 self-stretch">
+                      <img
+                        src="https://www.ourastore.com/_next/image?url=https%3A%2F%2Fcdn.ourastore.com%2Fourastore.com%2Fproduct%2FMLBBIndofix-ezgif.com-optijpeg.jpg&amp;w=3840&amp;q=75"
+                        class="rounded-lg object-cover w-full h-full border border-white/5 dark:border-white/5">
+
+                      <div
+                        class="absolute -top-1 -left-1 bg-yellow-400 text-black text-[7px] md:text-[9px] font-black px-1.5 py-0.5 rounded shadow-xl uppercase">
+                        <i class="fa-solid fa-fire me-0.5"></i>30% OFF
+                      </div>
+                    </div>
+
+
+                    <div class="flex-grow min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <h4
+                          class="text-[10px] md:text-sm font-black uppercase truncate text-gray-900 dark:text-white leading-tight">
+                          Promo Lebaran
+                        </h4>
+                        <span
+                          class="block text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none -mt-0.5 md:-mt-0.5">
+                          Mobile Legends First Top Up 150+15 Diamonds (Global)
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-yellow-400 font-bold text-xs md:text-lg tracking-tighter">IDR
+                            28.840</span>
+                          <span class="text-gray-500 dark:text-white/20 text-[8px] md:text-[10px] line-through italic">
+                            41.200
+                          </span>
+                        </div>
+                      </div>
+
+
+                      <div class="space-y-1 mt-2">
+                        <div class="flex justify-between text-[8px] md:text-[9px] font-bold uppercase tracking-tighter">
+                          <span class="text-gray-600 dark:text-white/40">
+                            Unlimited
+                          </span>
+                          <span class="text-yellow-400">
+                            ∞
+                          </span>
+                        </div>
+                        <div class="stock-bar">
+                          <div class="stock-progress" style="width: 100%;">
+                          </div>
+                        </div>
+                      </div>
+
+
+                      <div class="flex items-stretch gap-1.5 mt-2">
+                        <div
+                          class="flex flex-shrink-0 items-center justify-center bg-white/5 dark:bg-white/5 px-2 rounded-lg border border-white/10 dark:border-white/10">
+                          <span
+                            class="text-gray-900 dark:text-white font-mono text-[9px] md:text-[11px] font-bold timer-display"
+                            data-end-time="2026-02-28T17:01:00+07:00">
+                            00:00:00
+                          </span>
+                        </div>
+
+                        <!--[if BLOCK]><![endif]--> <a href="https://qpay.my.id/mobile-legend?productid=5"
+                          class="flex-grow flex items-center justify-center py-2 md:py-2.5 bg-yellow-400 text-black rounded-lg hover:bg-white dark:hover:text-gray-900 transition-all">
+                          <i class="fa-solid fa-cart-plus text-[10px] md:text-xs"></i>
+                        </a>
+                        <!--[if ENDBLOCK]><![endif]-->
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!--[if ENDBLOCK]><![endif]-->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="px-4 space-y-4 md:space-y-8">
+
+          <div
+            class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 md:gap-6 border-b border-gray-300 dark:border-white/5 pb-4 md:pb-8">
+            <div class="flex items-center gap-3 md:gap-5">
+
+              <div class="relative flex-shrink-0">
+                <div
+                  class="relative w-11 h-11 md:w-14 md:h-14 bg-gray-100 dark:bg-[#1a1a20] border-[1.5px] md:border-2 border-yellow-400 flex items-center justify-center rounded-lg shadow-[3px_3px_0px_0px_rgba(253,224,70,0.2)]">
+
+                  <i class="fa-solid fa-crown text-yellow-400 text-lg md:text-2xl"></i>
+
+
+                  <div
+                    class="absolute -top-0.5 -right-0.5 w-2 h-2 md:w-3 md:h-3 bg-yellow-400 rounded-full border-2 md:border-4 border-white dark:border-theme-primary">
+                  </div>
+                </div>
+              </div>
+
+
+              <div class="flex flex-col min-w-0">
+                <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+                  <h2
+                    class="text-xl md:text-4xl font-black text-gray-900 dark:text-white uppercase italic tracking-tight leading-none">
+                    Most <span class="text-yellow-400">Wanted</span>
+                  </h2>
+
+
+                  <div
+                    class="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/20">
+                    <span class="relative flex h-1.5 w-1.5">
+                      <span
+                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400"></span>
+                    </span>
+                    <span
+                      class="text-[8px] md:text-[10px] font-black text-yellow-400 uppercase tracking-tighter md:tracking-widest">Hot
+                      Items</span>
+                  </div>
+                </div>
+
+
+                <p
+                  class="text-gray-600 dark:text-white/40 text-[9px] md:text-xs font-bold uppercase tracking-wider mt-1 md:mt-2 flex items-center gap-2">
+                  <span class="hidden md:block w-8 h-[1px] bg-gray-300 dark:bg-white/10"></span>
+                  Lagi ramai disikat orang minggu ini
+                </p>
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+              <div x-data="{ openFilterExtra: false }" class="relative w-full md:w-auto">
+                <button @click="openFilterExtra = !openFilterExtra"
+                  class="relative w-full md:w-auto bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white border border-gray-300 dark:border-white/10 hover:bg-gray-200 dark:hover:bg-white/10 font-bold rounded-xl text-[10px] md:text-[11px] px-5 h-10 md:h-14 flex items-center justify-center gap-2 uppercase tracking-widest transition-all"
+                  type="button">
+                  <i class="fas fa-sliders-h text-yellow-400 text-[10px]"></i>
+                  Advanced Filter
+                  <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+                  <i class="fas fa-chevron-down text-[9px] transition-transform"
+                    :class="openFilterExtra ? 'rotate-180' : ''"></i>
+                </button>
+
+
+                <div x-show="openFilterExtra" @click.away="openFilterExtra = false"
+                  x-transition:enter="transition ease-out duration-200"
+                  x-transition:enter-start="opacity-0 scale-95 translate-y-2" class="absolute right-0 top-full mt-3 z-30 bg-white dark:bg-[#121212] border border-gray-300 dark:border-white/10 rounded-2xl shadow-2xl
+                    w-full md:w-auto md:min-w-[45rem] overflow-hidden transition-colors" style="display: none;">
+
+                  <div
+                    class="p-5 bg-gray-50 dark:bg-white/5 flex justify-between items-center border-b border-gray-200 dark:border-white/5 transition-colors">
+                    <div>
+                      <h4
+                        class="text-gray-900 dark:text-white font-black uppercase text-xs md:text-sm tracking-tighter">
+                        Advance
+                        Filter</h4>
+                      <p class="text-gray-600 dark:text-theme-muted text-[9px] md:text-[10px]">Pilih
+                        parameter pencarian.</p>
+                    </div>
+                    <div class="flex gap-2">
+                      <!--[if BLOCK]><![endif]--><!--[if ENDBLOCK]><![endif]-->
+                      <button @click="openFilterExtra = false"
+                        class="px-4 py-1.5 md:px-6 md:py-2 bg-yellow-400 text-black font-black text-[9px] md:text-[10px] rounded-lg uppercase hover:brightness-110 transition-all">
+                        Tutup
+                      </button>
+                    </div>
+                  </div>
+
+                  <div
+                    class="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-white/5 max-h-[60vh] overflow-y-auto md:max-h-none">
+                    <!--[if BLOCK]><![endif]-->
+                    <div class="flex-1 p-4">
+                      <div class="text-[10px] md:text-[11px] font-black text-yellow-400 uppercase tracking-widest mb-3">
+                        Genre</div>
+                      <div class="space-y-1">
+                        <!--[if BLOCK]><![endif]--> <label
+                          class="flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer group transition-all">
+                          <input type="checkbox" wire:model.live="selectedGenres" value="Android"
+                            class="accent-theme-secondary w-3 h-3 md:w-4 md:h-4 rounded">
+                          <span
+                            class="ms-2 text-[11px] font-bold text-gray-900 dark:text-white group-hover:text-yellow-400">Android</span>
+                        </label>
+                        <label
+                          class="flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer group transition-all">
+                          <input type="checkbox" wire:model.live="selectedGenres" value="Battle Royal"
+                            class="accent-theme-secondary w-3 h-3 md:w-4 md:h-4 rounded">
+                          <span
+                            class="ms-2 text-[11px] font-bold text-gray-900 dark:text-white group-hover:text-yellow-400">Battle
+                            Royal</span>
+                        </label>
+                        <label
+                          class="flex p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer group transition-all">
+                          <input type="checkbox" wire:model.live="selectedGenres" value="Moba Game"
+                            class="accent-theme-secondary w-3 h-3 md:w-4 md:h-4 rounded">
+                          <span
+                            class="ms-2 text-[11px] font-bold text-gray-900 dark:text-white group-hover:text-yellow-400">Moba
+                            Game</span>
+                        </label>
+                        <!--[if ENDBLOCK]><![endif]-->
+                      </div>
+                    </div>
+                    <!--[if ENDBLOCK]><![endif]-->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+            <!--[if BLOCK]><![endif]--> <a href="https://qpay.my.id/mobile-legend" class="group relative block"
+              data-aos="fade-up" data-aos-delay="0">
+              <div
+                class="relative bg-transparent border border-gray-300 dark:border-white/5 rounded-2xl p-1.5 transition-all duration-500 group-hover:border-yellow-400/50 group-hover:-translate-y-1.5 overflow-hidden shadow-xl">
+
+
+                <div
+                  class="absolute top-3 right-3 px-2 py-0.5 rounded text-[7px] md:text-[8px] font-black uppercase z-20 shadow-lg bg-red-600 text-white">
+                  PROMO
+                </div>
+
+
+                <div
+                  class="relative aspect-square rounded-xl overflow-hidden mb-3 border border-gray-300 dark:border-white/5">
+                  <img src="https://qpay.my.id/storage/categories/nLoWeEm1UEEcs6SQPn2lWKobjkJxLXM65Hm8lcyM.jpg"
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
+
+                  <div
+                    class="absolute inset-0 bg-black/70 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center p-4 z-10">
+                    <div
+                      class="w-full bg-black/40 border border-white/20 py-3.5 rounded-xl transform scale-90 group-hover:scale-100 transition-all duration-300 shadow-2xl">
+                      <div class="flex flex-col items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-cart-plus text-yellow-400 text-lg"></i>
+                        <span
+                          class="text-[10px] md:text-[12px] font-black text-white uppercase tracking-tighter text-center leading-none">
+                          Beli Sekarang
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="px-1.5 pb-2">
+                  <div class="flex justify-between items-end gap-2">
+
+                    <div class="flex-grow min-w-0">
+                      <h3
+                        class="font-black text-[10px] md:text-[12px] uppercase tracking-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-1 leading-tight">
+                        Mobile Legends
+                      </h3>
+                      <div class="mt-1 flex flex-col">
+                        <span
+                          class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none">Mulai
+                          dari</span>
+                        <span class="text-[10px] md:text-[13px] text-yellow-400 font-black tracking-tighter">
+                          Rp1.500
+                        </span>
+                      </div>
+                    </div>
+
+
+                    <div class="flex flex-col items-end flex-shrink-0">
+                      <div class="flex items-center gap-0.5 text-yellow-400 text-[8px] md:text-[10px]">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="font-black text-gray-900 dark:text-white/90">4.9</span>
+                      </div>
+                      <span
+                        class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 font-bold uppercase tracking-tighter">
+                        1.2k Rating
+                      </span>
+                    </div>
+                  </div>
+
+
+                  <div
+                    class="h-[1.5px] w-0 group-hover:w-full bg-gradient-to-r from-yellow-400/50 to-transparent transition-all duration-700 mt-2">
+                  </div>
+                </div>
+              </div>
+            </a>
+            <a href="https://qpay.my.id/pubg-mobile" class="group relative block" data-aos="fade-up"
+              data-aos-delay="50">
+              <div
+                class="relative bg-transparent border border-gray-300 dark:border-white/5 rounded-2xl p-1.5 transition-all duration-500 group-hover:border-yellow-400/50 group-hover:-translate-y-1.5 overflow-hidden shadow-xl">
+
+
+                <div
+                  class="absolute top-3 right-3 px-2 py-0.5 rounded text-[7px] md:text-[8px] font-black uppercase z-20 shadow-lg bg-gray-300 dark:bg-white/10 text-gray-700 dark:text-white/50 border border-gray-400 dark:border-white/5">
+                  NORMAL
+                </div>
+
+
+                <div
+                  class="relative aspect-square rounded-xl overflow-hidden mb-3 border border-gray-300 dark:border-white/5">
+                  <img src="https://qpay.my.id/storage/categories/AbGU6ejTcJr3cdHOqvFrBLry6BpCTaT0usBaWTiA.webp"
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
+
+                  <div
+                    class="absolute inset-0 bg-black/70 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center p-4 z-10">
+                    <div
+                      class="w-full bg-black/40 border border-white/20 py-3.5 rounded-xl transform scale-90 group-hover:scale-100 transition-all duration-300 shadow-2xl">
+                      <div class="flex flex-col items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-cart-plus text-yellow-400 text-lg"></i>
+                        <span
+                          class="text-[10px] md:text-[12px] font-black text-white uppercase tracking-tighter text-center leading-none">
+                          Beli Sekarang
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="px-1.5 pb-2">
+                  <div class="flex justify-between items-end gap-2">
+
+                    <div class="flex-grow min-w-0">
+                      <h3
+                        class="font-black text-[10px] md:text-[12px] uppercase tracking-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-1 leading-tight">
+                        PUBG Mobile
+                      </h3>
+                      <div class="mt-1 flex flex-col">
+                        <span
+                          class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none">Mulai
+                          dari</span>
+                        <span class="text-[10px] md:text-[13px] text-yellow-400 font-black tracking-tighter">
+                          Rp1.500
+                        </span>
+                      </div>
+                    </div>
+
+
+                    <div class="flex flex-col items-end flex-shrink-0">
+                      <div class="flex items-center gap-0.5 text-yellow-400 text-[8px] md:text-[10px]">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="font-black text-gray-900 dark:text-white/90">4.9</span>
+                      </div>
+                      <span
+                        class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 font-bold uppercase tracking-tighter">
+                        1.2k Rating
+                      </span>
+                    </div>
+                  </div>
+
+
+                  <div
+                    class="h-[1.5px] w-0 group-hover:w-full bg-gradient-to-r from-yellow-400/50 to-transparent transition-all duration-700 mt-2">
+                  </div>
+                </div>
+              </div>
+            </a>
+            <a href="https://qpay.my.id/free-fire" class="group relative block" data-aos="fade-up" data-aos-delay="100">
+              <div
+                class="relative bg-transparent border border-gray-300 dark:border-white/5 rounded-2xl p-1.5 transition-all duration-500 group-hover:border-yellow-400/50 group-hover:-translate-y-1.5 overflow-hidden shadow-xl">
+
+
+                <div
+                  class="absolute top-3 right-3 px-2 py-0.5 rounded text-[7px] md:text-[8px] font-black uppercase z-20 shadow-lg bg-red-600 text-white">
+                  PROMO
+                </div>
+
+
+                <div
+                  class="relative aspect-square rounded-xl overflow-hidden mb-3 border border-gray-300 dark:border-white/5">
+                  <img src="https://qpay.my.id/storage/categories/pR06CCZqqFZeYD7koV15QYZWPW9W8MUeZK8IrFiz.jpg"
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
+
+                  <div
+                    class="absolute inset-0 bg-black/70 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center p-4 z-10">
+                    <div
+                      class="w-full bg-black/40 border border-white/20 py-3.5 rounded-xl transform scale-90 group-hover:scale-100 transition-all duration-300 shadow-2xl">
+                      <div class="flex flex-col items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-cart-plus text-yellow-400 text-lg"></i>
+                        <span
+                          class="text-[10px] md:text-[12px] font-black text-white uppercase tracking-tighter text-center leading-none">
+                          Beli Sekarang
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="px-1.5 pb-2">
+                  <div class="flex justify-between items-end gap-2">
+
+                    <div class="flex-grow min-w-0">
+                      <h3
+                        class="font-black text-[10px] md:text-[12px] uppercase tracking-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-1 leading-tight">
+                        Free Fire
+                      </h3>
+                      <div class="mt-1 flex flex-col">
+                        <span
+                          class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none">Mulai
+                          dari</span>
+                        <span class="text-[10px] md:text-[13px] text-yellow-400 font-black tracking-tighter">
+                          Rp1.500
+                        </span>
+                      </div>
+                    </div>
+
+
+                    <div class="flex flex-col items-end flex-shrink-0">
+                      <div class="flex items-center gap-0.5 text-yellow-400 text-[8px] md:text-[10px]">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="font-black text-gray-900 dark:text-white/90">4.9</span>
+                      </div>
+                      <span
+                        class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 font-bold uppercase tracking-tighter">
+                        1.2k Rating
+                      </span>
+                    </div>
+                  </div>
+
+
+                  <div
+                    class="h-[1.5px] w-0 group-hover:w-full bg-gradient-to-r from-yellow-400/50 to-transparent transition-all duration-700 mt-2">
+                  </div>
+                </div>
+              </div>
+            </a>
+            <a href="https://qpay.my.id/free-fire-max" class="group relative block" data-aos="fade-up"
+              data-aos-delay="150">
+              <div
+                class="relative bg-transparent border border-gray-300 dark:border-white/5 rounded-2xl p-1.5 transition-all duration-500 group-hover:border-yellow-400/50 group-hover:-translate-y-1.5 overflow-hidden shadow-xl">
+
+
+                <div
+                  class="absolute top-3 right-3 px-2 py-0.5 rounded text-[7px] md:text-[8px] font-black uppercase z-20 shadow-lg bg-gray-300 dark:bg-white/10 text-gray-700 dark:text-white/50 border border-gray-400 dark:border-white/5">
+                  NORMAL
+                </div>
+
+
+                <div
+                  class="relative aspect-square rounded-xl overflow-hidden mb-3 border border-gray-300 dark:border-white/5">
+                  <img src="https://qpay.my.id/storage/categories/nXmg7lhc9T7uu0D54jjcqFM4kdoEY7U2tb3ZzKZI.webp"
+                    class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110">
+
+
+                  <div
+                    class="absolute inset-0 bg-black/70 backdrop-blur-[3px] opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center p-4 z-10">
+                    <div
+                      class="w-full bg-black/40 border border-white/20 py-3.5 rounded-xl transform scale-90 group-hover:scale-100 transition-all duration-300 shadow-2xl">
+                      <div class="flex flex-col items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-cart-plus text-yellow-400 text-lg"></i>
+                        <span
+                          class="text-[10px] md:text-[12px] font-black text-white uppercase tracking-tighter text-center leading-none">
+                          Beli Sekarang
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="px-1.5 pb-2">
+                  <div class="flex justify-between items-end gap-2">
+
+                    <div class="flex-grow min-w-0">
+                      <h3
+                        class="font-black text-[10px] md:text-[12px] uppercase tracking-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-1 leading-tight">
+                        FreeFire Max
+                      </h3>
+                      <div class="mt-1 flex flex-col">
+                        <span
+                          class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 uppercase font-bold tracking-wider leading-none">Mulai
+                          dari</span>
+                        <span class="text-[10px] md:text-[13px] text-yellow-400 font-black tracking-tighter">
+                          Rp1.500
+                        </span>
+                      </div>
+                    </div>
+
+
+                    <div class="flex flex-col items-end flex-shrink-0">
+                      <div class="flex items-center gap-0.5 text-yellow-400 text-[8px] md:text-[10px]">
+                        <i class="fa-solid fa-star"></i>
+                        <span class="font-black text-gray-900 dark:text-white/90">4.9</span>
+                      </div>
+                      <span
+                        class="text-[7px] md:text-[8px] text-gray-600 dark:text-white/30 font-bold uppercase tracking-tighter">
+                        1.2k Rating
+                      </span>
+                    </div>
+                  </div>
+
+
+                  <div
+                    class="h-[1.5px] w-0 group-hover:w-full bg-gradient-to-r from-yellow-400/50 to-transparent transition-all duration-700 mt-2">
+                  </div>
+                </div>
+              </div>
+            </a>
+            <!--[if ENDBLOCK]><![endif]-->
+          </div>
+        </section>
+
+        <section class="px-4 pt-12 md:pt-20 border-t border-gray-300 dark:border-white/5">
+
+          <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+            <div class="flex items-center gap-3 md:gap-5">
+
+              <div class="relative flex-shrink-0">
+                <div
+                  class="relative w-11 h-11 md:w-14 md:h-14 bg-gray-100 dark:bg-[#1a1a20] border-[1.5px] md:border-2 border-yellow-400 flex items-center justify-center rounded-lg shadow-[3px_3px_0px_0px_rgba(253,224,70,0.15)]">
+                  <i class="fa-solid fa-newspaper text-yellow-400 text-lg md:text-2xl"></i>
+                  <div
+                    class="absolute -top-0.5 -right-0.5 w-2 h-2 md:w-3 md:h-3 bg-yellow-400 rounded-full border-2 md:border-4 border-white dark:border-theme-primary">
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex flex-col min-w-0">
+                <div class="flex items-center gap-2 md:gap-3 flex-wrap">
+                  <h2
+                    class="text-xl md:text-4xl font-black text-gray-900 dark:text-white uppercase italic tracking-tight leading-none">
+                    Game <span class="text-yellow-400">Journal</span>
+                  </h2>
+                  <div
+                    class="flex items-center gap-1 bg-yellow-400/10 px-1.5 py-0.5 rounded border border-yellow-400/20">
+                    <span
+                      class="text-[8px] md:text-[10px] font-black text-yellow-400 uppercase tracking-tighter italic">Latest
+                      Update</span>
+                  </div>
+                </div>
+                <p
+                  class="text-gray-600 dark:text-white/40 text-[9px] md:text-xs font-bold uppercase tracking-wider mt-1 md:mt-2">
+                  Berita, Tips, dan Trik seputar dunia gaming
+                </p>
+              </div>
+            </div>
+
+
+            <a href="https://qpay.my.id/artikel"
+              class="hidden md:flex items-center gap-2 px-6 py-3 bg-gray-100 dark:bg-white/5 hover:bg-yellow-400 hover:text-black dark:hover:bg-yellow-400 dark:hover:text-black border border-gray-300 dark:border-white/10 rounded-xl transition-all group">
+              <span class="text-xs font-black uppercase tracking-widest">Lihat Semua</span>
+              <i class="fa-solid fa-arrow-right-long transition-transform group-hover:translate-x-1"></i>
+            </a>
+          </div>
+
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <!--[if BLOCK]><![endif]-->
+            <article
+              class="bg-white dark:bg-[#111116] border border-gray-300 dark:border-white/5 rounded-2xl overflow-hidden group hover:border-yellow-400/30 transition-all flex flex-col shadow-2xl">
+
+              <a href="https://qpay.my.id/artikel/keamanan-transaksi-online-proteksi-data"
+                class="h-44 md:h-52 overflow-hidden relative block">
+                <!--[if BLOCK]><![endif]--> <img src="banner.jpg"
+                  alt="Keamanan Transaksi Online - Proteksi Data Pribadi Anda"
+                  class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                <!--[if ENDBLOCK]><![endif]-->
+
+                <div
+                  class="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-lg">
+                  <span class="text-[10px] font-black text-white uppercase tracking-tighter">
+                    21 Feb 2026
+                  </span>
+                </div>
+              </a>
+
+
+              <div class="p-5 md:p-6 flex flex-col flex-grow">
+
+                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300 dark:border-white/5">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center text-[10px] text-black font-black">
+                      A
+                    </div>
+                    <span
+                      class="text-[10px] md:text-[11px] font-bold text-gray-600 dark:text-white/60 uppercase">Admin</span>
+                  </div>
+                  <div class="flex items-center gap-3 text-gray-600 dark:text-white/30 text-[10px]">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-eye text-yellow-400/50"></i>
+                      22</span>
+                  </div>
+                </div>
+
+                <h3
+                  class="text-lg md:text-xl font-black leading-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-2 mb-6">
+                  Keamanan Transaksi Online - Proteksi Data Pribadi Anda
+                </h3>
+
+
+                <div class="mt-auto">
+                  <a href="https://qpay.my.id/artikel/keamanan-transaksi-online-proteksi-data"
+                    class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                    Baca Artikel <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                  </a>
+                </div>
+              </div>
+            </article>
+            <article
+              class="bg-white dark:bg-[#111116] border border-gray-300 dark:border-white/5 rounded-2xl overflow-hidden group hover:border-yellow-400/30 transition-all flex flex-col shadow-2xl">
+
+              <a href="https://qpay.my.id/artikel/flash-sale-terbaru-diskon-80-persen"
+                class="h-44 md:h-52 overflow-hidden relative block">
+                <!--[if BLOCK]><![endif]--> <img src="banner.jpg"
+                  alt="Flash Sale Terbaru - Diskon hingga 80% untuk Produk Pilihan"
+                  class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                <!--[if ENDBLOCK]><![endif]-->
+
+                <div
+                  class="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-lg">
+                  <span class="text-[10px] font-black text-white uppercase tracking-tighter">
+                    20 Feb 2026
+                  </span>
+                </div>
+              </a>
+
+
+              <div class="p-5 md:p-6 flex flex-col flex-grow">
+
+                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300 dark:border-white/5">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center text-[10px] text-black font-black">
+                      A
+                    </div>
+                    <span
+                      class="text-[10px] md:text-[11px] font-bold text-gray-600 dark:text-white/60 uppercase">Admin</span>
+                  </div>
+                  <div class="flex items-center gap-3 text-gray-600 dark:text-white/30 text-[10px]">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-eye text-yellow-400/50"></i>
+                      13</span>
+                  </div>
+                </div>
+
+                <h3
+                  class="text-lg md:text-xl font-black leading-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-2 mb-6">
+                  Flash Sale Terbaru - Diskon hingga 80% untuk Produk Pilihan
+                </h3>
+
+
+                <div class="mt-auto">
+                  <a href="https://qpay.my.id/artikel/flash-sale-terbaru-diskon-80-persen"
+                    class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                    Baca Artikel <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                  </a>
+                </div>
+              </div>
+            </article>
+            <article
+              class="bg-white dark:bg-[#111116] border border-gray-300 dark:border-white/5 rounded-2xl overflow-hidden group hover:border-yellow-400/30 transition-all flex flex-col shadow-2xl">
+
+              <a href="https://qpay.my.id/artikel/cara-maksimalkan-member-tier"
+                class="h-44 md:h-52 overflow-hidden relative block">
+                <!--[if BLOCK]><![endif]--> <img src="banner.jpg"
+                  alt="Cara Maksimalkan Member Tier untuk Keuntungan Maksimal"
+                  class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700">
+                <!--[if ENDBLOCK]><![endif]-->
+
+                <div
+                  class="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1 rounded-lg">
+                  <span class="text-[10px] font-black text-white uppercase tracking-tighter">
+                    17 Feb 2026
+                  </span>
+                </div>
+              </a>
+
+
+              <div class="p-5 md:p-6 flex flex-col flex-grow">
+
+                <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300 dark:border-white/5">
+                  <div class="flex items-center gap-2">
+                    <div
+                      class="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center text-[10px] text-black font-black">
+                      A
+                    </div>
+                    <span
+                      class="text-[10px] md:text-[11px] font-bold text-gray-600 dark:text-white/60 uppercase">Admin</span>
+                  </div>
+                  <div class="flex items-center gap-3 text-gray-600 dark:text-white/30 text-[10px]">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-eye text-yellow-400/50"></i>
+                      5</span>
+                  </div>
+                </div>
+
+                <h3
+                  class="text-lg md:text-xl font-black leading-tight text-gray-900 dark:text-white group-hover:text-yellow-400 transition-colors line-clamp-2 mb-6">
+                  Cara Maksimalkan Member Tier untuk Keuntungan Maksimal
+                </h3>
+
+
+                <div class="mt-auto">
+                  <a href="https://qpay.my.id/artikel/cara-maksimalkan-member-tier"
+                    class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-yellow-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                    Baca Artikel <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                  </a>
+                </div>
+              </div>
+            </article>
+            <!--[if ENDBLOCK]><![endif]-->
+          </div>
+
+
+          <div class="mt-8 md:hidden">
+            <a href="https://qpay.my.id/artikel"
+              class="flex items-center justify-center gap-2 w-full py-4 bg-gray-100 dark:bg-white/5 border border-gray-300 dark:border-white/10 rounded-xl">
+              <span class="text-[10px] font-black uppercase tracking-widest">Lihat Semua Artikel</span>
+              <i class="fa-solid fa-arrow-right-long text-yellow-400"></i>
+            </a>
+          </div>
+        </section>
+
+        <div x-data="{
+        showAnnouncement: true,
+        dontShowAgain: false,
+        page: 1,
+        totalSubtitle: 3,
+        nextPage() { if (this.page < this.totalSubtitle) this.page++ },
+        prevPage() { if (this.page > 1) this.page-- },
+        closeModal() {
+            if (this.dontShowAgain) {
+                localStorage.setItem('demo_announcement_hidden', 'true');
+            }
+            this.showAnnouncement = false;
+        }
+    }" x-init="if (localStorage.getItem('demo_announcement_hidden') === 'true') showAnnouncement = false"
+          x-show="showAnnouncement" class="fixed inset-0 z-[999] flex items-center justify-center px-4 font-sans"
+          x-cloak>
+
+
+          <div class="fixed inset-0 bg-black/80 backdrop-blur-xl" @click="closeModal()"></div>
+
+
+          <div
+            class="relative bg-[#121212] rounded-2xl shadow-[0_40px_100px_rgba(0,0,0,0.8)] w-full max-w-4xl flex flex-col md:flex-row overflow-visible transform transition-all border border-white/5"
+            x-show="showAnnouncement" x-transition:enter="transition ease-out duration-500"
+            x-transition:enter-start="opacity-0 scale-95 translate-y-10"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0">
+
+
+            <div class="absolute -top-6 -left-6 z-[60] pointer-events-none hidden md:block">
+              <div class="bg-theme-secondary p-5 rounded-2xl shadow-2xl rotate-[-15deg] animate-bounce">
+                <i class="fas fa-exclamation-triangle text-3xl text-black"></i>
+              </div>
+            </div>
+
+
+            <div
+              class="w-full md:w-5/12 relative min-h-[200px] md:min-h-full overflow-hidden rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none">
+              <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop"
+                class="absolute inset-0 w-full h-full object-cover scale-110 blur-[2px] opacity-50" alt="Demo Mode">
+
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent to-[#121212]"></div>
+
+              <div class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+                <div
+                  class="w-20 h-20 mb-4 border-4 border-theme-secondary/20 rounded-full flex items-center justify-center animate-pulse">
+                  <i class="fas fa-flask text-4xl text-theme-secondary"></i>
+                </div>
+                <h2 class="text-white font-black text-2xl uppercase tracking-tighter">Demo Mode</h2>
+                <div class="mt-2 px-4 py-1 bg-red-500/20 border border-red-500/50 rounded-full">
+                  <span class="text-red-500 text-[10px] font-bold uppercase tracking-widest text-nowrap">No Real
+                    Transaction</span>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="w-full md:w-7/12 p-8 md:p-12 flex flex-col justify-between relative">
+
+              <div class="relative overflow-hidden min-h-[250px]">
+
+                <div x-show="page === 1" x-transition:enter="transition duration-500"
+                  x-transition:enter-start="opacity-0 translate-x-8" x-transition:enter-end="opacity-100 translate-x-0"
+                  x-transition:leave="transition duration-300 absolute inset-0">
+                  <span class="text-theme-secondary font-black text-[10px] uppercase tracking-[0.3em] mb-2 block">System
+                    Notice</span>
+                  <h3 class="text-3xl font-black text-white uppercase tracking-tighter mb-4 leading-none">
+                    Hanya Untuk <br><span class="text-theme-secondary">Uji Coba Live</span>
+                  </h3>
+                  <p class="text-[13px] text-gray-400 leading-relaxed font-medium">
+                    Selamat datang di dashboard simulasi kami. Halaman ini digunakan khusus untuk keperluan
+                    <span class="text-white font-bold">Demonstrasi Produk</span> dan pengecekan fitur secara
+                    real-time.
+                  </p>
+                </div>
+
+
+                <div x-show="page === 2" x-transition:enter="transition duration-500"
+                  x-transition:enter-start="opacity-0 translate-x-8" x-transition:enter-end="opacity-100 translate-x-0"
+                  x-transition:leave="transition duration-300 absolute inset-0">
+                  <span class="text-red-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2 block">Security
+                    Alert</span>
+                  <h3 class="text-3xl font-black text-white uppercase tracking-tighter mb-4 leading-none">
+                    Dilarang <br><span class="text-red-500">Bertransaksi</span>
+                  </h3>
+                  <p class="text-[13px] text-gray-400 leading-relaxed font-medium">
+                    Mohon <span class="text-red-500 font-bold uppercase">tidak melakukan transfer</span> atau
+                    pembayaran apapun
+                    ke nomor rekening yang tertera di dalam sistem demo ini. Segala bentuk kerugian bukan
+                    tanggung jawab kami.
+                  </p>
+                </div>
+
+
+                <div x-show="page === 3" x-transition:enter="transition duration-500"
+                  x-transition:enter-start="opacity-0 translate-x-8" x-transition:enter-end="opacity-100 translate-x-0"
+                  x-transition:leave="transition duration-300 absolute inset-0">
+                  <span class="text-green-500 font-black text-[10px] uppercase tracking-[0.3em] mb-2 block">User
+                    Agreement</span>
+                  <h3 class="text-3xl font-black text-white uppercase tracking-tighter mb-4 leading-none">
+                    Saya <br><span class="text-green-500">Mengerti</span>
+                  </h3>
+                  <p class="text-[13px] text-gray-400 leading-relaxed mb-8 font-medium">
+                    Dengan menekan tombol di bawah, Anda setuju bahwa Anda sadar ini adalah platform simulasi
+                    dan tidak akan melakukan aktifitas finansial apapun.
+                  </p>
+                  <button @click="closeModal()"
+                    class="group flex items-center justify-center gap-3 w-full bg-theme-secondary text-black font-black py-4 rounded-xl text-[11px] uppercase tracking-[0.2em] hover:bg-white transition-all shadow-2xl active:scale-95">
+                    Masuk Ke Demo
+                    <i class="fas fa-door-open text-[12px]"></i>
+                  </button>
+                </div>
+              </div>
+
+
+              <div class="mt-8">
+                <div class="flex justify-between items-center mb-6">
+                  <div class="flex gap-2">
+                    <template x-for="i in totalSubtitle">
+                      <div :class="page === i ? 'bg-theme-secondary w-8' : 'bg-white/10 w-2'"
+                        class="h-1.5 rounded-full transition-all duration-500"></div>
+                    </template>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button @click="prevPage()" :disabled="page === 1"
+                      class="w-10 h-10 flex items-center justify-center rounded-xl border border-white/10 text-gray-500 hover:text-white hover:border-theme-secondary disabled:opacity-5 transition-all">
+                      <i class="fas fa-arrow-left text-xs"></i>
+                    </button>
+                    <button @click="nextPage()" x-show="page < totalSubtitle"
+                      class="w-10 h-10 bg-white/5 text-white flex items-center justify-center rounded-xl hover:bg-theme-secondary hover:text-black transition-all border border-white/5">
+                      <i class="fas fa-arrow-right text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <label class="flex items-center gap-3 cursor-pointer pt-6 border-t border-white/5">
+                  <input type="checkbox" x-model="dontShowAgain"
+                    class="w-4 h-4 rounded border-white/10 bg-white/5 text-theme-secondary focus:ring-0 focus:ring-offset-0">
+                  <span
+                    class="text-[10px] font-bold text-gray-500 uppercase tracking-widest hover:text-white transition-colors">
+                    Saya sudah paham, jangan ingatkan lagi
+                  </span>
+                </label>
+              </div>
+            </div>
+
+
+            <button @click="closeModal()"
+              class="absolute top-6 right-6 text-gray-600 hover:text-white transition-colors">
+              <i class="fas fa-times text-xl"></i>
+            </button>
+          </div>
+        </div>
+
+        <style>
+          @keyframes float-diagonal {
+
+            0%,
+            100% {
+              transform: translate(0, 0) rotate(-25deg);
+            }
+
+            50% {
+              transform: translate(-12px, -12px) rotate(-18deg);
+            }
+          }
+
+          .animate-float-diagonal {
+            animation: float-diagonal 5s ease-in-out infinite;
+          }
+
+          .font-sans {
+            font-family: 'Outfit', sans-serif;
+          }
+        </style>
+      </div>
+      <div
+        wire:snapshot="{&quot;data&quot;:{&quot;alerts&quot;:[[],{&quot;s&quot;:&quot;arr&quot;}]},&quot;memo&quot;:{&quot;id&quot;:&quot;CMy0ca3qeRznoEXqyBR4&quot;,&quot;name&quot;:&quot;global-alerts&quot;,&quot;path&quot;:&quot;\/&quot;,&quot;method&quot;:&quot;GET&quot;,&quot;children&quot;:[],&quot;scripts&quot;:[],&quot;assets&quot;:[],&quot;errors&quot;:[],&quot;locale&quot;:&quot;en&quot;},&quot;checksum&quot;:&quot;d27c07f99e8d09bcf861c5b7a0fff36b6fa04c4c714c28a3e3561f62314fd5b1&quot;}"
+        wire:effects="{&quot;listeners&quot;:[&quot;showGlobalAlert&quot;]}" wire:id="CMy0ca3qeRznoEXqyBR4"
+        class="fixed top-4 right-4 z-50 flex flex-col gap-2"
+        x-data="{ alerts: window.Livewire.find('CMy0ca3qeRznoEXqyBR4').entangle('alerts') }">
+
+        <template x-for="(alert, idx) in alerts" :key="alert.id ?? idx">
+          <div x-data="{ progress: 100, show: true }" x-show="show" x-init="let interval = setInterval(() => {
+            progress -= 100 / (alert.duration / 100);
+            if (progress <= 0) clearInterval(interval);
+        }, 100);
+        setTimeout(() => {
+            show = false;
+            $wire.removeAlert(alert.id);
+        }, alert.duration);" class="w-80">
+
+            <!-- Kontainer -->
+            <div class="flex border-t-2 rounded-t-lg p-4 gap-3 items-center bg-white shadow-lg" :class="{
+                    'border-green-500': alert.type === 'success',
+                    'border-red-500': alert.type === 'error',
+                    'border-blue-500': alert.type === 'info',
+                    'border-yellow-500': alert.type === 'warning'
+                }">
+
+              <!-- ICON -->
+              <div class="flex items-center justify-center w-10 h-10 rounded-full text-xl" :class="{
+                        'bg-green-100': alert.type === 'success',
+                        'bg-red-100': alert.type === 'error',
+                        'bg-blue-100': alert.type === 'info',
+                        'bg-yellow-100': alert.type === 'warning'
+                    }" x-text="{
+                        success: '✅',
+                        error: '❌',
+                        info: 'ℹ️',
+                        warning: '⚠️'
+                     }[alert.type]">
+              </div>
+
+              <!-- TEXT -->
+              <div class="flex flex-col flex-1">
+                <div class="font-semibold text-sm" :class="{
+                            'text-green-600': alert.type === 'success',
+                            'text-red-600': alert.type === 'error',
+                            'text-blue-600': alert.type === 'info',
+                            'text-yellow-600': alert.type === 'warning'
+                        }" x-text="alert.title"></div>
+                <div class="text-gray-700 text-xs" x-text="alert.message"></div>
+              </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="h-1 bg-gray-200 rounded-b-lg overflow-hidden">
+              <div class="h-full" :class="{
+                        'bg-green-500': alert.type === 'success',
+                        'bg-red-500': alert.type === 'error',
+                        'bg-blue-500': alert.type === 'info',
+                        'bg-yellow-500': alert.type === 'warning'
+                    }" :style="`width: ${progress}%; transition: width 0.1s linear;`"></div>
+            </div>
+
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <footer
+      class="relative text-gray-900 dark:text-white bg-white dark:bg-[#0a0a0f] overflow-hidden transition-colors duration-300">
+
+      <div class="absolute top-0 left-0 w-full overflow-hidden leading-[0] z-0 pointer-events-none">
+        <svg class="relative block w-full h-[60px] md:h-[100px]" viewBox="0 0 1200 120" preserveAspectRatio="none"
+          xmlns="http://www.w3.org/2000/svg">
+
+
+          <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,
+                 168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83,
+                 c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,
+                 600.21,0,0,0,321.39,56.44Z" class="fill-yellow-400" />
+
+
+
+          <g transform="translate(0, -2)">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,
+                     168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83,
+                     c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,
+                     600.21,0,0,0,321.39,56.44Z" class="fill-white dark:fill-[#0a0a0f]" />
+          </g>
+        </svg>
+      </div>
+
+
+      <div class="relative z-10 max-w-7xl mx-auto py-8 md:py-12 px-6 mt-12 md:mt-20">
+
+
+        <div class="grid grid-cols-2 lg:flex lg:flex-row lg:items-start lg:justify-between gap-8 md:gap-10">
+
+
+          <div class="col-span-2 lg:w-1/3 space-y-4 md:space-y-5">
+            <a href="/" class="flex items-center space-x-2 group">
+              <img src="https://qpay.my.id/logohot.png"
+                class="h-10 md:h-12 w-auto transition-transform group-hover:scale-105" alt="Logo">
+              <div class="flex flex-col">
+                <span
+                  class="text-lg md:text-xl font-black leading-none tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+                  QPay
+                </span>
+                <span
+                  class="text-[8px] md:text-[9px] font-bold text-gray-600 dark:text-white/40 uppercase tracking-[0.2em] mt-1">
+                  Sekali Klik, Top-Up Beres!
+                </span>
+              </div>
+            </a>
+            <p class="text-[10px] md:text-xs text-gray-600 dark:text-white/30 leading-relaxed max-w-xs">
+              Layanan Top-Up game otomatis 24 jam dengan sistem pembayaran terlengkap dan terpercaya.
+            </p>
+            <div class="flex gap-2">
+              <a href="#"
+                class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-gray-200 dark:bg-white/[0.03] border border-gray-300 dark:border-white/5 flex items-center justify-center text-gray-600 dark:text-white/30 hover:text-yellow-500 transition-colors">
+                <i class="fab fa-instagram text-[10px] md:text-xs"></i>
+              </a>
+              <a href="#"
+                class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-gray-200 dark:bg-white/[0.03] border border-gray-300 dark:border-white/5 flex items-center justify-center text-gray-600 dark:text-white/30 hover:text-yellow-500 transition-colors">
+                <i class="fab fa-tiktok text-[10px] md:text-xs"></i>
+              </a>
+              <a href="#"
+                class="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-gray-200 dark:bg-white/[0.03] border border-gray-300 dark:border-white/5 flex items-center justify-center text-gray-600 dark:text-white/30 hover:text-yellow-500 transition-colors">
+                <i class="fab fa-whatsapp text-[10px] md:text-xs"></i>
+              </a>
+            </div>
+          </div>
+
+
+          <div class="shrink-0">
+            <h4
+              class="text-[9px] md:text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-5 italic">
+              Peta Situs</h4>
+            <ul class="space-y-2 md:space-y-3">
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Topup</a>
+              </li>
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Transaksi</a>
+              </li>
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Kalkulator</a>
+              </li>
+            </ul>
+          </div>
+
+          <div class="shrink-0">
+            <h4
+              class="text-[9px] md:text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-5 italic">
+              Dukungan</h4>
+            <ul class="space-y-2 md:space-y-3">
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">WhatsApp</a>
+              </li>
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Instagram</a>
+              </li>
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Email</a>
+              </li>
+            </ul>
+          </div>
+
+
+          <div class="shrink-0">
+            <h4
+              class="text-[9px] md:text-[10px] font-black text-gray-900 dark:text-white uppercase tracking-[0.2em] md:tracking-[0.3em] mb-3 md:mb-5 italic">
+              Legalitas</h4>
+            <ul class="space-y-2 md:space-y-3">
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Privacy</a>
+              </li>
+              <li><a href="#"
+                  class="text-[10px] md:text-xs text-gray-600 dark:text-white/40 hover:text-yellow-500 font-bold transition-colors uppercase tracking-widest">Terms</a>
+              </li>
+            </ul>
+          </div>
+
+
+          <div class="col-span-2 lg:col-span-1 lg:w-1/5 flex flex-col lg:items-end mt-4 lg:mt-0">
+            <div
+              class="bg-gray-100 dark:bg-white/[0.03] border border-gray-300 dark:border-white/10 p-3 md:p-4 rounded-2xl w-full transition-colors">
+              <div class="flex items-center justify-between mb-1 md:mb-2">
+                <span
+                  class="text-[8px] md:text-[9px] font-black text-gray-600 dark:text-white/30 uppercase tracking-widest">System
+                  Status</span>
+                <span
+                  class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"></span>
+              </div>
+              <p
+                class="text-[9px] md:text-[10px] font-bold text-gray-900 dark:text-white uppercase tracking-tighter italic">
+                Sistem Normal</p>
+              <p class="text-[8px] md:text-[9px] text-gray-600 dark:text-white/20 mt-1 uppercase">Beroperasi
+                24 Jam</p>
+            </div>
+          </div>
+        </div>
+
+
+        <div
+          class="mt-8 md:mt-16 pt-6 md:pt-8 border-t border-gray-300 dark:border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-center transition-colors">
+          <p
+            class="text-[8px] md:text-[9px] text-gray-400 dark:text-white/10 font-bold uppercase tracking-[0.3em] md:tracking-[0.5em]">
+            &copy; 2026 QPay Allrights Reserved.
+          </p>
+          <div class="flex gap-4">
+            <i class="fab fa-cc-visa text-gray-400 dark:text-white/10 text-base md:text-lg"></i>
+            <i class="fab fa-cc-mastercard text-gray-400 dark:text-white/10 text-base md:text-lg"></i>
+            <i class="fas fa-wallet text-gray-400 dark:text-white/10 text-base md:text-lg"></i>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
+    <script>
+      // Scroll Progress Logic
+      window.onscroll = function () {
+        let winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        let scrolled = (winScroll / height) * 100;
+        document.getElementById("scroll-progress").style.width = scrolled + "%";
+      };
+    </script>
+    <script>
+      // Initialize dark mode from localStorage on page load
+      document.addEventListener('DOMContentLoaded', function () {
+        const isDark = localStorage.getItem('darkMode') === 'true';
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      });
+    </script>
+    <script>
+      function startCountdowns() {
+        function updateTimers() {
+          document.querySelectorAll('.timer-display').forEach(el => {
+            const endTimeString = el.getAttribute('data-end-time');
+            if (!endTimeString) return; // Skip jika tidak ada data-end-time
+
+            const targetDate = new Date(endTimeString).getTime();
+            const now = new Date().getTime();
+            const distance = targetDate - now;
+
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            const timeString =
+              (hours < 10 ? "0" + hours : hours) + ":" +
+              (minutes < 10 ? "0" + minutes : minutes) + ":" +
+              (seconds < 10 ? "0" + seconds : seconds);
+
+            if (distance < 0) {
+              el.innerHTML = "00:00:00";
+            } else {
+              el.innerHTML = timeString;
+            }
+          });
+        }
+
+        setInterval(updateTimers, 1000);
+        updateTimers();
+      }
+
+      // Jalankan saat DOM siap
+      document.addEventListener('DOMContentLoaded', startCountdowns);
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        AOS.init({
+          duration: 1000,
+          once: true,
+          offset: 100,
+          easing: 'ease-in-out'
+        });
+
+        // Refresh AOS after content loads
+        setTimeout(() => AOS.refresh(), 100);
+
+        new Swiper(".mainSlider", {
+          loop: false,
+          autoplay: {
+            delay: 5000
+          },
+          pagination: {
+            el: ".swiper-pagination",
+            clickable: true
+          },
+        });
+
+        const totalItems = 2;
+
+        new Swiper(".flashSlider", {
+          // Pengaturan default (Mobile)
+          slidesPerView: totalItems === 1 ? 1 : 1.2,
+          spaceBetween: 15,
+          navigation: {
+            nextEl: ".flash-next",
+            prevEl: ".flash-prev"
+          },
+          // Matikan swipe jika item hanya 1
+          allowTouchMove: totalItems > 1,
+
+          breakpoints: {
+            // Tablet
+            640: {
+              slidesPerView: totalItems <= 2 ? totalItems : 2.2,
+            },
+            // Desktop
+            1024: {
+              // Jika <= 4, biarkan jumlahnya pas (1, 2, 3, atau 4)
+              // Jika > 3, tampilkan 3.2 agar terlihat bisa di-swipe
+              slidesPerView: totalItems <= 3 ? totalItems : 3.2,
+              allowTouchMove: totalItems > 3,
+            }
+          }
+        });
+      });
+    </script>
+    <!-- Livewire Scripts -->
+    <script src="/livewire/livewire.js?id=df3a17f2" data-csrf="Km21kIYtQSa3831g6QPYsEYu0OpSQsxSJhq2waxO"
+      data-update-uri="/livewire/update" data-navigate-once="true"></script>
+  </body>
+
+</html>

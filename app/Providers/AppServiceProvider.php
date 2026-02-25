@@ -28,7 +28,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         Pembelian::observe(PembelianObserver::class);
-        
+
+        // FIX #3 XSS: Register @safeHtml Blade directive
+        // Menggunakan strip_tags() native PHP — mempertahankan tag HTML yang aman
+        // tapi menghapus <script>, <iframe>, event handlers, dll.
+        \Illuminate\Support\Facades\Blade::directive('safeHtml', function ($expression) {
+            return "<?php echo \\App\\Helpers\\HtmlSanitizer::clean($expression); ?>";
+        });
+
         try {
             $config = \DB::table('setting_webs')->where('id',1)->first();
             

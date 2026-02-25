@@ -64,6 +64,7 @@ class OrderProcessingService
 
         $result = [
             'success' => false,
+            'order_status' => 'Pending', // Default
             'transaction_id' => null,
             'message' => '',
             'provider' => $providerCode
@@ -81,6 +82,7 @@ class OrderProcessingService
 
                     if (isset($response['data']['status']) && in_array($response['data']['status'], ['Pending', 'Sukses'])) {
                         $result['success'] = true;
+                        $result['order_status'] = $response['data']['status']; // 'Pending' or 'Sukses'
                         $result['transaction_id'] = $orderId; // Digiflazz uses our RefID usually, or we capture theirs? 
                         // Actually Digiflazz might return 'sn' or nothing if pending. 
                         // We use our RefID as the handle.
@@ -98,6 +100,7 @@ class OrderProcessingService
                     
                     if ($response['result']) {
                         $result['success'] = true;
+                        $result['order_status'] = $response['data']['status'] == 'success' ? 'Sukses' : 'Pending';
                         $result['transaction_id'] = $response['data']['trxid'];
                         $result['message'] = $response['message'];
                     } else {
@@ -111,8 +114,13 @@ class OrderProcessingService
 
                     if (isset($response['data']['status']) && $response['data']['status'] == 'Sukses') {
                         $result['success'] = true;
+                        $result['order_status'] = 'Sukses';
                         $result['transaction_id'] = $response['data']['trx_id'] ?? $orderId;
                         $result['message'] = 'Order successful';
+                    } elseif (isset($response['data']['status']) && $response['data']['status'] == 'Pending') {
+                        $result['success'] = true;
+                        $result['order_status'] = 'Pending';
+                        $result['message'] = 'Order pending';
                     } else {
                         $result['message'] = $response['error_msg'] ?? 'ApiGames failed';
                     }
@@ -127,6 +135,7 @@ class OrderProcessingService
                     
                     if ($response['error'] == false) {
                         $result['success'] = true;
+                        $result['order_status'] = 'Pending';
                         $result['transaction_id'] = $response['data']['invoiceNumber'];
                         $result['message'] = 'BangJeff Order Success';
                     } else {
@@ -138,6 +147,7 @@ class OrderProcessingService
                 case 'joki':
                     // Auto-success for manual/joki types if that's the desired flow
                     $result['success'] = true;
+                    $result['order_status'] = 'Sukses';
                     $result['message'] = 'Manual/Joki order marked as processing.';
                     break;
 

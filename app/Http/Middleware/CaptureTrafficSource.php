@@ -25,12 +25,18 @@ class CaptureTrafficSource
         ];
 
         // 1. Check URL Parameters (Highest Priority)
-        $rawSource = $request->query('utm_source') ?? $request->query('ref');
+        $rawSource = $request->query('utm_source') ?? $request->query('source');
         $detectedSource = null;
 
-        // Validation: Check against whitelist
-        if ($rawSource && isset($allowedSources[strtolower($rawSource)])) {
-            $detectedSource = $allowedSources[strtolower($rawSource)];
+        // Validation: Check against whitelist to normalize names (e.g. fb -> Facebook)
+        // If it's not in the whitelist, we ACCEPT it as a custom source (e.g. domainku.com)
+        if ($rawSource) {
+            if (isset($allowedSources[strtolower($rawSource)])) {
+                $detectedSource = $allowedSources[strtolower($rawSource)];
+            } else {
+                // Limit length to prevent malicious long strings
+                $detectedSource = substr(strip_tags($rawSource), 0, 50);
+            }
         }
 
         // 2. Fallback: HTTP Referer (If no valid URL param)

@@ -31,19 +31,19 @@ class ProviderRoutingService
             return $this->formatProviderResult($bestPath->provider_code, $bestPath->provider_sku);
         }
 
-        // 2. Fallback to Legacy Fields (provider_id column in layanans table stores the code, e.g., 'digiflazz')
-        // And provider_nomimal stores the SKU.
-        if (!empty($layanan->provider_id) && !empty($layanan->provider_nomimal)) {
+        // 2. Fallback to Legacy Fields (provider column in layanans table stores the code, e.g., 'digiflazz')
+        // And provider_id stores the SKU.
+        if (!empty($layanan->provider_id) && !empty($layanan->provider)) {
             // Check if legacy provider is valid/active? 
             // For now assume available if set.
-            return $this->formatProviderResult($layanan->provider_id, $layanan->provider_nomimal);
+            return $this->formatProviderResult($layanan->provider, $layanan->provider_id);
         }
 
         // 3. No provider found
         Log::warning("ProviderRoutingService: No provider found for Service ID {$layanan->id} ({$layanan->layanan}).", [
             'provider_paths_count' => $paths->count(),
-            'legacy_provider_id' => $layanan->provider_id,
-            'legacy_provider_nominal' => $layanan->provider_nomimal
+            'legacy_provider' => $layanan->provider,
+            'legacy_provider_sku' => $layanan->provider_id
         ]);
         return null;
     }

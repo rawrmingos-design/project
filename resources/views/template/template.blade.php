@@ -33,7 +33,23 @@
     
     <!-- Schema Markup -->
     @if(isset($schema_markup) && $schema_markup)
-        {!! $schema_markup !!}
+        {{-- FIX #11: Hanya izinkan konten JSON-LD, strip tag berbahaya --}}
+        @php
+            // Sanitasi: ekstrak HANYA isi dari <script type="application/ld+json"> ... </script>
+            // Jika admin menyimpan script berbahaya, konten di luar JSON-LD block akan diabaikan
+            preg_match_all('/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/si', $schema_markup, $matches);
+        @endphp
+        @if(!empty($matches[1]))
+            @foreach($matches[1] as $jsonContent)
+                @php
+                    // Validasi bahwa isi adalah JSON yang valid sebelum di-render
+                    $decoded = json_decode(trim($jsonContent), true);
+                @endphp
+                @if($decoded !== null)
+                    <script type="application/ld+json">{{ trim($jsonContent) }}</script>
+                @endif
+            @endforeach
+        @endif
     @endif
 
     <!-- Analytics & Tracking -->
@@ -79,7 +95,7 @@
     @endif
     
     <!-- Stylesheets and Fonts -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{{ asset('assets/vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
@@ -149,7 +165,11 @@
         <div id="app">
         @yield('content')
     </div>
+
+
+
   </main>
+
     
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -204,5 +224,7 @@
     @livewireScripts
 
      @stack('custom_script')
+
+
     </body>
 </html>
