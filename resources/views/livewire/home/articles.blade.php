@@ -152,7 +152,7 @@
                 
                 <div class="gj-icon-wrapper">
                     <div class="gj-icon-box">
-                        <i class="fa fa-newspaper-o gj-icon animate-bolt"></i>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="gj-icon animate-bolt"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
                         <div class="gj-icon-dot"></div>
                     </div>
                 </div>
@@ -175,7 +175,7 @@
             <!-- Web "Lihat Semua" Button -->
             <a href="{{ url('/artikel') }}" class="gj-btn-web group">
                 <span class="gj-btn-text">Lihat Semua</span>
-                <i class="fa fa-arrow-right gj-btn-icon"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="gj-btn-icon"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
         </div>
 
