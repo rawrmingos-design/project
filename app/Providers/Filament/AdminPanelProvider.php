@@ -20,6 +20,25 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
+        $logoUrl = asset('/assets/logo/logo.webp');
+        $faviconUrl = asset('/assets/logo/favicon.webp');
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('setting_webs')) {
+                $setting = \App\Models\SettingWeb::first();
+                if ($setting) {
+                    if (!empty($setting->logo_header)) {
+                        $logoUrl = asset($setting->logo_header);
+                    }
+                    if (!empty($setting->logo_favicon)) {
+                        $faviconUrl = asset($setting->logo_favicon);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Abaikan jika tabel tidak ada / database error saat proses build
+        }
+
         return $panel
             ->default()
             ->id('admin')
@@ -31,9 +50,9 @@ class AdminPanelProvider extends PanelProvider
             ->login(\App\Filament\Admin\Pages\Auth\Login::class)
             ->sidebarCollapsibleOnDesktop()
             ->font('Poppins')
-            ->brandName('Istana Top Up')
-            ->brandLogo(asset('/assets/logo/logo.webp'))
-            ->favicon(asset('/assets/logo/favicon.webp'))
+            ->brandName(env('APP_NAME'))
+            ->brandLogo($logoUrl)
+            ->favicon($faviconUrl)
             ->colors([
                 'primary' => '#2563EB', // Bright Blue (Dashboard Button)
                 'secondary' => '#64748B', // Slate

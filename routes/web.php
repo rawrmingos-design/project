@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
-use App\Http\Controllers\indexController;
+use App\Http\Controllers\IndexController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceDepositController;

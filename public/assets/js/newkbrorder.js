@@ -200,8 +200,8 @@ function showToast(e, a = "error") {
     let e = $(this).attr("method-id");
     $(".method-list").removeClass("active"), $(this).addClass("active"), $("#metode").val(e)
 })), $("#order-check").on("click", (function () {
-    var e = $("#user_id").val(),
-        a = $("#zone").val(),
+    var e = $("input[name='user_id']:visible").val() || $("#user_id").val(),
+        a = $("input[name='zone_id']:visible, select#zone:visible").val() || $("#zone").val(),
         o = $("#email_joki").val(),
         t = $("#password_joki").val(),
         n = $("#loginvia_joki").val(),
@@ -339,38 +339,44 @@ function showToast(e, a = "error") {
 
 // Real-time Account Check Logic
 $(document).ready(function () {
-    $("#user_id, #zone").on("blur", function () {
-        var uid = $("#user_id").val();
-        var zone = $("#zone").val();
-        var kategoriKode = window.kategoriKode;
+    var checkTimer;
+    $("#user_id, #zone").on("blur keyup", function () {
+        clearTimeout(checkTimer);
+        checkTimer = setTimeout(function () {
+            var uid = $("#user_id").val();
+            var zone = $("#zone").length ? $("#zone").val() : "";
+            var kategoriKode = window.kategoriKode;
 
-        // Ensure UID is present. Zone is optional depending on game, but we send it anyway.
-        if (uid && kategoriKode) {
-            $("#nickname-display").text("Checking ID...").removeClass("text-green-500 text-red-500").addClass("text-gray-500");
+            // Ensure UID is present. Zone is optional depending on game, but we send it anyway.
+            if (uid && kategoriKode) {
+                $("#nickname-display").text("Checking ID...").removeClass("text-green-500 text-red-500").addClass("text-gray-500");
 
-            $.ajax({
-                url: window.routes.checkAccount,
-                type: "POST",
-                dataType: "JSON",
-                data: {
-                    _token: window.csrfToken,
-                    uid: uid,
-                    zone: zone,
-                    kategori_kode: kategoriKode
-                },
-                success: function (response) {
-                    if (response.status && response.status.code === 200) {
-                        $("#nickname-display").html("Valid: " + response.data.username).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
-                    } else {
-                        $("#nickname-display").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500");
+                $.ajax({
+                    url: window.routes.checkAccount,
+                    type: "POST",
+                    dataType: "JSON",
+                    data: {
+                        _token: window.csrfToken,
+                        uid: uid,
+                        zone: zone,
+                        kategori_kode: kategoriKode
+                    },
+                    success: function (response) {
+                        if (response.status && response.status.code === 200) {
+                            $("#nickname-display").html("Valid: " + response.data.username).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                        } else {
+                            $("#nickname-display").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500");
+                        }
+                    },
+                    error: function () {
+                        // Silent fail or minimal error
+                        $("#nickname-display").text("").removeClass("text-gray-500");
                     }
-                },
-                error: function () {
-                    // Silent fail or minimal error
-                    $("#nickname-display").text("").removeClass("text-gray-500");
-                }
-            });
-        }
+                });
+            } else {
+                $("#nickname-display").text("").removeClass("text-gray-500 text-green-500 text-red-500");
+            }
+        }, 800); // 800ms debounce
     });
 });
 

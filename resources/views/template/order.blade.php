@@ -239,7 +239,7 @@
             <div class="prose prose-sm px-4 py-2 pb-8 text-xs text-white sm:px-6">
               <div>
 
-                        @safeHtml($kategori->deskripsi_game)
+                        {!! htmlspecialchars_decode($kategori->deskripsi_game) !!}
               </div>
               <div class="mt-2 flex flex-col border-t border-dashed  text-card-foreground">
             <p> Note:&nbsp;<br> Jika Mengalami Kendala Silahkan hub CS IG <a href="{{ !$config ? '' : $config->url_ig }}" target="_blank">Instagram</a> dan CS WhatsApp <a href="{{ !$config ? '' : $config->url_wa }}" target="_blank">WhatsApp</a></p>
@@ -5039,7 +5039,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 checkVoucher: "{{ route('check.voucher') }}"
             };
         </script>
-        <script src="{{ asset('/assets/js/newkbrorder.js') }}"></script>
+        <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
 
 @if(in_array($kategori->kode, ['mobile-legends']))
 <script type="text/javascript">document.addEventListener("DOMContentLoaded",(function(){let e=document.getElementById("closePopupButton"),t=document.querySelector(".popup-structure");e.addEventListener("click",(function(){t.style.display="none",localStorage.setItem("hidePopup","true")})),"true"===localStorage.getItem("hidePopup")&&(t.style.display="none"),document.getElementById("specialList").addEventListener("click",(function(e){let n=e.target.closest(".product-list");if(n){n.getAttribute("data-layanan").toLowerCase().includes("weekly diamond pass")&&(t.style.display="block")}}))})),document.addEventListener("DOMContentLoaded",(function(){let e=document.querySelectorAll(".popup-slide"),t=!1;e.length>0&&(e[0].classList.add("show"),t=!0),document.addEventListener("click",(function(n){Array.from(e).some((e=>e.contains(n.target)))||(t=!0)}))}));</script>
