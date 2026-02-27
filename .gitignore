@@ -24,3 +24,7 @@ yarn-error.log
 /.vscode
 /.zed
 *.zip
+/public/assets_backup
+.env
+/storage/logs/*
+/public/assets_backup
