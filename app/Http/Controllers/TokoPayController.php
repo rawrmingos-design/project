@@ -28,33 +28,58 @@ class TokoPayController extends Controller
         
         $formula = $merchantid . ":" . $secretkey . ":" . $ref_id;
         $signatureTrx = md5($formula);
+
+        // Pastikan URL redirect adalah URL absolut yang valid
+        $appUrl = config('app.url', 'https://example.com');
+        $redirectUrl = rtrim($appUrl, '/') . "/id/invoices/$ref_id";
+
+        // Bangun URL produk (untuk items)
+        $productUrl = rtrim($appUrl, '/') . "/id/invoices/$ref_id";
+        $imageUrl   = rtrim($appUrl, '/') . "/assets/logo/logo.png";
+
+        // Pastikan jumlah adalah integer
+        $amount = (int) $jumlah;
+
+        // Bersihkan nickname dari HTML entities (misal: &amp;#039; jadi ')
+        // lalu strip karakter non-alphanumeric agar email valid
+        $cleanNickname = html_entity_decode($nickname ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $cleanNickname = strip_tags($cleanNickname);
+        $cleanNickname = trim($cleanNickname) ?: 'Customer';
+        
+        // Buat email yang valid dengan hanya menyimpan karakter aman
+        $emailPrefix = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $cleanNickname)) ?: 'customer';
+        $customerEmail = $emailPrefix . '@customer.com';
+
         $data = [
-            'merchant_id' => $merchantid,
-            'kode_channel' => $channel,
-            'reff_id' => $ref_id,
-            'amount' => $jumlah,
-            'customer_name' => "$nickname",
-            'customer_email' => "$nickname@gmail.com",
-            'customer_phone' => "$phone_number",
-            'redirect_url' => "/id/pembelian/invoice/$ref_id",
-            'expired_ts' => 0,
-            'signature'=>$signatureTrx,
-            'items'=> [
+            'merchant_id'    => $merchantid,
+            'kode_channel'   => $channel,
+            'reff_id'        => $ref_id,
+            'amount'         => $amount,
+            'customer_name'  => $cleanNickname,
+            'customer_email' => $customerEmail,
+            'customer_phone' => $phone_number ?: '08000000000',
+            'redirect_url'   => $redirectUrl,
+            'expired_ts'     => 0,
+            'signature'      => $signatureTrx,
+            'items'          => [
                 [
-                    'product_code'=>'-',
-                    'name'=> $service,
-                    'price'=>$jumlah,
-                    // Fallback to valid external URL if testing on localhost
-                    'product_url'=> (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false) 
-                        ? "https://example.com/id/invoice/$ref_id" 
-                        : (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . "/id/invoice/$ref_id",
-                    'image_url'=> (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false)
-                        ? "https://example.com/assets/logo/logo.png"
-                        : (isset($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . "/assets/logo/logo.png"
+                    'product_code' => '-',
+                    'name'         => $service,
+                    'price'        => $amount,
+                    'product_url'  => $productUrl,
+                    'image_url'    => $imageUrl,
                 ]
             ]
         ];
         
+        Log::info('TokoPay createAdvanceOrder Request:', [
+            'order_id'     => $ref_id,
+            'channel'      => $channel,
+            'amount'       => $amount,
+            'redirect_url' => $redirectUrl,
+            'request_body' => $data,
+        ]);
+
         $curl = curl_init();
         curl_setopt_array($curl, array(
             CURLOPT_URL => $this->apiUrl.'/v1/order',
@@ -65,7 +90,7 @@ class TokoPayController extends Controller
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS =>json_encode($data),
+            CURLOPT_POSTFIELDS => json_encode($data),
             CURLOPT_HTTPHEADER => array(
                 'Content-Type: application/json'
             ),

@@ -911,15 +911,12 @@ class OrderController extends Controller
                     $dataLayanan->layanan
                 );
                 
-                if (isset($res['status']) && $res['status'] == 'Success') {
+                if (isset($res['status']) && $res['status'] === 'Success') {
                     $gatewayResult = [
                         'status' => true,
-                        // Advance order checks for different fields? 
-                        // Docs say: checkout_url, or other fields.
-                        // Existing code checks: nomor_va, qr_link, checkout_url, pay_url
-                        'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'],
-                        'reference' => $res['data']['trx_id'],
-                        'amount' => $res['data']['total_bayar']
+                        'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'] ?? null,
+                        'reference' => $res['data']['trx_id'] ?? null,
+                        'amount' => $res['data']['total_bayar'] ?? $amount
                     ];
                 } else {
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';

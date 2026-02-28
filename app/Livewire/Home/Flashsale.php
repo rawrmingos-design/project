@@ -14,10 +14,7 @@ class Flashsale extends Component
     }
 
     public function render()
-    {
-        // Delay to show skeleton placeholder for better UX (2 seconds)
-        sleep(2);
-        
+    {   
         $flashsale = Cache::remember('flashsale_items', 60, function () {
             return Layanan::join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
                 ->join('paket_layanans', 'paket_layanans.layanan_id', '=', 'layanans.id')
