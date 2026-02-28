@@ -14,10 +14,7 @@ class Articles extends Component
     }
 
     public function render()
-    {
-        // Delay to show skeleton placeholder for better UX (2 seconds)
-        sleep(2);
-        
+    {   
         $articles = Cache::remember('latest_articles', 300, function () {
             return Artikel::where('status', 'active')
                 ->latest()

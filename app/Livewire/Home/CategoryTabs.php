@@ -14,10 +14,7 @@ class CategoryTabs extends Component
     }
 
     public function render()
-    {
-        // Delay to show skeleton placeholder for better UX (2 seconds)
-        sleep(2);
-        
+    {   
         $categoryTypes = Cache::remember('category_types_with_kategoris', 300, function () {
             return CategoryType::orderBy('sort', 'asc')
                 ->with(['kategoris' => function ($query) {
