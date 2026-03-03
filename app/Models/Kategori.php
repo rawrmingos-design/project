@@ -10,6 +10,11 @@ class Kategori extends Model
 {
     use HasFactory;
     protected $guarded = [];
+
+    protected $casts = [
+        'server_id' => 'boolean',
+        'require_user_id' => 'boolean',
+    ];
     
     // Relationships
     public function layanans(): HasMany

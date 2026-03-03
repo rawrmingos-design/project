@@ -89,7 +89,7 @@ class WithdrawalResource extends Resource
                     ]),
             ])
             ->actions([
-                \Filament\Tables\Actions\Action::make('approve')
+                Action::make('approve')
                     ->label('Setujui')
                     ->color('success')
                     ->icon('heroicon-o-check')
