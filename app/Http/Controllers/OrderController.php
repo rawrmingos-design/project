@@ -1197,7 +1197,22 @@ class OrderController extends Controller
                 'qty' => 'required|numeric|max:30',
             ];
         } else {
-            $rules['uid'] = 'required|max:25';
+            // Cek apakah kategori game ini memerlukan User ID
+            // Query langsung dari service id yang ada di request
+            $requireUserId = true; // default wajib
+            if ($request->service) {
+                $layanan = \App\Models\Layanan::select('kategori_id')
+                    ->where('id', $request->service)
+                    ->first();
+                if ($layanan && $layanan->kategori_id) {
+                    $kategori = \App\Models\Kategori::select('require_user_id')
+                        ->find($layanan->kategori_id);
+                    if ($kategori !== null) {
+                        $requireUserId = (bool) $kategori->require_user_id;
+                    }
+                }
+            }
+            $rules['uid'] = $requireUserId ? 'required|max:25' : 'nullable|max:25';
         }
 
         $request->validate($rules);

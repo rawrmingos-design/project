@@ -421,7 +421,8 @@
                             $field1Values = explode(',', $kategori->field_1);
                         @endphp
                    @if($kategori->field_2 !== null)
-                            <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                                @if($kategori->require_user_id ?? true)
                                 <div>
                                     <label for="user_id" class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
                                     <div class="flex flex-col items-start">
@@ -432,6 +433,7 @@
                                             placeholder="{{ $field1Values[1] }}"/> 
                                     </div>
                                 </div>
+                                @endif
                                 @if($selectValue == "select")
                                     <div>
                                         <label for="zone" class="block text-xs font-medium text-white pb-2"> {{ $field2Values[0] }}</label>
@@ -542,6 +544,7 @@
     
                         
                         @else
+                            @if($kategori->require_user_id ?? true)
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
                                 <div>
                                     <label for="user_id" class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
@@ -555,6 +558,7 @@
                                     </div>
                                 </div>
                             </div>
+                            @endif
                         @endif
 
 					     <div class="px-4 pb-4 text-[10px] sm:px-6 sm:pb-6">
@@ -1484,7 +1488,8 @@ document.addEventListener("DOMContentLoaded", function() {
                             $field1Values = explode(',', $kategori->field_1);
                         @endphp
                    @if($kategori->field_2 !== null)
-                            <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                                @if($kategori->require_user_id ?? true)
                                 <div>
                                     <label for="user_id" class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
                                     <div class="flex flex-col items-start">
@@ -1495,6 +1500,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                             placeholder="{{ $field1Values[1] }}"/> 
                                     </div>
                                 </div>
+                                @endif
                                 @if($selectValue == "select")
                                     <div>
                                         <label for="zone" class="block text-xs font-medium text-white pb-2"> {{ $field2Values[0] }}</label>
@@ -3242,7 +3248,8 @@ document.addEventListener("DOMContentLoaded", function() {
                             $field1Values = explode(',', $kategori->field_1);
                         @endphp
                    @if($kategori->field_2 !== null)
-                            <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                                @if($kategori->require_user_id ?? true)
                                 <div>
                                     <label for="user_id" class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
                                     <div class="flex flex-col items-start">
@@ -3253,6 +3260,7 @@ document.addEventListener("DOMContentLoaded", function() {
                                             placeholder="{{ $field1Values[1] }}"/> 
                                     </div>
                                 </div>
+                                @endif
                                 @if($selectValue == "select")
                                     <div>
                                         <label for="zone" class="block text-xs font-medium text-white pb-2"> {{ $field2Values[0] }}</label>

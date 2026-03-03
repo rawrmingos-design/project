@@ -28,3 +28,4 @@ yarn-error.log
 .env
 /storage/logs/*
 /public/assets_backup
+/notes.txt

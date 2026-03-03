@@ -5,8 +5,7 @@
 - export data table order pembayaran custom nomor invoice status transaksi nomor telpon email jumlah diamond
 - report sales
 
-- google analityc
-- gsc & fb pixel
+- Google Analytics, GSC & FB Pixel
 - total saldo digiflazz
 - template notif
 
@@ -17,3 +16,5 @@
 
 - nickname table
 - tier sesuai dengan orderan pembelian
+
+- seo custom tiap kategori product

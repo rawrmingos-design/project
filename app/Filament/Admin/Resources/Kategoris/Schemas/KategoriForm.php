@@ -113,6 +113,11 @@ class KategoriForm
                         Toggle::make('server_id')
                             ->label('Memerlukan Server ID')
                             ->default(false),
+
+                        Toggle::make('require_user_id')
+                            ->label('Wajib Mengisi User ID')
+                            ->helperText('Nonaktifkan jika produk tidak memerlukan ID game pelanggan. Contoh: Roblox (kode redeem), Google Play Gift Card.')
+                            ->default(true),
                     ]),
                     
                 Section::make('Deskripsi')
