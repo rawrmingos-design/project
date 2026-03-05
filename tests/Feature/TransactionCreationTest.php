@@ -37,6 +37,7 @@ class TransactionCreationTest extends TestCase
             'logo_header'          => 'logo.png',
             'judul_web'            => 'Test Web',
             'deskripsi_web'        => 'Test Desc',
+            'keywords'             => 'test',
         ]);
 
         // Create User

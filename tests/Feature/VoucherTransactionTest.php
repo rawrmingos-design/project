@@ -210,7 +210,7 @@ class VoucherTransactionTest extends TestCase
             ]);
 
         $response->assertJson(['status' => false]);
-        $response->assertSee('Saldo anda tidak mencukupi');
+        $response->assertSee('Saldo tidak mencukupi');
 
         // CRITICAL CHECK: Stock must NOT decrease
         $this->assertDatabaseHas('vouchers', [
@@ -357,6 +357,17 @@ class VoucherTransactionTest extends TestCase
              $table->integer('qty')->default(1);
              $table->string('status_joki')->default('Pending');
              $table->timestamps();
+        });
+
+        $schema->create('provider_paths', function ($table) {
+            $table->id();
+            $table->foreignId('layanan_id')->nullable();
+            $table->string('provider_code');
+            $table->string('provider_sku')->nullable();
+            $table->integer('priority')->default(1);
+            $table->bigInteger('modal_price')->default(0);
+            $table->string('status')->default('available');
+            $table->timestamps();
         });
     }
 }
