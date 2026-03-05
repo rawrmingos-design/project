@@ -64,7 +64,7 @@ jobs:
           restore-keys: composer-
 
       - name: 🔧 Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-reqs
+        run: composer install --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-reqs
 
       - name: 📝 Copy .env for testing
         run: |
