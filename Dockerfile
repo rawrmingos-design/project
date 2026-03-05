@@ -1,35 +1,33 @@
 # =====================================================
-# Dockerfile — Laravel App (PHP 8.2 FPM)
-# Stack : PHP 8.2 + FPM + Composer + Node.js
+# Dockerfile — Laravel App (PHP 8.4 FPM Alpine)
+# Stack : PHP 8.4 + FPM + Composer + Node.js
 # =====================================================
 
 FROM php:8.4-fpm-alpine AS base
 
 # ---------------------------------------------------------------------------
 # System dependencies & PHP Extensions
+# Install build tools permanently (no apk del to avoid issues on PHP 8.4)
 # ---------------------------------------------------------------------------
 RUN apk add --no-cache \
-        # Build tools
-        $PHPIZE_DEPS \
-        # Compression
+        autoconf \
+        g++ \
+        gcc \
+        make \
+        pkgconf \
         libzip-dev \
         zip \
         unzip \
-        # Image processing (intervention/image)
         libpng-dev \
         libjpeg-turbo-dev \
         libwebp-dev \
         freetype-dev \
-        # XML / cURL / ICU
         libxml2-dev \
         curl-dev \
         icu-dev \
         icu-libs \
-        # Git (for Composer dev installs)
         git \
-        # Supervisor (process manager)
         supervisor \
-        # Nginx (optional: remove if using separate nginx container)
         nginx \
     && docker-php-ext-configure gd \
         --with-freetype \
@@ -44,12 +42,11 @@ RUN apk add --no-cache \
         bcmath \
         gd \
         zip \
-        xml \
         intl \
         opcache \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && apk del $PHPIZE_DEPS
+    && rm -rf /tmp/pear
 
 # ---------------------------------------------------------------------------
 # Composer
@@ -57,7 +54,7 @@ RUN apk add --no-cache \
 COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 
 # ---------------------------------------------------------------------------
-# Node.js & NPM (untuk build assets Vite/Mix)
+# Node.js & NPM
 # ---------------------------------------------------------------------------
 RUN apk add --no-cache nodejs npm
 
@@ -73,7 +70,7 @@ COPY docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
 WORKDIR /var/www/html
 
 # ---------------------------------------------------------------------------
-# Production Stage: install dependencies & copy code
+# Production Stage
 # ---------------------------------------------------------------------------
 FROM base AS production
 
