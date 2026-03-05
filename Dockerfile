@@ -1,40 +1,16 @@
 # =====================================================
 # Dockerfile — Laravel App (PHP 8.4 FPM Alpine)
-# Stack : PHP 8.4 + FPM + Composer + Node.js
 # =====================================================
 
 FROM php:8.4-fpm-alpine AS base
 
 # ---------------------------------------------------------------------------
-# System dependencies & PHP Extensions
-# Install build tools permanently (no apk del to avoid issues on PHP 8.4)
+# Use install-php-extensions (handles all deps automatically on Alpine)
+# https://github.com/mlocati/docker-php-extension-installer
 # ---------------------------------------------------------------------------
-RUN apk add --no-cache \
-        autoconf \
-        g++ \
-        gcc \
-        make \
-        pkgconf \
-        libzip-dev \
-        zip \
-        unzip \
-        libpng-dev \
-        libjpeg-turbo-dev \
-        libwebp-dev \
-        freetype-dev \
-        libxml2-dev \
-        curl-dev \
-        icu-dev \
-        icu-libs \
-        git \
-        supervisor \
-        nginx \
-    && docker-php-ext-configure gd \
-        --with-freetype \
-        --with-jpeg \
-        --with-webp \
-    && docker-php-ext-install -j$(nproc) \
-        pdo \
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN chmod +x /usr/local/bin/install-php-extensions \
+    && install-php-extensions \
         pdo_mysql \
         mbstring \
         exif \
@@ -44,9 +20,15 @@ RUN apk add --no-cache \
         zip \
         intl \
         opcache \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && rm -rf /tmp/pear
+        redis
+
+# ---------------------------------------------------------------------------
+# System tools: git, supervisor, nginx
+# ---------------------------------------------------------------------------
+RUN apk add --no-cache \
+        git \
+        supervisor \
+        nginx
 
 # ---------------------------------------------------------------------------
 # Composer
@@ -98,9 +80,7 @@ RUN php artisan storage:link || true \
     && php artisan view:cache \
     && php artisan event:cache
 
-# ---------------------------------------------------------------------------
 # Permissions
-# ---------------------------------------------------------------------------
 RUN chown -R www-data:www-data /var/www/html/storage \
                                /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage \
