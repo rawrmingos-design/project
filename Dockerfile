@@ -71,7 +71,7 @@ RUN composer install \
 COPY . .
 
 # Install & build Node.js assets
-RUN npm ci && npm run build && rm -rf node_modules
+RUN npm ci && npm run production && rm -rf node_modules
 
 # Laravel optimization
 RUN php artisan storage:link || true \
