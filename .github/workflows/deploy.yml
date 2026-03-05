@@ -49,10 +49,10 @@ jobs:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐘 Setup PHP 8.2
+      - name: 🐘 Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.4'
           extensions: pdo, pdo_mysql, mbstring, exif, pcntl, bcmath, gd, zip, intl
           coverage: none
 
