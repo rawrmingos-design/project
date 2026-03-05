@@ -1,0 +1,79 @@
+# =====================================================
+# .dockerignore — Exclude files from Docker build context
+# =====================================================
+
+# -------------------------------------------------------
+# Version Control
+# -------------------------------------------------------
+.git
+.gitignore
+.gitattributes
+
+# -------------------------------------------------------
+# Node modules (di-install ulang saat build)
+# -------------------------------------------------------
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# -------------------------------------------------------
+# Laravel Cache & Compiled Files (di-generate ulang)
+# -------------------------------------------------------
+bootstrap/cache/*.php
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+
+# -------------------------------------------------------
+# Development & Testing files
+# -------------------------------------------------------
+tests/
+.env
+.env.example
+.env.testing
+phpunit.xml
+phpunit.xml.dist
+CHANGELOG.md
+README.md
+*.md
+
+# -------------------------------------------------------
+# Docker files sendiri (tidak perlu di dalam image)
+# -------------------------------------------------------
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+docker/
+
+# -------------------------------------------------------
+# IDE & Editor
+# -------------------------------------------------------
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+.editorconfig
+
+# -------------------------------------------------------
+# OS files
+# -------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -------------------------------------------------------
+# Composer dev packages (tidak diinstall di production)
+# -------------------------------------------------------
+vendor/phpunit/
+vendor/mockery/
+vendor/fakerphp/
+
+# -------------------------------------------------------
+# Build artifacts
+# -------------------------------------------------------
+public/hot
+public/mix-manifest.json
