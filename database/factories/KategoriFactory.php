@@ -13,12 +13,13 @@ class KategoriFactory extends Factory
     {
         return [
             'nama'            => $this->faker->word,
+            'sub_nama'        => $this->faker->word,
             'kode'            => $this->faker->unique()->slug,
             'tipe'            => 'game',
             'status'          => 'active',
             'server_id'       => 0,
             'thumbnail'       => 'thumb.jpg',
-            'bannerlayanan'   => 'banner.jpg',
+            'banner'          => 'banner.jpg',
             'deskripsi_game'  => 'Desc',
             'deskripsi_field' => 'Field Desc',
         ];
