@@ -3,7 +3,7 @@
 # Stack : PHP 8.2 + FPM + Composer + Node.js
 # =====================================================
 
-FROM php:8.2-fpm-alpine AS base
+FROM php:8.3-fpm-alpine AS base
 
 # ---------------------------------------------------------------------------
 # System dependencies & PHP Extensions
