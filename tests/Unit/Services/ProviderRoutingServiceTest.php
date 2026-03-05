@@ -20,9 +20,23 @@ class ProviderRoutingServiceTest extends TestCase
         parent::setUp();
         // Seed SettingWeb for credentials check
         SettingWeb::create([
-            'judul_web'      => 'Test Web',
-            'username_digi'  => 'demo_digi',
-            'api_key_digi'   => 'key_digi',
+            'judul_web'        => 'Test Web',
+            'deskripsi_web'    => 'Test Desc',
+            'keywords'         => 'test',
+            'url_wa'           => 'wa.me/test',
+            'url_ig'           => 'instagram.com/test',
+            'url_tiktok'       => 'tiktok.com/test',
+            'url_youtube'      => 'youtube.com/test',
+            'url_fb'           => 'facebook.com/test',
+            'topupindo_api'    => 'test_api',
+            'warna1'           => '#000000',
+            'warna2'           => '#ffffff',
+            'warna3'           => '#cccccc',
+            'warna4'           => '#333333',
+            'paydisini_apikey' => 'test_paydisini',
+            'order_prefik'     => 'TRX',
+            'username_digi'    => 'demo_digi',
+            'api_key_digi'     => 'key_digi',
         ]);
         
         $this->service = new ProviderRoutingService();

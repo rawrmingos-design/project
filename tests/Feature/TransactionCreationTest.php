@@ -28,6 +28,20 @@ class TransactionCreationTest extends TestCase
         // Seed basic settings (only columns that exist in real migration)
         DB::table('setting_webs')->insert([
             'id'                   => 1,
+            'judul_web'            => 'Test Web',
+            'deskripsi_web'        => 'Test Desc',
+            'keywords'             => 'test',
+            'url_wa'               => 'wa.me/test',
+            'url_ig'               => 'instagram.com/test',
+            'url_tiktok'           => 'tiktok.com/test',
+            'url_youtube'          => 'youtube.com/test',
+            'url_fb'               => 'facebook.com/test',
+            'topupindo_api'        => 'test_api',
+            'warna1'               => '#000000',
+            'warna2'               => '#ffffff',
+            'warna3'               => '#cccccc',
+            'warna4'               => '#333333',
+            'paydisini_apikey'     => 'test_paydisini',
             'order_prefik'         => 'TRX',
             'tripay_api'           => 'test_api_key',
             'tripay_merchant_code' => 'test_merchant',
@@ -35,9 +49,6 @@ class TransactionCreationTest extends TestCase
             'username_digi'        => 'test_digi',
             'api_key_digi'         => 'test_digi_key',
             'logo_header'          => 'logo.png',
-            'judul_web'            => 'Test Web',
-            'deskripsi_web'        => 'Test Desc',
-            'keywords'             => 'test',
         ]);
 
         // Create User
