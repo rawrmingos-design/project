@@ -45,7 +45,8 @@ Dockerfile
 docker-compose.yml
 docker-compose.*.yml
 .dockerignore
-docker/
+docker/nginx/
+docker/mysql/
 
 # -------------------------------------------------------
 # IDE & Editor
