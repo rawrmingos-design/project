@@ -118,7 +118,7 @@ class TransactionCreationTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson('/order', [
+        $response = $this->postJson('/id', [
             'uid'            => '12345',
             'zone'           => '1234',
             'nickname'       => 'TestNick',
@@ -151,7 +151,7 @@ class TransactionCreationTest extends TestCase
         $this->user->update(['balance' => 0]);
         $this->actingAs($this->user);
 
-        $response = $this->postJson('/order', [
+        $response = $this->postJson('/id', [
             'uid'            => '12345',
             'zone'           => '1234',
             'service'        => $this->layanan->id,
@@ -182,7 +182,7 @@ class TransactionCreationTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson('/order', [
+        $response = $this->postJson('/id', [
             'uid'            => '12345',
             'zone'           => '1234',
             'service'        => $this->layanan->id,

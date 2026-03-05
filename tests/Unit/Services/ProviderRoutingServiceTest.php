@@ -20,9 +20,9 @@ class ProviderRoutingServiceTest extends TestCase
         parent::setUp();
         // Seed SettingWeb for credentials check
         SettingWeb::create([
-            'username_digi' => 'demo_digi',
-            'api_key_digi' => 'key_digi',
-            // Add other necessary defaults to avoid validation errors if any
+            'judul_web'      => 'Test Web',
+            'username_digi'  => 'demo_digi',
+            'api_key_digi'   => 'key_digi',
         ]);
         
         $this->service = new ProviderRoutingService();

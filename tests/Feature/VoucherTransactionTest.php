@@ -109,7 +109,7 @@ class VoucherTransactionTest extends TestCase
     public function test_voucher_validity_and_calculation()
     {
         $response = $this->actingAs($this->user)
-            ->postJson('/order', [
+            ->postJson('/id', [
                 'uid' => '12345',
                 'zone' => '1234',
                 'service' => $this->service->id,
@@ -150,7 +150,7 @@ class VoucherTransactionTest extends TestCase
         $this->voucher->update(['mintrx' => 200000]);
 
         $response = $this->actingAs($this->user)
-            ->postJson('/order', [
+            ->postJson('/id', [
                 'uid' => '12345',
                 'zone' => '1234',
                 'service' => $this->service->id, // Price 100k < 200k
@@ -177,7 +177,7 @@ class VoucherTransactionTest extends TestCase
         $this->voucher->update(['stock' => 0]);
 
         $response = $this->actingAs($this->user)
-            ->postJson('/order', [
+            ->postJson('/id', [
                 'uid' => '12345',
                 'zone' => '1234',
                 'service' => $this->service->id,
@@ -199,7 +199,7 @@ class VoucherTransactionTest extends TestCase
         $this->user->update(['balance' => 1000]); // Less than 80k
 
         $response = $this->actingAs($this->user)
-            ->postJson('/order', [
+            ->postJson('/id', [
                 'uid' => '12345',
                 'zone' => '1234',
                 'service' => $this->service->id,
