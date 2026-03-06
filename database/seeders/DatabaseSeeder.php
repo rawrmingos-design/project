@@ -8,6 +8,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Seed the application's database.
+     * Data generated dari topup.sql
      *
      * @return void
      */
@@ -17,23 +18,41 @@ class DatabaseSeeder extends Seeder
         $this->command->info('  Starting Database Seeding Process  ');
         $this->command->info('=====================================');
         $this->command->newLine();
-        
-        // Seed users first
-        $this->command->info('Step 1: Seeding Users...');
-        $this->call(UserSeeder::class);
+
+        // Urutan penting: foreign key dependencies
+        $this->call([
+            // Core config
+            SettingWebsSeeder::class,
+            UsersSeeder::class,
+
+            // Kategori & Layanan
+            CategoryTypesSeeder::class,
+            KategorisSeeder::class,
+            CustomInputsSeeder::class,
+            ProvidersSeeder::class,
+            ProviderPathsSeeder::class,
+            LayanansSeeder::class,
+
+            // Paket
+            PaketsSeeder::class,
+            PaketLayanansSeeder::class,
+
+            // Payment
+            MethodsSeeder::class,
+
+            // Content
+            BeritasSeeder::class,
+            EmailTemplatesSeeder::class,
+            WhatsappTemplatesSeeder::class,
+
+            // Misc
+            VouchersSeeder::class,
+            WhitelistedIpsSeeder::class,
+        ]);
+
         $this->command->newLine();
-        
-        // Then seed deposits (depends on users)
-        $this->command->info('Step 2: Seeding Deposits...');
-        $this->call(DepositSeeder::class);
-        $this->command->newLine();
-        
         $this->command->info('=====================================');
-        $this->command->info('  Database Seeding Completed!  ');
+        $this->command->info('  Database Seeding Completed!        ');
         $this->command->info('=====================================');
-        $this->command->newLine();
-        $this->command->info('You can now login with:');
-        $this->command->info('  Email: admin@topup.com');
-        $this->command->info('  Password: password');
     }
 }
