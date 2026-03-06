@@ -14,16 +14,11 @@ services:
   # PHP-FPM — Laravel Application
   # =====================================================
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+    image: ghcr.io/rawrmingos-design/laravel-topup:latest
     container_name: laravel_app
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      # Mount source code (development mode — hapus di production jika image sudah include kode)
-      - .:/var/www/html
       # Persistent storage untuk uploads dan logs
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs

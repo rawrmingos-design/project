@@ -169,7 +169,7 @@ jobs:
 
             # Restart container tanpa downtime (rolling update)
             docker compose pull
-            docker compose up -d --no-deps --build app
+            docker compose up -d --no-deps app
 
             # Jalankan migration (auto, dengan --force untuk production)
             docker compose exec -T app php artisan migrate --force
