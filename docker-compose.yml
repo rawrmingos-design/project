@@ -19,6 +19,8 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
+      # Mount .env dari host ke dalam container
+      - ./.env:/var/www/html/.env
       # Persistent storage untuk uploads dan logs
       - app_storage:/var/www/html/storage/app
       - app_logs:/var/www/html/storage/logs
