@@ -45,7 +45,7 @@ Dockerfile
 docker-compose.yml
 docker-compose.*.yml
 .dockerignore
-docker/nginx/
+docker/nginx/nginx.conf
 docker/mysql/
 
 # -------------------------------------------------------
