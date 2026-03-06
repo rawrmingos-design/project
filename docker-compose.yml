@@ -84,11 +84,6 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
       - db_data:/var/lib/mysql
-      # Konfigurasi MySQL kustom (opsional)
-      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-    ports:
-      # Expose hanya untuk development/debugging lokal (hapus di production!)
-      - "${DB_PORT_EXPOSE:-3306}:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
       interval: 10s
