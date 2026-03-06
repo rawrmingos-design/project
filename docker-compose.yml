@@ -47,28 +47,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - laravel_net
-
-  # =====================================================
-  # Nginx — Web Server
-  # =====================================================
-  nginx:
-    image: nginx:1.25-alpine
-    container_name: laravel_nginx
-    restart: unless-stopped
     ports:
-      # aaPanel Nginx mendengarkan port 80/443 → Docker pakai 8080 sebagai internal
-      # aaPanel akan jadi reverse proxy: 80/443 → 127.0.0.1:8080
-      - "${NGINX_PORT:-8080}:80"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # Static files & public folder (akses langsung tanpa lewat PHP-FPM)
-      - .:/var/www/html:ro
-      # Logs
-      - nginx_logs:/var/log/nginx
-    depends_on:
-      - app
+      # Nginx di dalam container listen 8080 → aaPanel proxy ke sini
+      - "${NGINX_PORT:-8080}:8080"
     networks:
       - laravel_net
 

@@ -90,6 +90,12 @@ RUN chown -R www-data:www-data /var/www/html/storage \
 # Copy Supervisor config
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-EXPOSE 9000
+# Copy nginx config ke dalam container
+COPY docker/nginx/app.conf /etc/nginx/nginx.conf
+
+# Pastikan dir nginx ada
+RUN mkdir -p /run/nginx
+
+EXPOSE 8080
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
