@@ -96,6 +96,24 @@ services:
       - laravel_net
 
   # =====================================================
+  # phpMyAdmin — Database Management UI (port 8081)
+  # =====================================================
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: laravel_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+    depends_on:
+      - db
+    networks:
+      - laravel_net
+
+  # =====================================================
   # Redis — Cache, Session & Queue
   # =====================================================
   redis:
