@@ -5060,132 +5060,280 @@ document.addEventListener("DOMContentLoaded", function() {
     // Inject point widget CSS
     var style = document.createElement('style');
     style.textContent = `
-        #point-widget {
-            display: none;
-            background: linear-gradient(135deg, #1a1a2e, #16213e);
-            border: 1px solid #ffc007;
-            border-radius: 12px;
-            padding: 12px 16px;
-            margin: 8px 16px 0;
+        .point-widget {
+            margin: 16px 0;
+            transition: all 0.3s ease;
         }
-        #point-widget .pw-header {
+        .pw-header-container {
+            display: flex;
+            border-bottom: 1px solid #4b5563; /* border-murky-600 */
+        }
+        .pw-header-icon {
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #ffc007;
-            margin-bottom: 8px;
+            justify-content: center;
+            background: linear-gradient(to bottom, var(--warna_3), var(--warna_4)); /* from-primary-400 to-primary-600 */
+            padding: 8px 12px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #fff;
+            border-top-left-radius: 0.75rem;
         }
-        #point-widget .pw-balance {
-            font-size: 11px;
-            color: #aaa;
-            margin-bottom: 8px;
-        }
-        #point-widget input[type=range] {
+        .pw-header-title {
+            display: flex;
             width: 100%;
-            accent-color: #ffc007;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--warna_4); /* from-murky-800 */
+            padding: 8px 16px;
+            font-size: 1rem;
+            line-height: 1.5rem;
+            font-weight: 600;
+            color: #fff;
+            border-top-right-radius: 0.75rem;
         }
-        #point-widget .pw-info {
+        .pw-body {
+            padding: 16px 24px;
+            background-color: var(--warna_4);
+            border-bottom-left-radius: 0.75rem;
+            border-bottom-right-radius: 0.75rem;
+        }
+        .pw-balance {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
-            margin-top: 4px;
+            font-size: 12px;
+            color: #e5e7eb;
+            margin-bottom: 16px;
         }
-        #point-widget .pw-discount {
+        .pw-balance strong {
+            color: #fff;
+            font-weight: 700;
+        }
+        .pw-slider-container {
+            padding: 0;
+        }
+        .pw-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 4px;
+            background: #374151;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        .pw-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f97316;
+            cursor: pointer;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+            border: 2px solid #fff;
+            transition: transform 0.1s;
+        }
+        .pw-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        .pw-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f97316;
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+        }
+        .pw-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-top: 16px;
+            color: #d1d5db;
+        }
+        .pw-discount {
             color: #4ade80;
             font-weight: 700;
         }
-        #point-widget .pw-limit {
-            color: #aaa;
+        .pw-limit {
+            text-align: left;
+            color: #9ca3af;
+            font-size: 11px;
+            margin-top: 8px;
+            font-style: italic;
         }
     `;
     document.head.appendChild(style);
 
     // Inject point widget HTML into page
-    // Will be inserted after nominal selection section
     var widgetHtml = `
-        <div id="point-widget">
-            <div class="pw-header">⭐ Gunakan Poin Kamu</div>
-            <div class="pw-balance">Saldo: <strong id="pw-bal">0</strong> poin (<span id="pw-bal-rp">Rp 0</span>)</div>
-            <input type="range" id="pw-slider" min="0" value="0" step="1">
-            <div class="pw-info">
-                <span>Pakai: <strong id="pw-use">0</strong> poin</span>
-                <span class="pw-discount">Hemat: <strong id="pw-save">Rp 0</strong></span>
-                <span class="pw-limit" id="pw-limit-text"></span>
+        <div class="point-widget rounded-xl shadow-2xl">
+            <div class="pw-header-container">
+                <div class="pw-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
+                </div>
+                <h3 class="pw-header-title">Gunakan Poin Kamu</h3>
             </div>
-            <input type="hidden" name="use_point" id="pw-input" value="0">
+            <div class="pw-body">
+                <div class="pw-balance">
+                    <span>Saldo Aktif:</span>
+                    <span><strong class="pw-bal">0</strong> Poin (<span class="pw-bal-rp font-medium text-warning">Rp 0</span>)</span>
+                </div>
+                <div class="pw-slider-container">
+                    <input type="range" class="pw-slider" min="0" max="{{ Auth::user()->point_balance ?? 0 }}" value="0" step="1">
+                </div>
+                <div class="pw-info">
+                    <span>Poin Dipakai: <strong class="pw-use text-white">0</strong></span>
+                    <span class="pw-discount">Hemat: <strong class="pw-save">Rp 0</strong></span>
+                </div>
+                <div class="pw-limit pw-limit-text"></div>
+                <input type="hidden" name="use_point" class="pw-input" value="0">
+            </div>
         </div>
     `;
 
     // Append widget to section-nominal or payment area
-    document.addEventListener('DOMContentLoaded', function() {
-        var sectionNominal = document.getElementById('section-nominal');
-        if (sectionNominal && window.userPointBalance > 0) {
-            sectionNominal.insertAdjacentHTML('beforeend', widgetHtml);
+    function renderPointWidget() {
+        console.log("[Point Widget] renderPointWidget dipanggil. Saldo:", window.userPointBalance);
+        
+        var whatsappSection = document.querySelectorAll('#whatsappp');
+        console.log("[Point Widget] Ditemukan " + whatsappSection.length + " elemen #whatsappp");
+        
+        whatsappSection.forEach(function(wa) {
+            if (window.userPointBalance > 0) {
+                // Ensure it's not appended multiple times
+                if (!wa.previousElementSibling || !wa.previousElementSibling.classList.contains('point-widget')) {
+                    console.log("[Point Widget] Meng-append widget html sebelum #whatsappp.");
+                    wa.insertAdjacentHTML('beforebegin', widgetHtml);
+                } else {
+                    console.log("[Point Widget] Widget sudah exist di DOM.");
+                }
+            } else {
+                console.log("[Point Widget] User tidak memiliki point, widget dilewati.");
+            }
+        });
+        
+        if (window.userPointBalance > 0) {
             initPointWidget();
         }
-    });
+    }
+
+    if (typeof jQuery !== 'undefined') {
+        jQuery(document).ready(function() {
+            renderPointWidget();
+        });
+    } else if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderPointWidget);
+    } else {
+        renderPointWidget();
+    }
+
+    window.lastBaseHarga = 0;
+    window.lastMethods = null;
 
     function initPointWidget() {
-        var slider = document.getElementById('pw-slider');
-        var balEl = document.getElementById('pw-bal');
-        var balRpEl = document.getElementById('pw-bal-rp');
-        var useEl = document.getElementById('pw-use');
-        var saveEl = document.getElementById('pw-save');
-        var limitEl = document.getElementById('pw-limit-text');
-        var hiddenInput = document.getElementById('pw-input');
-
-        balEl.textContent = window.userPointBalance.toLocaleString('id-ID');
-
         function formatRp(n) {
             return 'Rp ' + Math.round(n).toLocaleString('id-ID');
         }
 
+        document.querySelectorAll('.point-widget').forEach(function(widget) {
+            var slider = widget.querySelector('.pw-slider');
+            var balEl = widget.querySelector('.pw-bal');
+            var balRpEl = widget.querySelector('.pw-bal-rp');
+            var useEl = widget.querySelector('.pw-use');
+            var saveEl = widget.querySelector('.pw-save');
+            var hiddenInput = widget.querySelector('.pw-input');
+
+            if (balEl) balEl.textContent = window.userPointBalance.toLocaleString('id-ID');
+
+            if (slider) {
+                slider.addEventListener('input', function() {
+                    var pointValue = parseInt(slider.getAttribute('data-point-value') || 100);
+                    var v = parseInt(slider.value);
+                    if (useEl) useEl.textContent = v.toLocaleString('id-ID');
+                    if (saveEl) saveEl.textContent = formatRp(v * pointValue);
+                    if (hiddenInput) hiddenInput.value = v;
+
+                    // Sync the other slider
+                    document.querySelectorAll('.point-widget').forEach(other => {
+                        if (other !== widget) {
+                            var otherSlider = other.querySelector('.pw-slider');
+                            if (otherSlider && otherSlider.value !== slider.value) {
+                                otherSlider.value = slider.value;
+                                if (other.querySelector('.pw-use')) other.querySelector('.pw-use').textContent = v.toLocaleString('id-ID');
+                                if (other.querySelector('.pw-save')) other.querySelector('.pw-save').textContent = formatRp(v * pointValue);
+                                if (other.querySelector('.pw-input')) other.querySelector('.pw-input').value = v;
+                            }
+                        }
+                    });
+
+                     // trigger price update when points are used, need to recalculate total
+                     if(typeof updatePrice === 'function') {
+                         var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
+                         updatePrice(currentQty);
+                     } else if (typeof changeHarga === 'function' && window.lastBaseHarga && window.lastMethods) {
+                         // Mengurangi harga dengan diskon poin dan menggunakan fungsi changeHarga tanpa mensimulasikan click
+                         var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
+                         var basePrice = window.lastBaseHarga * currentQty;
+                         var finalBasePrice = Math.max(0, basePrice - (v * pointValue));
+                         changeHarga(finalBasePrice, window.lastMethods);
+                     }
+                });
+            }
+        });
+
         // Called when price AJAX returns point_info
         window.updatePointWidget = function(pointInfo) {
-            if (!pointInfo) { document.getElementById('point-widget').style.display = 'none'; return; }
-
-            var pointValue = pointInfo.point_value || 100;
-            var maxPoints = pointInfo.max_points || 0;
+            var widgets = document.querySelectorAll('.point-widget');
+            
+            var pointValue = pointInfo && pointInfo.point_value ? pointInfo.point_value : 100;
+            // Limit the max points that can be chosen to the actual points the user has
+            // Or the limit set by the server (whichever is smaller)
+            var maxAllowedByServer = pointInfo && pointInfo.max_points ? pointInfo.max_points : 0;
+            var maxPoints = Math.min(maxAllowedByServer, window.userPointBalance);
+            
             var balance = window.userPointBalance;
 
-            balRpEl.textContent = formatRp(balance * pointValue);
-            slider.max = maxPoints;
-            limitEl.textContent = '(maks ' + maxPoints.toLocaleString('id-ID') + ' poin)';
+            widgets.forEach(function(widget) {
+                var slider = widget.querySelector('.pw-slider');
+                var balRpEl = widget.querySelector('.pw-bal-rp');
+                var limitEl = widget.querySelector('.pw-limit');
+                var useEl = widget.querySelector('.pw-use');
+                var saveEl = widget.querySelector('.pw-save');
+                var hiddenInput = widget.querySelector('.pw-input');
 
-            if (maxPoints > 0 && balance > 0) {
-                document.getElementById('point-widget').style.display = 'block';
-            } else {
-                document.getElementById('point-widget').style.display = 'none';
-            }
-
-            // Update display
-            var current = Math.min(parseInt(slider.value), maxPoints);
-            slider.value = current;
-            useEl.textContent = current.toLocaleString('id-ID');
-            saveEl.textContent = formatRp(current * pointValue);
-            hiddenInput.value = current;
+                if (balRpEl) balRpEl.textContent = formatRp(balance * pointValue);
+                
+                if (slider) {
+                    slider.max = maxPoints;
+                    var current = Math.min(parseInt(slider.value || 0), maxPoints);
+                    slider.value = current;
+                    
+                    if (useEl) useEl.textContent = current.toLocaleString('id-ID');
+                    if (saveEl) saveEl.textContent = formatRp(current * pointValue);
+                    if (hiddenInput) hiddenInput.value = current;
+                }
+                
+                if (limitEl) limitEl.textContent = '**Maks. penggunaan ' + maxPoints.toLocaleString('id-ID') + ' poin';
+            });
         };
-
-        slider.addEventListener('input', function() {
-            var pointValue = parseInt(slider.getAttribute('data-point-value') || 100);
-            var v = parseInt(slider.value);
-            useEl.textContent = v.toLocaleString('id-ID');
-            saveEl.textContent = formatRp(v * pointValue);
-            hiddenInput.value = v;
-        });
     }
 
     // Intercept AJAX responses from product-list click to update widget
-    var origAjax = jQuery.ajax;
     if (typeof jQuery !== 'undefined') {
-        $(document).ajaxSuccess(function(event, xhr, settings, data) {
+        jQuery(document).ajaxSuccess(function(event, xhr, settings, data) {
             if (settings.url && settings.url.includes('ajax/price')) {
-                if (data && data.point_info && typeof window.updatePointWidget === 'function') {
-                    var slider = document.getElementById('pw-slider');
-                    if (slider) slider.setAttribute('data-point-value', data.point_info.point_value);
-                    window.updatePointWidget(data.point_info);
+                if (data) {
+                    if (data.harga !== undefined && data.methods !== undefined) {
+                        window.lastBaseHarga = data.harga;
+                        window.lastMethods = data.methods;
+                    }
+                    if (data.point_info && typeof window.updatePointWidget === 'function') {
+                        document.querySelectorAll('.pw-slider').forEach(function(slider) {
+                            slider.setAttribute('data-point-value', data.point_info.point_value);
+                        });
+                        window.updatePointWidget(data.point_info);
+                    }
                 }
             }
         });
@@ -5251,32 +5399,43 @@ function updatePrice(qty) {
         success: function(response) {
             const basePrice = response.harga * qty;
             const paymentMethod = $("input[name='paymentMethod']:checked").val();
-            const finalPrice = calculatePrice(basePrice, paymentMethod);
+            let finalPrice = calculatePrice(basePrice, paymentMethod);
+            
+            // Apply point discount if used
+            let pointDiscount = 0;
+            const pointInput = document.querySelector('.pw-input');
+            const pointSlider = document.querySelector('.pw-slider');
+            if (pointInput && pointSlider) {
+                const usedPoints = parseInt(pointInput.value || 0);
+                const pointValue = parseInt(pointSlider.getAttribute('data-point-value') || 100);
+                pointDiscount = usedPoints * pointValue;
+            }
+            finalPrice = Math.max(0, finalPrice - pointDiscount);
             
             // Update UI
             $(".selected-order").text(formatToRupiah(finalPrice));
             updateQtyDisplay(qty);
             
             // Update payment method prices
-            updatePaymentMethodPrices(basePrice);
+            updatePaymentMethodPrices(basePrice, pointDiscount);
         }
     });
 }
 
-function updatePaymentMethodPrices(basePrice) {
+function updatePaymentMethodPrices(basePrice, pointDiscount = 0) {
     $('.method-list').each(function() {
         const methodCode = $(this).attr('method-id');
-        const finalPrice = calculatePrice(basePrice, methodCode);
+        let finalPrice = calculatePrice(basePrice, methodCode);
+        finalPrice = Math.max(0, finalPrice - pointDiscount);
         $(this).find('.hargapembayaran').text(formatToRupiah(finalPrice));
     });
 }
 
 // Event listeners
 $('.payment-method').on('click', function() {
-    const basePrice = parseFloat($('.selected-order').text().replace(/[^0-9]/g, ''));
-    const methodCode = $(this).attr('method-id');
-    const finalPrice = calculatePrice(basePrice, methodCode);
-    $('.selected-order').text(formatToRupiah(finalPrice));
+    // Re-trigger price update to recalculate everything properly include points
+    var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
+    updatePrice(currentQty);
 });
 
 function updateQtyDisplay(t) {
@@ -5294,13 +5453,24 @@ $(".product-list").click(function() {
         type: "POST",
         data: { _token: "{{ csrf_token() }}", nominal: t },
         success: function(t) {
-            var a = Math.max(1, parseInt($("#qty").val()));
+            var a = Math.max(1, parseInt($("#qty").val() || 1));
             const basePrice = t.harga * a;
             const paymentMethod = $("input[name='paymentMethod']:checked").val();
-            const finalPrice = calculatePrice(basePrice, paymentMethod);
-            console.log(finalPrice);
+            let finalPrice = calculatePrice(basePrice, paymentMethod);
+            
+            let pointDiscount = 0;
+            const pointInput = document.querySelector('.pw-input');
+            const pointSlider = document.querySelector('.pw-slider');
+            if (pointInput && pointSlider) {
+                const usedPoints = parseInt(pointInput.value || 0);
+                const pointValue = parseInt(pointSlider.getAttribute('data-point-value') || 100);
+                pointDiscount = usedPoints * pointValue;
+            }
+            finalPrice = Math.max(0, finalPrice - pointDiscount);
+
             $(".selected-order").text(formatToRupiah(finalPrice));
             updateQtyDisplay(a);
+            updatePaymentMethodPrices(basePrice, pointDiscount);
         }
     });
 });

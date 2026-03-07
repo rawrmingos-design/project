@@ -1,0 +1,208 @@
+<?php
+
+namespace Tests\Feature;
+
+use Tests\TestCase;
+use App\Models\User;
+use App\Models\Kategori;
+use App\Models\Layanan;
+use App\Models\Pembelian;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+
+class OrderControllerPointTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $user;
+    private Kategori $kategori;
+    private Layanan $layanan;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Setup setting_webs with point config
+        DB::table('setting_webs')->insert([
+            'id' => 1,
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Deskripsi',
+            'keywords'      => 'test,web',
+            'url_wa'        => 'wa',
+            'url_ig'        => 'ig',
+            'url_tiktok'    => 'tiktok',
+            'url_youtube'   => 'yt',
+            'url_fb'        => 'fb',
+            'topupindo_api' => 'api1',
+            'warna1'        => '#000',
+            'warna2'        => '#000',
+            'warna3'        => '#000',
+            'warna4'        => '#000',
+            'paydisini_apikey' => 'key',
+            'order_prefik'  => 'TRX',
+            'point_per_nominal' => 1,
+            'point_value' => 100,
+            'max_point_usage_percent' => 50,
+        ]);
+
+        $this->user = User::factory()->create([
+            'point_balance' => 100, // Rp 10.000 equiv
+            'balance'       => 100000,
+        ]);
+
+        $this->kategori = Kategori::create([
+            'nama' => 'Mobile Legends',
+            'sub_nama' => 'Mobile Legends',
+            'kode' => 'mobile-legends',
+            'tipe' => 'game',
+            'status' => 'active',
+            'thumbnail' => 'thumb.jpg',
+            'banner' => 'banner.jpg',
+        ]);
+
+        $this->layanan = Layanan::create([
+            'kategori_id' => $this->kategori->id,
+            'layanan' => '86 Diamond',
+            'harga' => 20000,
+            'harga_member' => 20000,
+            'harga_platinum' => 20000,
+            'harga_gold' => 20000,
+            'profit' => 1000,
+            'profit_member' => 1000,
+            'profit_platinum' => 1000,
+            'profit_gold' => 1000,
+            'catatan' => 'Test',
+            'status' => 'available',
+            'provider_id' => '',
+            'provider' => 'manual',
+        ]);
+    }
+
+    /** @test */
+    public function price_endpoint_returns_point_info_for_logged_in_user()
+    {
+        $response = $this->actingAs($this->user)->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'harga',
+            'point_info' => [
+                'balance',
+                'point_value',
+                'max_points',
+                'max_discount',
+            ]
+        ]);
+
+        // Harga 20000, Max percent 50% = 10000 = 100 poin
+        // User have 100 poin, so max_points = 100
+        $response->assertJson([
+            'point_info' => [
+                'balance' => 100,
+                'point_value' => 100,
+                'max_points' => 100,
+                'max_discount' => 10000,
+            ]
+        ]);
+    }
+
+    /** @test */
+    public function price_endpoint_does_not_return_point_info_for_guest()
+    {
+        $response = $this->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonMissing(['point_info']);
+    }
+
+    /** @test */
+    public function ordered_endpoint_deducts_point_balance_and_reduces_price_for_balance_payment()
+    {
+        // Mock Provider Routing to simulate successful checkout without hitting external API
+        $this->mock(\App\Services\ProviderRoutingService::class, function ($mock) {
+            $mock->shouldReceive('findBestProvider')
+                 ->andReturn([
+                     'provider_code' => 'manual',
+                     'sku' => 'manual-123',
+                 ]);
+        });
+
+        // Poin yang mau dipakai: 50 poin = Rp 5000 diskon
+        // Harga layanan: 20000. Bayar pakai saldo member.
+        // Saldo awal: 100000. Sesudah bayar: 100000 - (20000 - 5000) = 85000
+        
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890', // WA number
+            'uid'   => '12345678',     // User ID ML
+            'zone'  => '1234',         // Zone ID ML
+            'qty'   => 1,
+            'use_point' => 50,
+        ]);
+
+        // assert successful order
+        $response->assertStatus(200);
+        $response->assertJson(['status' => true]);
+
+        // Check user point balance
+        $this->user->refresh();
+        $this->assertEquals(50, $this->user->point_balance); // 100 - 50
+        $this->assertEquals(85000, $this->user->balance);
+
+        // Check pembelian used points
+        $order = Pembelian::where('username', $this->user->username)->latest()->first();
+        $this->assertNotNull($order);
+        $this->assertEquals(50, $order->used_points);
+        
+        // Check point history record
+        $this->assertDatabaseHas('point_histories', [
+            'user_id' => $this->user->id,
+            'order_id' => $order->order_id,
+            'type' => 'redeem',
+            'points' => 50,
+        ]);
+    }
+
+    /** @test */
+    public function ordered_endpoint_caps_use_point_to_max_percent()
+    {
+        // Mock Provider Routing
+        $this->mock(\App\Services\ProviderRoutingService::class, function ($mock) {
+            $mock->shouldReceive('findBestProvider')
+                 ->andReturn([
+                     'provider_code' => 'manual',
+                     'sku' => 'manual-123',
+                 ]);
+        });
+
+        // Harga: 20000. Max diskon: 10000 (100 poin)
+        // Coba redeem 150 poin (meski user punya, jika saldo di-update)
+        $this->user->update(['point_balance' => 200]);
+
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890', // WA number
+            'uid'   => '12345678',     // User ID ML
+            'zone'  => '1234',         // Zone ID ML
+            'qty'   => 1,
+            'use_point' => 150, // Melebihi batas max
+        ]);
+
+        $response->assertStatus(200); // Harus tetep sukses, tapi poin di cap.
+
+        // Cap to 100 points
+        $this->user->refresh();
+        $this->assertEquals(100, $this->user->point_balance); // 200 - 100 = 100
+        $this->assertEquals(90000, $this->user->balance); // 100000 - (20000 - 10000) = 90000
+
+        $order = Pembelian::where('username', $this->user->username)->latest()->first();
+        $this->assertNotNull($order);
+        $this->assertEquals(100, $order->used_points);
+    }
+}

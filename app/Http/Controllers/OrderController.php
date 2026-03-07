@@ -1270,7 +1270,7 @@ class OrderController extends Controller
         $order = [];
 
         // Use ProviderRoutingService to find best provider
-        $routingService = new \App\Services\ProviderRoutingService();
+        $routingService = app(\App\Services\ProviderRoutingService::class);
         $bestRoute = $routingService->findBestProvider($dataLayanan);
 
         if (!$bestRoute) {

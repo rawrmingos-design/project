@@ -46,11 +46,19 @@ listGroupItems.forEach(function (e) {
     })
 }), window.addEventListener("load", function () {
     setTimeout(function () {
-        document.getElementById("skeleton-loader").style.display = "none", document.getElementById("itemList").classList.remove("hidden")
+        var loader = document.getElementById("skeleton-loader");
+        if (loader) loader.style.display = "none";
+
+        var itemList = document.getElementById("itemList");
+        if (itemList) itemList.classList.remove("hidden");
     }, 1500)
 }), window.addEventListener("load", function () {
     setTimeout(function () {
-        document.getElementById("skeleton-loaderr").style.display = "none", document.getElementById("paymentList").classList.remove("hidden")
+        var loaderR = document.getElementById("skeleton-loaderr");
+        if (loaderR) loaderR.style.display = "none";
+
+        var paymentList = document.getElementById("paymentList");
+        if (paymentList) paymentList.classList.remove("hidden");
     }, 1500)
 });
 
