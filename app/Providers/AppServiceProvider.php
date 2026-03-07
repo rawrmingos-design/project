@@ -28,9 +28,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
 
-        if (config('app.env') === 'production' || config('app.url') !== 'http://localhost') {
+        // Force HTTPS scheme untuk URL yang di-generate Laravel (route(), url(), asset())
+        // Menggunakan $_SERVER langsung karena config() bisa stale dari docker build cache.
+        // TrustProxies middleware (dengan $proxies = '*') sudah memastikan header ini trusted.
+        if (
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on')
+        ) {
             \URL::forceScheme('https');
         }
+
         
         Pembelian::observe(PembelianObserver::class);
 
