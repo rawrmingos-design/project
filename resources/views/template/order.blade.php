@@ -5046,8 +5046,152 @@ document.addEventListener("DOMContentLoaded", function() {
                 orderedUrl: "{{ route('ordered') }}",
                 checkVoucher: "{{ route('check.voucher') }}"
             };
+            @auth
+            window.userPointBalance = {{ Auth::user()->point_balance ?? 0 }};
+            @else
+            window.userPointBalance = 0;
+            @endauth
         </script>
         <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
+
+<!-- ===== POINT WIDGET SCRIPT ===== -->
+<script>
+(function() {
+    // Inject point widget CSS
+    var style = document.createElement('style');
+    style.textContent = `
+        #point-widget {
+            display: none;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border: 1px solid #ffc007;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin: 8px 16px 0;
+        }
+        #point-widget .pw-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #ffc007;
+            margin-bottom: 8px;
+        }
+        #point-widget .pw-balance {
+            font-size: 11px;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        #point-widget input[type=range] {
+            width: 100%;
+            accent-color: #ffc007;
+        }
+        #point-widget .pw-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        #point-widget .pw-discount {
+            color: #4ade80;
+            font-weight: 700;
+        }
+        #point-widget .pw-limit {
+            color: #aaa;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Inject point widget HTML into page
+    // Will be inserted after nominal selection section
+    var widgetHtml = `
+        <div id="point-widget">
+            <div class="pw-header">⭐ Gunakan Poin Kamu</div>
+            <div class="pw-balance">Saldo: <strong id="pw-bal">0</strong> poin (<span id="pw-bal-rp">Rp 0</span>)</div>
+            <input type="range" id="pw-slider" min="0" value="0" step="1">
+            <div class="pw-info">
+                <span>Pakai: <strong id="pw-use">0</strong> poin</span>
+                <span class="pw-discount">Hemat: <strong id="pw-save">Rp 0</strong></span>
+                <span class="pw-limit" id="pw-limit-text"></span>
+            </div>
+            <input type="hidden" name="use_point" id="pw-input" value="0">
+        </div>
+    `;
+
+    // Append widget to section-nominal or payment area
+    document.addEventListener('DOMContentLoaded', function() {
+        var sectionNominal = document.getElementById('section-nominal');
+        if (sectionNominal && window.userPointBalance > 0) {
+            sectionNominal.insertAdjacentHTML('beforeend', widgetHtml);
+            initPointWidget();
+        }
+    });
+
+    function initPointWidget() {
+        var slider = document.getElementById('pw-slider');
+        var balEl = document.getElementById('pw-bal');
+        var balRpEl = document.getElementById('pw-bal-rp');
+        var useEl = document.getElementById('pw-use');
+        var saveEl = document.getElementById('pw-save');
+        var limitEl = document.getElementById('pw-limit-text');
+        var hiddenInput = document.getElementById('pw-input');
+
+        balEl.textContent = window.userPointBalance.toLocaleString('id-ID');
+
+        function formatRp(n) {
+            return 'Rp ' + Math.round(n).toLocaleString('id-ID');
+        }
+
+        // Called when price AJAX returns point_info
+        window.updatePointWidget = function(pointInfo) {
+            if (!pointInfo) { document.getElementById('point-widget').style.display = 'none'; return; }
+
+            var pointValue = pointInfo.point_value || 100;
+            var maxPoints = pointInfo.max_points || 0;
+            var balance = window.userPointBalance;
+
+            balRpEl.textContent = formatRp(balance * pointValue);
+            slider.max = maxPoints;
+            limitEl.textContent = '(maks ' + maxPoints.toLocaleString('id-ID') + ' poin)';
+
+            if (maxPoints > 0 && balance > 0) {
+                document.getElementById('point-widget').style.display = 'block';
+            } else {
+                document.getElementById('point-widget').style.display = 'none';
+            }
+
+            // Update display
+            var current = Math.min(parseInt(slider.value), maxPoints);
+            slider.value = current;
+            useEl.textContent = current.toLocaleString('id-ID');
+            saveEl.textContent = formatRp(current * pointValue);
+            hiddenInput.value = current;
+        };
+
+        slider.addEventListener('input', function() {
+            var pointValue = parseInt(slider.getAttribute('data-point-value') || 100);
+            var v = parseInt(slider.value);
+            useEl.textContent = v.toLocaleString('id-ID');
+            saveEl.textContent = formatRp(v * pointValue);
+            hiddenInput.value = v;
+        });
+    }
+
+    // Intercept AJAX responses from product-list click to update widget
+    var origAjax = jQuery.ajax;
+    if (typeof jQuery !== 'undefined') {
+        $(document).ajaxSuccess(function(event, xhr, settings, data) {
+            if (settings.url && settings.url.includes('ajax/price')) {
+                if (data && data.point_info && typeof window.updatePointWidget === 'function') {
+                    var slider = document.getElementById('pw-slider');
+                    if (slider) slider.setAttribute('data-point-value', data.point_info.point_value);
+                    window.updatePointWidget(data.point_info);
+                }
+            }
+        });
+    }
+})();
+</script>
 
 @if(in_array($kategori->kode, ['mobile-legends']))
 <script type="text/javascript">document.addEventListener("DOMContentLoaded",(function(){let e=document.getElementById("closePopupButton"),t=document.querySelector(".popup-structure");e.addEventListener("click",(function(){t.style.display="none",localStorage.setItem("hidePopup","true")})),"true"===localStorage.getItem("hidePopup")&&(t.style.display="none"),document.getElementById("specialList").addEventListener("click",(function(e){let n=e.target.closest(".product-list");if(n){n.getAttribute("data-layanan").toLowerCase().includes("weekly diamond pass")&&(t.style.display="block")}}))})),document.addEventListener("DOMContentLoaded",(function(){let e=document.querySelectorAll(".popup-slide"),t=!1;e.length>0&&(e[0].classList.add("show"),t=!0),document.addEventListener("click",(function(n){Array.from(e).some((e=>e.contains(n.target)))||(t=!0)}))}));</script>

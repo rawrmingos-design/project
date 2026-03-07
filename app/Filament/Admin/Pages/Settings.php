@@ -507,7 +507,42 @@ class Settings extends Page implements HasForms
                     ])
                     ->collapsible()
                     ->collapsed(),
+
+                // Point System Configuration
+                Section::make('Point System Configuration')
+                    ->description('Atur sistem reward poin untuk user yang melakukan transaksi')
+                    ->columns(3)
+                    ->schema([
+                        TextInput::make('point_per_nominal')
+                            ->label('Poin per Rp 1.000')
+                            ->numeric()
+                            ->default(1)
+                            ->minValue(0)
+                            ->required()
+                            ->helperText('Jumlah poin yang didapat tiap Rp 1.000 belanja. Contoh: 1 = tiap Rp 1.000 dapat 1 poin'),
+
+                        TextInput::make('point_value')
+                            ->label('Nilai 1 Poin (Rp)')
+                            ->numeric()
+                            ->default(100)
+                            ->minValue(1)
+                            ->required()
+                            ->prefix('Rp')
+                            ->helperText('1 poin setara berapa rupiah diskon. Contoh: 100 = 1 poin = Rp 100'),
+
+                        TextInput::make('max_point_usage_percent')
+                            ->label('Maks. Penggunaan Poin (%)')
+                            ->numeric()
+                            ->default(50)
+                            ->minValue(1)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->required()
+                            ->helperText('Batas maksimal % harga yang bisa dibayar dengan poin. Contoh: 50 = maksimal 50% harga bisa pakai poin'),
+                    ])
+                    ->collapsible(),
             ])
+
             ->statePath('data');
     }
     
