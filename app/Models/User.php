@@ -37,6 +37,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'referral_code',
         'uplink',
         'affiliate_status',
+        'point_balance',
     ];
 
     /**
@@ -59,6 +60,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     protected $casts = [
         'email_verified_at' => 'datetime',
         'balance' => 'integer',
+        'point_balance' => 'integer',
     ];
 
     /**
@@ -181,7 +183,29 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         return $query->whereIn('role', ['Gold', 'Platinum']);
     }
     
+    // Point Relationships
+    public function pointHistories()
+    {
+        return $this->hasMany(PointHistory::class)->latest();
+    }
+
     // Accessors
+    public function getFormattedPointBalanceAttribute(): string
+    {
+        return number_format($this->point_balance ?? 0, 0, ',', '.') . ' poin';
+    }
+
+    public function getPointValueAttribute(): int
+    {
+        // Nilai rupiah dari saldo poin sesuai setting
+        try {
+            $setting = \DB::table('setting_webs')->where('id', 1)->first();
+            return ($this->point_balance ?? 0) * ($setting->point_value ?? 100);
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+
     public function getFormattedBalanceAttribute(): string
     {
         return 'Rp ' . number_format($this->balance ?? 0, 0, ',', '.');

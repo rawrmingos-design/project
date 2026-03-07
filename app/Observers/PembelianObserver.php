@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Pembelian;
+use App\Events\TransactionSuccess;
 use App\Services\TierService;
 use App\Services\AffiliateService;
 use Illuminate\Support\Facades\Log;
@@ -34,6 +35,9 @@ class PembelianObserver
                 
                 // Process Affiliate Commission
                 $this->affiliateService->processCommission($pembelian);
+
+                // Award points
+                TransactionSuccess::dispatch($pembelian, $user);
             }
         }
     }
@@ -51,6 +55,9 @@ class PembelianObserver
             if ($user) {
                 $this->tierService->checkAndUpgradeTier($user);
                 $this->affiliateService->processCommission($pembelian);
+
+                // Award points
+                TransactionSuccess::dispatch($pembelian, $user);
             }
         }
     }

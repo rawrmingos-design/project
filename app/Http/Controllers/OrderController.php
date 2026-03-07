@@ -209,12 +209,25 @@ class OrderController extends Controller
                 ->keyBy('code');
         });
 
-        // REMOVED: Log::info to prevent I/O latency
-        
+        // Point info (hanya untuk user yang login)
+        $pointInfo = null;
+        if (Auth::check()) {
+            $pointService = app(\App\Services\PointService::class);
+            $user = Auth::user();
+            $redeemInfo = $pointService->calculateMaxRedeemable($data->harga, $user->point_balance);
+            $pointInfo = [
+                'balance'      => $user->point_balance,
+                'max_points'   => $redeemInfo['max_points'],
+                'max_discount' => $redeemInfo['max_discount'],
+                'point_value'  => $redeemInfo['point_value'],
+            ];
+        }
+
         return response()->json([
-            'status' => true,
-            'harga' => $data->harga,
-            'methods' => $methods
+            'status'     => true,
+            'harga'      => $data->harga,
+            'methods'    => $methods,
+            'point_info' => $pointInfo,
         ]);
     }
 
@@ -786,6 +799,24 @@ class OrderController extends Controller
             }
         }
 
+        // --- POINT REDEEM LOGIC ---
+        $usedPoints = 0;
+        if ($request->use_point && $request->use_point > 0 && Auth::check()) {
+            $pointService = app(\App\Services\PointService::class);
+            $authUser = Auth::user();
+            $pointsRequested = (int) $request->use_point;
+
+            // Hitung batas maksimal
+            $redeemInfo = $pointService->calculateMaxRedeemable($dataLayanan->harga, $authUser->point_balance);
+            $pointsToUse = min($pointsRequested, $redeemInfo['max_points']);
+
+            if ($pointsToUse > 0 && $authUser->point_balance >= $pointsToUse) {
+                $discount = $pointsToUse * $redeemInfo['point_value'];
+                $dataLayanan->harga = max(1000, $dataLayanan->harga - $discount);
+                $usedPoints = $pointsToUse;
+            }
+        }
+
         // Generate Order ID — FIX #5: Tambah timestamp lebih panjang + uniqueness guard
         $setting = DB::table('setting_webs')->where('id', 1)->first();
         $prefix   = $setting->order_prefik ?? 'TRX';
@@ -794,6 +825,7 @@ class OrderController extends Controller
         while (Pembelian::where('order_id', $order_id)->exists()) {
             $order_id = $prefix . now()->format('ymdHis') . Str::upper(Str::random(6));
         }
+
         
         // Payment Method Info
         $dataMethod = Method::where('code', $request->payment_method)->first();
@@ -860,8 +892,20 @@ class OrderController extends Controller
                     $provider_order_id, $log_data, $ipAddress, $tipe
                 );
 
+                // Simpan used_points ke pembelian record
+                if ($usedPoints > 0) {
+                    Pembelian::where('order_id', $order_id)->update(['used_points' => $usedPoints]);
+                }
+
                 DB::commit();
                 Cache::forget($userKey);
+
+                // Deduct poin user setelah commit (tidak masalah jika gagal, tidak memblock order)
+                if ($usedPoints > 0 && Auth::check()) {
+                    app(\App\Services\PointService::class)->redeemPoints(
+                        Auth::user(), $usedPoints, $order_id, $dataLayanan->layanan
+                    );
+                }
 
                 // Send Success Message
                 $pesanSukses = "*Pembelian Sukses*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\nStatus Pembelian: *Sukses*\nMetode Pembayaran: *SALDO*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
