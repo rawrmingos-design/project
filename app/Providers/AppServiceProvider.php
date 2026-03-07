@@ -27,6 +27,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+
+        if (config('app.env') === 'production' || config('app.url') !== 'http://localhost') {
+            \URL::forceScheme('https');
+        }
+        
         Pembelian::observe(PembelianObserver::class);
 
         // FIX #3 XSS: Register @safeHtml Blade directive
