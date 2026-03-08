@@ -226,7 +226,7 @@ class PembeliansTable
                         \Filament\Forms\Components\Select::make('status')
                             ->label('Status Baru')
                             ->options([
-                                'Success' => 'Sukses',
+                                'Sukses' => 'Sukses',
                                 'Pending' => 'Pending',
                                 'Proses' => 'Proses',
                                 'Processing' => 'Processing',
