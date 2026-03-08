@@ -7,7 +7,7 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use Illuminate\Support\Facades\Log;
 // use App\Http\Controllers\DigiFlazzController;
-use App\Http\Controllers\provider\moogold\MoogoldController;
+use App\Http\Controllers\provider\MoogoldController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
