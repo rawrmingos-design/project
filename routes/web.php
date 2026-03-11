@@ -33,7 +33,6 @@ use App\Http\Controllers\DeviceInfoController;
 use App\Http\Controllers\PricelistController;
 use App\Http\Controllers\DsController;
 use App\Http\Controllers\MethodController;
-use App\Http\Controllers\RecentPurchasesController;
 
 use App\Http\Controllers\Admin\DataJokiController;
 // use App\Http\Controllers\GiftskinController;
@@ -74,7 +73,6 @@ Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequ
 Route::get('/senangpay/callback', [SenangpayController::class, 'handlePaymentResponse'])->name('senangpay.callback');
 
 // Live Sales FOMO Toast - recent purchases for toast notifications
-Route::get('/api/recent-purchases', [RecentPurchasesController::class, 'index']);
 
 # CRONJOB
 // /cronjob/update-gameshop
@@ -105,7 +103,6 @@ Route::get('/wip', function () {
     return response()->json(['ip' => $ipAddress]);
 });
 
-Route::get('/api/recent-purchases', [\App\Http\Controllers\IndexController::class, 'recentPurchases']);
 
 Route::get(
     '/weji-mt',

@@ -42,7 +42,8 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
-            ->path('admin')
+            ->path('')
+            ->domain(env('FILAMENT_ADMIN_DOMAIN', 'admin.istanatopup.com'))
             ->multiFactorAuthentication([
             AppAuthentication::make(),
             ])

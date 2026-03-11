@@ -35,7 +35,7 @@ return [
     'path' => '/',
 
     // Domain untuk cookie sesi (default: null)
-    'domain' => env('SESSION_DOMAIN', null),
+    'domain' => env('SESSION_DOMAIN', '.istanatopup.com'), // Tambahkan titik (.) di depan
 
     // HTTPS Only Cookies (default: true)
     'secure' => env('SESSION_SECURE_COOKIE', true),
