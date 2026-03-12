@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\MoogoldController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\TopupediaController;
@@ -265,7 +265,7 @@ class ProdukController extends Controller
                 return back()->with('error', 'Data layanan tidak valid dari API.');
             }
         }  else if ($request->provider == 'digiflazz') {
-           $digi = new digiFlazzController;
+           $digi = new DigiFlazzController;
            $data = $digi->harga();
            $profit = \DB::table('setting_webs')->where('id',1)->first();
 
@@ -529,7 +529,7 @@ class ProdukController extends Controller
     }
     
  public function sync(){
-    $digi = new digiFlazzController;
+    $digi = new DigiFlazzController;
     $data = $digi->harga();
         
     if ($data && isset($data['data'])) {

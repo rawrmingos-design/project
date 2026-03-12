@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Provider;
 
 use App\Http\Controllers\provider\BangJeffController;
 use App\Http\Controllers\provider\MoogoldController;
@@ -148,7 +148,7 @@ class CallbackController extends Controller
                     if ($dataLayanan->provider == "digiflazz") {
                         $random_part = strtoupper(uniqid());
                         $provider_order_id = 'Rp' . $random_part;
-                        $digiFlazz = new digiFlazzController;
+                        $digiFlazz = new DigiFlazzController;
                         $order = $digiFlazz->order($uid, $zone, $provider_id, $provider_order_id);
                     
                         if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {

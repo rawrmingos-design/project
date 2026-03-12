@@ -11,7 +11,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use App\Models\Kategori;
 use App\Models\Layanan;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 
 class ListProduks extends ListRecords
 {
@@ -28,7 +28,7 @@ class ListProduks extends ListRecords
                 ->color('primary')
                 ->action(function () {
                     try {
-                        $digi = new digiFlazzController;
+                        $digi = new DigiFlazzController;
                         $data = $digi->harga();
                         
                         if ($data && isset($data['data'])) {

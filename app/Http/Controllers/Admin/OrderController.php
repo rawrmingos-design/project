@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Pembelian;
 use App\Models\Layanan;
 use App\Models\Pembayaran;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -68,7 +68,7 @@ class OrderController extends Controller
         if ($provider === "digiflazz") {
                 $random_part = Str::random(18, '123456789');
                 $provider_order_id = 'REFF-WEJIZY' . $random_part;
-                $digiFlazz = new digiFlazzController;
+                $digiFlazz = new DigiFlazzController;
                 $order = $digiFlazz->order($user_id, $zone, $provider_id, $provider_order_id);
 
                 if ($order['data']['status'] === "Pending" || $order['data']['status'] === "Sukses") {

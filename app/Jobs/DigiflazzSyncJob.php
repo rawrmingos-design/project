@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use App\Models\ProviderPath;
 use Illuminate\Support\Facades\Log;
 
@@ -30,7 +30,7 @@ class DigiflazzSyncJob implements ShouldQueue
     {
         Log::info('DigiflazzSyncJob: Starting sync...');
 
-        $digi = new digiFlazzController();
+        $digi = new DigiFlazzController();
         $response = $digi->harga(); // Fetch Pricelist
 
         if (!isset($response['data']) || !is_array($response['data'])) {

@@ -13,7 +13,7 @@ use App\Models\Kategori;
 use App\Models\Voucher;
 use App\Models\Deposit;
 use App\Models\User;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 
 // Services
 use App\Services\OrderProcessingService;

@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Pembelian;
 use App\Models\Layanan;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\VipResellerController;
 use App\Http\Controllers\ApiGamesController;
 use App\Http\Controllers\BangJeffController;
@@ -75,7 +75,7 @@ class OrderProcessingService
                 case 'digiflazz':
                     // Use existing logic or standard params
                     // DigiflazzController::order($uid, $zone, $sku, $ref_id)
-                    $digiflazz = new digiFlazzController($credentials);
+                    $digiflazz = new DigiFlazzController($credentials);
                     $response = $digiflazz->order($uid, $zone, $sku, $orderId);
                     
                     Log::info("Digiflazz Response for {$orderId}: " . json_encode($response));
