@@ -23,7 +23,8 @@ class BeritasTable
                     ->size(60)
                     ->imageWidth(400)
                     ->imageHeight(200)
-                    ->square(),
+                    ->square()
+                    ->defaultImageUrl(fn () => null),
                     
                 TextColumn::make('tipe')
                     ->label('Type')

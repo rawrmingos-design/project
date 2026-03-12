@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use View;
+use Illuminate\Support\Facades\URL;
 
 use App\Models\Pembelian;
 use App\Observers\PembelianObserver;
@@ -27,6 +28,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        if (!app()->runningInConsole()) {
+            // Keep generated URLs on the current host (important for admin subdomain assets).
+            URL::forceRootUrl(request()->getSchemeAndHttpHost());
+
+            // Prevent accidental cross-domain assets when ASSET_URL is set in server env.
+            $adminDomain = (string) env('FILAMENT_ADMIN_DOMAIN', '');
+            if ($adminDomain !== '' && strcasecmp(request()->getHost(), $adminDomain) === 0) {
+                config(['app.asset_url' => null]);
+            }
+        }
 
         // Force HTTPS scheme untuk URL yang di-generate Laravel (route(), url(), asset())
         // Menggunakan $_SERVER langsung karena config() bisa stale dari docker build cache.
@@ -35,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
             (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
             (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on')
         ) {
-            \URL::forceScheme('https');
+            URL::forceScheme('https');
         }
 
         

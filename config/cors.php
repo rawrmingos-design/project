@@ -7,18 +7,27 @@ return [
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | Here you may configure your settings for cross-origin resource sharing
-    | or "CORS". This determines what cross-origin operations may execute
-    | in web browsers. You are free to adjust these settings as needed.
-    |
-    | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    | Path 'assets/*', 'storage/*', dan 'livewire/*' ditambahkan agar Filament
+    | FileUpload bisa load preview gambar dari admin subdomain ke main domain.
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => [
+        'api/*',
+        'sanctum/csrf-cookie',
+        // Filament file upload preview & storage dari admin subdomain
+        'assets/*',
+        'assets/**',
+        'storage/*',
+        'storage/**',
+        'livewire/*',
+        'filament/*',
+        '*', // fallback: cover all paths (assets served from public/)
+    ],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
+    // Gunakan wildcard - aman karena static assets tidak butuh credentials
     'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
@@ -27,8 +36,9 @@ return [
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    'max_age' => 86400,
 
+    // HARUS false jika allowed_origins = ['*'] (tidak bisa keduanya sekaligus)
     'supports_credentials' => false,
 
 ];

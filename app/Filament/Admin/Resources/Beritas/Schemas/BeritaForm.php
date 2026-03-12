@@ -44,6 +44,11 @@ class BeritaForm
                                 '4:3',
                                 '1:1',
                             ])
+                            ->imagePreviewHeight('200')
+                            ->panelAspectRatio('16:9')
+                            ->panelLayout('integrated')
+                            ->uploadButtonPosition('left')
+                            ->removeUploadedFileButtonPosition('right')
                             ->required()
                             ->helperText('Upload banner or popup image (max 2MB). Files saved to /banner/')
                             ->downloadable()

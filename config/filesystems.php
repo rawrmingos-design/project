@@ -17,7 +17,8 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('ASSET_URL', env('APP_URL')).'/storage',
+            // Relative URL avoids cross-domain asset requests on admin subdomain.
+            'url' => env('PUBLIC_DISK_URL', '/storage'),
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -25,7 +26,8 @@ return [
         'assets' => [
             'driver' => 'local',
             'root' => public_path(),
-            'url' => env('ASSET_URL', env('APP_URL')),
+            // Empty base URL => generated URLs become "/{path}" (same-origin).
+            'url' => env('ASSETS_DISK_URL', ''),
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -33,7 +35,7 @@ return [
         'banner' => [
             'driver' => 'local',
             'root' => public_path('banner'),
-            'url' => env('ASSET_URL', env('APP_URL')).'/assets/banner',
+            'url' => env('BANNER_DISK_URL', '/assets/banner'),
             'visibility' => 'public',
             'throw' => false,
         ],
