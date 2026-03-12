@@ -29,9 +29,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot()
     {
         if (!app()->runningInConsole()) {
-            // Keep generated URLs on the current host (important for admin subdomain assets).
-            URL::forceRootUrl(request()->getSchemeAndHttpHost());
-
             // Prevent accidental cross-domain assets when ASSET_URL is set in server env.
             $adminDomain = (string) env('FILAMENT_ADMIN_DOMAIN', '');
             if ($adminDomain !== '' && strcasecmp(request()->getHost(), $adminDomain) === 0) {

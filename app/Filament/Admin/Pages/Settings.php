@@ -121,11 +121,18 @@ class Settings extends Page implements HasForms
                             
                         FileUpload::make('logo_favicon')
                             ->label('Favicon')
-                            ->image()
                             ->disk('assets')
                             ->visibility('public')
                             ->directory('assets/logo')
-                            ->helperText('16x16 or 32x32 px')
+                            ->acceptedFileTypes([
+                                'image/x-icon',
+                                'image/vnd.microsoft.icon',
+                                'image/png',
+                                'image/svg+xml',
+                                'image/webp',
+                            ])
+                            ->maxSize(512)
+                            ->helperText('Format .ico/.png/.svg/.webp (16x16 atau 32x32 px)')
                             ->columnSpan(1),
                             
                         ColorPicker::make('warna1')
