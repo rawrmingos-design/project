@@ -74,6 +74,14 @@ COPY . .
 # Install & build Node.js assets
 RUN npm ci && npm run production && rm -rf node_modules
 
+# Buat direktori yang dibutuhkan Laravel SEBELUM artisan commands
+RUN mkdir -p bootstrap/cache \
+    && mkdir -p storage/framework/sessions \
+               storage/framework/views \
+               storage/framework/cache/data \
+               storage/logs \
+    && chmod -R 775 bootstrap/cache storage
+
 # Laravel optimization
 RUN php artisan storage:link || true \
     && php artisan config:cache \
@@ -81,7 +89,7 @@ RUN php artisan storage:link || true \
     && php artisan view:cache \
     && php artisan event:cache
 
-# Permissions
+# Permissions (ownership untuk www-data / php-fpm)
 RUN chown -R www-data:www-data /var/www/html/storage \
                                /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage \
