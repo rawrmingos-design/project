@@ -17,7 +17,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'url' => env('ASSET_URL', env('APP_URL')).'/storage',
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -25,7 +25,7 @@ return [
         'assets' => [
             'driver' => 'local',
             'root' => public_path(),
-            'url' => env('APP_URL'),
+            'url' => env('ASSET_URL', env('APP_URL')),
             'visibility' => 'public',
             'throw' => false,
         ],
@@ -33,7 +33,7 @@ return [
         'banner' => [
             'driver' => 'local',
             'root' => public_path('banner'),
-            'url' => env('APP_URL').'/assets/banner',
+            'url' => env('ASSET_URL', env('APP_URL')).'/assets/banner',
             'visibility' => 'public',
             'throw' => false,
         ],
