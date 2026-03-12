@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\TopupediaController;
@@ -313,7 +313,7 @@ class OrderApiController extends Controller
        $order_id = 'WEJIZY-RAPI'.$unik.$kode_unik;
        
         if($service->provider == "digiflazz"){
-            $digi = new digiFlazzController;
+            $digi = new DigiFlazzController;
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WEJIZY-RAPID'. $random_part;
             $order = $digi->order($datagame[0], $datagame[1], $service->provider_id, $provider_order_id);

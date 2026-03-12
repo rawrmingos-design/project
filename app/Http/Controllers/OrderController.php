@@ -15,7 +15,7 @@ use App\Models\User;
 use App\Models\Method;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\digiFlazzController;
+use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\ApiCheckController;
 use App\Http\Controllers\PaydisiniController;
 use App\Http\Controllers\TokoPayController;
@@ -1294,7 +1294,7 @@ class OrderController extends Controller
         try {
             switch ($providerCode) {
                 case "digiflazz":
-                    $digi = new digiFlazzController($credentials);
+                    $digi = new DigiFlazzController($credentials);
                     $order = $digi->order($request->uid, $request->zone, $sku, $order_id);
                     $status = in_array($order['data']['status'], ["Pending", "Sukses"]);
                     $order_status = $order['data']['status']; // 'Pending' or 'Sukses' or 'Gagal'

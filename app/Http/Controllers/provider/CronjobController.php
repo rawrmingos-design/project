@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Provider;
 
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
