@@ -33,6 +33,13 @@ class AppServiceProvider extends ServiceProvider
             $adminDomain = (string) env('FILAMENT_ADMIN_DOMAIN', '');
             if ($adminDomain !== '' && strcasecmp(request()->getHost(), $adminDomain) === 0) {
                 config(['app.asset_url' => null]);
+                // Force Filament disk previews to same-origin on admin subdomain.
+                // This avoids 403 from main-domain anti-hotlink/anti-leech rules.
+                config([
+                    'filesystems.disks.assets.url' => '',
+                    'filesystems.disks.public.url' => '/storage',
+                    'filesystems.disks.banner.url' => '/assets/banner',
+                ]);
             }
         }
 
