@@ -94,7 +94,7 @@ class ProdukForm
                             ->label('Logo Produk')
                             ->image()
                             ->disk('assets')
-                            ->directory('products/logos')
+                            ->directory('assets/product_logo')
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('1:1')
                             ->panelLayout('integrated')
