@@ -104,7 +104,7 @@ class ProdukForm
                         Placeholder::make('preview')
                             ->label('Current Logo')
                             ->content(fn ($record) => $record?->product_logo ? 
-                                new \Illuminate\Support\HtmlString('<img src="' . asset('assets/' . $record->product_logo) . '" class="w-32 h-32 object-cover rounded-lg">') : 
+                                new \Illuminate\Support\HtmlString('<img src="' . asset($record->product_logo) . '" class="w-32 h-32 object-cover rounded-lg">') : 
                                 'No logo uploaded'
                             )
                             ->visible(fn ($record) => $record !== null),
