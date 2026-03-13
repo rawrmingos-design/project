@@ -124,13 +124,7 @@ class Settings extends Page implements HasForms
                             ->disk('assets')
                             ->visibility('public')
                             ->directory('assets/logo')
-                            ->acceptedFileTypes([
-                                'image/x-icon',
-                                'image/vnd.microsoft.icon',
-                                'image/png',
-                                'image/svg+xml',
-                                'image/webp',
-                            ])
+                            ->rules(['nullable', 'mimes:ico,png,svg,webp'])
                             ->maxSize(512)
                             ->helperText('Format .ico/.png/.svg/.webp (16x16 atau 32x32 px)')
                             ->columnSpan(1),
@@ -572,6 +566,13 @@ class Settings extends Page implements HasForms
         
         // Get or create settings record
         $settings = SettingWeb::firstOrNew(['id' => 1]);
+
+        // Jangan timpa logo yang sudah ada dengan nilai kosong.
+        foreach (['logo_header', 'logo_footer', 'logo_favicon'] as $logoField) {
+            if (empty($data[$logoField]) && !empty($settings->{$logoField})) {
+                $data[$logoField] = $settings->{$logoField};
+            }
+        }
         
         // Check if WA Number changed and trigger API update
         if (isset($data['wa_number']) && $settings->wa_number !== $data['wa_number']) {
