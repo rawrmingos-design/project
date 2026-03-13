@@ -14,6 +14,7 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Grid;
 use App\Models\Kategori;
+use App\Models\PaketLayanan;
 
 class ProdukForm
 {
@@ -99,15 +100,39 @@ class ProdukForm
                             ->panelAspectRatio('1:1')
                             ->panelLayout('integrated')
                             ->removeUploadedFileButtonPosition('right')
-                            ->uploadButtonPosition('left'),
+                            ->uploadButtonPosition('left')
+                            ->formatStateUsing(function ($state, $record) {
+                                if (!empty($state)) {
+                                    return $state;
+                                }
+
+                                if (!$record) {
+                                    return null;
+                                }
+
+                                return PaketLayanan::where('layanan_id', $record->id)->value('product_logo');
+                            }),
                             
-                        Placeholder::make('preview')
-                            ->label('Current Logo')
-                            ->content(fn ($record) => $record?->product_logo ? 
-                                new \Illuminate\Support\HtmlString('<img src="' . asset($record->product_logo) . '" class="w-32 h-32 object-cover rounded-lg">') : 
-                                'No logo uploaded'
-                            )
-                            ->visible(fn ($record) => $record !== null),
+                        Placeholder::make('preview_status')
+                        ->label('Status File')
+                         ->content(function ($record) {
+                            if (!$record) {
+                                return 'No record';
+                            }
+
+                            $logoPath = $record->product_logo
+                                ?: PaketLayanan::where('layanan_id', $record->id)->value('product_logo');
+
+                            if (!$logoPath) {
+                                return 'No path in DB';
+                            }
+
+                            $normalizedPath = ltrim($logoPath, '/');
+                
+                            // Cek apakah file benar-benar ada di disk assets
+                            $exists = \Storage::disk('assets')->exists($normalizedPath);
+                             return $exists ? '✅ File exists on server' : '❌ File NOT found at: ' . $logoPath;
+                        }),
                     ])
                     ->columnSpan(1),
                     
