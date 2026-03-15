@@ -68,9 +68,11 @@ class PaydisiniCallbackController extends Controller
                 $result = $orderProcessor->process($pembelian);
                 
                 if ($result['success']) {
+                    $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
                     $pembelian->update([
                         'status' => 'Sukses', // Or Processing based on preference
                         'provider_order_id' => $result['transaction_id'] ?? null,
+                        'keterangan_sn' => $snValue,
                         'log' => json_encode(['result' => $result])
                     ]);
 
@@ -80,7 +82,7 @@ class PaydisiniCallbackController extends Controller
                         'order_id' => $pembelian->order_id,
                         'product' => $pembelian->layanan,
                         'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'sn' => 'Sedang Diproses',
+                        'sn' => $snValue,
                     ]);
 
                      // Notify Buyer (Email)
@@ -92,6 +94,7 @@ class PaydisiniCallbackController extends Controller
                          'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
                          'status' => 'Success',
                          'nickname' => $pembelian->nickname,
+                         'sn' => $snValue,
                          'note' => 'Terima kasih telah berbelanja.'
                      ]);
                     }
@@ -147,6 +150,7 @@ class PaydisiniCallbackController extends Controller
             
             if ($pembelian) {
                 $pembelian->update(['status' => 'Expired']); // Or Batal?
+                app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
                 
                 // Notify Failed (WhatsApp)
                 $waService = new WhatsappNotificationService();

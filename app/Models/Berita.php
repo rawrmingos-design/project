@@ -10,6 +10,7 @@ class Berita extends Model
     protected $fillable = [
         'path',
         'tipe',
+        'urutan',
         'deskripsi'
     ];
 

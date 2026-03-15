@@ -153,9 +153,11 @@ class CallbackController extends Controller
                     $result = $orderProcessor->process($pembelian);
                     
                     if ($result['success']) {
+                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
                         $pembelian->update([
                             'status' => 'Sukses',
                             'provider_order_id' => $result['transaction_id'] ?? null,
+                            'keterangan_sn' => $snValue,
                             'log' => json_encode(['result' => $result])
                         ]);
 
@@ -165,7 +167,7 @@ class CallbackController extends Controller
                             'order_id' => $pembelian->order_id,
                             'product' => $pembelian->layanan,
                             'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'sn' => 'Sedang Diproses',
+                            'sn' => $snValue,
                         ]);
 
                         // Notify Buyer (Email)
@@ -178,6 +180,7 @@ class CallbackController extends Controller
                             'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
                             'status' => 'Success',
                             'nickname' => $pembelian->nickname,
+                            'sn' => $snValue,
                             'note' => 'Terima kasih telah berbelanja.'
                         ]);
                     }

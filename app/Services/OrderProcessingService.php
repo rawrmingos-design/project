@@ -67,6 +67,7 @@ class OrderProcessingService
             'order_status' => 'Pending', // Default
             'transaction_id' => null,
             'message' => '',
+            'sn' => null,
             'provider' => $providerCode
         ];
 
@@ -80,15 +81,26 @@ class OrderProcessingService
                     
                     Log::info("Digiflazz Response for {$orderId}: " . json_encode($response));
 
-                    if (isset($response['data']['status']) && in_array($response['data']['status'], ['Pending', 'Sukses'])) {
+                    $responseData = $response['data'] ?? [];
+                    $providerStatus = $responseData['status'] ?? null;
+                    $providerRefId = $responseData['ref_id'] ?? $orderId;
+                    $providerMessage = trim((string) ($responseData['message'] ?? ''));
+                    $providerSn = trim((string) ($responseData['sn'] ?? ''));
+
+                    if (in_array($providerStatus, ['Pending', 'Sukses', 'Success'], true)) {
+                        $normalizedStatus = $providerStatus === 'Success' ? 'Sukses' : $providerStatus;
+
                         $result['success'] = true;
-                        $result['order_status'] = $response['data']['status']; // 'Pending' or 'Sukses'
-                        $result['transaction_id'] = $orderId; // Digiflazz uses our RefID usually, or we capture theirs? 
-                        // Actually Digiflazz might return 'sn' or nothing if pending. 
-                        // We use our RefID as the handle.
-                        $result['message'] = 'Order accepted by Digiflazz status: ' . $response['data']['status'];
+                        $result['order_status'] = $normalizedStatus;
+                        $result['transaction_id'] = $providerRefId;
+                        $result['sn'] = $providerSn !== '' ? $providerSn : ($normalizedStatus === 'Pending' ? 'Sedang Diproses' : null);
+                        $result['message'] = $providerMessage !== ''
+                            ? $providerMessage
+                            : 'Order accepted by Digiflazz status: ' . $normalizedStatus;
                     } else {
-                        $result['message'] = $response['data']['message'] ?? 'Unknown error from Digiflazz';
+                        $result['message'] = $providerMessage !== ''
+                            ? $providerMessage
+                            : 'Unknown error from Digiflazz';
                         // Special case: check if "Saldo tidak cukup" etc
                     }
                     break;

@@ -185,7 +185,7 @@
             @foreach($articles as $article)
                 <article class="gj-card group">
                     
-                    <a href="{{ url('/artikel/' . $article->slug) }}" class="gj-card-img-wrapper">
+                    <a href="{{ url('/id/artikel/' . $article->slug) }}" class="gj-card-img-wrapper">
                         <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="gj-card-img">
                         
                         <div class="gj-card-date">

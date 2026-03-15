@@ -23,7 +23,7 @@ class InvoiceController extends Controller
         ->select('data_joki.*', 'pembayarans.status AS status_pembayaran', 'pembayarans.metode AS metode_pembayaran', 
                  'pembayarans.no_pembayaran', 'pembayarans.reference', 'pembelians.order_id AS id_pembelian', 
                  'user_id', 'zone', 'nickname', 'voucher', 'layanan', 'pembayarans.harga AS harga_pembayaran', 
-                 'pembelians.created_at AS created_at', 'pembelians.status AS status_pembelian', 
+                 'pembelians.keterangan_sn', 'pembelians.created_at AS created_at', 'pembelians.status AS status_pembelian', 
                  'pembayarans.reference', 'pembelians.tipe_transaksi AS tipe_transaksi', 'methods.name AS metode_name')
         ->first();
 

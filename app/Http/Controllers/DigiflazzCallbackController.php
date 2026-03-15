@@ -31,15 +31,22 @@ class DigiflazzCallbackController extends Controller
                 $invoice = Pembelian::where('provider_order_id', $refId)->where('status', 'Proses')->first();
 
                 if ($invoice) {
+                    $snOrMessage = trim((string) ($ser_n ?? ''));
+                    if ($snOrMessage === '') {
+                        $snOrMessage = trim((string) ($msg_n ?? ''));
+                    }
+
                     $updateData = [
                         'status' => $updateStatus,
                         'log' => json_encode($data)
                     ];
 
+                    if ($snOrMessage !== '') {
+                        $updateData['keterangan_sn'] = $snOrMessage;
+                    }
+
                     if ($invoice->tipe_transaksi == 'voucher') {
                         $updateData['voucher'] = $ser_n;
-                    } elseif ($invoice->tipe_transaksi == 'game') {
-                        $updateData['message'] = $msg_n;
                     }
 
                     $invoice->update($updateData);
@@ -53,6 +60,8 @@ class DigiflazzCallbackController extends Controller
                         $targetEmail = $invoice->email_pembeli ?? ($invoice->user->email ?? '');
 
                         if (in_array(strtolower($updateStatus), ['gagal', 'batal', 'failed'])) {
+                            app(\App\Services\PointService::class)->refundRedeemedPoints($invoice);
+
                             // Refund Saldo if payment method was SALDO
                             if ($updatePesanan && $invoice->user) {
                                 $invoice->user->increment('balance', $invoice->harga);
@@ -88,7 +97,7 @@ class DigiflazzCallbackController extends Controller
                                     'order_id' => $invoice->order_id,
                                     'product' => $invoice->layanan,
                                     'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                                    'sn' => $ser_n, // Actual SN from provider
+                                    'sn' => $snOrMessage,
                                 ]);
                             }
                             if ($targetEmail) {
@@ -98,6 +107,7 @@ class DigiflazzCallbackController extends Controller
                                     'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
                                     'status' => 'Success',
                                     'nickname' => $invoice->nickname,
+                                    'sn' => $snOrMessage,
                                     'note' => 'Terima kasih telah berbelanja.'
                                 ]);
                             }

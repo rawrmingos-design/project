@@ -33,7 +33,10 @@ class HomeController extends Controller
         });
 
         $banners = Cache::remember('banner_list', $ttl, function () {
-            return Berita::where('tipe', 'banner')->get();
+            return Berita::where('tipe', 'banner')
+                ->orderBy('urutan')
+                ->orderByDesc('id')
+                ->get();
         });
 
         $logo_header = Cache::remember('logo_header', $ttl, function () {
@@ -45,7 +48,10 @@ class HomeController extends Controller
         });
 
         $popup = Cache::remember('popup_latest', $ttl, function () {
-            return Berita::where('tipe', 'popup')->latest()->first();
+            return Berita::where('tipe', 'popup')
+                ->orderBy('urutan')
+                ->orderByDesc('id')
+                ->first();
         });
 
         $payment_methods = Cache::remember('payment_methods', $ttl, function () {

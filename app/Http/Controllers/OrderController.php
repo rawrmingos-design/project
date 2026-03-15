@@ -801,6 +801,7 @@ class OrderController extends Controller
 
         // --- POINT REDEEM LOGIC ---
         $usedPoints = 0;
+        $usedPointAmount = 0;
         if ($request->use_point && $request->use_point > 0 && Auth::check()) {
             $pointService = app(\App\Services\PointService::class);
             $authUser = Auth::user();
@@ -814,6 +815,7 @@ class OrderController extends Controller
                 $discount = $pointsToUse * $redeemInfo['point_value'];
                 $dataLayanan->harga = max(1000, $dataLayanan->harga - $discount);
                 $usedPoints = $pointsToUse;
+                $usedPointAmount = $discount;
             }
         }
 
@@ -824,6 +826,23 @@ class OrderController extends Controller
         // Pastikan unik di DB (collision guard)
         while (Pembelian::where('order_id', $order_id)->exists()) {
             $order_id = $prefix . now()->format('ymdHis') . Str::upper(Str::random(6));
+        }
+
+        $pointsReserved = false;
+        if ($usedPoints > 0 && Auth::check()) {
+            $reservedAmount = app(\App\Services\PointService::class)->redeemPoints(
+                Auth::user(),
+                $usedPoints,
+                $order_id,
+                $dataLayanan->layanan
+            );
+
+            if ($reservedAmount <= 0) {
+                return response()->json(['status' => false, 'data' => 'Poin tidak cukup atau gagal dipakai. Silakan refresh lalu coba lagi.']);
+            }
+
+            $usedPointAmount = $reservedAmount;
+            $pointsReserved = true;
         }
 
         
@@ -885,27 +904,18 @@ class OrderController extends Controller
                 $status_pembelian = isset($providerResult['order_status']) && $providerResult['order_status'] === 'Sukses' ? 'Success' : 'Proses'; 
                 $provider_order_id = $providerResult['provider_order_id'];
                 $log_data = json_encode($providerResult['order_data']);
+                $providerOrderData = $providerResult['order_data']['data'] ?? [];
+                $providerSn = trim((string) ($providerOrderData['sn'] ?? ''));
+                $keteranganSn = $providerSn !== '' ? $providerSn : ($providerResult['order_status'] === 'Pending' ? 'Sedang Diproses' : null);
 
                 $this->createOrderRecord(
                     $request, $dataLayanan, $order_id, $dataLayanan->harga, $dataMethod, 
                     'Lunas', 'Balance Payment', '', $status_pembelian, 
-                    $provider_order_id, $log_data, $ipAddress, $tipe
+                    $provider_order_id, $log_data, $ipAddress, $tipe, $keteranganSn, $usedPoints, $usedPointAmount
                 );
-
-                // Simpan used_points ke pembelian record
-                if ($usedPoints > 0) {
-                    Pembelian::where('order_id', $order_id)->update(['used_points' => $usedPoints]);
-                }
 
                 DB::commit();
                 Cache::forget($userKey);
-
-                // Deduct poin user setelah commit (tidak masalah jika gagal, tidak memblock order)
-                if ($usedPoints > 0 && Auth::check()) {
-                    app(\App\Services\PointService::class)->redeemPoints(
-                        Auth::user(), $usedPoints, $order_id, $dataLayanan->layanan
-                    );
-                }
 
                 // Send Success Message
                 $pesanSukses = "*Pembelian Sukses*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\nStatus Pembelian: *Sukses*\nMetode Pembayaran: *SALDO*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
@@ -913,6 +923,14 @@ class OrderController extends Controller
             } catch (\Exception $e) {
                 DB::rollBack();
                 Cache::forget($userKey);
+                if ($pointsReserved && Auth::check()) {
+                    app(\App\Services\PointService::class)->refundPoints(
+                        Auth::user(),
+                        $usedPoints,
+                        $order_id,
+                        $dataLayanan->layanan
+                    );
+                }
                 Log::error('Order Store Exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
                 // Return clear error message to user
                 return response()->json(['status' => false, 'data' => $e->getMessage()]);
@@ -936,6 +954,14 @@ class OrderController extends Controller
                         $voucherGw->decrement('stock');
                     });
                 } catch (\Exception $e) {
+                    if ($pointsReserved && Auth::check()) {
+                        app(\App\Services\PointService::class)->refundPoints(
+                            Auth::user(),
+                            $usedPoints,
+                            $order_id,
+                            $dataLayanan->layanan
+                        );
+                    }
                     return response()->json(['status' => false, 'data' => $e->getMessage()]);
                 }
             }
@@ -1020,6 +1046,14 @@ class OrderController extends Controller
 
             if (!$gatewayResult['status']) {
                 Log::error('Order Store Gateway Failed', ['gatewayResult' => $gatewayResult]);
+                if ($pointsReserved && Auth::check()) {
+                    app(\App\Services\PointService::class)->refundPoints(
+                        Auth::user(),
+                        $usedPoints,
+                        $order_id,
+                        $dataLayanan->layanan
+                    );
+                }
                 return response()->json(['status' => false, 'data' => $gatewayResult['msg'] ?? 'Gagal memproses pembayaran']);
             }
 
@@ -1034,11 +1068,25 @@ class OrderController extends Controller
             $ipController = new IPAddressController();
             $ipAddress = $ipController->getIPAddress($request);
 
-            $this->createOrderRecord(
-                $request, $dataLayanan, $order_id, $amount, $dataMethod, 
-                'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
-                '', '', $ipAddress, $tipe
-            );
+            try {
+                $this->createOrderRecord(
+                    $request, $dataLayanan, $order_id, $amount, $dataMethod, 
+                    'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
+                    '', '', $ipAddress, $tipe, null, $usedPoints, $usedPointAmount
+                );
+            } catch (\Exception $e) {
+                if ($pointsReserved && Auth::check()) {
+                    app(\App\Services\PointService::class)->refundPoints(
+                        Auth::user(),
+                        $usedPoints,
+                        $order_id,
+                        $dataLayanan->layanan
+                    );
+                }
+
+                Log::error('Order Store Create Record Failed', ['error' => $e->getMessage(), 'order_id' => $order_id]);
+                return response()->json(['status' => false, 'data' => $e->getMessage()]);
+            }
 
             // Send Pending Message
             $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum 3 Jam!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
@@ -1146,7 +1194,24 @@ class OrderController extends Controller
             'kategori_kode' => 'required',
         ]);
 
-        $kategoriKode = $request->kategori_kode;
+        $kategori = Kategori::select('kode', 'tipe')
+            ->where('kode', $request->kategori_kode)
+            ->first();
+
+        if (!$kategori) {
+            return response()->json([
+                'status' => ['code' => 404, 'message' => 'Kategori tidak ditemukan']
+            ], 404);
+        }
+
+        if (!in_array($kategori->tipe, ['game', 'populer'], true)) {
+            return response()->json([
+                'status' => ['code' => 204, 'message' => 'Account validation skipped'],
+                'skip_check' => true,
+            ]);
+        }
+
+        $kategoriKode = $kategori->kode;
         $uid = $request->uid;
         $zone = $request->zone;
 
@@ -1296,8 +1361,10 @@ class OrderController extends Controller
                 case "digiflazz":
                     $digi = new DigiFlazzController($credentials);
                     $order = $digi->order($request->uid, $request->zone, $sku, $order_id);
-                    $status = in_array($order['data']['status'], ["Pending", "Sukses"]);
-                    $order_status = $order['data']['status']; // 'Pending' or 'Sukses' or 'Gagal'
+                    $orderData = $order['data'] ?? [];
+                    $status = in_array(($orderData['status'] ?? null), ["Pending", "Sukses", "Success"], true);
+                    $order_status = ($orderData['status'] ?? null) === 'Success' ? 'Sukses' : ($orderData['status'] ?? 'Gagal');
+                    $provider_order_id = $orderData['ref_id'] ?? $order_id;
                     Log::info('Digiflazz Order: ', ['order' => $order, 'status' => $status]);
                     break;
 
@@ -1430,7 +1497,7 @@ class OrderController extends Controller
         ];
     }
 
-    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe) {
+    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0) {
         $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
         
         $pembelian = new Pembelian();
@@ -1454,6 +1521,9 @@ class OrderController extends Controller
         $pembelian->provider_order_id = $provider_order_id;
         $pembelian->ip_address = $ipAddress;
         $pembelian->voucher = $request->voucher ?? null;
+        $pembelian->keterangan_sn = $keteranganSn;
+        $pembelian->used_points = $usedPoints;
+        $pembelian->used_point_amount = $usedPointAmount;
         $pembelian->traffic_source = $request->session()->get('traffic_source', 'Direct');
         $pembelian->email_pembeli = Auth::check() ? Auth::user()->email : ($request->email_pembeli ?? null);
         $pembelian->save();

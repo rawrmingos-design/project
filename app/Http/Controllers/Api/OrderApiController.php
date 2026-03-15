@@ -512,6 +512,8 @@ class OrderApiController extends Controller
                 "productName"   => $cek->layanan,
                 "userData"      => $cek->user_id . '|' . $cek->zone,
                 "statusCode"    => $statusCode,
+                "sn"            => $cek->keterangan_sn,
+                "keteranganSn"  => $cek->keterangan_sn,
             ]
         ]);
     }

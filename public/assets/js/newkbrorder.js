@@ -348,12 +348,27 @@ function showToast(e, a = "error") {
 // Real-time Account Check Logic
 $(document).ready(function () {
     var checkTimer;
+
+    function resetNicknameDisplay() {
+        $("#nickname-display").text("").removeClass("text-gray-500 text-green-500 text-red-500");
+    }
+
+    function canCheckAccount(kategoriTipe) {
+        return ["game", "populer"].includes(kategoriTipe);
+    }
+
     $("#user_id, #zone").on("blur keyup", function () {
         clearTimeout(checkTimer);
         checkTimer = setTimeout(function () {
             var uid = $("#user_id").val();
             var zone = $("#zone").length ? $("#zone").val() : "";
             var kategoriKode = window.kategoriKode;
+            var kategoriTipe = $("#ktg_tipe").val();
+
+            if (!canCheckAccount(kategoriTipe)) {
+                resetNicknameDisplay();
+                return;
+            }
 
             // Ensure UID is present. Zone is optional depending on game, but we send it anyway.
             if (uid && kategoriKode) {
@@ -370,7 +385,9 @@ $(document).ready(function () {
                         kategori_kode: kategoriKode
                     },
                     success: function (response) {
-                        if (response.status && response.status.code === 200) {
+                        if (response.skip_check || (response.status && response.status.code === 204)) {
+                            resetNicknameDisplay();
+                        } else if (response.status && response.status.code === 200) {
                             $("#nickname-display").html("Valid: " + response.data.username).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
                         } else {
                             $("#nickname-display").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500");
@@ -378,11 +395,11 @@ $(document).ready(function () {
                     },
                     error: function () {
                         // Silent fail or minimal error
-                        $("#nickname-display").text("").removeClass("text-gray-500");
+                        resetNicknameDisplay();
                     }
                 });
             } else {
-                $("#nickname-display").text("").removeClass("text-gray-500 text-green-500 text-red-500");
+                resetNicknameDisplay();
             }
         }, 800); // 800ms debounce
     });
