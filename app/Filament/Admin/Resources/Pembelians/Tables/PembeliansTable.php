@@ -78,11 +78,10 @@ class PembeliansTable
                     }),
                     
                 BadgeColumn::make('status')
-                    ->label('Status')
+                    ->label('Status Provider')
                     ->colors([
                         'success' => 'Sukses',
                         'warning' => 'Pending',
-                        'pending' => 'Pending',
                         'info' => 'Processing',
                         'info' => 'Proses',
                         'danger' => 'Batal',
@@ -95,6 +94,66 @@ class PembeliansTable
                         'heroicon-o-x-circle' => 'Batal',
                     ])
                     ->sortable(),
+
+                BadgeColumn::make('pembayaran.status')
+                    ->label('Status Pembelian')
+                    ->getStateUsing(function ($record) {
+                        $paymentStatus = optional($record->pembayaran)->status;
+
+                        return $paymentStatus === 'Lunas' ? 'Success' : 'Pending';
+                    })
+                    ->colors([
+                        'success' => 'Success',
+                        'warning' => 'Pending',
+                    ])
+                    ->icons([
+                        'heroicon-o-check-circle' => 'Success',
+                        'heroicon-o-clock' => 'Pending',
+                    ]),
+
+                TextColumn::make('pembayaran.no_pembeli')
+                    ->label('Nomor Telp')
+                    ->searchable()
+                    ->copyable()
+                    ->default('-'),
+
+                TextColumn::make('keterangan_sn')
+                    ->label('Keterangan/SN')
+                    ->default('-')
+                    ->wrap()
+                    ->limit(50),
+
+                TextColumn::make('used_points')
+                    ->label('Poin')
+                    ->getStateUsing(function ($record) {
+                        $usedPoints = (int) ($record->used_points ?? 0);
+
+                        if ($usedPoints <= 0) {
+                            return '-';
+                        }
+
+                        return number_format($usedPoints, 0, ',', '.') . ' poin';
+                    })
+                    ->description(function ($record) {
+                        $usedPoints = (int) ($record->used_points ?? 0);
+                        $usedPointAmount = (int) ($record->used_point_amount ?? 0);
+
+                        if ($usedPoints <= 0 || $usedPointAmount <= 0) {
+                            return null;
+                        }
+
+                        $hargaBayar = (int) ($record->harga ?? 0);
+                        $hargaSebelumPoin = $hargaBayar + $usedPointAmount;
+
+                        return 'Rp ' . number_format($usedPointAmount, 0, ',', '.') .
+                            ' (Rp ' . number_format($hargaSebelumPoin, 0, ',', '.') .
+                            ' - Rp ' . number_format($usedPointAmount, 0, ',', '.') .
+                            ' = Rp ' . number_format($hargaBayar, 0, ',', '.') . ')';
+                    })
+                    ->wrap()
+                    ->toggleable(),
+
+
                     
                 TextColumn::make('harga')
                     ->label('Amount')
@@ -285,6 +344,8 @@ class PembeliansTable
                             $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
                         }
 
+                        app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+
                         $record->update(['status' => 'Failed', 'log' => $logMsg]);
                         Notification::make()
                             ->title('Order cancelled & refunded if applicable')
@@ -306,6 +367,8 @@ class PembeliansTable
                             $record->user->increment('balance', $record->harga);
                             $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
                         }
+
+                        app(\App\Services\PointService::class)->refundRedeemedPoints($record);
 
                         $record->update(['status' => 'Batal', 'log' => $logMsg]); // Changed to Batal/Refunded
                         Notification::make()
@@ -406,6 +469,7 @@ class PembeliansTable
                             'product' => $record->layanan,
                             'amount' => 'Rp ' . number_format($record->harga, 0, ',', '.'),
                             'status' => $record->status,
+                            'sn' => $record->keterangan_sn ?: ($record->voucher ?: 'Sedang Diproses'),
                             'note' => $note,
                         ];
 

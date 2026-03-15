@@ -348,24 +348,18 @@
                                                     </div>
                                                 @endif
                                             </span></div>
-                                        @if ($data->message)
-                                            <div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Pesan
-                                            </div>
-                                            <div class="col-span-5 md:col-span-4" id="message">
-                                                {{ $data->message }}
-
-
-                                            </div>
-                                        @endif
-                                        @if ($data->voucher)
+                                        @php
+                                            $snValue = $data->voucher ?: $data->keterangan_sn;
+                                        @endphp
+                                        @if ($snValue)
                                             <div
                                                 class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4">
-                                                Kode Voucher / SN</div>
+                                                Keterangan / SN</div>
                                             <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
                                                 <button onclick="copyToClipboardsn()" type="button"
                                                     class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden">
                                                     <div class="max-w-[172px] truncate md:w-auto md:max-w-none"
-                                                        id="sn">{{ $data->voucher }}</div>
+                                                        id="sn">{{ $snValue }}</div>
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
                                                         viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                                                         aria-hidden="true" class="h-5 w-4">

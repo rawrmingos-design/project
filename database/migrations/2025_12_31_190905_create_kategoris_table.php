@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('kode')->nullable();
             $table->string('status')->default('active');
             $table->string('thumbnail');
-            $table->string('banner');
+            $table->string('banner')->nullable();
             $table->string('tipe')->default('game');
             $table->boolean('server_id')->default(false);
             $table->text('deskripsi_game')->nullable();

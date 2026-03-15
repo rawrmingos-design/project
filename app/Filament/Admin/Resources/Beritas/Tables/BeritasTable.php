@@ -20,6 +20,19 @@ class BeritasTable
                 ImageColumn::make('path')
                     ->label('Image')
                     ->disk('assets')
+                    ->getStateUsing(function ($record) {
+                        $path = (string) ($record->path ?? '');
+
+                        if ($path === '') {
+                            return null;
+                        }
+
+                        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                            $path = (string) (parse_url($path, PHP_URL_PATH) ?? $path);
+                        }
+
+                        return ltrim($path, '/');
+                    })
                     ->size(60)
                     ->imageWidth(400)
                     ->imageHeight(200)
@@ -47,6 +60,11 @@ class BeritasTable
                     ->wrap()
                     ->placeholder('No description')
                     ->toggleable(),
+
+                TextColumn::make('urutan')
+                    ->label('Urutan')
+                    ->numeric()
+                    ->sortable(),
                     
                 TextColumn::make('created_at')
                     ->label('Created')
@@ -77,7 +95,7 @@ class BeritasTable
                     DeleteBulkAction::make(),
                 ]),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('urutan', 'asc')
             ->striped()
             ->paginated([10, 25, 50]);
     }

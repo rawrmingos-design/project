@@ -232,6 +232,8 @@ class OrderController extends Controller
         return response()->json([
             'status' => true,
             'order' => $pembelian,
+            'sn' => $pembelian->keterangan_sn,
+            'keteranganSn' => $pembelian->keterangan_sn,
             'payment' => $pembayaran
         ]);
     }

@@ -33,7 +33,10 @@ class IndexController extends Controller
         });
 
         $banner = Cache::remember('banner_list', $ttl, function () {
-            return Berita::where('tipe', 'banner')->get();
+            return Berita::where('tipe', 'banner')
+                ->orderBy('urutan')
+                ->orderByDesc('id')
+                ->get();
         });
 
         $logoheader = Cache::remember('logo_header', $ttl, function () {
@@ -45,7 +48,10 @@ class IndexController extends Controller
         });
 
         $popup = Cache::remember('popup_latest', $ttl, function () {
-            return Berita::where('tipe', 'popup')->latest()->first();
+            return Berita::where('tipe', 'popup')
+                ->orderBy('urutan')
+                ->orderByDesc('id')
+                ->first();
         });
 
         $pay_method = Cache::remember('payment_methods', $ttl, function () {

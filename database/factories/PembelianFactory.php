@@ -22,6 +22,7 @@ class PembelianFactory extends Factory
             'zone'       => '1234',
             'status'     => 'Proses',
             'used_points' => 0,
+            'used_point_amount' => 0,
         ];
     }
 

@@ -103,7 +103,6 @@ class KategoriForm
                             ->panelLayout('integrated')
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
-                            ->required(),
                     ])
                     ->columns(2),
                     

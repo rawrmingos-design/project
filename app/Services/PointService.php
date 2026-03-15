@@ -10,6 +10,16 @@ use Illuminate\Support\Facades\Log;
 
 class PointService
 {
+    private function getRedeemDescription(string $productName): string
+    {
+        return 'Redeem poin untuk pembelian ' . $productName;
+    }
+
+    private function getRefundDescription(string $productName): string
+    {
+        return 'Refund poin dari pembelian ' . $productName;
+    }
+
     /**
      * Tambah poin ke user setelah transaksi sukses.
      */
@@ -51,30 +61,101 @@ class PointService
     public function redeemPoints(User $user, int $pointsToUse, string $orderId, string $productName): int
     {
         try {
-            $setting = DB::table('setting_webs')->where('id', 1)->first();
-            $pointValue = $setting->point_value ?? 100;
+            if ($pointsToUse <= 0) {
+                return 0;
+            }
 
-            if ($pointsToUse <= 0 || $user->point_balance < $pointsToUse) return 0;
+            return DB::transaction(function () use ($user, $pointsToUse, $orderId, $productName) {
+                $setting = DB::table('setting_webs')->where('id', 1)->first();
+                $pointValue = $setting->point_value ?? 100;
+                $lockedUser = User::where('id', $user->id)->lockForUpdate()->first();
 
-            $discount = $pointsToUse * $pointValue;
+                if (!$lockedUser || $lockedUser->point_balance < $pointsToUse) {
+                    return 0;
+                }
 
-            DB::transaction(function () use ($user, $pointsToUse, $orderId, $productName) {
-                User::where('id', $user->id)->decrement('point_balance', $pointsToUse);
+                User::where('id', $lockedUser->id)->decrement('point_balance', $pointsToUse);
 
                 PointHistory::create([
-                    'user_id'     => $user->id,
+                    'user_id'     => $lockedUser->id,
                     'order_id'    => $orderId,
                     'type'        => 'redeem',
                     'points'      => $pointsToUse,
-                    'description' => 'Redeem poin untuk pembelian ' . $productName,
+                    'description' => $this->getRedeemDescription($productName),
                 ]);
-            });
 
-            return $discount;
+                return $pointsToUse * $pointValue;
+            });
         } catch (\Exception $e) {
             Log::error('PointService::redeemPoints error', ['error' => $e->getMessage(), 'order' => $orderId]);
             return 0;
         }
+    }
+
+    /**
+     * Kembalikan poin yang sebelumnya sudah di-redeem untuk order tertentu.
+     */
+    public function refundPoints(User $user, int $pointsToRefund, string $orderId, string $productName): bool
+    {
+        try {
+            if ($pointsToRefund <= 0) {
+                return false;
+            }
+
+            return DB::transaction(function () use ($user, $pointsToRefund, $orderId, $productName) {
+                $refundDescription = $this->getRefundDescription($productName);
+                $alreadyRefunded = PointHistory::where('user_id', $user->id)
+                    ->where('order_id', $orderId)
+                    ->where('type', 'earn')
+                    ->where('description', $refundDescription)
+                    ->exists();
+
+                if ($alreadyRefunded) {
+                    return false;
+                }
+
+                $lockedUser = User::where('id', $user->id)->lockForUpdate()->first();
+
+                if (!$lockedUser) {
+                    return false;
+                }
+
+                User::where('id', $lockedUser->id)->increment('point_balance', $pointsToRefund);
+
+                PointHistory::create([
+                    'user_id'     => $lockedUser->id,
+                    'order_id'    => $orderId,
+                    'type'        => 'earn',
+                    'points'      => $pointsToRefund,
+                    'description' => $refundDescription,
+                ]);
+
+                return true;
+            });
+        } catch (\Exception $e) {
+            Log::error('PointService::refundPoints error', ['error' => $e->getMessage(), 'order' => $orderId]);
+            return false;
+        }
+    }
+
+    /**
+     * Refund poin berdasarkan data pembelian yang sudah tercatat.
+     */
+    public function refundRedeemedPoints(Pembelian $order): bool
+    {
+        $pointsToRefund = (int) ($order->used_points ?? 0);
+
+        if ($pointsToRefund <= 0) {
+            return false;
+        }
+
+        $user = $order->user ?: User::where('username', $order->username)->first();
+
+        if (!$user) {
+            return false;
+        }
+
+        return $this->refundPoints($user, $pointsToRefund, $order->order_id, $order->layanan);
     }
 
     /**

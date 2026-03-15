@@ -134,10 +134,12 @@ class TriPayCallbackController extends Controller
 
                     // 3. Update Invoice/Transaction
                     if ($orderSuccess) {
+                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($dataPembeli->keterangan_sn ?: 'Sedang Diproses');
                         $orderData = ['status' => 'Sukses']; 
                         if ($transactionId) {
                             $orderData['provider_order_id'] = $transactionId;
                         }
+                        $orderData['keterangan_sn'] = $snValue;
                         $dataPembeli->update($orderData);
                         
                         // Notify Buyer (Success/Processing)
@@ -146,7 +148,7 @@ class TriPayCallbackController extends Controller
                             'order_id' => $order_id,
                             'product' => $dataPembeli->layanan,
                             'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'sn' => 'Sedang Diproses', 
+                            'sn' => $snValue, 
                         ]);
 
                         // Notify Buyer (Email)
@@ -159,6 +161,7 @@ class TriPayCallbackController extends Controller
                                 'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
                                 'status' => 'Success',
                                 'nickname' => $dataPembeli->nickname,
+                                'sn' => $snValue,
                                 'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
                             ]);
                         }
@@ -203,6 +206,7 @@ class TriPayCallbackController extends Controller
                      $dataDeposit->update(['status' => 'Gagal']);
                 } else {
                      $dataPembeli->update(['status' => 'Gagal']);
+                     app(\App\Services\PointService::class)->refundRedeemedPoints($dataPembeli);
                 }
                 
                 // Notify Buyer (Failed)

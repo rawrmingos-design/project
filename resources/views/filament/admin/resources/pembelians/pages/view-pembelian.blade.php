@@ -186,9 +186,9 @@
             <div class="p-6">
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Message</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Keterangan / SN</label>
                         <div class="fi-input-wrp flex rounded-lg shadow-sm ring-1 transition duration-75 bg-white dark:bg-white/5 ring-gray-950/10 dark:ring-white/20">
-                            <input type="text" value="{{ $record->message ?? 'N/A' }}" readonly class="fi-input block w-full border-none bg-transparent px-3 py-1.5 text-sm text-gray-950 outline-none dark:text-white" />
+                            <input type="text" value="{{ $record->keterangan_sn ?? $record->voucher ?? 'N/A' }}" readonly class="fi-input block w-full border-none bg-transparent px-3 py-1.5 text-sm text-gray-950 outline-none dark:text-white" />
                         </div>
                     </div>
                     

@@ -30,6 +30,14 @@ class BeritaForm
                             ->native(false)
                             ->helperText('Choose display type'),
 
+                        TextInput::make('urutan')
+                            ->label('Urutan Tampil')
+                            ->numeric()
+                            ->default(0)
+                            ->minValue(0)
+                            ->required()
+                            ->helperText('Semakin kecil angka, semakin dulu ditampilkan.'),
+
                         FileUpload::make('path')
                             ->label('Image')
                             ->image()

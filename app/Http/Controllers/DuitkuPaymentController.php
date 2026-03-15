@@ -291,10 +291,12 @@ class DuitkuPaymentController extends Controller
 
                     // Update Order
                     if ($orderSuccess) {
+                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($order->keterangan_sn ?: 'Sedang Diproses');
                         $orderData = ['status' => 'Sukses'];
                         if ($transactionId) {
                             $orderData['provider_order_id'] = $transactionId;
                         }
+                        $orderData['keterangan_sn'] = $snValue;
                         $order->update($orderData);
 
                         // Notify Buyer (WhatsApp)
@@ -303,7 +305,7 @@ class DuitkuPaymentController extends Controller
                             'order_id' => $payment->order_id,
                             'product' => $order->layanan,
                             'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
-                            'sn' => 'Sedang Diproses',
+                            'sn' => $snValue,
                         ]);
 
                         // Notify Buyer (Email)
@@ -315,6 +317,7 @@ class DuitkuPaymentController extends Controller
                                 'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
                                 'status' => 'Success',
                                 'nickname' => $order->nickname,
+                                'sn' => $snValue,
                                 'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
                             ]);
                         }
@@ -341,6 +344,7 @@ class DuitkuPaymentController extends Controller
                     // FAILED
                     $payment->update(['status' => 'Batal']);
                     $order->update(['status' => 'Gagal']);
+                    app(\App\Services\PointService::class)->refundRedeemedPoints($order);
 
                     // Notify Buyer (Failed)
                     $waService = new WhatsappNotificationService();
