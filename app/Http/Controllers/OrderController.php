@@ -33,23 +33,43 @@ use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
+use App\Support\CustomInputDefaults;
 
 class OrderController extends Controller
 {
     public function create(Kategori $kategori)
     {
+        app(CustomInputDefaults::class)->ensureExists($kategori);
+
         $role = Auth::check() ? Auth::user()->role : 'Guest';
         $cacheKey = "order_page:{$kategori->kode}:{$role}";
         $ttl = 300; // 5 minutes
 
         // Cache the entire data preparation for the view
         $viewData = Cache::remember($cacheKey, $ttl, function () use ($kategori, $role) {
-            
-            if (in_array($kategori->tipe, ['game', 'voucher', 'pulsa', 'app', 'populer'])) {
-                $data = Kategori::where('kode', $kategori->kode)->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode',  'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
-            } else {
-                $data = Kategori::where('kode', $kategori->kode)->select('nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode', 'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')->first();
-            }
+            $data = Kategori::where('kode', $kategori->kode)
+                ->leftJoin('custom_inputs', 'kategoris.id', '=', 'custom_inputs.kategori_id')
+                ->select(
+                    'custom_inputs.field_1 AS field_1',
+                    'custom_inputs.field_2 AS field_2',
+                    'custom_inputs.field_select_title AS field_select_title',
+                    'custom_inputs.field_select AS field_select',
+                    'nama',
+                    'sub_nama',
+                    'server_id',
+                    'require_user_id',
+                    'thumbnail',
+                    'kategoris.id AS id',
+                    'kode',
+                    'deskripsi_game',
+                    'deskripsi_field',
+                    'banner',
+                    'tipe',
+                    'meta_title',
+                    'meta_description',
+                    'schema_markup'
+                )
+                ->first();
             
             if ($data == null) return null;
 
@@ -63,7 +83,7 @@ class OrderController extends Controller
             } else if ($role == "Gold" || $role == "Admin") {
                 $query->select('id', 'layanan', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo');
             } else { // Guest
-                $query->select('id', 'layanan', 'product_logo', 'harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
+                $query->select('id', 'layanan', 'product_logo', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             }
             $layanan = $query->orderBy('harga', 'asc')->get();
 
@@ -85,7 +105,7 @@ class OrderController extends Controller
                         if ($role == 'Member') $query->where('harga_member', '>', 0);
                         elseif ($role == 'Platinum') $query->where('harga_platinum', '>', 0);
                         elseif ($role == 'Gold' || $role == 'Admin') $query->where('harga_gold', '>', 0);
-                        else $query->where('harga', '>', 0);
+                        else $query->where('harga_member', '>', 0);
                     })->get();
 
                 $l = [];
@@ -95,7 +115,7 @@ class OrderController extends Controller
                         if ($role == 'Member') $harga = $lyn->harga_member;
                         elseif ($role == 'Platinum') $harga = $lyn->harga_platinum;
                         elseif ($role == 'Gold' || $role == 'Admin') $harga = $lyn->harga_gold;
-                        else $harga = $lyn->harga;
+                        else $harga = $lyn->harga_member;
 
                         $l[] = [
                             'id' => $lyn->id,
@@ -124,7 +144,9 @@ class OrderController extends Controller
             return compact('data', 'layanan', 'ratings', 'pakets', 'flashsale');
         });
 
-        if ($viewData == null) return back();
+        if ($viewData == null) {
+            abort(404);
+        }
 
         extract($viewData); // Extract vars: $data, $layanan, $ratings, $pakets, $flashsale
 
@@ -173,7 +195,7 @@ class OrderController extends Controller
             }
         } else {
             $data = Layanan::where('id', $request->nominal)
-                ->select('harga AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
         }
 
@@ -209,26 +231,116 @@ class OrderController extends Controller
                 ->keyBy('code');
         });
 
-        // Point info (hanya untuk user yang login)
-        $pointInfo = null;
-        if (Auth::check()) {
-            $pointService = app(\App\Services\PointService::class);
-            $user = Auth::user();
-            $redeemInfo = $pointService->calculateMaxRedeemable($data->harga, $user->point_balance);
-            $pointInfo = [
-                'balance'      => $user->point_balance,
-                'max_points'   => $redeemInfo['max_points'],
-                'max_discount' => $redeemInfo['max_discount'],
-                'point_value'  => $redeemInfo['point_value'],
+        $selectedMethod = null;
+        if ($request->filled('payment_method')) {
+            $selectedMethod = Method::select('code', 'payment', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
+                ->where('code', $request->payment_method)
+                ->first();
+        }
+
+        $amountBeforePoint = (int) round($data->harga + $this->calculateMethodFeeAmount($data->harga, $selectedMethod));
+        $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
+        $selectedFinalPrice = max(1000, $amountBeforePoint - $pointUsage['discount']);
+
+        return response()->json([
+            'status'         => true,
+            'harga'          => $data->harga,
+            'methods'        => $methods,
+            'point_info'     => $pointUsage['point_info'],
+            'point_discount' => $pointUsage['discount'],
+            'selected_final_price' => $selectedFinalPrice,
+        ]);
+    }
+
+    private function calculateMethodFeeAmount(float|int $basePrice, $method): int
+    {
+        if (!$method) {
+            return 0;
+        }
+
+        return (int) round(($method->fix_fee ?? 0) + ($basePrice * (($method->fee_percent ?? 0) / 100)));
+    }
+
+    private function resolvePointUsage(int $amountBeforePoint, int $requestedPoints = 0): array
+    {
+        if (!Auth::check()) {
+            return [
+                'point_info' => null,
+                'used_points' => 0,
+                'discount' => 0,
             ];
         }
 
-        return response()->json([
-            'status'     => true,
-            'harga'      => $data->harga,
-            'methods'    => $methods,
+        $pointService = app(\App\Services\PointService::class);
+        $user = Auth::user();
+        $redeemInfo = $pointService->calculateMaxRedeemable($amountBeforePoint, (int) $user->point_balance);
+        $pointInfo = [
+            'balance' => (int) $user->point_balance,
+            'max_points' => (int) $redeemInfo['max_points'],
+            'max_discount' => (int) $redeemInfo['max_discount'],
+            'point_value' => (int) $redeemInfo['point_value'],
+        ];
+
+        if ($requestedPoints <= 0) {
+            return [
+                'point_info' => $pointInfo,
+                'used_points' => 0,
+                'discount' => 0,
+            ];
+        }
+
+        $pointsToUse = min($requestedPoints, $redeemInfo['max_points']);
+        $discount = $pointsToUse > 0
+            ? (int) ($pointsToUse * $redeemInfo['point_value'])
+            : 0;
+
+        return [
             'point_info' => $pointInfo,
-        ]);
+            'used_points' => (int) $pointsToUse,
+            'discount' => $discount,
+        ];
+    }
+
+    private function resolveGatewayRequestAmount(int $targetAmount, $method): int
+    {
+        $targetAmount = max(1000, (int) round($targetAmount));
+
+        if (!$method || ($method->payment ?? null) !== 'tripay') {
+            return $targetAmount;
+        }
+
+        try {
+            $candidateAmount = $targetAmount;
+            $tripay = new TriPayController();
+
+            for ($i = 0; $i < 5; $i++) {
+                $cacheKey = sprintf('tripay_customer_fee:%s:%d', $method->code, $candidateAmount);
+                $customerFee = Cache::remember($cacheKey, 300, function () use ($candidateAmount, $tripay, $method) {
+                    return (int) round($tripay->customerFee($candidateAmount, $method->code));
+                });
+
+                if ($customerFee <= 0) {
+                    return $targetAmount;
+                }
+
+                $nextAmount = max(1000, $targetAmount - $customerFee);
+                if (abs($nextAmount - $candidateAmount) <= 1) {
+                    return $nextAmount;
+                }
+
+                $candidateAmount = $nextAmount;
+            }
+
+            return $candidateAmount;
+        } catch (\Throwable $e) {
+            Log::warning('Tripay request amount resolver failed', [
+                'method' => $method->code ?? null,
+                'amount' => $targetAmount,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $targetAmount;
+        }
     }
 
 
@@ -292,7 +404,7 @@ class OrderController extends Controller
                 $dataLayanan = Layanan::where('id', $request->service)->select('harga_gold AS harga', 'kategori_id', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
             }
         } else {
-            $dataLayanan = Layanan::where('id', $request->service)->select('harga AS harga', 'kategori_id', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
+            $dataLayanan = Layanan::where('id', $request->service)->select('harga_member AS harga', 'kategori_id', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
         }
         if ($dataLayanan->is_flash_sale == 1 && $dataLayanan->expired_flash_sale >= date('Y-m-d H:i:s') && $dataLayanan->stock_flash_sale > 0) {
 
@@ -322,9 +434,10 @@ class OrderController extends Controller
                         $potongan = $voucher->max_potongan;
                     }
 
-                    $dataLayanan->harga = $dataLayanan->harga - $potongan;
-                }
+                $dataLayanan->harga = $dataLayanan->harga - $potongan;
             }
+        }
+
         }
 
 
@@ -706,12 +819,10 @@ class OrderController extends Controller
         $dataMethod = Method::where('code', $request->payment_method)
             ->select('name', 'payment', 'tipe', 'code', 'fee_percent', 'fix_fee')
             ->first();
-       
-        if ($dataMethod) {
-            // Formula: Price + FixFee + (Price * FeePercent / 100)
-            $fee = $dataMethod->fix_fee + ($dataLayanan->harga * ($dataMethod->fee_percent / 100));
-            $dataLayanan->harga += $fee;
-        }
+
+        $amountBeforePoint = (int) round($dataLayanan->harga + $this->calculateMethodFeeAmount($dataLayanan->harga, $dataMethod));
+        $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
+        $dataLayanan->harga = max(1000, $amountBeforePoint - $pointUsage['discount']);
 
         $sendData = view('template.components.order_confirmation', compact(
             'request', 'dataLayanan', 'dataMethod', 'produk', 'item', 'username'
@@ -735,13 +846,13 @@ class OrderController extends Controller
                 'Member' => 'harga_member',
                 'Platinum' => 'harga_platinum',
                 'Gold', 'Admin' => 'harga_gold',
-                default => 'harga'
+                default => 'harga_member'
             };
             $profitCol = match($role) {
                 'Member' => 'profit_member',
                 'Platinum' => 'profit_platinum',
                 'Gold', 'Admin' => 'profit_gold',
-                default => 'profit'
+                default => 'profit_member'
             };
             
             $dataLayanan = Layanan::where('id', $request->service)
@@ -749,7 +860,7 @@ class OrderController extends Controller
                 ->first();
         } else {
             $dataLayanan = Layanan::where('id', $request->service)
-                ->select('layanan', 'harga AS harga', 'kategori_id', 'provider_id', 'provider', 'profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->select('layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
         }
 
@@ -799,25 +910,13 @@ class OrderController extends Controller
             }
         }
 
-        // --- POINT REDEEM LOGIC ---
-        $usedPoints = 0;
-        $usedPointAmount = 0;
-        if ($request->use_point && $request->use_point > 0 && Auth::check()) {
-            $pointService = app(\App\Services\PointService::class);
-            $authUser = Auth::user();
-            $pointsRequested = (int) $request->use_point;
+        $dataMethod = Method::where('code', $request->payment_method)->first();
 
-            // Hitung batas maksimal
-            $redeemInfo = $pointService->calculateMaxRedeemable($dataLayanan->harga, $authUser->point_balance);
-            $pointsToUse = min($pointsRequested, $redeemInfo['max_points']);
-
-            if ($pointsToUse > 0 && $authUser->point_balance >= $pointsToUse) {
-                $discount = $pointsToUse * $redeemInfo['point_value'];
-                $dataLayanan->harga = max(1000, $dataLayanan->harga - $discount);
-                $usedPoints = $pointsToUse;
-                $usedPointAmount = $discount;
-            }
-        }
+        $amountBeforePoint = (int) round($dataLayanan->harga + $this->calculateMethodFeeAmount($dataLayanan->harga, $dataMethod));
+        $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
+        $usedPoints = $pointUsage['used_points'];
+        $usedPointAmount = $pointUsage['discount'];
+        $dataLayanan->harga = max(1000, $amountBeforePoint - $usedPointAmount);
 
         // Generate Order ID — FIX #5: Tambah timestamp lebih panjang + uniqueness guard
         $setting = DB::table('setting_webs')->where('id', 1)->first();
@@ -847,7 +946,6 @@ class OrderController extends Controller
 
         
         // Payment Method Info
-        $dataMethod = Method::where('code', $request->payment_method)->first();
         
         // 3. Process based on Payment Method
         if ($request->payment_method == "SALDO") {
@@ -993,11 +1091,12 @@ class OrderController extends Controller
                 }
             } else if ($dataMethod->payment == "tripay") {
                 $tripay = new TriPayController();
+                $tripayRequestAmount = $this->resolveGatewayRequestAmount($amount, $dataMethod);
                 // FIX #10: Gunakan email user yang sebenarnya, bukan email palsu
                 $customerEmail = Auth::check() && Auth::user()->email
                     ? Auth::user()->email
                     : ($request->email ?? config('mail.from.address', 'noreply@' . parse_url(config('app.url'), PHP_URL_HOST)));
-                $res = $tripay->request($order_id, $amount, $request->payment_method, $customerEmail, $request->nomor);
+                $res = $tripay->request($order_id, $tripayRequestAmount, $request->payment_method, $customerEmail, $request->nomor);
 
                 if ($res['success']) {
                     $gatewayResult = [

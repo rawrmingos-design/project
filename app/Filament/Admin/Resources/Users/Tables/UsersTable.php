@@ -55,6 +55,14 @@ class UsersTable
                     ->alignEnd()
                     ->weight('bold')
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
+
+                TextColumn::make('point_balance')
+                    ->label('Point Balance')
+                    ->sortable()
+                    ->alignEnd()
+                    ->weight('bold')
+                    ->color(fn ($state) => $state > 0 ? 'success' : 'danger')
+                    ->toggleable(isToggledHiddenByDefault: true),
                     
                 BadgeColumn::make('role')
                     ->label('Role')

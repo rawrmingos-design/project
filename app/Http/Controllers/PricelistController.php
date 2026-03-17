@@ -19,7 +19,18 @@ class PricelistController extends Controller
             return Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')
                 ->where('kategoris.status', 'active')
                 ->orderBy('created_at', 'desc')
-                ->select('layanans.*', 'kategoris.nama AS nama_kategori')
+                ->select(
+                    'layanans.id',
+                    'layanans.kategori_id',
+                    'layanans.layanan',
+                    'layanans.provider_id',
+                    'layanans.harga_member AS harga',
+                    'layanans.harga_member',
+                    'layanans.harga_platinum',
+                    'layanans.harga_gold',
+                    'layanans.status',
+                    'kategoris.nama AS nama_kategori'
+                )
                 ->get();
         });
                 

@@ -31,6 +31,21 @@ class TransactionCreationTest extends TestCase
             $this->markTestSkipped('Skipped in CI: requires MySQL with full schema, not SQLite.');
         }
 
+        // Also fake ipinfo (OrderController fetches IP meta).
+        Http::fake([
+            'ipinfo.io/*' => Http::response(['ip' => '127.0.0.1', 'country' => 'ID'], 200),
+            'api.digiflazz.com/*' => Http::response([
+                'data' => [
+                    'status'      => 'Pending',
+                    'sn'          => 'SN123',
+                    'customer_no' => '12345',
+                    'tele'        => '12345',
+                    'rc'          => '00',
+                    'message'     => 'Success',
+                ],
+            ], 200),
+        ]);
+
         // Seed basic settings (only columns that exist in real migration)
         DB::table('setting_webs')->insert([
             'id'                   => 1,
@@ -66,15 +81,14 @@ class TransactionCreationTest extends TestCase
 
         // Create Category
         $kategori = Kategori::create([
-            'nama'          => 'Mobile Legends',
-            'kode'          => 'mobile-legends',
-            'brand'         => 'ML',
-            'kode_kategori' => 'ml',
-            'tipe'          => 'game',
-            'server_id'     => 1,
-            'status'        => 'active',
-            'thumbnail'     => 'thumb.jpg',
-            'bannerlayanan' => 'banner.jpg'
+            'nama'      => 'Mobile Legends',
+            'sub_nama'  => 'Mobile Legends',
+            'kode'      => 'mobile-legends',
+            'tipe'      => 'game',
+            'server_id' => 1,
+            'status'    => 'active',
+            'thumbnail' => 'thumb.jpg',
+            'banner'    => 'banner.jpg',
         ]);
 
         // Create Layanan
@@ -87,7 +101,6 @@ class TransactionCreationTest extends TestCase
             'harga_member'     => 9500,
             'harga_platinum'   => 9000,
             'harga_gold'       => 8500,
-            'profit'           => 1000,
             'profit_member'    => 500,
             'profit_platinum'  => 200,
             'profit_gold'      => 100,
@@ -96,25 +109,29 @@ class TransactionCreationTest extends TestCase
             'is_flash_sale'    => 0
         ]);
 
-        // Create Payment Methods
+        // Create Payment Methods (match current `methods` migration columns)
         $this->methodSaldo = Method::create([
             'name'    => 'Saldo Akun',
             'code'    => 'SALDO',
-            'data'    => 'saldo',
             'payment' => 'saldo',
             'tipe'    => 'saldo',
             'images'  => 'saldo.png',
-            'status'  => 'active'
+            'keterangan' => 'Saldo',
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+            'statuspayment' => 1,
         ]);
 
         $this->methodTripay = Method::create([
             'name'    => 'QRIS',
             'code'    => 'QRIS',
-            'data'    => 'qris',
             'payment' => 'tripay',
             'tipe'    => 'e-wallet',
             'images'  => 'qris.png',
-            'status'  => 'active'
+            'keterangan' => 'QRIS',
+            'fee_percent' => 0.7,
+            'fix_fee' => 100,
+            'statuspayment' => 1,
         ]);
     }
 
@@ -122,19 +139,6 @@ class TransactionCreationTest extends TestCase
     public function user_can_create_order_using_balance()
     {
         $this->actingAs($this->user);
-
-        Http::fake([
-            'api.digiflazz.com/*' => Http::response([
-                'data' => [
-                    'status'      => 'Pending',
-                    'sn'          => 'SN123',
-                    'customer_no' => '12345',
-                    'tele'        => '12345',
-                    'rc'          => '00',
-                    'message'     => 'Success',
-                ]
-            ], 200),
-        ]);
 
         $response = $this->postJson('/id', [
             'uid'            => '12345',
@@ -152,14 +156,14 @@ class TransactionCreationTest extends TestCase
         $this->assertDatabaseHas('pembelians', [
             'username'        => $this->user->username,
             'layanan'         => $this->layanan->layanan,
-            'harga'           => $this->layanan->harga,
+            'harga'           => $this->layanan->harga_member,
             'status'          => 'Proses',
             'tipe_transaksi'  => 'game'
         ]);
 
         $this->assertDatabaseHas('users', [
             'id'      => $this->user->id,
-            'balance' => 90000
+            'balance' => 90500
         ]);
     }
 
@@ -188,6 +192,12 @@ class TransactionCreationTest extends TestCase
         $this->actingAs($this->user);
 
         Http::fake([
+            'ipinfo.io/*' => Http::response(['ip' => '127.0.0.1', 'country' => 'ID'], 200),
+            'api.digiflazz.com/*' => Http::response([
+                'data' => [
+                    'status' => 'Pending',
+                ],
+            ], 200),
             'tripay.co.id/*' => Http::response([
                 'success' => true,
                 'data'    => [
@@ -216,7 +226,12 @@ class TransactionCreationTest extends TestCase
             'username'         => $this->user->username,
             'layanan'          => $this->layanan->layanan,
             'status'           => 'Pending',
-            'provider_order_id'=> 'DEV-123'
+        ]);
+
+        $this->assertDatabaseHas('pembayarans', [
+            'metode' => 'QRIS',
+            'reference' => 'DEV-123',
+            'status' => 'Belum Lunas',
         ]);
     }
 }

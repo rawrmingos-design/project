@@ -87,38 +87,12 @@
                                     </select>
                                 </div>
                             </div>                         
-
-                            <div class="mb-2 row profit-inputs" style="display: none;">
-                                <label class="col-lg-2 col-form-label">Profit</label>
-                                <div class="col-lg-10">
-                                    <input type="number" step="0.01" class="form-control" value="{{ old('profit') }}"
-                                        name="profit">
-                                </div>
-
-                            </div>
-
-                            <div class="mb-2 row profit-inputs" style="display: none;">
-                                <label class="col-lg-2 col-form-label">Profit Member</label>
-                                <div class="col-lg-10">
-                                    <input type="number" step="0.01" class="form-control"
-                                        value="{{ old('profit_member') }}" name="profit_member">
-                                </div>
-                            </div>
-
-                            <div class="mb-2 row profit-inputs" style="display: none;">
-                                <label class="col-lg-2 col-form-label">Profit Platinum</label>
-                                <div class="col-lg-10">
-                                    <input type="number" step="0.01" class="form-control"
-                                        value="{{ old('profit_platinum') }}" name="profit_platinum">
-                                </div>
-
-                            </div>
-
-                            <div class="mb-2 row profit-inputs" style="display: none;">
-                                <label class="col-lg-2 col-form-label">Profit Gold</label>
-                                <div class="col-lg-10">
-                                    <input type="number" step="0.01" class="form-control"
-                                        value="{{ old('profit_gold') }}" name="profit_gold">
+                            <div class="mb-2 row">
+                                <div class="col-lg-10 offset-lg-2">
+                                    <small class="text-muted">
+                                        Produk hasil import akan menyimpan `harga` sebagai modal provider.
+                                        Harga Member / Publik, Platinum, dan Gold akan dibuat otomatis dari setting markup global.
+                                    </small>
                                 </div>
                             </div>
                         </table>
@@ -168,24 +142,6 @@
                 "{{ route('produk.get.post') }";
             document.getElementById('produkForm').setAttribute('action', formAction);
         });
-        const kategoriSelect = document.getElementById('kategoriSelect');
-        const profitInputs = document.querySelectorAll('.profit-inputs');
-
-        kategoriSelect.addEventListener('change', function() {
-            const selectedValue = this.value;
-
-
-            if (selectedValue) {
-                profitInputs.forEach(inputRow => {
-                    inputRow.style.display = 'block';
-                });
-            } else {
-                profitInputs.forEach(inputRow => {
-                    inputRow.style.display = 'none';
-                });
-            }
-        });
-
         function modal(name, link) {
             var myModal = new bootstrap.Modal($('#modal-detail'))
             $.ajax({

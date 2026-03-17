@@ -16,6 +16,7 @@ use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Models\Layanan;
 use App\Models\Kategori;
+use App\Services\ProductPricingService;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -36,26 +37,16 @@ class ProdukController extends Controller
 
     public function store(Request $request)
     {
+        $pricing = app(ProductPricingService::class);
+
         $rules = [
             'provider' => 'required|string',
             'kategori' => 'required|string',
-            'profit' => 'required|numeric',
-            'profit_member' => 'required|numeric',
-            'profit_platinum' => 'required|numeric',
-            'profit_gold' => 'required|numeric',
         ];
 
         $messages = [
             'provider.required' => 'Provider is required',
             'kategori.required' => 'Kategori is required.',
-            'profit.required' => 'Profit is required.',
-            'profit.numeric' => 'Profit must be a number.',
-            'profit_member.required' => 'Profit Member is required.',
-            'profit_member.numeric' => 'Profit Member must be a number.',
-            'profit_platinum.required' => 'Profit Platinum is required.',
-            'profit_platinum.numeric' => 'Profit Platinum must be a number.',
-            'profit_gold.required' => 'Profit Gold is required.',
-            'profit_gold.numeric' => 'Profit Gold must be a number.',
         ];
 
         $validatedData = $request->validate($rules, $messages);
@@ -84,14 +75,7 @@ class ProdukController extends Controller
                             $layanan->kategori_id = $dataGames->id;
                             $layanan->layanan = $product['name'];
                             $layanan->provider_id = $product['code'];
-                            $layanan->harga = $product['price']['basic'] + ($product['price']['basic'] * $request->profit / 100);
-                            $layanan->harga_member = $product['price']['basic'] + ($product['price']['basic'] * $request->profit_member / 100);
-                            $layanan->harga_platinum = $product['price']['basic'] + ($product['price']['basic'] * $request->profit_platinum / 100);
-                            $layanan->harga_gold = $product['price']['basic'] + ($product['price']['basic'] * $request->profit_gold / 100);
-                            $layanan->profit = $request->profit;
-                            $layanan->profit_member = $request->profit_member;
-                            $layanan->profit_platinum = $request->profit_platinum;
-                            $layanan->profit_gold = $request->profit_gold;
+                            $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $product['price']['basic']);
                             $layanan->provider = 'vip';
                             $layanan->catatan = '';
                             $layanan->status = 'available';
@@ -164,14 +148,7 @@ class ProdukController extends Controller
                                 $layanan->kategori_id = $dataGames->id;
                                 $layanan->layanan = $product['name'];
                                 $layanan->provider_id = $product['code'];
-                                $layanan->harga = $product['price'] + ($product['price'] * $request->profit / 100);
-                                $layanan->harga_member = $product['price'] + ($product['price'] * $request->profit_member / 100);
-                                $layanan->harga_platinum = $product['price'] + ($product['price'] * $request->profit_platinum / 100);
-                                $layanan->harga_gold = $product['price'] + ($product['price'] * $request->profit_gold / 100);
-                                $layanan->profit = $request->profit;
-                                $layanan->profit_member = $request->profit_member;
-                                $layanan->profit_platinum = $request->profit_platinum;
-                                $layanan->profit_gold = $request->profit_gold;
+                                $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $product['price']);
                                 $layanan->provider = 'topupedia';
                                 $layanan->catatan = '';
                                 $layanan->status = 'available';
@@ -244,14 +221,7 @@ class ProdukController extends Controller
                                 $layanan->kategori_id = $dataGames->id;
                                 $layanan->layanan = $product['name'];
                                 $layanan->provider_id = $product['code'];
-                                $layanan->harga = $product['price'] + ($product['price'] * $request->profit / 100);
-                                $layanan->harga_member = $product['price'] + ($product['price'] * $request->profit_member / 100);
-                                $layanan->harga_platinum = $product['price'] + ($product['price'] * $request->profit_platinum / 100);
-                                $layanan->harga_gold = $product['price'] + ($product['price'] * $request->profit_gold / 100);
-                                $layanan->profit = $request->profit;
-                                $layanan->profit_member = $request->profit_member;
-                                $layanan->profit_platinum = $request->profit_platinum;
-                                $layanan->profit_gold = $request->profit_gold;
+                                $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $product['price']);
                                 $layanan->provider = 'topupedia';
                                 $layanan->catatan = '';
                                 $layanan->status = 'available';
@@ -267,8 +237,6 @@ class ProdukController extends Controller
         }  else if ($request->provider == 'digiflazz') {
            $digi = new DigiFlazzController;
            $data = $digi->harga();
-           $profit = \DB::table('setting_webs')->where('id',1)->first();
-
             if ($data && isset($data['data'])) {
                 foreach ($data['data'] as $product) {
                     $kategoriArray = explode(',', $request->kategori);
@@ -280,14 +248,7 @@ class ProdukController extends Controller
                             $layanan->kategori_id = $dataGames->id;
                             $layanan->layanan = $product['product_name'];
                             $layanan->provider_id = $product['buyer_sku_code'];
-                            $layanan->harga = $product['price'] + ($product['price'] * $request->profit / 100);
-                            $layanan->harga_member = $product['price'] + ($product['price'] * $request->profit_member / 100);
-                            $layanan->harga_platinum = $product['price'] + ($product['price'] * $request->profit_platinum / 100);
-                            $layanan->harga_gold = $product['price'] + ($product['price'] * $request->profit_gold / 100);
-                            $layanan->profit = $request->profit;
-                            $layanan->profit_member = $request->profit_member;
-                            $layanan->profit_platinum = $request->profit_platinum;
-                            $layanan->profit_gold = $request->profit_gold;
+                            $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $product['price']);
                             $layanan->provider = 'digiflazz';
                             $layanan->catatan = '';
                             $layanan->status = 'available';
@@ -327,14 +288,7 @@ class ProdukController extends Controller
                     $layanan->kategori_id = $dataGames->id;
                     $layanan->layanan = $variation['variation_name'];
                     $layanan->provider_id = $selectedCategory['ID'] . ',' . $variation['variation_id'];
-                    $layanan->harga = $variation['variation_price'] + ($variation['variation_price'] * $request->profit / 100);
-                    $layanan->harga_member = $variation['variation_price'] + ($variation['variation_price'] * $request->profit_member / 100);
-                    $layanan->harga_platinum = $variation['variation_price'] + ($variation['variation_price'] * $request->profit_platinum / 100);
-                    $layanan->harga_gold = $variation['variation_price'] + ($variation['variation_price'] * $request->profit_gold / 100);
-                    $layanan->profit = $request->profit;
-                    $layanan->profit_member = $request->profit_member;
-                    $layanan->profit_platinum = $request->profit_platinum;
-                    $layanan->profit_gold = $request->profit_gold;
+                    $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $variation['variation_price']);
                     $layanan->provider = 'moogold';
                     $layanan->catatan = '';
                     $layanan->status = 'available';
@@ -377,14 +331,7 @@ class ProdukController extends Controller
                     $layanan->kategori_id = $dataGames->id;
                     $layanan->layanan = $layanan->layanan ?? $skuName;
                     $layanan->provider_id = $variation['goods_id'] . '-' . $variation['id'];
-                    $layanan->harga = $variation['cost_price'] + ($variation['cost_price'] * $request->profit / 100);
-                    $layanan->harga_member = $variation['cost_price'] + ($variation['cost_price'] * $request->profit_member / 100);
-                    $layanan->harga_platinum = $variation['cost_price'] + ($variation['cost_price'] * $request->profit_platinum / 100);
-                    $layanan->harga_gold = $variation['cost_price'] + ($variation['cost_price'] * $request->profit_gold / 100);
-                    $layanan->profit = $request->profit;
-                    $layanan->profit_member = $request->profit_member;
-                    $layanan->profit_platinum = $request->profit_platinum;
-                    $layanan->profit_gold = $request->profit_gold;
+                    $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $variation['cost_price']);
                     $layanan->provider = 'gameshop';
                     $layanan->catatan = '';
                     $layanan->status = 'available';
@@ -416,14 +363,7 @@ class ProdukController extends Controller
                     $layanan->kategori_id = $dataGames->id;
                     $layanan->layanan = $layanan->layanan ?? $variation['id'];
                     $layanan->provider_id = $request->kategoriSelect . '-' . $variation['id'];
-                    $layanan->harga = $variation['price'] + ($variation['price'] * $request->profit / 100);
-                    $layanan->harga_member = $variation['price'] + ($variation['price'] * $request->profit_member / 100);
-                    $layanan->harga_platinum = $variation['price'] + ($variation['price'] * $request->profit_platinum / 100);
-                    $layanan->harga_gold = $variation['price'] + ($variation['price'] * $request->profit_gold / 100);
-                    $layanan->profit = $request->profit;
-                    $layanan->profit_member = $request->profit_member;
-                    $layanan->profit_platinum = $request->profit_platinum;
-                    $layanan->profit_gold = $request->profit_gold;
+                    $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $variation['price']);
                     $layanan->provider = 'strleyashop';
                     $layanan->catatan = '';
                     $layanan->status = 'available';
@@ -458,14 +398,7 @@ class ProdukController extends Controller
                     $layanan->kategori_id = $dataGames->id;
                     $layanan->layanan = $layanan->layanan ?? $skuName;
                     $layanan->provider_id = $variation['code'];
-                    $layanan->harga = $variation['price'] + ($variation['price'] * $request->profit / 100);
-                    $layanan->harga_member = $variation['price'] + ($variation['price'] * $request->profit_member / 100);
-                    $layanan->harga_platinum = $variation['price'] + ($variation['price'] * $request->profit_platinum / 100);
-                    $layanan->harga_gold = $variation['price'] + ($variation['price'] * $request->profit_gold / 100);
-                    $layanan->profit = $request->profit;
-                    $layanan->profit_member = $request->profit_member;
-                    $layanan->profit_platinum = $request->profit_platinum;
-                    $layanan->profit_gold = $request->profit_gold;
+                    $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $variation['price']);
                     $layanan->provider = 'yezzpay';
                     $layanan->catatan = '';
                     $layanan->status = $variation['status'] == '1' ? 'available' : 'unavailable';
@@ -504,14 +437,7 @@ class ProdukController extends Controller
                     $layanan->kategori_id = $dataGames->id;
                     $layanan->layanan = $layanan->layanan ?? $skuName;
                     $layanan->provider_id = $request->kategoriSelect . '-' . $var;
-                    $layanan->harga = $price + ($price * $request->profit / 100);
-                    $layanan->harga_member = $price + ($price * $request->profit_member / 100);
-                    $layanan->harga_platinum = $price + ($price * $request->profit_platinum / 100);
-                    $layanan->harga_gold = $price + ($price * $request->profit_gold / 100);
-                    $layanan->profit = $request->profit;
-                    $layanan->profit_member = $request->profit_member;
-                    $layanan->profit_platinum = $request->profit_platinum;
-                    $layanan->profit_gold = $request->profit_gold;
+                    $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $price);
                     $layanan->provider = 'elitedias';
                     $layanan->catatan = '';
                     $layanan->status = 'available';
@@ -539,16 +465,7 @@ class ProdukController extends Controller
                 $dataProduct = Layanan::where('provider_id', $product['buyer_sku_code'])->first();
 
                 if ($dataGames && $dataProduct) {
-                    $profit = $dataProduct->profit;
-                    $profit_member = $dataProduct->profit_member;
-                    $profit_platinum = $dataProduct->profit_platinum;
-                    $profit_gold = $dataProduct->profit_gold;
-
-                    $harga = $product['price'];
-                    $dataProduct->harga = $harga + ($harga * $profit / 100);
-                    $dataProduct->harga_member = $harga + ($harga * $profit_member / 100);
-                    $dataProduct->harga_platinum = $harga + ($harga * $profit_platinum / 100);
-                    $dataProduct->harga_gold = $harga + ($harga * $profit_gold / 100);
+                    $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $product['price']);
                     $dataProduct->save();
                 }
             }
@@ -574,32 +491,30 @@ public function synctopupedia(Request $request) {
                 $dataProduct = Layanan::where('provider_id', $product['code'])->first();
 
                 if ($dataProduct) {
-                    // Ambil profit dari Layanan
-                    $profit = $dataProduct->profit;
-                    $profit_member = $dataProduct->profit_member;
-                    $profit_platinum = $dataProduct->profit_platinum;
-                    $profit_gold = $dataProduct->profit_gold;
-
-                    // Hitung harga baru berdasarkan price dari API dan profit dari Layanan
-                    $newHarga = $product['price'] + ($product['price'] * $profit / 100);
-                    $newHargaMember = $product['price'] + ($product['price'] * $profit_member / 100);
-                    $newHargaPlatinum = $product['price'] + ($product['price'] * $profit_platinum / 100);
-                    $newHargaGold = $product['price'] + ($product['price'] * $profit_gold / 100);
+                    $oldHarga = $dataProduct->harga;
+                    $oldHargaMember = $dataProduct->harga_member;
+                    $oldHargaPlatinum = $dataProduct->harga_platinum;
+                    $oldHargaGold = $dataProduct->harga_gold;
+                    $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $product['price']);
 
                     // Update data produk
                     $dataProduct->update([
                         'provider_id' => $product['code'],
-                        'harga' => $newHarga,
-                        'harga_member' => $newHargaMember,
-                        'harga_platinum' => $newHargaPlatinum,
-                        'harga_gold' => $newHargaGold,
+                        'harga' => $dataProduct->harga,
+                        'harga_member' => $dataProduct->harga_member,
+                        'harga_platinum' => $dataProduct->harga_platinum,
+                        'harga_gold' => $dataProduct->harga_gold,
+                        'profit_member' => $dataProduct->profit_member,
+                        'profit_platinum' => $dataProduct->profit_platinum,
+                        'profit_gold' => $dataProduct->profit_gold,
                     ]);
 
                     // Tulis ke file logging.txt untuk debugging
                     $logMessage = "Produk: {$product['code']}, Harga API: {$product['price']}, " .
-                                  "Profit: {$profit}%, Harga Lama: {$dataProduct->harga}, " .
-                                  "Harga Baru: {$newHarga}, Harga Member Baru: {$newHargaMember}, " .
-                                  "Harga Platinum Baru: {$newHargaPlatinum}, Harga Gold Baru: {$newHargaGold}" . PHP_EOL;
+                                  "Harga Lama Modal: {$oldHarga}, Harga Member Lama: {$oldHargaMember}, " .
+                                  "Harga Platinum Lama: {$oldHargaPlatinum}, Harga Gold Lama: {$oldHargaGold}, " .
+                                  "Harga Baru Modal: {$dataProduct->harga}, Harga Member Baru: {$dataProduct->harga_member}, " .
+                                  "Harga Platinum Baru: {$dataProduct->harga_platinum}, Harga Gold Baru: {$dataProduct->harga_gold}" . PHP_EOL;
 
                     file_put_contents(storage_path('logging.txt'), $logMessage, FILE_APPEND);
                 } else {
@@ -658,17 +573,7 @@ public function syncmoogold()
                                 if ($dataProduct) {
                                     $price = $variation['variation_price_idr'];
 
-                                    // Hitung harga dengan profit
-                                    $profit = $dataProduct->profit;
-                                    $profit_member = $dataProduct->profit_member;
-                                    $profit_platinum = $dataProduct->profit_platinum;
-                                    $profit_gold = $dataProduct->profit_gold;
-
-                                    // Perbarui harga
-                                    $dataProduct->harga = $price + ($price * $profit / 100);
-                                    $dataProduct->harga_member = $price + ($price * $profit_member / 100);
-                                    $dataProduct->harga_platinum = $price + ($price * $profit_platinum / 100);
-                                    $dataProduct->harga_gold = $price + ($price * $profit_gold / 100);
+                                    $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $price);
                                     $dataProduct->save();
                                 }
                             }
@@ -706,33 +611,12 @@ public function detail($id)
                     </div>
                 </div>
                 
-                <div class='mb-3 row'>
-                    <label class='col-lg-2 col-form-label' for='profit'>Profit Public</label>
-                    <div class='col-lg-10'>
-                        <input type='text' class='form-control' name='profit' required>
-                    </div>
-                </div>
-                <div class='mb-3 row'>
-                    <label class='col-lg-2 col-form-label' for='profit_member'>Profit Member</label>
-                    <div class='col-lg-10'>
-                        <input type='text' class='form-control' name='profit_member' required>
-                    </div>
-                </div>
-                <div class='mb-3 row'>
-                    <label class='col-lg-2 col-form-label' for='profit_platinum'>Profit Platinum</label>
-                    <div class='col-lg-10'>
-                        <input type='text' class='form-control' name='profit_platinum' required>
-                    </div>
-                </div>
-                <div class='mb-3 row'>
-                    <label class='col-lg-2 col-form-label' for='profit_gold'>Profit Gold</label>
-                    <div class='col-lg-10'>
-                        <input type='text' class='form-control' name='profit_gold' required>
-                    </div>
+                <div class='alert alert-info'>
+                    Harga modal setiap produk di kategori terpilih akan dipertahankan. Harga Member / Publik, Platinum, dan Gold akan disusun ulang memakai markup default dari menu Settings.
                 </div>
                 <div class='modal-footer'>
                     <button type='button' class='btn btn-danger' data-bs-dismiss='modal'>Close</button>
-                    <button type='submit' class='btn btn-primary'>Simpan</button>
+                    <button type='submit' class='btn btn-primary'>Terapkan</button>
                 </div>
             </form>
     ";
@@ -742,20 +626,19 @@ public function detail($id)
 
 public function patch(Request $request, $id)
 {
+    $pricing = app(ProductPricingService::class);
     $category_id = $request->category_id;
 
-    \DB::table('layanans')
-        ->where('kategori_id', $category_id)
-        ->update([
-            'profit' => $request->profit,
-            'profit_member' => $request->profit_member,
-            'profit_platinum' => $request->profit_platinum,
-            'profit_gold' => $request->profit_gold,
-        ]);
+    Layanan::where('kategori_id', $category_id)
+        ->get()
+        ->each(function (Layanan $layanan) use ($pricing) {
+            $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $layanan->harga);
+            $layanan->save();
+        });
 
     $kategori = \DB::table('kategoris')->where('id', $category_id)->value('nama');
 
-    return redirect()->back()->with('success', 'Profit berhasil diperbarui untuk kategori: ' . $kategori. ' Silahkan klik sync untuk merubah harga');
+    return redirect()->back()->with('success', 'Harga default berhasil diterapkan ulang untuk kategori: ' . $kategori);
 }
 
 

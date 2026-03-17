@@ -12,29 +12,43 @@ use App\Models\Method;
 ;use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use App\Support\CustomInputDefaults;
 
 class CategoryController extends Controller
 {
     public function show($kode)
     {
         $kategori = Kategori::where('kode', $kode)->firstOrFail();
+        app(CustomInputDefaults::class)->ensureExists($kategori);
         
         $role = Auth::guard('sanctum')->check() ? Auth::guard('sanctum')->user()->role : 'Guest';
         $cacheKey = "api_category_show:{$kategori->kode}:{$role}";
         $ttl = 300; // 5 minutes
 
         $data = Cache::remember($cacheKey, $ttl, function () use ($kategori, $role) {
-            
-            if (in_array($kategori->tipe, ['game', 'voucher', 'pulsa', 'app', 'populer'])) {
-                $categoryData = Kategori::where('kode', $kategori->kode)
-                    ->join('custom_inputs', 'kategoris.id', 'custom_inputs.kategori_id')
-                    ->select('custom_inputs.field_1 AS field_1', 'custom_inputs.field_2 AS field_2', 'custom_inputs.field_select_title AS field_select_title', 'custom_inputs.field_select AS field_select', 'nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode',  'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')
-                    ->first();
-            } else {
-                $categoryData = Kategori::where('kode', $kategori->kode)
-                    ->select('nama', 'sub_nama', 'server_id', 'thumbnail', 'kategoris.id AS id', 'kode', 'deskripsi_game', 'deskripsi_field', 'banner', 'tipe', 'meta_title', 'meta_description', 'schema_markup')
-                    ->first();
-            }
+            $categoryData = Kategori::where('kode', $kategori->kode)
+                ->leftJoin('custom_inputs', 'kategoris.id', '=', 'custom_inputs.kategori_id')
+                ->select(
+                    'custom_inputs.field_1 AS field_1',
+                    'custom_inputs.field_2 AS field_2',
+                    'custom_inputs.field_select_title AS field_select_title',
+                    'custom_inputs.field_select AS field_select',
+                    'nama',
+                    'sub_nama',
+                    'server_id',
+                    'require_user_id',
+                    'thumbnail',
+                    'kategoris.id AS id',
+                    'kode',
+                    'deskripsi_game',
+                    'deskripsi_field',
+                    'banner',
+                    'tipe',
+                    'meta_title',
+                    'meta_description',
+                    'schema_markup'
+                )
+                ->first();
             
             if (!$categoryData) return null;
 
@@ -48,7 +62,7 @@ class CategoryController extends Controller
             } else if ($role == "Gold" || $role == "Admin") {
                 $query->select('id', 'layanan', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo');
             } else { // Guest
-                $query->select('id', 'layanan', 'product_logo', 'harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
+                $query->select('id', 'layanan', 'product_logo', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             }
             $products = $query->orderBy('harga', 'asc')->get();
 
@@ -70,7 +84,7 @@ class CategoryController extends Controller
                         if ($role == 'Member') $query->where('harga_member', '>', 0);
                         elseif ($role == 'Platinum') $query->where('harga_platinum', '>', 0);
                         elseif ($role == 'Gold' || $role == 'Admin') $query->where('harga_gold', '>', 0);
-                        else $query->where('harga', '>', 0);
+                        else $query->where('harga_member', '>', 0);
                     })->get();
 
                 $l = [];
@@ -80,7 +94,7 @@ class CategoryController extends Controller
                         if ($role == 'Member') $harga = $lyn->harga_member;
                         elseif ($role == 'Platinum') $harga = $lyn->harga_platinum;
                         elseif ($role == 'Gold' || $role == 'Admin') $harga = $lyn->harga_gold;
-                        else $harga = $lyn->harga;
+                        else $harga = $lyn->harga_member;
 
                         $l[] = [
                             'id' => $lyn->id,

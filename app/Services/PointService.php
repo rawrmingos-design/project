@@ -159,6 +159,64 @@ class PointService
     }
 
     /**
+     * Pastikan poin untuk order ini sedang dalam keadaan terpotong.
+     * Berguna untuk status sukses manual/retry setelah sebelumnya sempat di-refund.
+     */
+    public function ensureRedeemedPointsForOrder(Pembelian $order): bool
+    {
+        $pointsRequired = (int) ($order->used_points ?? 0);
+
+        if ($pointsRequired <= 0) {
+            return false;
+        }
+
+        $user = $order->user ?: User::where('username', $order->username)->first();
+
+        if (!$user) {
+            Log::warning('PointService::ensureRedeemedPointsForOrder user not found', ['order' => $order->order_id]);
+            return false;
+        }
+
+        $refundDescription = $this->getRefundDescription($order->layanan);
+        $redeemedPoints = (int) PointHistory::where('user_id', $user->id)
+            ->where('order_id', $order->order_id)
+            ->where('type', 'redeem')
+            ->sum('points');
+        $refundedPoints = (int) PointHistory::where('user_id', $user->id)
+            ->where('order_id', $order->order_id)
+            ->where('type', 'earn')
+            ->where('description', $refundDescription)
+            ->sum('points');
+
+        $activeRedeemedPoints = max(0, $redeemedPoints - $refundedPoints);
+        $missingPoints = $pointsRequired - $activeRedeemedPoints;
+
+        if ($missingPoints <= 0) {
+            return false;
+        }
+
+        $redeemedAmount = $this->redeemPoints($user, $missingPoints, $order->order_id, $order->layanan);
+
+        if ($redeemedAmount <= 0) {
+            Log::warning('PointService::ensureRedeemedPointsForOrder redeem failed', [
+                'order' => $order->order_id,
+                'missing_points' => $missingPoints,
+                'user_id' => $user->id,
+            ]);
+
+            return false;
+        }
+
+        if ((int) ($order->used_point_amount ?? 0) <= 0) {
+            $order->forceFill([
+                'used_point_amount' => $redeemedAmount,
+            ])->saveQuietly();
+        }
+
+        return true;
+    }
+
+    /**
      * Hitung berapa maksimal poin yang bisa dipakai untuk harga tertentu.
      */
     public function calculateMaxRedeemable(int $harga, int $userPointBalance): array

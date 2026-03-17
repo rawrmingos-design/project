@@ -9,6 +9,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Actions\ViewAction;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\DatePicker;
@@ -274,255 +275,260 @@ class PembeliansTable
                     }),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->label('View Detail'),
+                ActionGroup::make([
+                    ViewAction::make()
+                        ->label('View Detail'),
 
-                Action::make('editStatus')
-                    ->label('Ubah Status')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('primary')
-                    ->form([
-                        \Filament\Forms\Components\Select::make('status')
-                            ->label('Status Baru')
-                            ->options([
-                                'Sukses' => 'Sukses',
-                                'Pending' => 'Pending',
-                                'Proses' => 'Proses',
-                                'Processing' => 'Processing',
-                                'Failed' => 'Failed',
-                                'Batal' => 'Batal',
-                                'Gagal' => 'Gagal',
-                            ])
-                            ->required()
-                            ->default(fn ($record) => $record->status),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $oldStatus = $record->status;
-                        $newStatus = $data['status'];
-                        
-                        if ($oldStatus === $newStatus) return;
+                    Action::make('editStatus')
+                        ->label('Ubah Status')
+                        ->icon('heroicon-o-pencil-square')
+                        ->color('primary')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('status')
+                                ->label('Status Baru')
+                                ->options([
+                                    'Sukses' => 'Sukses',
+                                    'Pending' => 'Pending',
+                                    'Proses' => 'Proses',
+                                    'Processing' => 'Processing',
+                                    'Failed' => 'Failed',
+                                    'Batal' => 'Batal',
+                                    'Gagal' => 'Gagal',
+                                ])
+                                ->required()
+                                ->default(fn ($record) => $record->status),
+                        ])
+                        ->action(function ($record, array $data) {
+                            $oldStatus = $record->status;
+                            $newStatus = $data['status'];
 
-                        $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
-                        $record->update(['status' => $newStatus, 'log' => $logMsg]);
+                            if ($oldStatus === $newStatus) return;
 
-                        Notification::make()
-                            ->title('Status berhasil diubah')
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Ubah Status Pembelian')
-                    ->modalDescription('Apakah Anda yakin ingin mengubah status pembelian ini? Pastikan Anda sudah mengecek mutasi atau dashboard provider terkait.')
-                    ->modalSubmitActionLabel('Ya, Ubah Status'),
-                    
-                    
-                Action::make('process')
-                    ->label('Process')
-                    ->icon('heroicon-o-play')
-                    ->color('success')
-                    ->visible(fn ($record) => $record->status === 'Pending')
-                    ->action(function ($record) {
-                        $record->update(['status' => 'Processing']);
-                        Notification::make()
-                            ->title('Order processed successfully')
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation(),
-                    
-                Action::make('cancel')
-                    ->label('Cancel')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
-                    ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing']))
-                    ->action(function ($record) {
-                        $logMsg = 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s');
+                            $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
+                            $record->update(['status' => $newStatus, 'log' => $logMsg]);
 
-                        // Refund logic if SALDO
-                        if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
-                            $record->user->increment('balance', $record->harga);
-                            $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
-                        }
+                            Notification::make()
+                                ->title('Status berhasil diubah')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Ubah Status Pembelian')
+                        ->modalDescription('Apakah Anda yakin ingin mengubah status pembelian ini? Pastikan Anda sudah mengecek mutasi atau dashboard provider terkait.')
+                        ->modalSubmitActionLabel('Ya, Ubah Status'),
 
-                        app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+                    Action::make('process')
+                        ->label('Process')
+                        ->icon('heroicon-o-play')
+                        ->color('success')
+                        ->visible(fn ($record) => $record->status === 'Pending')
+                        ->action(function ($record) {
+                            $record->update(['status' => 'Processing']);
+                            Notification::make()
+                                ->title('Order processed successfully')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation(),
 
-                        $record->update(['status' => 'Failed', 'log' => $logMsg]);
-                        Notification::make()
-                            ->title('Order cancelled & refunded if applicable')
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation(),
-                    
-                Action::make('refund')
-                    ->label('Refund')
-                    ->icon('heroicon-o-arrow-uturn-left')
-                    ->color('warning')
-                    ->visible(fn ($record) => $record->status === 'Success')
-                    ->action(function ($record) {
-                        $logMsg = 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s');
+                    Action::make('cancel')
+                        ->label('Cancel')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('danger')
+                        ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing']))
+                        ->action(function ($record) {
+                            $logMsg = 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s');
 
-                        // Refund logic if SALDO
-                        if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
-                            $record->user->increment('balance', $record->harga);
-                            $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
-                        }
+                            // Refund logic if SALDO
+                            if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
+                                $record->user->increment('balance', $record->harga);
+                                $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
+                            }
 
-                        app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+                            app(\App\Services\PointService::class)->refundRedeemedPoints($record);
 
-                        $record->update(['status' => 'Batal', 'log' => $logMsg]); // Changed to Batal/Refunded
-                        Notification::make()
-                            ->title('Refund processed successfully')
-                            ->success()
-                            ->send();
-                    })
-                    ->requiresConfirmation(),
-                Action::make('retry')
-                    ->label('Retry Order')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('info')
-                    ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing', 'Failed', 'Gagal', 'Proses', 'Batal']) && optional($record->pembayaran)->status === 'Lunas')
-                    ->action(function ($record) {
-                        try {
-                            $routingService = new \App\Services\ProviderRoutingService();
-                            $processor = new \App\Services\OrderProcessingService($routingService);
-                            
-                            $result = $processor->process($record);
-                            
-                            if ($result['success']) {
-                                $newStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Success' : 'Processing'; 
-                                $updateData = [
-                                    'status' => $newStatus,
-                                    'log' => $record->log . "\n" . 'Retried by admin at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
-                                ];
-                                
-                                if (!empty($result['transaction_id'])) {
-                                    $updateData['provider_order_id'] = $result['transaction_id'];
+                            $record->update(['status' => 'Failed', 'log' => $logMsg]);
+                            Notification::make()
+                                ->title('Order cancelled & refunded if applicable')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation(),
+
+                    Action::make('refund')
+                        ->label('Refund')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('warning')
+                        ->visible(fn ($record) => $record->status === 'Success')
+                        ->action(function ($record) {
+                            $logMsg = 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s');
+
+                            // Refund logic if SALDO
+                            if ($record->pembayaran && $record->pembayaran->metode === 'SALDO' && $record->user) {
+                                $record->user->increment('balance', $record->harga);
+                                $logMsg .= " (Saldo Rp " . number_format($record->harga, 0, ',', '.') . " di-refund)";
+                            }
+
+                            app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+
+                            $record->update(['status' => 'Batal', 'log' => $logMsg]); // Changed to Batal/Refunded
+                            Notification::make()
+                                ->title('Refund processed successfully')
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation(),
+
+                    Action::make('retry')
+                        ->label('Retry Order')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing', 'Failed', 'Gagal', 'Proses', 'Batal']) && optional($record->pembayaran)->status === 'Lunas')
+                        ->action(function ($record) {
+                            try {
+                                $routingService = new \App\Services\ProviderRoutingService();
+                                $processor = new \App\Services\OrderProcessingService($routingService);
+
+                                $result = $processor->process($record);
+
+                                if ($result['success']) {
+                                    $newStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Success' : 'Processing';
+                                    $updateData = [
+                                        'status' => $newStatus,
+                                        'log' => $record->log . "\n" . 'Retried by admin at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
+                                    ];
+
+                                    if (!empty($result['transaction_id'])) {
+                                        $updateData['provider_order_id'] = $result['transaction_id'];
+                                    }
+
+                                    $record->update($updateData);
+
+                                    Notification::make()
+                                        ->title('Retry successful')
+                                        ->body($result['message'])
+                                        ->success()
+                                        ->send();
+                                } else {
+                                    $record->update([
+                                        'log' => $record->log . "\n" . 'Retry failed at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Retry failed')
+                                        ->body($result['message'])
+                                        ->danger()
+                                        ->send();
                                 }
-                                
-                                $record->update($updateData);
-
+                            } catch (\Exception $e) {
                                 Notification::make()
-                                    ->title('Retry successful')
-                                    ->body($result['message'])
-                                    ->success()
-                                    ->send();
-                            } else {
-                                $record->update([
-                                    'log' => $record->log . "\n" . 'Retry failed at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
-                                ]);
-                                
-                                Notification::make()
-                                    ->title('Retry failed')
-                                    ->body($result['message'])
+                                    ->title('System Error')
+                                    ->body($e->getMessage())
                                     ->danger()
                                     ->send();
                             }
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->title('System Error')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Retry Transaction?')
-                    ->modalDescription('Are you sure you want to retry this transaction? This will attempt to send the order to the provider again.'),
-                
-                Action::make('resend_notification')
-                    ->label('Resend Notif')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('secondary')
-                    ->form([
-                        \Filament\Forms\Components\Select::make('channel')
-                            ->label('Send via')
-                            ->options([
-                                'whatsapp' => 'WhatsApp Only',
-                                'email' => 'Email Only',
-                                'both' => 'Both (WhatsApp & Email)',
-                            ])
-                            ->default('both')
-                            ->required(),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $channel = $data['channel'];
-                        $waService = new \App\Services\WhatsappNotificationService();
-                        $emailService = new \App\Services\EmailNotificationService();
-                        
-                        // Prepare Data
-                        $status = strtolower($record->status);
-                        $slug = 'transaction_pending';
-                        $note = 'Pesanan sedang menunggu respon provider.';
-                        
-                        if (in_array($status, ['success', 'sukses'])) {
-                            $slug = 'transaction_success';
-                            $note = 'Terima kasih telah berbelanja.';
-                        } elseif (in_array($status, ['failed', 'gagal', 'batal', 'expired'])) {
-                            $slug = 'transaction_failed';
-                            $note = 'Mohon maaf, transaksi Anda gagal atau kadaluarsa.';
-                        }
-                        
-                        $notificationData = [
-                            'nickname' => $record->nickname ?? 'Pelanggan',
-                            'order_id' => $record->order_id,
-                            'product' => $record->layanan,
-                            'amount' => 'Rp ' . number_format($record->harga, 0, ',', '.'),
-                            'status' => $record->status,
-                            'sn' => $record->keterangan_sn ?: ($record->voucher ?: 'Sedang Diproses'),
-                            'note' => $note,
-                        ];
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Retry Transaction?')
+                        ->modalDescription('Are you sure you want to retry this transaction? This will attempt to send the order to the provider again.'),
 
-                        $results = [];
+                    Action::make('resend_notification')
+                        ->label('Resend Notif')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('secondary')
+                        ->form([
+                            \Filament\Forms\Components\Select::make('channel')
+                                ->label('Send via')
+                                ->options([
+                                    'whatsapp' => 'WhatsApp Only',
+                                    'email' => 'Email Only',
+                                    'both' => 'Both (WhatsApp & Email)',
+                                ])
+                                ->default('both')
+                                ->required(),
+                        ])
+                        ->action(function ($record, array $data) {
+                            $channel = $data['channel'];
+                            $waService = new \App\Services\WhatsappNotificationService();
+                            $emailService = new \App\Services\EmailNotificationService();
 
-                        // Send WhatsApp
-                        if ($channel === 'whatsapp' || $channel === 'both') {
-                            if ($record->user && $record->user->no_wa) {
-                                $waResult = $waService->sendNotification($record->user->no_wa, $slug, $notificationData);
-                                $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
-                            } elseif ($record->no_hp) { // Fallback if guest has phone column (assuming no_hp exists or we use user relation)
-                                // Standardize on user relation per previous table logic, but check if we store no_hp on pembelian?
-                                // Table columns imply user->no_wa. Let's stick to user->no_wa for now as per table columns.
-                                // But wait, guest orders might store phone in 'no_hp' or similar?
-                                // Checking PembeliansTable columns: no phone column explicitly shown except user.no_wa
-                                // Let's check Pembelian model or migration from earlier?
-                                // Assuming user relation is reliable or Invoice has 'no_hp' field?
-                                // Previous callbacks used $invoice->no_pembeli.
-                                $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
-                                if ($targetWa) {
-                                    $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
+                            // Prepare Data
+                            $status = strtolower($record->status);
+                            $slug = 'transaction_pending';
+                            $note = 'Pesanan sedang menunggu respon provider.';
+
+                            if (in_array($status, ['success', 'sukses'])) {
+                                $slug = 'transaction_success';
+                                $note = 'Terima kasih telah berbelanja.';
+                            } elseif (in_array($status, ['failed', 'gagal', 'batal', 'expired'])) {
+                                $slug = 'transaction_failed';
+                                $note = 'Mohon maaf, transaksi Anda gagal atau kadaluarsa.';
+                            }
+
+                            $notificationData = [
+                                'nickname' => $record->nickname ?? 'Pelanggan',
+                                'order_id' => $record->order_id,
+                                'product' => $record->layanan,
+                                'amount' => 'Rp ' . number_format($record->harga, 0, ',', '.'),
+                                'status' => $record->status,
+                                'sn' => $record->keterangan_sn ?: ($record->voucher ?: 'Sedang Diproses'),
+                                'note' => $note,
+                            ];
+
+                            $results = [];
+
+                            // Send WhatsApp
+                            if ($channel === 'whatsapp' || $channel === 'both') {
+                                if ($record->user && $record->user->no_wa) {
+                                    $waResult = $waService->sendNotification($record->user->no_wa, $slug, $notificationData);
                                     $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
+                                } elseif ($record->no_hp) { // Fallback if guest has phone column (assuming no_hp exists or we use user relation)
+                                    // Standardize on user relation per previous table logic, but check if we store no_hp on pembelian?
+                                    // Table columns imply user->no_wa. Let's stick to user->no_wa for now as per table columns.
+                                    // But wait, guest orders might store phone in 'no_hp' or similar?
+                                    // Checking PembeliansTable columns: no phone column explicitly shown except user.no_wa
+                                    // Let's check Pembelian model or migration from earlier?
+                                    // Assuming user relation is reliable or Invoice has 'no_hp' field?
+                                    // Previous callbacks used $invoice->no_pembeli.
+                                    $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
+                                    if ($targetWa) {
+                                        $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
+                                        $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
+                                    } else {
+                                        $results[] = "WA: No Number";
+                                    }
                                 } else {
-                                    $results[] = "WA: No Number";
-                                }
-                            } else {
-                                $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
-                                if ($targetWa) {
-                                    $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
-                                    $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
-                                } else {
-                                    $results[] = "WA: No Number";
+                                    $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
+                                    if ($targetWa) {
+                                        $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
+                                        $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
+                                    } else {
+                                        $results[] = "WA: No Number";
+                                    }
                                 }
                             }
-                        }
 
-                        // Send Email
-                        if ($channel === 'email' || $channel === 'both') {
-                             $targetEmail = $record->email_pembeli ?? ($record->user->email ?? null);
-                             if ($targetEmail) {
-                                 $emailResult = $emailService->sendTransactionEmail($targetEmail, $notificationData);
-                                 $results[] = "Email: " . ($emailResult ? 'Sent' : 'Failed');
-                             } else {
-                                 $results[] = "Email: No Address";
-                             }
-                        }
+                            // Send Email
+                            if ($channel === 'email' || $channel === 'both') {
+                                $targetEmail = $record->email_pembeli ?? ($record->user->email ?? null);
+                                if ($targetEmail) {
+                                    $emailResult = $emailService->sendTransactionEmail($targetEmail, $notificationData);
+                                    $results[] = "Email: " . ($emailResult ? 'Sent' : 'Failed');
+                                } else {
+                                    $results[] = "Email: No Address";
+                                }
+                            }
 
-                        Notification::make()
-                            ->title('Notification Processed')
-                            ->body(implode(', ', $results))
-                            ->success()
-                            ->send();
-                    }),
+                            Notification::make()
+                                ->title('Notification Processed')
+                                ->body(implode(', ', $results))
+                                ->success()
+                                ->send();
+                        }),
+                ])
+                    ->label('Aksi')
+                    ->icon('heroicon-m-ellipsis-vertical')
+                    ->color('gray'),
             ])
 
             ->bulkActions([

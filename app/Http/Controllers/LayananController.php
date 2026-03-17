@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kategori;
+use App\Services\ProductPricingService;
 use Illuminate\Http\Request;
 use App\Models\Layanan;
 use Illuminate\Support\Str;
@@ -21,6 +22,8 @@ class LayananController extends Controller
 
     public function store(Request $request)
     {
+        $pricing = app(ProductPricingService::class);
+
         $request->validate([
             'nama' => 'required',
             'kategori' => 'required',
@@ -28,10 +31,6 @@ class LayananController extends Controller
             'harga_member' => 'required|numeric',
             'harga_platinum' => 'required|numeric',
             'harga_gold' => 'required|numeric',
-            'profit' => 'required|numeric',
-            'profit_member' => 'required|numeric',
-            'profit_platinum' => 'required|numeric',
-            'profit_gold' => 'required|numeric',
             'provider_id' => 'required|unique:layanans,provider_id',
             'provider' => 'required',
         ]);
@@ -54,14 +53,13 @@ class LayananController extends Controller
         $layanan->kategori_id = $request->kategori;
         $layanan->layanan = $request->nama;
         $layanan->provider_id = $request->provider_id;
-        $layanan->harga = $request->harga + ($request->harga * $request->profit / 100);
-        $layanan->harga_member = $request->harga_member + ($request->harga_member * $request->profit_member / 100);
-        $layanan->harga_platinum = $request->harga_platinum + ($request->harga_platinum * $request->profit_platinum / 100);
-        $layanan->harga_gold = $request->harga_gold + ($request->harga_gold * $request->profit_gold / 100);
-        $layanan->profit = $request->profit;
-        $layanan->profit_member = $request->profit_member;
-        $layanan->profit_platinum = $request->profit_platinum;
-        $layanan->profit_gold = $request->profit_gold;
+        $pricing->applyDirectTierPrices(
+            $layanan,
+            $request->harga,
+            $request->harga_member,
+            $request->harga_platinum,
+            $request->harga_gold,
+        );
         $layanan->provider = $request->provider;
         $layanan->catatan = '';
         $layanan->status = 'available';
@@ -132,13 +130,13 @@ class LayananController extends Controller
                         </div>
                     </div>  
                     <div class='mb-3 row'>
-                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Harga</label>
+                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Harga Modal</label>
                         <div class='col-lg-10'>
                             <input type='number' class='form-control' value='". $data->harga ."' name='harga'>
                         </div>
                     </div>  
                     <div class='mb-3 row'>
-                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Harga Member</label>
+                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Harga Member / Publik</label>
                         <div class='col-lg-10'>
                             <input type='number' class='form-control' value='". $data->harga_member ."' name='harga_member'>
                         </div>
@@ -213,6 +211,7 @@ class LayananController extends Controller
     
     public function patch(Request $request, $id)
     {
+        $pricing = app(ProductPricingService::class);
         
         if($request->file('banner_flash_sale')){
             $imgfs = $request->file('banner_flash_sale');
@@ -227,20 +226,10 @@ class LayananController extends Controller
         }
         
         $cek = Layanan::where('id', $id)->first();
-
-        
-        $layanan = Layanan::where('id', $id)->update([
+        $payload = [
             'layanan' => $request->layanan,
             'provider' => $request->provider,
             'provider_id' => $request->provider_id,
-            'harga' => $request->harga + ($request->harga * $request->profit / 100),
-            'harga_member' => $request->harga_member + ($request->harga_member * $request->profit_member / 100),
-            'harga_platinum' => $request->harga_platinum + ($request->harga_platinum * $request->profit_platinum / 100),
-            'harga_gold' => $request->harga_gold + ($request->harga_gold * $request->profit_gold / 100),
-            // 'profit' => $request->profit,
-            // 'profit_member' => $request->profit_member,
-            // 'profit_platinum' => $request->profit_platinum,
-            // 'profit_gold' => $request->profit_gold,
             'status' => $request->status,
             'harga_flash_sale' => $request->harga_flash_sale,
             'stock_flash_sale' => $request->stock_flash_sale,
@@ -249,7 +238,26 @@ class LayananController extends Controller
             'expired_flash_sale' => date('Y-m-d H:i:s', strtotime($request->expired_flash_sale)),
             'banner_flash_sale' => (!$request->file('banner_flash_sale') ? $cek->banner_flash_sale : '/assets/banner_flash_sale/'.$filenamefs),
             'product_logo' =>  (!$request->file('product_logo') ? $cek->product_logo : '/assets/product_logo/'.$filename)
-        ]);
+        ];
+
+        $draft = new Layanan($cek->toArray());
+        $pricing->applyDirectTierPrices(
+            $draft,
+            $request->harga,
+            $request->harga_member,
+            $request->harga_platinum,
+            $request->harga_gold,
+        );
+
+        $payload['harga'] = $draft->harga;
+        $payload['harga_member'] = $draft->harga_member;
+        $payload['harga_platinum'] = $draft->harga_platinum;
+        $payload['harga_gold'] = $draft->harga_gold;
+        $payload['profit_member'] = $draft->profit_member;
+        $payload['profit_platinum'] = $draft->profit_platinum;
+        $payload['profit_gold'] = $draft->profit_gold;
+
+        Layanan::where('id', $id)->update($payload);
         
            
         return back()->with('success', 'Berhasil update layanan');        

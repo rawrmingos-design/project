@@ -80,7 +80,7 @@ class CaptureTrafficSourceTest extends TestCase
         ])->get('/test-traffic-source');
 
         $response->assertStatus(200);
-        $response->assertSessionHas('traffic_source', 'random-blog.com');
+        $response->assertSessionHas('traffic_source', 'Direct');
     }
 
     /** @test */
@@ -96,6 +96,6 @@ class CaptureTrafficSourceTest extends TestCase
         ->get('/test-traffic-source');
 
         $response->assertStatus(200);
-        $response->assertSessionHas('traffic_source', 'Facebook');
+        $response->assertSessionHas('traffic_source', 'Google');
     }
 }

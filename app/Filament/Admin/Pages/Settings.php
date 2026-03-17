@@ -443,33 +443,25 @@ class Settings extends Page implements HasForms
                     ->collapsible()
                     ->collapsed(),
                     
-                // Profit Settings
-                Section::make('Profit Settings')
-                    ->description('Set profit percentage for each user role')
+                // Tier Markup Settings
+                Section::make('Tier Markup Settings')
+                    ->description('Set default markup percentage for each selling tier')
                     ->columns([
                         'sm' => 2,
-                        'lg' => 4,
+                        'lg' => 3,
                     ])
                     ->schema([
-                        TextInput::make('profit_public')
-                            ->label('Public User Profit (%)')
+                        TextInput::make('profit_member')
+                            ->label('Member / Publik Markup (%)')
                             ->numeric()
                             ->suffix('%')
                             ->minValue(0)
                             ->maxValue(100)
                             ->default(0)
-                            ->helperText('Keuntungan dari user yang belum login'),
-                            
-                        TextInput::make('profit_member')
-                            ->label('Member Profit (%)')
-                            ->numeric()
-                            ->suffix('%')
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->default(0),
+                            ->helperText('Dipakai untuk seed harga publik dan member dari harga modal'),
                             
                         TextInput::make('profit_gold')
-                            ->label('Gold Member Profit (%)')
+                            ->label('Gold Markup (%)')
                             ->numeric()
                             ->suffix('%')
                             ->minValue(0)
@@ -477,7 +469,7 @@ class Settings extends Page implements HasForms
                             ->default(0),
                             
                         TextInput::make('profit_platinum')
-                            ->label('Platinum Member Profit (%)')
+                            ->label('Platinum Markup (%)')
                             ->numeric()
                             ->suffix('%')
                             ->minValue(0)

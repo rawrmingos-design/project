@@ -62,7 +62,7 @@ class VoucherController extends Controller
                     $service = Layanan::where('id', $request->service)->select('harga_gold AS harga')->first();
                 }
         }else{
-            $service = Layanan::where('id', $request->service)->select('harga')->first();
+            $service = Layanan::where('id', $request->service)->select('harga_member AS harga')->first();
         }
             
             $potongan = $service->harga * ($voucher->promo / 100);

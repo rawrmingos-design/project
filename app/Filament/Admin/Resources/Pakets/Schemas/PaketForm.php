@@ -15,17 +15,22 @@ use App\Models\Kategori;
 
 class PaketForm
 {
+    public static function getFormComponents(): array
+    {
+        return [
+            Section::make('Informasi Paket')
+                ->schema([
+                    TextInput::make('nama')
+                        ->label('Nama Paket')
+                        ->required()
+                        ->maxLength(255),
+                ]),
+        ];
+    }
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
-            ->components([
-                Section::make('Informasi Paket')
-                    ->schema([
-                        TextInput::make('nama')
-                            ->label('Nama Paket')
-                            ->required()
-                            ->maxLength(255),
-                    ])
-            ]);
+            ->components(static::getFormComponents());
     }
 }

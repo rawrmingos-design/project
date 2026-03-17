@@ -63,25 +63,33 @@ listGroupItems.forEach(function (e) {
 });
 
 function showInitialElement() {
-    var e = document.querySelector(".initial-element"),
-        t = document.querySelector(".selected-element");
-    e.style.display = "flex", t.style.display = "none"
+    document.querySelectorAll(".initial-element").forEach(function (e) {
+        e.style.display = "flex"
+    }), document.querySelectorAll(".selected-element").forEach(function (e) {
+        e.style.display = "none"
+    })
 }
 
 function showSelectedElement() {
-    var e = document.querySelector(".initial-element"),
-        t = document.querySelector(".selected-element");
-    e.style.display = "none", t.style.display = "flex"
+    document.querySelectorAll(".initial-element").forEach(function (e) {
+        e.style.display = "none"
+    }), document.querySelectorAll(".selected-element").forEach(function (e) {
+        e.style.display = "flex"
+    })
 }
 
 function updateSelectedElement(e, t) {
-    var l = document.querySelector(".text-xs.font-semibold.selected-order"),
-        n = document.querySelector(".text-xs.font-semibold.text-warning.selected-order");
-    document.querySelector(".flex.w-full.items-center p.text-xs.italic"), l.textContent = e, n.textContent = t
+    document.querySelectorAll(".text-xs.font-semibold.selected-order").forEach(function (a) {
+        a.textContent = e
+    }), document.querySelectorAll(".text-xs.font-semibold.text-warning.selected-order").forEach(function (e) {
+        e.textContent = t
+    })
 }
 
 function updateSelectedElements(e) {
-    document.querySelector(".text-xs.font-semibold.text-warning.selected-order").textContent = e
+    document.querySelectorAll(".text-xs.font-semibold.text-warning.selected-order").forEach(function (t) {
+        t.textContent = e
+    })
 }
 var listGroupItems = document.querySelectorAll(".method-list");
 listGroupItems.forEach(function (e) {
@@ -92,8 +100,9 @@ listGroupItems.forEach(function (e) {
 var productListItems = document.querySelectorAll(".product-list");
 productListItems.forEach(function (e) {
     e.addEventListener("click", function () {
-        var e;
-        updateSelectedElement(this.querySelector("#namalayanan").textContent, this.querySelector(".harga") ? this.querySelector(".harga").textContent : this.querySelector(".text-dark.meltih").textContent), showSelectedElement(), document.querySelector(".selected-order").style.display = "block"
+        updateSelectedElement(this.querySelector("#namalayanan").textContent, this.querySelector(".harga") ? this.querySelector(".harga").textContent : this.querySelector(".text-dark.meltih").textContent), showSelectedElement(), document.querySelectorAll(".selected-order").forEach(function (e) {
+            e.style.display = "block"
+        })
     })
 }), showInitialElement();
 
@@ -113,24 +122,40 @@ function _0x5018(e, a) {
     })(e, a)
 }
 
-function changeHarga(e, a) {
-    const o = _0x5018;
-    e = parseFloat(e), (isNaN(e) || e < 0) && (e = 0);
-    let t = formatToRupiah(e);
-    $(o(273))[o(271)](t), $[o(276)](a, (function (a, t) {
-        const n = o;
-        let i = parseFloat(t[n(261)]) || 0,
-            s = parseFloat(t[n(257)]) || 0,
-            r = parseFloat(t.min_pembelian) || 0,
-            l = parseFloat(t.max_pembelian) || 1 / 0,
-            c = $("#" + a)[n(258)](n(279)),
+function syncSelectedPaymentPrice() {
+    var e = document.querySelector(".method-list.active");
+    if (!e) return;
+    var a = e.querySelector(".h6") || e.querySelector(".hargapembayaran");
+    a && updateSelectedElements(a.textContent.trim())
+}
+
+function applySelectedFinalPrice(e) {
+    var a = parseFloat(e);
+    if (isNaN(a) || a < 0) return;
+    var t = document.querySelector(".method-list.active");
+    if (!t) return;
+    var o = formatToRupiah(a);
+    t.querySelectorAll(".hargapembayaran").forEach(function (e) {
+        e.textContent = o
+    }), updateSelectedElements(o)
+}
+
+function changeHarga(e, a, t) {
+    e = parseFloat(e), t = parseFloat(t), (isNaN(e) || e < 0) && (e = 0), (isNaN(t) || t < 0) && (t = 0), $("#SALDO").html(formatToRupiah(Math.max(1e3, e - t)));
+    $.each(a, (function (a, o) {
+        let n = parseFloat(o.fix_fee) || 0,
+            i = parseFloat(o.fee_percent) || 0,
+            s = parseFloat(o.min_pembelian) || 0,
+            r = parseFloat(o.max_pembelian) || 1 / 0,
+            l = $(".method-list[method-id='" + a + "']"),
+            c = Math.max(1e3, e + n + e * i / 100 - t),
             d = "";
-        if (e < r ? (d = '<span class="text-red-500">Min ' + formatToRupiah(r) + "</span>", c[n(263)](n(264)), c[n(278)](n(260))[n(266)](n(264), !0)) : e > l ? (d = n(277) + formatToRupiah(l) + "</span>", c[n(263)]("disabled"), c[n(278)](n(260))[n(266)](n(264), !0)) : (c[n(259)](n(264)), c[n(278)]("input")[n(266)](n(264), !1)), d) $("#" + a)[n(271)](d);
+        if (c < s ? (d = '<span class="text-red-500">Min ' + formatToRupiah(s) + "</span>", l.addClass("disabled"), l.find("input").prop("disabled", !0)) : c > r ? (d = '<span class="text-red-500">Max ' + formatToRupiah(r) + "</span>", l.addClass("disabled"), l.find("input").prop("disabled", !0)) : (l.removeClass("disabled"), l.find("input").prop("disabled", !1)), d) l.find(".hargapembayaran").html(d);
         else {
-            let o = formatToRupiah(e + i + e * s / 100);
-            $("#" + a)[n(271)](o)
+            let e = formatToRupiah(c);
+            l.find(".hargapembayaran").html(e)
         }
-    }))
+    })), syncSelectedPaymentPrice()
 }
 
 function formatToRupiah(e) {
@@ -181,32 +206,101 @@ function showToast(e, a = "error") {
     } catch (e) {
         t.push(t.shift())
     }
-}(), $(".product-list").off("click").on("click", (function () {
-    if ("undefined" != typeof isLoading && isLoading) return;
-    let e = $(this).attr("product-id");
-    $(".product-list").removeClass("active"), $(this).addClass("active"), $("#nominal").val(e), isLoading = !0, $.ajax({
-        url: window.routes.confirmationPrice,
-        dataType: "json",
-        type: "POST",
-        data: {
+}();
+
+function getUsedPointValue() {
+    var pointInput = document.querySelector(".pw-input");
+    return pointInput ? parseInt(pointInput.value || 0) : 0;
+}
+
+window.lastPriceRefreshKey = null;
+window.orderPriceRefreshTimer = null;
+window.orderPriceRequest = null;
+window.orderPriceRequestSeq = 0;
+window.orderPriceAppliedSeq = 0;
+
+window.refreshOrderPrice = function (e) {
+    e = e || {};
+
+    if (window.orderPriceRefreshTimer) {
+        clearTimeout(window.orderPriceRefreshTimer);
+    }
+
+    var a = e.immediate ? 0 : 120;
+    window.orderPriceRefreshTimer = setTimeout(function () {
+        let productId = $(".product-list.active").attr("product-id") || $("#nominal").val();
+        if (!productId) return;
+
+        var requestData = {
             _token: window.csrfToken,
-            nominal: e
-        },
-        success: function (e) {
-            void 0 !== e.harga && !isNaN(e.harga) && parseFloat(e.harga) >= 0 ? changeHarga(e.harga, e.methods) : console.warn("Invalid price data received.")
-        },
-        error: function (e, a, o) {
-            console.error("AJAX Error: " + a + " - " + o)
-        },
-        complete: function () {
-            isLoading = !1
+            nominal: productId,
+            voucher: $("#voucher").val(),
+            qty: $("#qty").val(),
+            ktg_tipe: $("#ktg_tipe").val(),
+            use_point: getUsedPointValue(),
+            payment_method: $("#metode").val()
+        };
+        var refreshKey = JSON.stringify(requestData);
+        if (!e.force && refreshKey === window.lastPriceRefreshKey) return;
+        window.lastPriceRefreshKey = refreshKey;
+
+        if (window.orderPriceRequest && window.orderPriceRequest.readyState !== 4) {
+            window.orderPriceRequest.abort();
         }
-    })
+
+        var requestSeq = ++window.orderPriceRequestSeq;
+        window.orderPriceRequest = $.ajax({
+            url: window.routes.confirmationPrice,
+            dataType: "json",
+            type: "POST",
+            data: requestData,
+            success: function (response) {
+                if (requestSeq < window.orderPriceAppliedSeq) return;
+
+                if (void 0 !== response.harga && !isNaN(response.harga) && parseFloat(response.harga) >= 0) {
+                    window.orderPriceAppliedSeq = requestSeq;
+                    window.lastBaseHarga = response.harga;
+                    window.lastMethods = response.methods;
+                    window.lastPointDiscount = parseFloat(response.point_discount || 0);
+                    changeHarga(response.harga, response.methods, window.lastPointDiscount);
+                    if (response.selected_final_price !== void 0 && response.selected_final_price !== null) {
+                        applySelectedFinalPrice(response.selected_final_price);
+                    }
+                    if (response.point_info && typeof window.updatePointWidget === "function") {
+                        document.querySelectorAll(".pw-slider").forEach(function (slider) {
+                            slider.setAttribute("data-point-value", response.point_info.point_value);
+                        });
+                        window.updatePointWidget(response.point_info);
+                    }
+                } else {
+                    console.warn("Invalid price data received.");
+                }
+            },
+            error: function (e, a, o) {
+                if ("abort" === a) return;
+                console.error("AJAX Error: " + a + " - " + o);
+            },
+            complete: function () {
+                window.orderPriceRequest = null;
+            }
+        });
+    }, a);
+};
+
+$(".product-list").off("click").on("click", (function () {
+    let e = $(this).attr("product-id");
+    $(".product-list").removeClass("active"), $(this).addClass("active"), $("#nominal").val(e), window.lastPriceRefreshKey = null, window.refreshOrderPrice({
+        immediate: !0,
+        force: !0
+    });
 })), window.onload = togglePaymentList, $(".accordion-button").css("pointer-events", "none"), $(".accordion-header").addClass("hide-payment"), $(".accordion-header").click((function () {
     0 === $(".product-list.active").length && (showToast("Mohon untuk pilih item terlebih dahulu"), scrollToElement("section-nominal"))
 })), $(".method-list").click((function () {
     let e = $(this).attr("method-id");
-    $(".method-list").removeClass("active"), $(this).addClass("active"), $("#metode").val(e)
+    $(".method-list").removeClass("active"), $(this).addClass("active"), $("#metode").val(e), window.lastPriceRefreshKey = null, "function" == typeof window.refreshOrderPrice && window.refreshOrderPrice({
+        immediate: !0,
+        force: !0
+    })
 })), $("#order-check").on("click", (function () {
     var e = $("input[name='user_id']:visible").val() || $("#user_id").val(),
         a = $("input[name='zone_id']:visible, select#zone:visible").val() || $("#zone").val(),
@@ -223,6 +317,7 @@ function showToast(e, a = "error") {
         m = $("#metode").val(),
         h = $("#nomor").val(),
         p = $("#voucher").val(),
+        g = getUsedPointValue(),
         k = $("#ktg_tipe").val();
     if ("joki" === k || "vilogml" === k) {
         if (!(o && t && n && i)) return void showToast("Silahkan lengkapi semua data Informasi Joki / ML Vilog")
@@ -250,7 +345,8 @@ function showToast(e, a = "error") {
             jambooking_joki: c,
             qty: u,
             ktg_tipe: k,
-            voucher: p
+            voucher: p,
+            use_point: g
         },
         beforeSend: function () {
             $(".load").addClass("show")
@@ -289,7 +385,8 @@ function showToast(e, a = "error") {
                             tglmain_joki: l,
                             jambooking_joki: c,
                             qty: u,
-                            ktg_tipe: k
+                            ktg_tipe: k,
+                            use_point: g
                         },
                         beforeSend: function () {
                             $(".load").addClass("show")
@@ -335,7 +432,7 @@ function showToast(e, a = "error") {
             service: a
         },
         success: function (e) {
-            setTimeout(o, 3e3), showToast("Voucher berhasil digunakan", "success")
+            setTimeout(o, 3e3), showToast("Voucher berhasil digunakan", "success"), "function" == typeof window.refreshOrderPrice && window.refreshOrderPrice()
         },
         error: function (e) {
             setTimeout(o, 4e3), showToast("Voucher tidak ditemukan", "error")

@@ -63,7 +63,6 @@ class SettingWebsSeeder extends Seeder
             'shopeepay_admin' => '0',
             'bca_admin' => '0',
             'order_prefik' => 'EM',
-            'profit_public' => 10,
             'commission_percent' => 20,
             'profit_member' => 10,
             'profit_platinum' => 10,

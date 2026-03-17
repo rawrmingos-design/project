@@ -5,9 +5,14 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use View;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Event;
 
 use App\Models\Pembelian;
+use App\Models\Kategori;
 use App\Observers\PembelianObserver;
+use App\Observers\KategoriObserver;
+use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
+use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -55,6 +60,27 @@ class AppServiceProvider extends ServiceProvider
 
         
         Pembelian::observe(PembelianObserver::class);
+        Kategori::observe(KategoriObserver::class);
+
+        Event::listen(MediaHasBeenAddedEvent::class, function (MediaHasBeenAddedEvent $event): void {
+            $model = $event->media->model;
+
+            if (! $model || ! method_exists($model, 'syncLegacyMediaColumn')) {
+                return;
+            }
+
+            $model->syncLegacyMediaColumn($event->media->collection_name);
+        });
+
+        Event::listen(CollectionHasBeenClearedEvent::class, function (CollectionHasBeenClearedEvent $event): void {
+            $model = $event->model;
+
+            if (! method_exists($model, 'syncLegacyMediaColumn')) {
+                return;
+            }
+
+            $model->syncLegacyMediaColumn($event->collectionName);
+        });
 
         // FIX #3 XSS: Register @safeHtml Blade directive
         // Menggunakan strip_tags() native PHP — mempertahankan tag HTML yang aman

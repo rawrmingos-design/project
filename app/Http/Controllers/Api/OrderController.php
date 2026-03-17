@@ -34,7 +34,7 @@ class OrderController extends Controller
             'Member' => $layanan->harga_member,
             'Platinum' => $layanan->harga_platinum,
             'Gold', 'Admin' => $layanan->harga_gold,
-            default => $layanan->harga
+            default => $layanan->harga_member
         };
 
         if ($layanan->is_flash_sale == 1 && $layanan->expired_flash_sale >= now() && $layanan->stock_flash_sale > 0) {
@@ -102,7 +102,7 @@ class OrderController extends Controller
             'Member' => $layanan->harga_member,
             'Platinum' => $layanan->harga_platinum,
             'Gold', 'Admin' => $layanan->harga_gold,
-            default => $layanan->harga
+            default => $layanan->harga_member
         };
 
         if ($voucher->mintrx && $harga < $voucher->mintrx) {
@@ -141,7 +141,7 @@ class OrderController extends Controller
             'Member' => $item->harga_member,
             'Platinum' => $item->harga_platinum,
             'Gold', 'Admin' => $item->harga_gold,
-            default => $item->harga
+            default => $item->harga_member
         };
 
         if ($item->is_flash_sale == 1 && $item->expired_flash_sale >= now() && $item->stock_flash_sale > 0) {
@@ -204,7 +204,7 @@ class OrderController extends Controller
             'Member' => $item->harga_member,
             'Platinum' => $item->harga_platinum,
             'Gold', 'Admin' => $item->harga_gold,
-            default => $item->harga
+            default => $item->harga_member
         };
 
         $dataMethod = Method::where('code', $request->payment_method)->first();

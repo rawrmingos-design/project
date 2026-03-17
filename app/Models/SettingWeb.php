@@ -11,7 +11,6 @@ class SettingWeb extends Model
     protected $guarded = [];
     
     protected $casts = [
-        'profit_public' => 'integer',
         'profit_member' => 'integer',
         'profit_platinum' => 'integer',
         'profit_gold' => 'integer',
