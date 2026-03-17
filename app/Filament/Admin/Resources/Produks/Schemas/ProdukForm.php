@@ -264,7 +264,6 @@ class ProdukForm
                             ->numeric()
                             ->required()
                             ->prefix('Rp')
-                            ->readOnly(),
 
                         TextInput::make('profit_member')
                             ->label('Profit Member / Publik')
@@ -281,7 +280,6 @@ class ProdukForm
                             ->numeric()
                             ->required()
                             ->prefix('Rp')
-                            ->readOnly(),
 
                         TextInput::make('profit_platinum')
                             ->label('Profit Platinum')
@@ -298,7 +296,6 @@ class ProdukForm
                             ->numeric()
                             ->required()
                             ->prefix('Rp')
-                            ->readOnly(),
 
                             TextInput::make('profit_gold')
                             ->label('Profit Gold')
