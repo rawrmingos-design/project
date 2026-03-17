@@ -1,29 +1,17 @@
-# =====================================================
-# docker-compose.yml — Laravel Topup Game Stack
-# =====================================================
-# Services:
-#   - app     : PHP 8.2 FPM (Laravel Application)
-#   - nginx   : Web Server
-#   - db      : MySQL 8.0
-#   - redis   : Cache & Session
-# =====================================================
-
 services:
-
-  # =====================================================
-  # PHP-FPM — Laravel Application
-  # =====================================================
   app:
-    image: ${APP_IMAGE:-ghcr.io/rawrmingos-design/laravel-topup:latest}
-    container_name: laravel_app
+    image: ghcr.io/rawrmingos-design/laravel-topup:latest
+    container_name: istana_topup
     restart: unless-stopped
     working_dir: /var/www/html
+    ports:
+      - "${NGINX_PORT:-9000}:8080"
     volumes:
-      # Mount .env dari host ke dalam container
       - ./.env:/var/www/html/.env
-      # Persistent storage untuk uploads dan logs
-      - app_storage:/var/www/html/storage/app
-      - app_logs:/var/www/html/storage/logs
+      - istana_app_storage:/var/www/html/storage/app
+      - istana_app_logs:/var/www/html/storage/logs
+      - ./nginx-custom.conf:/etc/nginx/conf.d/custom_limits.conf
+      - ./php-custom.ini:/usr/local/etc/php/conf.d/uploads.ini
       - public_product_logo:/var/www/html/public/assets/product_logo
       - public_thumbnail:/var/www/html/public/assets/thumbnail
       - public_banner:/var/www/html/public/assets/banner
@@ -32,21 +20,15 @@ services:
       - public_media:/var/www/html/public/assets/media
       - public_article_thumbnails:/var/www/html/public/articles/thumbnails
     environment:
-      - APP_ENV=${APP_ENV}
-      - APP_KEY=${APP_KEY}
-      - APP_URL=${APP_URL}
-      - APP_DEBUG=${APP_DEBUG}
-      # Database
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
       - DB_DATABASE=${DB_DATABASE:-laravel_topup}
       - DB_USERNAME=${DB_USERNAME:-laravel}
       - DB_PASSWORD=${DB_PASSWORD}
-      # Redis
       - REDIS_HOST=redis
-      - REDIS_PASSWORD=
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=
       - CACHE_DRIVER=redis
       - SESSION_DRIVER=redis
       - QUEUE_CONNECTION=redis
@@ -55,44 +37,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      # Nginx di dalam container listen 8080 → aaPanel proxy ke sini
-      - "${NGINX_PORT:-8080}:8080"
     networks:
-      - laravel_net
+      - istana_topup__net
 
-  # =====================================================
-  # MySQL 8.0 — Database
-  # =====================================================
-  db:
-    image: mysql:8.0
-    container_name: laravel_db
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${DB_DATABASE:-laravel_topup}
-      MYSQL_USER: ${DB_USERNAME:-laravel}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
-    volumes:
-      - db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - laravel_net
-
-  # =====================================================
-  # phpMyAdmin — Database Management UI (port 8081)
-  # =====================================================
   phpmyadmin:
     image: phpmyadmin:latest
-    container_name: laravel_phpmyadmin
+    container_name: istana_topup_phpmyadmin
     restart: unless-stopped
     ports:
-      - "${PMA_PORT:-8081}:80"
+      - "${PMA_PORT:-9001}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
@@ -100,40 +53,48 @@ services:
     depends_on:
       - db
     networks:
-      - laravel_net
+      - istana_topup__net
 
-  # =====================================================
-  # Redis — Cache, Session & Queue
-  # =====================================================
+  db:
+    image: mysql:8.0
+    container_name: istana_topup__db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_DATABASE:-laravel_topup}
+      MYSQL_USER: ${DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - istana_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - istana_topup__net
+
   redis:
     image: redis:7.2-alpine
-    container_name: laravel_redis
+    container_name: istana_topup__redis
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - istana_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - laravel_net
+      - istana_topup__net
 
-# =====================================================
-# Named Volumes (data persisten)
-# =====================================================
 volumes:
-  db_data:
-    driver: local
-  redis_data:
-    driver: local
-  app_storage:
-    driver: local
-  app_logs:
-    driver: local
-  nginx_logs:
-    driver: local
+  istana_db_data:
+  istana_redis_data:
+  istana_app_storage:
+  istana_app_logs:
   public_product_logo:
     driver: local
   public_thumbnail:
@@ -149,9 +110,6 @@ volumes:
   public_article_thumbnails:
     driver: local
 
-# =====================================================
-# Networks
-# =====================================================
 networks:
-  laravel_net:
+  istana_topup__net:
     driver: bridge
