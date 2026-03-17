@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Produks\Pages;
 use App\Filament\Admin\Resources\Produks\ProdukResource;
 use App\Models\PaketLayanan;
 use App\Services\MediaAssetAssignmentService;
+use App\Services\ProductPricingService;
 use App\Support\MediaAssetPicker;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -66,26 +67,25 @@ class EditProduk extends EditRecord
 
     private function syncDerivedProfitFields(array $data): array
     {
-        $modal = (int) ($data['harga'] ?? 0);
+        $draft = new \App\Models\Produk();
 
-        $data['profit_member'] = (float) ($data['profit_member'] ?? 0);
-        $data['profit_platinum'] = (float) ($data['profit_platinum'] ?? 0);
-        $data['profit_gold'] = (float) ($data['profit_gold'] ?? 0);
+        app(ProductPricingService::class)->applyDirectTierPrices(
+            $draft,
+            (int) ($data['harga'] ?? 0),
+            (int) ($data['harga_member'] ?? 0),
+            (int) ($data['harga_platinum'] ?? 0),
+            (int) ($data['harga_gold'] ?? 0),
+        );
 
-        $data['harga_member'] = $this->calculateSellingPrice($modal, $data['profit_member']);
-        $data['harga_platinum'] = $this->calculateSellingPrice($modal, $data['profit_platinum']);
-        $data['harga_gold'] = $this->calculateSellingPrice($modal, $data['profit_gold']);
+        $data['harga'] = (int) $draft->harga;
+        $data['harga_member'] = (int) $draft->harga_member;
+        $data['harga_platinum'] = (int) $draft->harga_platinum;
+        $data['harga_gold'] = (int) $draft->harga_gold;
+        $data['profit_member'] = (float) $draft->profit_member;
+        $data['profit_platinum'] = (float) $draft->profit_platinum;
+        $data['profit_gold'] = (float) $draft->profit_gold;
 
         return $data;
-    }
-
-    private function calculateSellingPrice(int $modal, float $profitPercent): int
-    {
-        if ($modal <= 0) {
-            return 0;
-        }
-
-        return (int) round($modal + ($modal * ($profitPercent / 100)));
     }
 
     private function syncPivotProductLogo(): void
