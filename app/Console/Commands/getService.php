@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\provider\MoogoldController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use App\Services\ProductPricingService;
 
 class getService extends Command
 {
@@ -100,6 +101,8 @@ class getService extends Command
 
     private function processService($data, $kategori, $provider)
     {
+        $pricing = app(ProductPricingService::class);
+
         if (is_object($kategori)) {
             $kategoriId = $kategori->id;
         } else {
@@ -111,30 +114,28 @@ class getService extends Command
 
         $cekprofits = \DB::table('layanans')
                         ->where('kategori_id', $kategoriId)
-                        ->select('profit', 'profit_member', 'profit_platinum', 'profit_gold')
+                        ->select('profit_member', 'profit_platinum', 'profit_gold')
                         ->first();
 
         $harga = isset($data['harga']) && is_numeric($data['harga']) ? $data['harga'] : 0;
         
-        $profit = $cekprofits->profit ?? 5;
         $member = $cekprofits->profit_member ?? 5;
         $platinum = $cekprofits->profit_platinum ?? 4;
         $gold = $cekprofits->profit_gold ?? 3;
 
         if (!$cekgame) {
             $layanan = new Layanan();
+            $pricing->applyDirectTierPrices(
+                $layanan,
+                $harga,
+                $harga + (int) round($harga * ($member / 100)),
+                $harga + (int) round($harga * ($platinum / 100)),
+                $harga + (int) round($harga * ($gold / 100)),
+            );
             $layanan->fill([
                 'layanan' => $data['nama_layanan'],
                 'kategori_id' => $kategoriId,
                 'provider_id' => $data['id'],
-                'harga' => $harga + ($harga * $profit / 100),
-                'harga_member' => $harga + ($harga * $member / 100),
-                'harga_platinum' => $harga + ($harga * $platinum / 100),
-                'harga_gold' => $harga + ($harga * $gold / 100),
-                'profit' => $profit,
-                'profit_member' => $member,
-                'profit_platinum' => $platinum,
-                'profit_gold' => $gold,
                 'catatan' => '',
                 'status' => $data['status'] ? "available" : "unavailable",
                 'provider' => $provider,
@@ -143,15 +144,21 @@ class getService extends Command
             ]);
             $layanan->save();
         } else {
+            $pricing->applyDirectTierPrices(
+                $cekgame,
+                $harga,
+                $harga + (int) round($harga * ($member / 100)),
+                $harga + (int) round($harga * ($platinum / 100)),
+                $harga + (int) round($harga * ($gold / 100)),
+            );
             $cekgame->update([
-                'harga' => $harga + ($harga * $profit / 100),
-                'harga_member' => $harga + ($harga * $member / 100),
-                'harga_platinum' => $harga + ($harga * $platinum / 100),
-                'harga_gold' => $harga + ($harga * $gold / 100),
-                'profit' => $profit,
-                'profit_member' => $member,
-                'profit_platinum' => $platinum,
-                'profit_gold' => $gold,
+                'harga' => $cekgame->harga,
+                'harga_member' => $cekgame->harga_member,
+                'harga_platinum' => $cekgame->harga_platinum,
+                'harga_gold' => $cekgame->harga_gold,
+                'profit_member' => $cekgame->profit_member,
+                'profit_platinum' => $cekgame->profit_platinum,
+                'profit_gold' => $cekgame->profit_gold,
                 'status' => $data['status'] ? "available" : "unavailable",
             ]);
         }

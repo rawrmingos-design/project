@@ -2,14 +2,19 @@
 
 namespace App\Filament\Admin\Resources\Artikels\Schemas;
 
+use App\Support\MediaAssetPicker;
 use Filament\Schemas\Schema;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\RichEditor;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class ArtikelForm
@@ -37,12 +42,63 @@ class ArtikelForm
                             ->unique(ignoreRecord: true)
                             ->columnSpanFull()
                             ->helperText('URL friendly text (otomatis dari judul)'),
+
+                        Placeholder::make('thumbnail_current_preview')
+                            ->label('Thumbnail Aktif')
+                            ->content(fn (?Model $record) => MediaAssetPicker::renderCurrentPreview($record, null, 'thumbnail'))
+                            ->columnSpanFull(),
+
+                        Radio::make('thumbnail_input_mode')
+                            ->label('Sumber Thumbnail')
+                            ->options([
+                                'library' => 'Media Library',
+                                'upload' => 'Upload Baru',
+                            ])
+                            ->default('upload')
+                            ->inline()
+                            ->inlineLabel(false)
+                            ->live()
+                            ->dehydrated()
+                            ->columnSpanFull(),
+
+                        Hidden::make('thumbnail_media_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('thumbnail_media_asset_picker')
+                            ->label('Thumbnail dari Media Library')
+                            ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'library')
+                            ->content(fn (Get $get, ?Model $record) => MediaAssetPicker::renderSelectedOrCurrentPreview(
+                                $get('thumbnail_media_asset_id'),
+                                $record,
+                                null,
+                                'thumbnail',
+                            ))
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseArtikelThumbnailMediaAsset',
+                                    'thumbnail_media_asset_id',
+                                    'Pilih Thumbnail dari Media Library',
+                                    ['artikel', 'banner', 'lainnya'],
+                                    'artikel',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearArtikelThumbnailMediaAsset',
+                                    'thumbnail_media_asset_id',
+                                ),
+                            ])
+                            ->columnSpanFull(),
                             
                         FileUpload::make('thumbnail')
                             ->label('Thumbnail')
                             ->image()
                             ->disk('assets')
                             ->directory('articles/thumbnails')
+                            ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'upload')
                             ->visibility('public')
                             ->maxSize(2048)
                             ->imageEditor()

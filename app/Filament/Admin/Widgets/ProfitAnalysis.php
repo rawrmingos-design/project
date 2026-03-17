@@ -7,13 +7,13 @@ use App\Models\Produk;
 
 class ProfitAnalysis extends ChartWidget
 {
-    protected ?string $heading = 'Profit Margin Analysis by Provider';
+    protected ?string $heading = 'Member Markup Analysis by Provider';
     
     protected static ?int $sort = 8;
 
     protected function getData(): array
     {
-        // Get profit data by provider
+        // Get member-tier markup data by provider
         $providers = ['digiflazz', 'apigames', 'vip', 'bangjeff', 'topupedia', 'manual'];
         $profitData = [];
         $avgProfitData = [];
@@ -22,8 +22,8 @@ class ProfitAnalysis extends ChartWidget
         foreach ($providers as $provider) {
             $products = Produk::where('provider', $provider)->where('status', 'active');
             
-            $totalProfit = $products->sum('profit') ?? 0;
-            $avgProfit = $products->avg('profit') ?? 0;
+            $totalProfit = $products->sum('profit_member') ?? 0;
+            $avgProfit = $products->avg('profit_member') ?? 0;
             $productCount = $products->count();
             
             $profitData[] = $totalProfit;
@@ -34,7 +34,7 @@ class ProfitAnalysis extends ChartWidget
         return [
             'datasets' => [
                 [
-                    'label' => 'Total Profit (%)',
+                    'label' => 'Member Markup (%)',
                     'data' => $profitData,
                     'backgroundColor' => [
                         'rgba(34, 197, 94, 0.8)',   // Green for digiflazz
@@ -84,7 +84,7 @@ class ProfitAnalysis extends ChartWidget
                     'beginAtZero' => true,
                     'title' => [
                         'display' => true,
-                        'text' => 'Profit Percentage (%)',
+                            'text' => 'Markup Percentage (%)',
                     ],
                 ],
                 'x' => [

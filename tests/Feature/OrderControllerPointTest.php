@@ -9,6 +9,7 @@ use App\Models\Layanan;
 use App\Models\Pembelian;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class OrderControllerPointTest extends TestCase
 {
@@ -21,6 +22,17 @@ class OrderControllerPointTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // OrderController fetches IP meta via ipinfo.io.
+        Http::fake([
+            'ipinfo.io/*' => Http::response([
+                'ip' => '127.0.0.1',
+                'city' => 'Test City',
+                'region' => 'Test Region',
+                'country' => 'ID',
+                'org' => 'Test ISP',
+            ], 200),
+        ]);
 
         // Setup setting_webs with point config
         DB::table('setting_webs')->insert([
@@ -67,13 +79,12 @@ class OrderControllerPointTest extends TestCase
             'harga_member' => 20000,
             'harga_platinum' => 20000,
             'harga_gold' => 20000,
-            'profit' => 1000,
             'profit_member' => 1000,
             'profit_platinum' => 1000,
             'profit_gold' => 1000,
             'catatan' => 'Test',
             'status' => 'available',
-            'provider_id' => '',
+            'provider_id' => 'manual-sku',
             'provider' => 'manual',
         ]);
     }

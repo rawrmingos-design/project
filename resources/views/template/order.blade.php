@@ -412,13 +412,13 @@
               
                     @php
                         if($kategori->field_2 !== null){
-                            $field2Values = explode(',', $kategori->field_2);
+                            $field2Values = explode(',', (string) ($kategori->field_2 ?? ''));
                             $selectValue = isset($field2Values[2]) ? trim($field2Values[2]) : null;
                         }
                         
-                            $fieldSelectTitle = explode(',', $kategori->field_select_title);
-                            $fieldSelect = explode(',', $kategori->field_select);
-                            $field1Values = explode(',', $kategori->field_1);
+                            $fieldSelectTitle = explode(',', (string) ($kategori->field_select_title ?? ''));
+                            $fieldSelect = explode(',', (string) ($kategori->field_select ?? ''));
+                            $field1Values = explode(',', (string) ($kategori->field_1 ?? ''));
                         @endphp
                    @if($kategori->field_2 !== null)
                              <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
@@ -1479,13 +1479,13 @@ document.addEventListener("DOMContentLoaded", function() {
               
                     @php
                         if($kategori->field_2 !== null){
-                            $field2Values = explode(',', $kategori->field_2);
+                            $field2Values = explode(',', (string) ($kategori->field_2 ?? ''));
                             $selectValue = isset($field2Values[2]) ? trim($field2Values[2]) : null;
                         }
                         
-                            $fieldSelectTitle = explode(',', $kategori->field_select_title);
-                            $fieldSelect = explode(',', $kategori->field_select);
-                            $field1Values = explode(',', $kategori->field_1);
+                            $fieldSelectTitle = explode(',', (string) ($kategori->field_select_title ?? ''));
+                            $fieldSelect = explode(',', (string) ($kategori->field_select ?? ''));
+                            $field1Values = explode(',', (string) ($kategori->field_1 ?? ''));
                         @endphp
                    @if($kategori->field_2 !== null)
                              <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
@@ -2374,13 +2374,13 @@ document.addEventListener("DOMContentLoaded", function() {
                     
                     @php
                         if($kategori->field_2 !== null){
-                            $field2Values = explode(',', $kategori->field_2);
+                            $field2Values = explode(',', (string) ($kategori->field_2 ?? ''));
                             $selectValue = isset($field2Values[2]) ? trim($field2Values[2]) : null;
                         }
                         
-                            $fieldSelectTitle = explode(',', $kategori->field_select_title);
-                            $fieldSelect = explode(',', $kategori->field_select);
-                            $field1Values = explode(',', $kategori->field_1);
+                            $fieldSelectTitle = explode(',', (string) ($kategori->field_select_title ?? ''));
+                            $fieldSelect = explode(',', (string) ($kategori->field_select ?? ''));
+                            $field1Values = explode(',', (string) ($kategori->field_1 ?? ''));
                         @endphp
                    @if($kategori->field_2 !== null)
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
@@ -3239,13 +3239,13 @@ document.addEventListener("DOMContentLoaded", function() {
               
                     @php
                         if($kategori->field_2 !== null){
-                            $field2Values = explode(',', $kategori->field_2);
+                            $field2Values = explode(',', (string) ($kategori->field_2 ?? ''));
                             $selectValue = isset($field2Values[2]) ? trim($field2Values[2]) : null;
                         }
                         
-                            $fieldSelectTitle = explode(',', $kategori->field_select_title);
-                            $fieldSelect = explode(',', $kategori->field_select);
-                            $field1Values = explode(',', $kategori->field_1);
+                            $fieldSelectTitle = explode(',', (string) ($kategori->field_select_title ?? ''));
+                            $fieldSelect = explode(',', (string) ($kategori->field_select ?? ''));
+                            $field1Values = explode(',', (string) ($kategori->field_1 ?? ''));
                         @endphp
                    @if($kategori->field_2 !== null)
                              <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
@@ -4153,13 +4153,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
                     @php
                         if($kategori->field_2 !== null){
-                            $field2Values = explode(',', $kategori->field_2);
+                            $field2Values = explode(',', (string) ($kategori->field_2 ?? ''));
                             $selectValue = isset($field2Values[2]) ? trim($field2Values[2]) : null;
                         }
                         
-                            $fieldSelectTitle = explode(',', $kategori->field_select_title);
-                            $fieldSelect = explode(',', $kategori->field_select);
-                            $field1Values = explode(',', $kategori->field_1);
+                            $fieldSelectTitle = explode(',', (string) ($kategori->field_select_title ?? ''));
+                            $fieldSelect = explode(',', (string) ($kategori->field_select ?? ''));
+                            $field1Values = explode(',', (string) ($kategori->field_1 ?? ''));
                         @endphp
                    @if($kategori->field_2 !== null)
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
@@ -5267,17 +5267,12 @@ document.addEventListener("DOMContentLoaded", function() {
                         }
                     });
 
-                     // trigger price update when points are used, need to recalculate total
-                     if(typeof updatePrice === 'function') {
-                         var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
-                         updatePrice(currentQty);
-                     } else if (typeof changeHarga === 'function' && window.lastBaseHarga && window.lastMethods) {
-                         // Mengurangi harga dengan diskon poin dan menggunakan fungsi changeHarga tanpa mensimulasikan click
-                         var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
-                         var basePrice = window.lastBaseHarga * currentQty;
-                         var finalBasePrice = Math.max(0, basePrice - (v * pointValue));
-                         changeHarga(finalBasePrice, window.lastMethods);
-                     }
+                    if (typeof window.refreshOrderPrice === 'function') {
+                        window.refreshOrderPrice();
+                    } else if (typeof updatePrice === 'function') {
+                        var currentQty = Math.max(1, parseInt($("#qty").val() || 1));
+                        updatePrice(currentQty);
+                    }
                 });
             }
         });
@@ -5371,16 +5366,16 @@ const PAYMENT_FEES = {
     'ALFAMIDI': { percentage: 0, fixed: 3000 }
 };
 
-function calculatePrice(basePrice, paymentMethod) {
+function calculatePrice(basePrice, paymentMethod, pointDiscount = 0) {
     if (!PAYMENT_FEES[paymentMethod]) {
-        return basePrice;
+        return Math.max(1000, basePrice - pointDiscount);
     }
 
     const fee = PAYMENT_FEES[paymentMethod];
     const percentageFee = basePrice * (fee.percentage || 0);
     const fixedFee = fee.fixed || 0;
 
-    return basePrice + percentageFee + fixedFee;
+    return Math.max(1000, basePrice + percentageFee + fixedFee - pointDiscount);
 }
 
 function updatePrice(qty) {
@@ -5394,26 +5389,21 @@ function updatePrice(qty) {
         type: "POST",
         data: {
             _token: "{{ csrf_token() }}",
-            nominal: productId
+            nominal: productId,
+            qty: qty,
+            ktg_tipe: $("#ktg_tipe").val(),
+            voucher: $("#voucher").val(),
+            use_point: parseInt(document.querySelector('.pw-input')?.value || 0),
+            payment_method: $("input[name='paymentMethod']:checked").val()
         },
         success: function(response) {
-            const basePrice = response.harga * qty;
+            const basePrice = response.harga;
             const paymentMethod = $("input[name='paymentMethod']:checked").val();
-            let finalPrice = calculatePrice(basePrice, paymentMethod);
-            
-            // Apply point discount if used
-            let pointDiscount = 0;
-            const pointInput = document.querySelector('.pw-input');
-            const pointSlider = document.querySelector('.pw-slider');
-            if (pointInput && pointSlider) {
-                const usedPoints = parseInt(pointInput.value || 0);
-                const pointValue = parseInt(pointSlider.getAttribute('data-point-value') || 100);
-                pointDiscount = usedPoints * pointValue;
-            }
-            finalPrice = Math.max(0, finalPrice - pointDiscount);
+            const pointDiscount = parseFloat(response.point_discount || 0);
+            let finalPrice = calculatePrice(basePrice, paymentMethod, pointDiscount);
             
             // Update UI
-            $(".selected-order").text(formatToRupiah(finalPrice));
+            $(".text-xs.font-semibold.text-warning.selected-order").text(formatToRupiah(finalPrice));
             updateQtyDisplay(qty);
             
             // Update payment method prices
@@ -5425,8 +5415,7 @@ function updatePrice(qty) {
 function updatePaymentMethodPrices(basePrice, pointDiscount = 0) {
     $('.method-list').each(function() {
         const methodCode = $(this).attr('method-id');
-        let finalPrice = calculatePrice(basePrice, methodCode);
-        finalPrice = Math.max(0, finalPrice - pointDiscount);
+        let finalPrice = calculatePrice(basePrice, methodCode, pointDiscount);
         $(this).find('.hargapembayaran').text(formatToRupiah(finalPrice));
     });
 }
@@ -5451,24 +5440,23 @@ $(".product-list").click(function() {
         url: "{{ route('ajax.price') }}",
         dataType: "json",
         type: "POST",
-        data: { _token: "{{ csrf_token() }}", nominal: t },
+        data: {
+            _token: "{{ csrf_token() }}",
+            nominal: t,
+            qty: $("#qty").val(),
+            ktg_tipe: $("#ktg_tipe").val(),
+            voucher: $("#voucher").val(),
+            use_point: parseInt(document.querySelector('.pw-input')?.value || 0),
+            payment_method: $("input[name='paymentMethod']:checked").val()
+        },
         success: function(t) {
             var a = Math.max(1, parseInt($("#qty").val() || 1));
-            const basePrice = t.harga * a;
+            const basePrice = t.harga;
             const paymentMethod = $("input[name='paymentMethod']:checked").val();
-            let finalPrice = calculatePrice(basePrice, paymentMethod);
-            
-            let pointDiscount = 0;
-            const pointInput = document.querySelector('.pw-input');
-            const pointSlider = document.querySelector('.pw-slider');
-            if (pointInput && pointSlider) {
-                const usedPoints = parseInt(pointInput.value || 0);
-                const pointValue = parseInt(pointSlider.getAttribute('data-point-value') || 100);
-                pointDiscount = usedPoints * pointValue;
-            }
-            finalPrice = Math.max(0, finalPrice - pointDiscount);
+            const pointDiscount = parseFloat(t.point_discount || 0);
+            let finalPrice = calculatePrice(basePrice, paymentMethod, pointDiscount);
 
-            $(".selected-order").text(formatToRupiah(finalPrice));
+            $(".text-xs.font-semibold.text-warning.selected-order").text(formatToRupiah(finalPrice));
             updateQtyDisplay(a);
             updatePaymentMethodPrices(basePrice, pointDiscount);
         }

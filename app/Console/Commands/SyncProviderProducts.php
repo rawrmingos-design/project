@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\ProviderManager;
+use App\Services\ProductPricingService;
 use App\Models\Produk;
 use App\Models\Kategori;
 use Illuminate\Support\Facades\DB;
@@ -28,11 +29,13 @@ class SyncProviderProducts extends Command
     protected $description = 'Sync products from external providers (Digiflazz, BangJeff, etc.)';
 
     private ProviderManager $providerManager;
+    private ProductPricingService $pricingService;
 
-    public function __construct(ProviderManager $providerManager)
+    public function __construct(ProviderManager $providerManager, ProductPricingService $pricingService)
     {
         parent::__construct();
         $this->providerManager = $providerManager;
+        $this->pricingService = $pricingService;
     }
 
     /**
@@ -144,10 +147,18 @@ class SyncProviderProducts extends Command
 
         if ($existingProduct) {
             if ($updateExisting && !$dryRun) {
+                $this->pricingService->rebaseFromNewBaseCostKeepingMargins($existingProduct, $productData['price']);
+
                 $existingProduct->update([
                     'layanan' => $productData['name'],
                     'kategori_id' => $category?->id,
-                    'harga' => $productData['price'],
+                    'harga' => $existingProduct->harga,
+                    'harga_member' => $existingProduct->harga_member,
+                    'harga_platinum' => $existingProduct->harga_platinum,
+                    'harga_gold' => $existingProduct->harga_gold,
+                    'profit_member' => $existingProduct->profit_member,
+                    'profit_platinum' => $existingProduct->profit_platinum,
+                    'profit_gold' => $existingProduct->profit_gold,
                     'status' => $productData['status'] === 'available' ? 'active' : 'inactive',
                     'updated_at' => now(),
                 ]);
@@ -158,21 +169,19 @@ class SyncProviderProducts extends Command
 
         // Create new product
         if (!$dryRun) {
-            Produk::create([
+            $product = new Produk([
                 'layanan' => $productData['name'],
                 'kategori_id' => $category?->id,
                 'provider_id' => $productData['provider_id'],
                 'provider' => $providerName,
-                'harga' => $productData['price'],
-                'harga_member' => $productData['price'] * 0.95, // 5% discount for members
-                'harga_platinum' => $productData['price'] * 0.90, // 10% discount for platinum
-                'harga_gold' => $productData['price'] * 0.92, // 8% discount for gold
-                'profit' => 10, // Default 10% profit
                 'status' => $productData['status'] === 'available' ? 'active' : 'inactive',
                 'deskripsi' => $productData['description'] ?? '',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            $this->pricingService->seedFromBaseCostWithDefaultMarkup($product, $productData['price']);
+            $product->save();
         }
 
         return 'new';

@@ -12,24 +12,20 @@ class LayananFactory extends Factory
 
     public function definition()
     {
-        // Ensure Kategori exists or create one if needed, but for Unit test we might just need ID.
-        // using Kategori::factory() assumes KategoriFactory exists, which likely doesn't.
-        // We'll rely on simply creating a category if factories allow, or skipping relations not needed for this specific test.
-        // However, Layanan needs kategori_id.
-        
         return [
             'kategori_id' => Kategori::factory(), 
             'layanan' => $this->faker->words(3, true),
-            'provider_id' => 'legacy_code',
-            'provider_nomimal' => 'legacy_sku',
+            // Legacy fields used by routing + order flow:
+            // `provider` = provider code (digiflazz/vip/manual), `provider_id` = SKU at provider.
+            'provider' => 'manual',
+            'provider_id' => 'manual-sku',
             'harga' => 10000,
-            'harga_member' => 9000,
-            'harga_platinum' => 8000,
-            'harga_gold' => 7000,
-            'profit' => 10,
+            'harga_member' => 11000,
+            'harga_platinum' => 11500,
+            'harga_gold' => 12000,
             'profit_member' => 10,
-            'profit_platinum' => 10,
-            'profit_gold' => 10,
+            'profit_platinum' => 15,
+            'profit_gold' => 20,
             'catatan' => 'Test Note',
             'status' => 'available',
             'product_logo' => 'default.png',

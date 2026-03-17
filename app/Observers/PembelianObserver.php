@@ -6,17 +6,20 @@ use App\Models\Pembelian;
 use App\Events\TransactionSuccess;
 use App\Services\TierService;
 use App\Services\AffiliateService;
+use App\Services\PointService;
 use Illuminate\Support\Facades\Log;
 
 class PembelianObserver
 {
     protected $tierService;
     protected $affiliateService;
+    protected $pointService;
 
-    public function __construct(TierService $tierService, AffiliateService $affiliateService)
+    public function __construct(TierService $tierService, AffiliateService $affiliateService, PointService $pointService)
     {
         $this->tierService = $tierService;
         $this->affiliateService = $affiliateService;
+        $this->pointService = $pointService;
     }
 
     /**
@@ -27,6 +30,8 @@ class PembelianObserver
         // Check if status changed to Success
         if ($pembelian->wasChanged('status') && in_array($pembelian->status, ['Success', 'Sukses'])) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} marked as Success. Checking Tier Upgrade & Affiliate Commission.");
+
+            $this->pointService->ensureRedeemedPointsForOrder($pembelian);
             
             $user = $pembelian->user;
             if ($user) {
@@ -50,6 +55,8 @@ class PembelianObserver
         // Check if status is Success
         if (in_array($pembelian->status, ['Success', 'Sukses'])) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} created as Success. Checking Tier Upgrade & Affiliate Commission.");
+
+            $this->pointService->ensureRedeemedPointsForOrder($pembelian);
             
             $user = $pembelian->user;
             if ($user) {

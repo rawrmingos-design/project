@@ -77,7 +77,7 @@ class TriPayController extends Controller
         }
     }
 
-    public function fee($jumlah, $code)
+    public function feeBreakdown($jumlah, $code): array
     {
         $api = DB::table('setting_webs')->where('id', 1)->first();
 
@@ -108,7 +108,39 @@ class TriPayController extends Controller
 
         curl_close($curl);
 
-        return $response->data['0']->total_fee->customer + $response->data['0']->total_fee->merchant;
+        if ($error || !isset($response->data[0]->total_fee)) {
+            Log::warning('TriPay fee calculator failed', [
+                'amount' => $jumlah,
+                'code' => $code,
+                'error' => $error,
+                'response' => $response,
+            ]);
+
+            return [
+                'customer' => 0,
+                'merchant' => 0,
+                'total' => 0,
+            ];
+        }
+
+        $customerFee = (int) round($response->data[0]->total_fee->customer ?? 0);
+        $merchantFee = (int) round($response->data[0]->total_fee->merchant ?? 0);
+
+        return [
+            'customer' => $customerFee,
+            'merchant' => $merchantFee,
+            'total' => $customerFee + $merchantFee,
+        ];
+    }
+
+    public function customerFee($jumlah, $code): int
+    {
+        return $this->feeBreakdown($jumlah, $code)['customer'];
+    }
+
+    public function fee($jumlah, $code)
+    {
+        return $this->feeBreakdown($jumlah, $code)['total'];
     }
 
     public function channel()

@@ -7,29 +7,31 @@ use Illuminate\Support\Facades\Http;
 
 class IPAddressController extends Controller
 {
-    public function getIPAddress(Request $request)
+    /**
+     * Resolve a value safe to store in `pembelians.ip_address`.
+     *
+     * Important: Order flow must never fail just because ipinfo is unreachable.
+     */
+    public function getIPAddress(Request $request): string
     {
-        $ipAddress = $request->ip();
-        
-        // Gunakan ipinfo API untuk mendapatkan informasi geolokasi berdasarkan IP
-        $response = Http::get("https://ipinfo.io/{$ipAddress}/json?token=e879d202101b78");
-    
-        if ($response->successful()) {
-            $locationData = $response->json();
+        $ipAddress = (string) $request->ip();
 
-            $responseData = [
-                'ip' => $locationData['ip'] ?? '',
-                'city' => $locationData['city'] ?? '',
-                'region' => $locationData['region'] ?? '',
-                'country' => $locationData['country'] ?? '',
-                'loc' => $locationData['loc'] ?? '',
-                'org' => $locationData['org'] ?? '',
-                'timezone' => $locationData['timezone'] ?? '',
-            ];
+        try {
+            // Best-effort enrichment (do not block checkout on failure).
+            $response = Http::timeout(2)->get("https://ipinfo.io/{$ipAddress}/json?token=e879d202101b78");
 
-            return response()->json($responseData);
-        } else {
-            return response()->json(['error' => 'Data tidak ditemukan']);
+            if ($response->successful()) {
+                $locationData = $response->json();
+                $resolvedIp = (string) ($locationData['ip'] ?? '');
+
+                if ($resolvedIp !== '') {
+                    return $resolvedIp;
+                }
+            }
+        } catch (\Throwable) {
+            // Ignore network issues.
         }
+
+        return $ipAddress;
     }
 }

@@ -5,10 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\SyncsLegacyMediaPaths;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Produk extends Model
+class Produk extends Model implements HasMedia
 {
     use HasFactory;
+    use InteractsWithMedia;
+    use SyncsLegacyMediaPaths;
     
     protected $table = 'layanans';
     
@@ -22,7 +27,6 @@ class Produk extends Model
         'harga_platinum' => 'integer',
         'harga_gold' => 'integer',
         'harga_flash_sale' => 'integer',
-        'profit' => 'integer',
         'profit_member' => 'integer',
         'profit_platinum' => 'integer',
         'profit_gold' => 'integer',
@@ -68,5 +72,79 @@ class Produk extends Model
     public function provider_paths()
     {
         return $this->hasMany(ProviderPath::class, 'layanan_id');
+    }
+
+    public function paket()
+    {
+        return $this->belongsToMany(Paket::class, 'paket_layanans', 'layanan_id', 'paket_id')
+            ->withPivot('product_logo')
+            ->withTimestamps();
+    }
+
+    public function registerMediaCollections(): void
+    {
+        $this
+            ->addMediaCollection('product_logo')
+            ->useDisk('assets')
+            ->singleFile();
+    }
+
+    public function getLegacyMediaColumnMap(): array
+    {
+        return [];
+    }
+
+    public function getLegacyMediaDirectoryMap(): array
+    {
+        return [];
+    }
+
+    public function resolveActiveMediaPreviewData(?string $collection = null, ?string $legacyColumn = null): ?array
+    {
+        if ($collection !== 'product_logo') {
+            return null;
+        }
+
+        $media = $this->getFirstMedia('product_logo');
+
+        if ($media && is_file($media->getPath())) {
+            $relativePath = '/' . ltrim($media->getPathRelativeToRoot(), '/');
+
+            return [
+                'label' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
+                'url' => asset(ltrim($relativePath, '/')),
+                'alt' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
+                'source' => 'Upload Record',
+                'path' => $relativePath,
+            ];
+        }
+
+        $pivotLogo = PaketLayanan::query()
+            ->where('layanan_id', $this->id)
+            ->whereNotNull('product_logo')
+            ->where('product_logo', '!=', '')
+            ->value('product_logo');
+
+        if ($pivotLogo) {
+            return [
+                'label' => pathinfo($pivotLogo, PATHINFO_FILENAME),
+                'url' => asset(ltrim($pivotLogo, '/')),
+                'alt' => pathinfo($pivotLogo, PATHINFO_FILENAME),
+                'source' => 'Path Paket Layanan',
+                'path' => $pivotLogo,
+            ];
+        }
+
+        if (! empty($this->product_logo)) {
+            return [
+                'label' => pathinfo($this->product_logo, PATHINFO_FILENAME),
+                'url' => asset(ltrim($this->product_logo, '/')),
+                'alt' => pathinfo($this->product_logo, PATHINFO_FILENAME),
+                'source' => 'Path Layanan',
+                'path' => $this->product_logo,
+            ];
+        }
+
+        return null;
     }
 }

@@ -204,7 +204,7 @@
                             </div>
                         </div>
                         <div class="mb-3 row">
-                            <label for="harga" class="col-lg-1 col-form-label">Harga Publik</label>
+                            <label for="harga" class="col-lg-1 col-form-label">Harga Modal</label>
                             <div class="col-lg-5">
                                 <input step="0.01" type="number" class="form-control @error('harga') is-invalid @enderror"
                                     value="{{ old('harga') }}" name="harga" id="harga" placeholder="10000">
@@ -214,7 +214,7 @@
                                     </div>
                                 @enderror
                             </div>
-                            <label for="harga_member" class="col-lg-1 col-form-label">Harga Member</label>
+                            <label for="harga_member" class="col-lg-1 col-form-label">Harga Member / Publik</label>
                             <div class="col-lg-5">
                                 <input step="0.01" type="number" class="form-control @error('harga_member') is-invalid @enderror"
                                     value="{{ old('harga_member') }}" name="harga_member" id="harga_member"
@@ -251,46 +251,8 @@
                             </div>
                         </div>
                         <div class="mb-3 row">
-                            <label for="" class="col-lg-1 col-form-label">Profit Publik</label>
-                            <div class="col-lg-5">
-                                <input type="number" class="form-control @error('profit') is-invalid @enderror"
-                                    value="{{ old('profit') }}" name="profit" placeholder="5"> @error('profit')
-                                    <div class="invalid-feedback">
-                                        {{ $message }}
-                                    </div>
-                                @enderror
-                            </div>
-                            <label for="" class="col-lg-1 col-form-label">Profit Member</label>
-                            <div class="col-lg-5">
-                                <input type="number" class="form-control @error('profit_member') is-invalid @enderror"
-                                    value="{{ old('profit_member') }}" name="profit_member" placeholder="5">
-                                @error('profit_member')
-                                    <div class="invalid-feedback">
-                                        {{ $message }}
-                                    </div>
-                                @enderror
-                            </div>
-                        </div>
-                        <div class="mb-3 row">
-                            <label for="" class="col-lg-1 col-form-label">Profit Platinum</label>
-                            <div class="col-lg-5">
-                                <input type="number" class="form-control @error('profit_platinum') is-invalid @enderror"
-                                    value="{{ old('profit_platinum') }}" name="profit_platinum" placeholder="5">
-                                @error('profit_platinum')
-                                    <div class="invalid-feedback">
-                                        {{ $message }}
-                                    </div>
-                                @enderror
-                            </div>
-                            <label for="" class="col-lg-1 col-form-label">Profit Gold</label>
-                            <div class="col-lg-5">
-                                <input type="number" class="form-control @error('profit_gold') is-invalid @enderror"
-                                    value="{{ old('profit_gold') }}" name="profit_gold" placeholder="5">
-                                @error('profit_gold')
-                                    <div class="invalid-feedback">
-                                        {{ $message }}
-                                    </div>
-                                @enderror
+                            <div class="col-lg-12">
+                                <small class="text-muted">Harga modal diisi dari harga provider/seller. Harga Member / Publik, Platinum, dan Gold diisi sebagai harga jual final.</small>
                             </div>
                         </div>
 
@@ -400,14 +362,13 @@
                                     <th>Layanan</th>
                                     <th>Provider</th>
                                     <th>PID</th>
-                                    <th>Harga Publik</th>
-                                    <th>Harga Member</th>
+                                    <th>Harga Modal</th>
+                                    <th>Harga Member / Publik</th>
                                     <th>Harga Platinum</th>
                                     <th>Harga Gold</th>
-                                    <th>Profit Publik</th>
-                                    <th>Profit Member</th>
-                                    <th>Profit Platinum</th>
-                                    <th>Profit Gold</th>
+                                    <th>Margin Member</th>
+                                    <th>Margin Platinum</th>
+                                    <th>Margin Gold</th>
                                     <th>Flash Sale Price</th>
                                     <th>Flash Sale?</th>
                                     <th>Flash Sale Title</th>
@@ -443,14 +404,9 @@
                                         <td>Rp. {{ number_format($data->harga_member, 0, '.', ',') }}</td>
                                         <td>Rp. {{ number_format($data->harga_platinum, 0, '.', ',') }}</td>
                                         <td>Rp. {{ number_format($data->harga_gold, 0, '.', ',') }}</td>
-                                        <td>{{ number_format($data->profit, 0, '.', ',') }}% (Rp.
-                                            {{ $data->harga * ($data->profit / 100) }})</td>
-                                        <td>{{ number_format($data->profit_member, 0, '.', ',') }}% (Rp.
-                                            {{ $data->harga_member * ($data->profit_member / 100) }})</td>
-                                        <td>{{ number_format($data->profit_platinum, 0, '.', ',') }}% (Rp.
-                                            {{ $data->harga_platinum * ($data->profit_platinum / 100) }})</td>
-                                        <td>{{ number_format($data->profit_gold, 0, '.', ',') }}% (Rp.
-                                            {{ $data->harga_gold * ($data->profit_gold / 100) }})</td>
+                                        <td>Rp. {{ number_format(max($data->harga_member - $data->harga, 0), 0, '.', ',') }}</td>
+                                        <td>Rp. {{ number_format(max($data->harga_platinum - $data->harga, 0), 0, '.', ',') }}</td>
+                                        <td>Rp. {{ number_format(max($data->harga_gold - $data->harga, 0), 0, '.', ',') }}</td>
                                         <td>Rp. {{ number_format($data->harga_flash_sale, 0, '.', ',') }}</td>
                                         <td>{{ $data->is_flash_sale == 0 ? 'No' : 'Yes' }}</td>
                                         <td>{{ $data->judul_flash_sale }}</td>

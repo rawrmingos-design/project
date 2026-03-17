@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Kategori;
+use App\Models\CustomInput;
+use App\Support\CustomInputDefaults;
 
 class KategoriController extends Controller
 {
@@ -66,8 +68,14 @@ class KategoriController extends Controller
             'field_select_title' => isset($request->inputs_2_label) ? $request->inputs_2_label : null,
             'field_select' => isset($request->inputs_2_value) ? $request->inputs_2_value : null,
         ];
-        
-        DB::table('custom_inputs')->insert($customInputData);
+
+        CustomInput::query()->updateOrCreate(
+            ['kategori_id' => $kategori->id],
+            array_merge(
+                app(CustomInputDefaults::class)->buildDefaults($kategori),
+                $customInputData,
+            ),
+        );
 
         return back()->with('success', 'Berhasil menambahkan kategori');
     }

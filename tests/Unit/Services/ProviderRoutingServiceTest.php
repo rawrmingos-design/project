@@ -145,20 +145,12 @@ class ProviderRoutingServiceTest extends TestCase
     /** @test */
     public function it_falls_back_to_legacy_fields_if_no_paths_exist()
     {
+        // Legacy flow: `provider` is code, `provider_id` is SKU.
         $layanan = Layanan::factory()->create([
-            'provider_id' => 'legacy_provider', // treated as code in legacy check? No, provider_id is code usually? 
-            // Wait, legacy check uses: $layanan->provider_id and $layanan->provider_nomimal (SKU)
-            // But in OrderController legacy was $dataLayanan->provider (code) and $dataLayanan->provider_id (sku)
-            // Let's check logic in Service: 
-            // if (!empty($layanan->provider_id) && !empty($layanan->provider_nomimal))
-            'provider_id' => 'digiflazz', // Code
-            'provider_nomimal' => 'SKU_LEGACY' // SKU
+            'provider' => 'digiflazz',
+            'provider_id' => 'SKU_LEGACY',
         ]);
 
-        // Service logic: Use provider_id as CODE ?? Wait, let's re-read Service.
-        // Service Code: 
-        // return $this->formatProviderResult($layanan->provider_id, $layanan->provider_nomimal);
-        
         $best = $this->service->findBestProvider($layanan);
 
         $this->assertEquals('digiflazz', $best['provider_code']);

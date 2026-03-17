@@ -70,14 +70,14 @@ class ProduksTable
                     ]),
                     
                 TextColumn::make('harga')
-                    ->label('Harga Normal')
+                    ->label('Harga Modal')
                     ->prefix('💰 ')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd(),
                     
                 TextColumn::make('harga_member')
-                    ->label('Harga Member')
+                    ->label('Harga Member / Publik')
                     ->prefix('💲 ')
                     ->money('IDR')
                     ->sortable()
@@ -109,42 +109,6 @@ class ProduksTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->color('danger')
                     ->weight('bold'),
-                    
-                TextColumn::make('profit')
-                    ->label('Profit Public')
-                    ->prefix('📈 ')
-                    ->suffix('%')
-                    ->sortable()
-                    ->alignEnd()
-                    ->color(fn (string $state): string => match (true) {
-                        $state >= 5 => 'success',
-                        $state >= 2 => 'warning',
-                        default => 'danger',
-                    }),
-                    
-                TextColumn::make('profit_member')
-                    ->label('Profit Member')
-                    ->prefix('📈 ')
-                    ->suffix('%')
-                    ->sortable()
-                    ->alignEnd()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                    
-                TextColumn::make('profit_platinum')
-                    ->label('Profit Platinum')
-                    ->prefix('📈 ')
-                    ->suffix('%')
-                    ->sortable()
-                    ->alignEnd()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                    
-                TextColumn::make('profit_gold')
-                    ->label('Profit Gold')
-                    ->prefix('📈 ')
-                    ->suffix('%')
-                    ->sortable()
-                    ->alignEnd()
-                    ->toggleable(isToggledHiddenByDefault: true),
                     
                 IconColumn::make('is_flash_sale')
                     ->label('Flash Sale')
@@ -236,26 +200,6 @@ class ProduksTable
                     ->placeholder('All products')
                     ->trueLabel('Flash Sale Only')
                     ->falseLabel('Regular Products'),
-                    
-                Filter::make('profit_range')
-                    ->form([
-                        Select::make('profit_min')
-                            ->label('Minimum Profit (%)')
-                            ->options([
-                                5 => '5%',
-                                10 => '10%',
-                                15 => '15%',
-                                20 => '20%',
-                                25 => '25%',
-                            ]),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['profit_min'],
-                                fn (Builder $query, $profit): Builder => $query->where('profit', '>=', $profit),
-                            );
-                    }),
                     
                 Filter::make('created_at')
                     ->form([

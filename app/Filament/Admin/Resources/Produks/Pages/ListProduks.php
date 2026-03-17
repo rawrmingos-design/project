@@ -12,6 +12,7 @@ use Filament\Forms\Components\Toggle;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Http\Controllers\DigiFlazzController;
+use App\Services\ProductPricingService;
 
 class ListProduks extends ListRecords
 {
@@ -28,6 +29,7 @@ class ListProduks extends ListRecords
                 ->color('primary')
                 ->action(function () {
                     try {
+                        $pricing = app(ProductPricingService::class);
                         $digi = new DigiFlazzController;
                         $data = $digi->harga();
                         
@@ -40,16 +42,7 @@ class ListProduks extends ListRecords
                                     $dataProduct = Layanan::where('provider_id', $product['buyer_sku_code'])->first();
 
                                     if ($dataGames && $dataProduct) {
-                                        $profit = $dataProduct->profit;
-                                        $profit_member = $dataProduct->profit_member;
-                                        $profit_platinum = $dataProduct->profit_platinum;
-                                        $profit_gold = $dataProduct->profit_gold;
-
-                                        $harga = $product['price'];
-                                        $dataProduct->harga = $harga + ($harga * $profit / 100);
-                                        $dataProduct->harga_member = $harga + ($harga * $profit_member / 100);
-                                        $dataProduct->harga_platinum = $harga + ($harga * $profit_platinum / 100);
-                                        $dataProduct->harga_gold = $harga + ($harga * $profit_gold / 100);
+                                        $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $product['price']);
                                         $dataProduct->save();
                                         
                                         $updatedCount++;
@@ -143,7 +136,7 @@ class ListProduks extends ListRecords
                 ->modalDescription('This will fetch products from Topupedia API and sync them to your database.'),
                 
             Action::make('bulk_update_prices')
-                ->label('Bulk Update Prices')
+                ->label('Bulk Adjust Tier Prices')
                 ->icon('heroicon-o-currency-dollar')
                 ->color('warning')
                 ->form([
@@ -157,8 +150,8 @@ class ListProduks extends ListRecords
                             'topupedia' => 'Topupedia',
                         ])
                         ->required(),
-                    Select::make('profit_adjustment')
-                        ->label('Profit Adjustment')
+                    Select::make('price_adjustment')
+                        ->label('Price Adjustment')
                         ->options([
                             '5' => '+5%',
                             '10' => '+10%',
@@ -172,8 +165,8 @@ class ListProduks extends ListRecords
                     $this->bulkUpdatePrices($data);
                     
                     Notification::make()
-                        ->title('Bulk Price Update')
-                        ->body('Prices have been updated for selected provider')
+                        ->title('Bulk Tier Price Update')
+                        ->body('Tier selling prices have been updated for selected provider')
                         ->warning()
                         ->send();
                 })
@@ -201,13 +194,9 @@ class ListProduks extends ListRecords
                 'kategori_id' => $data['kategori_id'],
                 'provider' => 'bangjeff',
                 'harga' => 1500,
-                'harga_member' => 1400,
-                'harga_platinum' => 1350,
-                'harga_gold' => 1300,
-                'profit' => 10,
-                'profit_member' => 8,
-                'profit_platinum' => 6,
-                'profit_gold' => 5,
+                'harga_member' => 1600,
+                'harga_platinum' => 1650,
+                'harga_gold' => 1700,
                 'status' => $data['auto_activate'] ? 'active' : 'inactive',
                 'catatan' => 'Synced from BangJeff API',
             ],
@@ -234,13 +223,9 @@ class ListProduks extends ListRecords
                 'kategori_id' => $data['kategori_id'],
                 'provider' => 'topupedia',
                 'harga' => 10000,
-                'harga_member' => 9500,
-                'harga_platinum' => 9200,
-                'harga_gold' => 9000,
-                'profit' => 12,
-                'profit_member' => 10,
-                'profit_platinum' => 8,
-                'profit_gold' => 6,
+                'harga_member' => 11000,
+                'harga_platinum' => 11200,
+                'harga_gold' => 11500,
                 'status' => $data['auto_activate'] ? 'active' : 'inactive',
                 'catatan' => 'Synced from Topupedia API',
             ],
@@ -257,12 +242,13 @@ class ListProduks extends ListRecords
     private function bulkUpdatePrices(array $data): void
     {
         $provider = $data['provider'];
-        $adjustment = (int) $data['profit_adjustment'];
+        $adjustment = (int) $data['price_adjustment'];
         
         \App\Models\Produk::where('provider', $provider)
             ->each(function ($product) use ($adjustment) {
-                $newProfit = max(1, $product->profit + $adjustment);
-                $product->update(['profit' => $newProfit]);
+                $pricing = app(ProductPricingService::class);
+                $pricing->adjustSellingPricesByPercent($product, $adjustment);
+                $product->save();
             });
     }
 }
