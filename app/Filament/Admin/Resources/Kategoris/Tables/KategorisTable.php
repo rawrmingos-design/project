@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Kategoris\Tables;
 
+use App\Filament\Admin\Resources\Kategoris\KategoriResource;
+use App\Models\Kategori;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -75,7 +77,8 @@ class KategorisTable
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->url(fn (Kategori $record): string => KategoriResource::getUrl('edit', ['record' => $record])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
