@@ -80,7 +80,14 @@ RUN mkdir -p bootstrap/cache \
                storage/framework/views \
                storage/framework/cache/data \
                storage/logs \
-    && chmod -R 775 bootstrap/cache storage
+    && mkdir -p public/assets/product_logo \
+               public/assets/thumbnail \
+               public/assets/banner \
+               public/assets/banner_game \
+               public/assets/logo \
+               public/assets/media \
+               public/articles/thumbnails \
+    && chmod -R 775 bootstrap/cache storage public/assets public/articles
 
 # Laravel optimization
 RUN php artisan storage:link || true \
@@ -92,8 +99,12 @@ RUN php artisan storage:link || true \
 # Permissions (ownership untuk www-data / php-fpm)
 RUN chown -R www-data:www-data /var/www/html/storage \
                                /var/www/html/bootstrap/cache \
+                               /var/www/html/public/assets \
+                               /var/www/html/public/articles \
     && chmod -R 775 /var/www/html/storage \
-                    /var/www/html/bootstrap/cache
+                    /var/www/html/bootstrap/cache \
+                    /var/www/html/public/assets \
+                    /var/www/html/public/articles
 
 # Copy Supervisor config
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf

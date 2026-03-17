@@ -32,33 +32,50 @@ class ListProduks extends ListRecords
                         $pricing = app(ProductPricingService::class);
                         $digi = new DigiFlazzController;
                         $data = $digi->harga();
-                        
-                        if ($data && isset($data['data'])) {
-                            $updatedCount = 0;
-                            
-                            foreach ($data['data'] as $product) {
-                                if ($product['buyer_product_status'] == true) {
-                                    $dataGames = Kategori::where('nama', $product['brand'])->first();
-                                    $dataProduct = Layanan::where('provider_id', $product['buyer_sku_code'])->first();
 
-                                    if ($dataGames && $dataProduct) {
-                                        $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $product['price']);
-                                        $dataProduct->save();
-                                        
-                                        $updatedCount++;
-                                    }
+                        $products = $data['data'] ?? null;
+
+                        if (is_array($products) && array_is_list($products)) {
+                            $updatedCount = 0;
+
+                            foreach ($products as $product) {
+                                if (! is_array($product)) {
+                                    continue;
+                                }
+
+                                $isActive = (bool) ($product['buyer_product_status'] ?? false);
+                                $brand = trim((string) ($product['brand'] ?? ''));
+                                $providerSku = trim((string) ($product['buyer_sku_code'] ?? ''));
+                                $price = $product['price'] ?? null;
+
+                                if (! $isActive || $brand === '' || $providerSku === '' || ! is_numeric($price)) {
+                                    continue;
+                                }
+
+                                $dataGames = Kategori::where('nama', $brand)->first();
+                                $dataProduct = Layanan::where('provider_id', $providerSku)->first();
+
+                                if ($dataGames && $dataProduct) {
+                                    $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $price);
+                                    $dataProduct->save();
+
+                                    $updatedCount++;
                                 }
                             }
-                            
+
                             Notification::make()
                                 ->title('DigiFlazz Sync Completed')
                                 ->body("Successfully updated {$updatedCount} products from DigiFlazz")
                                 ->success()
                                 ->send();
                         } else {
+                            $message = is_array($products)
+                                ? (string) ($products['message'] ?? 'Invalid data received from DigiFlazz API')
+                                : 'Invalid data received from DigiFlazz API';
+
                             Notification::make()
                                 ->title('DigiFlazz Sync Failed')
-                                ->body('Invalid data received from DigiFlazz API')
+                                ->body($message)
                                 ->danger()
                                 ->send();
                         }
@@ -171,6 +188,42 @@ class ListProduks extends ListRecords
                         ->send();
                 })
                 ->requiresConfirmation(),
+
+            Action::make('rebase_tier_prices')
+                ->label('Rebase Tier Prices')
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->color('danger')
+                ->form([
+                    Select::make('provider')
+                        ->label('Provider')
+                        ->options([
+                            'digiflazz' => 'Digiflazz',
+                            'apigames' => 'API Games',
+                            'vip' => 'VIP Reseller',
+                            'bangjeff' => 'BangJeff',
+                            'topupedia' => 'Topupedia',
+                            'manual' => 'Manual',
+                        ])
+                        ->placeholder('Semua provider'),
+                    Select::make('kategori_id')
+                        ->label('Kategori')
+                        ->options(Kategori::pluck('nama', 'id'))
+                        ->searchable()
+                        ->placeholder('Semua kategori'),
+                ])
+                ->action(function (array $data) {
+                    $updatedCount = $this->rebaseTierPrices($data);
+
+                    Notification::make()
+                        ->title('Rebase selesai')
+                        ->body("Berhasil rebase {$updatedCount} produk berdasarkan profit persen yang tersimpan.")
+                        ->success()
+                        ->send();
+                })
+                ->requiresConfirmation()
+                ->modalHeading('Rebase Tier Prices')
+                ->modalDescription('Action ini akan menghitung ulang harga member, platinum, dan gold dari harga modal sekarang berdasarkan profit persen yang tersimpan di masing-masing produk.')
+                ->modalSubmitActionLabel('Rebase Sekarang'),
         ];
     }
     
@@ -250,5 +303,30 @@ class ListProduks extends ListRecords
                 $pricing->adjustSellingPricesByPercent($product, $adjustment);
                 $product->save();
             });
+    }
+
+    private function rebaseTierPrices(array $data): int
+    {
+        $pricing = app(ProductPricingService::class);
+
+        $query = Layanan::query()
+            ->when(
+                filled($data['provider'] ?? null),
+                fn ($query) => $query->where('provider', $data['provider'])
+            )
+            ->when(
+                filled($data['kategori_id'] ?? null),
+                fn ($query) => $query->where('kategori_id', $data['kategori_id'])
+            );
+
+        $updatedCount = 0;
+
+        $query->each(function (Layanan $product) use ($pricing, &$updatedCount) {
+            $pricing->rebaseFromNewBaseCostKeepingMargins($product, $product->harga);
+            $product->save();
+            $updatedCount++;
+        });
+
+        return $updatedCount;
     }
 }

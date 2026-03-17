@@ -18,6 +18,14 @@ on:
   # Manual trigger dari tab GitHub Actions
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 env:
   # Nama image Docker (pakai GitHub Container Registry)
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/laravel-topup
@@ -155,6 +163,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 📤 Sync deploy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "docker-compose.yml,docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
+          target: ${{ secrets.VPS_APP_PATH }}
+          overwrite: true
+
       - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -163,32 +182,20 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            # Masuk ke folder project
             cd ${{ secrets.VPS_APP_PATH }}
 
-            # Login ke GHCR dari VPS
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            if [ -d .git ]; then
+              git fetch origin ${{ github.ref_name }} \
+                && git checkout ${{ github.ref_name }} \
+                && git pull --ff-only origin ${{ github.ref_name }} \
+                || echo "Lewati sinkron git di VPS; deploy image tetap dilanjutkan."
+            fi
 
-            # Pull image terbaru
-            docker pull ${{ env.IMAGE_NAME }}:latest
+            export IMAGE_NAME="${{ env.IMAGE_NAME }}"
+            export GHCR_USERNAME="${{ github.actor }}"
+            export GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
-            # Restart container tanpa downtime (rolling update)
-            docker compose pull
-            docker compose up -d --no-deps app
-
-            # Jalankan migration (auto, dengan --force untuk production)
-            docker compose exec -T app php artisan migrate --force
-
-            # Clear & rebuild cache Laravel
-            docker compose exec -T app php artisan config:cache
-            docker compose exec -T app php artisan route:cache
-            docker compose exec -T app php artisan view:cache
-            docker compose exec -T app php artisan event:cache
-
-            # Bersihkan image lama yang tidak terpakai
-            docker image prune -f
-
-            echo "✅ Deploy selesai! $(date)"
+            sh docker/scripts/deploy-vps.sh
 
       - name: 📢 Notify deploy success (opsional — Telegram/Discord)
         if: success()

@@ -41,32 +41,31 @@ class ProductPricingService
         $modal = $this->normalizeAmount($modal);
         $defaults = $this->getDefaultTierPercentages();
         $currentModal = $this->normalizeAmount($product->harga ?? 0);
-
-        $memberMargin = $this->resolveExistingMargin(
+        $memberPercent = $this->resolveExistingMarginPercent(
+            storedPercent: $product->profit_member ?? null,
             currentSelling: $product->harga_member ?? null,
             currentModal: $currentModal,
-            newModal: $modal,
             fallbackPercent: $defaults['member'],
         );
-        $platinumMargin = $this->resolveExistingMargin(
+        $platinumPercent = $this->resolveExistingMarginPercent(
+            storedPercent: $product->profit_platinum ?? null,
             currentSelling: $product->harga_platinum ?? null,
             currentModal: $currentModal,
-            newModal: $modal,
             fallbackPercent: $defaults['platinum'],
         );
-        $goldMargin = $this->resolveExistingMargin(
+        $goldPercent = $this->resolveExistingMarginPercent(
+            storedPercent: $product->profit_gold ?? null,
             currentSelling: $product->harga_gold ?? null,
             currentModal: $currentModal,
-            newModal: $modal,
             fallbackPercent: $defaults['gold'],
         );
 
         $this->applyDirectTierPrices(
             $product,
             $modal,
-            $modal + $memberMargin,
-            $modal + $platinumMargin,
-            $modal + $goldMargin,
+            $modal + $this->calculatePercentMargin($modal, $memberPercent),
+            $modal + $this->calculatePercentMargin($modal, $platinumPercent),
+            $modal + $this->calculatePercentMargin($modal, $goldPercent),
         );
     }
 
@@ -102,19 +101,28 @@ class ProductPricingService
         ];
     }
 
-    private function resolveExistingMargin(int|float|null $currentSelling, int $currentModal, int $newModal, float $fallbackPercent): int
+    private function resolveExistingMarginPercent(
+        int|float|null $storedPercent,
+        int|float|null $currentSelling,
+        int $currentModal,
+        float $fallbackPercent
+    ): float
     {
+        if ($storedPercent !== null && is_numeric($storedPercent) && (float) $storedPercent >= 0) {
+            return (float) $storedPercent;
+        }
+
         $currentSelling = $this->normalizeAmount($currentSelling ?? 0);
 
         if ($currentModal > 0) {
-            $existingMargin = $currentSelling - $currentModal;
+            $existingPercent = $this->calculateMarginPercent($currentModal, $currentSelling);
 
-            if ($existingMargin >= 0) {
-                return $existingMargin;
+            if ($existingPercent >= 0) {
+                return (float) $existingPercent;
             }
         }
 
-        return $this->calculatePercentMargin($newModal, $fallbackPercent);
+        return $fallbackPercent;
     }
 
     private function calculatePercentMargin(int $modal, float $percent): int
