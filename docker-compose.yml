@@ -45,7 +45,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       # Redis
       - REDIS_HOST=redis
-      - REDIS_PASSWORD=null
+      - REDIS_PASSWORD={REDIS_PASSWORD}
       - REDIS_PORT=6379
       - CACHE_DRIVER=redis
       - SESSION_DRIVER=redis
@@ -109,7 +109,7 @@ services:
     image: redis:7.2-alpine
     container_name: laravel_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     healthcheck:
