@@ -25,6 +25,7 @@ use App\Filament\Admin\Resources\Kategoris\Schemas\KategoriForm;
 use App\Filament\Admin\Resources\Pakets\Schemas\PaketForm;
 use App\Http\Controllers\DigiFlazzController;
 use App\Models\MediaAsset;
+use App\Support\KategoriFormDataHandler;
 use App\Support\MediaAssetPicker;
 use Illuminate\Support\Facades\Cache;
 use Filament\Notifications\Notification;
@@ -47,6 +48,7 @@ class ProdukForm
                             ->searchable()
                             ->preload()
                             ->createOptionForm(KategoriForm::getFormComponents())
+                            ->createOptionUsing(fn (array $data): int => app(KategoriFormDataHandler::class)->create($data)->getKey())
                             ->createOptionModalHeading('Buat Kategori Baru')
                             ->columnSpanFull(),
                             
