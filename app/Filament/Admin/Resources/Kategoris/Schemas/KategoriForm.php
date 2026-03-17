@@ -8,6 +8,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -183,128 +184,138 @@ class KategoriForm
 
             Section::make('Media')
                 ->schema([
-                    Placeholder::make('thumbnail_current_preview')
-                        ->label('Thumbnail Aktif')
-                        ->content(fn (?Model $record) => MediaAssetPicker::renderCurrentPreview($record, 'thumbnail')),
+                    Grid::make([
+                        'default' => 1,
+                        'xl' => 2,
+                    ])->schema([
+                        Section::make('Thumbnail')
+                            ->schema([
+                                Placeholder::make('thumbnail_current_preview')
+                                    ->label('Thumbnail Aktif')
+                                    ->content(fn (?Model $record) => MediaAssetPicker::renderCurrentPreview($record, 'thumbnail')),
 
-                    Radio::make('thumbnail_input_mode')
-                        ->label('Sumber Thumbnail')
-                        ->options([
-                            'library' => 'Media Library',
-                            'upload' => 'Upload Baru',
-                        ])
-                        ->default('upload')
-                        ->inline()
-                        ->inlineLabel(false)
-                        ->live()
-                        ->dehydrated(),
+                                Radio::make('thumbnail_input_mode')
+                                    ->label('Sumber Thumbnail')
+                                    ->options([
+                                        'library' => 'Media Library',
+                                        'upload' => 'Upload Baru',
+                                    ])
+                                    ->default('upload')
+                                    ->inline()
+                                    ->inlineLabel(false)
+                                    ->live()
+                                    ->dehydrated(),
 
-                    Hidden::make('thumbnail_media_asset_id')
-                        ->dehydrated(true)
-                        ->afterStateHydrated(function (Hidden $component, $state): void {
-                            if ($state && ! MediaAssetPicker::isUsable($state)) {
-                                $component->state(null);
-                            }
-                        }),
+                                Hidden::make('thumbnail_media_asset_id')
+                                    ->dehydrated(true)
+                                    ->afterStateHydrated(function (Hidden $component, $state): void {
+                                        if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                            $component->state(null);
+                                        }
+                                    }),
 
-                    Placeholder::make('thumbnail_media_asset_picker')
-                        ->label('Thumbnail dari Media Library')
-                        ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'library')
-                        ->hintActions([
-                            MediaAssetPicker::makeModalAction(
-                                'chooseKategoriThumbnailMediaAsset',
-                                'thumbnail_media_asset_id',
-                                'Pilih Thumbnail dari Media Library',
-                                ['kategori', 'logo', 'lainnya'],
-                                'kategori',
-                            ),
-                            MediaAssetPicker::makeClearAction(
-                                'clearKategoriThumbnailMediaAsset',
-                                'thumbnail_media_asset_id',
-                            ),
-                        ])
-                        ->content(fn (Get $get, ?Model $record) => MediaAssetPicker::renderSelectedOrCurrentPreview(
-                            $get('thumbnail_media_asset_id'),
-                            $record,
-                            'thumbnail',
-                        )),
+                                Placeholder::make('thumbnail_media_asset_picker')
+                                    ->label('Thumbnail dari Media Library')
+                                    ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'library')
+                                    ->hintActions([
+                                        MediaAssetPicker::makeModalAction(
+                                            'chooseKategoriThumbnailMediaAsset',
+                                            'thumbnail_media_asset_id',
+                                            'Pilih Thumbnail dari Media Library',
+                                            ['kategori', 'logo', 'lainnya'],
+                                            'kategori',
+                                        ),
+                                        MediaAssetPicker::makeClearAction(
+                                            'clearKategoriThumbnailMediaAsset',
+                                            'thumbnail_media_asset_id',
+                                        ),
+                                    ])
+                                    ->content(fn (Get $get, ?Model $record) => MediaAssetPicker::renderSelectedOrCurrentPreview(
+                                        $get('thumbnail_media_asset_id'),
+                                        $record,
+                                        'thumbnail',
+                                    )),
 
-                    SpatieMediaLibraryFileUpload::make('thumbnail')
-                        ->label('Thumbnail')
-                        ->image()
-                        ->disk('assets')
-                        ->visibility('public')
-                        ->collection('thumbnail')
-                        ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'upload')
-                        ->imagePreviewHeight('150')
-                        ->panelAspectRatio('1:1')
-                        ->panelLayout('integrated')
-                        ->removeUploadedFileButtonPosition('right')
-                        ->uploadButtonPosition('left')
-                        ->helperText('Upload baru otomatis disimpan ke Media Library dan tetap sinkron ke path thumbnail lama.')
-                        ->required(),
+                                SpatieMediaLibraryFileUpload::make('thumbnail')
+                                    ->label('Thumbnail')
+                                    ->image()
+                                    ->disk('assets')
+                                    ->visibility('public')
+                                    ->collection('thumbnail')
+                                    ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'upload')
+                                    ->imagePreviewHeight('150')
+                                    ->panelAspectRatio('1:1')
+                                    ->panelLayout('integrated')
+                                    ->removeUploadedFileButtonPosition('right')
+                                    ->uploadButtonPosition('left')
+                                    ->helperText('Upload baru otomatis disimpan ke Media Library dan tetap sinkron ke path thumbnail lama.')
+                                    ->required(),
+                            ]),
 
-                    Placeholder::make('banner_current_preview')
-                        ->label('Banner Aktif')
-                        ->content(fn (?Model $record) => MediaAssetPicker::renderCurrentPreview($record, 'banner')),
+                        Section::make('Banner')
+                            ->schema([
+                                Placeholder::make('banner_current_preview')
+                                    ->label('Banner Aktif')
+                                    ->content(fn (?Model $record) => MediaAssetPicker::renderCurrentPreview($record, 'banner')),
 
-                    Radio::make('banner_input_mode')
-                        ->label('Sumber Banner')
-                        ->options([
-                            'library' => 'Media Library',
-                            'upload' => 'Upload Baru',
-                        ])
-                        ->default('upload')
-                        ->inline()
-                        ->inlineLabel(false)
-                        ->live()
-                        ->dehydrated(),
+                                Radio::make('banner_input_mode')
+                                    ->label('Sumber Banner')
+                                    ->options([
+                                        'library' => 'Media Library',
+                                        'upload' => 'Upload Baru',
+                                    ])
+                                    ->default('upload')
+                                    ->inline()
+                                    ->inlineLabel(false)
+                                    ->live()
+                                    ->dehydrated(),
 
-                    Hidden::make('banner_media_asset_id')
-                        ->dehydrated(true)
-                        ->afterStateHydrated(function (Hidden $component, $state): void {
-                            if ($state && ! MediaAssetPicker::isUsable($state)) {
-                                $component->state(null);
-                            }
-                        }),
+                                Hidden::make('banner_media_asset_id')
+                                    ->dehydrated(true)
+                                    ->afterStateHydrated(function (Hidden $component, $state): void {
+                                        if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                            $component->state(null);
+                                        }
+                                    }),
 
-                    Placeholder::make('banner_media_asset_picker')
-                        ->label('Banner dari Media Library')
-                        ->visible(fn (Get $get) => $get('banner_input_mode') === 'library')
-                        ->hintActions([
-                            MediaAssetPicker::makeModalAction(
-                                'chooseKategoriBannerMediaAsset',
-                                'banner_media_asset_id',
-                                'Pilih Banner dari Media Library',
-                                ['banner', 'kategori', 'lainnya'],
-                                'banner',
-                            ),
-                            MediaAssetPicker::makeClearAction(
-                                'clearKategoriBannerMediaAsset',
-                                'banner_media_asset_id',
-                            ),
-                        ])
-                        ->content(fn (Get $get, ?Model $record) => MediaAssetPicker::renderSelectedOrCurrentPreview(
-                            $get('banner_media_asset_id'),
-                            $record,
-                            'banner',
-                        )),
+                                Placeholder::make('banner_media_asset_picker')
+                                    ->label('Banner dari Media Library')
+                                    ->visible(fn (Get $get) => $get('banner_input_mode') === 'library')
+                                    ->hintActions([
+                                        MediaAssetPicker::makeModalAction(
+                                            'chooseKategoriBannerMediaAsset',
+                                            'banner_media_asset_id',
+                                            'Pilih Banner dari Media Library',
+                                            ['banner', 'kategori', 'lainnya'],
+                                            'banner',
+                                        ),
+                                        MediaAssetPicker::makeClearAction(
+                                            'clearKategoriBannerMediaAsset',
+                                            'banner_media_asset_id',
+                                        ),
+                                    ])
+                                    ->content(fn (Get $get, ?Model $record) => MediaAssetPicker::renderSelectedOrCurrentPreview(
+                                        $get('banner_media_asset_id'),
+                                        $record,
+                                        'banner',
+                                    )),
 
-                    SpatieMediaLibraryFileUpload::make('banner')
-                        ->label('Banner')
-                        ->image()
-                        ->disk('assets')
-                        ->visibility('public')
-                        ->collection('banner')
-                        ->visible(fn (Get $get) => $get('banner_input_mode') === 'upload')
-                        ->imagePreviewHeight('150')
-                        ->panelAspectRatio('3:1')
-                        ->panelLayout('integrated')
-                        ->removeUploadedFileButtonPosition('right')
-                        ->uploadButtonPosition('left')
-                        ->helperText('Upload baru otomatis disimpan ke Media Library dan tetap sinkron ke path banner lama.')
-                ])
-                ->columns(2),
+                                SpatieMediaLibraryFileUpload::make('banner')
+                                    ->label('Banner')
+                                    ->image()
+                                    ->disk('assets')
+                                    ->visibility('public')
+                                    ->collection('banner')
+                                    ->visible(fn (Get $get) => $get('banner_input_mode') === 'upload')
+                                    ->imagePreviewHeight('150')
+                                    ->panelAspectRatio('3:1')
+                                    ->panelLayout('integrated')
+                                    ->removeUploadedFileButtonPosition('right')
+                                    ->uploadButtonPosition('left')
+                                    ->helperText('Upload baru otomatis disimpan ke Media Library dan tetap sinkron ke path banner lama.'),
+                            ]),
+                    ]),
+                ]),
                 
             Section::make('Konfigurasi')
                 ->schema([

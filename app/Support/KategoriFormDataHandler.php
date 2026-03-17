@@ -10,6 +10,7 @@ class KategoriFormDataHandler
     public function create(array $data): Kategori
     {
         [$kategoriData, $selectedMediaAssets, $customInputState] = $this->prepare($data);
+        $kategoriData = $this->seedLegacyMediaColumns($kategoriData, $selectedMediaAssets, true);
 
         $record = Kategori::query()->create($kategoriData);
 
@@ -22,6 +23,7 @@ class KategoriFormDataHandler
     public function update(Kategori $record, array $data): Kategori
     {
         [$kategoriData, $selectedMediaAssets, $customInputState] = $this->prepare($data);
+        $kategoriData = $this->seedLegacyMediaColumns($kategoriData, $selectedMediaAssets, false);
 
         $record->fill($kategoriData);
         $record->save();
@@ -101,5 +103,30 @@ class KategoriFormDataHandler
     private function syncCustomInputs(Kategori $record, array $customInputState): void
     {
         app(CustomInputDefaults::class)->syncFromFormState($record, $customInputState);
+    }
+
+    private function seedLegacyMediaColumns(array $kategoriData, array $selectedMediaAssets, bool $isCreate): array
+    {
+        $mediaAssetAssignment = app(MediaAssetAssignmentService::class);
+
+        foreach (['thumbnail', 'banner'] as $collection) {
+            $assetId = $selectedMediaAssets[$collection] ?? null;
+
+            if (! $assetId) {
+                continue;
+            }
+
+            $relativePath = $mediaAssetAssignment->getRelativePathFromAsset((int) $assetId);
+
+            if ($relativePath) {
+                $kategoriData[$collection] = ltrim($relativePath, '/');
+            }
+        }
+
+        if ($isCreate && blank($kategoriData['thumbnail'] ?? null)) {
+            $kategoriData['thumbnail'] = '';
+        }
+
+        return $kategoriData;
     }
 }
