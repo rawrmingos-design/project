@@ -249,21 +249,41 @@ class ProdukForm
                         'lg' => 3,
                     ])
                     ->schema([
+                        Hidden::make('pricing_sync_source')
+                            ->dehydrated(false)
+                            ->default(null),
+
                         TextInput::make('harga')
                             ->label('Harga Modal')
                             ->numeric()
                             ->required()
                             ->prefix('Rp')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, $set, $get) {
-                                static::syncTierPricesFromProfit($state, $set, $get);
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('modal', $set, function () use ($state, $set, $get): void {
+                                    static::syncTierPricesFromProfit($state, $set, $get);
+                                });
                             }),
                             
                         TextInput::make('harga_member')
                             ->label('Harga Member / Publik')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp'),
+                            ->prefix('Rp')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('harga_member', $set, function () use ($state, $set, $get): void {
+                                    static::syncProfitFromTierPrice('member', $state, $set, $get);
+                                });
+                            }),
 
                         TextInput::make('profit_member')
                             ->label('Profit Member / Publik')
@@ -271,15 +291,31 @@ class ProdukForm
                             ->required()
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, $set, $get) {
-                                static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('profit_member', $set, function () use ($get, $set): void {
+                                    static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                                });
                             }),
                             
                         TextInput::make('harga_platinum')
                             ->label('Harga Platinum')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp'),
+                            ->prefix('Rp')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('harga_platinum', $set, function () use ($state, $set, $get): void {
+                                    static::syncProfitFromTierPrice('platinum', $state, $set, $get);
+                                });
+                            }),
 
                         TextInput::make('profit_platinum')
                             ->label('Profit Platinum')
@@ -287,15 +323,31 @@ class ProdukForm
                             ->required()
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, $set, $get) {
-                                static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('profit_platinum', $set, function () use ($get, $set): void {
+                                    static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                                });
                             }),
                             
                         TextInput::make('harga_gold')
                             ->label('Harga Gold')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp'),
+                            ->prefix('Rp')
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('harga_gold', $set, function () use ($state, $set, $get): void {
+                                    static::syncProfitFromTierPrice('gold', $state, $set, $get);
+                                });
+                            }),
 
                             TextInput::make('profit_gold')
                             ->label('Profit Gold')
@@ -303,8 +355,14 @@ class ProdukForm
                             ->required()
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, $set, $get) {
-                                static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                                if (filled($get('pricing_sync_source'))) {
+                                    return;
+                                }
+
+                                static::runPricingSync('profit_gold', $set, function () use ($get, $set): void {
+                                    static::syncTierPricesFromProfit($get('harga'), $set, $get);
+                                });
                             }),
                     ])
                     ->columnSpan(3),
@@ -582,6 +640,33 @@ class ProdukForm
         $set('harga_gold', static::calculateTierPrice($modal, $goldProfit));
     }
 
+    protected static function syncProfitFromTierPrice(string $tier, $sellingPrice, Set $set, Get $get): void
+    {
+        $modal = max(0, (int) round((float) ($get('harga') ?? 0)));
+        $sellingPrice = max($modal, (int) round((float) ($sellingPrice ?? 0)));
+
+        $priceField = match ($tier) {
+            'member' => 'harga_member',
+            'platinum' => 'harga_platinum',
+            'gold' => 'harga_gold',
+            default => null,
+        };
+
+        $profitField = match ($tier) {
+            'member' => 'profit_member',
+            'platinum' => 'profit_platinum',
+            'gold' => 'profit_gold',
+            default => null,
+        };
+
+        if (! $priceField || ! $profitField) {
+            return;
+        }
+
+        $set($priceField, $sellingPrice);
+        $set($profitField, static::calculateMarginPercent($modal, $sellingPrice));
+    }
+
     protected static function calculateTierPrice(int $modal, float $profit): int
     {
         if ($modal <= 0) {
@@ -589,6 +674,26 @@ class ProdukForm
         }
 
         return (int) ceil($modal + ($modal * ($profit / 100)));
+    }
+
+    protected static function calculateMarginPercent(int $modal, int $sellingPrice): int
+    {
+        if ($modal <= 0 || $sellingPrice <= $modal) {
+            return 0;
+        }
+
+        return (int) round((($sellingPrice - $modal) / $modal) * 100);
+    }
+
+    protected static function runPricingSync(string $source, Set $set, callable $callback): void
+    {
+        $set('pricing_sync_source', $source);
+
+        try {
+            $callback();
+        } finally {
+            $set('pricing_sync_source', null);
+        }
     }
 
     protected static function formatDigiflazzOptionLabel(array $product): string
