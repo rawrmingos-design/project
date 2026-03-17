@@ -89,13 +89,6 @@ RUN mkdir -p bootstrap/cache \
                public/articles/thumbnails \
     && chmod -R 775 bootstrap/cache storage public/assets public/articles
 
-# Laravel optimization
-RUN php artisan storage:link || true \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache \
-    && php artisan event:cache
-
 # Permissions (ownership untuk www-data / php-fpm)
 RUN chown -R www-data:www-data /var/www/html/storage \
                                /var/www/html/bootstrap/cache \
