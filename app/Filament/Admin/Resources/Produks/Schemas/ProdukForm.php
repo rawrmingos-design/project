@@ -263,7 +263,7 @@ class ProdukForm
                             ->label('Harga Member / Publik')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp')
+                            ->prefix('Rp'),
 
                         TextInput::make('profit_member')
                             ->label('Profit Member / Publik')
@@ -279,7 +279,7 @@ class ProdukForm
                             ->label('Harga Platinum')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp')
+                            ->prefix('Rp'),
 
                         TextInput::make('profit_platinum')
                             ->label('Profit Platinum')
@@ -295,7 +295,7 @@ class ProdukForm
                             ->label('Harga Gold')
                             ->numeric()
                             ->required()
-                            ->prefix('Rp')
+                            ->prefix('Rp'),
 
                             TextInput::make('profit_gold')
                             ->label('Profit Gold')
