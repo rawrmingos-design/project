@@ -25,6 +25,7 @@ class InvoiceController extends Controller
                  'user_id', 'zone', 'nickname', 'voucher', 'layanan', 'pembayarans.harga AS harga_pembayaran', 
                  'pembelians.keterangan_sn', 'pembelians.created_at AS created_at', 'pembelians.status AS status_pembelian', 
                  'pembayarans.reference', 'pembelians.tipe_transaksi AS tipe_transaksi', 'methods.name AS metode_name')
+        ->orderByDesc('pembayarans.id')
         ->first();
 
 
@@ -108,6 +109,7 @@ class InvoiceController extends Controller
         $data = Pembelian::where('pembayarans.order_id', $order)
             ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
             ->select('pembayarans.status AS status_pembayaran', 'pembelians.status AS status_pembelian')
+            ->orderByDesc('pembayarans.id')
             ->first();
 
         if ($data) {
