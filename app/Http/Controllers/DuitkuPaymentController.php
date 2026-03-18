@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Models\Pembayaran;
 use App\Services\WhatsappNotificationService;
 use App\Services\EmailNotificationService;
 use App\Services\ProviderRoutingService;
@@ -107,19 +107,6 @@ class DuitkuPaymentController extends Controller
             Log::info('Duitku API Response', ['result' => $result]);
 
             if (isset($result['statusCode']) && $result['statusCode'] == '00') {
-                // Save payment record
-                Pembayaran::create([
-                    'order_id' => $order->order_id,
-                    'metode' => 'Duitku',
-                    'no_pembayaran' => $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? '-',
-                    'reference' => $result['reference'] ?? null,
-                    'duitku_merchant_order_id' => $merchantOrderId,
-                    'duitku_reference' => $result['reference'] ?? null,
-                    'harga' => $order->harga,
-                    'no_pembeli' => $phoneNumber,
-                    'status' => 'Belum Lunas',
-                ]);
-
                 Log::info('Duitku invoice created successfully', [
                     'order_id' => $order->order_id,
                     'reference' => $result['reference'],
@@ -134,6 +121,7 @@ class DuitkuPaymentController extends Controller
                     'vaNumber' => $result['vaNumber'] ?? null,
                     'qrString' => $result['qrString'] ?? null,
                     'amount' => $result['amount'] ?? $order->harga,
+                    'merchantOrderId' => $merchantOrderId,
                 ];
             }
 
@@ -174,25 +162,53 @@ class DuitkuPaymentController extends Controller
                 return response('Configuration error', 500);
             }
 
-            // Get callback data with signature validation
-            $callbackData = Pop::callback($this->duitkuConfig);
-            $notification = json_decode($callbackData);
+            $payload = $this->extractCallbackPayload($request);
 
-            Log::info('Duitku Callback Received', ['data' => $notification]);
+            Log::info('Duitku Callback Received', ['data' => $payload]);
+
+            if (empty($payload)) {
+                Log::error('Duitku: Invalid callback payload', [
+                    'payload' => $request->all(),
+                    'raw' => $request->getContent(),
+                ]);
+                return response('Invalid payload', 400);
+            }
+
+            if (!$this->isValidCallbackSignature($payload)) {
+                Log::warning('Duitku: Invalid callback signature', [
+                    'merchantOrderId' => $payload['merchantOrderId'] ?? null,
+                    'reference' => $payload['reference'] ?? null,
+                ]);
+                return response('Invalid signature', 400);
+            }
 
             // Start database transaction with locking
             DB::beginTransaction();
 
             try {
+                $reference = $payload['reference'] ?? null;
+                $merchantOrderId = $payload['merchantOrderId'] ?? null;
+
                 // Find payment record with lock
-                $payment = Pembayaran::where('duitku_reference', $notification->reference)
+                $payment = Pembayaran::query()
+                    ->where(function ($query) use ($reference, $merchantOrderId) {
+                        if ($reference) {
+                            $query->orWhere('duitku_reference', $reference)
+                                ->orWhere('reference', $reference);
+                        }
+
+                        if ($merchantOrderId) {
+                            $query->orWhere('duitku_merchant_order_id', $merchantOrderId);
+                        }
+                    })
                     ->where('status', 'Belum Lunas')
                     ->lockForUpdate()
                     ->first();
 
                 if (!$payment) {
                     Log::warning('Duitku: Payment not found or already processed', [
-                        'reference' => $notification->reference
+                        'reference' => $reference,
+                        'merchantOrderId' => $merchantOrderId,
                     ]);
                     DB::rollBack();
                     return response('SUCCESS', 200);
@@ -215,21 +231,24 @@ class DuitkuPaymentController extends Controller
                 }
 
                 // Verify amount
-                if ((int)$notification->amount !== (int)$payment->harga) {
+                if ((int) ($payload['amount'] ?? 0) !== (int) $payment->harga) {
                     Log::error('Duitku: Amount mismatch', [
                         'expected' => $payment->harga,
-                        'received' => $notification->amount
+                        'received' => $payload['amount'] ?? null,
                     ]);
                     DB::rollBack();
                     return response('Invalid amount', 400);
                 }
 
                 // Handle payment status
-                if ($notification->resultCode == "00") {
+                if (($payload['resultCode'] ?? null) == "00") {
                     // SUCCESS
                     $payment->update([
                         'status' => 'Lunas',
-                        'paid_at' => now()
+                        'paid_at' => now(),
+                        'reference' => $reference ?? $payment->reference,
+                        'duitku_reference' => $reference ?? $payment->duitku_reference,
+                        'duitku_merchant_order_id' => $merchantOrderId ?? $payment->duitku_merchant_order_id,
                     ]);
 
                     // Initialize Services
@@ -260,87 +279,104 @@ class DuitkuPaymentController extends Controller
                         $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
 
                         // Notify Buyer (WhatsApp)
-                        $waService->sendNotification($payment->no_pembeli, 'deposit_success', [
-                            'username' => $order->username,
-                            'order_id' => $payment->order_id,
-                            'amount' => 'Rp ' . number_format($payment->harga, 0, ',', '.'),
-                            'status' => 'Berhasil',
-                        ]);
+                        $this->runSafely('duitku_deposit_buyer_notification', function () use ($waService, $payment, $order) {
+                            $waService->sendNotification($payment->no_pembeli, 'deposit_success', [
+                                'username' => $order->username,
+                                'order_id' => $payment->order_id,
+                                'amount' => 'Rp ' . number_format($payment->harga, 0, ',', '.'),
+                                'status' => 'Berhasil',
+                            ]);
+                        }, ['order_id' => $payment->order_id]);
 
                     } else {
                         // === HANDLE PEMBELIAN (GAME TOPUP) ===
 
-                    // Notify Admin
-                    $pesanAdmin = "*Pembayaran Berhasil via Duitku*\n\n" .
-                        "No Invoice: *{$payment->order_id}*\n" .
-                        "Layanan : {$order->layanan}\n" .
-                        "ID : {$order->user_id}\n" .
-                        "Server : {$order->zone}\n" .
-                        "Nickname : {$order->nickname}\n" .
-                        "Metode Pembayaran : Duitku\n" .
-                        "Harga : Rp. " . number_format($payment->harga, 0, '.', ',') . "\n\n" .
-                        "*Kontak Pembeli*\n" .
-                        "No HP : {$payment->no_pembeli}\n";
+                        // Notify Admin
+                        $pesanAdmin = "*Pembayaran Berhasil via Duitku*\n\n" .
+                            "No Invoice: *{$payment->order_id}*\n" .
+                            "Layanan : {$order->layanan}\n" .
+                            "ID : {$order->user_id}\n" .
+                            "Server : {$order->zone}\n" .
+                            "Nickname : {$order->nickname}\n" .
+                            "Metode Pembayaran : Duitku\n" .
+                            "Harga : Rp. " . number_format($payment->harga, 0, '.', ',') . "\n\n" .
+                            "*Kontak Pembeli*\n" .
+                            "No HP : {$payment->no_pembeli}\n";
 
-                    $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
+                        $this->runSafely('duitku_payment_admin_notification', function () use ($waService, $pesanAdmin) {
+                            $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
+                        }, ['order_id' => $payment->order_id]);
 
-                    // Process Order
-                    $result = $orderProcessor->process($order);
-                    $transactionId = $result['transaction_id'] ?? null;
-                    $orderSuccess = $result['success'];
+                        $result = [
+                            'success' => false,
+                            'message' => 'Provider processing was skipped',
+                        ];
 
-                    // Update Order
-                    if ($orderSuccess) {
-                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($order->keterangan_sn ?: 'Sedang Diproses');
-                        $orderData = ['status' => 'Sukses'];
-                        if ($transactionId) {
-                            $orderData['provider_order_id'] = $transactionId;
-                        }
-                        $orderData['keterangan_sn'] = $snValue;
-                        $order->update($orderData);
-
-                        // Notify Buyer (WhatsApp)
-                        $waService->sendNotification($payment->no_pembeli, 'transaction_success', [
-                            'nickname' => $order->nickname,
-                            'order_id' => $payment->order_id,
-                            'product' => $order->layanan,
-                            'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
-                            'sn' => $snValue,
-                        ]);
-
-                        // Notify Buyer (Email)
-                        $recipientEmail = $order->email_pembeli ?? ($order->user->email ?? null);
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $payment->order_id,
-                                'product' => $order->layanan,
-                                'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
-                                'status' => 'Success',
-                                'nickname' => $order->nickname,
-                                'sn' => $snValue,
-                                'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                        try {
+                            $result = $orderProcessor->process($order);
+                        } catch (\Throwable $e) {
+                            Log::error("Duitku: Provider processing exception for {$payment->order_id}", [
+                                'error' => $e->getMessage(),
                             ]);
                         }
 
-                    } else {
-                        $order->update(['status' => 'Pending']);
-                        Log::warning("Duitku: Order processing failed for {$payment->order_id}: " . $result['message']);
+                        $transactionId = $result['transaction_id'] ?? null;
+                        $orderSuccess = (bool) ($result['success'] ?? false);
 
-                        // Notify Buyer (Pending)
-                        $waService->sendNotification($payment->no_pembeli, 'transaction_pending', [
-                            'nickname' => $order->nickname,
-                            'order_id' => $payment->order_id,
-                            'product' => $order->layanan,
-                            'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
-                            'status' => 'Menunggu Provider',
-                        ]);
-                    }
+                        if ($orderSuccess) {
+                            $providerStatus = $result['order_status'] ?? 'Sukses';
+                            $snValue = trim((string) ($result['sn'] ?? '')) ?: ($order->keterangan_sn ?: 'Sedang Diproses');
+                            $orderData = ['status' => $providerStatus];
+                            if ($transactionId) {
+                                $orderData['provider_order_id'] = $transactionId;
+                            }
+                            $orderData['keterangan_sn'] = $snValue;
+                            $order->update($orderData);
+
+                            $this->runSafely('duitku_transaction_success_whatsapp', function () use ($waService, $payment, $order, $snValue) {
+                                $waService->sendNotification($payment->no_pembeli, 'transaction_success', [
+                                    'nickname' => $order->nickname,
+                                    'order_id' => $payment->order_id,
+                                    'product' => $order->layanan,
+                                    'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
+                                    'sn' => $snValue,
+                                ]);
+                            }, ['order_id' => $payment->order_id]);
+
+                            $recipientEmail = $order->email_pembeli ?? ($order->user->email ?? null);
+                            if ($recipientEmail) {
+                                $this->runSafely('duitku_transaction_success_email', function () use ($emailService, $recipientEmail, $payment, $order, $snValue) {
+                                    $emailService->sendTransactionEmail($recipientEmail, [
+                                        'order_id' => $payment->order_id,
+                                        'product' => $order->layanan,
+                                        'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
+                                        'status' => 'Success',
+                                        'nickname' => $order->nickname,
+                                        'sn' => $snValue,
+                                        'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                                    ]);
+                                }, ['order_id' => $payment->order_id]);
+                            }
+                        } else {
+                            $order->update(['status' => 'Pending']);
+                            Log::warning("Duitku: Order processing failed for {$payment->order_id}: " . ($result['message'] ?? 'Unknown error'));
+
+                            $this->runSafely('duitku_transaction_pending_whatsapp', function () use ($waService, $payment, $order) {
+                                $waService->sendNotification($payment->no_pembeli, 'transaction_pending', [
+                                    'nickname' => $order->nickname,
+                                    'order_id' => $payment->order_id,
+                                    'product' => $order->layanan,
+                                    'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
+                                    'status' => 'Menunggu Provider',
+                                ]);
+                            }, ['order_id' => $payment->order_id]);
+                        }
                     }
 
                     DB::commit();
                     return response('SUCCESS', 200);
 
-                } else if ($notification->resultCode == "01") {
+                } else if (($payload['resultCode'] ?? null) == "01") {
                     // FAILED
                     $payment->update(['status' => 'Batal']);
                     $order->update(['status' => 'Gagal']);
@@ -348,12 +384,14 @@ class DuitkuPaymentController extends Controller
 
                     // Notify Buyer (Failed)
                     $waService = new WhatsappNotificationService();
-                    $waService->sendNotification($payment->no_pembeli, 'transaction_failed', [
-                        'nickname' => $order->nickname ?? 'Pelanggan',
-                        'order_id' => $payment->order_id,
-                        'product' => $order->layanan,
-                        'reason' => 'Pembayaran Gagal/Kadaluarsa',
-                    ]);
+                    $this->runSafely('duitku_transaction_failed_whatsapp', function () use ($waService, $payment, $order) {
+                        $waService->sendNotification($payment->no_pembeli, 'transaction_failed', [
+                            'nickname' => $order->nickname ?? 'Pelanggan',
+                            'order_id' => $payment->order_id,
+                            'product' => $order->layanan,
+                            'reason' => 'Pembayaran Gagal/Kadaluarsa',
+                        ]);
+                    }, ['order_id' => $payment->order_id]);
 
                     DB::commit();
                     return response('SUCCESS', 200);
@@ -372,6 +410,51 @@ class DuitkuPaymentController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
             return response('Error', 500);
+        }
+    }
+
+    private function extractCallbackPayload(Request $request): array
+    {
+        $payload = $request->all();
+
+        if (!empty($payload)) {
+            return $payload;
+        }
+
+        $jsonPayload = json_decode($request->getContent(), true);
+
+        return is_array($jsonPayload) ? $jsonPayload : [];
+    }
+
+    private function isValidCallbackSignature(array $payload): bool
+    {
+        $signature = (string) ($payload['signature'] ?? '');
+        $merchantCode = (string) ($payload['merchantCode'] ?? '');
+        $amount = (string) ($payload['amount'] ?? '');
+        $merchantOrderId = (string) ($payload['merchantOrderId'] ?? '');
+
+        if ($signature === '' || $merchantCode === '' || $amount === '' || $merchantOrderId === '') {
+            return false;
+        }
+
+        $expectedSignature = md5(
+            $merchantCode .
+            $amount .
+            $merchantOrderId .
+            $this->duitkuConfig->getApiKey()
+        );
+
+        return hash_equals($expectedSignature, $signature);
+    }
+
+    private function runSafely(string $context, callable $callback, array $extra = []): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            Log::warning("Duitku: {$context} failed", array_merge($extra, [
+                'error' => $e->getMessage(),
+            ]));
         }
     }
 

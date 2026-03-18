@@ -42,17 +42,50 @@ class RecentPurchasesController extends Controller
                 }
 
                 return [
-                    'item'     => $p->layanan,
-                    'name'     => $buyer ?: 'Seseorang',
-                    'image'    => $thumbnail ? '/' . ltrim($thumbnail, '/') : '/assets/logo/favicon.webp',
-                    'time_ago' => $p->created_at ? $p->created_at->diffForHumans() : 'baru saja',
+                    'item'     => $this->sanitizeUtf8($p->layanan),
+                    'name'     => $this->sanitizeUtf8($buyer ?: 'Seseorang'),
+                    'image'    => $this->sanitizeUtf8($thumbnail ? '/' . ltrim($thumbnail, '/') : '/assets/logo/favicon.webp'),
+                    'time_ago' => $this->sanitizeUtf8($p->created_at ? $p->created_at->diffForHumans() : 'baru saja'),
                 ];
-            });
+            })->map(fn (array $item) => $this->sanitizeRecursive($item))->values()->all();
         });
 
         return response()->json([
             'success' => true,
             'data' => $data
-        ]);
+        ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function sanitizeUtf8(?string $value): string
+    {
+        $value = (string) ($value ?? '');
+
+        if ($value === '') {
+            return '';
+        }
+
+        if (mb_check_encoding($value, 'UTF-8')) {
+            return $value;
+        }
+
+        $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $value);
+
+        return $clean !== false ? $clean : mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+    }
+
+    private function sanitizeRecursive(array $payload): array
+    {
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $payload[$key] = $this->sanitizeRecursive($value);
+                continue;
+            }
+
+            if (is_string($value) || is_null($value)) {
+                $payload[$key] = $this->sanitizeUtf8($value);
+            }
+        }
+
+        return $payload;
     }
 }

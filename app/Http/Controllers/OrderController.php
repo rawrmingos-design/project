@@ -1121,7 +1121,6 @@ class OrderController extends Controller
                 $tempOrder->harga = $amount;
                 $tempOrder->profit = $dataLayanan->profit ?? 0; // Required field
                 $tempOrder->status = 'Pending'; // Will be updated after payment
-                $tempOrder->save();
 
                 $duitku = new DuitkuPaymentController();
                 // Pass payment_method from request (Duitku method code: VC, BC, I1, etc)
@@ -1134,11 +1133,10 @@ class OrderController extends Controller
                         // Priority: VA number > QR string > Payment URL > Reference
                         'no_pembayaran' => $res['vaNumber'] ?? $res['qrString'] ?? $res['paymentUrl'] ?? $res['reference'],
                         'reference' => $res['reference'],
-                        'amount' => $amount
+                        'amount' => $amount,
+                        'merchant_order_id' => $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
                     ];
                 } else {
-                    // Delete temp order if failed
-                    $tempOrder->delete();
                     $gatewayResult['msg'] = $res['message'] ?? 'Gagal membuat invoice Duitku';
                 }
             }
@@ -1171,7 +1169,7 @@ class OrderController extends Controller
                 $this->createOrderRecord(
                     $request, $dataLayanan, $order_id, $amount, $dataMethod, 
                     'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
-                    '', '', $ipAddress, $tipe, null, $usedPoints, $usedPointAmount
+                    '', '', $ipAddress, $tipe, null, $usedPoints, $usedPointAmount, $gatewayResult
                 );
             } catch (\Exception $e) {
                 if ($pointsReserved && Auth::check()) {
@@ -1596,7 +1594,7 @@ class OrderController extends Controller
         ];
     }
 
-    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0) {
+    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = []) {
         $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
         
         $pembelian = new Pembelian();
@@ -1635,6 +1633,12 @@ class OrderController extends Controller
         $pembayaran->status = $status_pembayaran; // 'Belum Lunas' or 'Lunas'
         $pembayaran->metode = $request->payment_method;
         $pembayaran->reference = $reference;
+
+        if (($dataMethod->payment ?? null) === 'duitku') {
+            $pembayaran->duitku_reference = $reference;
+            $pembayaran->duitku_merchant_order_id = $gatewayMeta['merchant_order_id'] ?? ('DUITKU-' . $order_id);
+        }
+
         $pembayaran->save();
 
         if ($is_joki) {

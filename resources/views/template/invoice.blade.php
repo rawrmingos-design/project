@@ -66,6 +66,44 @@
 
 @section('content')
 
+    @php
+        $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
+        $paymentValue = (string) ($data->no_pembayaran ?? '');
+        $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
+        $isDuitkuRedirect = $isPaymentUrl &&
+            (str_contains($paymentValue, 'duitku.com') ||
+                str_contains($paymentValue, 'sandbox.duitku.com') ||
+                str_contains($paymentValue, 'passport.duitku.com'));
+        $isQrImage = !$isDuitkuRedirect && (
+            str_starts_with($paymentValue, 'data:image/') ||
+            preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
+        );
+        $isQrMethod = in_array($paymentCode, [
+            'QRIS',
+            '11',
+            '17',
+            '23',
+            'QRISREALTIME',
+            'SP',
+            'QRISC',
+            'QRISOP',
+            'QRIS_CUSTOM',
+            'QRIS2',
+            'QRIS2_OFFLINE',
+            'QRIS2_RECURRING',
+        ], true);
+        $showQrImage = $data->status_pembayaran == 'Belum Lunas' &&
+            $isQrMethod &&
+            $paymentValue !== '' &&
+            ($isQrImage || ($isPaymentUrl && !$isDuitkuRedirect));
+        $showPayButton = $data->status_pembayaran == 'Belum Lunas' && $isPaymentUrl && !$showQrImage;
+        $showCopyPaymentNumber = !$isPaymentUrl && in_array($paymentCode, [
+            'ALFAMRT', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
+            'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
+            'DM', 'BV', 'IR', 'FT', 'BRIVA', 'DUITKU',
+        ], true);
+    @endphp
+
     @include('../navbar')
     <div class=" print:!text-slate-800">
         <div class="container py-12 print:py-8 md:py-8">
@@ -194,34 +232,7 @@
                                         <div class="flex items-start space-x-4 print:text-slate-800">
                                             <div class="text-sm text-white">{{ $metode_name }}</div>
                                         </div>
-                                        @if (Str::upper($data->metode_pembayaran) == 'ALFAMRT' ||
-                                                Str::upper($data->metode_pembayaran) == 'INDOMARET' ||
-                                                Str::upper($data->metode_pembayaran) == 'PERMATAVAA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BNCVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BSIVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'DANAMONVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'CIMBVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'PERMATAVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'MANDIRIVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BNIVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BCAVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BC' ||
-                                                Str::upper($data->metode_pembayaran) == 'M2' ||
-                                                Str::upper($data->metode_pembayaran) == 'VA' ||
-                                                Str::upper($data->metode_pembayaran) == 'I1' ||
-                                                Str::upper($data->metode_pembayaran) == 'B1' ||
-                                                Str::upper($data->metode_pembayaran) == 'BT' ||
-                                                Str::upper($data->metode_pembayaran) == 'A1' ||
-                                                Str::upper($data->metode_pembayaran) == 'NC' ||
-                                                Str::upper($data->metode_pembayaran) == 'BR' ||
-                                                Str::upper($data->metode_pembayaran) == 'S1' ||
-                                                Str::upper($data->metode_pembayaran) == 'DM' ||
-                                                Str::upper($data->metode_pembayaran) == 'BV' ||
-                                                Str::upper($data->metode_pembayaran) == 'IR' ||
-                                                Str::upper($data->metode_pembayaran) == 'FT' ||
-                                                Str::upper($data->metode_pembayaran) == 'BRIVA' ||
-                                                Str::upper($data->metode_pembayaran) == 'BRIVA' ||
-                                                (Str::upper($data->metode_pembayaran) == 'DUITKU' && !Str::startsWith($data->no_pembayaran, ['http', 'https'])))
+                                        @if ($showCopyPaymentNumber)
                                             <div
                                                 class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4 mt-3 mb-2">
                                                 No Pembayaran</div>
@@ -374,65 +385,14 @@
                                 </div>
                             </dl>
                             @if ($data->status_pembayaran == 'Belum Lunas')
-                                @if (Str::upper($data->metode_pembayaran) == 'QRIS' ||
-                                        Str::upper($data->metode_pembayaran) == '11' ||
-                                        Str::upper($data->metode_pembayaran) == '17' ||
-                                        Str::upper($data->metode_pembayaran) == '23' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRISREALTIME' ||
-                                        Str::upper($data->metode_pembayaran) == 'SP' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRIS_CUSTOM' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRIS2' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRIS2_OFFLINE' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRIS2_RECURRING')
+                                @if ($showQrImage)
                                     <div
                                         class="relative mt-8 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-56 sm:w-56">
                                         <div id="qris-payment">
                                             <center><img src="{{ $data->no_pembayaran }}" width="200"></center>
                                         </div>
                                     </div>
-                                @elseif(Str::upper($data->metode_pembayaran) == '1' ||
-                                        Str::upper($data->metode_pembayaran) == '1' ||
-                                        Str::upper($data->metode_pembayaran) == '2' ||
-                                        Str::upper($data->metode_pembayaran) == '3' ||
-                                        Str::upper($data->metode_pembayaran) == '4' ||
-                                        Str::upper($data->metode_pembayaran) == '5' ||
-                                        Str::upper($data->metode_pembayaran) == '6' ||
-                                        Str::upper($data->metode_pembayaran) == '7' ||
-                                        Str::upper($data->metode_pembayaran) == '8' ||
-                                        Str::upper($data->metode_pembayaran) == '9' ||
-                                        Str::upper($data->metode_pembayaran) == '10' ||
-                                        Str::upper($data->metode_pembayaran) == '18' ||
-                                        Str::upper($data->metode_pembayaran) == '19' ||
-                                        Str::upper($data->metode_pembayaran) == '21' ||
-                                        Str::upper($data->metode_pembayaran) == '22' ||
-                                        Str::upper($data->metode_pembayaran) == '12' ||
-                                        Str::upper($data->metode_pembayaran) == '13' ||
-                                        Str::upper($data->metode_pembayaran) == '14' ||
-                                        Str::upper($data->metode_pembayaran) == 'SHOPEEPAY' ||
-                                        Str::upper($data->metode_pembayaran) == 'GOPAY' ||
-                                        Str::upper($data->metode_pembayaran) == 'LINKAJA' ||
-                                        Str::upper($data->metode_pembayaran) == 'VIRGO' ||
-                                        Str::upper($data->metode_pembayaran) == 'DANA_REALTIME' ||
-                                        Str::upper($data->metode_pembayaran) == 'SHOPEEPAY_REALTIME' ||
-                                        Str::upper($data->metode_pembayaran) == 'ASTRAPAY' ||
-                                        Str::upper($data->metode_pembayaran) == 'OVOPUSH' ||
-                                        Str::upper($data->metode_pembayaran) == 'DANA' ||
-                                        Str::upper($data->metode_pembayaran) == 'SPs' ||
-                                        Str::upper($data->metode_pembayaran) == 'AXIS' ||
-                                        Str::upper($data->metode_pembayaran) == 'XL' ||
-                                        Str::upper($data->metode_pembayaran) == 'DA' ||
-                                        Str::upper($data->metode_pembayaran) == 'SL' ||
-                                        Str::upper($data->metode_pembayaran) == 'OL' ||
-                                        Str::upper($data->metode_pembayaran) == 'JP' ||
-                                        Str::upper($data->metode_pembayaran) == 'LQ' ||
-                                        Str::upper($data->metode_pembayaran) == 'NQ' ||
-                                        Str::upper($data->metode_pembayaran) == 'DQ' ||
-                                        Str::upper($data->metode_pembayaran) == 'GQ' ||
-                                        Str::upper($data->metode_pembayaran) == 'SQ' ||
-                                        Str::upper($data->metode_pembayaran) == 'SMARTFREN' || 
-                                        Str::upper($data->metode_pembayaran) == 'OVO' ||
-                                        Str::upper($data->metode_pembayaran) == 'OVO' ||
-                                        (Str::upper($data->metode_pembayaran) == 'DUITKU' && Str::startsWith($data->no_pembayaran, ['http', 'https'])))
+                                @elseif($showPayButton)
                                     <a target="_blank" href="{{ $data->no_pembayaran }}"><button
                                             class="mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto"
                                             type="button"><span>Bayar Sekarang</span><svg
@@ -450,16 +410,7 @@
                                 @endif
 
 
-                                @if (Str::upper($data->metode_pembayaran) == 'QRIS' ||
-                                        Str::upper($data->metode_pembayaran) == '11' ||
-                                        Str::upper($data->metode_pembayaran) == '17' ||
-                                        Str::upper($data->metode_pembayaran) == '23' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRISREALTIME' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRISC' ||
-                                        Str::upper($data->metode_pembayaran) == '11' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRISOP' ||
-                                        Str::upper($data->metode_pembayaran) == 'SP' ||
-                                        Str::upper($data->metode_pembayaran) == 'QRIS_CUSTOM')
+                                @if ($showQrImage)
                                     <button
                                         class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 mt-2 w-64 py-1 !text-xs print:hidden sm:w-56"
                                         type="button" onclick="downloadQRCode()">
@@ -721,7 +672,7 @@
 
             var downloadLink = document.createElement("a");
             downloadLink.href = qrCodeUrl;
-            downloadLink.download = ;
+            downloadLink.download = "qrcode-{{ $data->id_pembelian }}.png";
 
             document.body.appendChild(downloadLink);
             downloadLink.click();
