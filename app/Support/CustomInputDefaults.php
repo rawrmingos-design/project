@@ -89,16 +89,24 @@ class CustomInputDefaults
         $field1Placeholder = $this->sanitizeSegment($this->filledOrDefault($state['field_1_placeholder'] ?? null, $defaultField1Placeholder));
         $field1Type = $this->sanitizeSegment($this->filledOrDefault($state['field_1_type'] ?? null, $defaultField1Type ?: 'text'));
 
+        $hasField2Key = array_key_exists('has_field_2', $state);
+
         $hasExplicitField2Configuration = filled($state['field_2_title'] ?? null)
             || filled($state['field_2_placeholder'] ?? null)
             || filled($state['field_2_type'] ?? null)
             || filled($state['field_select_title_input'] ?? null)
             || filled($state['field_select_value_input'] ?? null)
-            || ($state['has_field_2'] ?? null) === true;
+            || ($state['has_field_2'] ?? null) === true
+            || $hasField2Key;
 
-        $hasField2 = $hasExplicitField2Configuration
-            ? (bool) ($state['has_field_2'] ?? false)
-            : filled($defaults['field_2'] ?? null);
+        if ($hasField2Key) {
+            $hasField2 = filter_var($state['has_field_2'], FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+            $hasField2 = $hasField2 ?? false;
+        } else {
+            $hasField2 = $hasExplicitField2Configuration
+                ? (bool) ($state['has_field_2'] ?? false)
+                : filled($defaults['field_2'] ?? null);
+        }
 
         $payload = [
             'field_1' => implode(',', [$field1Title, $field1Placeholder, $field1Type]),
