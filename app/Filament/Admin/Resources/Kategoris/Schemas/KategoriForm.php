@@ -141,7 +141,19 @@ class KategoriForm
                     Toggle::make('has_field_2')
                         ->label('Aktifkan Field 2')
                         ->live()
-                        ->default(false),
+                        ->default(false)
+                        ->dehydrated(true)
+                        ->afterStateUpdated(function (bool $state, $set): void {
+                            if ($state) {
+                                return;
+                            }
+
+                            $set('field_2_title', null);
+                            $set('field_2_placeholder', null);
+                            $set('field_2_type', 'text');
+                            $set('field_select_title_input', null);
+                            $set('field_select_value_input', null);
+                        }),
 
                     TextInput::make('field_2_title')
                         ->label('Label Field 2')
