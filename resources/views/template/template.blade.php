@@ -17,6 +17,8 @@
     <meta name="author" content="{{ $config ? $config->judul_web : '' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{url('')}}">
+    <meta name="google-site-verification" content="YuiRJz7bZ3rDmAJ_fpknZQlWn1p5yGJX_c9Dgfus7Ro" />
+
     
     <!-- Favicon -->
     <link rel="shortcut icon" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon.webp') }}">
