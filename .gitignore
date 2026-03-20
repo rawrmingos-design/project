@@ -30,3 +30,5 @@ yarn-error.log
 /public/assets_backup
 /notes.txt
 .env
+/database/migrations_backup
+/.sisyphus
