@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ViewPembelian extends ViewRecord
@@ -305,42 +306,72 @@ class ViewPembelian extends ViewRecord
                     $this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id,
                 ))
                 ->action(function (OrderProcessingService $orderProcessingService): void {
-                    $result = $orderProcessingService->process($this->record);
+                    try {
+                        $result = $orderProcessingService->process($this->record);
 
-                    if (! ($result['success'] ?? false)) {
+                        if (! ($result['success'] ?? false)) {
+                            $this->record->update([
+                                'log' => $this->appendBoundedLog(
+                                    $this->record->log,
+                                    'Provider dispatch failed at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Unknown error'),
+                                ),
+                            ]);
+
+                            Notification::make()
+                                ->title('Send callback gagal')
+                                ->body($result['message'] ?? 'Unknown error')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::PENDING);
+                        $nextStatus = $normalizedStatus === PembelianStatus::SUCCESS
+                            ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
+                            : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
+
                         $this->record->update([
-                            'log' => trim((string) $this->record->log) . "\n" . 'Provider dispatch failed at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Unknown error'),
+                            'provider_order_id' => $result['transaction_id'] ?? $this->record->provider_order_id,
+                            'status' => $nextStatus,
+                            'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: ($normalizedStatus === PembelianStatus::PENDING ? 'Sedang Diproses' : $this->record->keterangan_sn),
+                            'log' => $this->appendBoundedLog(
+                                $this->record->log,
+                                'Provider dispatch at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Order dispatched'),
+                            ),
+                            'reset_status' => $this->record->invoice_version > 0 ? 'processing' : $this->record->reset_status,
+                        ]);
+
+                        $this->record->refresh();
+
+                        Notification::make()
+                            ->title('Transaksi berhasil dikirim ke provider')
+                            ->body('Reference aktif: ' . ($this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id))
+                            ->success()
+                            ->send();
+                    } catch (\Throwable $exception) {
+                        Log::error('Send callback action failed.', [
+                            'order_id' => $this->record->order_id,
+                            'display_order_id' => $this->record->display_order_id,
+                            'active_attempt_reference' => $this->record->active_attempt_reference,
+                            'active_provider_code' => $this->record->active_provider_code,
+                            'active_provider_sku' => $this->record->active_provider_sku,
+                            'message' => $exception->getMessage(),
+                        ]);
+
+                        $this->record->update([
+                            'log' => $this->appendBoundedLog(
+                                $this->record->log,
+                                'Provider dispatch exception at ' . now()->format('Y-m-d H:i:s') . ': ' . $exception->getMessage(),
+                            ),
                         ]);
 
                         Notification::make()
                             ->title('Send callback gagal')
-                            ->body($result['message'] ?? 'Unknown error')
+                            ->body('Terjadi error server saat mengirim transaksi. Cek log aplikasi untuk detailnya.')
                             ->danger()
                             ->send();
-
-                        return;
                     }
-
-                    $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::PENDING);
-                    $nextStatus = $normalizedStatus === PembelianStatus::SUCCESS
-                        ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
-                        : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
-
-                    $this->record->update([
-                        'provider_order_id' => $result['transaction_id'] ?? $this->record->provider_order_id,
-                        'status' => $nextStatus,
-                        'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: ($normalizedStatus === PembelianStatus::PENDING ? 'Sedang Diproses' : $this->record->keterangan_sn),
-                        'log' => trim((string) $this->record->log) . "\n" . 'Provider dispatch at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Order dispatched'),
-                        'reset_status' => $this->record->invoice_version > 0 ? 'processing' : $this->record->reset_status,
-                    ]);
-
-                    $this->record->refresh();
-
-                    Notification::make()
-                        ->title('Transaksi berhasil dikirim ke provider')
-                        ->body('Reference aktif: ' . ($this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id))
-                        ->success()
-                        ->send();
                 }),
             Actions\Action::make('process_order')
                 ->label('Process Order')
@@ -461,5 +492,21 @@ class ViewPembelian extends ViewRecord
         return (string) Str::of($provider)
             ->replace(['_', '-'], ' ')
             ->title();
+    }
+
+    private function appendBoundedLog(?string $existingLog, string $entry, int $limit = 1000): string
+    {
+        $existingLog = trim((string) $existingLog);
+        $entry = trim($entry);
+
+        $combined = $existingLog !== ''
+            ? $existingLog . PHP_EOL . $entry
+            : $entry;
+
+        if (mb_strlen($combined) <= $limit) {
+            return $combined;
+        }
+
+        return mb_substr($combined, -$limit);
     }
 }
