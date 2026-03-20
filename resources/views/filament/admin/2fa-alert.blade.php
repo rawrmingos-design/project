@@ -9,7 +9,7 @@
             </span>
         </div>
         
-        <a href="/admin/profile" style="text-decoration: underline; color: #d97706;">
+        <a href="/profile" style="text-decoration: underline; color: #d97706;">
             Aktifkan Sekarang &rarr;
         </a>
     </div>

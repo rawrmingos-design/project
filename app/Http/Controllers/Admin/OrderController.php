@@ -22,6 +22,7 @@ use App\Libraries\Provider\ElitediasProvider;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
+use App\Services\OrderProcessingService;
 
 class OrderController extends Controller
 {
@@ -49,158 +50,35 @@ class OrderController extends Controller
     
     public function reorder($order_id)
     {
-        $ref = $order_id;
-
-        // Ambil data invoice dan pembelian berdasarkan order_id
-        $invoice = Pembayaran::where('order_id', $ref)->first();
+        $invoice = Pembayaran::where('order_id', $order_id)->first();
         $pembelian = Pembelian::where('order_id', $order_id)->first();
 
-        // Cek apakah status pembelian sudah "Proses" atau "Sukses"
-        if ($pembelian->status == 'Proses' || $pembelian->status == 'Sukses') {
+        if (! $pembelian) {
+            return back()->with('error', 'Pesanan tidak ditemukan dengan ID #' . $order_id);
+        }
+
+        if ($pembelian->hasStatus(['processing', 'success'])) {
             return back()->with('info', 'Pesanan sudah diproses sebelumnya dengan ID #' . $order_id);
         }
 
-        $dataLayanan = Layanan::where('layanan', $pembelian->layanan)->first();
+        $result = app(OrderProcessingService::class)->process($pembelian);
 
-        $uid = $pembelian->user_id;
-        $zone = ($pembelian->zone !== null) ? $pembelian->zone : null;
-        $provider_id = $dataLayanan->provider_id;
-        if ($provider === "digiflazz") {
-                $random_part = Str::random(18, '123456789');
-                $provider_order_id = 'REFF-WEJIZY' . $random_part;
-                $digiFlazz = new DigiFlazzController;
-                $order = $digiFlazz->order($user_id, $zone, $provider_id, $provider_order_id);
-
-                if ($order['data']['status'] === "Pending" || $order['data']['status'] === "Sukses") {
-                    $order['data']['status'] = true;
-                    $order['transactionId'] = $provider_order_id;
-                } else {
-                    $order['data']['status'] = false;
-                }
-            } elseif ($provider === "bangjeff") {
-                $bangjeff = new BangJeffController;
-                
-                $ttlpembelian = [
-                    [
-                        "name" => "id",
-                        "value" => $user_id
-                    ]
-                ];
-
-                if ($zone !== null) {
-                    $ttlpembelian[] = [
-                        "name" => "server",
-                        "value" => $zone
-                    ];
-                }
-                
-                $order = $bangjeff->order($provider_id, $pembelian->order_id, 1, $ttlpembelian);
-
-                if (!$order['error']) {
-                    $order['transactionId'] = $order['data']['invoiceNumber'];
-                    $order['data']['status'] = true;
-                } else {
-                    $order['data']['status'] = false;
-                }
-            } else if ($dataLayanan->provider == "moogold") {
-                        $moo = new MoogoldController();
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'REFF-WJMG' . $random_part;
-                        $order = $moo->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback moogold', $order);
-                        if(isset($order['data']['status'])){
-                            $provider_order_id = $order['order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    }else if($dataLayanan->provider == "vip"){
-                    $vip = new VipResellerController;
-                    $order = $vip->order($uid, $zone, $provider_id);
-                    
-                    if($order['result']){
-                        $order['data']['status'] = $order['result'];
-                        $order['transactionId'] = $order['data']['trxid'];
-                    }else{
-                        $order['data']['status'] = false;
-                    }
-                }else if($dataLayanan->provider == "apigames"){
-                    $provider_order_id = rand(1, 10000);
-                    $apigames = new ApiGamesController;
-                    $order = $apigames->order($uid, $zone, $provider_id, $provider_order_id);
-    
-                    if($order['data']['status'] == "Sukses"){
-                        $order['transactionId'] = $provider_order_id;
-                        $order['data']['status'] = true;
-                    }else{
-                        $order['data']['status'] = false;
-                       }
-                    } else if ($dataLayanan->provider == "gameshop") {
-                        $gameshop =  new GameShopProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'REFF-WEJIZY' . $random_part;
-                        $order = $gameshop->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback gameshop ' . json_encode($order));
-                        if(isset($order['data']['order_no'])){
-                            $provider_order_id = $order['data']['order_no'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "strleyashop") {
-                        $strleyashop =  new StrleyaShopProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = 'REFF-WEJIZY' . $random_part;
-                        $order = $strleyashop->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback strleyashop ' . json_encode($order));
-                        if(isset($order['data']['order_details']['bot_order_id'])){
-                            $provider_order_id = $order['order_details']['bot_order_id'];
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "yezzpay") {
-                        $yezzpay =  new YezzpayProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                        $order = $yezzpay->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback yezzpay ' . json_encode($order));
-                        if(isset($order['data']['trx_id'])){
-                            $provider_order_id = $provider_order_id;
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } else if ($dataLayanan->provider == "elitedias") {
-                        $elitedias =  new ElitediasProvider;
-                        $random_part = mt_rand(100000, 999999);
-                        $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID', true)));
-                        $order = $elitedias->order($uid, $provider_id, $provider_order_id, $zone);
-                        Log::info('callback elitedias ' . json_encode($order));
-                        if(isset($order['order_id'])){
-                            $provider_order_id = $provider_order_id;
-                            $order['data']['status'] = true;
-                        }else{
-                            $order['data']['status'] = false;
-                        }
-                    } elseif ($dataLayanan->provider == "joki") {
-            $provider_order_id = '';
-            $order['data']['status'] = true;
-        }
-
-        if ($order['data']['status']) {
+        if ($result['success']) {
             if ($invoice) {
                 $invoice->update(['status' => 'Lunas']);
             }
 
+            $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+            $nextStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Sukses' : 'Proses';
+
             $pembelian->update([
-                'provider_order_id' => isset($provider_order_id) ? $provider_order_id : 0,
-                'status' => 'Proses',
-                'log' => json_encode($order)
+                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'status' => $nextStatus,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result])
             ]);
 
-            // Kirim pesan berdasarkan status
-            if ($dataLayanan->provider != 'joki') {
+            if (($result['provider'] ?? null) !== 'joki') {
                 $pesanPembeli = 
                     "*Pembayaran Berhasil*\n\n" .
                     "No Invoice: *$order_id*\n" .
@@ -230,18 +108,19 @@ class OrderController extends Controller
                 $this->msg($pembelian->no_pembeli, $pesanJoki);
             }
 
-        } else { // jika pembelian gagal
-            $pembelian->update([
-                'status' => 'Batal',
-                'log' => json_encode($order)
-            ]);
+            return back()->with('success', 'Berhasil melakukan reprocess dengan ID #' . $order_id);
         }
+
+        $pembelian->update([
+            'status' => 'Pending',
+            'log' => json_encode(['error' => $result['message']])
+        ]);
 
         if ($invoice !== null) {
             $invoice->update(['status' => 'Lunas']);
         }
 
-        return back()->with('success', 'Berhasil melakukan reprocess dengan ID #' . $order_id);
+        return back()->with('error', 'Gagal melakukan reprocess dengan ID #' . $order_id . ': ' . $result['message']);
     }
 
     public function update($order_id, $status)
@@ -275,7 +154,7 @@ class OrderController extends Controller
 
     public function msg($nomor, $msg)
     {
-        $api = \DB::table('setting_webs')->where('id', 1)->first();
+        $api = DB::table('setting_webs')->where('id', 1)->first();
         $apiUrl = 'https://api.fonnte.com/send';
         $token = $api->wa_key;
     

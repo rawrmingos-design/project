@@ -32,3 +32,8 @@ yarn-error.log
 .env
 /database/migrations_backup
 /.sisyphus
+/storage/debug.logs
+/storage/app/media-missing-report.json
+/.tmp
+/.tmp-research
+/%TEMP%

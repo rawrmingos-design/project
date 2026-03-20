@@ -48,6 +48,11 @@ class ProviderRoutingService
         return null;
     }
 
+    public function resolveExplicitProvider(string $providerCode, string $sku): array
+    {
+        return $this->formatProviderResult($providerCode, $sku);
+    }
+
     /**
      * Format the result and attach credentials.
      */

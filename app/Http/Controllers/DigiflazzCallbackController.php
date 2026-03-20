@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Services\EmailNotificationService;
+use App\Services\PointService;
+use App\Services\WhatsappNotificationService;
+use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -47,30 +51,36 @@ class DigiflazzCallbackController extends Controller
         }
 
         DB::transaction(function () use ($refId, $data, $payload, $event) {
-            $invoice = Pembelian::query()
-                ->where(function ($query) use ($refId) {
-                    $query->where('provider_order_id', $refId)
-                        ->orWhere('order_id', $refId);
-                })
-                ->lockForUpdate()
-                ->first();
+            $invoice = $this->resolveInvoiceForCallback($refId);
 
             if (!$invoice) {
-                Log::error("Digiflazz callback: invoice not found for ref_id {$refId}", [
-                    'event' => $event,
-                    'payload' => $payload,
-                ]);
+                $staleInvoice = $this->findPotentialStaleInvoice($refId);
+
+                if ($staleInvoice) {
+                    Log::info("Digiflazz callback ignored for stale attempt reference {$refId}", [
+                        'event' => $event,
+                        'order_id' => $staleInvoice->order_id,
+                        'active_attempt_reference' => $staleInvoice->active_attempt_reference,
+                        'provider_order_id' => $staleInvoice->provider_order_id,
+                    ]);
+                } else {
+                    Log::error("Digiflazz callback: invoice not found for ref_id {$refId}", [
+                        'event' => $event,
+                        'payload' => $payload,
+                    ]);
+                }
 
                 return;
             }
 
-            $incomingStatus = $this->normalizeStatus($data['status'] ?? null);
-            $currentStatus = $this->normalizeStatus($invoice->status);
+            $incomingStatus = PembelianStatus::normalize($data['status'] ?? null);
+            $currentStatus = PembelianStatus::normalize($invoice->status);
+            $statusTransitioned = $currentStatus !== $incomingStatus;
             $snValue = trim((string) ($data['sn'] ?? ''));
             $messageValue = trim((string) ($data['message'] ?? ''));
             $snOrMessage = $snValue !== '' ? $snValue : $messageValue;
 
-            if ($this->shouldIgnoreStatusTransition($currentStatus, $incomingStatus)) {
+            if (PembelianStatus::shouldIgnoreTransition($currentStatus, $incomingStatus)) {
                 Log::info("Digiflazz callback ignored for {$refId}", [
                     'current_status' => $invoice->status,
                     'incoming_status' => $data['status'] ?? null,
@@ -81,8 +91,10 @@ class DigiflazzCallbackController extends Controller
             }
 
             $updateData = [
-                'status' => $incomingStatus,
-                'provider_order_id' => $invoice->provider_order_id ?: $refId,
+                'status' => $statusTransitioned
+                    ? PembelianStatus::preferredDatabaseLabel($incomingStatus)
+                    : $invoice->status,
+                'provider_order_id' => $this->resolveProviderOrderId($invoice, $refId),
                 'log' => json_encode($payload, JSON_UNESCAPED_UNICODE),
             ];
 
@@ -100,7 +112,14 @@ class DigiflazzCallbackController extends Controller
                 ->orderByDesc('id')
                 ->first();
 
-            $this->handleNotificationsAndRefunds($invoice, $payment, $incomingStatus, $messageValue, $snOrMessage);
+            $this->handleNotificationsAndRefunds(
+                $invoice,
+                $payment,
+                $incomingStatus,
+                $messageValue,
+                $snOrMessage,
+                $statusTransitioned,
+            );
 
             Log::info("Digiflazz callback processed for {$refId}", [
                 'event' => $event,
@@ -127,47 +146,31 @@ class DigiflazzCallbackController extends Controller
         return hash_equals($expectedSignature, $signature);
     }
 
-    private function normalizeStatus(?string $status): string
-    {
-        return match (strtolower(trim((string) $status))) {
-            'sukses', 'success', 'Sukses' => 'Sukses',
-            'pending', 'process', 'Pending', 'processing', 'proses' => 'Pending',
-            'gagal', 'failed', 'batal', 'Batal', 'cancelled', 'canceled' => 'Gagal',
-            default => trim((string) $status) !== '' ? trim((string) $status) : 'Pending',
-        };
-    }
-
-    private function shouldIgnoreStatusTransition(string $currentStatus, string $incomingStatus): bool
-    {
-        $isCurrentFinal = in_array($currentStatus, ['Sukses', 'Gagal'], true);
-        $isIncomingFinal = in_array($incomingStatus, ['Sukses', 'Gagal'], true);
-
-        if ($isCurrentFinal && !$isIncomingFinal) {
-            return true;
-        }
-
-        if ($currentStatus === 'Sukses' && $incomingStatus === 'Gagal') {
-            return true;
-        }
-
-        return false;
-    }
-
     private function handleNotificationsAndRefunds(
         Pembelian $invoice,
         ?Pembayaran $payment,
         string $incomingStatus,
         string $messageValue,
-        string $snOrMessage
+        string $snOrMessage,
+        bool $statusTransitioned
     ): void {
         try {
-            $waService = new \App\Services\WhatsappNotificationService();
-            $emailService = new \App\Services\EmailNotificationService();
+            if (!$statusTransitioned) {
+                Log::info('Digiflazz callback duplicate terminal side effects skipped', [
+                    'order_id' => $invoice->order_id,
+                    'status' => $incomingStatus,
+                ]);
+
+                return;
+            }
+
+            $waService = app(WhatsappNotificationService::class);
+            $emailService = app(EmailNotificationService::class);
             $targetWa = $payment?->no_pembeli ?: ($invoice->user->no_wa ?? null);
             $targetEmail = $invoice->email_pembeli ?? ($invoice->user->email ?? null);
 
-            if ($incomingStatus === 'Gagal') {
-                app(\App\Services\PointService::class)->refundRedeemedPoints($invoice);
+            if ($incomingStatus === PembelianStatus::FAILED || $incomingStatus === PembelianStatus::CANCELLED) {
+                app(PointService::class)->refundRedeemedPoints($invoice);
 
                 if (($payment?->metode ?? null) === 'SALDO' && $invoice->user) {
                     $invoice->user->increment('balance', $invoice->harga);
@@ -191,7 +194,7 @@ class DigiflazzCallbackController extends Controller
                         'order_id' => $invoice->order_id,
                         'product' => $invoice->layanan,
                         'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => 'Failed',
+                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
                         'nickname' => $invoice->nickname,
                         'note' => $messageValue !== '' ? $messageValue : 'Transaksi dibatalkan oleh provider.',
                     ]);
@@ -200,7 +203,7 @@ class DigiflazzCallbackController extends Controller
                 return;
             }
 
-            if ($incomingStatus === 'Sukses') {
+            if ($incomingStatus === PembelianStatus::SUCCESS) {
                 if ($targetWa) {
                     $waService->sendNotification($targetWa, 'transaction_success', [
                         'nickname' => $invoice->nickname,
@@ -216,7 +219,7 @@ class DigiflazzCallbackController extends Controller
                         'order_id' => $invoice->order_id,
                         'product' => $invoice->layanan,
                         'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => 'Success',
+                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
                         'nickname' => $invoice->nickname,
                         'sn' => $snOrMessage,
                         'note' => 'Terima kasih telah berbelanja.',
@@ -230,5 +233,71 @@ class DigiflazzCallbackController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    private function resolveInvoiceForCallback(string $refId): ?Pembelian
+    {
+        $activeAttemptInvoice = Pembelian::query()
+            ->where(function ($query) use ($refId) {
+                $query->where('active_attempt_reference', $refId)
+                    ->orWhere('display_order_id', $refId);
+            })
+            ->lockForUpdate()
+            ->first();
+
+        if ($activeAttemptInvoice) {
+            return $activeAttemptInvoice;
+        }
+
+        $providerOrderInvoice = Pembelian::query()
+            ->where('provider_order_id', $refId)
+            ->where(function ($query) {
+                $query->whereNull('active_attempt_reference')
+                    ->orWhere('active_attempt_reference', '')
+                    ->orWhereColumn('active_attempt_reference', 'provider_order_id');
+            })
+            ->lockForUpdate()
+            ->first();
+
+        if ($providerOrderInvoice) {
+            return $providerOrderInvoice;
+        }
+
+        return Pembelian::query()
+            ->where('order_id', $refId)
+            ->where(function ($query) {
+                $query->whereNull('invoice_version')
+                    ->orWhere('invoice_version', 0);
+            })
+            ->where(function ($query) {
+                $query->whereNull('active_attempt_reference')
+                    ->orWhere('active_attempt_reference', '')
+                    ->orWhereColumn('active_attempt_reference', 'order_id');
+            })
+            ->lockForUpdate()
+            ->first();
+    }
+
+    private function findPotentialStaleInvoice(string $refId): ?Pembelian
+    {
+        return Pembelian::query()
+            ->where(function ($query) use ($refId) {
+                $query->where('provider_order_id', $refId)
+                    ->orWhere('order_id', $refId)
+                    ->orWhere('display_order_id', $refId)
+                    ->orWhere('active_attempt_reference', $refId);
+            })
+            ->first();
+    }
+
+    private function resolveProviderOrderId(Pembelian $invoice, string $refId): string
+    {
+        $activeReference = trim((string) ($invoice->active_attempt_reference ?: $invoice->display_order_id ?: $invoice->order_id));
+
+        if ($activeReference !== '' && $refId === $activeReference) {
+            return $refId;
+        }
+
+        return (string) ($invoice->provider_order_id ?: $refId);
     }
 }

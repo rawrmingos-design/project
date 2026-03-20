@@ -2,9 +2,10 @@
 
 namespace App\Filament\Admin\Resources\Pembelians\Tables;
 
+use App\Support\PembelianStatus;
 use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Actions\ViewAction;
@@ -26,11 +27,14 @@ class PembeliansTable
     {
         return $table
             ->columns([
-                TextColumn::make('order_id')
+                TextColumn::make('display_order_id')
                     ->label('Invoice')
                     ->searchable()
                     ->sortable()
                     ->copyable()
+                    ->description(fn ($record) => $record->display_order_id !== $record->order_id
+                        ? 'Canonical: ' . $record->order_id
+                        : null)
                     ->weight('bold'),
                     
                 TextColumn::make('nickname')
@@ -78,22 +82,12 @@ class PembeliansTable
                         }
                     }),
                     
-                BadgeColumn::make('status')
+                TextColumn::make('status')
                     ->label('Status Provider')
-                    ->colors([
-                        'success' => 'Sukses',
-                        'warning' => 'Pending',
-                        'info' => 'Processing',
-                        'info' => 'Proses',
-                        'danger' => 'Batal',
-                    ])
-                    ->icons([
-                        'heroicon-o-check-circle' => 'Sukses',
-                        'heroicon-o-clock' => 'Proses',
-                        'heroicon-o-arrow-path' => 'Processing',
-                        'heroicon-o-clock' => 'Pending',
-                        'heroicon-o-x-circle' => 'Batal',
-                    ])
+                    ->badge()
+                    ->getStateUsing(fn ($record) => $record->status_display_label)
+                    ->color(fn ($record) => $record->status_badge_color)
+                    ->icon(fn ($record) => $record->status_icon)
                     ->sortable(),
 
                 BadgeColumn::make('pembayaran.status')
@@ -216,13 +210,28 @@ class PembeliansTable
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options([
-                        'Success' => 'Success',
-                        'Pending' => 'Pending',
-                        'Processing' => 'Processing',
-                        'Failed' => 'Failed',
-                    ])
-                    ->multiple(),
+                    ->options(PembelianStatus::filterOptions())
+                    ->multiple()
+                    ->query(function (Builder $query, array $data): Builder {
+                        $values = (array) ($data['values'] ?? []);
+
+                        if ($values === []) {
+                            return $query;
+                        }
+
+                        $rawStatuses = collect($values)
+                            ->flatMap(static fn (string $status) => PembelianStatus::aliasesFor($status))
+                            ->filter()
+                            ->unique()
+                            ->values()
+                            ->all();
+
+                        if ($rawStatuses === []) {
+                            return $query;
+                        }
+
+                        return $query->whereIn('status', $rawStatuses);
+                    }),
                     
                 SelectFilter::make('tipe_transaksi')
                     ->label('Transaction Type')
@@ -286,15 +295,7 @@ class PembeliansTable
                         ->form([
                             \Filament\Forms\Components\Select::make('status')
                                 ->label('Status Baru')
-                                ->options([
-                                    'Sukses' => 'Sukses',
-                                    'Pending' => 'Pending',
-                                    'Proses' => 'Proses',
-                                    'Processing' => 'Processing',
-                                    'Failed' => 'Failed',
-                                    'Batal' => 'Batal',
-                                    'Gagal' => 'Gagal',
-                                ])
+                                ->options(PembelianStatus::manualStatusOptions())
                                 ->required()
                                 ->default(fn ($record) => $record->status),
                         ])
@@ -306,6 +307,7 @@ class PembeliansTable
 
                             $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
                             $record->update(['status' => $newStatus, 'log' => $logMsg]);
+                            $record->syncPaymentStatusForResetEligibility($newStatus);
 
                             Notification::make()
                                 ->title('Status berhasil diubah')
@@ -321,9 +323,9 @@ class PembeliansTable
                         ->label('Process')
                         ->icon('heroicon-o-play')
                         ->color('success')
-                        ->visible(fn ($record) => $record->status === 'Pending')
+                        ->visible(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))
                         ->action(function ($record) {
-                            $record->update(['status' => 'Processing']);
+                            $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING)]);
                             Notification::make()
                                 ->title('Order processed successfully')
                                 ->success()
@@ -335,7 +337,7 @@ class PembeliansTable
                         ->label('Cancel')
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')
-                        ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing']))
+                        ->visible(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))
                         ->action(function ($record) {
                             $logMsg = 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s');
 
@@ -347,7 +349,7 @@ class PembeliansTable
 
                             app(\App\Services\PointService::class)->refundRedeemedPoints($record);
 
-                            $record->update(['status' => 'Failed', 'log' => $logMsg]);
+                            $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED), 'log' => $logMsg]);
                             Notification::make()
                                 ->title('Order cancelled & refunded if applicable')
                                 ->success()
@@ -356,10 +358,10 @@ class PembeliansTable
                         ->requiresConfirmation(),
 
                     Action::make('refund')
-                        ->label('Refund')
+                        ->label('Refund Saldo Deposit')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('warning')
-                        ->visible(fn ($record) => $record->status === 'Success')
+                        ->visible(fn ($record) => $record->hasStatus(PembelianStatus::SUCCESS))
                         ->action(function ($record) {
                             $logMsg = 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s');
 
@@ -371,7 +373,8 @@ class PembeliansTable
 
                             app(\App\Services\PointService::class)->refundRedeemedPoints($record);
 
-                            $record->update(['status' => 'Batal', 'log' => $logMsg]); // Changed to Batal/Refunded
+                            $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::CANCELLED), 'log' => $logMsg]);
+                            $record->syncPaymentStatusForResetEligibility();
                             Notification::make()
                                 ->title('Refund processed successfully')
                                 ->success()
@@ -383,7 +386,7 @@ class PembeliansTable
                         ->label('Retry Order')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->visible(fn ($record) => in_array($record->status, ['Pending', 'Processing', 'Failed', 'Gagal', 'Proses', 'Batal']) && optional($record->pembayaran)->status === 'Lunas')
+                        ->visible(fn ($record) => $record->canBeRetried())
                         ->action(function ($record) {
                             try {
                                 $routingService = new \App\Services\ProviderRoutingService();
@@ -392,7 +395,9 @@ class PembeliansTable
                                 $result = $processor->process($record);
 
                                 if ($result['success']) {
-                                    $newStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Success' : 'Processing';
+                                    $newStatus = PembelianStatus::normalize($result['order_status'] ?? 'Pending') === PembelianStatus::SUCCESS
+                                        ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
+                                        : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
                                     $updateData = [
                                         'status' => $newStatus,
                                         'log' => $record->log . "\n" . 'Retried by admin at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
@@ -597,10 +602,10 @@ class PembeliansTable
                     ->label('Process Selected')
                     ->icon('heroicon-o-play')
                     ->color('success')
-                    ->action(function (Collection $records) {
-                        $count = $records->where('status', 'Pending')->count();
-                        $records->where('status', 'Pending')->each(function ($record) {
-                                $record->update(['status' => 'Processing']);
+                        ->action(function (Collection $records) {
+                        $count = $records->filter(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))->count();
+                        $records->filter(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))->each(function ($record) {
+                                $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING)]);
                             });
                             
                             Notification::make()
@@ -616,9 +621,9 @@ class PembeliansTable
                     ->icon('heroicon-o-x-mark')
                     ->color('danger')
                     ->action(function (Collection $records) {
-                        $count = $records->whereIn('status', ['Pending', 'Processing'])->count();
-                            $records->whereIn('status', ['Pending', 'Processing'])->each(function ($record) {
-                                $record->update(['status' => 'Failed', 'log' => 'Bulk cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
+                        $count = $records->filter(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->count();
+                            $records->filter(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->each(function ($record) {
+                                $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED), 'log' => 'Bulk cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
                             });
                             
                             Notification::make()
