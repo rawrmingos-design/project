@@ -8,7 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('reset_callback_deliveries', function (Blueprint $table): void {
+        if (Schema::hasTable('reset_callback_deliveries')) {
+            return;
+        }
+
+Schema::create('reset_callback_deliveries', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('pembelian_id')->nullable()->constrained('pembelians')->nullOnDelete();
