@@ -6,6 +6,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -38,6 +39,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'uplink',
         'affiliate_status',
         'point_balance',
+        'reset_callback_enabled',
+        'reset_callback_url',
+        'reset_callback_secret',
+        'reset_callback_signing_algorithm',
+        'reset_callback_version',
     ];
 
     /**
@@ -50,6 +56,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'reset_callback_secret',
     ];
 
     /**
@@ -61,7 +68,14 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'email_verified_at' => 'datetime',
         'balance' => 'integer',
         'point_balance' => 'integer',
+        'reset_callback_enabled' => 'boolean',
+        'reset_callback_version' => 'integer',
     ];
+
+    public function resetCallbackDeliveries()
+    {
+        return $this->hasMany(ResetCallbackDelivery::class);
+    }
 
     /**
     * Get the app authentication (TOTP) secret.
@@ -199,7 +213,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     {
         // Nilai rupiah dari saldo poin sesuai setting
         try {
-            $setting = \DB::table('setting_webs')->where('id', 1)->first();
+            $setting = DB::table('setting_webs')->where('id', 1)->first();
             return ($this->point_balance ?? 0) * ($setting->point_value ?? 100);
         } catch (\Exception $e) {
             return 0;

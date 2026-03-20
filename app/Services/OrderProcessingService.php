@@ -6,11 +6,9 @@ use App\Models\Pembelian;
 use App\Models\Layanan;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\DigiFlazzController;
-use App\Http\Controllers\VipResellerController;
-use App\Http\Controllers\ApiGamesController;
-use App\Http\Controllers\BangJeffController;
-use App\Http\Controllers\TopupediaController;
-use App\Http\Controllers\MoogoldController;
+use App\Http\Controllers\provider\VipResellerController;
+use App\Http\Controllers\provider\ApiGamesController;
+use App\Http\Controllers\provider\BangJeffController;
 
 class OrderProcessingService
 {
@@ -31,36 +29,40 @@ class OrderProcessingService
     {
         Log::info("OrderProcessingService: Processing order {$pembelian->order_id} ({$pembelian->layanan})");
 
-        // 1. Find Layanan
-        $layanan = Layanan::where('layanan', $pembelian->layanan)->first();
-        
+        $layanan = $this->resolveLayanan($pembelian);
+
         if (!$layanan) {
             return [
                 'success' => false,
-                'message' => 'Layanan not found in database: ' . $pembelian->layanan
+                'message' => $pembelian->active_layanan_id
+                    ? 'Active layanan not found in database: ' . $pembelian->active_layanan_id
+                    : 'Layanan not found in database: ' . $pembelian->layanan
             ];
         }
 
-        // 2. Find Best Route
-        $bestRoute = $this->routingService->findBestProvider($layanan);
+        $providerRoute = $this->resolveProviderRoute($pembelian, $layanan);
 
-        if (!$bestRoute) {
+        if (!$providerRoute) {
             return [
                 'success' => false,
                 'message' => 'No provider route found for this service.'
             ];
         }
 
-        $providerCode = $bestRoute['provider_code'];
-        $sku = $bestRoute['sku'];
-        $credentials = $bestRoute['credentials'] ?? [];
+        $providerCode = $providerRoute['provider_code'];
+        $sku = $providerRoute['sku'];
+        $credentials = $providerRoute['credentials'] ?? [];
         
         // Prepare parameters
         $uid = $pembelian->user_id;
         $zone = $pembelian->zone;
-        $orderId = $pembelian->order_id; // Use Invoice ID as Ref ID where possible
-        
-        Log::info("OrderProcessingService: Routed to {$providerCode} with SKU {$sku}");
+        $providerReference = $this->resolveProviderReference($pembelian);
+
+        Log::info("OrderProcessingService: Routed to {$providerCode} with SKU {$sku}", [
+            'canonical_order_id' => $pembelian->order_id,
+            'provider_reference' => $providerReference,
+            'active_layanan_id' => $pembelian->active_layanan_id,
+        ]);
 
         $result = [
             'success' => false,
@@ -72,103 +74,10 @@ class OrderProcessingService
         ];
 
         try {
-            switch ($providerCode) {
-                case 'digiflazz':
-                    // Use existing logic or standard params
-                    // DigiflazzController::order($uid, $zone, $sku, $ref_id)
-                    $digiflazz = new DigiFlazzController($credentials);
-                    $response = $digiflazz->order($uid, $zone, $sku, $orderId);
-                    
-                    Log::info("Digiflazz Response for {$orderId}: " . json_encode($response));
-
-                    $responseData = $response['data'] ?? [];
-                    $providerStatus = $responseData['status'] ?? null;
-                    $providerRefId = $responseData['ref_id'] ?? $orderId;
-                    $providerMessage = trim((string) ($responseData['message'] ?? ''));
-                    $providerSn = trim((string) ($responseData['sn'] ?? ''));
-
-                    if (in_array($providerStatus, ['Pending', 'Sukses', 'Success'], true)) {
-                        $normalizedStatus = $providerStatus === 'Success' ? 'Sukses' : $providerStatus;
-
-                        $result['success'] = true;
-                        $result['order_status'] = $normalizedStatus;
-                        $result['transaction_id'] = $providerRefId;
-                        $result['sn'] = $providerSn !== '' ? $providerSn : ($normalizedStatus === 'Pending' ? 'Sedang Diproses' : null);
-                        $result['message'] = $providerMessage !== ''
-                            ? $providerMessage
-                            : 'Order accepted by Digiflazz status: ' . $normalizedStatus;
-                    } else {
-                        $result['message'] = $providerMessage !== ''
-                            ? $providerMessage
-                            : 'Unknown error from Digiflazz';
-                        // Special case: check if "Saldo tidak cukup" etc
-                    }
-                    break;
-
-                case 'vip':
-                case 'vip_reseller':
-                    $vip = new VipResellerController($credentials);
-                    $response = $vip->order($uid, $zone, $sku);
-                    
-                    if ($response['result']) {
-                        $result['success'] = true;
-                        $result['order_status'] = $response['data']['status'] == 'success' ? 'Sukses' : 'Pending';
-                        $result['transaction_id'] = $response['data']['trxid'];
-                        $result['message'] = $response['message'];
-                    } else {
-                        $result['message'] = $response['message'];
-                    }
-                    break;
-
-                case 'apigames':
-                    $apigames = new ApiGamesController($credentials);
-                    $response = $apigames->order($uid, $zone, $sku, $orderId); // passing orderId as ref_id logic might need verification in controller
-
-                    if (isset($response['data']['status']) && $response['data']['status'] == 'Sukses') {
-                        $result['success'] = true;
-                        $result['order_status'] = 'Sukses';
-                        $result['transaction_id'] = $response['data']['trx_id'] ?? $orderId;
-                        $result['message'] = 'Order successful';
-                    } elseif (isset($response['data']['status']) && $response['data']['status'] == 'Pending') {
-                        $result['success'] = true;
-                        $result['order_status'] = 'Pending';
-                        $result['message'] = 'Order pending';
-                    } else {
-                        $result['message'] = $response['error_msg'] ?? 'ApiGames failed';
-                    }
-                    break;
-                
-                case 'bangjeff':
-                    $bangjeff = new BangJeffController($credentials);
-                    $requestData = [['name' => 'ID', 'value' => $uid]];
-                    if (!empty($zone)) $requestData[] = ['name' => 'Server', 'value' => $zone];
-
-                    $response = $bangjeff->order($sku, $orderId, 1, $requestData);
-                    
-                    if ($response['error'] == false) {
-                        $result['success'] = true;
-                        $result['order_status'] = 'Pending';
-                        $result['transaction_id'] = $response['data']['invoiceNumber'];
-                        $result['message'] = 'BangJeff Order Success';
-                    } else {
-                        $result['message'] = $response['message'] ?? 'BangJeff Failed';
-                    }
-                    break;
-
-                case 'manual':
-                case 'joki':
-                    // Auto-success for manual/joki types if that's the desired flow
-                    $result['success'] = true;
-                    $result['order_status'] = 'Sukses';
-                    $result['message'] = 'Manual/Joki order marked as processing.';
-                    break;
-
-                default:
-                    // Try to handle dynamic generic providers needed?
-                    // For now, fail safe.
-                    $result['message'] = "Provider {$providerCode} logic not implemented in service.";
-                    break;
-            }
+            $result = array_merge(
+                $result,
+                $this->dispatchToProvider($providerCode, $credentials, $uid, $zone, $sku, $providerReference)
+            );
 
         } catch (\Exception $e) {
             Log::error("OrderProcessingService Exception: " . $e->getMessage());
@@ -176,5 +85,153 @@ class OrderProcessingService
         }
 
         return $result;
+    }
+
+    protected function resolveLayanan(Pembelian $pembelian): ?Layanan
+    {
+        if ($pembelian->active_layanan_id) {
+            return Layanan::query()->find($pembelian->active_layanan_id);
+        }
+
+        return Layanan::query()
+            ->where('layanan', $pembelian->layanan)
+            ->first();
+    }
+
+    protected function resolveProviderReference(Pembelian $pembelian): string
+    {
+        $reference = trim((string) ($pembelian->active_attempt_reference ?: $pembelian->display_order_id));
+
+        return $reference !== '' ? $reference : $pembelian->order_id;
+    }
+
+    protected function resolveProviderRoute(Pembelian $pembelian, Layanan $layanan): ?array
+    {
+        $activeProviderCode = strtolower(trim((string) $pembelian->active_provider_code));
+        $activeProviderSku = trim((string) $pembelian->active_provider_sku);
+
+        if ($activeProviderCode !== '' && $activeProviderSku !== '') {
+            return $this->routingService->resolveExplicitProvider($activeProviderCode, $activeProviderSku);
+        }
+
+        return $this->routingService->findBestProvider($layanan);
+    }
+
+    protected function dispatchToProvider(
+        string $providerCode,
+        array $credentials,
+        mixed $uid,
+        mixed $zone,
+        mixed $sku,
+        string $providerReference
+    ): array {
+        $result = [
+            'success' => false,
+            'order_status' => 'Pending',
+            'transaction_id' => null,
+            'message' => '',
+            'sn' => null,
+            'provider' => $providerCode,
+        ];
+
+        switch ($providerCode) {
+            case 'digiflazz':
+                $digiflazz = new DigiFlazzController($credentials);
+                $response = $digiflazz->order($uid, $zone, $sku, $providerReference);
+
+                Log::info("Digiflazz Response for {$providerReference}: " . json_encode($response));
+
+                $responseData = $response['data'] ?? [];
+                $providerStatus = $responseData['status'] ?? null;
+                $providerRefId = $responseData['ref_id'] ?? $providerReference;
+                $providerMessage = trim((string) ($responseData['message'] ?? ''));
+                $providerSn = trim((string) ($responseData['sn'] ?? ''));
+
+                if (in_array($providerStatus, ['Pending', 'Sukses', 'Success'], true)) {
+                    $normalizedStatus = $providerStatus === 'Success' ? 'Sukses' : $providerStatus;
+
+                    $result['success'] = true;
+                    $result['order_status'] = $normalizedStatus;
+                    $result['transaction_id'] = $providerRefId;
+                    $result['sn'] = $providerSn !== '' ? $providerSn : ($normalizedStatus === 'Pending' ? 'Sedang Diproses' : null);
+                    $result['message'] = $providerMessage !== ''
+                        ? $providerMessage
+                        : 'Order accepted by Digiflazz status: ' . $normalizedStatus;
+                } else {
+                    $result['message'] = $providerMessage !== ''
+                        ? $providerMessage
+                        : 'Unknown error from Digiflazz';
+                }
+
+                return $result;
+
+            case 'vip':
+            case 'vip_reseller':
+                $vip = new VipResellerController($credentials);
+                $response = $vip->order($uid, $zone, $sku);
+
+                if ($response['result']) {
+                    $result['success'] = true;
+                    $result['order_status'] = $response['data']['status'] == 'success' ? 'Sukses' : 'Pending';
+                    $result['transaction_id'] = $response['data']['trxid'];
+                    $result['message'] = $response['message'];
+                } else {
+                    $result['message'] = $response['message'];
+                }
+
+                return $result;
+
+            case 'apigames':
+                $apigames = new ApiGamesController($credentials);
+                $response = $apigames->order($uid, $zone, $sku, $providerReference);
+
+                if (isset($response['data']['status']) && $response['data']['status'] == 'Sukses') {
+                    $result['success'] = true;
+                    $result['order_status'] = 'Sukses';
+                    $result['transaction_id'] = $response['data']['trx_id'] ?? $providerReference;
+                    $result['message'] = 'Order successful';
+                } elseif (isset($response['data']['status']) && $response['data']['status'] == 'Pending') {
+                    $result['success'] = true;
+                    $result['order_status'] = 'Pending';
+                    $result['message'] = 'Order pending';
+                } else {
+                    $result['message'] = $response['error_msg'] ?? 'ApiGames failed';
+                }
+
+                return $result;
+
+            case 'bangjeff':
+                $bangjeff = new BangJeffController($credentials);
+                $requestData = [['name' => 'ID', 'value' => $uid]];
+                if (!empty($zone)) {
+                    $requestData[] = ['name' => 'Server', 'value' => $zone];
+                }
+
+                $response = $bangjeff->order($sku, $providerReference, 1, $requestData);
+
+                if (($response['error'] ?? true) == false) {
+                    $result['success'] = true;
+                    $result['order_status'] = 'Pending';
+                    $result['transaction_id'] = $response['data']['invoiceNumber'] ?? $providerReference;
+                    $result['message'] = 'BangJeff Order Success';
+                } else {
+                    $result['message'] = $response['message'] ?? 'BangJeff Failed';
+                }
+
+                return $result;
+
+            case 'manual':
+            case 'joki':
+                $result['success'] = true;
+                $result['order_status'] = 'Sukses';
+                $result['message'] = 'Manual/Joki order marked as processing.';
+
+                return $result;
+
+            default:
+                $result['message'] = "Provider {$providerCode} logic not implemented in service.";
+
+                return $result;
+        }
     }
 }

@@ -15,6 +15,7 @@ use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
 use App\Models\Pembelian;
 use App\Models\Pembayaran;
+use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Response;
@@ -336,9 +337,9 @@ class OrderApiController extends Controller
                     }else{
                         $order['status'] = false;
                     }
-        } else if($dataLayanan->provider == "vip"){
+        } else if($service->provider == "vip"){
                     $vip = new VipResellerController;
-                    $order = $vip->order($uid, $zone, $provider_id);
+                    $order = $vip->order($datagame[0], $datagame[1] ?? null, $service->provider_id);
                     
                     if($order['result']){
                         $order['data']['status'] = $order['result'];
@@ -346,10 +347,10 @@ class OrderApiController extends Controller
                     }else{
                         $order['data']['status'] = false;
                     }
-                }else if($dataLayanan->provider == "apigames"){
+                }else if($service->provider == "apigames"){
                     $provider_order_id = rand(1, 10000);
                     $apigames = new ApiGamesController;
-                    $order = $apigames->order($uid, $zone, $provider_id, $provider_order_id);
+                    $order = $apigames->order($datagame[0], $datagame[1] ?? null, $service->provider_id, $provider_order_id);
     
                     if($order['data']['status'] == "Sukses"){
                         $order['transactionId'] = $provider_order_id;
@@ -493,15 +494,7 @@ class OrderApiController extends Controller
             ]);
         }
     
-        $statusMapping = [
-            'Sukses'  => 'Success',
-            'Proses'  => 'Processing',
-            'Batal'   => 'Canceled',
-            'Pending' => 'Pending',
-            'Refunded' => 'Refunded',
-        ];
-    
-        $statusCode = $statusMapping[$cek->status];
+        $statusCode = PembelianStatus::apiStatusCode($cek->status);
     
         return response()->json([
             "error"   => false,

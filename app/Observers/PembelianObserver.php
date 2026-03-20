@@ -7,6 +7,9 @@ use App\Events\TransactionSuccess;
 use App\Services\TierService;
 use App\Services\AffiliateService;
 use App\Services\PointService;
+use App\Services\ResetOutboundCallbackService;
+use App\Support\PembelianStatus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PembelianObserver
@@ -14,12 +17,19 @@ class PembelianObserver
     protected $tierService;
     protected $affiliateService;
     protected $pointService;
+    protected $resetOutboundCallbackService;
 
-    public function __construct(TierService $tierService, AffiliateService $affiliateService, PointService $pointService)
+    public function __construct(
+        TierService $tierService,
+        AffiliateService $affiliateService,
+        PointService $pointService,
+        ResetOutboundCallbackService $resetOutboundCallbackService
+    )
     {
         $this->tierService = $tierService;
         $this->affiliateService = $affiliateService;
         $this->pointService = $pointService;
+        $this->resetOutboundCallbackService = $resetOutboundCallbackService;
     }
 
     /**
@@ -27,8 +37,15 @@ class PembelianObserver
      */
     public function updated(Pembelian $pembelian): void
     {
-        // Check if status changed to Success
-        if ($pembelian->wasChanged('status') && in_array($pembelian->status, ['Success', 'Sukses'])) {
+        if ($pembelian->wasChanged('status')) {
+            $previousStatus = PembelianStatus::normalize($pembelian->getOriginal('status'));
+            $currentStatus = PembelianStatus::normalize($pembelian->status);
+
+            $this->syncResetLifecycleState($pembelian, $currentStatus);
+            $this->dispatchResetCallbackAfterCommit($pembelian, $previousStatus, $currentStatus);
+        }
+
+        if ($pembelian->wasChanged('status') && $this->transitionedToSuccess($pembelian)) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} marked as Success. Checking Tier Upgrade & Affiliate Commission.");
 
             $this->pointService->ensureRedeemedPointsForOrder($pembelian);
@@ -52,8 +69,7 @@ class PembelianObserver
      */
     public function created(Pembelian $pembelian): void
     {
-        // Check if status is Success
-        if (in_array($pembelian->status, ['Success', 'Sukses'])) {
+        if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} created as Success. Checking Tier Upgrade & Affiliate Commission.");
 
             $this->pointService->ensureRedeemedPointsForOrder($pembelian);
@@ -67,5 +83,69 @@ class PembelianObserver
                 TransactionSuccess::dispatch($pembelian, $user);
             }
         }
+    }
+
+    private function transitionedToSuccess(Pembelian $pembelian): bool
+    {
+        return PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS
+            && PembelianStatus::normalize($pembelian->getOriginal('status')) !== PembelianStatus::SUCCESS;
+    }
+
+    private function dispatchResetCallbackAfterCommit(
+        Pembelian $pembelian,
+        string $previousStatus,
+        string $currentStatus,
+    ): void
+    {
+        if ((int) ($pembelian->invoice_version ?? 0) <= 0) {
+            return;
+        }
+
+        if ($previousStatus === $currentStatus) {
+            return;
+        }
+
+        $pembelianId = $pembelian->getKey();
+
+        DB::afterCommit(function () use ($pembelianId, $previousStatus, $currentStatus): void {
+            $freshPembelian = Pembelian::query()
+                ->with(['user', 'activeLayanan', 'pembayaran'])
+                ->find($pembelianId);
+
+            if (!$freshPembelian) {
+                return;
+            }
+
+            $this->resetOutboundCallbackService->dispatchForStatusTransition(
+                $freshPembelian,
+                $previousStatus,
+                $currentStatus,
+            );
+        });
+    }
+
+    private function syncResetLifecycleState(Pembelian $pembelian, string $currentStatus): void
+    {
+        if ((int) ($pembelian->invoice_version ?? 0) <= 0) {
+            return;
+        }
+
+        $nextResetStatus = match ($currentStatus) {
+            PembelianStatus::SUCCESS => 'completed',
+            PembelianStatus::FAILED => 'failed',
+            PembelianStatus::CANCELLED,
+            PembelianStatus::REFUNDED => 'cancelled',
+            PembelianStatus::PENDING,
+            PembelianStatus::PROCESSING => 'processing',
+            default => $pembelian->normalizedResetStatus(),
+        };
+
+        if ($pembelian->normalizedResetStatus() === $nextResetStatus) {
+            return;
+        }
+
+        $pembelian->forceFill([
+            'reset_status' => $nextResetStatus,
+        ])->saveQuietly();
     }
 }

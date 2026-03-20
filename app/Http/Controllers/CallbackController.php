@@ -8,6 +8,7 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Services\OrderProcessingService;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -59,7 +60,9 @@ class CallbackController extends Controller
             $dataPembeli = Pembelian::where('order_id', $order_id)->first();
 
             if ($dataPembeli) {
-                $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
+                $dataLayanan = $dataPembeli->active_layanan_id
+                    ? Layanan::query()->find($dataPembeli->active_layanan_id)
+                    : Layanan::where('layanan', $dataPembeli->layanan)->first();
 
                 if ($dataLayanan) {
                     $dataKategori = Kategori::where('id', $dataLayanan->kategori_id)->first();
@@ -145,8 +148,7 @@ class CallbackController extends Controller
                     $pembelian = $dataPembeli;
                     $transaction = $invoice;
 
-                    $routingService = new \App\Services\ProviderRoutingService();
-                    $orderProcessor = new \App\Services\OrderProcessingService($routingService);
+                    $orderProcessor = app(OrderProcessingService::class);
                     $waService = new \App\Services\WhatsappNotificationService();
 
                     // Process Order
