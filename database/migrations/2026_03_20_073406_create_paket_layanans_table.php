@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('paket_layanans', function (Blueprint $table) {
+        if (Schema::hasTable('paket_layanans')) {
+            return;
+        }
+
+Schema::create('paket_layanans', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('paket_id')->index('paket_id');
             $table->unsignedInteger('layanan_id')->index('layanan_id');

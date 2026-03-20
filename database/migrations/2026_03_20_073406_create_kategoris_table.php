@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('kategoris', function (Blueprint $table) {
+        if (Schema::hasTable('kategoris')) {
+            return;
+        }
+
+Schema::create('kategoris', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('nama');
             $table->string('sub_nama', 225);

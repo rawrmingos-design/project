@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('provider_paths', function (Blueprint $table) {
+        if (Schema::hasTable('provider_paths')) {
+            return;
+        }
+
+Schema::create('provider_paths', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->unsignedBigInteger('layanan_id');
             $table->string('provider_code');

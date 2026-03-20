@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('pembelians', function (Blueprint $table) {
+        if (Schema::hasTable('pembelians')) {
+            return;
+        }
+
+Schema::create('pembelians', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('order_id');
             $table->string('username')->nullable();

@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('whitelist_ips', function (Blueprint $table) {
+        if (Schema::hasTable('whitelist_ips')) {
+            return;
+        }
+
+Schema::create('whitelist_ips', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('ip_address')->unique();
             $table->string('label')->nullable();

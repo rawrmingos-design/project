@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('media_assets', function (Blueprint $table) {
+        if (Schema::hasTable('media_assets')) {
+            return;
+        }
+
+Schema::create('media_assets', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('name');
             $table->string('folder')->nullable()->index();

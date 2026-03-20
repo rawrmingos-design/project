@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('point_histories', function (Blueprint $table) {
+        if (Schema::hasTable('point_histories')) {
+            return;
+        }
+
+Schema::create('point_histories', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->unsignedBigInteger('user_id')->index();
             $table->string('order_id')->nullable()->index();

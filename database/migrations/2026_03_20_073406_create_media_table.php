@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('media', function (Blueprint $table) {
+        if (Schema::hasTable('media')) {
+            return;
+        }
+
+Schema::create('media', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('model_type');
             $table->unsignedBigInteger('model_id');

@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('custom_inputs', function (Blueprint $table) {
+        if (Schema::hasTable('custom_inputs')) {
+            return;
+        }
+
+Schema::create('custom_inputs', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('kategori_id');
             $table->string('field_1');
