@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('affiliate_histories')) {
+            return;
+        }
+
         Schema::create('affiliate_histories', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('uplink_id');
