@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('methods', function (Blueprint $table) {
+        if (Schema::hasTable('methods')) {
+            return;
+        }
+
+Schema::create('methods', function (Blueprint $table) {
             $table->integer('id', true);
             $table->string('name', 55);
             $table->string('images', 250);

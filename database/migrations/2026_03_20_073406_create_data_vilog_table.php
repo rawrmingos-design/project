@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('data_vilog', function (Blueprint $table) {
+        if (Schema::hasTable('data_vilog')) {
+            return;
+        }
+
+Schema::create('data_vilog', function (Blueprint $table) {
             $table->string('userid', 225);
             $table->string('serverid', 225);
             $table->string('email', 225);

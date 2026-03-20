@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('pembayarans', function (Blueprint $table) {
+        if (Schema::hasTable('pembayarans')) {
+            return;
+        }
+
+Schema::create('pembayarans', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('order_id');
             $table->string('harga');

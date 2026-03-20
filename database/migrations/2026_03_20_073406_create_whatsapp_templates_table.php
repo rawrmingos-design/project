@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('whatsapp_templates', function (Blueprint $table) {
+        if (Schema::hasTable('whatsapp_templates')) {
+            return;
+        }
+
+Schema::create('whatsapp_templates', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->string('slug')->unique();
             $table->string('name');

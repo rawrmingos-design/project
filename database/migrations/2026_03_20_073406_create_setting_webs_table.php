@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('setting_webs', function (Blueprint $table) {
+        if (Schema::hasTable('setting_webs')) {
+            return;
+        }
+
+Schema::create('setting_webs', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->text('judul_web');
             $table->text('deskripsi_web');

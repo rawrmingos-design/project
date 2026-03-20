@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('withdrawals', function (Blueprint $table) {
+        if (Schema::hasTable('withdrawals')) {
+            return;
+        }
+
+Schema::create('withdrawals', function (Blueprint $table) {
             $table->integer('id', true);
             $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('rekening', 225);

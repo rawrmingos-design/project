@@ -11,7 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('vouchers', function (Blueprint $table) {
+        if (Schema::hasTable('vouchers')) {
+            return;
+        }
+
+Schema::create('vouchers', function (Blueprint $table) {
             $table->integer('id', true);
             $table->string('kode');
             $table->integer('promo');
