@@ -189,6 +189,7 @@ class Settings extends Page implements HasForms
                         Toggle::make('seasonal_enabled')
                             ->label('Aktifkan Tema Musiman')
                             ->default(false)
+                            ->live()
                             ->helperText('Jika nonaktif, website selalu memakai tema normal/default.'),
 
                         Select::make('seasonal_mode')
@@ -199,6 +200,7 @@ class Settings extends Page implements HasForms
                             ])
                             ->default('manual')
                             ->live()
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
                             ->helperText('Manual: langsung aktif. Terjadwal: aktif hanya di rentang tanggal.'),
 
                         Select::make('seasonal_theme')
@@ -209,6 +211,7 @@ class Settings extends Page implements HasForms
                             ])
                             ->default('ramadhan')
                             ->required()
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
                             ->helperText('Pilih tema visual musiman yang ingin ditampilkan.'),
 
                         Select::make('seasonal_effect_intensity')
@@ -219,20 +222,42 @@ class Settings extends Page implements HasForms
                             ])
                             ->default('subtle')
                             ->required()
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
                             ->helperText('Subtle untuk efek ringan, Normal untuk nuansa lebih terasa.'),
+
+                        FileUpload::make('seasonal_background_image')
+                            ->label('Background Image (Opsional)')
+                            ->image()
+                            ->disk('assets')
+                            ->visibility('public')
+                            ->directory('assets/seasonal')
+                            ->maxSize(4096)
+                            ->columnSpanFull()
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
+                            ->helperText('Upload background custom (JPG/PNG/WebP). Jika diisi, gambar ini akan ditumpuk di atas gradient seasonal.'),
+
+                        TextInput::make('seasonal_background_opacity')
+                            ->label('Opacity Gambar Background (%)')
+                            ->numeric()
+                            ->default(38)
+                            ->minValue(5)
+                            ->maxValue(95)
+                            ->suffix('%')
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
+                            ->helperText('Atur transparansi gambar background agar teks tetap terbaca (disarankan 25-50%).'),
 
                         DateTimePicker::make('seasonal_starts_at')
                             ->label('Mulai Aktif')
                             ->seconds(false)
                             ->native(false)
-                            ->visible(fn (callable $get): bool => $get('seasonal_mode') === 'date_range')
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled') && $get('seasonal_mode') === 'date_range')
                             ->helperText('Kosongkan jika ingin mulai langsung saat disimpan.'),
 
                         DateTimePicker::make('seasonal_ends_at')
                             ->label('Berakhir Pada')
                             ->seconds(false)
                             ->native(false)
-                            ->visible(fn (callable $get): bool => $get('seasonal_mode') === 'date_range')
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled') && $get('seasonal_mode') === 'date_range')
                             ->helperText('Kosongkan jika ingin tetap aktif sampai dinonaktifkan manual.'),
                     ])
                     ->collapsible()
@@ -814,6 +839,8 @@ class Settings extends Page implements HasForms
         $data['seasonal_effect_intensity'] ??= 'subtle';
         $data['seasonal_starts_at'] ??= null;
         $data['seasonal_ends_at'] ??= null;
+        $data['seasonal_background_image'] ??= null;
+        $data['seasonal_background_opacity'] ??= 38;
 
         return $data;
     }
@@ -841,7 +868,7 @@ class Settings extends Page implements HasForms
         $settings = SettingWeb::firstOrNew(['id' => 1]);
 
         // Jangan timpa logo yang sudah ada dengan nilai kosong.
-        foreach (['logo_header', 'logo_footer', 'logo_favicon'] as $logoField) {
+        foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image'] as $logoField) {
             if (empty($data[$logoField]) && !empty($settings->{$logoField})) {
                 $data[$logoField] = $settings->{$logoField};
             }

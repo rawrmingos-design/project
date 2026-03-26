@@ -24,5 +24,6 @@ class SettingWeb extends Model
         'seasonal_enabled' => 'boolean',
         'seasonal_starts_at' => 'datetime',
         'seasonal_ends_at' => 'datetime',
+        'seasonal_background_opacity' => 'integer',
     ];
 }

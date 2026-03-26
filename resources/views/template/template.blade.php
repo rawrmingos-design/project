@@ -114,6 +114,9 @@
         $seasonalMode = isset($config) ? (string) ($config->seasonal_mode ?? 'manual') : 'manual';
         $seasonalTheme = isset($config) ? (string) ($config->seasonal_theme ?? 'ramadhan') : 'ramadhan';
         $seasonalIntensity = isset($config) ? (string) ($config->seasonal_effect_intensity ?? 'subtle') : 'subtle';
+        $seasonalBackgroundImage = isset($config) ? trim((string) ($config->seasonal_background_image ?? '')) : '';
+        $seasonalBackgroundImageUrl = null;
+        $seasonalBackgroundOpacity = isset($config) ? (int) ($config->seasonal_background_opacity ?? 38) : 38;
         $allowedSeasonalThemes = ['ramadhan', 'halloween'];
         $activeSeasonalTheme = 'default';
 
@@ -140,6 +143,15 @@
         if (! in_array($seasonalIntensity, ['subtle', 'normal'], true)) {
             $seasonalIntensity = 'subtle';
         }
+
+        if ($seasonalBackgroundImage !== '') {
+            $seasonalBackgroundImageUrl = filter_var($seasonalBackgroundImage, FILTER_VALIDATE_URL)
+                ? $seasonalBackgroundImage
+                : asset($seasonalBackgroundImage);
+        }
+
+        $seasonalBackgroundOpacity = max(5, min(95, $seasonalBackgroundOpacity));
+        $seasonalBackgroundOpacityCss = number_format($seasonalBackgroundOpacity / 100, 2, '.', '');
     @endphp
 
     <!-- Stylesheets and Fonts -->
@@ -202,7 +214,13 @@
         height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- End Google Tag Manager (noscript) -->
     @endif
-    <div class="seasonal-global-bg" aria-hidden="true"></div>
+    <div
+        class="seasonal-global-bg"
+        aria-hidden="true"
+        @if(!empty($seasonalBackgroundImageUrl))
+            style="--season-custom-image: url('{{ $seasonalBackgroundImageUrl }}'); --season-custom-opacity: {{ $seasonalBackgroundOpacityCss }};"
+        @endif
+    ></div>
     <div class="relative z-50" role="dialog" tabindex="-1" x-show="isSearchModalOpen" x-on:click.away="isSearchModalOpen = false" x-cloak x-transition>
         <div class="fixed inset-0 z-50 overflow-hidden p-4 py-20 sm:py-20 sm:px-6 md:p-20">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity opacity-100" x-show="isSearchModalOpen" x-cloak x-on:click="isSearchModalOpen=false"></div>
