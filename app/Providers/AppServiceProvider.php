@@ -104,8 +104,29 @@ class AppServiceProvider extends ServiceProvider
                     'warna3' => '#ffa54a',
                     'warna4' => '#ff8040',
                     'wa_key' => '',
-                    'nomor_admin' => ''
+                    'nomor_admin' => '',
+                    'invoice_notify_via_whatsapp' => true,
+                    'invoice_notify_via_email' => true,
+                    'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
+                    'captcha_secret' => env('NOCAPTCHA_SECRET'),
+                    'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
+                    'captcha_bypass' => false,
                 ];
+            }
+
+            if ($config) {
+                config([
+                    'mail.default' => $config->mail_mailer ?: env('MAIL_MAILER', 'smtp'),
+                    'mail.mailers.smtp.host' => $config->mail_host ?: env('MAIL_HOST', 'smtp.mailgun.org'),
+                    'mail.mailers.smtp.port' => $config->mail_port ?: env('MAIL_PORT', 587),
+                    'mail.mailers.smtp.encryption' => $config->mail_encryption ?: env('MAIL_ENCRYPTION', 'tls'),
+                    'mail.mailers.smtp.username' => $config->mail_username ?: env('MAIL_USERNAME'),
+                    'mail.mailers.smtp.password' => $config->mail_password ?: env('MAIL_PASSWORD'),
+                    'mail.from.address' => $config->mail_from_address ?: env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+                    'mail.from.name' => $config->mail_from_name ?: env('MAIL_FROM_NAME', 'Example'),
+                    'captcha.sitekey' => $config->captcha_site_key ?: env('NOCAPTCHA_SITEKEY'),
+                    'captcha.secret' => $config->captcha_secret ?: env('NOCAPTCHA_SECRET'),
+                ]);
             }
             
             View::share('config', $config);
@@ -122,7 +143,13 @@ class AppServiceProvider extends ServiceProvider
                 'warna3' => '#ffa54a',
                 'warna4' => '#ff8040',
                 'wa_key' => '',
-                'nomor_admin' => ''
+                'nomor_admin' => '',
+                'invoice_notify_via_whatsapp' => true,
+                'invoice_notify_via_email' => true,
+                'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
+                'captcha_secret' => env('NOCAPTCHA_SECRET'),
+                'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
+                'captcha_bypass' => false,
             ];
             
             View::share('config', $config);

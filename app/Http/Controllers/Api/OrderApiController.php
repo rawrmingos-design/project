@@ -341,9 +341,11 @@ class OrderApiController extends Controller
                     $vip = new VipResellerController;
                     $order = $vip->order($datagame[0], $datagame[1] ?? null, $service->provider_id);
                     
-                    if($order['result']){
+                    if(($order['result'] ?? false) === true){
+                        $statusMeta = VipResellerController::normalizeStatusMeta($order['data']['status'] ?? null);
                         $order['data']['status'] = $order['result'];
-                        $order['transactionId'] = $order['data']['trxid'];
+                        $order['transactionId'] = $order['data']['trxid'] ?? null;
+                        $order['provider_status'] = $statusMeta['internal_status'];
                     }else{
                         $order['data']['status'] = false;
                     }
@@ -441,6 +443,7 @@ class OrderApiController extends Controller
             $pembayaran->status = 'Lunas';
             $pembayaran->metode = 'SALDO';
             $pembayaran->reference = $data->referenceNumber;
+            $pembayaran->expired_at = null;
             $pembayaran->save();  
             
             return response()->json([

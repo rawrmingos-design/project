@@ -55,31 +55,21 @@ class PembeliansTable
                     ->limit(30)
                     ->description(function ($record) {
                         $source = $record->traffic_source ?? 'Original';
-                        // Image URLs (Reliable CDNs)
-                        $logos = [
-                            'facebook' => 'https://upload.wikimedia.org/wikipedia/commons/b/b9/2023_Facebook_icon.svg',
-                            'instagram' => 'https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg',
-                            'tiktok' => 'https://upload.wikimedia.org/wikipedia/en/a/a9/TikTok_logo.svg',
-                            'youtube' => 'https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_%282017%29.svg',
-                            'google' => 'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                            'whatsapp' => 'https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg',
-                        ];
-                        
                         $key = strtolower($source);
-                        if (isset($logos[$key])) {
-                            $imgSrc = $logos[$key];
-                             return new \Illuminate\Support\HtmlString(
-                                "<div class='flex items-center gap-1 mt-1'>
-                                    <img src='{$imgSrc}' height='16' width='16' class='h-4 w-4 mb-1 object-contain' alt='{$source}'>
-                                </div>"
-                            );
-                        } else {
-                             // Fallback for Direct / Others
-                             $icon = $key === 'direct' ? '🔗' : '🌐';
-                             return new \Illuminate\Support\HtmlString(
-                                "<span class='text-xs text-gray-500'>$icon $source</span>"
-                            );
-                        }
+                        $icon = match ($key) {
+                            'facebook' => 'FB',
+                            'instagram' => 'IG',
+                            'tiktok' => 'TT',
+                            'youtube' => 'YT',
+                            'google' => 'GG',
+                            'whatsapp' => 'WA',
+                            'direct' => 'DR',
+                            default => 'OT',
+                        };
+
+                        return new \Illuminate\Support\HtmlString(
+                            "<span class='inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200'>{$icon} {$source}</span>"
+                        );
                     }),
                     
                 TextColumn::make('status')
@@ -191,11 +181,6 @@ class PembeliansTable
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->default('N/A'),
                     
-                TextColumn::make('nickname')
-                    ->label('Nickname')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->default('N/A'),
-
                 TextColumn::make('tipe_transaksi')
                     ->label('Type')
                     ->badge()
@@ -636,6 +621,9 @@ class PembeliansTable
                         ->deselectRecordsAfterCompletion(),
                 ]),
             ])
+            ->searchDebounce('800ms')
+            ->persistSearchInSession()
+            ->defaultPaginationPageOption(25)
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);

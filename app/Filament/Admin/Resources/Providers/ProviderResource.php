@@ -88,10 +88,10 @@ class ProviderResource extends Resource
             ->actions([
                 EditAction::make(),
                 Action::make('check_balance')
-                    ->label('Check')
+                    ->label('Check Balance')
                     ->icon('heroicon-o-arrow-path')
                     ->action(function (Provider $record) {
-                        $balance = 0;
+                        $balance = null;
                         // Prepare config override (if populated in this table)
                         $config = [];
                         if (!empty($record->api_username)) $config['username'] = $record->api_username;
@@ -112,23 +112,30 @@ class ProviderResource extends Resource
                                 case 'vip':
                                 case 'vip_reseller':
                                     $res = (new \App\Http\Controllers\provider\VipResellerController($config))->profile();
-                                    $balance = $res['data']['balance'] ?? 0;
+                                    $balance = $res['data']['balance'] ?? $res['data']['saldo'] ?? $res['balance'] ?? null;
+
+                                    if ($balance === null) {
+                                        throw new \RuntimeException(
+                                            $res['message'] ?? 'VIP Reseller profile/balance response tidak mengandung field balance yang dikenali.'
+                                        );
+                                    }
                                     break;
                                 case 'apigames':
                                     // $res = (new \App\Http\Controllers\provider\ApiGamesController($config))->profile();
-                                    $balance = 0; 
+                                    $balance = 0;
                                     break;
                                 default:
                                     return;
                             }
-                            
+
                             $record->update([
                                 'balance' => $balance,
                                 'last_check_at' => now(),
                             ]);
-                            
+
                             \Filament\Notifications\Notification::make()
                                 ->title('Balance Updated')
+                                ->body('Saldo provider berhasil diperbarui.')
                                 ->success()
                                 ->send();
                                 

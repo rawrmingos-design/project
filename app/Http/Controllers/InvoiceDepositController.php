@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Deposit;
 use App\Models\Berita;
+use App\Models\Pembayaran;
 use Illuminate\Support\Carbon;
 use App\Models\Layanan;
 use App\Models\Kategori;
@@ -15,12 +16,24 @@ class InvoiceDepositController extends Controller
 {
     public function create($order)
     {
+        $payment = Pembayaran::query()
+            ->where('order_id', $order)
+            ->latest('id')
+            ->first();
+
+        abort_if(! $payment, 404);
+
+        $payment->syncExpiredStatus();
+
         $data = Deposit::where('pembayarans.order_id', $order)->join('pembayarans', 'deposits.order_id', 'pembayarans.order_id')
-                ->select('pembayarans.status AS status_pembayaran', 'pembayarans.metode AS metode_pembayaran', 'pembayarans.no_pembayaran', 'pembayarans.reference', 'deposits.order_id AS id_pembelian', 'deposits.created_at AS created_at', 'deposits.updated_at AS updated_at',
+                ->select('pembayarans.status AS status_pembayaran', 'pembayarans.metode AS metode_pembayaran', 'pembayarans.no_pembayaran', 'pembayarans.reference', 'pembayarans.expired_at', 'deposits.order_id AS id_pembelian', 'deposits.created_at AS created_at', 'deposits.updated_at AS updated_at',
                         'pembayarans.harga AS harga_pembayaran', 'pembayarans.reference', 'pembayarans.status AS status_pembayaran')
+                ->orderByDesc('pembayarans.id')
                 ->first();
         
-        $expired = Carbon::create($data->created_at)->addDay();
+        $expired = $data->expired_at
+            ? Carbon::parse($data->expired_at)
+            : Carbon::create($data->created_at)->addHours(3);
         
         $iPayData = array();
         
@@ -37,6 +50,7 @@ class InvoiceDepositController extends Controller
         return view('template.invoicedeposit', [
         'data' => $data,
         'expired' => $expired,
+        'expiredIso' => $expired->toIso8601String(),
         'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
         'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
         ]);
@@ -45,9 +59,19 @@ class InvoiceDepositController extends Controller
 
     public function checkStatus($order)
     {
+        $payment = Pembayaran::query()
+            ->where('order_id', $order)
+            ->latest('id')
+            ->first();
+
+        if ($payment) {
+            $payment->syncExpiredStatus();
+        }
+
         $data = Deposit::where('pembayarans.order_id', $order)
             ->join('pembayarans', 'deposits.order_id', '=', 'pembayarans.order_id')
             ->select('pembayarans.status AS status_pembayaran', 'deposits.status AS status_deposit')
+            ->orderByDesc('pembayarans.id')
             ->first();
 
         if ($data) {

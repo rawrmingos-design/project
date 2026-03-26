@@ -52,19 +52,9 @@ class ProdukController extends Controller
         $validatedData = $request->validate($rules, $messages);
 
         if ($request->provider == "vip") {
+            $data = (new VipResellerController())->services();
 
-          $api = \DB::table('setting_webs')->where('id',1)->first();
-
-            $sign = md5($api->vip_apiid.$api->vip_apikey);
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
-            curl_setopt($ch, CURLOPT_POST, TRUE);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, "key=".$api->vip_apikey."&sign=$sign&type=services");
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-            $data = json_decode(curl_exec($ch), true);
-
-            if ($data['result'] === true) {
+            if (($data['result'] ?? false) === true) {
                 foreach ($data['data'] as $product) {
                     $kategoriArray = explode(',', $request->kategori);
                     if ($product['status'] === 'available' && in_array($product['game'], $kategoriArray)) {

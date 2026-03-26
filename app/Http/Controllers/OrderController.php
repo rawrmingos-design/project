@@ -34,6 +34,7 @@ use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
 use App\Support\CustomInputDefaults;
+use Illuminate\Support\Carbon;
 
 class OrderController extends Controller
 {
@@ -1084,7 +1085,8 @@ class OrderController extends Controller
                         'status' => true,
                         'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'] ?? null,
                         'reference' => $res['data']['trx_id'] ?? null,
-                        'amount' => $res['data']['total_bayar'] ?? $amount
+                        'amount' => $res['data']['total_bayar'] ?? $amount,
+                        'expired_at' => $res['data']['expired_at'] ?? $res['data']['expired_ts'] ?? null,
                     ];
                 } else {
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';
@@ -1103,7 +1105,8 @@ class OrderController extends Controller
                         'status' => true,
                         'no_pembayaran' => $res['no_pembayaran'],
                         'reference' => $res['reference'],
-                        'amount' => $res['amount']
+                        'amount' => $res['amount'],
+                        'expired_at' => $res['expired_at'] ?? null,
                     ];
                 } else {
                      $gatewayResult['msg'] = $res['msg'];
@@ -1135,6 +1138,7 @@ class OrderController extends Controller
                         'reference' => $res['reference'],
                         'amount' => $amount,
                         'merchant_order_id' => $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
+                        'expired_at' => $res['expired_at'] ?? null,
                     ];
                 } else {
                     $gatewayResult['msg'] = $res['message'] ?? 'Gagal membuat invoice Duitku';
@@ -1185,8 +1189,13 @@ class OrderController extends Controller
                 return response()->json(['status' => false, 'data' => $e->getMessage()]);
             }
 
+            $paymentExpiryAt = $this->resolvePaymentExpiryAt($gatewayResult, $dataMethod, 'Belum Lunas');
+            $paymentExpiryLabel = $paymentExpiryAt
+                ? $paymentExpiryAt->timezone(config('app.timezone'))->format('d/m/Y H:i')
+                : '3 jam dari sekarang';
+
             // Send Pending Message
-            $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum 3 Jam!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
+            $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum $paymentExpiryLabel!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
             $this->msg($request->nomor, $pesanPending);
         }
 
@@ -1482,10 +1491,11 @@ class OrderController extends Controller
                 case "vip_reseller": // Handle alias
                     $vip = new VipResellerController($credentials);
                     $order = $vip->order($request->uid, $request->zone, $sku);
-                    if ($order['result']) {
+                    if (($order['result'] ?? false) === true) {
+                        $statusMeta = VipResellerController::normalizeStatusMeta($order['data']['status'] ?? null);
                         $status = true;
-                        $provider_order_id = $order['data']['trxid'];
-                        $order_status = $order['data']['status'] == 'success' ? 'Sukses' : 'Pending';
+                        $provider_order_id = $order['data']['trxid'] ?? $order_id;
+                        $order_status = $statusMeta['internal_status'];
                     }
                     break;
 
@@ -1633,6 +1643,7 @@ class OrderController extends Controller
         $pembayaran->status = $status_pembayaran; // 'Belum Lunas' or 'Lunas'
         $pembayaran->metode = $request->payment_method;
         $pembayaran->reference = $reference;
+        $pembayaran->expired_at = $this->resolvePaymentExpiryAt($gatewayMeta, $dataMethod, $status_pembayaran);
 
         if (($dataMethod->payment ?? null) === 'duitku') {
             $pembayaran->duitku_reference = $reference;
@@ -1659,5 +1670,49 @@ class OrderController extends Controller
                 'updated_at' => now()
             ]);
         }
+    }
+
+    private function resolvePaymentExpiryAt(array $gatewayMeta, $dataMethod, string $paymentStatus): ?Carbon
+    {
+        if (strtolower($paymentStatus) !== 'belum lunas') {
+            return null;
+        }
+
+        $candidates = [
+            $gatewayMeta['expired_at'] ?? null,
+            $gatewayMeta['expires_at'] ?? null,
+            $gatewayMeta['expired_time'] ?? null,
+            $gatewayMeta['expired_ts'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (blank($candidate)) {
+                continue;
+            }
+
+            if (is_numeric($candidate)) {
+                $timestamp = (int) $candidate;
+
+                // Normalize millisecond epoch values from some gateways.
+                if ($timestamp > 9_999_999_999) {
+                    $timestamp = (int) floor($timestamp / 1000);
+                }
+
+                return Carbon::createFromTimestamp($timestamp, config('app.timezone'));
+            }
+
+            try {
+                return Carbon::parse($candidate, config('app.timezone'));
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return match (strtolower((string) ($dataMethod->payment ?? ''))) {
+            'duitku' => now()->addMinutes(60),
+            'tripay' => now()->addHours(24),
+            'tokopay' => now()->addHours(3),
+            default => now()->addHours(3),
+        };
     }
 }

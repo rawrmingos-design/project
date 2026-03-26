@@ -55,24 +55,37 @@
     @endif
 
     <!-- Analytics & Tracking -->
+    @php
+        $googleTagManagerId = '';
+        $googleAnalyticsId = '';
+        $hasValidGoogleTagManagerId = false;
+        $hasValidGoogleAnalyticsId = false;
+    @endphp
     @if(isset($config))
-        @if($config->google_tag_manager_id)
+        @php
+            $googleTagManagerId = trim((string) ($config->google_tag_manager_id ?? ''));
+            $googleAnalyticsId = trim((string) ($config->google_analytics_id ?? ''));
+            $hasValidGoogleTagManagerId = preg_match('/^GTM-[A-Z0-9]+$/i', $googleTagManagerId) === 1;
+            $hasValidGoogleAnalyticsId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $googleAnalyticsId) === 1;
+        @endphp
+
+        @if($hasValidGoogleTagManagerId)
             <!-- Google Tag Manager -->
             <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
             new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
             j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','{{ $config->google_tag_manager_id }}');</script>
+            })(window,document,'script','dataLayer','{{ $googleTagManagerId }}');</script>
         @endif
 
-        @if($config->google_analytics_id)
+        @if($hasValidGoogleAnalyticsId)
             <!-- Google Analytics 4 -->
-            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $config->google_analytics_id }}"></script>
+            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $googleAnalyticsId }}"></script>
             <script>
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '{{ $config->google_analytics_id }}');
+                gtag('config', '{{ $googleAnalyticsId }}');
             </script>
         @endif
 
@@ -96,6 +109,39 @@
         @endif
     @endif
     
+    @php
+        $seasonalEnabled = isset($config) ? (bool) ($config->seasonal_enabled ?? false) : false;
+        $seasonalMode = isset($config) ? (string) ($config->seasonal_mode ?? 'manual') : 'manual';
+        $seasonalTheme = isset($config) ? (string) ($config->seasonal_theme ?? 'ramadhan') : 'ramadhan';
+        $seasonalIntensity = isset($config) ? (string) ($config->seasonal_effect_intensity ?? 'subtle') : 'subtle';
+        $allowedSeasonalThemes = ['ramadhan', 'halloween'];
+        $activeSeasonalTheme = 'default';
+
+        if ($seasonalEnabled && in_array($seasonalTheme, $allowedSeasonalThemes, true)) {
+            if ($seasonalMode === 'date_range') {
+                $startsAt = ! empty($config?->seasonal_starts_at) ? \Illuminate\Support\Carbon::parse($config->seasonal_starts_at) : null;
+                $endsAt = ! empty($config?->seasonal_ends_at) ? \Illuminate\Support\Carbon::parse($config->seasonal_ends_at) : null;
+                $now = now();
+
+                if ($startsAt && $endsAt && $now->between($startsAt, $endsAt)) {
+                    $activeSeasonalTheme = $seasonalTheme;
+                } elseif ($startsAt && ! $endsAt && $now->greaterThanOrEqualTo($startsAt)) {
+                    $activeSeasonalTheme = $seasonalTheme;
+                } elseif (! $startsAt && $endsAt && $now->lessThanOrEqualTo($endsAt)) {
+                    $activeSeasonalTheme = $seasonalTheme;
+                } elseif (! $startsAt && ! $endsAt) {
+                    $activeSeasonalTheme = $seasonalTheme;
+                }
+            } else {
+                $activeSeasonalTheme = $seasonalTheme;
+            }
+        }
+
+        if (! in_array($seasonalIntensity, ['subtle', 'normal'], true)) {
+            $seasonalIntensity = 'subtle';
+        }
+    @endphp
+
     <!-- Stylesheets and Fonts -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -132,6 +178,7 @@
     <link rel="stylesheet" href="{{ asset('/assets/css/pjojikhhoyutyrtd.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}">
     
 
 
@@ -140,14 +187,22 @@
    
 @yield('custom_style')
 
-    <body class="bg-gradient-theme text-white antialiased" :class="{ 'overflow-hidden': isSearchModalOpen }" x-data="{ 'isSearchModalOpen': false }" x-on:keydown.escape="isSearchModalOpen=false">
+    <body
+        class="bg-gradient-theme text-white antialiased"
+        data-season-theme="{{ $activeSeasonalTheme }}"
+        data-season-intensity="{{ $seasonalIntensity }}"
+        :class="{ 'overflow-hidden': isSearchModalOpen }"
+        x-data="{ 'isSearchModalOpen': false }"
+        x-on:keydown.escape="isSearchModalOpen=false"
+    >
     
-    @if(isset($config) && $config->google_tag_manager_id)
+    @if(isset($config) && !empty($hasValidGoogleTagManagerId))
         <!-- Google Tag Manager (noscript) -->
-        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ $config->google_tag_manager_id }}"
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ $googleTagManagerId }}"
         height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- End Google Tag Manager (noscript) -->
     @endif
+    <div class="seasonal-global-bg" aria-hidden="true"></div>
     <div class="relative z-50" role="dialog" tabindex="-1" x-show="isSearchModalOpen" x-on:click.away="isSearchModalOpen = false" x-cloak x-transition>
         <div class="fixed inset-0 z-50 overflow-hidden p-4 py-20 sm:py-20 sm:px-6 md:p-20">
             <div class="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity opacity-100" x-show="isSearchModalOpen" x-cloak x-on:click="isSearchModalOpen=false"></div>
@@ -163,7 +218,7 @@
             </div>
         </div>
     </div>
-    <main class="relative">
+    <main class="relative" style="z-index:1;">
         <div id="app">
         @yield('content')
     </div>
@@ -175,7 +230,48 @@
     
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
     <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>   
+    <script>
+        // Prefer local lottie-player build when available, fallback to CDN.
+        (function () {
+            const hasLottieElement = document.querySelector('lottie-player') !== null;
+            if (!hasLottieElement) {
+                return;
+            }
+
+            const hasCustomElements = typeof window.customElements !== 'undefined';
+            if (hasCustomElements && window.customElements.get('lottie-player')) {
+                return;
+            }
+
+            const localSrc = "{{ asset('assets/vendor/lottie/lottie-player.js') }}";
+            const cdnSrc = "https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js";
+
+            const loadCdn = function () {
+                if (hasCustomElements && window.customElements.get('lottie-player')) {
+                    return;
+                }
+
+                const cdnScript = document.createElement('script');
+                cdnScript.src = cdnSrc;
+                cdnScript.defer = true;
+                document.head.appendChild(cdnScript);
+            };
+
+            const localScript = document.createElement('script');
+            localScript.src = localSrc;
+            localScript.defer = true;
+            localScript.onerror = loadCdn;
+            localScript.onload = function () {
+                window.setTimeout(function () {
+                    if (!(hasCustomElements && window.customElements.get('lottie-player'))) {
+                        loadCdn();
+                    }
+                }, 150);
+            };
+
+            document.head.appendChild(localScript);
+        })();
+    </script>
     {{-- Alpine.js already included by Livewire, no need to load separately --}}
     {{-- <script src="//cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
     {{-- <script src="//cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
