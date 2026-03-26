@@ -64,6 +64,12 @@ class ListMediaAssets extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'artikel')),
             'logo' => Tab::make('Logo')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'logo')),
+            'seasonal' => Tab::make('Seasonal')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'seasonal')),
+            'dokumen' => Tab::make('Dokumen')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'dokumen')),
+            'xml' => Tab::make('XML')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'xml')),
             'lainnya' => Tab::make('Lainnya')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('folder', 'lainnya')),
         ];

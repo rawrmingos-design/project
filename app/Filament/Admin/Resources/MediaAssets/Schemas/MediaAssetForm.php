@@ -17,14 +17,14 @@ class MediaAssetForm
     {
         return $schema
             ->components([
-                Section::make('Media Asset')
+                Section::make('File Manager')
                     ->columns(2)
                     ->schema([
                         TextInput::make('name')
-                            ->label('Nama Asset')
+                            ->label('Nama File')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('Nama internal agar asset mudah dicari ulang.'),
+                            ->helperText('Nama internal agar file mudah dicari ulang.'),
 
                         Select::make('folder')
                             ->label('Folder')
@@ -34,6 +34,9 @@ class MediaAssetForm
                                 'banner' => 'Banner',
                                 'artikel' => 'Artikel',
                                 'logo' => 'Logo',
+                                'seasonal' => 'Seasonal',
+                                'dokumen' => 'Dokumen',
+                                'xml' => 'XML',
                                 'lainnya' => 'Lainnya',
                             ])
                             ->searchable()
@@ -60,11 +63,29 @@ class MediaAssetForm
                                 $url = e($record->file_url);
                                 $alt = e($record->alt_text ?: $record->name);
                                 $path = e($record->resolveRelativePath() ?: '-');
+                                $extension = e(strtoupper((string) ($record->file_extension ?? '-')));
+                                $mimeType = e((string) ($record->file_mime_type ?? '-'));
+                                $size = e((string) ($record->file_size_human ?? '-'));
 
-                                return new HtmlString(<<<HTML
+                                if ($record->is_image_file) {
+                                    return new HtmlString(<<<HTML
 <div style="display:flex;flex-direction:column;gap:10px;">
     <img src="{$url}" alt="{$alt}" style="max-width:220px;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(148,163,184,.2);" />
     <span style="font-size:12px;color:#94a3b8;">{$path}</span>
+    <span style="font-size:12px;color:#94a3b8;">{$extension} &bull; {$size}</span>
+</div>
+HTML);
+                                }
+
+                                return new HtmlString(<<<HTML
+<div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:600;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(148,163,184,.14);">📄</span>
+        <span>{$extension} file</span>
+    </div>
+    <span style="font-size:12px;color:#94a3b8;">{$mimeType} &bull; {$size}</span>
+    <span style="font-size:12px;color:#94a3b8;">{$path}</span>
+    <a href="{$url}" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:underline;">Buka / download file</a>
 </div>
 HTML);
                             })
@@ -74,15 +95,29 @@ HTML);
                             ->label('File')
                             ->collection('file')
                             ->disk('assets')
-                            ->image()
+                            ->acceptedFileTypes([
+                                'image/jpeg',
+                                'image/png',
+                                'image/webp',
+                                'image/gif',
+                                'image/svg+xml',
+                                'application/pdf',
+                                'application/xml',
+                                'text/xml',
+                                'text/plain',
+                                'application/zip',
+                                'application/x-zip-compressed',
+                                'application/msword',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                'application/vnd.ms-excel',
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            ])
+                            ->maxSize(10240)
                             ->visibility('public')
-                            ->imagePreviewHeight('220')
-                            ->panelAspectRatio('1:1')
-                            ->panelLayout('integrated')
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
                             ->required(fn ($record): bool => blank($record?->file_url))
-                            ->helperText('Kalau asset ini berasal dari folder yang sudah di-index, preview tampil di atas. Upload file baru hanya jika memang ingin mengganti filenya.')
+                            ->helperText('Mendukung gambar, PDF, XML, TXT, ZIP, DOCX, XLSX (maks 10MB). Upload file baru hanya jika ingin mengganti file sebelumnya.')
                             ->columnSpanFull(),
                     ]),
             ]);

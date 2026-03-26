@@ -7,7 +7,6 @@ use App\Support\MediaAssetPicker;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -20,10 +19,13 @@ class MediaAssetsTable
     {
         return $table
             ->columns([
-                ImageColumn::make('file_url')
-                    ->label('Preview')
-                    ->size(56)
-                    ->square(),
+                IconColumn::make('is_image_file')
+                    ->label('Tipe')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-photo')
+                    ->falseIcon('heroicon-o-document')
+                    ->trueColor('info')
+                    ->falseColor('gray'),
 
                 IconColumn::make('valid_file')
                     ->label('Status')
@@ -40,6 +42,16 @@ class MediaAssetsTable
                     ->sortable()
                     ->limit(40),
 
+                TextColumn::make('file_extension')
+                    ->label('Ext')
+                    ->badge()
+                    ->getStateUsing(fn (MediaAsset $record): string => strtoupper((string) ($record->file_extension ?: '-')))
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('path', $direction)),
+
+                TextColumn::make('file_size_human')
+                    ->label('Ukuran')
+                    ->toggleable(),
+
                 TextColumn::make('folder')
                     ->label('Folder')
                     ->badge()
@@ -54,6 +66,16 @@ class MediaAssetsTable
                 TextColumn::make('path')
                     ->label('Path')
                     ->limit(45)
+                    ->copyable()
+                    ->copyMessage('Path disalin')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('file_url')
+                    ->label('URL')
+                    ->limit(45)
+                    ->copyable()
+                    ->copyMessage('URL file disalin')
+                    ->url(fn (MediaAsset $record): ?string => $record->file_url, shouldOpenInNewTab: true)
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('validity_label')
@@ -77,8 +99,65 @@ class MediaAssetsTable
                         'banner' => 'Banner',
                         'artikel' => 'Artikel',
                         'logo' => 'Logo',
+                        'seasonal' => 'Seasonal',
+                        'dokumen' => 'Dokumen',
+                        'xml' => 'XML',
                         'lainnya' => 'Lainnya',
                     ]),
+                SelectFilter::make('file_type')
+                    ->label('Jenis File')
+                    ->options([
+                        'image' => 'Image',
+                        'xml' => 'XML',
+                        'document' => 'Document',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $type = $data['value'] ?? null;
+
+                        if (blank($type)) {
+                            return $query;
+                        }
+
+                        return match ($type) {
+                            'image' => $query->where(function (Builder $builder): void {
+                                $builder
+                                    ->whereHas('media', fn (Builder $mediaQuery) => $mediaQuery->where('mime_type', 'like', 'image/%'))
+                                    ->orWhere('path', 'like', '%.jpg')
+                                    ->orWhere('path', 'like', '%.jpeg')
+                                    ->orWhere('path', 'like', '%.png')
+                                    ->orWhere('path', 'like', '%.webp')
+                                    ->orWhere('path', 'like', '%.gif')
+                                    ->orWhere('path', 'like', '%.svg')
+                                    ->orWhere('path', 'like', '%.bmp');
+                            }),
+                            'xml' => $query->where(function (Builder $builder): void {
+                                $builder
+                                    ->whereHas('media', fn (Builder $mediaQuery) => $mediaQuery->whereIn('mime_type', ['application/xml', 'text/xml']))
+                                    ->orWhere('path', 'like', '%.xml');
+                            }),
+                            'document' => $query->where(function (Builder $builder): void {
+                                $builder
+                                    ->whereHas('media', fn (Builder $mediaQuery) => $mediaQuery->whereIn('mime_type', [
+                                        'application/pdf',
+                                        'text/plain',
+                                        'application/msword',
+                                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                        'application/vnd.ms-excel',
+                                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                        'application/zip',
+                                        'application/x-zip-compressed',
+                                    ]))
+                                    ->orWhere('path', 'like', '%.pdf')
+                                    ->orWhere('path', 'like', '%.txt')
+                                    ->orWhere('path', 'like', '%.doc')
+                                    ->orWhere('path', 'like', '%.docx')
+                                    ->orWhere('path', 'like', '%.xls')
+                                    ->orWhere('path', 'like', '%.xlsx')
+                                    ->orWhere('path', 'like', '%.zip');
+                            }),
+                            default => $query,
+                        };
+                    }),
                 SelectFilter::make('file_validity')
                     ->label('Validitas File')
                     ->options([

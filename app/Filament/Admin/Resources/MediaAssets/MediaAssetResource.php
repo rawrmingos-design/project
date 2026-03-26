@@ -18,17 +18,17 @@ class MediaAssetResource extends Resource
 {
     protected static ?string $model = MediaAsset::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-photo';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-folder';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Configuration';
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
 
-    protected static ?string $navigationLabel = 'Media Library';
+    protected static ?string $navigationLabel = 'File Manager';
 
-    protected static ?string $modelLabel = 'Media Asset';
+    protected static ?string $modelLabel = 'File';
 
-    protected static ?string $pluralModelLabel = 'Media Library';
+    protected static ?string $pluralModelLabel = 'File Manager';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {

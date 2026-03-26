@@ -58,6 +58,7 @@ class MediaAssetFolderSyncService
             'assets/banner_game' => 'banner',
             'assets/banner' => 'banner',
             'assets/logo' => 'logo',
+            'assets/seasonal' => 'seasonal',
             'articles/thumbnails' => 'artikel',
         ];
     }
