@@ -2,19 +2,24 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Models\SettingWeb;
+use App\Services\EmailNotificationService;
+use App\Services\WhatsappNotificationService;
+use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
-use App\Models\SettingWeb;
-use BackedEnum;
 use UnitEnum;
 
 class Settings extends Page implements HasForms
@@ -92,6 +97,35 @@ class Settings extends Page implements HasForms
                     ])
                     ->collapsible()
                     ->collapsed(),
+
+                Section::make('Admin Login CAPTCHA')
+                    ->description('Konfigurasi Google reCAPTCHA untuk halaman login admin Filament. Bisa diaktifkan/nonaktifkan dan disediakan bypass darurat.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('captcha_enabled')
+                            ->label('Aktifkan CAPTCHA di Login Admin')
+                            ->default(true)
+                            ->helperText('Jika aktif, admin wajib verifikasi CAPTCHA saat login.'),
+
+                        Toggle::make('captcha_bypass')
+                            ->label('Bypass CAPTCHA (Darurat)')
+                            ->default(false)
+                            ->helperText('Jika aktif, CAPTCHA dilewati walaupun fitur CAPTCHA hidup. Gunakan hanya saat troubleshooting.'),
+
+                        TextInput::make('captcha_site_key')
+                            ->label('CAPTCHA Site Key')
+                            ->helperText('Site key dari Google reCAPTCHA admin console untuk domain panel admin.')
+                            ->columnSpan(1),
+
+                        TextInput::make('captcha_secret')
+                            ->label('CAPTCHA Secret Key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Secret key dari Google reCAPTCHA admin console. Simpan rahasia ini.')
+                            ->columnSpan(1),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
                     
                 // Branding
                 Section::make('Logo & Colors')
@@ -147,6 +181,62 @@ class Settings extends Page implements HasForms
                     ])
                     ->collapsible()
                     ->collapsed(),
+
+                Section::make('Seasonal Theme')
+                    ->description('Atur nuansa event musiman (contoh Ramadhan/Halloween) tanpa mengubah struktur halaman utama.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('seasonal_enabled')
+                            ->label('Aktifkan Tema Musiman')
+                            ->default(false)
+                            ->helperText('Jika nonaktif, website selalu memakai tema normal/default.'),
+
+                        Select::make('seasonal_mode')
+                            ->label('Mode Aktivasi')
+                            ->options([
+                                'manual' => 'Manual',
+                                'date_range' => 'Terjadwal (Rentang Tanggal)',
+                            ])
+                            ->default('manual')
+                            ->live()
+                            ->helperText('Manual: langsung aktif. Terjadwal: aktif hanya di rentang tanggal.'),
+
+                        Select::make('seasonal_theme')
+                            ->label('Tema Musiman')
+                            ->options([
+                                'ramadhan' => 'Ramadhan',
+                                'halloween' => 'Halloween',
+                            ])
+                            ->default('ramadhan')
+                            ->required()
+                            ->helperText('Pilih tema visual musiman yang ingin ditampilkan.'),
+
+                        Select::make('seasonal_effect_intensity')
+                            ->label('Intensitas Efek')
+                            ->options([
+                                'subtle' => 'Subtle (Halus)',
+                                'normal' => 'Normal',
+                            ])
+                            ->default('subtle')
+                            ->required()
+                            ->helperText('Subtle untuk efek ringan, Normal untuk nuansa lebih terasa.'),
+
+                        DateTimePicker::make('seasonal_starts_at')
+                            ->label('Mulai Aktif')
+                            ->seconds(false)
+                            ->native(false)
+                            ->visible(fn (callable $get): bool => $get('seasonal_mode') === 'date_range')
+                            ->helperText('Kosongkan jika ingin mulai langsung saat disimpan.'),
+
+                        DateTimePicker::make('seasonal_ends_at')
+                            ->label('Berakhir Pada')
+                            ->seconds(false)
+                            ->native(false)
+                            ->visible(fn (callable $get): bool => $get('seasonal_mode') === 'date_range')
+                            ->helperText('Kosongkan jika ingin tetap aktif sampai dinonaktifkan manual.'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
                     
                 // Social Media
                 Section::make('Social Media Links')
@@ -188,55 +278,66 @@ class Settings extends Page implements HasForms
                     
                 // Top-Up Providers
                 Section::make('TopUpIndo')
+                    ->description('Masukkan API key dari dashboard TopUpIndo. Biasanya tersedia di menu API, developer, atau integrasi.')
                     ->schema([
                         TextInput::make('topupindo_api')
                             ->label('TopUpIndo API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Isi dengan API key rahasia dari TopUpIndo, bukan username atau email akun.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('BangJeff')
+                    ->description('Masukkan API key dari dashboard BangJeff. Dipakai saat order dan sinkronisasi provider.')
                     ->schema([
                         TextInput::make('apikey_bangjeff')
                             ->label('BangJeff API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Didapat dari dashboard BangJeff pada menu API key / developer.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('Aoshi')
+                    ->description('Masukkan secret/API key Aoshi dari dashboard merchant/provider.')
                     ->schema([
                         TextInput::make('apikey_aoshi')
                             ->label('Aoshi API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Gunakan secret key dari panel Aoshi, bukan password login akun.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('Mobile Game Store')
+                    ->description('Masukkan API key Mobile Game Store dari dashboard merchant.')
                     ->schema([
                         TextInput::make('api_mobilegamestore')
                             ->label('Mobile Game Store API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Didapat dari menu API atau integrasi pada dashboard Mobile Game Store.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('VIP Reseller')
+                    ->description('Isi kredensial VIP Reseller. API ID dan API Key biasanya tersedia di dashboard akun VIP Reseller.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('vip_apiid')
-                            ->label('VIP API ID'),
+                            ->label('VIP API ID')
+                            ->helperText('ID merchant / API ID dari dashboard VIP Reseller.'),
                             
                         TextInput::make('vip_apikey')
                             ->label('VIP API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Secret key API VIP Reseller.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -258,44 +359,53 @@ class Settings extends Page implements HasForms
                     ->collapsible(),
 
                 Section::make('PayDisini')
+                    ->description('Masukkan API key PayDisini dari dashboard merchant pada menu API atau integrasi.')
                     ->schema([
                         TextInput::make('paydisini_apikey')
                             ->label('PayDisini API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Kunci rahasia untuk membuat invoice dan cek status PayDisini.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('Tripay')
+                    ->description('Isi seluruh kredensial TriPay dari dashboard akun TriPay. Biasanya ada di menu developer atau channel pembayaran.')
                     ->columns(3)
                     ->schema([
                         TextInput::make('tripay_api')
                             ->label('API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('API key TriPay.'),
                             
                         TextInput::make('tripay_merchant_code')
-                            ->label('Merchant Code'),
+                            ->label('Merchant Code')
+                            ->helperText('Kode merchant dari dashboard TriPay.'),
                             
                         TextInput::make('tripay_private_key')
                             ->label('Private Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Private key untuk membuat signature request TriPay.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('TokoPay')
+                    ->description('Masukkan Merchant ID dan Secret Key dari dashboard TokoPay.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('tokopay_merchant_id')
-                            ->label('Merchant ID'),
+                            ->label('Merchant ID')
+                            ->helperText('ID merchant dari dashboard TokoPay.'),
                             
                         TextInput::make('tokopay_secret_key')
                             ->label('Secret Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Secret key/API key TokoPay.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -351,29 +461,35 @@ class Settings extends Page implements HasForms
                     ->collapsed(),
                     
                 Section::make('Digiflazz')
+                    ->description('Masukkan username dan API key buyer Digiflazz dari dashboard developer.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('username_digi')
-                            ->label('Username'),
+                            ->label('Username')
+                            ->helperText('Username buyer Digiflazz, biasanya sama seperti username akun buyer.'),
                             
                         TextInput::make('api_key_digi')
                             ->label('API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('API key buyer Digiflazz dari menu API.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
                     
                 Section::make('API Games')
+                    ->description('Masukkan Merchant ID dan Secret Key dari dashboard API Games.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('apigames_merchant')
-                            ->label('Merchant ID'),
+                            ->label('Merchant ID')
+                            ->helperText('Merchant ID dari dashboard API Games.'),
                             
                         TextInput::make('apigames_secret')
                             ->label('Secret Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Secret key/API key API Games.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -381,8 +497,22 @@ class Settings extends Page implements HasForms
                 // WhatsApp Integration
                 Section::make('WhatsApp Configuration')
                     ->description('Configure WhatsApp API integration')
+                    ->headerActions([
+                        $this->makeSendTestWhatsappAction(),
+                        $this->makeCheckWhatsappStatusAction(),
+                    ])
                     ->columns(3)
                     ->schema([
+                        Select::make('wa_provider')
+                            ->label('WhatsApp Provider')
+                            ->options([
+                                'fonnte' => 'Fonnte',
+                                'easywa' => 'EasyWA',
+                            ])
+                            ->default('fonnte')
+                            ->native(false)
+                            ->helperText('Pilih provider WhatsApp yang aktif. Fonnte untuk token/device Fonnte, EasyWA untuk integrasi API EasyWA.'),
+
                         TextInput::make('nomor_admin')
                             ->label('Admin Phone Number')
                             ->tel()
@@ -392,15 +522,118 @@ class Settings extends Page implements HasForms
                         TextInput::make('wa_key')
                             ->label('WhatsApp API Key')
                             ->password()
-                            ->revealable(),
+                            ->revealable()
+                            ->helperText('Dipakai untuk provider Fonnte. Ambil dari dashboard/token Fonnte.'),
                             
                         TextInput::make('wa_number')
                             ->label('WhatsApp Number')
                             ->tel()
-                            ->prefix('+62'),
+                            ->prefix('+62')
+                            ->helperText('Nomor device aktif untuk provider Fonnte.'),
+
+                        TextInput::make('easywa_email')
+                            ->label('EasyWA Email')
+                            ->helperText('Email akun EasyWA yang terdaftar di dashboard EasyWA.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
+
+                        TextInput::make('easywa_secret_key')
+                            ->label('EasyWA Secret Key')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Secret key EasyWA dari menu API.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
+
+                        Select::make('easywa_send_type')
+                            ->label('EasyWA Send Type')
+                            ->options([
+                                'sync' => 'Sync',
+                                'async' => 'Async',
+                            ])
+                            ->default('sync')
+                            ->native(false)
+                            ->helperText('Sync menunggu hasil langsung. Async cocok jika pengiriman ingin diantrikan dengan delay.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
+
+                        TextInput::make('easywa_send_delay')
+                            ->label('EasyWA Delay (detik)')
+                            ->numeric()
+                            ->default(0)
+                            ->helperText('Delay hanya dipakai jika mode EasyWA = async.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa' && ($get('easywa_send_type') ?? 'sync') === 'async'),
                     ])
                     ->collapsible()
                     ->collapsed(),
+
+                Section::make('Mail Configuration')
+                    ->description('Konfigurasi SMTP/email yang akan dipakai sistem tanpa perlu edit file .env lagi. Nilai ini biasanya didapat dari dashboard provider email seperti Gmail App Password, Mailgun, Brevo, Zoho, Resend SMTP, atau mail server cPanel.')
+                    ->headerActions([
+                        $this->makeSendTestEmailAction(),
+                    ])
+                    ->columns(2)
+                    ->schema([
+                        Select::make('mail_mailer')
+                            ->label('Mailer')
+                            ->options([
+                                'smtp' => 'SMTP',
+                                'log' => 'Log',
+                            ])
+                            ->default('smtp')
+                            ->native(false)
+                            ->helperText('Pilih SMTP untuk pengiriman email sungguhan. Gunakan Log hanya untuk testing lokal.'),
+
+                        TextInput::make('mail_host')
+                            ->label('SMTP Host')
+                            ->placeholder('smtp.gmail.com')
+                            ->helperText('Host server SMTP dari provider. Contoh: Gmail = smtp.gmail.com, Brevo = smtp-relay.brevo.com, Mailgun = smtp.mailgun.org.'),
+
+                        TextInput::make('mail_port')
+                            ->label('SMTP Port')
+                            ->numeric()
+                            ->placeholder('587')
+                            ->helperText('Port SMTP dari provider. Umumnya 587 untuk TLS atau 465 untuk SSL.'),
+
+                        TextInput::make('mail_encryption')
+                            ->label('Encryption')
+                            ->placeholder('tls / ssl')
+                            ->helperText('Jenis enkripsi koneksi SMTP. Nilai paling umum adalah tls.'),
+
+                        TextInput::make('mail_username')
+                            ->label('SMTP Username')
+                            ->helperText('Username/login SMTP dari provider. Biasanya email penuh atau username SMTP khusus yang diberikan provider.'),
+
+                        TextInput::make('mail_password')
+                            ->label('SMTP Password')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Password SMTP, API key SMTP, atau App Password. Untuk Gmail gunakan App Password, bukan password akun utama.'),
+
+                        TextInput::make('mail_from_address')
+                            ->label('From Address')
+                            ->email()
+                            ->helperText('Alamat pengirim yang tampil ke pembeli. Sebaiknya email valid dari domain/provider yang sama, contoh: no-reply@domainkamu.com.'),
+
+                        TextInput::make('mail_from_name')
+                            ->label('From Name')
+                            ->helperText('Nama pengirim yang terlihat di inbox pembeli, contoh: '. env('APP_NAME')),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+
+                Section::make('Invoice Delivery Channels')
+                    ->description('Atur apakah invoice / update transaksi dikirim via WhatsApp, email, atau keduanya.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('invoice_notify_via_whatsapp')
+                            ->label('Kirim Invoice via WhatsApp')
+                            ->default(true)
+                            ->helperText('Jika aktif, update transaksi/invoice akan dikirim ke WhatsApp pembeli.'),
+
+                        Toggle::make('invoice_notify_via_email')
+                            ->label('Kirim Invoice via Email')
+                            ->default(true)
+                            ->helperText('Jika aktif, update transaksi/invoice akan dikirim ke email pembeli.'),
+                    ])
+                    ->collapsible(),
                     
                 // Payment Accounts
                 Section::make('E-Wallet Accounts')
@@ -544,17 +777,65 @@ class Settings extends Page implements HasForms
         // Load data from database
         $settings = SettingWeb::first();
         
-        if (!$settings) {
-            // Return empty array if no settings exist yet
-            return [];
-        }
-        
-        return $settings->toArray();
+        $data = $settings?->toArray() ?? [];
+
+        $data['mail_mailer'] ??= env('MAIL_MAILER', 'smtp');
+        $data['mail_host'] ??= env('MAIL_HOST', 'smtp.mailgun.org');
+        $data['mail_port'] ??= env('MAIL_PORT', 587);
+        $data['mail_username'] ??= env('MAIL_USERNAME');
+        $data['mail_password'] ??= env('MAIL_PASSWORD');
+        $data['mail_encryption'] ??= env('MAIL_ENCRYPTION', 'tls');
+        $data['mail_from_address'] ??= env('MAIL_FROM_ADDRESS', 'hello@example.com');
+        $data['mail_from_name'] ??= env('MAIL_FROM_NAME', 'Example');
+        $data['invoice_notify_via_whatsapp'] = array_key_exists('invoice_notify_via_whatsapp', $data)
+            ? (bool) $data['invoice_notify_via_whatsapp']
+            : true;
+        $data['invoice_notify_via_email'] = array_key_exists('invoice_notify_via_email', $data)
+            ? (bool) $data['invoice_notify_via_email']
+            : true;
+        $data['wa_provider'] ??= 'fonnte';
+        $data['easywa_email'] ??= null;
+        $data['easywa_secret_key'] ??= null;
+        $data['easywa_send_type'] ??= 'sync';
+        $data['easywa_send_delay'] ??= 0;
+        $data['captcha_site_key'] ??= env('NOCAPTCHA_SITEKEY');
+        $data['captcha_secret'] ??= env('NOCAPTCHA_SECRET');
+        $data['captcha_enabled'] = array_key_exists('captcha_enabled', $data)
+            ? (bool) $data['captcha_enabled']
+            : filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL);
+        $data['captcha_bypass'] = array_key_exists('captcha_bypass', $data)
+            ? (bool) $data['captcha_bypass']
+            : false;
+        $data['seasonal_enabled'] = array_key_exists('seasonal_enabled', $data)
+            ? (bool) $data['seasonal_enabled']
+            : false;
+        $data['seasonal_mode'] ??= 'manual';
+        $data['seasonal_theme'] ??= 'ramadhan';
+        $data['seasonal_effect_intensity'] ??= 'subtle';
+        $data['seasonal_starts_at'] ??= null;
+        $data['seasonal_ends_at'] ??= null;
+
+        return $data;
     }
     
     public function save(): void
     {
         $data = $this->form->getState();
+
+        if (
+            ($data['seasonal_mode'] ?? 'manual') === 'date_range' &&
+            ! empty($data['seasonal_starts_at']) &&
+            ! empty($data['seasonal_ends_at']) &&
+            strtotime((string) $data['seasonal_ends_at']) < strtotime((string) $data['seasonal_starts_at'])
+        ) {
+            Notification::make()
+                ->title('Jadwal tema musiman tidak valid')
+                ->body('Tanggal berakhir harus lebih besar atau sama dengan tanggal mulai.')
+                ->danger()
+                ->send();
+
+            return;
+        }
         
         // Get or create settings record
         $settings = SettingWeb::firstOrNew(['id' => 1]);
@@ -565,9 +846,25 @@ class Settings extends Page implements HasForms
                 $data[$logoField] = $settings->{$logoField};
             }
         }
+
+        if (empty($data['mail_password']) && !empty($settings->mail_password)) {
+            $data['mail_password'] = $settings->mail_password;
+        }
+
+        if (empty($data['easywa_secret_key']) && !empty($settings->easywa_secret_key)) {
+            $data['easywa_secret_key'] = $settings->easywa_secret_key;
+        }
+
+        if (empty($data['captcha_secret']) && !empty($settings->captcha_secret)) {
+            $data['captcha_secret'] = $settings->captcha_secret;
+        }
         
         // Check if WA Number changed and trigger API update
-        if (isset($data['wa_number']) && $settings->wa_number !== $data['wa_number']) {
+        if (
+            ($data['wa_provider'] ?? 'fonnte') === 'fonnte' &&
+            isset($data['wa_number']) &&
+            $settings->wa_number !== $data['wa_number']
+        ) {
              $this->changeNumber($data['wa_number'], $data['wa_key'] ?? $settings->wa_key);
         }
         
@@ -594,5 +891,80 @@ class Settings extends Page implements HasForms
             // Log error or silently fail if not critical
             \Illuminate\Support\Facades\Log::error('Failed to change WA number: ' . $e->getMessage());
         }
+    }
+
+    protected function makeSendTestEmailAction(): Action
+    {
+        return Action::make('send_test_email')
+            ->label('Send Test Email')
+            ->icon('heroicon-o-envelope')
+            ->color('info')
+            ->form([
+                TextInput::make('email')
+                    ->label('Email Tujuan')
+                    ->email()
+                    ->required(),
+            ])
+            ->action(function (array $data, EmailNotificationService $emailNotificationService): void {
+                $sent = $emailNotificationService->sendTestEmail($data['email']);
+
+                Notification::make()
+                    ->title($sent ? 'Test email terkirim' : 'Test email gagal')
+                    ->body($sent ? 'Cek inbox email tujuan.' : 'Cek konfigurasi SMTP dan log aplikasi.')
+                    ->{$sent ? 'success' : 'danger'}()
+                    ->send();
+            });
+    }
+
+    protected function makeSendTestWhatsappAction(): Action
+    {
+        return Action::make('send_test_whatsapp')
+            ->label('Send Test WhatsApp')
+            ->icon('heroicon-o-chat-bubble-left-right')
+            ->color('success')
+            ->form([
+                TextInput::make('target')
+                    ->label('Nomor Tujuan')
+                    ->required()
+                    ->helperText('Contoh: 08123456789'),
+                TextInput::make('message')
+                    ->label('Pesan Test')
+                    ->default('Test WhatsApp dari halaman settings admin.')
+                    ->required(),
+            ])
+            ->action(function (array $data, WhatsappNotificationService $whatsappNotificationService): void {
+                $result = $whatsappNotificationService->sendTestMessage($data['target'], $data['message']);
+                $success = (bool) ($result['success'] ?? false);
+                $body = trim((string) ($result['message'] ?? 'Unknown response'));
+
+                if (($result['provider'] ?? null) === 'fonnte' && ! empty($result['request_id'])) {
+                    $body .= ' | request id: ' . $result['request_id'];
+                }
+
+                Notification::make()
+                    ->title($success ? 'Test WhatsApp terkirim' : 'Test WhatsApp gagal')
+                    ->body($body)
+                    ->{$success ? 'success' : 'danger'}()
+                    ->send();
+            });
+    }
+
+    protected function makeCheckWhatsappStatusAction(): Action
+    {
+        return Action::make('check_whatsapp_status')
+            ->label('Check WA Status')
+            ->icon('heroicon-o-signal')
+            ->color('gray')
+            ->action(function (WhatsappNotificationService $whatsappNotificationService): void {
+                $result = $whatsappNotificationService->getProviderStatus();
+                $success = (bool) ($result['success'] ?? false);
+                $status = strtoupper((string) ($result['status'] ?? 'UNKNOWN'));
+
+                Notification::make()
+                    ->title($success ? 'Status WhatsApp Provider' : 'Gagal cek status WhatsApp')
+                    ->body($success ? ($status . ' - ' . ($result['message'] ?? '')) : ($result['message'] ?? 'Unknown response'))
+                    ->{$success ? 'success' : 'danger'}()
+                    ->send();
+            });
     }
 }

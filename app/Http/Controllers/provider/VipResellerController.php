@@ -3,75 +3,214 @@
 namespace App\Http\Controllers\provider;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Models\SettingWeb;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class VipResellerController extends Controller
 {
-    protected $apiId;
-    protected $apiKey;
+    protected string $apiId = '';
 
-    public function __construct($config = [])
+    protected string $apiKey = '';
+
+    protected string $endpoint = 'https://vip-reseller.co.id/api/game-feature';
+
+    public function __construct(array $config = [])
     {
-        if (!empty($config)) {
-            $this->apiId = $config['api_id'] ?? $config['vip_apiid'] ?? '';
-            $this->apiKey = $config['api_key'] ?? $config['vip_apikey'] ?? '';
-        } else {
-            // Fallback
-            $api = \DB::table('setting_webs')->where('id', 1)->first();
-            $this->apiId = $api->vip_apiid;
-            $this->apiKey = $api->vip_apikey;
+        if (! empty($config)) {
+            $this->apiId = (string) ($config['api_id'] ?? $config['vip_apiid'] ?? '');
+            $this->apiKey = (string) ($config['api_key'] ?? $config['vip_apikey'] ?? '');
+            $this->endpoint = (string) ($config['endpoint'] ?? $this->endpoint);
+
+            return;
         }
+
+        $api = SettingWeb::query()->where('id', 1)->first();
+
+        $this->apiId = (string) ($api->vip_apiid ?? '');
+        $this->apiKey = (string) ($api->vip_apikey ?? '');
     }
 
-    public function order($uid = null, $zone = null, $service = null)
+    public function order($uid = null, $zone = null, $service = null): array
     {
-        $sign = md5($this->apiId . $this->apiKey);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
-        curl_setopt($ch, CURLOPT_POST, TRUE);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiKey . "&sign=$sign&type=order&service=$service&data_no=$uid&data_zone=$zone");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        $res = json_decode(curl_exec($ch), true);
-        return $res;
+        $payload = [
+            'type' => 'order',
+            'service' => $service,
+            'data_no' => $uid,
+        ];
+
+        if (filled($zone)) {
+            $payload['data_zone'] = $zone;
+        }
+
+        return $this->request($payload);
     }
 
-    public function status($poid = null)
+    public function status($trxid = null, ?int $limit = null): array
     {
-        $sign = md5($this->apiId . $this->apiKey);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
-        curl_setopt($ch, CURLOPT_POST, TRUE);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiId . "&sign=$sign&type=status&trxid=$poid"); // Note: Documentation checks needed for 'key' param (apiId vs apiKey). Logic copied from original.
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        $res = json_decode(curl_exec($ch), true);
-        return $res;
-    }
-    
-    public function username($uid = null, $zone = null, $service = null)
-    {
-        $sign = md5($this->apiId . $this->apiKey);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
-        curl_setopt($ch, CURLOPT_POST, TRUE);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiKey . "&sign=$sign&type=get-nickname&service=$service&data_no=$uid&data_zone=$zone");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        $res = json_decode(curl_exec($ch), true);
-        return $res;
+        $payload = [
+            'type' => 'status',
+        ];
+
+        if (filled($trxid)) {
+            $payload['trxid'] = $trxid;
+        } elseif ($limit !== null) {
+            $payload['limit'] = $limit;
+        }
+
+        return $this->request($payload);
     }
 
-    public function profile()
+    public function services(?string $filterGame = null, ?string $filterStatus = null): array
     {
-        $sign = md5($this->apiId . $this->apiKey);
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, 'https://vip-reseller.co.id/api/game-feature');
-        curl_setopt($ch, CURLOPT_POST, TRUE);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, "key=" . $this->apiKey . "&sign=$sign&type=profile");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-        $res = json_decode(curl_exec($ch), true);
-        return $res;
+        $payload = [
+            'type' => 'services',
+        ];
+
+        if (filled($filterGame)) {
+            $payload['filter_game'] = $filterGame;
+        }
+
+        if (filled($filterStatus)) {
+            $payload['filter_status'] = $filterStatus;
+        }
+
+        return $this->request($payload);
+    }
+
+    public function serviceStock(string $service): array
+    {
+        return $this->request([
+            'type' => 'service-stock',
+            'service' => $service,
+        ]);
+    }
+
+    public function getNickname($code = null, $target = null, $additionalTarget = null): array
+    {
+        $payload = [
+            'type' => 'get-nickname',
+            'code' => $code,
+            'target' => $target,
+        ];
+
+        if (filled($additionalTarget)) {
+            $payload['additional_target'] = $additionalTarget;
+        }
+
+        return $this->request($payload);
+    }
+
+    public function username($uid = null, $zone = null, $service = null): array
+    {
+        return $this->getNickname($service, $uid, $zone);
+    }
+
+    public function profile(): array
+    {
+        // Inference: legacy project expects a balance/profile check. Official game-feature docs
+        // don't document profile here, but existing project relies on this endpoint/mode.
+        return $this->request([
+            'type' => 'profile',
+        ]);
+    }
+
+    public static function expectedSignature(string $apiId, string $apiKey): string
+    {
+        return md5($apiId . $apiKey);
+    }
+
+    public static function normalizeStatusMeta(?string $status): array
+    {
+        $raw = strtolower(trim((string) $status));
+
+        $meta = match ($raw) {
+            'waiting' => [
+                'internal_status' => 'Pending',
+                'is_final' => false,
+                'should_refund' => false,
+                'is_partial' => false,
+            ],
+            'processing', 'proccessing' => [
+                'internal_status' => 'Processing',
+                'is_final' => false,
+                'should_refund' => false,
+                'is_partial' => false,
+            ],
+            'success' => [
+                'internal_status' => 'Sukses',
+                'is_final' => true,
+                'should_refund' => false,
+                'is_partial' => false,
+            ],
+            'error', 'canceled', 'cancelled' => [
+                'internal_status' => 'Gagal',
+                'is_final' => true,
+                'should_refund' => true,
+                'is_partial' => false,
+            ],
+            'partial' => [
+                'internal_status' => 'Processing',
+                'is_final' => false,
+                'should_refund' => false,
+                'is_partial' => true,
+            ],
+            default => [
+                'internal_status' => 'Pending',
+                'is_final' => false,
+                'should_refund' => false,
+                'is_partial' => false,
+            ],
+        };
+
+        $meta['raw_status'] = $raw === '' ? 'unknown' : $raw;
+
+        return $meta;
+    }
+
+    protected function request(array $payload): array
+    {
+        if ($this->apiId === '' || $this->apiKey === '') {
+            return [
+                'result' => false,
+                'message' => 'Konfigurasi VIP Reseller belum lengkap.',
+            ];
+        }
+
+        $payload = array_merge([
+            'key' => $this->apiKey,
+            'sign' => self::expectedSignature($this->apiId, $this->apiKey),
+        ], array_filter($payload, static fn ($value) => $value !== null && $value !== ''));
+
+        $response = Http::asForm()
+            ->timeout(30)
+            ->post($this->endpoint, $payload);
+
+        Log::info('VipReseller request', [
+            'endpoint' => $this->endpoint,
+            'payload' => array_diff_key($payload, ['sign' => true, 'key' => true]),
+            'status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
+        if (! $response->successful()) {
+            return [
+                'result' => false,
+                'message' => 'VIP Reseller HTTP ' . $response->status(),
+                'raw' => $response->body(),
+            ];
+        }
+
+        $decoded = $response->json();
+
+        if (! is_array($decoded)) {
+            return [
+                'result' => false,
+                'message' => 'Invalid VIP Reseller response.',
+                'raw' => $response->body(),
+            ];
+        }
+
+        return $decoded;
     }
 }

@@ -22,6 +22,7 @@ use App\Http\Controllers\digiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\DigiflazzCallbackController;
+use App\Http\Controllers\VipResellerCallbackController;
 use App\Http\Controllers\RiwayatPembelian;
 use App\Http\Controllers\Admin\UserDepositController;
 use App\Http\Controllers\MemberController;
@@ -194,6 +195,7 @@ Route::middleware(['xss', 'sanitize',])->group(function () {
 
 // Rute callback
 Route::post('/wejizy/digi/payload',                                                   [DigiflazzCallbackController::class, 'handle']);
+Route::post('/wejizy/vip/callback',                                                   [VipResellerCallbackController::class, 'handle']);
 Route::post('/wejizy/tokopay/callback',                                              [TokoPayCallbackController::class, 'handle']);
 Route::post('/wejizy/tripay/callback', [TriPayCallbackController::class, 'handle']);
 Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, 'callbackTransaction']);

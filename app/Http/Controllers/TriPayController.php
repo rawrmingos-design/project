@@ -48,17 +48,28 @@ class TriPayController extends Controller
         $paymentNumber = '';
 
         if (isset($response->success) && $response->success == true) {
-            if (empty($response->data->pay_code)) {
-                if (empty($response->data->pay_url)) {
-                    $paymentNumber = $response->data->qr_url;
-                } else {
-                    $paymentNumber = $response->data->pay_url;
-                }
-            } else {
+            $methodCode = strtoupper((string) $method);
+            $isQrMethod = str_contains($methodCode, 'QR');
+
+            if (!empty($response->data->pay_code)) {
                 $paymentNumber = $response->data->pay_code;
+            } elseif ($isQrMethod && !empty($response->data->qr_url)) {
+                // QR methods should prioritize direct QR URL over payment URL.
+                $paymentNumber = $response->data->qr_url;
+            } elseif (!empty($response->data->pay_url)) {
+                $paymentNumber = $response->data->pay_url;
+            } elseif (!empty($response->data->qr_url)) {
+                $paymentNumber = $response->data->qr_url;
             }
 
-            return array('success' => $response->success, 'amount' => $response->data->amount, 'no_pembayaran' => $paymentNumber, 'reference' => $response->data->reference);
+            return array(
+                'success' => $response->success,
+                'amount' => $response->data->amount,
+                'no_pembayaran' => $paymentNumber,
+                'reference' => $response->data->reference,
+                'expired_at' => $response->data->expired_time ?? null,
+            );
+            
         } else {
             $err = isset($response->message) ? strtolower($response->message) : 'unknown error';
             $msg = '';

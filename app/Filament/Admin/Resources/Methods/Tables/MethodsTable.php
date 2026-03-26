@@ -21,8 +21,10 @@ class MethodsTable
                 ImageColumn::make('images')
                     ->label('Logo')
                     ->disk('assets')
+                    ->getStateUsing(fn ($record): string => ltrim((string) ($record->getRawOriginal('images') ?: $record->images ?: ''), '/'))
                     ->circular()
-                    ->size(40),
+                    ->size(40)
+                    ->defaultImageUrl(asset('assets/logo/favicon.webp')),
                     
                 TextColumn::make('name')
                     ->label('Nama Metode')
@@ -39,10 +41,10 @@ class MethodsTable
                     ->label('Tipe')
                     ->colors([
                         'primary' => 'bank',
-                        'success' => 'ewallet',
+                        'success' => 'e-walet',
                         'warning' => 'qris',
-                        'info' => 'virtual_account',
-                        'secondary' => 'convenience_store',
+                        'info' => 'virtual-account',
+                        'secondary' => 'convenience-store',
                     ]),
                     
                 BadgeColumn::make('payment')
@@ -91,10 +93,10 @@ class MethodsTable
                     ->label('Tipe')
                     ->options([
                         'bank' => 'Bank Transfer',
-                        'ewallet' => 'E-Wallet',
+                        'e-walet' => 'E-Wallet',
                         'qris' => 'QRIS',
-                        'virtual_account' => 'Virtual Account',
-                        'convenience_store' => 'Convenience Store',
+                        'virtual-account' => 'Virtual Account',
+                        'convenience-store' => 'Convenience Store',
                     ]),
                     
                 SelectFilter::make('payment')

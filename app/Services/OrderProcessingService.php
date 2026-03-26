@@ -170,13 +170,21 @@ class OrderProcessingService
                 $vip = new VipResellerController($credentials);
                 $response = $vip->order($uid, $zone, $sku);
 
-                if ($response['result']) {
+                if (($response['result'] ?? false) === true) {
+                    $statusMeta = VipResellerController::normalizeStatusMeta($response['data']['status'] ?? null);
+                    $note = trim((string) ($response['data']['note'] ?? ''));
+
+                    if (($statusMeta['is_partial'] ?? false) === true) {
+                        $note = trim(($note !== '' ? $note . ' | ' : '') . 'VIP partial: cek refund/penyelesaian manual di provider.');
+                    }
+
                     $result['success'] = true;
-                    $result['order_status'] = $response['data']['status'] == 'success' ? 'Sukses' : 'Pending';
-                    $result['transaction_id'] = $response['data']['trxid'];
-                    $result['message'] = $response['message'];
+                    $result['order_status'] = $statusMeta['internal_status'];
+                    $result['transaction_id'] = $response['data']['trxid'] ?? $providerReference;
+                    $result['sn'] = $note !== '' ? $note : (($statusMeta['internal_status'] === 'Pending' || $statusMeta['internal_status'] === 'Processing') ? 'Sedang Diproses' : null);
+                    $result['message'] = $response['message'] ?? 'VIP Reseller order processed.';
                 } else {
-                    $result['message'] = $response['message'];
+                    $result['message'] = $response['message'] ?? 'VIP Reseller failed';
                 }
 
                 return $result;

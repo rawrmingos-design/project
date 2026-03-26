@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use App\Models\Deposit;
 use App\Models\Berita;
 use App\Models\Pembayaran;
@@ -136,7 +137,8 @@ class DepositController extends Controller
                             'pay_url' => $res['paymentUrl'] ?? null,
                             'va_number' => $res['vaNumber'] ?? $res['qrString'] ?? null,
                             'amount' => $gross_amount, // Duitku confirmed amount
-                            'gateway_ref' => $res['reference']
+                            'gateway_ref' => $res['reference'],
+                            'expired_at' => now()->addMinutes(60)->toIso8601String(),
                         ];
                     } else {
                         throw new \Exception('Duitku Error: ' . ($res['statusMessage'] ?? 'Unknown'));
@@ -164,7 +166,8 @@ class DepositController extends Controller
                             'pay_url' => null, // Tripay usually gives checkout URL or QR string
                             'va_number' => $res['no_pembayaran'], // Can be QR String or VA
                             'amount' => $res['amount'],
-                            'gateway_ref' => $res['reference']
+                            'gateway_ref' => $res['reference'],
+                            'expired_at' => $res['expired_at'] ?? null,
                         ];
                         // If it's a URL, handle it
                         if (filter_var($res['no_pembayaran'], FILTER_VALIDATE_URL)) {
@@ -198,7 +201,8 @@ class DepositController extends Controller
                             'pay_url' => $data['pay_url'] ?? null,
                             'va_number' => $data['pay_url'] ?? null, // Tokopay often gives pay_url for QRIS
                             'amount' => $data['amount'] ?? $gross_amount,
-                            'gateway_ref' => $data['trx_id'] ?? null
+                            'gateway_ref' => $data['trx_id'] ?? null,
+                            'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
                         ];
                      } else {
                          throw new \Exception('Tokopay Error: ' . ($res['error_msg'] ?? 'Unknown'));
@@ -228,6 +232,7 @@ class DepositController extends Controller
                 $pembayaran->status = 'Belum Lunas';
                 $pembayaran->metode = $request->metode; // Store Method Code (e.g. QRIS)
                 $pembayaran->reference = $result['gateway_ref'];
+                $pembayaran->expired_at = $this->resolvePaymentExpiryAt($result, $gateway);
                 // Gateway specific columns if needed
                 if ($gateway == 'duitku') {
                     $pembayaran->duitku_reference = $result['gateway_ref'];
@@ -262,5 +267,45 @@ class DepositController extends Controller
             'BNC' => 'NC',
         ];
         return $maps[$code] ?? $code;
+    }
+
+    private function resolvePaymentExpiryAt(array $result, string $gateway): ?Carbon
+    {
+        $candidates = [
+            $result['expired_at'] ?? null,
+            $result['expires_at'] ?? null,
+            $result['expired_time'] ?? null,
+            $result['expired_ts'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (blank($candidate)) {
+                continue;
+            }
+
+            if (is_numeric($candidate)) {
+                $timestamp = (int) $candidate;
+
+                // Normalize millisecond epoch values from some gateways.
+                if ($timestamp > 9_999_999_999) {
+                    $timestamp = (int) floor($timestamp / 1000);
+                }
+
+                return Carbon::createFromTimestamp($timestamp, config('app.timezone'));
+            }
+
+            try {
+                return Carbon::parse($candidate, config('app.timezone'));
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return match (strtolower($gateway)) {
+            'duitku' => now()->addMinutes(60),
+            'tripay' => now()->addHours(24),
+            'tokopay' => now()->addHours(3),
+            default => now()->addHours(3),
+        };
     }
 }

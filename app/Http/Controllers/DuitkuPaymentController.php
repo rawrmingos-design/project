@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Pembelian;
@@ -122,6 +123,7 @@ class DuitkuPaymentController extends Controller
                     'qrString' => $result['qrString'] ?? null,
                     'amount' => $result['amount'] ?? $order->harga,
                     'merchantOrderId' => $merchantOrderId,
+                    'expired_at' => Carbon::now()->addMinutes((int) ($params['expiryPeriod'] ?? 60))->toIso8601String(),
                 ];
             }
 

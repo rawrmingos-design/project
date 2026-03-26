@@ -1,0 +1,90 @@
+/* Seasonal theme layer: global backdrop + light component tint.
+   This keeps existing layout intact while changing page atmosphere. */
+
+body[data-season-theme="default"] {
+    --season-card-tint: transparent;
+}
+
+.seasonal-global-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .45s ease;
+    background: transparent;
+}
+
+body[data-season-theme]:not([data-season-theme="default"]) .seasonal-global-bg {
+    opacity: 1;
+}
+
+body[data-season-theme="ramadhan"][data-season-intensity="subtle"] {
+    --season-card-tint: rgba(16, 185, 129, 0.12);
+}
+
+body[data-season-theme="ramadhan"][data-season-intensity="subtle"] .seasonal-global-bg {
+    background-image:
+        radial-gradient(circle at 10% -6%, rgba(34, 197, 94, .28) 0%, rgba(34, 197, 94, 0) 38%),
+        radial-gradient(circle at 90% 4%, rgba(250, 204, 21, .22) 0%, rgba(250, 204, 21, 0) 34%),
+        radial-gradient(circle at 48% 112%, rgba(20, 184, 166, .2) 0%, rgba(20, 184, 166, 0) 44%),
+        linear-gradient(180deg, rgba(6, 78, 59, .24) 0%, rgba(15, 23, 42, .58) 100%);
+}
+
+body[data-season-theme="ramadhan"][data-season-intensity="normal"] {
+    --season-card-tint: rgba(16, 185, 129, 0.2);
+}
+
+body[data-season-theme="ramadhan"][data-season-intensity="normal"] .seasonal-global-bg {
+    background-image:
+        radial-gradient(circle at 8% -10%, rgba(34, 197, 94, .38) 0%, rgba(34, 197, 94, 0) 42%),
+        radial-gradient(circle at 92% 8%, rgba(250, 204, 21, .34) 0%, rgba(250, 204, 21, 0) 36%),
+        radial-gradient(circle at 50% 116%, rgba(45, 212, 191, .3) 0%, rgba(45, 212, 191, 0) 46%),
+        linear-gradient(180deg, rgba(5, 150, 105, .34) 0%, rgba(15, 23, 42, .66) 100%);
+}
+
+body[data-season-theme="halloween"][data-season-intensity="subtle"] {
+    --season-card-tint: rgba(249, 115, 22, 0.12);
+}
+
+body[data-season-theme="halloween"][data-season-intensity="subtle"] .seasonal-global-bg {
+    background-image:
+        radial-gradient(circle at 8% -4%, rgba(249, 115, 22, .3) 0%, rgba(249, 115, 22, 0) 38%),
+        radial-gradient(circle at 90% 10%, rgba(192, 132, 252, .24) 0%, rgba(192, 132, 252, 0) 36%),
+        radial-gradient(circle at 46% 114%, rgba(244, 63, 94, .2) 0%, rgba(244, 63, 94, 0) 45%),
+        linear-gradient(180deg, rgba(88, 28, 135, .22) 0%, rgba(15, 23, 42, .6) 100%);
+}
+
+body[data-season-theme="halloween"][data-season-intensity="normal"] {
+    --season-card-tint: rgba(249, 115, 22, 0.2);
+}
+
+body[data-season-theme="halloween"][data-season-intensity="normal"] .seasonal-global-bg {
+    background-image:
+        radial-gradient(circle at 6% -8%, rgba(249, 115, 22, .4) 0%, rgba(249, 115, 22, 0) 42%),
+        radial-gradient(circle at 94% 12%, rgba(192, 132, 252, .34) 0%, rgba(192, 132, 252, 0) 38%),
+        radial-gradient(circle at 48% 118%, rgba(244, 63, 94, .32) 0%, rgba(244, 63, 94, 0) 48%),
+        linear-gradient(180deg, rgba(124, 45, 18, .28) 0%, rgba(15, 23, 42, .68) 100%);
+}
+
+body[data-season-theme]:not([data-season-theme="default"]) .rounded-xl.bg-murky-800,
+body[data-season-theme]:not([data-season-theme="default"]) .invoice-panel,
+body[data-season-theme]:not([data-season-theme="default"]) .invoice-status-banner__panel {
+    box-shadow:
+        inset 0 0 0 1px var(--season-card-tint),
+        0 12px 30px rgba(2, 6, 23, 0.28);
+}
+
+body[data-season-theme="ramadhan"] .bg-title-product.dynamic-bg {
+    background-image: linear-gradient(90deg, rgba(5, 150, 105, 0.32), rgba(15, 23, 42, 0.18));
+}
+
+body[data-season-theme="halloween"] .bg-title-product.dynamic-bg {
+    background-image: linear-gradient(90deg, rgba(249, 115, 22, 0.3), rgba(88, 28, 135, 0.24));
+}
+
+@media (max-width: 768px) {
+    .seasonal-global-bg {
+        opacity: .92;
+    }
+}

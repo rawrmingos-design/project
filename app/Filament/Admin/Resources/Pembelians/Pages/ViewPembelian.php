@@ -3,8 +3,8 @@
 namespace App\Filament\Admin\Resources\Pembelians\Pages;
 
 use App\Filament\Admin\Resources\Pembelians\PembelianResource;
+use App\Jobs\SendPembelianToProviderJob;
 use App\Models\ProviderPath;
-use App\Services\OrderProcessingService;
 use App\Services\ResetDomainService;
 use App\Support\PembelianStatus;
 use DomainException;
@@ -305,52 +305,27 @@ class ViewPembelian extends ViewRecord
                     $this->getCurrentProviderLabel(),
                     $this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id,
                 ))
-                ->action(function (OrderProcessingService $orderProcessingService): void {
+                ->action(function (): void {
                     try {
-                        $result = $orderProcessingService->process($this->record);
-
-                        if (! ($result['success'] ?? false)) {
-                            $this->record->update([
-                                'log' => $this->appendBoundedLog(
-                                    $this->record->log,
-                                    'Provider dispatch failed at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Unknown error'),
-                                ),
-                            ]);
-
-                            Notification::make()
-                                ->title('Send callback gagal')
-                                ->body($result['message'] ?? 'Unknown error')
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::PENDING);
-                        $nextStatus = $normalizedStatus === PembelianStatus::SUCCESS
-                            ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
-                            : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
-
                         $this->record->update([
-                            'provider_order_id' => $result['transaction_id'] ?? $this->record->provider_order_id,
-                            'status' => $nextStatus,
-                            'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: ($normalizedStatus === PembelianStatus::PENDING ? 'Sedang Diproses' : $this->record->keterangan_sn),
                             'log' => $this->appendBoundedLog(
                                 $this->record->log,
-                                'Provider dispatch at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Order dispatched'),
+                                'Provider dispatch queued at ' . now()->format('Y-m-d H:i:s') . ' by admin.',
                             ),
                             'reset_status' => $this->record->invoice_version > 0 ? 'processing' : $this->record->reset_status,
                         ]);
 
+                        SendPembelianToProviderJob::dispatch($this->record->getKey(), Auth::id());
+
                         $this->record->refresh();
 
                         Notification::make()
-                            ->title('Transaksi berhasil dikirim ke provider')
+                            ->title('Send callback masuk antrean')
                             ->body('Reference aktif: ' . ($this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id))
                             ->success()
                             ->send();
                     } catch (\Throwable $exception) {
-                        Log::error('Send callback action failed.', [
+                        Log::error('Queueing send callback action failed.', [
                             'order_id' => $this->record->order_id,
                             'display_order_id' => $this->record->display_order_id,
                             'active_attempt_reference' => $this->record->active_attempt_reference,
@@ -359,16 +334,9 @@ class ViewPembelian extends ViewRecord
                             'message' => $exception->getMessage(),
                         ]);
 
-                        $this->record->update([
-                            'log' => $this->appendBoundedLog(
-                                $this->record->log,
-                                'Provider dispatch exception at ' . now()->format('Y-m-d H:i:s') . ': ' . $exception->getMessage(),
-                            ),
-                        ]);
-
                         Notification::make()
                             ->title('Send callback gagal')
-                            ->body('Terjadi error server saat mengirim transaksi. Cek log aplikasi untuk detailnya.')
+                            ->body('Job tidak berhasil dimasukkan ke antrean. Cek log aplikasi untuk detailnya.')
                             ->danger()
                             ->send();
                     }
