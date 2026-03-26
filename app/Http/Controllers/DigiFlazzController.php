@@ -36,6 +36,7 @@ class DigiFlazzController extends Controller
             'username' => $this->username,
             'buyer_sku_code' => $service,
             'customer_no' => $target,
+            'testing' => env('APP_ENV') === 'local',
             'ref_id' => strval($order_id),
             'sign' => $sign,
             'cb_url' => env('APP_URL_CALLBACK') . '/wejizy/digi/payload',
