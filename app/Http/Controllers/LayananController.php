@@ -12,7 +12,7 @@ class LayananController extends Controller
 {
     public function create()
     {
-        $datas = Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')->orderBy('created_at', 'desc')
+        $datas = Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')->orderBy('layanans.created_at', 'desc')
                 ->select('layanans.*', 'kategoris.nama AS nama_kategori')->get();
 
         $kategori = Kategori::get();

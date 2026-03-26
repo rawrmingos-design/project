@@ -18,7 +18,7 @@ class PricelistController extends Controller
         $datas = Cache::remember('pricelist_data', $ttl, function () {
             return Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')
                 ->where('kategoris.status', 'active')
-                ->orderBy('created_at', 'desc')
+                ->orderBy('layanans.created_at', 'desc')
                 ->select(
                     'layanans.id',
                     'layanans.kategori_id',

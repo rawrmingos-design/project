@@ -13,6 +13,21 @@ body[data-season-theme="default"] {
     opacity: 0;
     transition: opacity .45s ease;
     background: transparent;
+    --season-custom-image: none;
+    --season-custom-opacity: 0;
+}
+
+.seasonal-global-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--season-custom-image);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: var(--season-custom-opacity);
+    mix-blend-mode: screen;
+    pointer-events: none;
 }
 
 body[data-season-theme]:not([data-season-theme="default"]) .seasonal-global-bg {
