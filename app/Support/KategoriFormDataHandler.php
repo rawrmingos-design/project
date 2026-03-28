@@ -41,6 +41,7 @@ class KategoriFormDataHandler
             $data['banner_media_asset_id'],
             $data['thumbnail_input_mode'],
             $data['banner_input_mode'],
+            $data['use_custom_field_1'],
             $data['field_1_title'],
             $data['field_1_placeholder'],
             $data['field_1_type'],
@@ -58,6 +59,7 @@ class KategoriFormDataHandler
     public function extractCustomInputState(array $data): array
     {
         return [
+            'use_custom_field_1' => $data['use_custom_field_1'] ?? null,
             'field_1_title' => $data['field_1_title'] ?? null,
             'field_1_placeholder' => $data['field_1_placeholder'] ?? null,
             'field_1_type' => $data['field_1_type'] ?? null,

@@ -127,8 +127,7 @@ class MediaAssetsTable
                                     ->orWhere('path', 'like', '%.png')
                                     ->orWhere('path', 'like', '%.webp')
                                     ->orWhere('path', 'like', '%.gif')
-                                    ->orWhere('path', 'like', '%.svg')
-                                    ->orWhere('path', 'like', '%.bmp');
+                                    ->orWhere('path', 'like', '%.svg');
                             }),
                             'xml' => $query->where(function (Builder $builder): void {
                                 $builder
