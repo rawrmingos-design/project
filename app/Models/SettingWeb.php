@@ -25,5 +25,14 @@ class SettingWeb extends Model
         'seasonal_starts_at' => 'datetime',
         'seasonal_ends_at' => 'datetime',
         'seasonal_background_opacity' => 'integer',
+        'seo_robots_enabled' => 'boolean',
+        'seo_sitemap_enabled' => 'boolean',
+        'seo_sitemap_include_categories' => 'boolean',
+        'seo_sitemap_include_articles' => 'boolean',
+        'seo_sitemap_cache_minutes' => 'integer',
+        'seo_sitemap_mode' => 'string',
+        'seo_sitemap_index_asset_id' => 'integer',
+        'seo_sitemap_main_asset_id' => 'integer',
+        'seo_sitemap_categories_asset_id' => 'integer',
     ];
 }
