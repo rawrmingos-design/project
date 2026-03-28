@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Models\MediaAsset;
 use App\Models\SettingWeb;
 use App\Services\EmailNotificationService;
 use App\Services\WhatsappNotificationService;
+use App\Support\MediaAssetPicker;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
@@ -15,11 +17,16 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 class Settings extends Page implements HasForms
@@ -98,6 +105,197 @@ class Settings extends Page implements HasForms
                     ->collapsible()
                     ->collapsed(),
 
+                Section::make('SEO Crawling')
+                    ->description('Konfigurasi robots.txt dan sitemap.xml agar crawling bot mesin pencari tetap terkendali.')
+                    ->headerActions([
+                        $this->makeValidateSitemapXmlAction(),
+                    ])
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('seo_robots_enabled')
+                            ->label('Aktifkan robots.txt')
+                            ->default(true)
+                            ->helperText('Jika nonaktif, robots.txt akan menginstruksikan semua bot untuk tidak crawl.'),
+
+                        Toggle::make('seo_sitemap_enabled')
+                            ->label('Aktifkan sitemap.xml')
+                            ->default(true)
+                            ->live()
+                            ->helperText('Jika nonaktif, sitemap akan kosong.'),
+
+                        Select::make('seo_sitemap_mode')
+                            ->label('Mode Sitemap')
+                            ->options([
+                                'dynamic' => 'Dynamic (Disarankan)',
+                                'custom_upload' => 'Custom Upload (Media Manager)',
+                            ])
+                            ->default('dynamic')
+                            ->native(false)
+                            ->live()
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled'))
+                            ->helperText('Dynamic cocok untuk website template multi-client. Custom upload dipakai jika client minta file XML khusus.'),
+
+                        Toggle::make('seo_sitemap_include_categories')
+                            ->label('Masukkan URL Kategori Aktif ke Sitemap')
+                            ->default(true)
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled')),
+
+                        Toggle::make('seo_sitemap_include_articles')
+                            ->label('Masukkan URL Artikel Aktif ke Sitemap')
+                            ->default(true)
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled')),
+
+                        TextInput::make('seo_sitemap_cache_minutes')
+                            ->label('Cache Sitemap (menit)')
+                            ->numeric()
+                            ->default(30)
+                            ->minValue(5)
+                            ->maxValue(1440)
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled'))
+                            ->helperText('Disarankan 15-60 menit agar ringan namun tetap update.'),
+
+                        Hidden::make('seo_sitemap_index_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Hidden::make('seo_sitemap_main_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Hidden::make('seo_sitemap_categories_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('seo_sitemap_index_picker')
+                            ->label('Custom sitemap.xml (index)')
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled') && $get('seo_sitemap_mode') === 'custom_upload')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSeoSitemapIndexAsset',
+                                    'seo_sitemap_index_asset_id',
+                                    'Pilih File sitemap.xml dari Media Manager',
+                                    ['xml', 'dokumen', 'lainnya'],
+                                    'xml',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSeoSitemapIndexAsset',
+                                    'seo_sitemap_index_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('seo_sitemap_index_asset_id')))
+                            ->columnSpanFull(),
+
+                        Placeholder::make('seo_sitemap_main_picker')
+                            ->label('Custom sitemap-main.xml')
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled') && $get('seo_sitemap_mode') === 'custom_upload')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSeoSitemapMainAsset',
+                                    'seo_sitemap_main_asset_id',
+                                    'Pilih File sitemap-main.xml dari Media Manager',
+                                    ['xml', 'dokumen', 'lainnya'],
+                                    'xml',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSeoSitemapMainAsset',
+                                    'seo_sitemap_main_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('seo_sitemap_main_asset_id')))
+                            ->columnSpanFull(),
+
+                        Placeholder::make('seo_sitemap_categories_picker')
+                            ->label('Custom sitemap-categories.xml')
+                            ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled') && $get('seo_sitemap_mode') === 'custom_upload')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSeoSitemapCategoriesAsset',
+                                    'seo_sitemap_categories_asset_id',
+                                    'Pilih File sitemap-categories.xml dari Media Manager',
+                                    ['xml', 'dokumen', 'lainnya'],
+                                    'xml',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSeoSitemapCategoriesAsset',
+                                    'seo_sitemap_categories_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('seo_sitemap_categories_asset_id')))
+                            ->columnSpanFull(),
+
+                        Textarea::make('seo_robots_custom_lines')
+                            ->label('Custom Baris robots.txt')
+                            ->rows(6)
+                            ->live(debounce: 500)
+                            ->columnSpanFull()
+                            ->placeholder("User-agent: Googlebot-Image\nAllow: /payment\nDisallow: /private")
+                            ->helperText('Opsional. Satu aturan per baris, akan ditambahkan di bawah aturan default.'),
+
+                        Placeholder::make('seo_robots_preview')
+                            ->label('Preview robots.txt')
+                            ->content(function (Get $get): HtmlString {
+                                $robotsEnabled = (bool) $get('seo_robots_enabled');
+                                $sitemapEnabled = (bool) $get('seo_sitemap_enabled');
+                                $customLinesRaw = (string) ($get('seo_robots_custom_lines') ?? '');
+
+                                if (! $robotsEnabled) {
+                                    $preview = "User-agent: *\nDisallow: /\n";
+                                } else {
+                                    $lines = [
+                                        'User-agent: *',
+                                        'Allow: /',
+                                        'Disallow: /admin',
+                                        'Disallow: /livewire',
+                                        'Disallow: /callback',
+                                        'Disallow: /wejizy',
+                                        'Disallow: /cronjob',
+                                        'Disallow: /ipay88',
+                                    ];
+
+                                    $customLines = preg_split('/\R+/', $customLinesRaw) ?: [];
+                                    foreach ($customLines as $line) {
+                                        $line = trim($line);
+                                        if ($line !== '') {
+                                            $lines[] = $line;
+                                        }
+                                    }
+
+                                    if ($sitemapEnabled) {
+                                        $lines[] = '';
+                                        $lines[] = 'Sitemap: ' . url('/sitemap.xml');
+                                    }
+
+                                    $preview = implode("\n", $lines) . "\n";
+                                }
+
+                                return new HtmlString(
+                                    '<pre style="white-space:pre-wrap;word-break:break-word;padding:12px;border-radius:10px;background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.25);font-size:12px;line-height:1.55;">'
+                                    . e($preview)
+                                    . '</pre>'
+                                );
+                            })
+                            ->columnSpanFull(),
+
+                        Placeholder::make('seo_endpoint_info')
+                            ->label('Endpoint SEO Aktif')
+                            ->content(fn (): string => 'robots: ' . url('/robots.txt') . ' | sitemap index: ' . url('/sitemap.xml') . ' | sitemap main: ' . url('/sitemap-main.xml') . ' | sitemap categories: ' . url('/sitemap-categories.xml'))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+
                 Section::make('Admin Login CAPTCHA')
                     ->description('Konfigurasi Google reCAPTCHA untuk halaman login admin Filament. Bisa diaktifkan/nonaktifkan dan disediakan bypass darurat.')
                     ->columns(2)
@@ -135,6 +333,57 @@ class Settings extends Page implements HasForms
                         'lg' => 4,
                     ])
                     ->schema([
+                        Radio::make('logo_header_input_mode')
+                            ->label('Sumber Header Logo')
+                            ->options([
+                                'library' => 'Media Manager',
+                                'upload' => 'Upload Manual',
+                            ])
+                            ->default('upload')
+                            ->inline()
+                            ->inlineLabel(false)
+                            ->live()
+                            ->dehydrated()
+                            ->afterStateUpdated(function (string $state, callable $set): void {
+                                if ($state === 'library') {
+                                    $set('logo_header', null);
+                                }
+                            })
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        Hidden::make('logo_header_media_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('logo_header_media_asset_picker')
+                            ->label('Header Logo dari Media Manager')
+                            ->visible(fn (Get $get): bool => $get('logo_header_input_mode') === 'library')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSettingsLogoHeaderMediaAsset',
+                                    'logo_header_media_asset_id',
+                                    'Pilih Header Logo dari Media Manager',
+                                    ['logo', 'lainnya'],
+                                    'logo',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSettingsLogoHeaderMediaAsset',
+                                    'logo_header_media_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('logo_header_media_asset_id')))
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
                         FileUpload::make('logo_header')
                             ->label('Header Logo')
                             ->image()
@@ -142,7 +391,62 @@ class Settings extends Page implements HasForms
                             ->visibility('public')
                             ->directory('assets/logo')
                             ->maxSize(2048)
-                            ->columnSpan(1),
+                            ->visible(fn (Get $get): bool => $get('logo_header_input_mode') === 'upload')
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        Radio::make('logo_footer_input_mode')
+                            ->label('Sumber Footer Logo')
+                            ->options([
+                                'library' => 'Media Manager',
+                                'upload' => 'Upload Manual',
+                            ])
+                            ->default('upload')
+                            ->inline()
+                            ->inlineLabel(false)
+                            ->live()
+                            ->dehydrated()
+                            ->afterStateUpdated(function (string $state, callable $set): void {
+                                if ($state === 'library') {
+                                    $set('logo_footer', null);
+                                }
+                            })
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        Hidden::make('logo_footer_media_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('logo_footer_media_asset_picker')
+                            ->label('Footer Logo dari Media Manager')
+                            ->visible(fn (Get $get): bool => $get('logo_footer_input_mode') === 'library')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSettingsLogoFooterMediaAsset',
+                                    'logo_footer_media_asset_id',
+                                    'Pilih Footer Logo dari Media Manager',
+                                    ['logo', 'lainnya'],
+                                    'logo',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSettingsLogoFooterMediaAsset',
+                                    'logo_footer_media_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('logo_footer_media_asset_id')))
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
                             
                         FileUpload::make('logo_footer')
                             ->label('Footer Logo')
@@ -151,7 +455,62 @@ class Settings extends Page implements HasForms
                             ->visibility('public')
                             ->directory('assets/logo')
                             ->maxSize(2048)
-                            ->columnSpan(1),
+                            ->visible(fn (Get $get): bool => $get('logo_footer_input_mode') === 'upload')
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        Radio::make('logo_favicon_input_mode')
+                            ->label('Sumber Favicon')
+                            ->options([
+                                'library' => 'Media Manager',
+                                'upload' => 'Upload Manual',
+                            ])
+                            ->default('upload')
+                            ->inline()
+                            ->inlineLabel(false)
+                            ->live()
+                            ->dehydrated()
+                            ->afterStateUpdated(function (string $state, callable $set): void {
+                                if ($state === 'library') {
+                                    $set('logo_favicon', null);
+                                }
+                            })
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        Hidden::make('logo_favicon_media_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('logo_favicon_media_asset_picker')
+                            ->label('Favicon dari Media Manager')
+                            ->visible(fn (Get $get): bool => $get('logo_favicon_input_mode') === 'library')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSettingsLogoFaviconMediaAsset',
+                                    'logo_favicon_media_asset_id',
+                                    'Pilih Favicon dari Media Manager',
+                                    ['logo', 'lainnya'],
+                                    'logo',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSettingsLogoFaviconMediaAsset',
+                                    'logo_favicon_media_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('logo_favicon_media_asset_id')))
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
                             
                         FileUpload::make('logo_favicon')
                             ->label('Favicon')
@@ -160,8 +519,12 @@ class Settings extends Page implements HasForms
                             ->directory('assets/logo')
                             ->rules(['nullable', 'mimes:ico,png,svg,webp'])
                             ->maxSize(512)
+                            ->visible(fn (Get $get): bool => $get('logo_favicon_input_mode') === 'upload')
                             ->helperText('Format .ico/.png/.svg/.webp (16x16 atau 32x32 px)')
-                            ->columnSpan(1),
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
                             
                         ColorPicker::make('warna1')
                             ->label('Primary Color')
@@ -225,6 +588,52 @@ class Settings extends Page implements HasForms
                             ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
                             ->helperText('Subtle untuk efek ringan, Normal untuk nuansa lebih terasa.'),
 
+                        Radio::make('seasonal_background_image_input_mode')
+                            ->label('Sumber Background Musiman')
+                            ->options([
+                                'library' => 'Media Manager',
+                                'upload' => 'Upload Manual',
+                            ])
+                            ->default('upload')
+                            ->inline()
+                            ->inlineLabel(false)
+                            ->live()
+                            ->dehydrated()
+                            ->afterStateUpdated(function (string $state, callable $set): void {
+                                if ($state === 'library') {
+                                    $set('seasonal_background_image', null);
+                                }
+                            })
+                            ->columnSpanFull()
+                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled')),
+
+                        Hidden::make('seasonal_background_image_media_asset_id')
+                            ->dehydrated(true)
+                            ->afterStateHydrated(function (Hidden $component, $state): void {
+                                if ($state && ! MediaAssetPicker::isUsable($state)) {
+                                    $component->state(null);
+                                }
+                            }),
+
+                        Placeholder::make('seasonal_background_image_media_asset_picker')
+                            ->label('Background Musiman dari Media Manager')
+                            ->visible(fn (Get $get): bool => (bool) $get('seasonal_enabled') && $get('seasonal_background_image_input_mode') === 'library')
+                            ->hintActions([
+                                MediaAssetPicker::makeModalAction(
+                                    'chooseSettingsSeasonalBackgroundMediaAsset',
+                                    'seasonal_background_image_media_asset_id',
+                                    'Pilih Background Musiman dari Media Manager',
+                                    ['seasonal', 'banner', 'lainnya'],
+                                    'seasonal',
+                                ),
+                                MediaAssetPicker::makeClearAction(
+                                    'clearSettingsSeasonalBackgroundMediaAsset',
+                                    'seasonal_background_image_media_asset_id',
+                                ),
+                            ])
+                            ->content(fn (Get $get) => MediaAssetPicker::renderPreview($get('seasonal_background_image_media_asset_id')))
+                            ->columnSpanFull(),
+
                         FileUpload::make('seasonal_background_image')
                             ->label('Background Image (Opsional)')
                             ->image()
@@ -233,7 +642,7 @@ class Settings extends Page implements HasForms
                             ->directory('assets/seasonal')
                             ->maxSize(4096)
                             ->columnSpanFull()
-                            ->visible(fn (callable $get): bool => (bool) $get('seasonal_enabled'))
+                            ->visible(fn (Get $get): bool => (bool) $get('seasonal_enabled') && $get('seasonal_background_image_input_mode') === 'upload')
                             ->helperText('Upload background custom (JPG/PNG/WebP). Jika diisi, gambar ini akan ditumpuk di atas gradient seasonal.'),
 
                         TextInput::make('seasonal_background_opacity')
@@ -841,6 +1250,27 @@ class Settings extends Page implements HasForms
         $data['seasonal_ends_at'] ??= null;
         $data['seasonal_background_image'] ??= null;
         $data['seasonal_background_opacity'] ??= 38;
+        $data['seo_robots_enabled'] = array_key_exists('seo_robots_enabled', $data)
+            ? (bool) $data['seo_robots_enabled']
+            : true;
+        $data['seo_sitemap_enabled'] = array_key_exists('seo_sitemap_enabled', $data)
+            ? (bool) $data['seo_sitemap_enabled']
+            : true;
+        $data['seo_sitemap_include_categories'] = array_key_exists('seo_sitemap_include_categories', $data)
+            ? (bool) $data['seo_sitemap_include_categories']
+            : true;
+        $data['seo_sitemap_include_articles'] = array_key_exists('seo_sitemap_include_articles', $data)
+            ? (bool) $data['seo_sitemap_include_articles']
+            : true;
+        $data['seo_sitemap_cache_minutes'] = max(5, (int) ($data['seo_sitemap_cache_minutes'] ?? 30));
+        $data['seo_sitemap_mode'] = in_array((string) ($data['seo_sitemap_mode'] ?? 'dynamic'), ['dynamic', 'custom_upload'], true)
+            ? (string) $data['seo_sitemap_mode']
+            : 'dynamic';
+        $data['seo_sitemap_index_asset_id'] = isset($data['seo_sitemap_index_asset_id']) ? (int) $data['seo_sitemap_index_asset_id'] : null;
+        $data['seo_sitemap_main_asset_id'] = isset($data['seo_sitemap_main_asset_id']) ? (int) $data['seo_sitemap_main_asset_id'] : null;
+        $data['seo_sitemap_categories_asset_id'] = isset($data['seo_sitemap_categories_asset_id']) ? (int) $data['seo_sitemap_categories_asset_id'] : null;
+        $data['seo_robots_custom_lines'] ??= null;
+        $data = $this->hydrateMediaFieldState($data);
 
         return $data;
     }
@@ -848,6 +1278,29 @@ class Settings extends Page implements HasForms
     public function save(): void
     {
         $data = $this->form->getState();
+        $data['seo_sitemap_cache_minutes'] = max(5, min(1440, (int) ($data['seo_sitemap_cache_minutes'] ?? 30)));
+        $data['seo_sitemap_mode'] = in_array((string) ($data['seo_sitemap_mode'] ?? 'dynamic'), ['dynamic', 'custom_upload'], true)
+            ? (string) $data['seo_sitemap_mode']
+            : 'dynamic';
+        $data['seo_sitemap_index_asset_id'] = ! empty($data['seo_sitemap_index_asset_id']) ? (int) $data['seo_sitemap_index_asset_id'] : null;
+        $data['seo_sitemap_main_asset_id'] = ! empty($data['seo_sitemap_main_asset_id']) ? (int) $data['seo_sitemap_main_asset_id'] : null;
+        $data['seo_sitemap_categories_asset_id'] = ! empty($data['seo_sitemap_categories_asset_id']) ? (int) $data['seo_sitemap_categories_asset_id'] : null;
+
+        $sitemapValidation = $this->validateCustomSitemapSelection($data);
+        if (! $sitemapValidation['ok']) {
+            $summary = implode(' | ', array_slice($sitemapValidation['errors'], 0, 2));
+            if (count($sitemapValidation['errors']) > 2) {
+                $summary .= ' | +' . (count($sitemapValidation['errors']) - 2) . ' error lainnya.';
+            }
+
+            Notification::make()
+                ->title('Pengaturan SEO belum valid')
+                ->body($summary)
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         if (
             ($data['seasonal_mode'] ?? 'manual') === 'date_range' &&
@@ -867,6 +1320,8 @@ class Settings extends Page implements HasForms
         // Get or create settings record
         $settings = SettingWeb::firstOrNew(['id' => 1]);
 
+        $this->applyMediaLibrarySelectionToData($data);
+
         // Jangan timpa logo yang sudah ada dengan nilai kosong.
         foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image'] as $logoField) {
             if (empty($data[$logoField]) && !empty($settings->{$logoField})) {
@@ -885,6 +1340,8 @@ class Settings extends Page implements HasForms
         if (empty($data['captcha_secret']) && !empty($settings->captcha_secret)) {
             $data['captcha_secret'] = $settings->captcha_secret;
         }
+
+        $this->stripMediaFormOnlyFields($data);
         
         // Check if WA Number changed and trigger API update
         if (
@@ -898,12 +1355,87 @@ class Settings extends Page implements HasForms
         // Update all fields
         $settings->fill($data);
         $settings->save();
+        \Illuminate\Support\Facades\Cache::forget('seo:sitemap:index:v3');
+        \Illuminate\Support\Facades\Cache::forget('seo:sitemap:main:v3');
+        \Illuminate\Support\Facades\Cache::forget('seo:sitemap:categories:v3');
         
         Notification::make()
             ->title('Pengaturan Tersimpan')
             ->body('Pengaturan website berhasil diperbarui.')
             ->success()
             ->send();
+    }
+
+    private function hydrateMediaFieldState(array $data): array
+    {
+        foreach ($this->getManagedMediaFields() as $field) {
+            $assetId = $this->resolveAssetIdFromStoredPath($data[$field] ?? null);
+            $data["{$field}_media_asset_id"] = $assetId;
+            $data["{$field}_input_mode"] = $assetId ? 'library' : 'upload';
+        }
+
+        return $data;
+    }
+
+    private function applyMediaLibrarySelectionToData(array &$data): void
+    {
+        foreach ($this->getManagedMediaFields() as $field) {
+            $mode = (string) ($data["{$field}_input_mode"] ?? 'upload');
+
+            if ($mode !== 'library') {
+                continue;
+            }
+
+            $assetId = $data["{$field}_media_asset_id"] ?? null;
+
+            if (! MediaAssetPicker::isUsable($assetId)) {
+                continue;
+            }
+
+            $asset = MediaAsset::find($assetId);
+            $relativePath = $asset?->resolveRelativePath();
+
+            if (filled($relativePath)) {
+                $data[$field] = ltrim((string) $relativePath, '/');
+            }
+        }
+    }
+
+    private function stripMediaFormOnlyFields(array &$data): void
+    {
+        foreach ($this->getManagedMediaFields() as $field) {
+            unset($data["{$field}_input_mode"], $data["{$field}_media_asset_id"]);
+        }
+    }
+
+    private function getManagedMediaFields(): array
+    {
+        return [
+            'logo_header',
+            'logo_footer',
+            'logo_favicon',
+            'seasonal_background_image',
+        ];
+    }
+
+    private function resolveAssetIdFromStoredPath(?string $path): ?int
+    {
+        $normalizedPath = trim((string) $path);
+
+        if ($normalizedPath === '' || filter_var($normalizedPath, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $candidates = array_values(array_unique([
+            '/' . ltrim($normalizedPath, '/'),
+            ltrim($normalizedPath, '/'),
+        ]));
+
+        $id = MediaAsset::query()
+            ->whereIn('path', $candidates)
+            ->value('id');
+
+        return $id ? (int) $id : null;
     }
 
     protected function changeNumber($number, $waKey)
@@ -918,6 +1450,205 @@ class Settings extends Page implements HasForms
             // Log error or silently fail if not critical
             \Illuminate\Support\Facades\Log::error('Failed to change WA number: ' . $e->getMessage());
         }
+    }
+
+    protected function makeValidateSitemapXmlAction(): Action
+    {
+        return Action::make('validate_sitemap_xml')
+            ->label('Validate XML')
+            ->icon('heroicon-o-document-check')
+            ->color('gray')
+            ->action(function (): void {
+                $state = $this->form->getState();
+
+                if (! (bool) ($state['seo_sitemap_enabled'] ?? true)) {
+                    Notification::make()
+                        ->title('Sitemap nonaktif')
+                        ->body('Aktifkan sitemap terlebih dahulu sebelum validasi.')
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
+                if (($state['seo_sitemap_mode'] ?? 'dynamic') !== 'custom_upload') {
+                    Notification::make()
+                        ->title('Mode masih Dynamic')
+                        ->body('Validasi XML custom hanya berlaku saat mode sitemap = Custom Upload.')
+                        ->warning()
+                        ->send();
+
+                    return;
+                }
+
+                $result = $this->validateCustomSitemapSelection($state);
+
+                if ($result['ok']) {
+                    Notification::make()
+                        ->title('Validasi sitemap custom berhasil')
+                        ->body(implode(' | ', $result['ok_messages']))
+                        ->success()
+                        ->send();
+
+                    return;
+                }
+
+                $summary = implode(' | ', array_slice($result['errors'], 0, 2));
+                if (count($result['errors']) > 2) {
+                    $summary .= ' | +' . (count($result['errors']) - 2) . ' error lainnya.';
+                }
+
+                Notification::make()
+                    ->title('Validasi sitemap custom gagal')
+                    ->body($summary)
+                    ->danger()
+                    ->send();
+            });
+    }
+
+    private function validateCustomSitemapSelection(array $state): array
+    {
+        if (! (bool) ($state['seo_sitemap_enabled'] ?? true)) {
+            return ['ok' => true, 'ok_messages' => [], 'errors' => []];
+        }
+
+        if (($state['seo_sitemap_mode'] ?? 'dynamic') !== 'custom_upload') {
+            return ['ok' => true, 'ok_messages' => [], 'errors' => []];
+        }
+
+        $targets = $this->buildSitemapValidationTargets($state);
+        $okMessages = [];
+        $errorMessages = [];
+
+        foreach ($targets as $label => $target) {
+            $result = $this->validateSitemapXmlAsset($target['asset_id'], $target['expected_root']);
+
+            if ($result['ok']) {
+                $okMessages[] = $label . ': ' . $result['message'];
+            } else {
+                $errorMessages[] = $label . ': ' . $result['message'];
+            }
+        }
+
+        return [
+            'ok' => $errorMessages === [],
+            'ok_messages' => $okMessages,
+            'errors' => $errorMessages,
+        ];
+    }
+
+    private function buildSitemapValidationTargets(array $state): array
+    {
+        $targets = [
+            'sitemap.xml (index)' => [
+                'asset_id' => isset($state['seo_sitemap_index_asset_id']) ? (int) $state['seo_sitemap_index_asset_id'] : null,
+                'expected_root' => 'sitemapindex',
+            ],
+            'sitemap-main.xml' => [
+                'asset_id' => isset($state['seo_sitemap_main_asset_id']) ? (int) $state['seo_sitemap_main_asset_id'] : null,
+                'expected_root' => 'urlset',
+            ],
+        ];
+
+        if ((bool) ($state['seo_sitemap_include_categories'] ?? true)) {
+            $targets['sitemap-categories.xml'] = [
+                'asset_id' => isset($state['seo_sitemap_categories_asset_id']) ? (int) $state['seo_sitemap_categories_asset_id'] : null,
+                'expected_root' => 'urlset',
+            ];
+        }
+
+        return $targets;
+    }
+
+    private function validateSitemapXmlAsset(?int $assetId, string $expectedRoot): array
+    {
+        if (! $assetId) {
+            return ['ok' => false, 'message' => 'file belum dipilih'];
+        }
+
+        $asset = MediaAsset::query()->find($assetId);
+        if (! $asset) {
+            return ['ok' => false, 'message' => 'asset tidak ditemukan'];
+        }
+
+        $absolutePath = $asset->resolveAbsolutePath();
+        if (! $absolutePath || ! is_file($absolutePath)) {
+            return ['ok' => false, 'message' => 'file fisik tidak ditemukan'];
+        }
+
+        $xmlRaw = @file_get_contents($absolutePath);
+        if (! is_string($xmlRaw) || trim($xmlRaw) === '') {
+            return ['ok' => false, 'message' => 'file kosong / tidak terbaca'];
+        }
+
+        $previousInternalErrors = libxml_use_internal_errors(true);
+        libxml_clear_errors();
+        $xml = simplexml_load_string($xmlRaw);
+        $errors = libxml_get_errors();
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousInternalErrors);
+
+        if ($xml === false) {
+            $firstError = $errors[0]->message ?? 'XML tidak valid';
+
+            return ['ok' => false, 'message' => trim((string) $firstError)];
+        }
+
+        $root = strtolower((string) $xml->getName());
+        if ($root !== strtolower($expectedRoot)) {
+            return ['ok' => false, 'message' => "root harus {$expectedRoot}, ditemukan {$root}"];
+        }
+
+        $locNodes = $root === 'sitemapindex'
+            ? ($xml->xpath('//*[local-name()="sitemap"]/*[local-name()="loc"]') ?: [])
+            : ($xml->xpath('//*[local-name()="url"]/*[local-name()="loc"]') ?: []);
+
+        $count = count($locNodes);
+        if ($count < 1) {
+            return ['ok' => false, 'message' => $root === 'sitemapindex'
+                ? 'sitemapindex tidak memiliki node <sitemap><loc>'
+                : 'urlset tidak memiliki node <url><loc>'];
+        }
+
+        $expectedHost = strtolower((string) parse_url(url('/'), PHP_URL_HOST));
+        $mismatchCount = 0;
+        $adminLikeCount = 0;
+
+        foreach ($locNodes as $locNode) {
+            $loc = trim((string) $locNode);
+            if ($loc === '') {
+                continue;
+            }
+
+            $host = strtolower((string) parse_url($loc, PHP_URL_HOST));
+            $path = (string) (parse_url($loc, PHP_URL_PATH) ?? '');
+
+            if ($host === '') {
+                continue;
+            }
+
+            if ($expectedHost !== '' && $host !== $expectedHost) {
+                $mismatchCount++;
+            }
+
+            if (str_starts_with($host, 'admin.') || str_contains($host, '.admin.') || str_starts_with($path, '/admin')) {
+                $adminLikeCount++;
+            }
+        }
+
+        if ($mismatchCount > 0 || $adminLikeCount > 0) {
+            $issues = [];
+            if ($mismatchCount > 0) {
+                $issues[] = "{$mismatchCount} loc beda host (harus {$expectedHost})";
+            }
+            if ($adminLikeCount > 0) {
+                $issues[] = "{$adminLikeCount} loc mengarah ke admin subdomain/path";
+            }
+
+            return ['ok' => false, 'message' => implode(' | ', $issues)];
+        }
+
+        return ['ok' => true, 'message' => "valid ({$count} loc entries, host {$expectedHost})"];
     }
 
     protected function makeSendTestEmailAction(): Action

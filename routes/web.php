@@ -66,9 +66,18 @@ use App\Http\Controllers\Ipay88Controller;
 use App\Http\Controllers\SenangpayController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\SeoController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
 use App\Http\Controllers\ArtikelController;
+
+Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/sitemap-main.xml', [SeoController::class, 'sitemapMain'])->name('seo.sitemap.main');
+Route::get('/sitemap-categories.xml', [SeoController::class, 'sitemapCategories'])->name('seo.sitemap.categories');
+Route::redirect('/id/sitemap.xml', '/sitemap.xml', 301);
+Route::redirect('/id/sitemap-main.xml', '/sitemap-main.xml', 301);
+Route::redirect('/id/sitemap-categories.xml', '/sitemap-categories.xml', 301);
 
 Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequest']);
 Route::get('/senangpay/callback', [SenangpayController::class, 'handlePaymentResponse'])->name('senangpay.callback');
@@ -104,7 +113,6 @@ Route::get('/wip', function () {
     return response()->json(['ip' => $ipAddress]);
 });
 
-
 Route::get(
     '/weji-mt',
     function () {
@@ -123,9 +131,6 @@ Route::get(
         dd(Artisan::output());
     }
 );
-
-
-
 
 Route::redirect('/', '/id');
 
