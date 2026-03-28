@@ -133,7 +133,7 @@ class MediaAsset extends Model implements HasMedia
             return true;
         }
 
-        return in_array((string) $this->file_extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'bmp'], true);
+        return in_array((string) $this->file_extension, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'], true);
     }
 
     public function resolveAbsolutePath(): ?string

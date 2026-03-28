@@ -17,6 +17,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
 
@@ -115,18 +116,57 @@ class KategoriForm
                 ->columns(2),
 
             Section::make('Custom Input Order')
-                ->description('Atur field input yang tampil di halaman order. Kosongkan jika ingin memakai default otomatis berdasarkan tipe kategori.')
+                ->description('Atur field input yang tampil di halaman order. Field 1 tetap wajib ada dan akan memakai default otomatis berdasarkan tipe kategori jika custom dimatikan.')
                 ->schema([
+                    Placeholder::make('custom_input_rule_hint')
+                        ->label('Panduan')
+                        ->content(function (Get $get): HtmlString {
+                            $field1Custom = (bool) $get('use_custom_field_1');
+                            $field2Enabled = (bool) $get('has_field_2');
+
+                            $message = 'Minimal 1 field selalu aktif. Jika custom Field 1 dimatikan, sistem otomatis memakai default sesuai tipe kategori.';
+
+                            if ($field1Custom && $field2Enabled) {
+                                $message = 'Custom Field 1 dan Field 2 aktif.';
+                            } elseif ($field1Custom && ! $field2Enabled) {
+                                $message = 'Custom Field 1 aktif, Field 2 nonaktif.';
+                            } elseif (! $field1Custom && $field2Enabled) {
+                                $message = 'Field 1 menggunakan default otomatis, Field 2 aktif.';
+                            }
+
+                            return new HtmlString('<span style="font-size:12px;color:#94a3b8;">' . e($message) . '</span>');
+                        })
+                        ->live()
+                        ->columnSpanFull(),
+
+                    Toggle::make('use_custom_field_1')
+                        ->label('Aktifkan Custom Field 1')
+                        ->live()
+                        ->default(false)
+                        ->dehydrated(true)
+                        ->helperText('Jika nonaktif, sistem pakai default Field 1 sesuai tipe kategori.')
+                        ->afterStateUpdated(function (bool $state, $set): void {
+                            if ($state) {
+                                return;
+                            }
+
+                            $set('field_1_title', null);
+                            $set('field_1_placeholder', null);
+                            $set('field_1_type', 'text');
+                        }),
+
                     TextInput::make('field_1_title')
                         ->label('Label Field 1')
                         ->maxLength(255)
                         ->placeholder('Contoh: User ID')
-                        ->helperText('Kalau kosong, akan memakai default sesuai tipe kategori.'),
+                        ->helperText('Kalau kosong, akan memakai default sesuai tipe kategori.')
+                        ->visible(fn (Get $get) => (bool) $get('use_custom_field_1')),
 
                     TextInput::make('field_1_placeholder')
                         ->label('Placeholder Field 1')
                         ->maxLength(255)
-                        ->placeholder('Contoh: Masukkan User ID'),
+                        ->placeholder('Contoh: Masukkan User ID')
+                        ->visible(fn (Get $get) => (bool) $get('use_custom_field_1')),
 
                     Select::make('field_1_type')
                         ->label('Tipe Field 1')
@@ -136,7 +176,8 @@ class KategoriForm
                             'email' => 'Email',
                             'password' => 'Password',
                         ])
-                        ->default('text'),
+                        ->default('text')
+                        ->visible(fn (Get $get) => (bool) $get('use_custom_field_1')),
 
                     Toggle::make('has_field_2')
                         ->label('Aktifkan Field 2')

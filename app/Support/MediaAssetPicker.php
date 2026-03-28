@@ -22,6 +22,9 @@ class MediaAssetPicker
         'banner' => 'Banner',
         'artikel' => 'Artikel',
         'logo' => 'Logo',
+        'seasonal' => 'Seasonal',
+        'dokumen' => 'Dokumen',
+        'xml' => 'XML',
         'lainnya' => 'Lainnya',
     ];
 

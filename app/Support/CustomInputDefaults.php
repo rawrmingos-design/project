@@ -53,6 +53,7 @@ class CustomInputDefaults
     public function getFormState(Kategori $kategori): array
     {
         $customInput = $kategori->customInput;
+        $fallbackDefaults = $this->buildDefaults($kategori);
         $defaults = $customInput
             ? [
                 'field_1' => $customInput->field_1,
@@ -60,12 +61,17 @@ class CustomInputDefaults
                 'field_select_title' => $customInput->field_select_title,
                 'field_select' => $customInput->field_select,
             ]
-            : $this->buildDefaults($kategori);
+            : $fallbackDefaults;
 
         [$field1Title, $field1Placeholder, $field1Type] = $this->splitField($defaults['field_1'] ?? null);
         [$field2Title, $field2Placeholder, $field2Type] = $this->splitField($defaults['field_2'] ?? null);
 
+        $useCustomField1 = $customInput
+            ? trim((string) ($defaults['field_1'] ?? '')) !== trim((string) ($fallbackDefaults['field_1'] ?? ''))
+            : false;
+
         return [
+            'use_custom_field_1' => $useCustomField1,
             'field_1_title' => $field1Title,
             'field_1_placeholder' => $field1Placeholder,
             'field_1_type' => $field1Type ?: 'text',
@@ -85,9 +91,18 @@ class CustomInputDefaults
         [$defaultField1Title, $defaultField1Placeholder, $defaultField1Type] = $this->splitField($defaults['field_1'] ?? null);
         [$defaultField2Title, $defaultField2Placeholder, $defaultField2Type] = $this->splitField($defaults['field_2'] ?? null);
 
-        $field1Title = $this->sanitizeSegment($this->filledOrDefault($state['field_1_title'] ?? null, $defaultField1Title));
-        $field1Placeholder = $this->sanitizeSegment($this->filledOrDefault($state['field_1_placeholder'] ?? null, $defaultField1Placeholder));
-        $field1Type = $this->sanitizeSegment($this->filledOrDefault($state['field_1_type'] ?? null, $defaultField1Type ?: 'text'));
+        $useCustomField1 = filter_var($state['use_custom_field_1'] ?? false, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+        $useCustomField1 = $useCustomField1 ?? false;
+
+        if ($useCustomField1) {
+            $field1Title = $this->sanitizeSegment($this->filledOrDefault($state['field_1_title'] ?? null, $defaultField1Title));
+            $field1Placeholder = $this->sanitizeSegment($this->filledOrDefault($state['field_1_placeholder'] ?? null, $defaultField1Placeholder));
+            $field1Type = $this->sanitizeSegment($this->filledOrDefault($state['field_1_type'] ?? null, $defaultField1Type ?: 'text'));
+        } else {
+            $field1Title = $this->sanitizeSegment($defaultField1Title);
+            $field1Placeholder = $this->sanitizeSegment($defaultField1Placeholder);
+            $field1Type = $this->sanitizeSegment($defaultField1Type ?: 'text');
+        }
 
         $hasField2Key = array_key_exists('has_field_2', $state);
 
