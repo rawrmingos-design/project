@@ -635,6 +635,16 @@
             color: #fff;
         }
 
+        .invoice-status-banner__icon--lottie {
+            overflow: hidden;
+        }
+
+        .invoice-status-banner__icon--lottie lottie-player {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+
         .invoice-status-banner__title {
             color: #fff;
             margin: 0;
@@ -1734,10 +1744,26 @@
             default => 'Menunggu Pembayaran',
         };
 
-        $introUsesLottie = in_array($introState, ['expired', 'failed'], true);
-        $introLottieSrc = $introUsesLottie
-            ? asset('assets/invoice-intro/lottie/' . ($introState === 'expired' ? 'expired.json' : 'failed.json'))
-            : null;
+        $introLottieSrc = null;
+        $introUsesLottie = false;
+        $introLottieSequence = [];
+
+        if ($introState === 'pending') {
+            $pendingLottieCandidates = ['First.json', 'Second.json'];
+
+            foreach ($pendingLottieCandidates as $candidateFile) {
+                $candidatePath = public_path('assets/invoice-intro/lottie/' . $candidateFile);
+
+                if (is_file($candidatePath)) {
+                    $introLottieSequence[] = asset('assets/invoice-intro/lottie/' . rawurlencode($candidateFile));
+                }
+            }
+
+            if (!empty($introLottieSequence)) {
+                $introLottieSrc = $introLottieSequence[0];
+                $introUsesLottie = true;
+            }
+        }
 
         $toastTone = 'pending';
         $toastTitle = 'Pembelian berhasil dibuat';
@@ -1790,6 +1816,7 @@
                     <lottie-player
                         id="invoiceIntroLottie"
                         src="{{ $introLottieSrc }}"
+                        data-sequence="{{ implode('|', $introLottieSequence) }}"
                         background="transparent"
                         speed="1"
                         autoplay
@@ -1848,25 +1875,38 @@
         <section class="invoice-status-banner invoice-animate print:hidden" data-tone="{{ $introState }}">
             <div class="container">
                 <div class="invoice-status-banner__panel">
-                    <span class="invoice-status-banner__icon" aria-hidden="true">
-                        @if ($introIcon === 'check')
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                        @elseif ($introIcon === 'x')
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        @elseif ($introIcon === 'warning')
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.95 3.374H4.647c-1.733 0-2.816-1.874-1.95-3.374L10.05 3.378c.866-1.5 3.034-1.5 3.9 0l7.353 12.748zM12 16.5h.008v.008H12V16.5z" />
-                            </svg>
-                        @else
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        @endif
-                    </span>
+                    @if ($introState === 'pending' && !empty($introLottieSequence))
+                        <span class="invoice-status-banner__icon invoice-status-banner__icon--lottie" aria-hidden="true">
+                            <lottie-player
+                                id="invoiceBannerPendingLottie"
+                                src="{{ $introLottieSequence[0] }}"
+                                data-sequence="{{ implode('|', $introLottieSequence) }}"
+                                background="transparent"
+                                speed="1"
+                                autoplay
+                            ></lottie-player>
+                        </span>
+                    @else
+                        <span class="invoice-status-banner__icon" aria-hidden="true">
+                            @if ($introIcon === 'check')
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                            @elseif ($introIcon === 'x')
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            @elseif ($introIcon === 'warning')
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.95 3.374H4.647c-1.733 0-2.816-1.874-1.95-3.374L10.05 3.378c.866-1.5 3.034-1.5 3.9 0l7.353 12.748zM12 16.5h.008v.008H12V16.5z" />
+                                </svg>
+                            @else
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            @endif
+                        </span>
+                    @endif
                     <h1 class="invoice-status-banner__title">{{ $heroTitle }}</h1>
                     <p class="invoice-status-banner__description">{!! nl2br(e($heroDescription)) !!}</p>
                 </div>
@@ -2352,6 +2392,10 @@
             let introStartedAt = 0;
             let introMinDuration = 3200;
             const INTRO_HIDE_DURATION_MS = 750;
+            let pendingLottieCompleteHandler = null;
+            let pendingLottieFallbackTimer = null;
+            let bannerPendingLottieCompleteHandler = null;
+            let bannerPendingLottieFallbackTimer = null;
 
             function hidePageShell() {
                 const pageShell = document.getElementById('invoicePageShell');
@@ -2366,6 +2410,106 @@
                 pageShell.classList.remove('is-ready');
             }
 
+            function resetBannerPendingLottie() {
+                const bannerLottiePlayer = document.getElementById('invoiceBannerPendingLottie');
+
+                if (!bannerLottiePlayer) {
+                    return;
+                }
+
+                if (bannerPendingLottieCompleteHandler) {
+                    bannerLottiePlayer.removeEventListener('complete', bannerPendingLottieCompleteHandler);
+                    bannerPendingLottieCompleteHandler = null;
+                }
+
+                if (bannerPendingLottieFallbackTimer) {
+                    window.clearTimeout(bannerPendingLottieFallbackTimer);
+                    bannerPendingLottieFallbackTimer = null;
+                }
+
+                try {
+                    if (typeof bannerLottiePlayer.stop === 'function') {
+                        bannerLottiePlayer.stop();
+                    }
+                } catch (error) {
+                    console.debug('Invoice banner lottie reset skipped:', error);
+                }
+            }
+
+            function startBannerPendingLottieSequence() {
+                const bannerLottiePlayer = document.getElementById('invoiceBannerPendingLottie');
+
+                if (!bannerLottiePlayer) {
+                    return;
+                }
+
+                resetBannerPendingLottie();
+
+                try {
+                    const rawSequence = String(bannerLottiePlayer.dataset.sequence || '');
+                    const sequence = rawSequence.split('|').map((item) => item.trim()).filter(Boolean);
+
+                    const playBannerSource = (src, loopMode) => {
+                        if (!src) {
+                            return;
+                        }
+
+                        if (typeof bannerLottiePlayer.load === 'function') {
+                            bannerLottiePlayer.load(src);
+                        } else {
+                            bannerLottiePlayer.setAttribute('src', src);
+                        }
+
+                        bannerLottiePlayer.setAttribute('loop', loopMode);
+
+                        if (typeof bannerLottiePlayer.stop === 'function') {
+                            bannerLottiePlayer.stop();
+                        }
+
+                        window.setTimeout(() => {
+                            if (typeof bannerLottiePlayer.play === 'function') {
+                                bannerLottiePlayer.play();
+                            }
+                        }, 40);
+                    };
+
+                    if (sequence.length === 0) {
+                        bannerLottiePlayer.setAttribute('loop', 'true');
+                        if (typeof bannerLottiePlayer.play === 'function') {
+                            bannerLottiePlayer.play();
+                        }
+
+                        return;
+                    }
+
+                    let switchedToSecond = false;
+                    playBannerSource(sequence[0], 'false');
+
+                    if (sequence.length > 1) {
+                        bannerPendingLottieCompleteHandler = () => {
+                            if (switchedToSecond) {
+                                return;
+                            }
+
+                            switchedToSecond = true;
+                            playBannerSource(sequence[1], 'true');
+                        };
+
+                        bannerLottiePlayer.addEventListener('complete', bannerPendingLottieCompleteHandler);
+                        bannerPendingLottieFallbackTimer = window.setTimeout(() => {
+                            if (switchedToSecond) {
+                                return;
+                            }
+
+                            switchedToSecond = true;
+                            playBannerSource(sequence[1], 'true');
+                        }, 1600);
+                    }
+                } catch (error) {
+                    console.debug('Invoice banner lottie sequence skipped:', error);
+                }
+            }
+
             function showPageShell() {
                 const pageShell = document.getElementById('invoicePageShell');
 
@@ -2377,6 +2521,7 @@
                 pageShell.style.removeProperty('visibility');
                 pageShell.style.removeProperty('transform');
                 pageShell.classList.add('is-ready');
+                window.setTimeout(startBannerPendingLottieSequence, 20);
             }
 
             function dismissIntroOverlay() {
@@ -2460,6 +2605,13 @@
                     toastTimer = null;
                 }
 
+                resetBannerPendingLottie();
+
+                if (pendingLottieFallbackTimer) {
+                    window.clearTimeout(pendingLottieFallbackTimer);
+                    pendingLottieFallbackTimer = null;
+                }
+
                 if (customIntroStage) {
                     const customParts = customIntroStage.querySelectorAll(
                         '.invoice-intro-orb, .invoice-intro-ring, .invoice-intro-card-icon, .invoice-intro-arrow, .invoice-intro-chip'
@@ -2478,15 +2630,77 @@
 
                 if (lottiePlayer) {
                     try {
+                        if (pendingLottieCompleteHandler) {
+                            lottiePlayer.removeEventListener('complete', pendingLottieCompleteHandler);
+                            pendingLottieCompleteHandler = null;
+                        }
+
+                        const introState = String(introOverlay?.dataset.state || '').toLowerCase();
+                        const rawSequence = String(lottiePlayer.dataset.sequence || '');
+                        const sequence = rawSequence.split('|').map((item) => item.trim()).filter(Boolean);
+                        const shouldRunPendingSequence = introState === 'pending' && sequence.length > 0;
+
                         if (typeof lottiePlayer.stop === 'function') {
                             lottiePlayer.stop();
                         }
 
-                        window.setTimeout(() => {
-                            if (typeof lottiePlayer.play === 'function') {
-                                lottiePlayer.play();
+                        const playLottieSource = (src) => {
+                            if (!src) {
+                                return;
                             }
-                        }, 60);
+
+                            if (typeof lottiePlayer.load === 'function') {
+                                lottiePlayer.load(src);
+                            } else {
+                                lottiePlayer.setAttribute('src', src);
+                            }
+
+                            if (typeof lottiePlayer.stop === 'function') {
+                                lottiePlayer.stop();
+                            }
+
+                            window.setTimeout(() => {
+                                if (typeof lottiePlayer.play === 'function') {
+                                    lottiePlayer.play();
+                                }
+                            }, 60);
+                        };
+
+                        if (!shouldRunPendingSequence) {
+                            window.setTimeout(() => {
+                                if (typeof lottiePlayer.play === 'function') {
+                                    lottiePlayer.play();
+                                }
+                            }, 60);
+                        } else {
+                            let currentIndex = 0;
+                            let switchedToSecond = false;
+                            lottiePlayer.setAttribute('loop', 'false');
+                            playLottieSource(sequence[currentIndex]);
+
+                            if (sequence.length > 1) {
+                                pendingLottieCompleteHandler = () => {
+                                    if (switchedToSecond) {
+                                        return;
+                                    }
+
+                                    switchedToSecond = true;
+                                    currentIndex = 1;
+                                    playLottieSource(sequence[currentIndex]);
+                                };
+
+                                lottiePlayer.addEventListener('complete', pendingLottieCompleteHandler);
+                                pendingLottieFallbackTimer = window.setTimeout(() => {
+                                    if (switchedToSecond) {
+                                        return;
+                                    }
+
+                                    switchedToSecond = true;
+                                    currentIndex = 1;
+                                    playLottieSource(sequence[currentIndex]);
+                                }, 1600);
+                            }
+                        }
                     } catch (error) {
                         console.debug('Invoice intro lottie replay skipped:', error);
                     }
