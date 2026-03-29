@@ -12,13 +12,14 @@ class ArticleController extends Controller
     public function index(Request $request)
     {
         $ttl = 300; // 5 minutes
+        $cacheVersion = Artikel::frontendCacheVersion();
 
-        $featured = Cache::remember('article_featured_api', $ttl, function () {
+        $featured = Cache::remember("article_featured_api:v{$cacheVersion}", $ttl, function () {
             return Artikel::where('status', 'active')->latest()->first();
         });
         
         $page = $request->get('page', 1);
-        $articles = Cache::remember('articles_index_api_page_' . $page, $ttl, function () use ($featured) {
+        $articles = Cache::remember("articles_index_api_page_{$page}:v{$cacheVersion}", $ttl, function () use ($featured) {
             return Artikel::where('status', 'active')
                 ->when($featured, function ($query) use ($featured) {
                     return $query->where('id', '!=', $featured->id);
@@ -45,7 +46,8 @@ class ArticleController extends Controller
         // Increment views
         $article->increment('views');
 
-        $recent_articles = Cache::remember('recent_articles_api_show_' . $article->id, 300, function () use ($article) {
+        $cacheVersion = Artikel::frontendCacheVersion();
+        $recent_articles = Cache::remember("recent_articles_api_show_{$article->id}:v{$cacheVersion}", 300, function () use ($article) {
             return Artikel::where('status', 'active')
                 ->where('id', '!=', $article->id)
                 ->orderBy('created_at', 'desc')
