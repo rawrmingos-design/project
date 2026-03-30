@@ -152,74 +152,46 @@ class ProdukController extends Controller
                 return back()->with('error', 'Data layanan tidak valid dari API.');
             }
           }else if ($request->provider == 'bangjeff') {
-            $url = 'https://api.bangjeff.com/api/v3/variant';
-            $your_api_key = '';
+            $responseData = (new BangJeffController())->listVariant($request->kategori);
 
-            $data = array(
-                'code' => $request->kategori,
-            );
-
-            $data_json = json_encode($data);
-            $headers = array(
-                'Content-Type: application/json',
-                'Authorization: Bearer ' . $your_api_key,
-            );
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            $response = curl_exec($ch);
-
-            $buka = fopen(storage_path('logging.txt'), 'w');
-
-            fwrite($buka, 'test' . $response);
-
-            if ($response === false) {
-                return back()->with('error', 'Gagal mengambil data dari API.');
-            }
-
-            $responseData = json_decode($response, true);
-
-
-            if ($responseData === null) {
-                return back()->with('error', 'Gagal menguraikan respons JSON dari API.');
+            if (($responseData['rc'] ?? null) !== null && ($responseData['rc'] !== '00')) {
+                return back()->with('error', 'API mengembalikan kesalahan: ' . ($responseData['message'] ?? 'Unknown error'));
             }
 
             if (isset($responseData['error']) && $responseData['error'] === true) {
-                return back()->with('error', 'API mengembalikan kesalahan: ' . $responseData['message']);
+                return back()->with('error', 'API mengembalikan kesalahan: ' . ($responseData['message'] ?? 'Unknown error'));
             }
 
             if (isset($responseData['data']) && is_array($responseData['data'])) {
                 foreach ($responseData['data'] as $product) {
-                    $kategoriArray = explode(',', $request->kategori);
-                    if ($product['isActive'] === true) {
-                        $dataLayanan =  Layanan::all();
-                        
-                        if($dataLayanan->where('provider_id', $product['code'])->isNotEmpty()){
-                                return back()->with('error', 'Data Sudah Ditambahkan');    
-                        }
-                        
-                        $dataGames = Kategori::where('kode', $request->kategori)->first();
-                        
-                         $buka= fopen(storage_path('logging.txt'), 'w');
-                    
-                         fwrite($buka,'test '. json_encode($dataGames));
+                    $isActive = ($product['isActive'] ?? null) === true || strtoupper((string) ($product['status'] ?? '')) === 'ACTIVE';
 
-                        if ($dataGames) {
-                                $layanan = new Layanan();
-                                $layanan->kategori_id = $dataGames->id;
-                                $layanan->layanan = $product['name'];
-                                $layanan->provider_id = $product['code'];
-                                $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $product['price']);
-                                $layanan->provider = 'topupedia';
-                                $layanan->catatan = '';
-                                $layanan->status = 'available';
-                                $layanan->save();
-                        }
+                    if (! $isActive) {
+                        continue;
+                    }
+
+                    $dataLayanan = Layanan::all();
+
+                    if ($dataLayanan->where('provider_id', $product['code'])->isNotEmpty()) {
+                        return back()->with('error', 'Data Sudah Ditambahkan');
+                    }
+
+                    $dataGames = Kategori::where('kode', $request->kategori)->first();
+
+                    if ($dataGames) {
+                        $layanan = new Layanan();
+                        $layanan->kategori_id = $dataGames->id;
+                        $layanan->layanan = $product['name'];
+                        $layanan->provider_id = $product['code'];
+                        $priceValue = $product['price']['value'] ?? $product['price'] ?? 0;
+                        $pricing->seedFromBaseCostWithDefaultMarkup($layanan, $priceValue);
+                        $layanan->provider = 'bangjeff';
+                        $layanan->catatan = '';
+                        $layanan->status = 'available';
+                        $layanan->save();
                     }
                 }
-                
+
                 return back()->with('success', 'Berhasil menginput layanan');
             } else {
                 return back()->with('error', 'Data layanan tidak valid dari API.');

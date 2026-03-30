@@ -216,12 +216,14 @@ class OrderProcessingService
                 }
 
                 $response = $bangjeff->order($sku, $providerReference, 1, $requestData);
+                $isSuccess = (($response['error'] ?? null) === false) || (($response['rc'] ?? null) === '00');
+                $statusCode = strtoupper((string) ($response['data']['statusCode'] ?? 'PROCESSING'));
 
-                if (($response['error'] ?? true) == false) {
+                if ($isSuccess) {
                     $result['success'] = true;
-                    $result['order_status'] = 'Pending';
+                    $result['order_status'] = $statusCode === 'SUCCESS' ? 'Sukses' : ($statusCode === 'REFUNDED' ? 'Gagal' : 'Pending');
                     $result['transaction_id'] = $response['data']['invoiceNumber'] ?? $providerReference;
-                    $result['message'] = 'BangJeff Order Success';
+                    $result['message'] = $response['data']['statusDesc'] ?? ($response['message'] ?? 'BangJeff order accepted');
                 } else {
                     $result['message'] = $response['message'] ?? 'BangJeff Failed';
                 }

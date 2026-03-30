@@ -3,45 +3,22 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\provider\BangJeffController;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 
 class BangjeffdashboardController extends Controller
 {
-    private $api;
-    private $url;
-
-    public function __construct()
-    {
-        $this->api = \DB::table('setting_webs')->where('id',1)->first()->apikey_bangjeff;
-        $this->url = 'https://api.bangjeff.com';
-    }
-
     public function balance()
     {
         try {
-            $headers = [
-                'Authorization' => 'Bearer ' . $this->api,
-                'Content-Type' => 'application/json',
-            ];
+            $data = (new BangJeffController())->balance();
+            $balance = $data['data']['balance']['value'] ?? $data['data']['balance'] ?? null;
 
-            $response = Http::withHeaders($headers)->post($this->url . '/api/v3/balance');
-
-            if ($response->successful()) {
-                $data = $response->json();
-                
-                $balance = $data['data']['balance'] ?? null;
-
-                if ($balance !== null) {
-                    return view('components.admin.bangjeff.ceksaldobj', ['saldo' => $balance]);
-                } else {
-                    $error = $response->json();
-            return response()->json($error, $response->status());
-                }
-            } else {
-                 $error = $response->json();
-            return response()->json($error, $response->status());
+            if ($balance !== null) {
+                return view('components.admin.bangjeff.ceksaldobj', ['saldo' => $balance]);
             }
+
+            return view('components.admin.bangjeff.ceksaldobj', ['error' => $data['message'] ?? 'Gagal mengambil saldo BangJeff']);
         } catch (\Exception $e) {
             return view('components.admin.bangjeff.ceksaldobj', ['error' => $e->getMessage()]);
         }
@@ -50,20 +27,8 @@ class BangjeffdashboardController extends Controller
     public function getProduct()
 {
     try {
-        $headers = [
-            'Authorization' => 'Bearer ' . $this->api,
-            'Content-Type' => 'application/json',
-        ];
-
-        $response = Http::withHeaders($headers)->post($this->url . '/api/v3/product');
-
-        if ($response->successful()) {
-            $data = $response->json();
-            return view('components.admin.bangjeff.products', ['products' => $data]);
-        } else {
-            $error = $response->json();
-            return view('components.admin.bangjeff.products', ['error' => $error]);
-        }
+        $data = (new BangJeffController())->getProduct();
+        return view('components.admin.bangjeff.products', ['products' => $data]);
     } catch (\Exception $e) {
         return view('components.admin.bangjeff.products', ['error' => $e->getMessage()]);
     }
