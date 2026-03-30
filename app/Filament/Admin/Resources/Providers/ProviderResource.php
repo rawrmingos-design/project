@@ -112,7 +112,14 @@ class ProviderResource extends Resource
                                 case 'vip':
                                 case 'vip_reseller':
                                     $res = (new \App\Http\Controllers\provider\VipResellerController($config))->profile();
-                                    $balance = $res['data']['balance'] ?? $res['data']['saldo'] ?? $res['balance'] ?? null;
+                                    $balance = $res['data']['balance']
+                                        ?? $res['data']['saldo']
+                                        ?? $res['data']['sisa_saldo']
+                                        ?? $res['data']['profile']['balance']
+                                        ?? $res['data']['profile']['saldo']
+                                        ?? $res['balance']
+                                        ?? $res['saldo']
+                                        ?? null;
 
                                     if ($balance === null) {
                                         throw new \RuntimeException(
@@ -128,8 +135,14 @@ class ProviderResource extends Resource
                                     return;
                             }
 
+                            $normalizedBalance = static::normalizeBalanceValue($balance);
+
+                            if ($normalizedBalance === null) {
+                                throw new \RuntimeException('Format saldo provider tidak valid: ' . (is_scalar($balance) ? (string) $balance : json_encode($balance)));
+                            }
+
                             $record->update([
-                                'balance' => $balance,
+                                'balance' => $normalizedBalance,
                                 'last_check_at' => now(),
                             ]);
 
@@ -161,5 +174,51 @@ class ProviderResource extends Resource
         return [
             'index' => ManageProviders::route('/'),
         ];
+    }
+
+    private static function normalizeBalanceValue(mixed $rawBalance): ?float
+    {
+        if (is_int($rawBalance) || is_float($rawBalance)) {
+            return (float) $rawBalance;
+        }
+
+        if (! is_string($rawBalance)) {
+            return null;
+        }
+
+        $value = trim($rawBalance);
+
+        if ($value === '') {
+            return null;
+        }
+
+        $value = preg_replace('/[^\d,.\-]/', '', $value) ?? '';
+
+        if ($value === '' || $value === '-' || $value === '.' || $value === ',') {
+            return null;
+        }
+
+        // Example: 1.234.567 or 1,234,567 (thousands separators only)
+        if (preg_match('/^\-?\d{1,3}([.,]\d{3})+$/', $value) === 1) {
+            $value = str_replace([',', '.'], '', $value);
+        } elseif (str_contains($value, ',') && str_contains($value, '.')) {
+            // Mixed separators: infer decimal separator by the last symbol.
+            $lastComma = strrpos($value, ',');
+            $lastDot = strrpos($value, '.');
+
+            if ($lastComma !== false && $lastDot !== false) {
+                if ($lastComma > $lastDot) {
+                    $value = str_replace('.', '', $value);
+                    $value = str_replace(',', '.', $value);
+                } else {
+                    $value = str_replace(',', '', $value);
+                }
+            }
+        } elseif (str_contains($value, ',')) {
+            // Treat comma as decimal separator.
+            $value = str_replace(',', '.', $value);
+        }
+
+        return is_numeric($value) ? (float) $value : null;
     }
 }
