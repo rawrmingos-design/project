@@ -3,6 +3,8 @@
 namespace App\Filament\Admin\Resources\Providers;
 
 use App\Filament\Admin\Resources\Providers\Pages\ManageProviders;
+use App\Jobs\CheckProviderBalanceJob;
+use App\Jobs\SyncActiveProviderBalancesJob;
 use App\Models\Provider;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -17,6 +19,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\ToggleColumn;
+use Illuminate\Support\Facades\Cache;
 use UnitEnum;
 
 class ProviderResource extends Resource
@@ -56,6 +59,7 @@ class ProviderResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->poll('10s')
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
@@ -91,78 +95,46 @@ class ProviderResource extends Resource
                     ->label('Check Balance')
                     ->icon('heroicon-o-arrow-path')
                     ->action(function (Provider $record) {
-                        $balance = null;
-                        // Prepare config override (if populated in this table)
-                        $config = [];
-                        if (!empty($record->api_username)) $config['username'] = $record->api_username;
-                        if (!empty($record->api_username)) $config['api_id'] = $record->api_username; // Handle varied key names
-                        if (!empty($record->api_key)) $config['api_key'] = $record->api_key;
-                        // Endpoints usually valid for both, or we can add override later if needed.
+                        $lock = Cache::lock('provider-balance-check:' . $record->id, 8);
+
+                        if (! $lock->get()) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Check sedang diproses')
+                                ->body('Permintaan check sebelumnya masih berjalan.')
+                                ->warning()
+                                ->send();
+
+                            return;
+                        }
 
                         try {
-                            switch ($record->code) {
-                                case 'digiflazz':
-                                    $res = (new \App\Http\Controllers\DigiFlazzController($config))->cekSaldo();
-                                    $balance = $res['data']['deposit'] ?? 0;
-                                    break;
-                                case 'bangjeff':
-                                    $res = (new \App\Http\Controllers\provider\BangJeffController($config))->balance();
-                                    $balance = $res['data']['balance'] ?? 0;
-                                    break;
-                                case 'vip':
-                                case 'vip_reseller':
-                                    $res = (new \App\Http\Controllers\provider\VipResellerController($config))->profile();
-                                    $balance = $res['data']['balance']
-                                        ?? $res['data']['saldo']
-                                        ?? $res['data']['sisa_saldo']
-                                        ?? $res['data']['profile']['balance']
-                                        ?? $res['data']['profile']['saldo']
-                                        ?? $res['balance']
-                                        ?? $res['saldo']
-                                        ?? null;
-
-                                    if ($balance === null) {
-                                        throw new \RuntimeException(
-                                            $res['message'] ?? 'VIP Reseller profile/balance response tidak mengandung field balance yang dikenali.'
-                                        );
-                                    }
-                                    break;
-                                case 'apigames':
-                                    // $res = (new \App\Http\Controllers\provider\ApiGamesController($config))->profile();
-                                    $balance = 0;
-                                    break;
-                                default:
-                                    return;
-                            }
-
-                            $normalizedBalance = static::normalizeBalanceValue($balance);
-
-                            if ($normalizedBalance === null) {
-                                throw new \RuntimeException('Format saldo provider tidak valid: ' . (is_scalar($balance) ? (string) $balance : json_encode($balance)));
-                            }
-
-                            $record->update([
-                                'balance' => $normalizedBalance,
-                                'last_check_at' => now(),
-                            ]);
+                            CheckProviderBalanceJob::dispatch($record->id)->afterResponse();
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Balance Updated')
-                                ->body('Saldo provider berhasil diperbarui.')
+                                ->title('Check balance masuk antrean')
+                                ->body('Saldo akan ter-update otomatis dalam beberapa detik.')
                                 ->success()
                                 ->send();
-                                
-                        } catch (\Exception $e) {
-                             \Filament\Notifications\Notification::make()
-                                ->title('Check Failed')
-                                ->body($e->getMessage())
-                                ->danger()
-                                ->send();
+                        } finally {
+                            $lock->release();
                         }
                     }),
                 DeleteAction::make(),
             ])
             ->toolbarActions([
+                Action::make('sync_active_balances')
+                    ->label('Sync Active Balances')
+                    ->icon('heroicon-o-bolt')
+                    ->color('primary')
+                    ->action(function (): void {
+                        SyncActiveProviderBalancesJob::dispatch()->afterResponse();
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Sync aktif dimulai')
+                            ->body('Semua provider aktif sedang di-refresh via queue.')
+                            ->success()
+                            ->send();
+                    }),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
@@ -176,49 +148,4 @@ class ProviderResource extends Resource
         ];
     }
 
-    private static function normalizeBalanceValue(mixed $rawBalance): ?float
-    {
-        if (is_int($rawBalance) || is_float($rawBalance)) {
-            return (float) $rawBalance;
-        }
-
-        if (! is_string($rawBalance)) {
-            return null;
-        }
-
-        $value = trim($rawBalance);
-
-        if ($value === '') {
-            return null;
-        }
-
-        $value = preg_replace('/[^\d,.\-]/', '', $value) ?? '';
-
-        if ($value === '' || $value === '-' || $value === '.' || $value === ',') {
-            return null;
-        }
-
-        // Example: 1.234.567 or 1,234,567 (thousands separators only)
-        if (preg_match('/^\-?\d{1,3}([.,]\d{3})+$/', $value) === 1) {
-            $value = str_replace([',', '.'], '', $value);
-        } elseif (str_contains($value, ',') && str_contains($value, '.')) {
-            // Mixed separators: infer decimal separator by the last symbol.
-            $lastComma = strrpos($value, ',');
-            $lastDot = strrpos($value, '.');
-
-            if ($lastComma !== false && $lastDot !== false) {
-                if ($lastComma > $lastDot) {
-                    $value = str_replace('.', '', $value);
-                    $value = str_replace(',', '.', $value);
-                } else {
-                    $value = str_replace(',', '', $value);
-                }
-            }
-        } elseif (str_contains($value, ',')) {
-            // Treat comma as decimal separator.
-            $value = str_replace(',', '.', $value);
-        }
-
-        return is_numeric($value) ? (float) $value : null;
-    }
 }

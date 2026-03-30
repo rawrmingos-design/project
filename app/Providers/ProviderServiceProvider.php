@@ -45,6 +45,13 @@ class ProviderServiceProvider extends ServiceProvider
                     ->everyThirtyMinutes()
                     ->withoutOverlapping();
             }
+
+            // Auto refresh provider balances (near real-time dashboard)
+            if (config('providers.balance.auto_refresh', true)) {
+                $schedule->job(\App\Jobs\SyncActiveProviderBalancesJob::class, 'default')
+                    ->everyMinute()
+                    ->withoutOverlapping();
+            }
         });
     }
 }

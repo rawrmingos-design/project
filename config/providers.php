@@ -71,6 +71,10 @@ return [
         'min_profit_margin' => env('PROVIDER_MIN_PROFIT_MARGIN', 5), // percent
     ],
 
+    'balance' => [
+        'auto_refresh' => env('PROVIDER_AUTO_REFRESH_BALANCE', true),
+    ],
+
     'webhooks' => [
         'enabled' => env('PROVIDER_WEBHOOKS_ENABLED', true),
         'verify_signatures' => env('PROVIDER_VERIFY_WEBHOOK_SIGNATURES', true),

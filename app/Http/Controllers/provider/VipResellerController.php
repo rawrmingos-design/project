@@ -14,6 +14,8 @@ class VipResellerController extends Controller
     protected string $apiKey = '';
 
     protected string $endpoint = 'https://vip-reseller.co.id/api/game-feature';
+    
+    protected string $profileEndpoint = 'https://vip-reseller.co.id/api/profile';
 
     public function __construct(array $config = [])
     {
@@ -21,6 +23,7 @@ class VipResellerController extends Controller
             $this->apiId = (string) ($config['api_id'] ?? $config['vip_apiid'] ?? '');
             $this->apiKey = (string) ($config['api_key'] ?? $config['vip_apikey'] ?? '');
             $this->endpoint = (string) ($config['endpoint'] ?? $this->endpoint);
+            $this->profileEndpoint = (string) ($config['profile_endpoint'] ?? $this->profileEndpoint);
 
             return;
         }
@@ -108,11 +111,10 @@ class VipResellerController extends Controller
 
     public function profile(): array
     {
-        // Inference: legacy project expects a balance/profile check. Official game-feature docs
-        // don't document profile here, but existing project relies on this endpoint/mode.
-        return $this->request([
-            'type' => 'profile',
-        ]);
+        // Official profile endpoint:
+        // POST https://vip-reseller.co.id/api/profile
+        // payload: key, sign (md5(api_id + api_key))
+        return $this->requestToEndpoint([], $this->profileEndpoint);
     }
 
     public static function expectedSignature(string $apiId, string $apiKey): string
@@ -170,6 +172,11 @@ class VipResellerController extends Controller
 
     protected function request(array $payload): array
     {
+        return $this->requestToEndpoint($payload, $this->endpoint);
+    }
+
+    protected function requestToEndpoint(array $payload, string $endpoint): array
+    {
         if ($this->apiId === '' || $this->apiKey === '') {
             return [
                 'result' => false,
@@ -184,10 +191,10 @@ class VipResellerController extends Controller
 
         $response = Http::asForm()
             ->timeout(30)
-            ->post($this->endpoint, $payload);
+            ->post($endpoint, $payload);
 
         Log::info('VipReseller request', [
-            'endpoint' => $this->endpoint,
+            'endpoint' => $endpoint,
             'payload' => array_diff_key($payload, ['sign' => true, 'key' => true]),
             'status' => $response->status(),
             'body' => $response->body(),

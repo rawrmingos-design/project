@@ -65,4 +65,34 @@ class VipResellerControllerTest extends TestCase
         $this->assertTrue($response['result']);
         $this->assertSame('nickname', $response['data']);
     }
+
+    public function test_vip_profile_request_uses_profile_endpoint_and_signature(): void
+    {
+        Http::fake(function ($request) {
+            parse_str($request->body(), $payload);
+
+            $this->assertSame('https://vip-reseller.co.id/api/profile', $request->url());
+            $this->assertSame('apikey-123', $payload['key'] ?? null);
+            $this->assertSame(md5('apiid-123apikey-123'), $payload['sign'] ?? null);
+            $this->assertArrayNotHasKey('type', $payload);
+
+            return Http::response([
+                'result' => true,
+                'data' => [
+                    'balance' => 250000,
+                ],
+                'message' => 'Successfully got your account details.',
+            ]);
+        });
+
+        $controller = new VipResellerController([
+            'api_id' => 'apiid-123',
+            'api_key' => 'apikey-123',
+        ]);
+
+        $response = $controller->profile();
+
+        $this->assertTrue($response['result']);
+        $this->assertSame(250000, $response['data']['balance']);
+    }
 }
