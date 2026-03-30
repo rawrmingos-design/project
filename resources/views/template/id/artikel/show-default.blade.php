@@ -66,7 +66,7 @@
         <nav class="flex mb-8 text-sm text-gray-400">
             <a href="{{ url('/') }}" class="hover:text-white transition-colors">Home</a>
             <span class="mx-2">/</span>
-            <a href="{{ url('/artikel') }}" class="hover:text-white transition-colors">Artikel</a>
+            <a href="{{ route('artikel.index') }}" class="hover:text-white transition-colors">Artikel</a>
             <span class="mx-2">/</span>
             <span class="text-white truncate max-w-[200px]">{{ $article->title }}</span>
         </nav>
@@ -158,7 +158,7 @@
                     </h3>
                     <div class="space-y-6">
                         @foreach($recent_articles as $recent)
-                        <a href="{{ url('/artikel/' . $recent->slug) }}" class="flex gap-4 group items-start">
+                        <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="flex gap-4 group items-start">
                             <div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden relative">
                                 <img src="{{ asset($recent->thumbnail) }}" alt="{{ $recent->title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
                             </div>

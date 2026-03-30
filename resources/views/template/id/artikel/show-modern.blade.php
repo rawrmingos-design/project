@@ -123,7 +123,7 @@
                     <h3 class="text-2xl font-bold text-white mb-8 text-center"><span class="dynamic-text">Baca</span> Juga</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @foreach($recent_articles as $recent)
-                        <a href="{{ url('/artikel/' . $recent->slug) }}" class="group relative block overflow-hidden rounded-2xl aspect-[4/3]">
+                        <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="group relative block overflow-hidden rounded-2xl aspect-[4/3]">
                             <img src="{{ asset($recent->thumbnail) }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100">
                             <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
                             <div class="absolute bottom-0 left-0 p-6">

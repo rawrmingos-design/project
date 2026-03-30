@@ -50,7 +50,7 @@
                 Featured News
             </span>
             <h1 class="text-4xl md:text-6xl font-black text-white mb-4 leading-tight max-w-4xl drop-shadow-lg">
-                <a href="{{ url('/artikel/' . $featured->slug) }}" class="hover:text-primary-400 transition-colors">
+                <a href="{{ route('artikel.show', ['slug' => $featured->slug]) }}" class="hover:text-primary-400 transition-colors">
                     {{ $featured->title }}
                 </a>
             </h1>
@@ -87,7 +87,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             @foreach($articles as $article)
-            <a href="{{ url('/artikel/' . $article->slug) }}" class="group relative block rounded-2xl overflow-hidden glass-card transition-all duration-300 hover:-translate-y-2 hover-glow">
+            <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="group relative block rounded-2xl overflow-hidden glass-card transition-all duration-300 hover:-translate-y-2 hover-glow">
                 <div class="aspect-[16/9] w-full overflow-hidden relative">
                     <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110">
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60"></div>
