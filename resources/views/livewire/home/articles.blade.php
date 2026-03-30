@@ -173,7 +173,7 @@
             </div>
 
             <!-- Web "Lihat Semua" Button -->
-            <a href="{{ url('/artikel') }}" class="gj-btn-web group">
+            <a href="{{ route('artikel.index') }}" class="gj-btn-web group">
                 <span class="gj-btn-text">Lihat Semua</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="gj-btn-icon"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </a>
@@ -185,7 +185,7 @@
             @foreach($articles as $article)
                 <article class="gj-card group">
                     
-                    <a href="{{ url('/id/artikel/' . $article->slug) }}" class="gj-card-img-wrapper">
+                    <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-card-img-wrapper">
                         <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="gj-card-img">
                         
                         <div class="gj-card-date">
@@ -209,14 +209,14 @@
                             </div>
                         </div>
 
-                        <a href="{{ url('/artikel/' . $article->slug) }}" style="text-decoration: none;">
+                        <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" style="text-decoration: none;">
                             <h3 class="gj-card-title">
                                 {{ $article->title }}
                             </h3>
                         </a>
 
                         <div class="gj-card-footer">
-                            <a href="{{ url('/artikel/' . $article->slug) }}" class="gj-read-more">
+                            <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-read-more">
                                 Baca Artikel <i class="fa fa-chevron-right" style="font-size: 10px;"></i>
                             </a>
                         </div>
@@ -236,7 +236,7 @@
 
         <!-- Mobile "Lihat Semua" Button -->
         <div class="gj-btn-mobile-wrapper">
-            <a href="{{ url('/artikel') }}" class="gj-btn-mobile">
+            <a href="{{ route('artikel.index') }}" class="gj-btn-mobile">
                 <span class="gj-btn-text" style="font-size: 10px;">Lihat Semua Artikel</span>
                 <i class="fa fa-arrow-right gj-btn-icon" style="color: var(--warna_1);"></i>
             </a>
