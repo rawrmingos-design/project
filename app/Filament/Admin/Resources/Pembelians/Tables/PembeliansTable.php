@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Pembelians\Tables;
 
+use App\Jobs\SendPembelianToProviderJob;
 use App\Support\PembelianStatus;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\BadgeColumn;
@@ -16,6 +17,9 @@ use Filament\Actions\BulkAction;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Filament\Notifications\Notification;
 use pxlrbt\FilamentExcel\Columns\Column;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
@@ -373,49 +377,49 @@ class PembeliansTable
                         ->color('info')
                         ->visible(fn ($record) => $record->canBeRetried())
                         ->action(function ($record) {
-                            try {
-                                $routingService = new \App\Services\ProviderRoutingService();
-                                $processor = new \App\Services\OrderProcessingService($routingService);
+                            $lockKey = 'retry-order-dispatch:' . $record->getKey();
+                            $lock = Cache::lock($lockKey, 8);
 
-                                $result = $processor->process($record);
-
-                                if ($result['success']) {
-                                    $newStatus = PembelianStatus::normalize($result['order_status'] ?? 'Pending') === PembelianStatus::SUCCESS
-                                        ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
-                                        : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
-                                    $updateData = [
-                                        'status' => $newStatus,
-                                        'log' => $record->log . "\n" . 'Retried by admin at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
-                                    ];
-
-                                    if (!empty($result['transaction_id'])) {
-                                        $updateData['provider_order_id'] = $result['transaction_id'];
-                                    }
-
-                                    $record->update($updateData);
-
-                                    Notification::make()
-                                        ->title('Retry successful')
-                                        ->body($result['message'])
-                                        ->success()
-                                        ->send();
-                                } else {
-                                    $record->update([
-                                        'log' => $record->log . "\n" . 'Retry failed at ' . now()->format('Y-m-d H:i:s') . ': ' . $result['message'],
-                                    ]);
-
-                                    Notification::make()
-                                        ->title('Retry failed')
-                                        ->body($result['message'])
-                                        ->danger()
-                                        ->send();
-                                }
-                            } catch (\Exception $e) {
+                            if (! $lock->get()) {
                                 Notification::make()
-                                    ->title('System Error')
-                                    ->body($e->getMessage())
+                                    ->title('Retry sedang diproses')
+                                    ->body('Klik retry sebelumnya masih diproses. Coba lagi beberapa detik.')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            try {
+                                $record->update([
+                                    'log' => self::appendBoundedLog(
+                                        $record->log,
+                                        'Retry queued by admin at ' . now()->format('Y-m-d H:i:s'),
+                                    ),
+                                ]);
+
+                                SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id())->afterResponse();
+
+                                Notification::make()
+                                    ->title('Retry masuk antrean')
+                                    ->body('Order dikirim ke queue agar tetap responsif saat trafik tinggi.')
+                                    ->success()
+                                    ->send();
+                            } catch (\Throwable $exception) {
+                                Log::error('Retry order dispatch failed.', [
+                                    'pembelian_id' => $record->getKey(),
+                                    'order_id' => $record->order_id,
+                                    'display_order_id' => $record->display_order_id,
+                                    'message' => $exception->getMessage(),
+                                ]);
+
+                                Notification::make()
+                                    ->title('Retry gagal diproses')
+                                    ->body('Job gagal masuk antrean. Cek log aplikasi.')
                                     ->danger()
                                     ->send();
+                            } finally {
+                                $lock->release();
                             }
                         })
                         ->requiresConfirmation()
@@ -627,5 +631,21 @@ class PembeliansTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    private static function appendBoundedLog(?string $existingLog, string $entry, int $limit = 1000): string
+    {
+        $existingLog = trim((string) $existingLog);
+        $entry = trim($entry);
+
+        $combined = $existingLog !== ''
+            ? $existingLog . PHP_EOL . $entry
+            : $entry;
+
+        if (mb_strlen($combined) <= $limit) {
+            return $combined;
+        }
+
+        return mb_substr($combined, -$limit);
     }
 }
