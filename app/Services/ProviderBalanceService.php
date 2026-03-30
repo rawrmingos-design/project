@@ -26,7 +26,13 @@ class ProviderBalanceService
 
             case 'bangjeff':
                 $res = (new BangJeffController($config))->balance();
-                $rawBalance = $res['data']['balance'] ?? null;
+                if (($res['rc'] ?? null) && ($res['rc'] !== '00')) {
+                    throw new RuntimeException($res['message'] ?? 'BangJeff gagal mengembalikan saldo.');
+                }
+
+                $rawBalance = $res['data']['balance']['value']
+                    ?? $res['data']['balance']
+                    ?? null;
                 break;
 
             case 'vip':
@@ -139,4 +145,3 @@ class ProviderBalanceService
         return is_numeric($value) ? (float) $value : null;
     }
 }
-

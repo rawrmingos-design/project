@@ -76,7 +76,8 @@ class ProviderRoutingService
             case 'bangjeff':
                 $credentials = [
                     'api_key' => $settings->apikey_bangjeff,
-                    'endpoint' => 'https://client.bangjeff.com/api/v2/order', // Verify endpoint later
+                    'endpoint' => rtrim((string) config('providers.bangjeff.base_url', 'https://distribution-api.bangjeff.com'), '/'),
+                    'region' => (string) config('providers.bangjeff.region', 'ID'),
                 ];
                 break;
 

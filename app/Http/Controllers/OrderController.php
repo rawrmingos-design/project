@@ -1505,10 +1505,13 @@ class OrderController extends Controller
                     if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
                     
                     $order = $bangjeffo->order($sku, $order_id, 1, $requestData);
-                    if ($order['error'] == false) {
-                        $provider_order_id = $order['data']['invoiceNumber'];
+                    $isSuccess = (($order['error'] ?? null) === false) || (($order['rc'] ?? null) === '00');
+                    $statusCode = strtoupper((string) ($order['data']['statusCode'] ?? 'PROCESSING'));
+
+                    if ($isSuccess) {
+                        $provider_order_id = $order['data']['invoiceNumber'] ?? $order_id;
                         $status = true;
-                        $order_status = 'Pending'; // Bangjeff is usually async
+                        $order_status = $statusCode === 'SUCCESS' ? 'Sukses' : ($statusCode === 'REFUNDED' ? 'Gagal' : 'Pending');
                     }
                     break;
 

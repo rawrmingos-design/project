@@ -69,5 +69,36 @@ class ProviderBalanceServiceTest extends TestCase
 
         $this->assertSame(1234.56, (float) $provider->balance);
     }
-}
 
+    public function test_it_reads_bangjeff_v4_balance_value_field(): void
+    {
+        Http::fake([
+            'https://sandbox-api.bangjeff.com/api/v4/balance' => Http::response([
+                'rc' => '00',
+                'message' => 'Success',
+                'data' => [
+                    'balance' => [
+                        'currency' => 'IDR',
+                        'value' => 987654,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $provider = Provider::create([
+            'code' => 'bangjeff',
+            'name' => 'BangJeff',
+            'api_key' => 'bj-api-key',
+            'api_endpoint' => 'https://sandbox-api.bangjeff.com',
+            'is_active' => true,
+            'balance' => 0,
+        ]);
+
+        $result = app(ProviderBalanceService::class)->sync($provider);
+
+        $provider->refresh();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(987654.0, (float) $provider->balance);
+    }
+}

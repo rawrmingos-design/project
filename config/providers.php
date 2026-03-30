@@ -22,7 +22,8 @@ return [
     ],
 
     'bangjeff' => [
-        'base_url' => env('BANGJEFF_BASE_URL', 'https://bangjeff.com/api/'),
+        'base_url' => env('BANGJEFF_BASE_URL', 'https://distribution-api.bangjeff.com'),
+        'region' => env('BANGJEFF_REGION', 'ID'),
         'api_id' => env('BANGJEFF_API_ID'),
         'api_key' => env('BANGJEFF_API_KEY'),
         'enabled' => env('BANGJEFF_ENABLED', true),
