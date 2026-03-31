@@ -18,6 +18,7 @@ class SettingWeb extends Model
         'mail_port' => 'integer',
         'invoice_notify_via_whatsapp' => 'boolean',
         'invoice_notify_via_email' => 'boolean',
+        'home_popup_enabled' => 'boolean',
         'easywa_send_delay' => 'integer',
         'captcha_enabled' => 'boolean',
         'captcha_bypass' => 'boolean',
