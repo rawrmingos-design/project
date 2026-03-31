@@ -51,8 +51,24 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
         try {
             $result = $orderProcessingService->process($pembelian);
+            $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
 
             if (! ($result['success'] ?? false)) {
+                if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+                    $pembelian->update([
+                        'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                        'status' => PembelianStatus::preferredDatabaseLabel($normalizedStatus),
+                        'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: (trim((string) ($result['message'] ?? '')) ?: $pembelian->keterangan_sn),
+                        'log' => $this->appendBoundedLog(
+                            $pembelian->log,
+                            'Queued provider dispatch final failure at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Provider returned failed status'),
+                        ),
+                        'reset_status' => $pembelian->invoice_version > 0 ? 'failed' : $pembelian->reset_status,
+                    ]);
+
+                    return;
+                }
+
                 $pembelian->update([
                     'log' => $this->appendBoundedLog(
                         $pembelian->log,
@@ -63,20 +79,30 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                 return;
             }
 
-            $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::PENDING);
-            $nextStatus = $normalizedStatus === PembelianStatus::SUCCESS
-                ? PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS)
-                : PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING);
+            $nextStatus = match ($normalizedStatus) {
+                PembelianStatus::SUCCESS => PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS),
+                PembelianStatus::FAILED, PembelianStatus::CANCELLED => PembelianStatus::preferredDatabaseLabel($normalizedStatus),
+                default => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING),
+            };
+
+            $nextResetStatus = $pembelian->reset_status;
+            if ($pembelian->invoice_version > 0) {
+                $nextResetStatus = match ($normalizedStatus) {
+                    PembelianStatus::SUCCESS => 'completed',
+                    PembelianStatus::FAILED, PembelianStatus::CANCELLED => 'failed',
+                    default => 'processing',
+                };
+            }
 
             $pembelian->update([
                 'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
                 'status' => $nextStatus,
-                'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: ($normalizedStatus === PembelianStatus::PENDING ? 'Sedang Diproses' : $pembelian->keterangan_sn),
+                'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: (in_array($normalizedStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true) ? 'Sedang Diproses' : $pembelian->keterangan_sn),
                 'log' => $this->appendBoundedLog(
                     $pembelian->log,
                     'Queued provider dispatch at ' . now()->format('Y-m-d H:i:s') . ': ' . ($result['message'] ?? 'Order dispatched'),
                 ),
-                'reset_status' => $pembelian->invoice_version > 0 ? 'processing' : $pembelian->reset_status,
+                'reset_status' => $nextResetStatus,
             ]);
         } catch (\Throwable $exception) {
             Log::error('SendPembelianToProviderJob failed.', [

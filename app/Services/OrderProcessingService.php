@@ -157,6 +157,15 @@ class OrderProcessingService
                     $result['message'] = $providerMessage !== ''
                         ? $providerMessage
                         : 'Order accepted by Digiflazz status: ' . $normalizedStatus;
+                } elseif (in_array($providerStatus, ['Gagal', 'Failed', 'Error', 'Canceled', 'Cancelled'], true)) {
+                    // Definitive provider failure. Keep success=false so callers can decide flow,
+                    // but pass normalized failed status for consumers that sync final status immediately.
+                    $result['order_status'] = in_array($providerStatus, ['Canceled', 'Cancelled'], true) ? 'Batal' : 'Gagal';
+                    $result['transaction_id'] = $providerRefId;
+                    $result['sn'] = $providerSn !== '' ? $providerSn : null;
+                    $result['message'] = $providerMessage !== ''
+                        ? $providerMessage
+                        : 'Order rejected by Digiflazz status: ' . $providerStatus;
                 } else {
                     $result['message'] = $providerMessage !== ''
                         ? $providerMessage
