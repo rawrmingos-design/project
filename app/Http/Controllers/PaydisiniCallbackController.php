@@ -3,17 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
-use App\Models\Layanan;
 use App\Models\Deposit;
 use App\Models\User;
+use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
-use App\Services\ProviderRoutingService;
 use App\Services\WhatsappNotificationService;
+use App\Support\PembelianStatus;
 
 class PaydisiniCallbackController extends Controller
 {
@@ -26,164 +25,272 @@ class PaydisiniCallbackController extends Controller
     
     public function callbackTransaction(Request $request)
     {
-        // Ambil data dari request
         $key = $request->input('key');
-        $payId = $request->input('pay_id');
-        $uniqueCode = $request->input('unique_code');
-        $status = $request->input('status');
-        $signature = $request->input('signature');
+        $payId = (string) $request->input('pay_id', '');
+        $uniqueCode = (string) $request->input('unique_code', '');
+        $status = strtolower((string) $request->input('status', ''));
+        $signature = (string) $request->input('signature', '');
 
-        // Validasi API Key
         if ($key !== $this->apiKey) {
             return response()->json(['success' => false, 'message' => 'Invalid API Key'], 400);
         }
 
-        // Validasi signature
+        if ($uniqueCode === '') {
+            return response()->json(['success' => false, 'message' => 'Missing unique_code'], 400);
+        }
+
+        // Sesuai docs Paydisini: md5(key . unique_code . 'CallbackStatus')
         $expectedSignature = md5($this->apiKey . $uniqueCode . 'CallbackStatus');
         if ($signature !== $expectedSignature) {
             return response()->json(['success' => false, 'message' => 'Invalid signature'], 400);
         }
 
-        // Cek transaksi
-        $transaction = Pembayaran::where('order_id', $uniqueCode)
-            ->where('status', 'Belum Lunas')
-            ->first();
-
-        if (!$transaction) {
-            return response()->json(['success' => false, 'message' => 'Transaction not found'], 404);
+        if (!in_array($status, ['success', 'canceled'], true)) {
+            // ACK supaya provider tidak retry untuk status yang tidak kita proses.
+            return response()->json(['success' => true, 'message' => 'ignored_non_terminal_status']);
         }
 
-        // Proses status pembayaran
-        if ($status === 'Success') {
-            $transaction->update(['status' => 'Lunas']);
-            $pembelian = Pembelian::where('order_id', $uniqueCode)->first();
+        $claim = $this->claimInvoice($uniqueCode, $status);
+        $transaction = $claim['invoice'];
 
-            if ($pembelian) {
-                // Initialize Services
-                $routingService = new ProviderRoutingService();
-                $orderProcessor = new OrderProcessingService($routingService);
-                $waService = new WhatsappNotificationService();
+        if (!$transaction) {
+            Log::warning('Paydisini callback: transaction not found', [
+                'unique_code' => $uniqueCode,
+                'pay_id' => $payId,
+            ]);
 
-                // Process Order
-                $result = $orderProcessor->process($pembelian);
-                
-                if ($result['success']) {
-                    $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
-                    $pembelian->update([
-                        'status' => 'Sukses', // Or Processing based on preference
-                        'provider_order_id' => $result['transaction_id'] ?? null,
-                        'keterangan_sn' => $snValue,
-                        'log' => json_encode(['result' => $result])
-                    ]);
+            return response()->json(['success' => true, 'message' => 'ignored_transaction_not_found']);
+        }
 
-                    // Notify Buyer (WhatsApp)
-                    $waService->sendNotification($transaction->no_pembeli, 'transaction_success', [
-                        'nickname' => $pembelian->nickname,
-                        'order_id' => $pembelian->order_id,
-                        'product' => $pembelian->layanan,
-                        'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'sn' => $snValue,
-                    ]);
+        if (($claim['state'] ?? null) !== 'claimed') {
+            return response()->json(['success' => true, 'message' => 'already_processed']);
+        }
 
-                     // Notify Buyer (Email)
-                     $emailService = new \App\Services\EmailNotificationService();
-                     $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                     if ($recipientEmail) {
-                        $emailService->sendTransactionEmail($recipientEmail, [ 'order_id' => $pembelian->order_id,
-                         'product' => $pembelian->layanan,
-                         'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                         'status' => 'Success',
-                         'nickname' => $pembelian->nickname,
-                         'sn' => $snValue,
-                         'note' => 'Terima kasih telah berbelanja.'
-                     ]);
-                    }
-
-                } else {
-                    $pembelian->update([
-                        'status' => 'Pending', // Mark pending for retry
-                        'log' => json_encode(['error' => $result['message']])
-                    ]);
-
-                    // Notify Buyer Pending/Failed (WhatsApp)
-                    $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
-                        'nickname' => $pembelian->nickname,
-                        'order_id' => $pembelian->order_id,
-                        'product' => $pembelian->layanan,
-                        'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'status' => 'Menunggu Provider',
-                    ]);
-
-                    // Notify Buyer (Email)
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                    if ($recipientEmail) {
-                        $emailService->sendTransactionEmail($recipientEmail, [
-                        'order_id' => $pembelian->order_id,
-                        'product' => $pembelian->layanan,
-                        'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'status' => 'Pending',
-                        'nickname' => $pembelian->nickname,
-                        'note' => 'Pesanan sedang menunggu respon provider.'
-                    ]);
-                }
-                }
-
-            } else {
-                $deposit = Deposit::where('order_id', $uniqueCode)->first();
-                if ($deposit) {
-                    $user = User::where('username', $deposit->username)->first();
-                    if ($user) {
-                        $user->update(['balance' => $user->balance + $deposit->jumlah]);
-                        $deposit->update(['status' => 'Success']);
-                        
-                        // Notify Deposit Success (Optional)
-                        // $waService->sendMessage(...)
-                    }
-                }
+        try {
+            if ($status === 'canceled') {
+                $this->handleCanceledCallback($uniqueCode, $transaction);
+                return response()->json(['success' => true]);
             }
-            return response()->json(['success' => true]);
 
-        } elseif ($status === 'Canceled') {
-            $transaction->update(['status' => 'Expired']);
-            $pembelian = Pembelian::where('order_id', $uniqueCode)->first();
-            
-            if ($pembelian) {
-                $pembelian->update(['status' => 'Expired']); // Or Batal?
-                app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
-                
-                // Notify Failed (WhatsApp)
-                $waService = new WhatsappNotificationService();
-                $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
-                    'nickname' => $pembelian->nickname,
-                    'order_id' => $pembelian->order_id,
-                    'product' => $pembelian->layanan,
-                    'reason' => 'Pembayaran Dibatalkan',
+            $this->handleSuccessCallback($uniqueCode, $transaction);
+            return response()->json(['success' => true]);
+        } catch (\Throwable $exception) {
+            Log::error('Paydisini callback processing error', [
+                'unique_code' => $uniqueCode,
+                'pay_id' => $payId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'claimed_with_processing_error']);
+        }
+    }
+
+    private function claimInvoice(string $uniqueCode, string $status): array
+    {
+        return DB::transaction(function () use ($uniqueCode, $status): array {
+            $invoice = Pembayaran::query()
+                ->where('order_id', $uniqueCode)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$invoice) {
+                return ['state' => 'missing', 'invoice' => null];
+            }
+
+            if ($status === 'success') {
+                if ($invoice->status !== 'Belum Lunas') {
+                    return ['state' => 'already_processed', 'invoice' => $invoice];
+                }
+
+                $invoice->update([
+                    'status' => 'Lunas',
+                    'paid_at' => now(),
                 ]);
 
-                // Notify Failed (Email)
-                $emailService = new \App\Services\EmailNotificationService();
-                $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                if ($recipientEmail) {
-                    $emailService->sendTransactionEmail($recipientEmail, [
+                return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
+            }
+
+            // canceled
+            if ($invoice->status === 'Belum Lunas') {
+                $invoice->update(['status' => 'Expired']);
+                return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
+            }
+
+            return ['state' => 'already_processed', 'invoice' => $invoice];
+        });
+    }
+
+    private function handleSuccessCallback(string $uniqueCode, Pembayaran $transaction): void
+    {
+        $pembelian = Pembelian::query()->where('order_id', $uniqueCode)->first();
+        if ($pembelian) {
+            $this->processPembelian($pembelian, $transaction);
+            return;
+        }
+
+        $deposit = Deposit::query()->where('order_id', $uniqueCode)->first();
+        if ($deposit) {
+            DB::transaction(function () use ($deposit): void {
+                $depositLocked = Deposit::query()
+                    ->whereKey($deposit->getKey())
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$depositLocked || $depositLocked->status !== 'Pending') {
+                    return;
+                }
+
+                $user = User::query()
+                    ->where('username', $depositLocked->username)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($user) {
+                    $user->increment('balance', $depositLocked->jumlah);
+                }
+
+                $depositLocked->update(['status' => 'Success']);
+            });
+        }
+    }
+
+    private function handleCanceledCallback(string $uniqueCode, Pembayaran $transaction): void
+    {
+        $pembelian = Pembelian::query()->where('order_id', $uniqueCode)->first();
+        if (!$pembelian) {
+            return;
+        }
+
+        $pembelian->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED)]);
+        app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+
+        $waService = app(WhatsappNotificationService::class);
+        $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
+            'nickname' => $pembelian->nickname,
+            'order_id' => $pembelian->order_id,
+            'product' => $pembelian->layanan,
+            'reason' => 'Pembayaran Dibatalkan',
+        ]);
+
+        $emailService = app(EmailNotificationService::class);
+        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+        if ($recipientEmail) {
+            $emailService->sendTransactionEmail($recipientEmail, [
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::FAILED),
+                'nickname' => $pembelian->nickname,
+                'note' => 'Pembayaran dibatalkan atau kadaluarsa.',
+            ]);
+        }
+    }
+
+    private function processPembelian(Pembelian $pembelian, Pembayaran $transaction): void
+    {
+        $orderProcessor = app(OrderProcessingService::class);
+        $waService = app(WhatsappNotificationService::class);
+        $emailService = app(EmailNotificationService::class);
+
+        $result = $orderProcessor->process($pembelian);
+        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
+        $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
+        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+
+        if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+            ]);
+
+            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
                     'order_id' => $pembelian->order_id,
                     'product' => $pembelian->layanan,
                     'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                    'status' => 'Failed',
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
                     'nickname' => $pembelian->nickname,
-                    'note' => 'Pembayaran dibatalkan atau kadaluarsa.'
+                    'sn' => $snValue,
+                    'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
                 ]);
-                }
-
-            } else {
-                $deposit = Deposit::where('order_id', $uniqueCode)->first();
-                if ($deposit) {
-                    $deposit->update(['status' => 'Expired']);
-                }
             }
-            return response()->json(['success' => true]);
-        } else {
-            return response()->json(['success' => false, 'message' => 'Invalid status'], 400);
+
+            return;
+        }
+
+        if (($result['success'] ?? false) === true) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                ? 'transaction_success'
+                : 'transaction_pending';
+
+            $waService->sendNotification($transaction->no_pembeli, $notificationSlug, [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'sn' => $snValue,
+                'status' => PembelianStatus::label($providerStatus),
+            ]);
+
+            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
+                    'order_id' => $pembelian->order_id,
+                    'product' => $pembelian->layanan,
+                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
+                    'nickname' => $pembelian->nickname,
+                    'sn' => $snValue,
+                    'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                        ? 'Terima kasih telah berbelanja.'
+                        : 'Pesanan sedang menunggu respon provider.',
+                ]);
+            }
+
+            return;
+        }
+
+        $pembelian->update([
+            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+            'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
+        ]);
+
+        $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
+            'nickname' => $pembelian->nickname,
+            'order_id' => $pembelian->order_id,
+            'product' => $pembelian->layanan,
+            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+            'status' => 'Menunggu Provider',
+        ]);
+
+        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+        if ($recipientEmail) {
+            $emailService->sendTransactionEmail($recipientEmail, [
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+                'nickname' => $pembelian->nickname,
+                'note' => 'Pesanan sedang menunggu respon provider.',
+            ]);
         }
     }
 }

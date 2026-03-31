@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Http\Controllers\DigiFlazzController;
-use App\Http\Controllers\provider\BangJeffController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Models\Provider;
+use App\Services\Providers\BangJeffService;
 use RuntimeException;
 
 class ProviderBalanceService
@@ -25,7 +25,7 @@ class ProviderBalanceService
                 break;
 
             case 'bangjeff':
-                $res = (new BangJeffController($config))->balance();
+                $res = (new BangJeffService($config))->balance();
                 if (($res['rc'] ?? null) && ($res['rc'] !== '00')) {
                     throw new RuntimeException($res['message'] ?? 'BangJeff gagal mengembalikan saldo.');
                 }

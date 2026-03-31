@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
-use App\Http\Controllers\provider\BangJeffController;
+use App\Services\Providers\BangJeffService;
 
 class OrderProcessingService
 {
@@ -218,7 +218,7 @@ class OrderProcessingService
                 return $result;
 
             case 'bangjeff':
-                $bangjeff = new BangJeffController($credentials);
+                $bangjeff = new BangJeffService($credentials);
                 $requestData = [['name' => 'ID', 'value' => $uid]];
                 if (!empty($zone)) {
                     $requestData[] = ['name' => 'Server', 'value' => $zone];
