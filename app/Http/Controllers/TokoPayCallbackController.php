@@ -3,22 +3,17 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
-use App\Models\Layanan;
-use App\Models\Kategori;
-use App\Models\Voucher;
 use App\Models\Deposit;
 use App\Models\User;
-use App\Http\Controllers\DigiFlazzController;
-
-// Services
+use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
-use App\Services\ProviderRoutingService;
 use App\Services\WhatsappNotificationService;
+use App\Support\PembelianStatus;
 
 class TokoPayCallbackController extends Controller
 {
@@ -34,205 +29,241 @@ class TokoPayCallbackController extends Controller
         $json = $request->getContent();
         $data = json_decode($json, true);
 
-        // Pastikan payload memiliki field wajib
         if (!isset($data['status'], $data['reff_id'], $data['signature'])) {
-            return Response::json(['error' => 'Data json tidak sesuai'], 400);
+            return Response::json(['status' => false, 'message' => 'Data json tidak sesuai'], 400);
         }
 
-        // FIX #8a: Validasi signature PERTAMA sebelum query DB apapun
-        // Ini mencegah DDoS dan memastikan request hanya dari TokoPay yang sah
-        $ref_id = $data['reff_id'];
+        $refId = (string) $data['reff_id'];
+        $reference = (string) ($data['reference'] ?? '');
         $signature_from_tokopay = $data['signature'];
-        $signature_validasi = md5($this->api->tokopay_merchant_id . ":" . $this->api->tokopay_secret_key . ":" . $ref_id);
+        $signature_validasi = md5($this->api->tokopay_merchant_id . ":" . $this->api->tokopay_secret_key . ":" . $refId);
 
         if ($signature_from_tokopay !== $signature_validasi) {
-            \Illuminate\Support\Facades\Log::warning('TokoPay callback: Invalid signature', ['ref_id' => $ref_id]);
-            return Response::json(['error' => 'Invalid Signature'], 401);
+            Log::warning('TokoPay callback: Invalid signature', ['ref_id' => $refId]);
+            return Response::json(['status' => false, 'message' => 'Invalid Signature'], 401);
         }
 
-        // Hanya proses jika status payment adalah Success
-        if ($data['status'] !== 'Success') {
-            return Response::json(['error' => 'Status payment tidak success']);
+        // Docs TokoPay menampilkan Success/Completed sebagai status berhasil.
+        $incomingStatus = strtolower((string) $data['status']);
+        if (!in_array($incomingStatus, ['success', 'completed'], true)) {
+            return Response::json(['status' => true, 'message' => 'ignored_non_paid_status']);
         }
 
-        // Cari invoice berdasarkan reference
-        $referenceUniq = $data['reference'];
-        $invoice = Pembayaran::where('reference', $referenceUniq)
-            ->where('status', 'Belum Lunas')
-            ->first();
+        if ($reference === '') {
+            return Response::json(['status' => false, 'message' => 'reference tidak ditemukan'], 400);
+        }
+
+        $claim = $this->claimPaidInvoice($reference);
+        $invoice = $claim['invoice'];
 
         if (!$invoice) {
-            return Response::json([
-                'success' => false,
-                'message' => 'No invoice found or already paid: ' . $referenceUniq,
+            Log::warning('TokoPay callback: invoice not found', [
+                'reference' => $reference,
+                'reff_id' => $refId,
             ]);
+
+            // Balas true agar gateway berhenti retry callback untuk referensi yang tidak dikenal.
+            return Response::json(['status' => true, 'message' => 'ignored_invoice_not_found']);
+        }
+
+        if (($claim['state'] ?? null) !== 'claimed') {
+            // Sudah diproses callback sebelumnya => idempotent ACK.
+            return Response::json(['status' => true, 'message' => 'already_processed']);
         }
 
         $order_id = $invoice->order_id;
         $dataPembeli = Pembelian::where('order_id', $order_id)->first();
+        $dataDeposit = $dataPembeli ? null : Deposit::where('order_id', $order_id)->first();
 
-        if ($dataPembeli) {
-            $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
+        if (!$dataPembeli && !$dataDeposit) {
+            Log::warning('TokoPay callback: order/deposit not found after invoice claim', [
+                'order_id' => $order_id,
+                'reference' => $reference,
+            ]);
 
-            if ($dataLayanan) {
-                $dataKategori = Kategori::where('id', $dataLayanan->kategori_id)->first();
-
-                if ($dataKategori) {
-                    $pesanPembeli =
-                        "*Pembayaran Berhasil*\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan : *$dataPembeli->layanan*\n" .
-                        "ID : *$dataPembeli->user_id*\n" .
-                        "Server : *$dataPembeli->zone*\n" .
-                        "Nickname : *$dataPembeli->nickname*\n" .
-                        "Harga : *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                        "Status Pembelian: *Process*\n" .
-                        "Estimasi Proses: *1-5 Menit Max 24 Jam*\n\n" .
-                        "INI ADALAH PESAN OTOMATIS";
-
-                    $pesanJoki =
-                        "*Pembayaran Berhasil*\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan: *$dataPembeli->layanan*\n" .
-                        "ID: *$dataPembeli->user_id*\n" .
-                        "Server: *$dataPembeli->zone*\n" .
-                        "Nickname: *$dataPembeli->nickname*\n" .
-                        "Harga: *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                        "Status Pembelian: *Process*\n" .
-                        "Penjoki kami akan segera memulai permainan.\n\n" .
-                        "INI ADALAH PESAN OTOMATIS";
-
-                    $pesanSukses =
-                        "*Diamond Berhasil Dikirim*\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan: *$dataPembeli->layanan*\n" .
-                        "ID: *$dataPembeli->user_id*\n" .
-                        "Server: *$dataPembeli->zone*\n" .
-                        "Nickname: *$dataPembeli->nickname*\n" .
-                        "Harga: *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                        "Status Pembelian: *Success*\n\n" .
-                        "Terima kasih telah bertransaksi dengan kami.";
-
-                    $zoneSend = $dataPembeli->zone == null ? "" : "($dataPembeli->zone)\n";
-                    $nickname = $dataPembeli->nickname == null ? '' : "Nickname : $dataPembeli->nickname\n";
-
-                    $uid = $dataPembeli->user_id;
-                    $zone = $dataPembeli->zone;
-                    $provider_id = $dataLayanan->provider_id;
-                } else {
-                    // Handle jika $dataKategori tidak ditemukan
-                }
-            } else {
-                // Handle jika $dataLayanan tidak ditemukan
-            }
-        } else {
-            $dataDeposit = Deposit::where('order_id', $order_id)->first();
+            return Response::json(['status' => true, 'message' => 'ignored_order_not_found']);
         }
 
-        // FIX #8b: Deposit saldo menggunakan DB::transaction + lockForUpdate
-        // Mencegah double top-up jika TokoPay mengirim webhook dua kali bersamaan
-        if (isset($dataDeposit)) {
-            try {
-                \Illuminate\Support\Facades\DB::transaction(function () use ($dataDeposit, $invoice) {
-                    // lockForUpdate memastikan hanya satu proses yang berjalan sekaligus
-                    $depositLocked = \App\Models\Deposit::where('order_id', $dataDeposit->order_id)
-                        ->where('status', 'Pending') // Idempotency guard: hanya proses jika masih Pending
-                        ->lockForUpdate()
-                        ->first();
-
-                    if (!$depositLocked) {
-                        // Sudah diproses oleh webhook sebelumnya — abaikan
-                        return;
-                    }
-
-                    $userDeposit = \App\Models\User::where('username', $depositLocked->username)
-                        ->lockForUpdate()
-                        ->first();
-
-                    if ($userDeposit) {
-                        $userDeposit->increment('balance', $depositLocked->jumlah);
-                    }
-
-                    $depositLocked->update(['status' => 'Success']);
-                    $invoice->update(['status' => 'Lunas', 'paid_at' => now()]);
-                });
-
-                return Response::json(['success' => true]);
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error('TokoPay deposit callback error', ['error' => $e->getMessage(), 'order_id' => $order_id]);
-                return Response::json(['error' => 'Internal server error'], 500);
-            }
-        } else {
-            // Multi-Provider Order Processing (alur order game, bukan deposit)
-            $pembelian = $dataPembeli;
-            $transaction = $invoice;
-
-            $routingService = new \App\Services\ProviderRoutingService();
-            $orderProcessor = new \App\Services\OrderProcessingService($routingService);
-            $waService = new \App\Services\WhatsappNotificationService();
-
-            $result = $orderProcessor->process($pembelian);
-
-            if ($result['success']) {
-                $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
-                $pembelian->update([
-                    'status' => 'Sukses',
-                    'provider_order_id' => $result['transaction_id'] ?? null,
-                    'keterangan_sn' => $snValue,
-                    'log' => json_encode(['result' => $result])
-                ]);
-
-                $waService->sendNotification($transaction->no_pembeli, 'transaction_success', [
-                    'nickname' => $pembelian->nickname,
-                    'order_id' => $pembelian->order_id,
-                    'product' => $pembelian->layanan,
-                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                    'sn' => $snValue,
-                ]);
-
-                $emailService = new \App\Services\EmailNotificationService();
-                $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                if ($recipientEmail) {
-                    $emailService->sendTransactionEmail($recipientEmail, [
-                        'order_id' => $pembelian->order_id,
-                        'product' => $pembelian->layanan,
-                        'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'status' => 'Success',
-                        'nickname' => $pembelian->nickname,
-                        'sn' => $snValue,
-                        'note' => 'Terima kasih telah berbelanja.'
-                    ]);
-                }
+        try {
+            if ($dataDeposit) {
+                $this->processDeposit($dataDeposit, $invoice);
             } else {
-                $pembelian->update([
-                    'status' => 'Pending',
-                    'log' => json_encode(['error' => $result['message']])
-                ]);
+                $this->processPembelian($dataPembeli, $invoice);
+            }
+        } catch (\Throwable $exception) {
+            Log::error('TokoPay callback processing error', [
+                'order_id' => $order_id,
+                'reference' => $reference,
+                'error' => $exception->getMessage(),
+            ]);
 
-                $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
-                    'nickname' => $pembelian->nickname,
+            // Invoice sudah di-claim lunas agar callback retry tidak trigger duplicate order.
+            if ($dataPembeli) {
+                $dataPembeli->update([
+                    'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+                    'log' => json_encode(['callback_error' => $exception->getMessage()]),
+                ]);
+            }
+        }
+
+        return Response::json(['status' => true]);
+    }
+
+    private function claimPaidInvoice(string $reference): array
+    {
+        return DB::transaction(function () use ($reference): array {
+            $invoice = Pembayaran::query()
+                ->where('reference', $reference)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$invoice) {
+                return ['state' => 'missing', 'invoice' => null];
+            }
+
+            if ($invoice->status !== 'Belum Lunas') {
+                return ['state' => 'already_processed', 'invoice' => $invoice];
+            }
+
+            $invoice->update([
+                'status' => 'Lunas',
+                'paid_at' => now(),
+            ]);
+
+            return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
+        });
+    }
+
+    private function processDeposit(Deposit $deposit, Pembayaran $invoice): void
+    {
+        DB::transaction(function () use ($deposit): void {
+            $depositLocked = Deposit::query()
+                ->whereKey($deposit->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (!$depositLocked || $depositLocked->status !== 'Pending') {
+                return;
+            }
+
+            $userDeposit = User::query()
+                ->where('username', $depositLocked->username)
+                ->lockForUpdate()
+                ->first();
+
+            if ($userDeposit) {
+                $userDeposit->increment('balance', $depositLocked->jumlah);
+            }
+
+            $depositLocked->update(['status' => 'Success']);
+        });
+    }
+
+    private function processPembelian(Pembelian $pembelian, Pembayaran $invoice): void
+    {
+        $orderProcessor = app(OrderProcessingService::class);
+        $waService = app(WhatsappNotificationService::class);
+        $emailService = app(EmailNotificationService::class);
+
+        $result = $orderProcessor->process($pembelian);
+        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
+        $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
+        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+
+        if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+            ]);
+
+            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
                     'order_id' => $pembelian->order_id,
                     'product' => $pembelian->layanan,
                     'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                    'status' => 'Menunggu Provider',
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
+                    'nickname' => $pembelian->nickname,
+                    'sn' => $snValue,
+                    'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
                 ]);
-
-                $emailService = new \App\Services\EmailNotificationService();
-                $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                if ($recipientEmail) {
-                    $emailService->sendTransactionEmail($recipientEmail, [
-                        'order_id' => $pembelian->order_id,
-                        'product' => $pembelian->layanan,
-                        'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                        'status' => 'Pending',
-                        'nickname' => $pembelian->nickname,
-                        'note' => 'Pesanan sedang menunggu respon provider.'
-                    ]);
-                }
             }
 
-            $invoice->update(['status' => 'Lunas', 'paid_at' => now()]);
-            return Response::json(['success' => true]);
+            return;
+        }
+
+        if (($result['success'] ?? false) === true) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                ? 'transaction_success'
+                : 'transaction_pending';
+
+            $waService->sendNotification($invoice->no_pembeli, $notificationSlug, [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'sn' => $snValue,
+                'status' => PembelianStatus::label($providerStatus),
+            ]);
+
+            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
+                    'order_id' => $pembelian->order_id,
+                    'product' => $pembelian->layanan,
+                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
+                    'nickname' => $pembelian->nickname,
+                    'sn' => $snValue,
+                    'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                        ? 'Terima kasih telah berbelanja.'
+                        : 'Pesanan sedang menunggu respon provider.',
+                ]);
+            }
+
+            return;
+        }
+
+        $pembelian->update([
+            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+            'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
+        ]);
+
+        $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
+            'nickname' => $pembelian->nickname,
+            'order_id' => $pembelian->order_id,
+            'product' => $pembelian->layanan,
+            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+            'status' => 'Menunggu Provider',
+        ]);
+
+        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+        if ($recipientEmail) {
+            $emailService->sendTransactionEmail($recipientEmail, [
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+                'nickname' => $pembelian->nickname,
+                'note' => 'Pesanan sedang menunggu respon provider.',
+            ]);
         }
     }
 }

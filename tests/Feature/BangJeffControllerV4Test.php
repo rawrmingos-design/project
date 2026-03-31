@@ -56,5 +56,52 @@ class BangJeffControllerV4Test extends TestCase
             Carbon::setTestNow();
         }
     }
-}
 
+    public function test_it_auto_switches_to_sandbox_endpoint_in_local_like_environment(): void
+    {
+        config()->set('providers.bangjeff.use_sandbox_on_local', true);
+        config()->set('providers.bangjeff.sandbox_base_url', 'https://sandbox-api.bangjeff.com');
+
+        Http::fake([
+            'https://sandbox-api.bangjeff.com/api/v4/balance' => Http::response([
+                'rc' => '00',
+                'message' => 'Success',
+                'data' => ['balance' => ['currency' => 'IDR', 'value' => 1000]],
+            ], 200),
+        ]);
+
+        $controller = new BangJeffController([
+            'api_key' => 'api-key-xyz',
+            'endpoint' => 'https://distribution-api.bangjeff.com',
+            'region' => 'ID',
+        ]);
+
+        $controller->balance();
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://sandbox-api.bangjeff.com/api/v4/balance');
+    }
+
+    public function test_it_can_disable_local_sandbox_switch_via_config(): void
+    {
+        config()->set('providers.bangjeff.use_sandbox_on_local', false);
+        config()->set('providers.bangjeff.sandbox_base_url', 'https://sandbox-api.bangjeff.com');
+
+        Http::fake([
+            'https://distribution-api.bangjeff.com/api/v4/balance' => Http::response([
+                'rc' => '00',
+                'message' => 'Success',
+                'data' => ['balance' => ['currency' => 'IDR', 'value' => 1000]],
+            ], 200),
+        ]);
+
+        $controller = new BangJeffController([
+            'api_key' => 'api-key-xyz',
+            'endpoint' => 'https://distribution-api.bangjeff.com',
+            'region' => 'ID',
+        ]);
+
+        $controller->balance();
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://distribution-api.bangjeff.com/api/v4/balance');
+    }
+}

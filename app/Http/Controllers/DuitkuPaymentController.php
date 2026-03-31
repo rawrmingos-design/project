@@ -12,6 +12,7 @@ use App\Services\WhatsappNotificationService;
 use App\Services\EmailNotificationService;
 use App\Services\ProviderRoutingService;
 use App\Services\OrderProcessingService;
+use App\Support\PembelianStatus;
 use Duitku\Config;
 use Duitku\Pop;
 
@@ -325,9 +326,45 @@ class DuitkuPaymentController extends Controller
                         $transactionId = $result['transaction_id'] ?? null;
                         $orderSuccess = (bool) ($result['success'] ?? false);
 
-                        if ($orderSuccess) {
-                            $providerStatus = $result['order_status'] ?? 'Sukses';
-                            $snValue = trim((string) ($result['sn'] ?? '')) ?: ($order->keterangan_sn ?: 'Sedang Diproses');
+                        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
+                        $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
+                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($order->keterangan_sn ?: 'Sedang Diproses');
+
+                        if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+                            $orderData = [
+                                'status' => $providerStatus,
+                                'keterangan_sn' => $snValue,
+                            ];
+                            if ($transactionId) {
+                                $orderData['provider_order_id'] = $transactionId;
+                            }
+                            $order->update($orderData);
+                            app(\App\Services\PointService::class)->refundRedeemedPoints($order);
+
+                            $this->runSafely('duitku_transaction_failed_provider_whatsapp', function () use ($waService, $payment, $order, $result) {
+                                $waService->sendNotification($payment->no_pembeli, 'transaction_failed', [
+                                    'nickname' => $order->nickname ?? 'Pelanggan',
+                                    'order_id' => $payment->order_id,
+                                    'product' => $order->layanan,
+                                    'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+                                ]);
+                            }, ['order_id' => $payment->order_id]);
+
+                            $recipientEmail = $order->email_pembeli ?? ($order->user->email ?? null);
+                            if ($recipientEmail) {
+                                $this->runSafely('duitku_transaction_failed_provider_email', function () use ($emailService, $recipientEmail, $payment, $order, $providerStatus, $snValue, $result) {
+                                    $emailService->sendTransactionEmail($recipientEmail, [
+                                        'order_id' => $payment->order_id,
+                                        'product' => $order->layanan,
+                                        'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
+                                        'status' => PembelianStatus::apiStatusCode($providerStatus),
+                                        'nickname' => $order->nickname,
+                                        'sn' => $snValue,
+                                        'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+                                    ]);
+                                }, ['order_id' => $payment->order_id]);
+                            }
+                        } elseif ($orderSuccess) {
                             $orderData = ['status' => $providerStatus];
                             if ($transactionId) {
                                 $orderData['provider_order_id'] = $transactionId;
@@ -335,27 +372,34 @@ class DuitkuPaymentController extends Controller
                             $orderData['keterangan_sn'] = $snValue;
                             $order->update($orderData);
 
-                            $this->runSafely('duitku_transaction_success_whatsapp', function () use ($waService, $payment, $order, $snValue) {
-                                $waService->sendNotification($payment->no_pembeli, 'transaction_success', [
+                            $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                                ? 'transaction_success'
+                                : 'transaction_pending';
+
+                            $this->runSafely('duitku_transaction_success_whatsapp', function () use ($waService, $payment, $order, $snValue, $providerStatus, $notificationSlug) {
+                                $waService->sendNotification($payment->no_pembeli, $notificationSlug, [
                                     'nickname' => $order->nickname,
                                     'order_id' => $payment->order_id,
                                     'product' => $order->layanan,
                                     'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
                                     'sn' => $snValue,
+                                    'status' => PembelianStatus::label($providerStatus),
                                 ]);
                             }, ['order_id' => $payment->order_id]);
 
                             $recipientEmail = $order->email_pembeli ?? ($order->user->email ?? null);
                             if ($recipientEmail) {
-                                $this->runSafely('duitku_transaction_success_email', function () use ($emailService, $recipientEmail, $payment, $order, $snValue) {
+                                $this->runSafely('duitku_transaction_success_email', function () use ($emailService, $recipientEmail, $payment, $order, $providerStatus, $snValue) {
                                     $emailService->sendTransactionEmail($recipientEmail, [
                                         'order_id' => $payment->order_id,
                                         'product' => $order->layanan,
                                         'amount' => 'Rp ' . number_format($order->harga, 0, ',', '.'),
-                                        'status' => 'Success',
+                                        'status' => PembelianStatus::apiStatusCode($providerStatus),
                                         'nickname' => $order->nickname,
                                         'sn' => $snValue,
-                                        'note' => 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                                        'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                                            ? 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                                            : 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.',
                                     ]);
                                 }, ['order_id' => $payment->order_id]);
                             }
@@ -399,8 +443,13 @@ class DuitkuPaymentController extends Controller
                     return response('SUCCESS', 200);
                 }
 
+                Log::warning('Duitku: unknown callback resultCode', [
+                    'resultCode' => $payload['resultCode'] ?? null,
+                    'reference' => $payload['reference'] ?? null,
+                    'merchantOrderId' => $payload['merchantOrderId'] ?? null,
+                ]);
                 DB::rollBack();
-                return response('Unknown status', 400);
+                return response('SUCCESS', 200);
 
             } catch (\Exception $e) {
                 DB::rollBack();

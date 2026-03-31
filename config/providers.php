@@ -23,6 +23,8 @@ return [
 
     'bangjeff' => [
         'base_url' => env('BANGJEFF_BASE_URL', 'https://distribution-api.bangjeff.com'),
+        'sandbox_base_url' => env('BANGJEFF_SANDBOX_BASE_URL', 'https://sandbox-api.bangjeff.com'),
+        'use_sandbox_on_local' => env('BANGJEFF_USE_SANDBOX_ON_LOCAL', true),
         'region' => env('BANGJEFF_REGION', 'ID'),
         'api_id' => env('BANGJEFF_API_ID'),
         'api_key' => env('BANGJEFF_API_KEY'),
