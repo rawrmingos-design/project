@@ -143,6 +143,12 @@
 {{-- Article Recommendation Section - Livewire Lazy Load --}}
 @livewire('home.articles', [], key('articles'))
 
+@php
+    $homePopupEnabled = (bool) ($config->home_popup_enabled ?? true);
+    $shouldRenderHomepagePopup = $homePopupEnabled && isset($popup) && $popup;
+@endphp
+
+@if($shouldRenderHomepagePopup)
 <style>
             .bg-black\/80 {
                 background-color: #000000cc;
@@ -399,6 +405,7 @@
         </div>
     </div>
 </div>
+@endif
         <script src="{{ asset('/assets/js/kbwdiasuwasdw.js') }}"></script>
 
 @include('../footer')

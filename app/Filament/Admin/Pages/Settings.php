@@ -105,6 +105,17 @@ class Settings extends Page implements HasForms
                     ->collapsible()
                     ->collapsed(),
 
+                Section::make('Homepage Popup')
+                    ->description('Kontrol popup pengumuman/promosi di halaman utama.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('home_popup_enabled')
+                            ->label('Aktifkan Popup Homepage')
+                            ->default(true)
+                            ->helperText('Jika nonaktif, popup pengumuman di homepage tidak akan ditampilkan ke pengunjung.'),
+                    ])
+                    ->collapsible(),
+
                 Section::make('SEO Crawling')
                     ->description('Konfigurasi robots.txt dan sitemap.xml agar crawling bot mesin pencari tetap terkendali.')
                     ->headerActions([
@@ -1226,6 +1237,9 @@ class Settings extends Page implements HasForms
             : true;
         $data['invoice_notify_via_email'] = array_key_exists('invoice_notify_via_email', $data)
             ? (bool) $data['invoice_notify_via_email']
+            : true;
+        $data['home_popup_enabled'] = array_key_exists('home_popup_enabled', $data)
+            ? (bool) $data['home_popup_enabled']
             : true;
         $data['wa_provider'] ??= 'fonnte';
         $data['easywa_email'] ??= null;
