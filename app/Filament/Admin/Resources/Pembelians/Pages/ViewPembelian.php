@@ -7,6 +7,7 @@ use App\Jobs\SendPembelianToProviderJob;
 use App\Models\ProviderPath;
 use App\Services\ResetDomainService;
 use App\Support\PembelianStatus;
+use App\Support\ProviderDispatchTracker;
 use DomainException;
 use Filament\Actions;
 use Filament\Infolists\Components\TextEntry;
@@ -105,6 +106,11 @@ class ViewPembelian extends ViewRecord
                             ->label('Active Attempt Reference')
                             ->state(fn (): string => $this->record->active_attempt_reference ?: $this->record->display_order_id)
                             ->copyable(),
+                        TextEntry::make('dispatch_state')
+                            ->label('Dispatch State')
+                            ->state(fn (): string => $this->getDispatchStateLabel())
+                            ->badge()
+                            ->color(fn (): string => $this->getDispatchStateBadgeColor()),
                         TextEntry::make('reset_reason')
                             ->label('Reset Reason')
                             ->default('N/A'),
@@ -298,6 +304,10 @@ class ViewPembelian extends ViewRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('primary')
                 ->visible(fn (): bool => (int) $this->record->invoice_version > 0 && $this->record->canBeRetried())
+                ->disabled(fn (): bool => ProviderDispatchTracker::isActive($this->record->getKey()))
+                ->tooltip(fn (): ?string => ProviderDispatchTracker::isActive($this->record->getKey())
+                    ? 'Dispatch masih dalam antrean/proses. Tunggu sebentar lalu refresh.'
+                    : null)
                 ->requiresConfirmation()
                 ->modalHeading('Send Transaction To Provider')
                 ->modalDescription(fn (): string => sprintf(
@@ -306,6 +316,16 @@ class ViewPembelian extends ViewRecord
                     $this->record->active_attempt_reference ?: $this->record->display_order_id ?: $this->record->order_id,
                 ))
                 ->action(function (): void {
+                    if (ProviderDispatchTracker::isActive($this->record->getKey())) {
+                        Notification::make()
+                            ->title('Dispatch masih berjalan')
+                            ->body('Order ini masih dalam antrean/proses provider. Tunggu sebentar lalu refresh.')
+                            ->warning()
+                            ->send();
+
+                        return;
+                    }
+
                     try {
                         $this->record->update([
                             'log' => $this->appendBoundedLog(
@@ -315,6 +335,7 @@ class ViewPembelian extends ViewRecord
                             'reset_status' => $this->record->invoice_version > 0 ? 'processing' : $this->record->reset_status,
                         ]);
 
+                        ProviderDispatchTracker::markQueued($this->record->getKey());
                         SendPembelianToProviderJob::dispatch($this->record->getKey(), Auth::id());
 
                         $this->record->refresh();
@@ -447,6 +468,16 @@ class ViewPembelian extends ViewRecord
         return $resetStatus === 'none'
             ? 'Not reset'
             : (string) Str::of($resetStatus)->replace(['_', '-'], ' ')->title();
+    }
+
+    public function getDispatchStateLabel(): string
+    {
+        return ProviderDispatchTracker::label($this->record->getKey());
+    }
+
+    public function getDispatchStateBadgeColor(): string
+    {
+        return ProviderDispatchTracker::badgeColor($this->record->getKey());
     }
 
     private function formatProviderLabel(?string $provider): string

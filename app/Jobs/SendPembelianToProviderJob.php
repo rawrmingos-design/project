@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Pembelian;
 use App\Services\OrderProcessingService;
 use App\Support\PembelianStatus;
+use App\Support\ProviderDispatchTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 {
@@ -39,6 +41,8 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(OrderProcessingService $orderProcessingService): void
     {
+        ProviderDispatchTracker::markProcessing($this->pembelianId);
+
         $pembelian = Pembelian::query()->find($this->pembelianId);
 
         if (! $pembelian) {
@@ -46,6 +50,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                 'pembelian_id' => $this->pembelianId,
             ]);
 
+            ProviderDispatchTracker::clear($this->pembelianId);
             return;
         }
 
@@ -66,6 +71,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                         'reset_status' => $pembelian->invoice_version > 0 ? 'failed' : $pembelian->reset_status,
                     ]);
 
+                    ProviderDispatchTracker::clear($this->pembelianId);
                     return;
                 }
 
@@ -76,6 +82,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                     ),
                 ]);
 
+                ProviderDispatchTracker::clear($this->pembelianId);
                 return;
             }
 
@@ -104,6 +111,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                 ),
                 'reset_status' => $nextResetStatus,
             ]);
+            ProviderDispatchTracker::clear($this->pembelianId);
         } catch (\Throwable $exception) {
             Log::error('SendPembelianToProviderJob failed.', [
                 'pembelian_id' => $this->pembelianId,
@@ -124,6 +132,11 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
             throw $exception;
         }
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        ProviderDispatchTracker::clear($this->pembelianId);
     }
 
     private function appendBoundedLog(?string $existingLog, string $entry, int $limit = 1000): string

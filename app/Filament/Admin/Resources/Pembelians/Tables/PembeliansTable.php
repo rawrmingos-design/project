@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Pembelians\Tables;
 
 use App\Jobs\SendPembelianToProviderJob;
 use App\Support\PembelianStatus;
+use App\Support\ProviderDispatchTracker;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -18,7 +19,6 @@ use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Filament\Notifications\Notification;
 use pxlrbt\FilamentExcel\Columns\Column;
@@ -83,6 +83,12 @@ class PembeliansTable
                     ->color(fn ($record) => $record->status_badge_color)
                     ->icon(fn ($record) => $record->status_icon)
                     ->sortable(),
+
+                TextColumn::make('dispatch_state')
+                    ->label('Dispatch')
+                    ->badge()
+                    ->getStateUsing(fn ($record): string => ProviderDispatchTracker::label($record->getKey()))
+                    ->color(fn ($record): string => ProviderDispatchTracker::badgeColor($record->getKey())),
 
                 BadgeColumn::make('pembayaran.status')
                     ->label('Status Pembelian')
@@ -377,13 +383,10 @@ class PembeliansTable
                         ->color('info')
                         ->visible(fn ($record) => $record->canBeRetried())
                         ->action(function ($record) {
-                            $lockKey = 'retry-order-dispatch:' . $record->getKey();
-                            $lock = Cache::lock($lockKey, 8);
-
-                            if (! $lock->get()) {
+                            if (ProviderDispatchTracker::isActive($record->getKey())) {
                                 Notification::make()
-                                    ->title('Retry sedang diproses')
-                                    ->body('Klik retry sebelumnya masih diproses. Coba lagi beberapa detik.')
+                                    ->title('Retry sedang berjalan')
+                                    ->body('Order ini masih dalam antrean/proses provider. Tunggu sebentar lalu refresh.')
                                     ->warning()
                                     ->send();
 
@@ -398,7 +401,8 @@ class PembeliansTable
                                     ),
                                 ]);
 
-                                SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id())->afterResponse();
+                                ProviderDispatchTracker::markQueued($record->getKey());
+                                SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id());
 
                                 Notification::make()
                                     ->title('Retry masuk antrean')
@@ -418,8 +422,6 @@ class PembeliansTable
                                     ->body('Job gagal masuk antrean. Cek log aplikasi.')
                                     ->danger()
                                     ->send();
-                            } finally {
-                                $lock->release();
                             }
                         })
                         ->requiresConfirmation()
