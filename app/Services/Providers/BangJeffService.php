@@ -22,7 +22,7 @@ class BangJeffService extends BaseProviderService
     protected function initializeCredentials(): void
     {
         $this->credentials = [
-            'api_id' => (string) ($this->overrides['api_id'] ?? config('providers.bangjeff.api_id')),
+            'api_id' => (string) ($this->overrides['api_id'] ?? $this->overrides['client_id'] ?? config('providers.bangjeff.api_id')),
             'api_key' => (string) ($this->overrides['api_key'] ?? config('providers.bangjeff.api_key')),
         ];
 
@@ -397,14 +397,23 @@ class BangJeffService extends BaseProviderService
 
     private function requestV4(string $path, array $payload = []): array
     {
+        $clientId = (string) ($this->credentials['api_id'] ?? '');
         $apiKey = (string) ($this->credentials['api_key'] ?? '');
 
-        if ($apiKey === '') {
+        if ($clientId === '' && $apiKey === '') {
             return [
                 'rc' => '96',
                 'error' => true,
-                'message' => 'BangJeff API key belum diatur.',
+                'message' => 'BangJeff credential belum diatur (api_id/api_key).',
             ];
+        }
+
+        if ($clientId === '') {
+            $clientId = $apiKey;
+        }
+
+        if ($apiKey === '') {
+            $apiKey = $clientId;
         }
 
         $timestamp = now()->format('Y-m-d\TH:i:sP');
@@ -424,7 +433,7 @@ class BangJeffService extends BaseProviderService
         $url = $this->baseUrl . '/' . ltrim($path, '/');
 
         $response = Http::withHeaders([
-            'X-Client-Id' => $apiKey,
+            'X-Client-Id' => $clientId,
             'X-Request-Time' => $timestamp,
             'X-Signature' => $signature,
             'Content-Type' => 'application/json',

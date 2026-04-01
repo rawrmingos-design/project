@@ -16,7 +16,7 @@
     <meta name="description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
     <meta name="author" content="{{ $config ? $config->judul_web : '' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="canonical" href="{{url('')}}">
+    <link rel="canonical" href="{{ isset($canonical_url) && filled($canonical_url) ? $canonical_url : url()->current() }}">
     <meta name="google-site-verification" content="YuiRJz7bZ3rDmAJ_fpknZQlWn1p5yGJX_c9Dgfus7Ro" />
 
     
