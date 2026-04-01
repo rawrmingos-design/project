@@ -47,16 +47,21 @@ class CheckProviderBalanceJob implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-            $providerBalanceService->sync($provider);
+            $result = $providerBalanceService->sync($provider);
+
+            if (!($result['success'] ?? false)) {
+                Log::warning('CheckProviderBalanceJob skipped/failed gracefully.', [
+                    'provider_id' => $provider->id,
+                    'provider_code' => $provider->code,
+                    'message' => $result['message'] ?? 'Unknown provider balance issue.',
+                ]);
+            }
         } catch (\Throwable $exception) {
             Log::error('CheckProviderBalanceJob failed.', [
                 'provider_id' => $provider->id,
                 'provider_code' => $provider->code,
                 'message' => $exception->getMessage(),
             ]);
-
-            throw $exception;
         }
     }
 }
-

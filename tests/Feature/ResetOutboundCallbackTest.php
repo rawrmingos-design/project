@@ -47,8 +47,8 @@ class ResetOutboundCallbackTest extends TestCase
 
         $layanan = Layanan::create([
             'layanan' => 'Mobile Legends 86 Diamond',
-            'provider_id' => 'vip-ml-86',
-            'provider' => 'vip',
+            'provider_id' => 'digi-ml-86',
+            'provider' => 'digiflazz',
             'harga' => 10000,
             'harga_member' => 11000,
             'harga_platinum' => 11500,
@@ -125,6 +125,8 @@ class ResetOutboundCallbackTest extends TestCase
                 && $body['provider']['code'] === 'vip'
                 && $body['provider']['sku'] === 'vip-ml-86'
                 && $body['service']['name'] === 'Mobile Legends 86 Diamond'
+                && $body['service']['provider'] === 'vip'
+                && $body['service']['provider_sku'] === 'vip-ml-86'
                 && $body['status']['api_code'] === 'Success';
         });
 

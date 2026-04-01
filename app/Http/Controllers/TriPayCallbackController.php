@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Deposit;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
-use App\Models\Layanan;
-use App\Models\Kategori;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
-use App\Services\WhatsappNotificationService;
-use App\Services\ProviderRoutingService;
+use App\Models\User;
+use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
+use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TriPayCallbackController extends Controller
 {
@@ -25,11 +25,11 @@ class TriPayCallbackController extends Controller
 
     public function handle(Request $request)
     {
-        $callbackSignature = $request->server('HTTP_X_CALLBACK_SIGNATURE');
+        $callbackSignature = (string) $request->server('HTTP_X_CALLBACK_SIGNATURE');
         $json = $request->getContent();
-        $signature = hash_hmac('sha256', $json, $this->api->tripay_private_key);
+        $signature = hash_hmac('sha256', $json, (string) optional($this->api)->tripay_private_key);
 
-        if ($signature !== (string) $callbackSignature) {
+        if (!hash_equals($signature, $callbackSignature)) {
             return 'Invalid signature';
         }
 
@@ -37,258 +37,331 @@ class TriPayCallbackController extends Controller
             return 'Invalid callback event, no action was taken';
         }
 
-        $data = json_decode($json);
-        $ref = $data->reference;
-        $callbackStatus = strtoupper((string) ($data->status ?? ''));
+        $payload = json_decode($json, true);
+        if (!is_array($payload)) {
+            return response()->json(['success' => false, 'message' => 'invalid_payload'], 400);
+        }
 
-        // Mulai transaction dan locking
-        DB::beginTransaction();
+        $reference = trim((string) ($payload['reference'] ?? ''));
+        $callbackStatus = strtoupper(trim((string) ($payload['status'] ?? '')));
+        $callbackAmount = isset($payload['total_amount']) ? (int) $payload['total_amount'] : null;
+
+        if ($reference === '') {
+            return response()->json(['success' => false, 'message' => 'missing_reference'], 400);
+        }
+
+        if (!in_array($callbackStatus, ['PAID', 'EXPIRED', 'FAILED', 'REFUND'], true)) {
+            Log::warning('Tripay callback: unrecognized payment status', [
+                'status' => $callbackStatus !== '' ? $callbackStatus : null,
+                'reference' => $reference,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'ignored_unrecognized_status']);
+        }
+
+        $claim = $this->claimInvoice($reference, $callbackStatus, $callbackAmount);
+        $invoice = $claim['invoice'];
+
+        if (!$invoice) {
+            Log::warning('Tripay callback: invoice not found', [
+                'reference' => $reference,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'ignored_invoice_not_found']);
+        }
+
+        if (($claim['state'] ?? null) === 'invalid_amount') {
+            Log::warning('Tripay callback: invalid amount', [
+                'reference' => $reference,
+                'incoming_total_amount' => $callbackAmount,
+                'expected_invoice_amount' => (int) $invoice->harga,
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'invalid_amount'], 400);
+        }
+
+        if (($claim['state'] ?? null) !== 'claimed') {
+            return response()->json(['success' => true, 'message' => 'already_processed']);
+        }
+
+        $orderId = $invoice->order_id;
+        $pembelian = Pembelian::where('order_id', $orderId)->first();
+        $deposit = $pembelian ? null : Deposit::where('order_id', $orderId)->first();
+
+        if (!$pembelian && !$deposit) {
+            Log::warning('Tripay callback: order/deposit not found after invoice claim', [
+                'order_id' => $orderId,
+                'reference' => $reference,
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'ignored_order_not_found']);
+        }
+
         try {
-            $invoice = Pembayaran::where('reference', $ref)
-                ->where('status', 'Belum Lunas')
+            if ($callbackStatus === 'PAID') {
+                if ($deposit) {
+                    $this->processPaidDeposit($deposit);
+                } else {
+                    $this->processPaidPembelian($pembelian, $invoice);
+                }
+
+                return response()->json(['success' => true]);
+            }
+
+            if ($deposit) {
+                $this->processFailedDeposit($deposit);
+            } else {
+                $this->processFailedPembelian($pembelian, $invoice, $callbackStatus);
+            }
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $exception) {
+            Log::error('Tripay callback processing error', [
+                'order_id' => $orderId,
+                'reference' => $reference,
+                'status' => $callbackStatus,
+                'error' => $exception->getMessage(),
+            ]);
+
+            if ($callbackStatus === 'PAID' && $pembelian) {
+                $pembelian->update([
+                    'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+                    'log' => json_encode(['callback_error' => $exception->getMessage()]),
+                ]);
+            }
+
+            return response()->json(['success' => true, 'message' => 'claimed_with_processing_error']);
+        }
+    }
+
+    private function claimInvoice(string $reference, string $callbackStatus, ?int $callbackAmount): array
+    {
+        return DB::transaction(function () use ($reference, $callbackStatus, $callbackAmount): array {
+            $invoice = Pembayaran::query()
+                ->where('reference', $reference)
                 ->lockForUpdate()
                 ->first();
 
             if (!$invoice) {
-                // Log jika callback diterima lebih dari sekali
-                Log::warning('Tripay callback: Invoice not found or already processed', ['reference' => $ref]);
-                DB::rollBack();
-                return 'Invoice not found or already processed';
+                return ['state' => 'missing', 'invoice' => null];
             }
 
-            $order_id = $invoice->order_id;
-            $dataPembeli = Pembelian::where('order_id', $order_id)->first();
-            $isDeposit = false;
+            if ($callbackStatus === 'PAID') {
+                if ($invoice->status !== 'Belum Lunas') {
+                    return ['state' => 'already_processed', 'invoice' => $invoice];
+                }
 
-            if (!$dataPembeli) {
-                 $dataDeposit = \App\Models\Deposit::where('order_id', $order_id)->first();
-                 if ($dataDeposit) {
-                     $isDeposit = true;
-                 } else {
-                     DB::rollBack();
-                     return 'Order/Deposit not found';
-                 }
-            }
+                if ($callbackAmount !== null && $callbackAmount > 0 && $callbackAmount !== (int) $invoice->harga) {
+                    return ['state' => 'invalid_amount', 'invoice' => $invoice];
+                }
 
-            // Check Amount
-            if (intval($data->total_amount) !== (int) $invoice->harga) {
-                DB::rollBack();
-                return 'Invalid amount';
-            }
-
-            if ($callbackStatus === "PAID") {
-                // Initialize Services
-                $waService = new WhatsappNotificationService();
-                
-                if ($isDeposit) {
-                    // === HANDLE DEPOSIT ===
-                    $dataDeposit->update(['status' => 'Success']);
-                    
-                    // Add Balance to User (Credit NET amount)
-                    $user = \App\Models\User::where('username', $dataDeposit->username)->first();
-                    if ($user) {
-                        $user->update(['balance' => $user->balance + $dataDeposit->jumlah]);
-                    }
-
-                    // Notify Admin
-                    $pesanAdmin = "*Deposit Berhasil via Tripay*\n\n" .
-                        "No Invoice: *{$invoice->order_id}*\n" .
-                        "Username : {$dataDeposit->username}\n" .
-                        "Metode Pembayaran : {$invoice->metode}\n" .
-                        "Jumlah : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
-                        "*Kontak Pembeli*\n" .
-                        "No HP : {$invoice->no_pembeli}\n";
-                    
-                    $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
-
-                    // Notify Buyer (WhatsApp)
-                    $waService->sendNotification($invoice->no_pembeli, 'deposit_success', [
-                        'username' => $dataDeposit->username,
-                        'order_id' => $invoice->order_id,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => 'Berhasil',
-                    ]);
-
-                } else {
-                    // === HANDLE PEMBELIAN (GAME TOPUP) ===
-                    $dataLayanan = Layanan::where('layanan', $dataPembeli->layanan)->first();
-                    $routingService = new ProviderRoutingService();
-                    $orderProcessor = new OrderProcessingService($routingService);
-
-                    // 1. Notify Admin 
-                    $pesanAdmin = "*Pembayaran Berhasil*\n\n" .
-                        "No Invoice: *$order_id*\n" .
-                        "Layanan : $dataPembeli->layanan\n" .
-                        "ID : $dataPembeli->user_id\n" .
-                        "Server : $dataPembeli->zone\n" .
-                        "Nickname : $dataPembeli->nickname\n" .
-                        "Metode Pembayaran : $invoice->metode\n" .
-                        "Harga : Rp. " . number_format($invoice->harga, 0, '.', ',') . "\n\n" .
-                        "*Kontak Pembeli*\n" .
-                        "No HP : $invoice->no_pembeli\n";
-
-                    $waService->sendMessage($this->api->nomor_admin, $pesanAdmin);
-
-                    // 2. Process Order
-                    $result = $orderProcessor->process($dataPembeli);
-                    $transactionId = $result['transaction_id'] ?? null;
-                    $orderSuccess = $result['success'];
-
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
-                    $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
-                    $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
-                    $snValue = trim((string) ($result['sn'] ?? '')) ?: ($dataPembeli->keterangan_sn ?: 'Sedang Diproses');
-
-                    if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
-                        $orderData = [
-                            'status' => $providerStatus,
-                            'keterangan_sn' => $snValue,
-                        ];
-
-                        if ($transactionId) {
-                            $orderData['provider_order_id'] = $transactionId;
-                        }
-
-                        $dataPembeli->update($orderData);
-                        app(\App\Services\PointService::class)->refundRedeemedPoints($dataPembeli);
-
-                        $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
-                            'nickname' => $dataPembeli->nickname,
-                            'order_id' => $order_id,
-                            'product' => $dataPembeli->layanan,
-                            'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $order_id,
-                                'product' => $dataPembeli->layanan,
-                                'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode($providerStatus),
-                                'nickname' => $dataPembeli->nickname,
-                                'sn' => $snValue,
-                                'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-                            ]);
-                        }
-                    } elseif ($orderSuccess) {
-                        $orderData = [
-                            'status' => $providerStatus,
-                            'keterangan_sn' => $snValue,
-                        ];
-                        if ($transactionId) {
-                            $orderData['provider_order_id'] = $transactionId;
-                        }
-                        $dataPembeli->update($orderData);
-
-                        $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                            ? 'transaction_success'
-                            : 'transaction_pending';
-
-                        $waService->sendNotification($invoice->no_pembeli, $notificationSlug, [
-                            'nickname' => $dataPembeli->nickname,
-                            'order_id' => $order_id,
-                            'product' => $dataPembeli->layanan,
-                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'sn' => $snValue,
-                            'status' => PembelianStatus::label($providerStatus),
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $order_id,
-                                'product' => $dataPembeli->layanan,
-                                'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode($providerStatus),
-                                'nickname' => $dataPembeli->nickname,
-                                'sn' => $snValue,
-                                'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                                    ? 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
-                                    : 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.',
-                            ]);
-                        }
-                    } else {
-                        $dataPembeli->update(['status' => 'Pending']);
-                        Log::warning("Order processing failed for {$order_id}: " . ($result['message'] ?? 'Unknown error'));
-
-                        $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
-                            'nickname' => $dataPembeli->nickname,
-                            'order_id' => $order_id,
-                            'product' => $dataPembeli->layanan,
-                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'status' => 'Menunggu Provider',
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $order_id,
-                                'product' => $dataPembeli->layanan,
-                                'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
-                                'nickname' => $dataPembeli->nickname,
-                                'note' => 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.',
-                            ]);
-                        }
-                    }
-                } // End else isDeposit
-
-                $invoice->update(['status' => 'Lunas', 'paid_at' => now()]);
-                DB::commit();
-                return response()->json(['success' => true]);
-
-            } else if (in_array($callbackStatus, ["EXPIRED", "FAILED", "REFUND"], true)) {
                 $invoice->update([
-                    'status' => $callbackStatus === 'EXPIRED' ? 'Expired' : 'Batal',
-                ]);
-                
-                if ($isDeposit) {
-                     $dataDeposit->update(['status' => 'Gagal']);
-                } else {
-                     $dataPembeli->update(['status' => 'Gagal']);
-                     app(\App\Services\PointService::class)->refundRedeemedPoints($dataPembeli);
-                }
-                
-                // Notify Buyer (Failed)
-                $waService = new WhatsappNotificationService();
-                $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
-                    'nickname' => $isDeposit ? ($dataDeposit->username ?? 'Pelanggan') : ($dataPembeli->nickname ?? 'Pelanggan'),
-                    'order_id' => $order_id,
-                    'product' => $isDeposit ? 'Deposit Saldo' : $dataPembeli->layanan,
-                    'reason' => $callbackStatus === 'EXPIRED'
-                        ? 'Pembayaran Kadaluarsa'
-                        : ($callbackStatus === 'REFUND' ? 'Pembayaran di-refund' : 'Pembayaran Gagal'),
+                    'status' => 'Lunas',
+                    'paid_at' => now(),
                 ]);
 
-                // Notify Buyer (Email) if not deposit (optional for deposit)
-                if (!$isDeposit) {
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $dataPembeli->email_pembeli ?? ($dataPembeli->user->email ?? null);
-                    if ($recipientEmail) {
-                        $emailService->sendTransactionEmail($recipientEmail, [
-                            'order_id' => $order_id,
-                            'product' => $dataPembeli->layanan,
-                            'amount' => 'Rp ' . number_format($dataPembeli->harga, 0, ',', '.'),
-                            'status' => 'Failed',
-                            'nickname' => $dataPembeli->nickname,
-                            'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.'
-                        ]);
-                    }
-                }
-
-                DB::commit();
-                return response()->json(['success' => true]);
-            } else {
-                Log::warning('Tripay callback: unrecognized payment status', [
-                    'status' => $callbackStatus !== '' ? $callbackStatus : null,
-                    'reference' => $ref,
-                ]);
-                DB::rollBack();
-                return response()->json(['success' => true, 'message' => 'ignored_unrecognized_status']);
+                return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
             }
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Tripay callback fatal error', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-            return response()->json(['error' => 'Fatal error: ' . $e->getMessage()], 500);
+
+            if ($invoice->status !== 'Belum Lunas') {
+                return ['state' => 'already_processed', 'invoice' => $invoice];
+            }
+
+            $invoice->update([
+                'status' => $callbackStatus === 'EXPIRED' ? 'Expired' : 'Batal',
+            ]);
+
+            return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
+        });
+    }
+
+    private function processPaidDeposit(Deposit $deposit): void
+    {
+        DB::transaction(function () use ($deposit): void {
+            $depositLocked = Deposit::query()
+                ->whereKey($deposit->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (!$depositLocked || $depositLocked->status !== 'Pending') {
+                return;
+            }
+
+            $user = User::query()
+                ->where('username', $depositLocked->username)
+                ->lockForUpdate()
+                ->first();
+
+            if ($user) {
+                $user->increment('balance', $depositLocked->jumlah);
+            }
+
+            $depositLocked->update(['status' => 'Success']);
+        });
+    }
+
+    private function processFailedDeposit(Deposit $deposit): void
+    {
+        DB::transaction(function () use ($deposit): void {
+            $depositLocked = Deposit::query()
+                ->whereKey($deposit->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (!$depositLocked || $depositLocked->status !== 'Pending') {
+                return;
+            }
+
+            $depositLocked->update(['status' => 'Gagal']);
+        });
+    }
+
+    private function processPaidPembelian(Pembelian $pembelian, Pembayaran $invoice): void
+    {
+        $orderProcessor = app(OrderProcessingService::class);
+        $waService = app(WhatsappNotificationService::class);
+        $emailService = app(EmailNotificationService::class);
+
+        $result = $orderProcessor->process($pembelian);
+        $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
+        $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
+        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+        $providerOrderId = $result['transaction_id'] ?? $pembelian->provider_order_id;
+        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+
+        if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $providerOrderId,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+
+            $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+            ]);
+
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
+                    'order_id' => $pembelian->order_id,
+                    'product' => $pembelian->layanan,
+                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
+                    'nickname' => $pembelian->nickname,
+                    'sn' => $snValue,
+                    'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+                ]);
+            }
+
+            return;
         }
+
+        if (($result['success'] ?? false) === true) {
+            $pembelian->update([
+                'status' => $providerStatus,
+                'provider_order_id' => $providerOrderId,
+                'keterangan_sn' => $snValue,
+                'log' => json_encode(['result' => $result]),
+            ]);
+
+            $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                ? 'transaction_success'
+                : 'transaction_pending';
+
+            $waService->sendNotification($invoice->no_pembeli, $notificationSlug, [
+                'nickname' => $pembelian->nickname,
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'sn' => $snValue,
+                'status' => PembelianStatus::label($providerStatus),
+            ]);
+
+            if ($recipientEmail) {
+                $emailService->sendTransactionEmail($recipientEmail, [
+                    'order_id' => $pembelian->order_id,
+                    'product' => $pembelian->layanan,
+                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                    'status' => PembelianStatus::apiStatusCode($providerStatus),
+                    'nickname' => $pembelian->nickname,
+                    'sn' => $snValue,
+                    'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                        ? 'Harap Simpan Invoice ini, akan digunakan untuk verifikasi transaksi.'
+                        : 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.',
+                ]);
+            }
+
+            return;
+        }
+
+        $pembelian->update([
+            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+            'provider_order_id' => $providerOrderId,
+            'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
+        ]);
+
+        $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
+            'nickname' => $pembelian->nickname,
+            'order_id' => $pembelian->order_id,
+            'product' => $pembelian->layanan,
+            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+            'status' => 'Menunggu Provider',
+        ]);
+
+        if ($recipientEmail) {
+            $emailService->sendTransactionEmail($recipientEmail, [
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+                'nickname' => $pembelian->nickname,
+                'note' => 'Pesanan sedang menunggu respon provider. Invoice ini akan digunakan untuk verifikasi transaksi.',
+            ]);
+        }
+    }
+
+    private function processFailedPembelian(Pembelian $pembelian, Pembayaran $invoice, string $callbackStatus): void
+    {
+        $pembelian->update([
+            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED),
+        ]);
+
+        app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+
+        $waService = app(WhatsappNotificationService::class);
+        $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
+            'nickname' => $pembelian->nickname,
+            'order_id' => $pembelian->order_id,
+            'product' => $pembelian->layanan,
+            'reason' => $this->failureReasonFromCallbackStatus($callbackStatus),
+        ]);
+
+        $emailService = app(EmailNotificationService::class);
+        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
+        if ($recipientEmail) {
+            $emailService->sendTransactionEmail($recipientEmail, [
+                'order_id' => $pembelian->order_id,
+                'product' => $pembelian->layanan,
+                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::FAILED),
+                'nickname' => $pembelian->nickname,
+                'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.',
+            ]);
+        }
+    }
+
+    private function failureReasonFromCallbackStatus(string $callbackStatus): string
+    {
+        return match ($callbackStatus) {
+            'EXPIRED' => 'Pembayaran Kadaluarsa',
+            'REFUND' => 'Pembayaran di-refund',
+            default => 'Pembayaran Gagal',
+        };
     }
 }

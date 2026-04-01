@@ -55,5 +55,47 @@ class SendPembelianToProviderJobFailureSyncTest extends TestCase
         $this->assertSame('failed', $pembelian->reset_status);
         $this->assertStringContainsString('final failure', (string) $pembelian->log);
     }
-}
 
+    public function test_it_keeps_pending_status_when_provider_returns_pending_successfully(): void
+    {
+        $pembelian = Pembelian::create([
+            'order_id' => 'INV-DIGI-PENDING-SYNC-001',
+            'username' => 'member-test',
+            'layanan' => 'Test Service',
+            'harga' => 12000,
+            'profit' => 1000,
+            'user_id' => '12345',
+            'zone' => '2001',
+            'status' => 'Processing',
+            'provider_order_id' => 'INV-DIGI-PENDING-SYNC-001_001',
+            'invoice_version' => 1,
+            'display_order_id' => 'INV-DIGI-PENDING-SYNC-001_001',
+            'active_attempt_reference' => 'INV-DIGI-PENDING-SYNC-001_001',
+            'reset_status' => 'processing',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        $service = Mockery::mock(OrderProcessingService::class);
+        $service->shouldReceive('process')
+            ->once()
+            ->withArgs(function (Pembelian $record) use ($pembelian): bool {
+                return $record->id === $pembelian->id;
+            })
+            ->andReturn([
+                'success' => true,
+                'order_status' => 'Pending',
+                'transaction_id' => 'INV-DIGI-PENDING-SYNC-001_001',
+                'sn' => null,
+                'message' => 'Order accepted and still pending',
+            ]);
+
+        $job = new SendPembelianToProviderJob($pembelian->id, 1);
+        $job->handle($service);
+
+        $pembelian->refresh();
+
+        $this->assertSame('Pending', $pembelian->status);
+        $this->assertSame('processing', $pembelian->reset_status);
+        $this->assertStringContainsString('Order accepted and still pending', (string) $pembelian->log);
+    }
+}

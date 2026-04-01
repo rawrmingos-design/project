@@ -94,6 +94,10 @@ class ProviderResource extends Resource
                 Action::make('check_balance')
                     ->label('Check Balance')
                     ->icon('heroicon-o-arrow-path')
+                    ->disabled(fn (Provider $record): bool => ! in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller'], true))
+                    ->tooltip(fn (Provider $record): ?string => in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller'], true)
+                        ? null
+                        : 'Provider ini belum mendukung check balance otomatis.')
                     ->action(function (Provider $record) {
                         $lock = Cache::lock('provider-balance-check:' . $record->id, 8);
 

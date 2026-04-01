@@ -335,8 +335,8 @@ class ViewPembelian extends ViewRecord
                             'reset_status' => $this->record->invoice_version > 0 ? 'processing' : $this->record->reset_status,
                         ]);
 
-                        ProviderDispatchTracker::markQueued($this->record->getKey());
                         SendPembelianToProviderJob::dispatch($this->record->getKey(), Auth::id());
+                        ProviderDispatchTracker::markQueued($this->record->getKey());
 
                         $this->record->refresh();
 
@@ -346,6 +346,8 @@ class ViewPembelian extends ViewRecord
                             ->success()
                             ->send();
                     } catch (\Throwable $exception) {
+                        ProviderDispatchTracker::clear($this->record->getKey());
+
                         Log::error('Queueing send callback action failed.', [
                             'order_id' => $this->record->order_id,
                             'display_order_id' => $this->record->display_order_id,

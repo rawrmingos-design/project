@@ -9,6 +9,7 @@ use App\Models\Layanan;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Services\OrderProcessingService;
+use App\Support\PembelianStatus;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -154,46 +155,83 @@ class CallbackController extends Controller
                     // Process Order
                     $result = $orderProcessor->process($pembelian);
                     
-                    if ($result['success']) {
-                        $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+                    $emailService = new \App\Services\EmailNotificationService();
+                    $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
+                    $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
+                    $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
+                    $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
+                    $providerOrderId = $result['transaction_id'] ?? $pembelian->provider_order_id;
+
+                    if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
                         $pembelian->update([
-                            'status' => 'Sukses',
-                            'provider_order_id' => $result['transaction_id'] ?? null,
+                            'status' => $providerStatus,
+                            'provider_order_id' => $providerOrderId,
                             'keterangan_sn' => $snValue,
-                            'log' => json_encode(['result' => $result])
+                            'log' => json_encode(['result' => $result]),
                         ]);
 
-                        // Notify Buyer (WhatsApp)
-                        $waService->sendNotification($transaction->no_pembeli, 'transaction_success', [
+                        app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+
+                        $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
                             'nickname' => $pembelian->nickname,
                             'order_id' => $pembelian->order_id,
                             'product' => $pembelian->layanan,
                             'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'sn' => $snValue,
+                            'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
                         ]);
 
-                        // Notify Buyer (Email)
-                        $emailService = new \App\Services\EmailNotificationService();
-                        $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
                         if ($recipientEmail) {
                             $emailService->sendTransactionEmail($recipientEmail, [
+                                'order_id' => $pembelian->order_id,
+                                'product' => $pembelian->layanan,
+                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                                'status' => PembelianStatus::apiStatusCode($providerStatus),
+                                'nickname' => $pembelian->nickname,
+                                'sn' => $snValue,
+                                'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
+                            ]);
+                        }
+                    } elseif ($result['success']) {
+                        $pembelian->update([
+                            'status' => $providerStatus,
+                            'provider_order_id' => $providerOrderId,
+                            'keterangan_sn' => $snValue,
+                            'log' => json_encode(['result' => $result]),
+                        ]);
+
+                        $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                            ? 'transaction_success'
+                            : 'transaction_pending';
+
+                        $waService->sendNotification($transaction->no_pembeli, $notificationSlug, [
+                            'nickname' => $pembelian->nickname,
                             'order_id' => $pembelian->order_id,
                             'product' => $pembelian->layanan,
                             'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'status' => 'Success',
-                            'nickname' => $pembelian->nickname,
                             'sn' => $snValue,
-                            'note' => 'Terima kasih telah berbelanja.'
+                            'status' => PembelianStatus::label($providerStatus),
                         ]);
-                    }
 
+                        if ($recipientEmail) {
+                            $emailService->sendTransactionEmail($recipientEmail, [
+                                'order_id' => $pembelian->order_id,
+                                'product' => $pembelian->layanan,
+                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                                'status' => PembelianStatus::apiStatusCode($providerStatus),
+                                'nickname' => $pembelian->nickname,
+                                'sn' => $snValue,
+                                'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
+                                    ? 'Terima kasih telah berbelanja.'
+                                    : 'Pesanan sedang menunggu respon provider.',
+                            ]);
+                        }
                     } else {
                         $pembelian->update([
-                            'status' => 'Pending', // Mark pending for retry
-                            'log' => json_encode(['error' => $result['message']])
+                            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+                            'provider_order_id' => $providerOrderId,
+                            'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
                         ]);
 
-                        // Notify Buyer Pending/Failed (WhatsApp)
                         $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
                             'nickname' => $pembelian->nickname,
                             'order_id' => $pembelian->order_id,
@@ -202,19 +240,16 @@ class CallbackController extends Controller
                             'status' => 'Menunggu Provider',
                         ]);
 
-                        // Notify Buyer (Email)
-                        $emailService = new \App\Services\EmailNotificationService();
-                        $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
                         if ($recipientEmail) {
                             $emailService->sendTransactionEmail($recipientEmail, [
-                            'order_id' => $pembelian->order_id,
-                            'product' => $pembelian->layanan,
-                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'status' => 'Pending',
-                            'nickname' => $pembelian->nickname,
-                            'note' => 'Pesanan sedang menunggu respon provider.'
-                        ]);
-                    }
+                                'order_id' => $pembelian->order_id,
+                                'product' => $pembelian->layanan,
+                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
+                                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+                                'nickname' => $pembelian->nickname,
+                                'note' => 'Pesanan sedang menunggu respon provider.',
+                            ]);
+                        }
                     }
                     // END Multi-Provider Integration
                 }

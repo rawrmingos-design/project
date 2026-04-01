@@ -2,6 +2,7 @@
 
 namespace App\Services\Providers;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -331,8 +332,32 @@ class BangJeffService extends BaseProviderService
 
     private function requestV3(string $pathOrUrl, array $payload = [], bool $isAbsoluteUrl = false): array
     {
-        $url = $isAbsoluteUrl ? $pathOrUrl : $this->baseUrl . '/' . ltrim($pathOrUrl, '/');
-        $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($url, $payload);
+        $url = $isAbsoluteUrl
+            ? $pathOrUrl
+            : $this->buildVersionSafeUrl($this->baseUrl, $pathOrUrl);
+
+        try {
+            $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($url, $payload);
+        } catch (ConnectionException $exception) {
+            if ($isAbsoluteUrl || ! str_contains($url, 'client.bangjeff.com')) {
+                throw $exception;
+            }
+
+            $fallbackBaseUrl = rtrim((string) config('providers.bangjeff.base_url', ''), '/');
+            if ($fallbackBaseUrl === '' || $fallbackBaseUrl === $this->baseUrl) {
+                throw $exception;
+            }
+
+            $fallbackUrl = $this->buildVersionSafeUrl($fallbackBaseUrl, $pathOrUrl);
+            Log::warning('BangJeff v3 request fallback after DNS failure', [
+                'original_url' => $url,
+                'fallback_url' => $fallbackUrl,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($fallbackUrl, $payload);
+        }
+
         $decoded = $response->json();
 
         return is_array($decoded)
@@ -342,6 +367,32 @@ class BangJeffService extends BaseProviderService
                 'message' => 'Invalid BangJeff v3 response',
                 'raw' => $response->body(),
             ];
+    }
+
+    private function buildVersionSafeUrl(string $baseUrl, string $pathOrUrl): string
+    {
+        $baseUrl = rtrim($baseUrl, '/');
+        $path = '/' . ltrim($pathOrUrl, '/');
+
+        $basePath = (string) parse_url($baseUrl, PHP_URL_PATH);
+        if ($basePath !== '' && $basePath !== '/') {
+            $normalizedBasePath = '/' . trim($basePath, '/');
+            $normalizedPath = '/' . ltrim($path, '/');
+
+            foreach (['/api/v2', '/api/v3', '/api/v4'] as $apiPrefix) {
+                if (str_ends_with($normalizedBasePath, $apiPrefix) && str_starts_with($normalizedPath, $apiPrefix . '/')) {
+                    $normalizedPath = substr($normalizedPath, strlen($apiPrefix));
+                    if ($normalizedPath === false || $normalizedPath === '') {
+                        $normalizedPath = '/';
+                    }
+                    break;
+                }
+            }
+
+            return rtrim($baseUrl, '/') . '/' . ltrim($normalizedPath, '/');
+        }
+
+        return $baseUrl . '/' . ltrim($path, '/');
     }
 
     private function requestV4(string $path, array $payload = []): array

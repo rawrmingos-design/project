@@ -24,6 +24,7 @@ use App\Models\PaketLayanan;
 use App\Filament\Admin\Resources\Kategoris\Schemas\KategoriForm;
 use App\Filament\Admin\Resources\Pakets\Schemas\PaketForm;
 use App\Http\Controllers\DigiFlazzController;
+use App\Services\Providers\BangJeffService;
 use App\Models\MediaAsset;
 use App\Support\KategoriFormDataHandler;
 use App\Support\MediaAssetPicker;
@@ -62,7 +63,7 @@ class ProdukForm
                                     return;
                                 }
 
-                                if ($get('provider') === 'digiflazz') {
+                                if (in_array($get('provider'), ['digiflazz', 'bangjeff'], true)) {
                                     return;
                                 }
 
@@ -96,6 +97,11 @@ class ProdukForm
                                     $set('digiflazz_category_filter', null);
                                     $set('digiflazz_brand_filter', null);
                                     $set('digiflazz_product', null);
+                                }
+
+                                if ($state !== 'bangjeff') {
+                                    $set('bangjeff_product_code_filter', null);
+                                    $set('bangjeff_variant', null);
                                 }
                             }),
 
@@ -155,16 +161,56 @@ class ProdukForm
                                 static::applyDigiflazzProductSelection($state, $set, $get);
                             })
                             ->columnSpanFull(),
+
+                        Select::make('bangjeff_product_code_filter')
+                            ->label('Filter Produk BangJeff')
+                            ->options(fn (): array => static::getBangJeffProductCodeOptions())
+                            ->placeholder('Pilih productCode...')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'bangjeff')
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('bangjeff_variant', null);
+                            }),
+
+                        Select::make('bangjeff_variant')
+                            ->label('Pilih Variant BangJeff')
+                            ->helperText('Pilih variant dari BangJeff untuk mengisi nama produk, Provider ID, status, dan harga modal otomatis.')
+                            ->options(fn (Get $get): array => static::getBangJeffVariantOptions($get('bangjeff_product_code_filter')))
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(false)
+                            ->disabled(fn (Get $get) => blank($get('bangjeff_product_code_filter')))
+                            ->visible(fn (Get $get) => $get('provider') === 'bangjeff')
+                            ->hintAction(
+                                Action::make('refreshBangJeffCache')
+                                    ->label('Refresh Cache')
+                                    ->icon('heroicon-o-arrow-path')
+                                    ->action(function (Set $set, Get $get) {
+                                        static::refreshBangJeffCache($get('bangjeff_product_code_filter'));
+                                        $set('bangjeff_variant', null);
+
+                                        Notification::make()
+                                            ->title('Variant BangJeff diperbarui')
+                                            ->success()
+                                            ->send();
+                                    })
+                            )
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set, $get) {
+                                static::applyBangJeffVariantSelection($state, $set, $get);
+                            })
+                            ->columnSpanFull(),
                             
                         Select::make('status')
                             ->label('Status')
                             ->options([
-                                'available' => 'Active',
+                                'available' => 'Available',
                                 'inactive' => 'Inactive',
                                 'maintenance' => 'Maintenance',
                                 'out_of_stock' => 'Out of Stock',
                             ])
-                            ->default('active')
+                            ->default('available')
                             ->required(),
 
                         Select::make('paket')
@@ -440,11 +486,14 @@ class ProdukForm
 
                                         TextInput::make('provider_sku')
                                             ->label('Kode SKU Provider')
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(fn ($state, Set $set) => $set('provider_sku', trim((string) $state)))
                                             ->required(),
 
                                         TextInput::make('modal_price')
                                             ->label('Harga Modal')
                                             ->numeric()
+                                            ->minValue(0)
                                             ->prefix('Rp')
                                             ->default(0)
                                             ->required(),
@@ -505,6 +554,141 @@ class ProdukForm
     protected static function refreshDigiflazzCache(): void
     {
         Cache::forget('filament.digiflazz.pricelist');
+    }
+
+    protected static function getBangJeffProductCodeOptions(): array
+    {
+        $products = static::getBangJeffProducts();
+        $options = [];
+
+        foreach ($products as $product) {
+            $code = trim((string) ($product['code'] ?? ''));
+            $name = trim((string) ($product['name'] ?? ''));
+
+            if ($code === '') {
+                continue;
+            }
+
+            $options[$code] = $name !== '' ? "{$name} ({$code})" : $code;
+        }
+
+        asort($options);
+
+        return $options;
+    }
+
+    protected static function getBangJeffProducts(): array
+    {
+        return Cache::remember('filament.bangjeff.products', now()->addMinutes(5), function () {
+            $response = app(BangJeffService::class)->getProductsRaw();
+
+            if (($response['error'] ?? false) === true) {
+                return [];
+            }
+
+            if (($response['rc'] ?? '00') !== '00') {
+                return [];
+            }
+
+            $products = $response['data'] ?? [];
+
+            return is_array($products) ? $products : [];
+        });
+    }
+
+    protected static function getBangJeffVariants(string $productCode): array
+    {
+        $normalizedCode = trim($productCode);
+
+        if ($normalizedCode === '') {
+            return [];
+        }
+
+        $cacheKey = 'filament.bangjeff.variants.' . strtoupper($normalizedCode);
+
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($normalizedCode) {
+            $response = app(BangJeffService::class)->listVariant($normalizedCode);
+
+            if (($response['error'] ?? false) === true) {
+                return [];
+            }
+
+            if (($response['rc'] ?? '00') !== '00') {
+                return [];
+            }
+
+            $variants = $response['data'] ?? [];
+
+            return is_array($variants) ? $variants : [];
+        });
+    }
+
+    protected static function refreshBangJeffCache(?string $productCode = null): void
+    {
+        Cache::forget('filament.bangjeff.products');
+
+        if (filled($productCode)) {
+            Cache::forget('filament.bangjeff.variants.' . strtoupper((string) $productCode));
+        }
+    }
+
+    protected static function getBangJeffVariantOptions(?string $productCode): array
+    {
+        if (blank($productCode)) {
+            return [];
+        }
+
+        $options = [];
+
+        foreach (static::getBangJeffVariants((string) $productCode) as $variant) {
+            $code = trim((string) ($variant['code'] ?? ''));
+
+            if ($code === '') {
+                continue;
+            }
+
+            $options[$code] = static::formatBangJeffVariantOptionLabel($variant);
+        }
+
+        asort($options);
+
+        return $options;
+    }
+
+    protected static function applyBangJeffVariantSelection(?string $variantCode, $set, $get): void
+    {
+        if (blank($variantCode)) {
+            return;
+        }
+
+        $productCode = (string) ($get('bangjeff_product_code_filter') ?? '');
+
+        if ($productCode === '') {
+            return;
+        }
+
+        foreach (static::getBangJeffVariants($productCode) as $variant) {
+            if (($variant['code'] ?? null) !== $variantCode) {
+                continue;
+            }
+
+            $price = (int) ($variant['price']['value'] ?? 0);
+            $duration = (int) ($variant['duration'] ?? 0);
+            $region = (string) ($variant['region'] ?? '');
+            $status = strtoupper((string) ($variant['status'] ?? 'INACTIVE'));
+            $durationLabel = $duration > 0 ? "{$duration} menit" : 'instan';
+            $regionLabel = $region !== '' ? $region : '-';
+
+            $set('layanan', $variant['name'] ?? '');
+            $set('provider_id', $variant['code'] ?? '');
+            $set('status', $status === 'ACTIVE' ? 'available' : 'inactive');
+            $set('harga', $price);
+            $set('catatan', "BangJeff productCode: {$productCode} | Region: {$regionLabel} | Durasi: {$durationLabel}");
+
+            static::syncTierPricesFromProfit($price, $set, $get);
+
+            return;
+        }
     }
 
     protected static function getDigiflazzCategoryOptions(): array
@@ -618,7 +802,7 @@ class ProdukForm
 
             $set('layanan', $product['product_name'] ?? '');
             $set('provider_id', $product['buyer_sku_code'] ?? '');
-            $set('status', !empty($product['buyer_product_status']) ? 'active' : 'inactive');
+            $set('status', !empty($product['buyer_product_status']) ? 'available' : 'inactive');
             $set('harga', (int) ($product['price'] ?? 0));
             $set('catatan', $product['desc'] ?? '');
 
@@ -704,5 +888,15 @@ class ProdukForm
         $price = number_format((int) ($product['price'] ?? 0), 0, ',', '.');
 
         return "{$productName} ({$sku}) - {$brand} - Rp {$price}";
+    }
+
+    protected static function formatBangJeffVariantOptionLabel(array $variant): string
+    {
+        $name = $variant['name'] ?? 'Unknown Variant';
+        $code = $variant['code'] ?? '-';
+        $status = strtoupper((string) ($variant['status'] ?? 'INACTIVE'));
+        $price = number_format((int) ($variant['price']['value'] ?? 0), 0, ',', '.');
+
+        return "{$name} ({$code}) - {$status} - Rp {$price}";
     }
 }

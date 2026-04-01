@@ -214,8 +214,8 @@ class ResetOutboundCallbackService
             'service' => [
                 'id' => $service?->getKey(),
                 'name' => $service?->layanan ?? $pembelian->layanan,
-                'provider' => $service?->provider ?? $pembelian->active_provider_code,
-                'provider_sku' => $service?->provider_id ?? $pembelian->active_provider_sku,
+                'provider' => $pembelian->active_provider_code ?: $service?->provider,
+                'provider_sku' => $pembelian->active_provider_sku ?: $service?->provider_id,
             ],
             'payment' => [
                 'status' => $payment?->status,

@@ -401,8 +401,8 @@ class PembeliansTable
                                     ),
                                 ]);
 
-                                ProviderDispatchTracker::markQueued($record->getKey());
                                 SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id());
+                                ProviderDispatchTracker::markQueued($record->getKey());
 
                                 Notification::make()
                                     ->title('Retry masuk antrean')
@@ -410,6 +410,8 @@ class PembeliansTable
                                     ->success()
                                     ->send();
                             } catch (\Throwable $exception) {
+                                ProviderDispatchTracker::clear($record->getKey());
+
                                 Log::error('Retry order dispatch failed.', [
                                     'pembelian_id' => $record->getKey(),
                                     'order_id' => $record->order_id,
