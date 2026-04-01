@@ -20,7 +20,8 @@ class ProfitAnalysis extends ChartWidget
         $productCountData = [];
         
         foreach ($providers as $provider) {
-            $products = Produk::where('provider', $provider)->where('status', 'active');
+            $products = Produk::where('provider', $provider)
+                ->whereIn('status', ['available', 'active']);
             
             $totalProfit = $products->sum('profit_member') ?? 0;
             $avgProfit = $products->avg('profit_member') ?? 0;

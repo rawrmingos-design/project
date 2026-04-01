@@ -857,11 +857,11 @@ class OrderController extends Controller
             };
             
             $dataLayanan = Layanan::where('id', $request->service)
-                ->select('layanan', "$column AS harga", 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
         } else {
             $dataLayanan = Layanan::where('id', $request->service)
-                ->select('layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
         }
 
@@ -913,7 +913,9 @@ class OrderController extends Controller
 
         $dataMethod = Method::where('code', $request->payment_method)->first();
 
-        $amountBeforePoint = (int) round($dataLayanan->harga + $this->calculateMethodFeeAmount($dataLayanan->harga, $dataMethod));
+        $baseServiceAmount = max(0, (int) round((float) $dataLayanan->harga));
+        $gatewayFeeAmount = $this->calculateMethodFeeAmount($baseServiceAmount, $dataMethod);
+        $amountBeforePoint = (int) round($baseServiceAmount + $gatewayFeeAmount);
         $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
         $usedPoints = $pointUsage['used_points'];
         $usedPointAmount = $pointUsage['discount'];
@@ -1010,7 +1012,13 @@ class OrderController extends Controller
                 $this->createOrderRecord(
                     $request, $dataLayanan, $order_id, $dataLayanan->harga, $dataMethod, 
                     'Lunas', 'Balance Payment', '', $status_pembelian, 
-                    $provider_order_id, $log_data, $ipAddress, $tipe, $keteranganSn, $usedPoints, $usedPointAmount
+                    $provider_order_id, $log_data, $ipAddress, $tipe, $keteranganSn, $usedPoints, $usedPointAmount, [
+                        'gateway_fee_amount' => $gatewayFeeAmount,
+                        'base_service_amount' => $baseServiceAmount,
+                    ], [
+                        'provider_code' => $providerResult['provider_code'] ?? null,
+                        'provider_sku' => $providerResult['provider_sku'] ?? null,
+                    ]
                 );
 
                 DB::commit();
@@ -1161,6 +1169,8 @@ class OrderController extends Controller
             $amount = $gatewayResult['amount'];
             $no_pembayaran = $gatewayResult['no_pembayaran'];
             $reference = $gatewayResult['reference'];
+            $gatewayResult['gateway_fee_amount'] = $gatewayFeeAmount;
+            $gatewayResult['base_service_amount'] = $baseServiceAmount;
 
             // Create Record (Pending)
             $tipe = match($request->ktg_tipe) {
@@ -1450,6 +1460,8 @@ class OrderController extends Controller
                 'status' => false,
                 'order_status' => 'Gagal',
                 'provider_order_id' => '',
+                'provider_code' => null,
+                'provider_sku' => null,
                 'order_data' => ['message' => 'Layanan sedang gangguan (No Provider)']
             ];
         }
@@ -1603,12 +1615,15 @@ class OrderController extends Controller
             'status' => $status,
             'order_status' => $order_status,
             'provider_order_id' => $provider_order_id,
+            'provider_code' => $providerCode,
+            'provider_sku' => $sku,
             'order_data' => $order
         ];
     }
 
-    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = []) {
+    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = [], array $providerContextOverride = []) {
         $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
+        $providerContext = $this->resolveProviderContextForOrder($dataLayanan, $providerContextOverride);
         
         $pembelian = new Pembelian();
         $pembelian->username = $user_id; 
@@ -1627,7 +1642,10 @@ class OrderController extends Controller
         
         $pembelian->layanan = $dataLayanan->layanan;
         $pembelian->harga = $amount;
-        $pembelian->profit = $amount * $dataLayanan->profit / 100;
+        $pembelian->profit = $this->calculateOrderProfitAmount((int) $amount, $dataLayanan, $providerContext, $gatewayMeta, $dataMethod);
+        $pembelian->active_layanan_id = $providerContext['layanan_id'];
+        $pembelian->active_provider_code = $providerContext['provider_code'];
+        $pembelian->active_provider_sku = $providerContext['provider_sku'];
         $pembelian->provider_order_id = $provider_order_id;
         $pembelian->ip_address = $ipAddress;
         $pembelian->voucher = $request->voucher ?? null;
@@ -1673,6 +1691,129 @@ class OrderController extends Controller
                 'updated_at' => now()
             ]);
         }
+    }
+
+    private function resolveProviderContextForOrder($dataLayanan, array $override = []): array
+    {
+        $context = [
+            'layanan_id' => isset($dataLayanan->id) ? (int) $dataLayanan->id : null,
+            'provider_code' => null,
+            'provider_sku' => null,
+            'modal_price' => null,
+        ];
+
+        $overrideCode = strtolower(trim((string) ($override['provider_code'] ?? '')));
+        $overrideSku = trim((string) ($override['provider_sku'] ?? ''));
+
+        if ($overrideCode !== '' && $overrideSku !== '') {
+            $context['provider_code'] = $overrideCode;
+            $context['provider_sku'] = $overrideSku;
+        }
+
+        if (array_key_exists('modal_price', $override) && is_numeric($override['modal_price'])) {
+            $context['modal_price'] = max(0, (int) round((float) $override['modal_price']));
+        }
+
+        $layananId = (int) ($context['layanan_id'] ?? 0);
+
+        if ($layananId > 0) {
+            $layanan = Layanan::query()->find($layananId);
+
+            if ($layanan) {
+                if (blank($context['provider_code']) || blank($context['provider_sku'])) {
+                    $route = app(\App\Services\ProviderRoutingService::class)->findBestProvider($layanan);
+
+                    if ($route) {
+                        $context['provider_code'] = strtolower((string) ($route['provider_code'] ?? ''));
+                        $context['provider_sku'] = trim((string) ($route['sku'] ?? ''));
+                    }
+                }
+
+                if (
+                    $context['modal_price'] === null &&
+                    filled($context['provider_code']) &&
+                    filled($context['provider_sku'])
+                ) {
+                    $matchedPath = $layanan->provider_paths()
+                        ->where('provider_code', $context['provider_code'])
+                        ->where('provider_sku', $context['provider_sku'])
+                        ->orderBy('priority')
+                        ->orderBy('modal_price')
+                        ->first();
+
+                    if ($matchedPath && $matchedPath->modal_price !== null) {
+                        $context['modal_price'] = max(0, (int) round((float) $matchedPath->modal_price));
+                    }
+                }
+            }
+        }
+
+        if ($context['modal_price'] === null && isset($dataLayanan->modal_harga) && is_numeric($dataLayanan->modal_harga)) {
+            $context['modal_price'] = max(0, (int) round((float) $dataLayanan->modal_harga));
+        }
+
+        if (blank($context['provider_code']) && isset($dataLayanan->provider)) {
+            $context['provider_code'] = strtolower(trim((string) $dataLayanan->provider));
+        }
+
+        if (blank($context['provider_sku']) && isset($dataLayanan->provider_id)) {
+            $context['provider_sku'] = trim((string) $dataLayanan->provider_id);
+        }
+
+        return $context;
+    }
+
+    private function calculateOrderProfitAmount(int $amount, $dataLayanan, array $providerContext, array $gatewayMeta = [], $dataMethod = null): int
+    {
+        $normalizedAmount = max(0, $amount);
+        $gatewayFeeAmount = $this->resolveGatewayFeeForProfit($normalizedAmount, $gatewayMeta, $dataMethod);
+        $netRevenue = max(0, $normalizedAmount - $gatewayFeeAmount);
+
+        if (is_numeric($providerContext['modal_price'] ?? null)) {
+            $modal = max(0, (int) round((float) $providerContext['modal_price']));
+
+            return max(0, $netRevenue - $modal);
+        }
+
+        return max(0, (int) round($netRevenue * ((float) ($dataLayanan->profit ?? 0) / 100)));
+    }
+
+    private function resolveGatewayFeeForProfit(int $amount, array $gatewayMeta, $dataMethod): int
+    {
+        if (is_numeric($gatewayMeta['gateway_fee_amount'] ?? null)) {
+            return max(0, min($amount, (int) round((float) $gatewayMeta['gateway_fee_amount'])));
+        }
+
+        $baseServiceAmount = is_numeric($gatewayMeta['base_service_amount'] ?? null)
+            ? max(0, (int) round((float) $gatewayMeta['base_service_amount']))
+            : null;
+
+        if ($baseServiceAmount !== null) {
+            $configuredFee = $this->calculateMethodFeeAmount($baseServiceAmount, $dataMethod);
+
+            return max(0, min($amount, $configuredFee));
+        }
+
+        if (! $dataMethod) {
+            return 0;
+        }
+
+        $percent = max(0, (float) ($dataMethod->fee_percent ?? 0));
+        $fixed = max(0, (float) ($dataMethod->fix_fee ?? 0));
+
+        if ($percent <= 0 && $fixed <= 0) {
+            return 0;
+        }
+
+        $denominator = 1 + ($percent / 100);
+        if ($denominator <= 0) {
+            return 0;
+        }
+
+        $estimatedBase = max(0, ((float) $amount - $fixed) / $denominator);
+        $estimatedFee = (int) round($fixed + ($estimatedBase * ($percent / 100)));
+
+        return max(0, min($amount, $estimatedFee));
     }
 
     private function resolvePaymentExpiryAt(array $gatewayMeta, $dataMethod, string $paymentStatus): ?Carbon

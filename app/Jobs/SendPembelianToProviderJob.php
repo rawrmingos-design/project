@@ -88,8 +88,10 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
             $nextStatus = match ($normalizedStatus) {
                 PembelianStatus::SUCCESS => PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS),
+                PembelianStatus::PENDING => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+                PembelianStatus::PROCESSING => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING),
                 PembelianStatus::FAILED, PembelianStatus::CANCELLED => PembelianStatus::preferredDatabaseLabel($normalizedStatus),
-                default => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING),
+                default => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
             };
 
             $nextResetStatus = $pembelian->reset_status;

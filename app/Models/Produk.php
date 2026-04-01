@@ -42,7 +42,7 @@ class Produk extends Model implements HasMedia
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->whereIn('status', ['available', 'active']);
     }
     
     public function scopeInactive($query)

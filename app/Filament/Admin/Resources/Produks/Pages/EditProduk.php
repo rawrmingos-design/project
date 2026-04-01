@@ -9,6 +9,7 @@ use App\Services\ProductPricingService;
 use App\Support\MediaAssetPicker;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditProduk extends EditRecord
 {
@@ -55,7 +56,11 @@ class EditProduk extends EditRecord
             $data['digiflazz_category_filter'],
             $data['digiflazz_brand_filter'],
             $data['digiflazz_product'],
+            $data['bangjeff_product_code_filter'],
+            $data['bangjeff_variant'],
         );
+
+        $data = $this->normalizeAndValidateProviderPaths($data);
 
         return $this->syncDerivedProfitFields($data);
     }
@@ -84,6 +89,52 @@ class EditProduk extends EditRecord
         $data['profit_member'] = (float) $draft->profit_member;
         $data['profit_platinum'] = (float) $draft->profit_platinum;
         $data['profit_gold'] = (float) $draft->profit_gold;
+
+        return $data;
+    }
+
+    private function normalizeAndValidateProviderPaths(array $data): array
+    {
+        $paths = collect($data['provider_paths'] ?? [])
+            ->map(function ($row) {
+                if (! is_array($row)) {
+                    return $row;
+                }
+
+                $providerCode = strtolower(trim((string) ($row['provider_code'] ?? '')));
+                $providerSku = trim((string) ($row['provider_sku'] ?? ''));
+
+                $row['provider_code'] = $providerCode;
+                $row['provider_sku'] = $providerSku;
+
+                if (array_key_exists('priority', $row)) {
+                    $row['priority'] = max(1, (int) ($row['priority'] ?? 1));
+                }
+
+                if (array_key_exists('modal_price', $row)) {
+                    $row['modal_price'] = max(0, (float) ($row['modal_price'] ?? 0));
+                }
+
+                return $row;
+            })
+            ->values();
+
+        $duplicateKeys = $paths
+            ->filter(fn ($row): bool => is_array($row)
+                && filled($row['provider_code'] ?? null)
+                && filled($row['provider_sku'] ?? null))
+            ->groupBy(fn ($row): string => ($row['provider_code'] ?? '') . '|' . ($row['provider_sku'] ?? ''))
+            ->filter(fn ($group): bool => $group->count() > 1)
+            ->keys()
+            ->values();
+
+        if ($duplicateKeys->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'data.provider_paths' => 'Provider path duplikat terdeteksi: ' . $duplicateKeys->implode(', '),
+            ]);
+        }
+
+        $data['provider_paths'] = $paths->all();
 
         return $data;
     }

@@ -65,8 +65,10 @@
         @php
             $googleTagManagerId = trim((string) ($config->google_tag_manager_id ?? ''));
             $googleAnalyticsId = trim((string) ($config->google_analytics_id ?? ''));
+            $facebookPixelId = trim((string) ($config->facebook_pixel_id ?? ''));
             $hasValidGoogleTagManagerId = preg_match('/^GTM-[A-Z0-9]+$/i', $googleTagManagerId) === 1;
             $hasValidGoogleAnalyticsId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $googleAnalyticsId) === 1;
+            $hasValidFacebookPixelId = preg_match('/^[0-9]{5,30}$/', $facebookPixelId) === 1;
         @endphp
 
         @if($hasValidGoogleTagManagerId)
@@ -89,7 +91,7 @@
             </script>
         @endif
 
-        @if($config->facebook_pixel_id)
+        @if($hasValidFacebookPixelId)
             <!-- Facebook Pixel -->
             <script>
                 !function(f,b,e,v,n,t,s)
@@ -100,11 +102,11 @@
                 t.src=v;s=b.getElementsByTagName(e)[0];
                 s.parentNode.insertBefore(t,s)}(window, document,'script',
                 'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '{{ $config->facebook_pixel_id }}');
+                fbq('init', '{{ $facebookPixelId }}');
                 fbq('track', 'PageView');
             </script>
             <noscript><img height="1" width="1" style="display:none"
-                src="https://www.facebook.com/tr?id={{ $config->facebook_pixel_id }}&ev=PageView&noscript=1"
+                src="https://www.facebook.com/tr?id={{ $facebookPixelId }}&ev=PageView&noscript=1"
             /></noscript>
         @endif
     @endif

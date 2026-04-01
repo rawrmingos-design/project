@@ -6,7 +6,6 @@ use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Models\Provider;
 use App\Services\Providers\BangJeffService;
-use RuntimeException;
 
 class ProviderBalanceService
 {
@@ -17,57 +16,82 @@ class ProviderBalanceService
     {
         $config = $this->resolveConfig($provider);
         $rawBalance = null;
+        $providerCode = strtolower((string) $provider->code);
 
-        switch ($provider->code) {
-            case 'digiflazz':
-                $res = (new DigiFlazzController($config))->cekSaldo();
-                $rawBalance = $res['data']['deposit'] ?? null;
-                break;
+        try {
+            switch ($providerCode) {
+                case 'digiflazz':
+                    $res = (new DigiFlazzController($config))->cekSaldo();
+                    $rawBalance = $res['data']['deposit'] ?? null;
+                    break;
 
-            case 'bangjeff':
-                $res = (new BangJeffService($config))->balance();
-                if (($res['rc'] ?? null) && ($res['rc'] !== '00')) {
-                    throw new RuntimeException($res['message'] ?? 'BangJeff gagal mengembalikan saldo.');
-                }
+                case 'bangjeff':
+                    $res = (new BangJeffService($config))->balance();
+                    if (($res['rc'] ?? null) && ($res['rc'] !== '00')) {
+                        return [
+                            'success' => false,
+                            'balance' => $provider->balance,
+                            'message' => $res['message'] ?? 'BangJeff gagal mengembalikan saldo.',
+                        ];
+                    }
 
-                $rawBalance = $res['data']['balance']['value']
-                    ?? $res['data']['balance']
-                    ?? null;
-                break;
+                    $rawBalance = $res['data']['balance']['value']
+                        ?? $res['data']['balance']
+                        ?? null;
+                    break;
 
-            case 'vip':
-            case 'vip_reseller':
-                $res = (new VipResellerController($config))->profile();
+                case 'vip':
+                case 'vip_reseller':
+                    $res = (new VipResellerController($config))->profile();
 
-                if (($res['result'] ?? true) === false) {
-                    throw new RuntimeException(
-                        $res['message'] ?? 'VIP Reseller gagal mengembalikan data profile.'
-                    );
-                }
+                    if (($res['result'] ?? true) === false) {
+                        return [
+                            'success' => false,
+                            'balance' => $provider->balance,
+                            'message' => $res['message'] ?? 'VIP Reseller gagal mengembalikan data profile.',
+                        ];
+                    }
 
-                $rawBalance = $res['data']['balance']
-                    ?? $res['data']['saldo']
-                    ?? $res['data']['sisa_saldo']
-                    ?? $res['data']['profile']['balance']
-                    ?? $res['data']['profile']['saldo']
-                    ?? $res['balance']
-                    ?? $res['saldo']
-                    ?? null;
-                break;
+                    $rawBalance = $res['data']['balance']
+                        ?? $res['data']['saldo']
+                        ?? $res['data']['sisa_saldo']
+                        ?? $res['data']['profile']['balance']
+                        ?? $res['data']['profile']['saldo']
+                        ?? $res['balance']
+                        ?? $res['saldo']
+                        ?? null;
+                    break;
 
-            case 'apigames':
-                throw new RuntimeException('ApiGames balance check belum diimplementasikan.');
+                case 'apigames':
+                    return [
+                        'success' => false,
+                        'balance' => $provider->balance,
+                        'message' => 'ApiGames balance check belum diimplementasikan.',
+                    ];
 
-            default:
-                throw new RuntimeException('Provider tidak didukung untuk check balance: ' . $provider->code);
+                default:
+                    return [
+                        'success' => false,
+                        'balance' => $provider->balance,
+                        'message' => 'Provider tidak didukung untuk check balance: ' . $providerCode,
+                    ];
+            }
+        } catch (\Throwable $exception) {
+            return [
+                'success' => false,
+                'balance' => $provider->balance,
+                'message' => $exception->getMessage(),
+            ];
         }
 
         $normalizedBalance = $this->normalizeBalanceValue($rawBalance);
 
         if ($normalizedBalance === null) {
-            throw new RuntimeException(
-                'Format saldo provider tidak valid: ' . (is_scalar($rawBalance) ? (string) $rawBalance : json_encode($rawBalance))
-            );
+            return [
+                'success' => false,
+                'balance' => $provider->balance,
+                'message' => 'Format saldo provider tidak valid: ' . (is_scalar($rawBalance) ? (string) $rawBalance : json_encode($rawBalance)),
+            ];
         }
 
         $provider->update([

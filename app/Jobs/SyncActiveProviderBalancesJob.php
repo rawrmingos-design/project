@@ -30,6 +30,7 @@ class SyncActiveProviderBalancesJob implements ShouldQueue, ShouldBeUnique
     {
         Provider::query()
             ->where('is_active', true)
+            ->whereIn('code', ['digiflazz', 'bangjeff', 'vip', 'vip_reseller'])
             ->select(['id'])
             ->orderBy('id')
             ->chunkById(100, function ($providers): void {
@@ -39,4 +40,3 @@ class SyncActiveProviderBalancesJob implements ShouldQueue, ShouldBeUnique
             });
     }
 }
-

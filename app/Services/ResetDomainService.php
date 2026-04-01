@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Layanan;
+use App\Models\Method;
 use App\Models\Pembelian;
 use App\Models\ProviderPath;
 use DomainException;
@@ -95,6 +96,7 @@ class ResetDomainService
                 'active_layanan_id' => $sourceLayanan->getKey(),
                 'active_provider_code' => $this->normalizeProviderCode($validatedCandidate->provider_code),
                 'active_provider_sku' => trim((string) $validatedCandidate->provider_sku),
+                'profit' => $this->calculateProfitFromModalPrice($lockedPembelian, $validatedCandidate),
                 'active_attempt_token' => null,
                 'active_attempt_reference' => $nextAttemptReference,
                 'reset_status' => 'requested',
@@ -144,6 +146,7 @@ class ResetDomainService
                 $attributes['active_layanan_id'] = $sourceLayanan->getKey();
                 $attributes['active_provider_code'] = $this->normalizeProviderCode($validatedCandidate->provider_code);
                 $attributes['active_provider_sku'] = trim((string) $validatedCandidate->provider_sku);
+                $attributes['profit'] = $this->calculateProfitFromModalPrice($lockedPembelian, $validatedCandidate);
             }
 
             $lockedPembelian->fill($attributes);
@@ -355,5 +358,53 @@ class ResetDomainService
     private function isSwitchableStatus(?string $status): bool
     {
         return in_array(strtolower(trim((string) $status)), ['active', 'available'], true);
+    }
+
+    private function calculateProfitFromModalPrice(Pembelian $pembelian, ProviderPath $providerPath): int
+    {
+        $hargaJual = max(0, (int) round((float) ($pembelian->harga ?? 0)));
+        $gatewayFee = $this->estimateGatewayFeeAmount($pembelian);
+        $netRevenue = max(0, $hargaJual - $gatewayFee);
+        $modal = max(0, (int) round((float) ($providerPath->modal_price ?? 0)));
+
+        return max(0, $netRevenue - $modal);
+    }
+
+    private function estimateGatewayFeeAmount(Pembelian $pembelian): int
+    {
+        $paymentMethodCode = trim((string) ($pembelian->pembayaran?->metode ?? ''));
+        if ($paymentMethodCode === '') {
+            return 0;
+        }
+
+        $method = Method::query()
+            ->select('fee_percent', 'fix_fee')
+            ->where('code', $paymentMethodCode)
+            ->first();
+
+        if (! $method) {
+            return 0;
+        }
+
+        $amount = max(0, (float) ($pembelian->harga ?? 0));
+        $pointDiscount = max(0, (float) ($pembelian->used_point_amount ?? 0));
+        $grossBeforePoint = $amount + $pointDiscount;
+
+        $percent = max(0, (float) ($method->fee_percent ?? 0));
+        $fixed = max(0, (float) ($method->fix_fee ?? 0));
+
+        if ($percent <= 0 && $fixed <= 0) {
+            return 0;
+        }
+
+        $denominator = 1 + ($percent / 100);
+        if ($denominator <= 0) {
+            return 0;
+        }
+
+        $estimatedBase = max(0, ($grossBeforePoint - $fixed) / $denominator);
+        $estimatedFee = (int) round($fixed + ($estimatedBase * ($percent / 100)));
+
+        return max(0, min((int) round($amount), $estimatedFee));
     }
 }
