@@ -45,6 +45,12 @@ class CreateProduk extends CreateRecord
 
         $data = $this->normalizeAndValidateProviderPaths($data);
 
+        if (array_key_exists('provider_paths', $data)) {
+            $this->data['provider_paths'] = $data['provider_paths'];
+
+            unset($data['provider_paths']);
+        }
+
         return $this->syncDerivedProfitFields($data);
     }
 
