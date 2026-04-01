@@ -2,15 +2,17 @@
 
 namespace App\Services\Providers;
 
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class BangJeffService extends BaseProviderService
 {
+    private const BASE_URL_PRODUCTION = 'https://distribution-api.bangjeff.com';
+    private const BASE_URL_SANDBOX = 'https://sandbox-api.bangjeff.com';
+
     private array $overrides = [];
-    private string $sandboxBaseUrl = 'https://sandbox-api.bangjeff.com';
+    private string $sandboxBaseUrl = self::BASE_URL_SANDBOX;
     private string $region = 'ID';
 
     public function __construct(array $overrides = [])
@@ -27,9 +29,12 @@ class BangJeffService extends BaseProviderService
         ];
 
         $this->region = strtoupper((string) ($this->overrides['region'] ?? config('providers.bangjeff.region', 'ID')));
-        $this->sandboxBaseUrl = rtrim((string) ($this->overrides['sandbox_endpoint'] ?? config('providers.bangjeff.sandbox_base_url', $this->sandboxBaseUrl)), '/');
+        $this->sandboxBaseUrl = $this->normalizeBangJeffBaseUrl(
+            (string) ($this->overrides['sandbox_endpoint'] ?? config('providers.bangjeff.sandbox_base_url', $this->sandboxBaseUrl)),
+            self::BASE_URL_SANDBOX
+        );
 
-        $configuredBaseUrl = (string) ($this->overrides['endpoint'] ?? config('providers.bangjeff.base_url', 'https://distribution-api.bangjeff.com'));
+        $configuredBaseUrl = (string) ($this->overrides['endpoint'] ?? config('providers.bangjeff.base_url', self::BASE_URL_PRODUCTION));
         $this->baseUrl = $this->resolveBaseUrl($configuredBaseUrl);
     }
 
@@ -301,10 +306,13 @@ class BangJeffService extends BaseProviderService
 
     private function resolveBaseUrl(?string $configuredBaseUrl): string
     {
-        $baseUrl = rtrim((string) ($configuredBaseUrl ?: 'https://distribution-api.bangjeff.com'), '/');
+        $baseUrl = $this->normalizeBangJeffBaseUrl(
+            (string) ($configuredBaseUrl ?: self::BASE_URL_PRODUCTION),
+            self::BASE_URL_PRODUCTION
+        );
 
         if ($this->shouldUseSandboxEndpoint($baseUrl)) {
-            return rtrim($this->sandboxBaseUrl, '/');
+            return $this->normalizeBangJeffBaseUrl($this->sandboxBaseUrl, self::BASE_URL_SANDBOX);
         }
 
         return $baseUrl;
@@ -326,8 +334,44 @@ class BangJeffService extends BaseProviderService
             return true;
         }
 
-        return str_contains($baseUrl, 'distribution-api.bangjeff.com')
-            || str_contains($baseUrl, 'api.bangjeff.com');
+        return str_contains($baseUrl, 'distribution-api.bangjeff.com');
+    }
+
+    private function normalizeBangJeffBaseUrl(string $baseUrl, string $default): string
+    {
+        $raw = trim($baseUrl);
+        if ($raw === '') {
+            return rtrim($default, '/');
+        }
+
+        $normalized = rtrim($raw, '/');
+        $host = strtolower((string) parse_url($normalized, PHP_URL_HOST));
+
+        if ($host === '' && str_starts_with($normalized, 'sandbox-api.bangjeff.com')) {
+            return self::BASE_URL_SANDBOX;
+        }
+
+        if ($host === '' && str_starts_with($normalized, 'distribution-api.bangjeff.com')) {
+            return self::BASE_URL_PRODUCTION;
+        }
+
+        if ($host === 'sandbox-api.bangjeff.com') {
+            return self::BASE_URL_SANDBOX;
+        }
+
+        if ($host === 'distribution-api.bangjeff.com') {
+            return self::BASE_URL_PRODUCTION;
+        }
+
+        if (in_array($host, ['client.bangjeff.com', 'api.bangjeff.com'], true)) {
+            Log::warning('BangJeff endpoint host legacy terdeteksi, dialihkan ke distribution-api.', [
+                'configured' => $normalized,
+            ]);
+
+            return self::BASE_URL_PRODUCTION;
+        }
+
+        return $normalized;
     }
 
     private function requestV3(string $pathOrUrl, array $payload = [], bool $isAbsoluteUrl = false): array
@@ -336,27 +380,7 @@ class BangJeffService extends BaseProviderService
             ? $pathOrUrl
             : $this->buildVersionSafeUrl($this->baseUrl, $pathOrUrl);
 
-        try {
-            $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($url, $payload);
-        } catch (ConnectionException $exception) {
-            if ($isAbsoluteUrl || ! str_contains($url, 'client.bangjeff.com')) {
-                throw $exception;
-            }
-
-            $fallbackBaseUrl = rtrim((string) config('providers.bangjeff.base_url', ''), '/');
-            if ($fallbackBaseUrl === '' || $fallbackBaseUrl === $this->baseUrl) {
-                throw $exception;
-            }
-
-            $fallbackUrl = $this->buildVersionSafeUrl($fallbackBaseUrl, $pathOrUrl);
-            Log::warning('BangJeff v3 request fallback after DNS failure', [
-                'original_url' => $url,
-                'fallback_url' => $fallbackUrl,
-                'error' => $exception->getMessage(),
-            ]);
-
-            $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($fallbackUrl, $payload);
-        }
+        $response = Http::withToken((string) ($this->credentials['api_key'] ?? ''))->post($url, $payload);
 
         $decoded = $response->json();
 
