@@ -54,7 +54,7 @@ class PaydisiniCallbackController extends Controller
         $transaction = $claim['invoice'];
 
         if (!$transaction) {
-            Log::warning('Paydisini callback: transaction not found', [
+            Log::debug('Paydisini callback: transaction not found', [
                 'unique_code' => $uniqueCode,
                 'pay_id' => $payId,
             ]);

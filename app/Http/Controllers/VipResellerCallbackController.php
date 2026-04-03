@@ -21,9 +21,10 @@ class VipResellerCallbackController extends Controller
         $signature = (string) $request->header('X-Client-Signature', '');
         $payload = $request->json()->all();
 
-        Log::info('VIP Reseller callback received', [
+        Log::debug('VIP Reseller callback received', [
             'signature_present' => $signature !== '',
-            'payload' => $payload,
+            'payload_keys' => is_array($payload) ? array_keys($payload) : [],
+            'data_keys' => isset($payload['data']) && is_array($payload['data']) ? array_keys($payload['data']) : [],
         ]);
 
         if (! $this->hasValidSignature($signature)) {
@@ -62,7 +63,7 @@ class VipResellerCallbackController extends Controller
             $currentStatus = PembelianStatus::normalize($invoice->status);
 
             if (PembelianStatus::shouldIgnoreTransition($currentStatus, $incomingStatus)) {
-                Log::info("VIP Reseller callback ignored for {$trxId}", [
+                Log::debug("VIP Reseller callback ignored for {$trxId}", [
                     'current_status' => $invoice->status,
                     'incoming_status' => $data['status'] ?? null,
                 ]);
@@ -110,12 +111,13 @@ class VipResellerCallbackController extends Controller
         $settings = SettingWeb::query()->where('id', 1)->first();
         $apiId = (string) ($settings->vip_apiid ?? '');
         $apiKey = (string) ($settings->vip_apikey ?? '');
+        $apiSign = (string) ($settings->vip_sign ?? '');
 
         if ($apiId === '' || $apiKey === '' || $signature === '') {
             return false;
         }
 
-        $expected = VipResellerController::expectedSignature($apiId, $apiKey);
+        $expected = VipResellerController::resolveSignature($apiSign, $apiId, $apiKey);
 
         return hash_equals($expected, $signature);
     }

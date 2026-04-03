@@ -61,7 +61,7 @@ class ProviderManager
 
         foreach ($this->providers as $providerName => $provider) {
             try {
-                Log::info("Starting product sync for provider: {$providerName}");
+                Log::debug("Starting product sync for provider: {$providerName}");
                 
                 $products = $provider->getProducts();
                 $results[$providerName] = [
@@ -70,7 +70,7 @@ class ProviderManager
                     'products' => $products
                 ];
 
-                Log::info("Completed product sync for {$providerName}", [
+                Log::debug("Completed product sync for {$providerName}", [
                     'products_count' => count($products)
                 ]);
             } catch (\Exception $e) {
@@ -102,11 +102,11 @@ class ProviderManager
         }
 
         try {
-            Log::info("Starting product sync for provider: {$providerName}");
+            Log::debug("Starting product sync for provider: {$providerName}");
             
             $products = $provider->getProducts();
             
-            Log::info("Completed product sync for {$providerName}", [
+            Log::debug("Completed product sync for {$providerName}", [
                 'products_count' => count($products)
             ]);
 
@@ -142,11 +142,15 @@ class ProviderManager
         }
 
         try {
-            Log::info("Processing order through {$providerName}", $orderData);
+            Log::debug("Processing order through {$providerName}", [
+                'order_keys' => array_keys($orderData),
+                'order_id' => $orderData['order_id'] ?? null,
+                'product_id' => $orderData['product_id'] ?? null,
+            ]);
             
             $result = $provider->processOrder($orderData);
             
-            Log::info("Order processed through {$providerName}", [
+            Log::debug("Order processed through {$providerName}", [
                 'success' => $result['success'] ?? false,
                 'transaction_id' => $result['transaction_id'] ?? null
             ]);

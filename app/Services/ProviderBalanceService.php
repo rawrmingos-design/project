@@ -119,6 +119,10 @@ class ProviderBalanceService
             $config['api_key'] = $provider->api_key;
         }
 
+        if (! empty($provider->api_sign)) {
+            $config['api_sign'] = $provider->api_sign;
+        }
+
         if (! empty($provider->api_endpoint)) {
             $config['endpoint'] = $provider->api_endpoint;
         }

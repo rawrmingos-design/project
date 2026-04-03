@@ -48,7 +48,7 @@
                     $decoded = json_decode(trim($jsonContent), true);
                 @endphp
                 @if($decoded !== null)
-                    <script type="application/ld+json">{{ trim($jsonContent) }}</script>
+                    <script type="application/ld+json">{!! json_encode($decoded, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
                 @endif
             @endforeach
         @endif

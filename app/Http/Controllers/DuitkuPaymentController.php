@@ -36,7 +36,7 @@ class DuitkuPaymentController extends Controller
             $isSandbox = $this->api->duitku_mode === 'sandbox';
             $this->duitkuConfig->setSandboxMode($isSandbox);
             $this->duitkuConfig->setSanitizedMode(true);
-            $this->duitkuConfig->setDuitkuLogs(true);
+            $this->duitkuConfig->setDuitkuLogs((bool) config('app.debug'));
         }
     }
 
@@ -106,10 +106,15 @@ class DuitkuPaymentController extends Controller
             $response = Pop::createInvoice($params, $this->duitkuConfig);
             $result = json_decode($response, true);
 
-            Log::info('Duitku API Response', ['result' => $result]);
+            Log::debug('Duitku API Response', [
+                'statusCode' => $result['statusCode'] ?? null,
+                'statusMessage' => $result['statusMessage'] ?? null,
+                'reference' => $result['reference'] ?? null,
+                'merchantOrderId' => $merchantOrderId,
+            ]);
 
             if (isset($result['statusCode']) && $result['statusCode'] == '00') {
-                Log::info('Duitku invoice created successfully', [
+                Log::debug('Duitku invoice created successfully', [
                     'order_id' => $order->order_id,
                     'reference' => $result['reference'],
                     'paymentMethod' => $paymentMethodCode
@@ -141,7 +146,6 @@ class DuitkuPaymentController extends Controller
             Log::error('Duitku createInvoice failed', [
                 'order_id' => $order->order_id ?? 'unknown',
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
 
             return [
@@ -167,12 +171,16 @@ class DuitkuPaymentController extends Controller
 
             $payload = $this->extractCallbackPayload($request);
 
-            Log::info('Duitku Callback Received', ['data' => $payload]);
+            Log::debug('Duitku Callback Received', [
+                'payload_keys' => array_keys($payload),
+                'merchantOrderId' => $payload['merchantOrderId'] ?? null,
+                'reference' => $payload['reference'] ?? null,
+            ]);
 
             if (empty($payload)) {
                 Log::error('Duitku: Invalid callback payload', [
-                    'payload' => $request->all(),
-                    'raw' => $request->getContent(),
+                    'payload_keys' => array_keys($request->all()),
+                    'raw_length' => strlen((string) $request->getContent()),
                 ]);
                 return response('Invalid payload', 400);
             }
@@ -209,7 +217,7 @@ class DuitkuPaymentController extends Controller
                     ->first();
 
                 if (!$payment) {
-                    Log::warning('Duitku: Payment not found or already processed', [
+                    Log::debug('Duitku: Payment not found or already processed', [
                         'reference' => $reference,
                         'merchantOrderId' => $merchantOrderId,
                     ]);
@@ -458,7 +466,8 @@ class DuitkuPaymentController extends Controller
 
         } catch (\Exception $e) {
             Log::error('Duitku callback error: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+                'merchantOrderId' => $request->input('merchantOrderId'),
+                'reference' => $request->input('reference'),
             ]);
             return response('Error', 500);
         }

@@ -53,6 +53,12 @@ class ProviderResource extends Resource
                     ->revealable()
                     ->helperText('Warning: Gunakan API Key Production.')
                     ->maxLength(255),
+                TextInput::make('api_sign')
+                    ->label('API Sign (VIP)')
+                    ->password()
+                    ->revealable()
+                    ->helperText('Opsional untuk VIP Reseller. Jika diisi, akan dipakai sebagai sign request/callback override.')
+                    ->maxLength(255),
             ]);
     }
 

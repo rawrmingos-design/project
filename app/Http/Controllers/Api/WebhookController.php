@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use App\Models\Pembelian;
+use App\Support\PembelianStatus;
 
 class WebhookController extends Controller
 {
@@ -30,7 +31,10 @@ class WebhookController extends Controller
                 return response()->json(['error' => 'Invalid signature'], 401);
             }
 
-            Log::info('Digiflazz webhook received (verified)', $request->all());
+            Log::debug('Digiflazz webhook received (verified)', [
+                'ip' => $request->ip(),
+                'payload_keys' => array_keys($request->all()),
+            ]);
             $data = $request->all();
             $this->processDigiflazzWebhook($data);
 
@@ -61,7 +65,10 @@ class WebhookController extends Controller
                 return response()->json(['error' => 'Invalid signature'], 401);
             }
 
-            Log::info('BangJeff webhook received (verified)', $request->all());
+            Log::debug('BangJeff webhook received (verified)', [
+                'ip' => $request->ip(),
+                'payload_keys' => array_keys($request->all()),
+            ]);
             $data = $request->all();
             $this->processBangJeffWebhook($data);
 
@@ -80,8 +87,8 @@ class WebhookController extends Controller
         // FIX #4: Generic webhook diblokir — tidak ada cara verifikasi identitas provider secara aman.
         // Implementasikan handler spesifik per-provider dengan signature verification yang proper.
         Log::warning("Generic webhook blocked for provider: {$provider}", [
-            'ip'   => $request->ip(),
-            'data' => $request->all(),
+            'ip' => $request->ip(),
+            'payload_keys' => array_keys($request->all()),
         ]);
         return response()->json(['error' => 'This endpoint is disabled for security reasons'], 403);
     }
@@ -113,12 +120,12 @@ class WebhookController extends Controller
         
         $transaction->update([
             'status' => $newStatus,
-            'sn' => $sn,
-            'provider_response' => json_encode($data),
+            'keterangan_sn' => $sn,
+            'log' => json_encode($data),
             'updated_at' => now(),
         ]);
         
-        Log::info("Transaction {$refId} updated to status: {$newStatus}");
+        Log::debug("Transaction {$refId} updated to status: {$newStatus}");
     }
 
     /**
@@ -148,12 +155,12 @@ class WebhookController extends Controller
         
         $transaction->update([
             'status' => $newStatus,
-            'sn' => $sn,
-            'provider_response' => json_encode($data),
+            'keterangan_sn' => $sn,
+            'log' => json_encode($data),
             'updated_at' => now(),
         ]);
         
-        Log::info("Transaction {$orderId} updated to status: {$newStatus}");
+        Log::debug("Transaction {$orderId} updated to status: {$newStatus}");
     }
 
     /**
@@ -161,7 +168,9 @@ class WebhookController extends Controller
      */
     private function processGenericWebhook(string $provider, array $data): void
     {
-        Log::info("Processing generic webhook for provider: {$provider}", $data);
+        Log::debug("Processing generic webhook for provider: {$provider}", [
+            'payload_keys' => array_keys($data),
+        ]);
         
         // Basic webhook processing - can be extended for specific providers
         $orderId = $data['order_id'] ?? $data['ref_id'] ?? null;
@@ -176,7 +185,7 @@ class WebhookController extends Controller
         
         if ($transaction) {
             $transaction->update([
-                'provider_response' => json_encode($data),
+                'log' => json_encode($data),
                 'updated_at' => now(),
             ]);
         }
@@ -215,13 +224,15 @@ class WebhookController extends Controller
      */
     private function mapDigiflazzStatus(string $status): string
     {
-        return match(strtolower($status)) {
-            'sukses' => 'Success',
-            'pending' => 'Pending',
-            'gagal' => 'Failed',
-            'proses' => 'Processing',
-            default => 'Unknown'
+        $normalized = match (strtolower(trim($status))) {
+            'sukses', 'success' => PembelianStatus::SUCCESS,
+            'pending' => PembelianStatus::PENDING,
+            'proses', 'processing' => PembelianStatus::PROCESSING,
+            'gagal', 'failed', 'error', 'cancelled', 'canceled' => PembelianStatus::FAILED,
+            default => PembelianStatus::UNKNOWN,
         };
+
+        return PembelianStatus::preferredDatabaseLabel($normalized);
     }
 
     /**
@@ -229,12 +240,14 @@ class WebhookController extends Controller
      */
     private function mapBangJeffStatus(string $status): string
     {
-        return match(strtolower($status)) {
-            'success', 'sukses' => 'Success',
-            'pending', 'process' => 'Pending',
-            'error', 'gagal' => 'Failed',
-            'processing' => 'Processing',
-            default => 'Unknown'
+        $normalized = match (strtolower(trim($status))) {
+            'success', 'sukses' => PembelianStatus::SUCCESS,
+            'pending', 'process', 'waiting' => PembelianStatus::PENDING,
+            'processing' => PembelianStatus::PROCESSING,
+            'error', 'gagal', 'failed', 'cancelled', 'canceled', 'refunded' => PembelianStatus::FAILED,
+            default => PembelianStatus::UNKNOWN,
         };
+
+        return PembelianStatus::preferredDatabaseLabel($normalized);
     }
 }

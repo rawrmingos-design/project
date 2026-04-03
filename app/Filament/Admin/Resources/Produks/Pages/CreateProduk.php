@@ -41,6 +41,10 @@ class CreateProduk extends CreateRecord
             $data['digiflazz_product'],
             $data['bangjeff_product_code_filter'],
             $data['bangjeff_variant'],
+            $data['vip_reseller_tab'],
+            $data['vip_reseller_game_filter'],
+            $data['vip_reseller_status_filter'],
+            $data['vip_reseller_service'],
         );
 
         $data = $this->normalizeAndValidateProviderPaths($data);

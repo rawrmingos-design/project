@@ -401,7 +401,7 @@ class PembeliansTable
                                     ),
                                 ]);
 
-                                SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id());
+                                SendPembelianToProviderJob::dispatch($record->getKey(), Auth::id(), 'retry_status');
                                 ProviderDispatchTracker::markQueued($record->getKey());
 
                                 Notification::make()

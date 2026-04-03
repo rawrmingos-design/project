@@ -31,6 +31,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
     public function __construct(
         public int $pembelianId,
         public ?int $requestedBy = null,
+        public string $dispatchMode = 'auto',
     ) {
     }
 
@@ -46,7 +47,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
         $pembelian = Pembelian::query()->find($this->pembelianId);
 
         if (! $pembelian) {
-            Log::warning('SendPembelianToProviderJob: pembelian not found.', [
+            Log::debug('SendPembelianToProviderJob: pembelian not found.', [
                 'pembelian_id' => $this->pembelianId,
             ]);
 
@@ -55,13 +56,14 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-            $result = $orderProcessingService->process($pembelian);
+            $result = $orderProcessingService->process($pembelian, $this->dispatchMode);
             $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
 
             if (! ($result['success'] ?? false)) {
                 if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
                     $pembelian->update([
                         'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                        'active_attempt_token' => $result['transaction_id'] ?? $pembelian->active_attempt_token,
                         'status' => PembelianStatus::preferredDatabaseLabel($normalizedStatus),
                         'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: (trim((string) ($result['message'] ?? '')) ?: $pembelian->keterangan_sn),
                         'log' => $this->appendBoundedLog(
@@ -105,6 +107,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
             $pembelian->update([
                 'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'active_attempt_token' => $result['transaction_id'] ?? $pembelian->active_attempt_token,
                 'status' => $nextStatus,
                 'keterangan_sn' => trim((string) ($result['sn'] ?? '')) ?: (in_array($normalizedStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true) ? 'Sedang Diproses' : $pembelian->keterangan_sn),
                 'log' => $this->appendBoundedLog(
@@ -122,6 +125,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                 'active_attempt_reference' => $pembelian->active_attempt_reference,
                 'active_provider_code' => $pembelian->active_provider_code,
                 'active_provider_sku' => $pembelian->active_provider_sku,
+                'dispatch_mode' => $this->dispatchMode,
                 'message' => $exception->getMessage(),
             ]);
 

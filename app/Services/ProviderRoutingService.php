@@ -86,6 +86,7 @@ class ProviderRoutingService
                 $credentials = [
                     'api_id' => $settings->vip_apiid,
                     'api_key' => $settings->vip_apikey,
+                    'api_sign' => $settings->vip_sign,
                     'endpoint' => 'https://vip-reseller.co.id/api/game-feature',
                 ];
                 break;
