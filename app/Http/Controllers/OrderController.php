@@ -896,7 +896,11 @@ class OrderController extends Controller
         // Voucher Logic (Calculation Only)
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-            Log::info('Voucher found', ['voucher' => $voucher]);
+            Log::debug('Voucher found', [
+                'voucher_code' => $request->voucher,
+                'voucher_id' => $voucher->id ?? null,
+                'voucher_stock' => $voucher->stock ?? null,
+            ]);
             if ($voucher && $voucher->stock > 0) {
                 $potongan = $dataLayanan->harga * ($voucher->promo / 100);
                 if ($potongan > $voucher->max_potongan) $potongan = $voucher->max_potongan;
@@ -1038,7 +1042,7 @@ class OrderController extends Controller
                         $dataLayanan->layanan
                     );
                 }
-                Log::error('Order Store Exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+                Log::error('Order Store Exception', ['error' => $e->getMessage()]);
                 // Return clear error message to user
                 return response()->json(['status' => false, 'data' => $e->getMessage()]);
             }
@@ -1154,7 +1158,11 @@ class OrderController extends Controller
             }
 
             if (!$gatewayResult['status']) {
-                Log::error('Order Store Gateway Failed', ['gatewayResult' => $gatewayResult]);
+                Log::error('Order Store Gateway Failed', [
+                    'gateway_status' => $gatewayResult['status'] ?? null,
+                    'gateway_message' => $gatewayResult['msg'] ?? null,
+                    'gateway_reference' => $gatewayResult['reference'] ?? null,
+                ]);
                 if ($pointsReserved && Auth::check()) {
                     app(\App\Services\PointService::class)->refundPoints(
                         Auth::user(),
@@ -1254,7 +1262,10 @@ class OrderController extends Controller
                 return ['success' => false, 'message' => 'Connection Error: ' . $error];
             }
 
-            Log::info('WhatsApp API (Fonnte) Response', ['response' => $response]);
+            Log::debug('WhatsApp API (Fonnte) Response', [
+                'response_length' => strlen((string) $response),
+                'response_preview' => mb_substr((string) $response, 0, 200),
+            ]);
             return ['success' => true, 'response' => $response];
 
         } catch (\Exception $e) {
@@ -1470,7 +1481,7 @@ class OrderController extends Controller
         $sku = $bestRoute['sku'];
         
         // Record which provider was used for this transaction
-        Log::info("Order $order_id routed to $providerCode with SKU $sku");
+        Log::debug("Order $order_id routed to $providerCode with SKU $sku");
 
         $credentials = $bestRoute['credentials'] ?? [];
 
@@ -1483,7 +1494,12 @@ class OrderController extends Controller
                     $status = in_array(($orderData['status'] ?? null), ["Pending", "Sukses", "Success"], true);
                     $order_status = ($orderData['status'] ?? null) === 'Success' ? 'Sukses' : ($orderData['status'] ?? 'Gagal');
                     $provider_order_id = $orderData['ref_id'] ?? $order_id;
-                    Log::info('Digiflazz Order: ', ['order' => $order, 'status' => $status]);
+                    Log::debug('Digiflazz Order', [
+                        'order_id' => $order_id,
+                        'status' => $status,
+                        'provider_status' => $orderData['status'] ?? null,
+                        'provider_ref_id' => $orderData['ref_id'] ?? null,
+                    ]);
                     break;
 
                 case "apigames":

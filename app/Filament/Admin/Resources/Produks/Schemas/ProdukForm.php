@@ -24,6 +24,7 @@ use App\Models\PaketLayanan;
 use App\Filament\Admin\Resources\Kategoris\Schemas\KategoriForm;
 use App\Filament\Admin\Resources\Pakets\Schemas\PaketForm;
 use App\Http\Controllers\DigiFlazzController;
+use App\Http\Controllers\provider\VipResellerController;
 use App\Services\Providers\BangJeffService;
 use App\Models\MediaAsset;
 use App\Support\KategoriFormDataHandler;
@@ -63,7 +64,7 @@ class ProdukForm
                                     return;
                                 }
 
-                                if (in_array($get('provider'), ['digiflazz', 'bangjeff'], true)) {
+                                if (in_array($get('provider'), ['digiflazz', 'bangjeff', 'vip'], true)) {
                                     return;
                                 }
 
@@ -102,6 +103,13 @@ class ProdukForm
                                 if ($state !== 'bangjeff') {
                                     $set('bangjeff_product_code_filter', null);
                                     $set('bangjeff_variant', null);
+                                }
+
+                                if ($state !== 'vip') {
+                                    $set('vip_reseller_tab', null);
+                                    $set('vip_reseller_game_filter', null);
+                                    $set('vip_reseller_status_filter', 'available');
+                                    $set('vip_reseller_service', null);
                                 }
                             }),
 
@@ -199,6 +207,85 @@ class ProdukForm
                             ->live()
                             ->afterStateUpdated(function ($state, $set, $get) {
                                 static::applyBangJeffVariantSelection($state, $set, $get);
+                            })
+                            ->columnSpanFull(),
+
+                        Select::make('vip_reseller_tab')
+                            ->label('Tab VIP Reseller')
+                            ->options([
+                                'game_streaming' => 'Game & Streaming',
+                                'sosmed' => 'Sosmed',
+                            ])
+                            ->placeholder('Pilih tab...')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'vip')
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('vip_reseller_game_filter', null);
+                                $set('vip_reseller_service', null);
+                            }),
+
+                        Select::make('vip_reseller_game_filter')
+                            ->label('Filter Kategori VIP Reseller')
+                            ->options(fn (Get $get): array => static::getVipResellerGameOptions($get('vip_reseller_tab')))
+                            ->placeholder('Pilih kategori...')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'vip')
+                            ->disabled(fn (Get $get) => blank($get('vip_reseller_tab')))
+                            ->searchable()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('vip_reseller_service', null);
+                            }),
+
+                        Select::make('vip_reseller_status_filter')
+                            ->label('Filter Status VIP')
+                            ->options([
+                                'available' => 'Available',
+                                'empty' => 'Empty',
+                            ])
+                            ->default('available')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'vip')
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('vip_reseller_service', null);
+                            }),
+
+                        Select::make('vip_reseller_service')
+                            ->label('Pilih Layanan VIP Reseller')
+                            ->helperText('Cari layanan VIP untuk mengisi nama produk, Provider ID, status, dan harga modal otomatis.')
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'vip')
+                            ->disabled(fn (Get $get) => blank($get('vip_reseller_game_filter')))
+                            ->getSearchResultsUsing(fn (string $search, Get $get): array => static::getVipResellerServiceSearchResults(
+                                $search,
+                                $get('vip_reseller_game_filter'),
+                                $get('vip_reseller_status_filter'),
+                            ))
+                            ->getOptionLabelUsing(fn ($value): ?string => static::getVipResellerServiceOptionLabel($value))
+                            ->hintAction(
+                                Action::make('refreshVipResellerCache')
+                                    ->label('Refresh Cache')
+                                    ->icon('heroicon-o-arrow-path')
+                                    ->action(function (Set $set, Get $get) {
+                                        static::refreshVipResellerCache(
+                                            $get('vip_reseller_game_filter'),
+                                            $get('vip_reseller_status_filter'),
+                                        );
+                                        $set('vip_reseller_service', null);
+
+                                        Notification::make()
+                                            ->title('Layanan VIP Reseller diperbarui')
+                                            ->success()
+                                            ->send();
+                                    })
+                            )
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set, $get) {
+                                static::applyVipResellerServiceSelection($state, $set, $get);
                             })
                             ->columnSpanFull(),
                             
@@ -691,6 +778,197 @@ class ProdukForm
         }
     }
 
+    protected static function getVipResellerServices(?string $filterGame = null, ?string $filterStatus = null): array
+    {
+        $cacheKey = static::getVipResellerCacheKey($filterGame, $filterStatus);
+
+        $services = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($filterGame, $filterStatus) {
+            $response = app(VipResellerController::class)->services($filterGame, $filterStatus);
+
+            if (($response['result'] ?? false) !== true) {
+                return [];
+            }
+
+            $rows = $response['data'] ?? [];
+
+            return is_array($rows) ? $rows : [];
+        });
+
+        if (! is_array($services)) {
+            return [];
+        }
+
+        return array_values(array_filter($services, fn ($service): bool => is_array($service)));
+    }
+
+    protected static function refreshVipResellerCache(?string $filterGame = null, ?string $filterStatus = null): void
+    {
+        Cache::forget(static::getVipResellerCacheKey($filterGame, $filterStatus));
+    }
+
+    protected static function getVipResellerGameOptions(?string $tab): array
+    {
+        $tab = trim((string) $tab);
+
+        if ($tab === '') {
+            return [];
+        }
+
+        $categories = match ($tab) {
+            'game_streaming' => array_merge(
+                static::getVipResellerCategorySeed('data-category-game.json'),
+                static::getVipResellerCategorySeed('data-category-apps-premium.json'),
+            ),
+            'sosmed' => static::getVipResellerCategorySeed('data-category-sosmed.json'),
+            default => [],
+        };
+
+        if ($categories === []) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($categories as $category) {
+            $label = trim((string) $category);
+
+            if ($label === '') {
+                continue;
+            }
+
+            $normalized[$label] = $label;
+        }
+
+        asort($normalized);
+
+        return $normalized;
+    }
+
+    protected static function getVipResellerCategorySeed(string $filename): array
+    {
+        $path = base_path($filename);
+        $cacheKey = 'filament.vipreseller.category-seed.' . md5($path);
+
+        return Cache::remember($cacheKey, now()->addHours(12), function () use ($path): array {
+            if (! is_file($path)) {
+                return [];
+            }
+
+            $contents = file_get_contents($path);
+            if ($contents === false) {
+                return [];
+            }
+
+            $decoded = json_decode($contents, true);
+            if (! is_array($decoded)) {
+                return [];
+            }
+
+            return array_values(array_filter(
+                $decoded,
+                static fn ($value): bool => is_string($value) && trim($value) !== ''
+            ));
+        });
+    }
+
+    protected static function getVipResellerCacheKey(?string $filterGame = null, ?string $filterStatus = null): string
+    {
+        $game = mb_strtolower(trim((string) $filterGame));
+        $status = mb_strtolower(trim((string) $filterStatus));
+
+        return 'filament.vipreseller.services.' . md5($game . '|' . $status);
+    }
+
+    protected static function getVipResellerServiceSearchResults(string $search, ?string $filterGame = null, ?string $filterStatus = null): array
+    {
+        $search = mb_strtolower(trim($search));
+        $results = [];
+
+        foreach (static::getVipResellerServices($filterGame, $filterStatus) as $service) {
+            $code = trim((string) ($service['code'] ?? ''));
+
+            if ($code === '') {
+                continue;
+            }
+
+            $haystack = mb_strtolower(
+                implode(' ', [
+                    $service['code'] ?? '',
+                    $service['game'] ?? '',
+                    $service['name'] ?? '',
+                    strip_tags((string) ($service['description'] ?? '')),
+                ])
+            );
+
+            if ($search !== '' && ! str_contains($haystack, $search)) {
+                continue;
+            }
+
+            $results[$code] = static::formatVipResellerOptionLabel($service);
+
+            if (count($results) >= 50) {
+                break;
+            }
+        }
+
+        return $results;
+    }
+
+    protected static function getVipResellerServiceOptionLabel(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        foreach (static::getVipResellerServices() as $service) {
+            if (($service['code'] ?? null) === $value) {
+                return static::formatVipResellerOptionLabel($service);
+            }
+        }
+
+        return (string) $value;
+    }
+
+    protected static function applyVipResellerServiceSelection(?string $serviceCode, $set, $get): void
+    {
+        if (blank($serviceCode)) {
+            return;
+        }
+
+        foreach (static::getVipResellerServices($get('vip_reseller_game_filter'), $get('vip_reseller_status_filter')) as $service) {
+            if (($service['code'] ?? null) !== $serviceCode) {
+                continue;
+            }
+
+            $game = trim((string) ($service['game'] ?? ''));
+            $name = trim((string) ($service['name'] ?? ''));
+            $status = mb_strtolower(trim((string) ($service['status'] ?? '')));
+            $description = trim((string) ($service['description'] ?? ''));
+            $server = trim((string) ($service['server'] ?? ''));
+            $modalPrice = (int) ($service['price']['basic'] ?? $service['price']['premium'] ?? $service['price']['special'] ?? 0);
+
+            $label = $name !== '' ? $name : (string) $serviceCode;
+            if ($game !== '' && stripos($label, $game) === false) {
+                $label = $game . ' - ' . $label;
+            }
+
+            $catatanParts = array_filter([
+                $game !== '' ? "VIP Game: {$game}" : null,
+                $server !== '' ? "Server required: {$server}" : null,
+                $description !== '' ? trim(preg_replace('/\s+/', ' ', strip_tags($description)) ?? '') : null,
+            ]);
+
+            $set('layanan', $label);
+            $set('provider_id', (string) $serviceCode);
+            $set('status', $status === 'available' ? 'available' : 'inactive');
+            $set('harga', $modalPrice);
+            $set('catatan', implode(' | ', $catatanParts));
+
+            static::syncTierPricesFromProfit($modalPrice, $set, $get);
+
+            return;
+        }
+    }
+
     protected static function getDigiflazzCategoryOptions(): array
     {
         $options = [];
@@ -878,6 +1156,23 @@ class ProdukForm
         } finally {
             $set('pricing_sync_source', null);
         }
+    }
+
+    protected static function formatVipResellerOptionLabel(array $service): string
+    {
+        $game = trim((string) ($service['game'] ?? ''));
+        $name = trim((string) ($service['name'] ?? ''));
+        $code = trim((string) ($service['code'] ?? '-'));
+        $status = strtoupper(trim((string) ($service['status'] ?? 'UNKNOWN')));
+        $price = (int) ($service['price']['basic'] ?? $service['price']['premium'] ?? $service['price']['special'] ?? 0);
+        $priceLabel = number_format($price, 0, ',', '.');
+
+        $title = $name !== '' ? $name : $code;
+        if ($game !== '' && stripos($title, $game) === false) {
+            $title = "{$game} - {$title}";
+        }
+
+        return "{$title} ({$code}) - {$status} - Rp {$priceLabel}";
     }
 
     protected static function formatDigiflazzOptionLabel(array $product): string

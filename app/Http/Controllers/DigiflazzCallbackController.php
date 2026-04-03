@@ -20,11 +20,12 @@ class DigiflazzCallbackController extends Controller
         $event = strtolower((string) $request->header('X-Digiflazz-Event', ''));
         $signature = (string) $request->header('X-Hub-Signature', '');
 
-        Log::info('Digiflazz callback received', [
+        Log::debug('Digiflazz callback received', [
             'event' => $event,
             'user_agent' => $request->header('User-Agent'),
             'signature_present' => $signature !== '',
-            'payload' => $payload,
+            'payload_keys' => is_array($payload) ? array_keys($payload) : [],
+            'data_keys' => isset($payload['data']) && is_array($payload['data']) ? array_keys($payload['data']) : [],
         ]);
 
         if (!$this->hasValidSignature($request, $signature)) {
@@ -36,7 +37,10 @@ class DigiflazzCallbackController extends Controller
         }
 
         if (!is_array($payload) || !isset($payload['data']) || !is_array($payload['data'])) {
-            Log::warning('Digiflazz callback payload invalid', ['payload' => $payload]);
+            Log::warning('Digiflazz callback payload invalid', [
+                'payload_type' => gettype($payload),
+                'payload_keys' => is_array($payload) ? array_keys($payload) : [],
+            ]);
 
             return response()->json(['success' => false, 'message' => 'Invalid payload'], 400);
         }
@@ -45,7 +49,10 @@ class DigiflazzCallbackController extends Controller
         $refId = (string) ($data['ref_id'] ?? '');
 
         if ($refId === '') {
-            Log::warning('Digiflazz callback missing ref_id', ['payload' => $payload]);
+            Log::warning('Digiflazz callback missing ref_id', [
+                'event' => $event,
+                'data_keys' => array_keys($data),
+            ]);
 
             return response()->json(['success' => false, 'message' => 'Missing ref_id'], 400);
         }
@@ -57,7 +64,7 @@ class DigiflazzCallbackController extends Controller
                 $staleInvoice = $this->findPotentialStaleInvoice($refId);
 
                 if ($staleInvoice) {
-                    Log::info("Digiflazz callback ignored for stale attempt reference {$refId}", [
+                    Log::debug("Digiflazz callback ignored for stale attempt reference {$refId}", [
                         'event' => $event,
                         'order_id' => $staleInvoice->order_id,
                         'active_attempt_reference' => $staleInvoice->active_attempt_reference,
@@ -81,7 +88,7 @@ class DigiflazzCallbackController extends Controller
             $snOrMessage = $snValue !== '' ? $snValue : $messageValue;
 
             if (PembelianStatus::shouldIgnoreTransition($currentStatus, $incomingStatus)) {
-                Log::info("Digiflazz callback ignored for {$refId}", [
+                Log::debug("Digiflazz callback ignored for {$refId}", [
                     'current_status' => $invoice->status,
                     'incoming_status' => $data['status'] ?? null,
                     'event' => $event,
@@ -121,7 +128,7 @@ class DigiflazzCallbackController extends Controller
                 $statusTransitioned,
             );
 
-            Log::info("Digiflazz callback processed for {$refId}", [
+            Log::debug("Digiflazz callback processed for {$refId}", [
                 'event' => $event,
                 'from_status' => $invoice->getOriginal('status'),
                 'to_status' => $incomingStatus,
@@ -156,7 +163,7 @@ class DigiflazzCallbackController extends Controller
     ): void {
         try {
             if (!$statusTransitioned) {
-                Log::info('Digiflazz callback duplicate terminal side effects skipped', [
+                Log::debug('Digiflazz callback duplicate terminal side effects skipped', [
                     'order_id' => $invoice->order_id,
                     'status' => $incomingStatus,
                 ]);

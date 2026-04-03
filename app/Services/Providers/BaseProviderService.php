@@ -71,7 +71,7 @@ abstract class BaseProviderService
     {
         $url = $this->baseUrl . $endpoint;
         
-        Log::info("API Request to {$this->getProviderName()}", [
+        Log::debug("API Request to {$this->getProviderName()}", [
             'method' => $method,
             'url' => $url,
             'data' => $data
@@ -81,7 +81,7 @@ abstract class BaseProviderService
             ->timeout($this->timeout)
             ->{strtolower($method)}($url, $data);
 
-        Log::info("API Response from {$this->getProviderName()}", [
+        Log::debug("API Response from {$this->getProviderName()}", [
             'status' => $response->status(),
             'response' => $response->json()
         ]);

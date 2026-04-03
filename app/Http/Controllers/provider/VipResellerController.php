@@ -13,6 +13,8 @@ class VipResellerController extends Controller
 
     protected string $apiKey = '';
 
+    protected string $apiSign = '';
+
     protected string $endpoint = 'https://vip-reseller.co.id/api/game-feature';
     
     protected string $profileEndpoint = 'https://vip-reseller.co.id/api/profile';
@@ -22,6 +24,7 @@ class VipResellerController extends Controller
         if (! empty($config)) {
             $this->apiId = (string) ($config['api_id'] ?? $config['vip_apiid'] ?? '');
             $this->apiKey = (string) ($config['api_key'] ?? $config['vip_apikey'] ?? '');
+            $this->apiSign = (string) ($config['api_sign'] ?? $config['vip_sign'] ?? '');
             $this->endpoint = (string) ($config['endpoint'] ?? $this->endpoint);
             $this->profileEndpoint = (string) ($config['profile_endpoint'] ?? $this->profileEndpoint);
 
@@ -32,9 +35,17 @@ class VipResellerController extends Controller
 
         $this->apiId = (string) ($api->vip_apiid ?? '');
         $this->apiKey = (string) ($api->vip_apikey ?? '');
+        $this->apiSign = (string) ($api->vip_sign ?? '');
     }
 
-    public function order($uid = null, $zone = null, $service = null): array
+    public function order(
+        $uid = null,
+        $zone = null,
+        $service = null,
+        ?string $postAdditionalData = null,
+        ?string $additionalData = null,
+        ?int $quantity = null
+    ): array
     {
         $payload = [
             'type' => 'order',
@@ -44,6 +55,18 @@ class VipResellerController extends Controller
 
         if (filled($zone)) {
             $payload['data_zone'] = $zone;
+        }
+
+        if (filled($postAdditionalData)) {
+            $payload['post_additional_data'] = $postAdditionalData;
+        }
+
+        if (filled($additionalData)) {
+            $payload['additional_data'] = $additionalData;
+        }
+
+        if ($quantity !== null && $quantity > 0) {
+            $payload['quantity'] = $quantity;
         }
 
         return $this->request($payload);
@@ -122,6 +145,17 @@ class VipResellerController extends Controller
         return md5($apiId . $apiKey);
     }
 
+    public static function resolveSignature(?string $configuredSign, string $apiId, string $apiKey): string
+    {
+        $configuredSign = trim((string) $configuredSign);
+
+        if ($configuredSign !== '') {
+            return $configuredSign;
+        }
+
+        return self::expectedSignature($apiId, $apiKey);
+    }
+
     public static function normalizeStatusMeta(?string $status): array
     {
         $raw = strtolower(trim((string) $status));
@@ -186,14 +220,14 @@ class VipResellerController extends Controller
 
         $payload = array_merge([
             'key' => $this->apiKey,
-            'sign' => self::expectedSignature($this->apiId, $this->apiKey),
+            'sign' => self::resolveSignature($this->apiSign, $this->apiId, $this->apiKey),
         ], array_filter($payload, static fn ($value) => $value !== null && $value !== ''));
 
         $response = Http::asForm()
             ->timeout(30)
             ->post($endpoint, $payload);
 
-        Log::info('VipReseller request', [
+        Log::debug('VipReseller request', [
             'endpoint' => $endpoint,
             'payload' => array_diff_key($payload, ['sign' => true, 'key' => true]),
             'status' => $response->status(),

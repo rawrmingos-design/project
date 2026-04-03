@@ -12,7 +12,21 @@ class Layanan extends Model
 {
     use HasFactory;
     protected $guarded = [];
-    public $timestamps = false;
+
+    protected $casts = [
+        'kategori_id' => 'integer',
+        'harga' => 'integer',
+        'harga_member' => 'integer',
+        'harga_platinum' => 'integer',
+        'harga_gold' => 'integer',
+        'harga_flash_sale' => 'integer',
+        'profit_member' => 'integer',
+        'profit_platinum' => 'integer',
+        'profit_gold' => 'integer',
+        'is_flash_sale' => 'boolean',
+        'stock_flash_sale' => 'integer',
+        'expired_flash_sale' => 'datetime',
+    ];
 
     public function paket(): BelongsToMany
     {

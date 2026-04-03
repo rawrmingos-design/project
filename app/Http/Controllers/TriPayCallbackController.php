@@ -51,7 +51,7 @@ class TriPayCallbackController extends Controller
         }
 
         if (!in_array($callbackStatus, ['PAID', 'EXPIRED', 'FAILED', 'REFUND'], true)) {
-            Log::warning('Tripay callback: unrecognized payment status', [
+            Log::debug('Tripay callback: unrecognized payment status', [
                 'status' => $callbackStatus !== '' ? $callbackStatus : null,
                 'reference' => $reference,
             ]);
@@ -63,7 +63,7 @@ class TriPayCallbackController extends Controller
         $invoice = $claim['invoice'];
 
         if (!$invoice) {
-            Log::warning('Tripay callback: invoice not found', [
+            Log::debug('Tripay callback: invoice not found', [
                 'reference' => $reference,
             ]);
 

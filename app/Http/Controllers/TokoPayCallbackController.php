@@ -57,7 +57,7 @@ class TokoPayCallbackController extends Controller
         $invoice = $claim['invoice'];
 
         if (!$invoice) {
-            Log::warning('TokoPay callback: invoice not found', [
+            Log::debug('TokoPay callback: invoice not found', [
                 'reference' => $reference,
                 'reff_id' => $refId,
             ]);

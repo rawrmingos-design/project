@@ -11,6 +11,7 @@ class Provider extends Model
         'name',
         'api_username',
         'api_key',
+        'api_sign',
         'api_endpoint',
         'balance',
         'is_active',

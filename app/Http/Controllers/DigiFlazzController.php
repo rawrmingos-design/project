@@ -130,7 +130,15 @@ class DigiFlazzController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($this->endpoint . $url, $data);
 
-            Log::info("DigiFlazz Request to $url", ['data' => $data, 'status' => $response->status(), 'body' => $response->body()]);
+            Log::debug("DigiFlazz Request to $url", [
+                'status' => $response->status(),
+                'payload_meta' => [
+                    'ref_id' => $data['ref_id'] ?? null,
+                    'buyer_sku_code' => $data['buyer_sku_code'] ?? null,
+                    'command' => $data['command'] ?? null,
+                ],
+                'body' => $response->body(),
+            ]);
 
             return $response->json();
         } catch (\Exception $e) {

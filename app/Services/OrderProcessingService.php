@@ -13,6 +13,8 @@ use App\Services\Providers\BangJeffService;
 class OrderProcessingService
 {
     protected $routingService;
+    protected string $dispatchMode = 'auto';
+    protected ?string $vipStatusReference = null;
 
     public function __construct(ProviderRoutingService $routingService)
     {
@@ -25,9 +27,11 @@ class OrderProcessingService
      * @param Pembelian $pembelian
      * @return array ['success' => bool, 'transaction_id' => string|null, 'message' => string]
      */
-    public function process(Pembelian $pembelian): array
+    public function process(Pembelian $pembelian, string $dispatchMode = 'auto'): array
     {
-        Log::info("OrderProcessingService: Processing order {$pembelian->order_id} ({$pembelian->layanan})");
+        Log::debug("OrderProcessingService: Processing order {$pembelian->order_id} ({$pembelian->layanan})");
+        $this->dispatchMode = $this->normalizeDispatchMode($dispatchMode);
+        $this->vipStatusReference = $this->resolveVipStatusReference($pembelian, $this->dispatchMode);
 
         $layanan = $this->resolveLayanan($pembelian);
 
@@ -58,10 +62,12 @@ class OrderProcessingService
         $zone = $pembelian->zone;
         $providerReference = $this->resolveProviderReference($pembelian);
 
-        Log::info("OrderProcessingService: Routed to {$providerCode} with SKU {$sku}", [
+        Log::debug("OrderProcessingService: Routed to {$providerCode} with SKU {$sku}", [
             'canonical_order_id' => $pembelian->order_id,
             'provider_reference' => $providerReference,
             'active_layanan_id' => $pembelian->active_layanan_id,
+            'dispatch_mode' => $this->dispatchMode,
+            'vip_status_reference' => $this->vipStatusReference,
         ]);
 
         $result = [
@@ -117,6 +123,32 @@ class OrderProcessingService
         return $this->routingService->findBestProvider($layanan);
     }
 
+    protected function normalizeDispatchMode(string $dispatchMode): string
+    {
+        $mode = strtolower(trim($dispatchMode));
+
+        return in_array($mode, ['auto', 'retry_status'], true) ? $mode : 'auto';
+    }
+
+    protected function resolveVipStatusReference(Pembelian $pembelian, string $dispatchMode): ?string
+    {
+        if ($dispatchMode !== 'retry_status') {
+            return null;
+        }
+
+        $attemptToken = trim((string) ($pembelian->active_attempt_token ?? ''));
+        if ($attemptToken !== '') {
+            return $attemptToken;
+        }
+
+        $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
+        if ($providerOrderId !== '') {
+            return $providerOrderId;
+        }
+
+        return null;
+    }
+
     protected function dispatchToProvider(
         string $providerCode,
         array $credentials,
@@ -139,7 +171,11 @@ class OrderProcessingService
                 $digiflazz = new DigiFlazzController($credentials);
                 $response = $digiflazz->order($uid, $zone, $sku, $providerReference);
 
-                Log::info("Digiflazz Response for {$providerReference}: " . json_encode($response));
+                Log::debug("Digiflazz Response for {$providerReference}", [
+                    'status' => $response['data']['status'] ?? null,
+                    'ref_id' => $response['data']['ref_id'] ?? null,
+                    'message' => $response['data']['message'] ?? null,
+                ]);
 
                 $responseData = $response['data'] ?? [];
                 $providerStatus = $responseData['status'] ?? null;
@@ -177,11 +213,31 @@ class OrderProcessingService
             case 'vip':
             case 'vip_reseller':
                 $vip = new VipResellerController($credentials);
-                $response = $vip->order($uid, $zone, $sku);
+                $isRetryStatusMode = $this->dispatchMode === 'retry_status';
+                $statusReference = $this->vipStatusReference;
+
+                if ($isRetryStatusMode && blank($statusReference)) {
+                    $result['order_status'] = 'Pending';
+                    $result['message'] = 'VIP retry status check membutuhkan provider_order_id/trxid.';
+
+                    return $result;
+                }
+
+                $response = $isRetryStatusMode
+                    ? $vip->status($statusReference)
+                    : $vip->order($uid, $zone, $sku);
 
                 if (($response['result'] ?? false) === true) {
-                    $statusMeta = VipResellerController::normalizeStatusMeta($response['data']['status'] ?? null);
-                    $note = trim((string) ($response['data']['note'] ?? ''));
+                    $statusData = $response['data'] ?? [];
+                    if (is_array($statusData) && array_is_list($statusData)) {
+                        $statusData = $statusData[0] ?? [];
+                    }
+                    if (! is_array($statusData)) {
+                        $statusData = [];
+                    }
+
+                    $statusMeta = VipResellerController::normalizeStatusMeta($statusData['status'] ?? null);
+                    $note = trim((string) ($statusData['note'] ?? ''));
 
                     if (($statusMeta['is_partial'] ?? false) === true) {
                         $note = trim(($note !== '' ? $note . ' | ' : '') . 'VIP partial: cek refund/penyelesaian manual di provider.');
@@ -189,9 +245,11 @@ class OrderProcessingService
 
                     $result['success'] = true;
                     $result['order_status'] = $statusMeta['internal_status'];
-                    $result['transaction_id'] = $response['data']['trxid'] ?? $providerReference;
+                    $result['transaction_id'] = $statusData['trxid'] ?? $statusReference ?? $providerReference;
                     $result['sn'] = $note !== '' ? $note : (($statusMeta['internal_status'] === 'Pending' || $statusMeta['internal_status'] === 'Processing') ? 'Sedang Diproses' : null);
-                    $result['message'] = $response['message'] ?? 'VIP Reseller order processed.';
+                    $result['message'] = $response['message'] ?? ($isRetryStatusMode
+                        ? 'VIP Reseller status checked.'
+                        : 'VIP Reseller order processed.');
                 } else {
                     $result['message'] = $response['message'] ?? 'VIP Reseller failed';
                 }

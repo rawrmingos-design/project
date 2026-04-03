@@ -114,9 +114,50 @@ class VipResellerCallbackTest extends TestCase
         );
     }
 
-    private function createSettings(): void
+    public function test_vip_callback_accepts_configured_sign_override(): void
     {
-        SettingWeb::query()->create([
+        $this->createSettings([
+            'vip_sign' => 'my-custom-sign',
+        ]);
+
+        Pembelian::query()->create([
+            'order_id' => 'ORDER-VIP-003',
+            'username' => 'viptest',
+            'user_id' => '12345678',
+            'zone' => '2001',
+            'layanan' => 'Diamond FF 50',
+            'profit' => 0,
+            'status' => 'Pending',
+            'provider_order_id' => 'VP777',
+            'harga' => 10000,
+        ]);
+
+        Pembayaran::query()->create([
+            'order_id' => 'ORDER-VIP-003',
+            'harga' => '10000',
+            'no_pembayaran' => 'QRIS-ORDER-VIP-003',
+            'no_pembeli' => '08123456789',
+            'status' => 'Lunas',
+            'metode' => 'QRIS',
+        ]);
+
+        $response = $this->withHeaders([
+            'X-Client-Signature' => 'my-custom-sign',
+        ])->postJson('/wejizy/vip/callback', [
+            'data' => [
+                'trxid' => 'VP777',
+                'status' => 'success',
+                'note' => '',
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJson(['success' => true]);
+    }
+
+    private function createSettings(array $overrides = []): void
+    {
+        SettingWeb::query()->create(array_merge([
             'id' => 1,
             'judul_web' => 'Test Web',
             'deskripsi_web' => 'Test Description',
@@ -135,6 +176,6 @@ class VipResellerCallbackTest extends TestCase
             'order_prefik' => 'INV',
             'vip_apiid' => 'vip-id',
             'vip_apikey' => 'vip-key',
-        ]);
+        ], $overrides));
     }
 }

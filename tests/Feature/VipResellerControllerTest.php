@@ -95,4 +95,31 @@ class VipResellerControllerTest extends TestCase
         $this->assertTrue($response['result']);
         $this->assertSame(250000, $response['data']['balance']);
     }
+
+    public function test_vip_request_uses_configured_sign_when_provided(): void
+    {
+        Http::fake(function ($request) {
+            parse_str($request->body(), $payload);
+
+            $this->assertSame('apikey-123', $payload['key'] ?? null);
+            $this->assertSame('custom-sign-value', $payload['sign'] ?? null);
+            $this->assertSame('status', $payload['type'] ?? null);
+
+            return Http::response([
+                'result' => true,
+                'data' => [],
+                'message' => 'ok',
+            ]);
+        });
+
+        $controller = new VipResellerController([
+            'api_id' => 'apiid-123',
+            'api_key' => 'apikey-123',
+            'api_sign' => 'custom-sign-value',
+        ]);
+
+        $response = $controller->status();
+
+        $this->assertTrue($response['result']);
+    }
 }

@@ -13,6 +13,7 @@ class Pembayaran extends Model
     protected $guarded = [];
 
     protected $casts = [
+        'harga' => 'integer',
         'paid_at' => 'datetime',
         'expired_at' => 'datetime',
     ];

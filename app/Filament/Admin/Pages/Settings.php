@@ -783,6 +783,13 @@ class Settings extends Page implements HasForms
                             ->password()
                             ->revealable()
                             ->helperText('Secret key API VIP Reseller.'),
+
+                        TextInput::make('vip_sign')
+                            ->label('VIP API Sign (Opsional)')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Jika diisi, nilai ini akan dipakai sebagai sign request VIP. Jika kosong, sistem hitung otomatis md5(api_id + api_key).')
+                            ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->collapsed(),
