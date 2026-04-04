@@ -14,6 +14,7 @@ class ProviderPath extends Model
     protected $casts = [
         'modal_price' => 'decimal:2',
         'priority' => 'integer',
+        'metadata' => 'array',
         'last_sync_at' => 'datetime',
     ];
 

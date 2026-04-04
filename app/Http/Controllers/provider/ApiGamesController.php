@@ -3,68 +3,34 @@
 namespace App\Http\Controllers\provider;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Services\Providers\ApiGamesService;
 
 class ApiGamesController extends Controller
 {
-    protected $merchantId;
-    protected $secretKey;
+    private ApiGamesService $service;
 
-    public function __construct($config = [])
+    public function __construct(array $config = [])
     {
-        if (!empty($config)) {
-            $this->merchantId = $config['merchant_id'] ?? '';
-            $this->secretKey = $config['secret_key'] ?? '';
-        } else {
-            // Fallback
-            $api = \DB::table('setting_webs')->where('id', 1)->first();
-            $this->merchantId = $api->apigames_merchant;
-            $this->secretKey = $api->apigames_secret;
-        }
+        $this->service = new ApiGamesService($config);
     }
 
-    public function order($uid = null, $zone = null, $service = null, $order_id = null)
+    public function order($uid = null, $zone = null, $service = null, $order_id = null): array
     {
-        $target = $uid . $zone;
-        $sign = md5($this->secretKey . $this->merchantId . $order_id . $service . $target);
-        $api_postdata = array(
-            'ref_id' => $order_id,
-            'merchant_id' => $this->merchantId,
-            'produk' => "$service",
-            'tujuan' => $target,
-            'signature' => $sign,
-        );
-
-        $header = array(
-            'Content-Type: application/json',
-        );
-
-        return $this->connect("/transaksi", $api_postdata, $header);
+        return $this->service->order($uid, $zone, $service, $order_id);
     }
 
-    public function status($poid)
+    public function status($poid): array
     {
-        return $this->connect("/merchant/" . $this->merchantId . "/cektrx/$poid");
+        return $this->service->status($poid);
     }
 
-    public function connect($url, $data = null, $header = null)
+    public function verifyWebhookSignature(string $refId, ?string $signature): bool
     {
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "https://v1.apigames.id" . $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+        return $this->service->verifyWebhookSignature($refId, $signature);
+    }
 
-        if ($data) {
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        } else {
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
-        }
-
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        $chresult = curl_exec($ch);
-        curl_close($ch);
-        $json_result = json_decode($chresult, true);
-        return $json_result;
+    public static function normalizeStatusMeta(?string $status): array
+    {
+        return ApiGamesService::normalizeStatusMeta($status);
     }
 }

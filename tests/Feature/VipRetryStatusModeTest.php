@@ -9,6 +9,7 @@ use App\Models\SettingWeb;
 use App\Services\OrderProcessingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class VipRetryStatusModeTest extends TestCase
@@ -116,6 +117,48 @@ class VipRetryStatusModeTest extends TestCase
         $this->assertSame('VP999', $result['transaction_id']);
     }
 
+    public function test_retry_mode_logs_warning_when_status_reference_is_missing(): void
+    {
+        $this->seedSettingWeb();
+        $layanan = $this->createVipLayanan();
+        Log::spy();
+        Http::fake();
+
+        $pembelian = Pembelian::create([
+            'order_id' => 'INV-VIP-RETRY-NO-REF',
+            'username' => 'vip-user',
+            'user_id' => '123456',
+            'zone' => '2001',
+            'nickname' => 'VIP User',
+            'layanan' => $layanan->layanan,
+            'active_layanan_id' => $layanan->id,
+            'active_provider_code' => 'vip',
+            'active_provider_sku' => 'VIP-WP',
+            'provider_order_id' => null,
+            'active_attempt_token' => null,
+            'status' => 'Processing',
+            'harga' => 15000,
+            'profit' => 1000,
+            'tipe_transaksi' => 'game',
+        ]);
+
+        $result = app(OrderProcessingService::class)->process($pembelian, 'retry_status');
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('Pending', $result['order_status']);
+        $this->assertSame('VIP retry status check membutuhkan provider_order_id/trxid.', $result['message']);
+
+        Http::assertNothingSent();
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'OrderProcessingService: VIP retry status skipped because status reference is missing.'
+                    && ($context['provider_code'] ?? null) === 'vip'
+                    && ($context['dispatch_mode'] ?? null) === 'retry_status'
+                    && ($context['sku'] ?? null) === 'VIP-WP';
+            });
+    }
+
     private function createVipLayanan(): Layanan
     {
         $kategori = Kategori::create([
@@ -182,4 +225,3 @@ class VipRetryStatusModeTest extends TestCase
         ]);
     }
 }
-

@@ -64,7 +64,7 @@ class ProdukForm
                                     return;
                                 }
 
-                                if (in_array($get('provider'), ['digiflazz', 'bangjeff', 'vip'], true)) {
+                                if (in_array($get('provider'), ['digiflazz', 'bangjeff', 'vip', 'apigames'], true)) {
                                     return;
                                 }
 
@@ -604,6 +604,12 @@ class ProdukForm
                                             ])
                                             ->default('available')
                                             ->required(),
+                                        Hidden::make('metadata')
+                                            ->dehydrated(true),
+                                        Placeholder::make('metadata_preview')
+                                            ->label('Metadata Provider')
+                                            ->visible(fn (Get $get) => filled($get('metadata')))
+                                            ->content(fn (Get $get): string => static::formatProviderPathMetadataSummary($get('metadata'))),
                                     ]),
                             ])
                             ->defaultItems(0)
@@ -771,6 +777,23 @@ class ProdukForm
             $set('status', $status === 'ACTIVE' ? 'available' : 'inactive');
             $set('harga', $price);
             $set('catatan', "BangJeff productCode: {$productCode} | Region: {$regionLabel} | Durasi: {$durationLabel}");
+
+            static::syncSuggestedProviderPath(
+                'bangjeff',
+                (string) ($variant['code'] ?? ''),
+                $price,
+                $status === 'ACTIVE' ? 'available' : 'inactive',
+                [
+                    'source' => 'bangjeff_variant',
+                    'product_code' => $productCode,
+                    'variant_name' => (string) ($variant['name'] ?? ''),
+                    'region' => $region,
+                    'duration' => $duration,
+                    'summary' => "BangJeff productCode: {$productCode} | Region: {$regionLabel} | Durasi: {$durationLabel}",
+                ],
+                $set,
+                $get,
+            );
 
             static::syncTierPricesFromProfit($price, $set, $get);
 
@@ -963,6 +986,23 @@ class ProdukForm
             $set('harga', $modalPrice);
             $set('catatan', implode(' | ', $catatanParts));
 
+            static::syncSuggestedProviderPath(
+                'vip',
+                (string) $serviceCode,
+                $modalPrice,
+                $status === 'available' ? 'available' : 'inactive',
+                [
+                    'source' => 'vip_reseller_service',
+                    'game' => $game,
+                    'service_name' => $name,
+                    'server' => $server,
+                    'description' => $description,
+                    'summary' => implode(' | ', $catatanParts),
+                ],
+                $set,
+                $get,
+            );
+
             static::syncTierPricesFromProfit($modalPrice, $set, $get);
 
             return;
@@ -1084,9 +1124,106 @@ class ProdukForm
             $set('harga', (int) ($product['price'] ?? 0));
             $set('catatan', $product['desc'] ?? '');
 
+            static::syncSuggestedProviderPath(
+                'digiflazz',
+                (string) ($product['buyer_sku_code'] ?? ''),
+                (int) ($product['price'] ?? 0),
+                !empty($product['buyer_product_status']) ? 'available' : 'inactive',
+                [
+                    'source' => 'digiflazz_pricelist',
+                    'product_name' => (string) ($product['product_name'] ?? ''),
+                    'brand' => (string) ($product['brand'] ?? ''),
+                    'category' => (string) ($product['category'] ?? ''),
+                    'description' => (string) ($product['desc'] ?? ''),
+                    'summary' => trim(implode(' | ', array_filter([
+                        $product['product_name'] ?? null,
+                        $product['brand'] ?? null,
+                        $product['category'] ?? null,
+                    ]))),
+                ],
+                $set,
+                $get,
+            );
+
             static::syncTierPricesFromProfit((int) ($product['price'] ?? 0), $set, $get);
             return;
         }
+    }
+
+    protected static function syncSuggestedProviderPath(string $providerCode, string $providerSku, int $modalPrice, string $status, array $metadata, $set, $get): void
+    {
+        $providerCode = strtolower(trim($providerCode));
+        $providerSku = trim($providerSku);
+
+        if ($providerCode === '' || $providerSku === '') {
+            return;
+        }
+
+        $paths = collect($get('provider_paths') ?? [])
+            ->filter(fn ($row): bool => is_array($row))
+            ->values();
+
+        $matchIndex = $paths->search(function (array $row) use ($providerCode, $providerSku): bool {
+            return strtolower(trim((string) ($row['provider_code'] ?? ''))) === $providerCode
+                && trim((string) ($row['provider_sku'] ?? '')) === $providerSku;
+        });
+
+        if ($matchIndex === false) {
+            $matchIndex = $paths->search(function (array $row) use ($providerCode): bool {
+                return strtolower(trim((string) ($row['provider_code'] ?? ''))) === $providerCode;
+            });
+        }
+
+        if ($matchIndex !== false) {
+            $current = (array) $paths->get($matchIndex);
+            $current['provider_code'] = $providerCode;
+            $current['provider_sku'] = $providerSku;
+            $current['modal_price'] = max(0, $modalPrice);
+            $current['status'] = $status;
+            $current['priority'] = max(1, (int) ($current['priority'] ?? 1));
+            if ($metadata !== []) {
+                $current['metadata'] = $metadata;
+            }
+            $paths->put($matchIndex, $current);
+        } else {
+            $nextPriority = $paths->isEmpty()
+                ? 1
+                : ((int) $paths->map(fn ($row): int => max(1, (int) ($row['priority'] ?? 1)))->max()) + 1;
+
+            $paths->push([
+                'provider_code' => $providerCode,
+                'provider_sku' => $providerSku,
+                'modal_price' => max(0, $modalPrice),
+                'priority' => $nextPriority,
+                'status' => $status,
+                'metadata' => $metadata !== [] ? $metadata : null,
+            ]);
+        }
+
+        $set('provider_paths', $paths->all());
+    }
+
+    protected static function formatProviderPathMetadataSummary(mixed $metadata): string
+    {
+        if (! is_array($metadata) || $metadata === []) {
+            return '-';
+        }
+
+        if (filled($metadata['summary'] ?? null)) {
+            return trim((string) $metadata['summary']);
+        }
+
+        $parts = [];
+
+        foreach ($metadata as $key => $value) {
+            if (is_array($value) || $value === null || $value === '') {
+                continue;
+            }
+
+            $parts[] = str_replace('_', ' ', (string) $key) . ': ' . $value;
+        }
+
+        return $parts !== [] ? implode(' | ', $parts) : '-';
     }
 
     protected static function syncTierPricesFromProfit($modalPrice, $set, $get): void

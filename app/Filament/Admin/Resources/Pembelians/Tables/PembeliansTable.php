@@ -382,7 +382,19 @@ class PembeliansTable
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
                         ->visible(fn ($record) => $record->canBeRetried())
+                        ->disabled(fn ($record) => ! $record->canRunRetryStatusCheck())
+                        ->tooltip(fn ($record): ?string => $record->retryUnavailableReason())
                         ->action(function ($record) {
+                            if (! $record->canRunRetryStatusCheck()) {
+                                Notification::make()
+                                    ->title('Retry status belum bisa dijalankan')
+                                    ->body($record->retryUnavailableReason() ?? 'Retry status tidak tersedia untuk transaksi ini.')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
                             if (ProviderDispatchTracker::isActive($record->getKey())) {
                                 Notification::make()
                                     ->title('Retry sedang berjalan')

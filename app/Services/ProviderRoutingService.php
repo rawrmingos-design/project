@@ -58,7 +58,7 @@ class ProviderRoutingService
      */
     private function formatProviderResult($providerCode, $sku)
     {
-        $settings = SettingWeb::first();
+        $settings = SettingWeb::query()->first() ?? new SettingWeb();
         $credentials = [];
 
         // Normalize provider code
@@ -95,7 +95,14 @@ class ProviderRoutingService
                 $credentials = [
                     'merchant_id' => $settings->apigames_merchant,
                     'secret_key' => $settings->apigames_secret,
-                    'endpoint' => 'https://v1.apigames.id/transaksi',
+                    'endpoint' => 'https://v1.apigames.id/v2',
+                ];
+                break;
+
+            case 'topupedia':
+                $credentials = [
+                    'api_key' => $settings->topupindo_api,
+                    'endpoint' => 'https://api.topupedia.com',
                 ];
                 break;
                 

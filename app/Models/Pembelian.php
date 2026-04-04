@@ -234,6 +234,49 @@ class Pembelian extends Model
         ]);
     }
 
+    public function requiresProviderStatusReferenceForRetry(): bool
+    {
+        return in_array(strtolower(trim((string) $this->active_provider_code)), ['vip', 'vip_reseller'], true);
+    }
+
+    public function hasRetryStatusReference(): bool
+    {
+        $attemptToken = trim((string) ($this->active_attempt_token ?? ''));
+        if ($attemptToken !== '') {
+            return true;
+        }
+
+        $providerOrderId = trim((string) ($this->provider_order_id ?? ''));
+
+        return $providerOrderId !== '';
+    }
+
+    public function canRunRetryStatusCheck(): bool
+    {
+        if (! $this->canBeRetried()) {
+            return false;
+        }
+
+        if (! $this->requiresProviderStatusReferenceForRetry()) {
+            return true;
+        }
+
+        return $this->hasRetryStatusReference();
+    }
+
+    public function retryUnavailableReason(): ?string
+    {
+        if (! $this->canBeRetried()) {
+            return null;
+        }
+
+        if ($this->requiresProviderStatusReferenceForRetry() && ! $this->hasRetryStatusReference()) {
+            return 'Retry status check untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.';
+        }
+
+        return null;
+    }
+
     public function syncPaymentStatusForResetEligibility(?string $targetStatus = null): void
     {
         $payment = $this->pembayaran;
