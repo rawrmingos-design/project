@@ -123,6 +123,12 @@ class ViewPembelian extends ViewRecord
                             ->label('Provider Order ID')
                             ->default('N/A')
                             ->copyable(),
+                        TextEntry::make('retry_status_availability')
+                            ->label('Retry Status Check')
+                            ->state(fn (): string => $this->record->retryUnavailableReason() ?? 'Available')
+                            ->badge()
+                            ->color(fn (): string => $this->record->retryUnavailableReason() ? 'warning' : 'success')
+                            ->visible(fn (): bool => filled($this->record->retryUnavailableReason())),
                         TextEntry::make('active_provider_sku')
                             ->label('Active Provider SKU')
                             ->default('N/A'),

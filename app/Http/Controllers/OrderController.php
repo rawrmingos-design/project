@@ -1505,11 +1505,14 @@ class OrderController extends Controller
                 case "apigames":
                     $apigames = new ApiGamesController($credentials);
                     $order = $apigames->order($request->uid, $request->zone, $sku, $order_id);
-                    if ($order['data']['status'] == "Sukses") {
-                        $order['transactionId'] = $order_id;
+                    $statusMeta = ApiGamesController::normalizeStatusMeta($order['data']['status'] ?? null);
+
+                    if (($order['result'] ?? false) === true) {
+                        $order['transactionId'] = $order['data']['trx_id'] ?? $order_id;
+                        $provider_order_id = $order['data']['trx_id'] ?? $provider_order_id;
                         $status = true;
-                        $order_status = 'Sukses';
-                    } elseif ($order['data']['status'] == "Pending") {
+                        $order_status = $statusMeta['internal_status'];
+                    } elseif (($order['transport_error'] ?? false) === true) {
                         $status = true;
                         $order_status = 'Pending';
                     }

@@ -217,6 +217,13 @@ class OrderProcessingService
                 $statusReference = $this->vipStatusReference;
 
                 if ($isRetryStatusMode && blank($statusReference)) {
+                    Log::warning('OrderProcessingService: VIP retry status skipped because status reference is missing.', [
+                        'order_id' => $providerReference,
+                        'provider_code' => $providerCode,
+                        'sku' => $sku,
+                        'dispatch_mode' => $this->dispatchMode,
+                    ]);
+
                     $result['order_status'] = 'Pending';
                     $result['message'] = 'VIP retry status check membutuhkan provider_order_id/trxid.';
 
@@ -250,27 +257,73 @@ class OrderProcessingService
                     $result['message'] = $response['message'] ?? ($isRetryStatusMode
                         ? 'VIP Reseller status checked.'
                         : 'VIP Reseller order processed.');
+
+                    Log::debug('OrderProcessingService: VIP response processed.', [
+                        'order_id' => $providerReference,
+                        'provider_code' => $providerCode,
+                        'sku' => $sku,
+                        'dispatch_mode' => $this->dispatchMode,
+                        'status_reference' => $statusReference,
+                        'provider_status' => $statusData['status'] ?? null,
+                        'internal_status' => $result['order_status'],
+                        'trxid' => $result['transaction_id'],
+                        'message' => $result['message'],
+                    ]);
                 } else {
                     $result['message'] = $response['message'] ?? 'VIP Reseller failed';
+
+                    Log::warning('OrderProcessingService: VIP request failed.', [
+                        'order_id' => $providerReference,
+                        'provider_code' => $providerCode,
+                        'sku' => $sku,
+                        'dispatch_mode' => $this->dispatchMode,
+                        'status_reference' => $statusReference,
+                        'message' => $result['message'],
+                    ]);
                 }
 
                 return $result;
 
             case 'apigames':
                 $apigames = new ApiGamesController($credentials);
-                $response = $apigames->order($uid, $zone, $sku, $providerReference);
+                $isRetryStatusMode = $this->dispatchMode === 'retry_status';
+                $response = $isRetryStatusMode
+                    ? $apigames->status($providerReference)
+                    : $apigames->order($uid, $zone, $sku, $providerReference);
 
-                if (isset($response['data']['status']) && $response['data']['status'] == 'Sukses') {
-                    $result['success'] = true;
-                    $result['order_status'] = 'Sukses';
-                    $result['transaction_id'] = $response['data']['trx_id'] ?? $providerReference;
-                    $result['message'] = 'Order successful';
-                } elseif (isset($response['data']['status']) && $response['data']['status'] == 'Pending') {
+                // Sesuai docs API Games, HTTP error / timeout harus diperlakukan Pending.
+                if (($response['transport_error'] ?? false) === true) {
                     $result['success'] = true;
                     $result['order_status'] = 'Pending';
-                    $result['message'] = 'Order pending';
+                    $result['transaction_id'] = $providerReference;
+                    $result['message'] = trim((string) ($response['message'] ?? 'API Games transport error')) ?: 'API Games transport error';
+
+                    return $result;
+                }
+
+                if (($response['result'] ?? false) === true) {
+                    $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+                    $statusMeta = ApiGamesController::normalizeStatusMeta($responseData['status'] ?? null);
+                    $note = trim((string) ($responseData['sn'] ?? ''));
+                    $providerMessage = trim((string) ($responseData['message'] ?? ''));
+
+                    if (($statusMeta['is_partial'] ?? false) === true) {
+                        $note = trim(($note !== '' ? $note . ' | ' : '') . 'API Games sukses sebagian: perlu cek penyelesaian/refund manual.');
+                    }
+
+                    if (($statusMeta['is_provider_validation'] ?? false) === true) {
+                        $note = trim(($note !== '' ? $note . ' | ' : '') . 'API Games validasi provider: tunggu status final dari webhook/status check.');
+                    }
+
+                    $result['success'] = true;
+                    $result['order_status'] = $statusMeta['internal_status'];
+                    $result['transaction_id'] = $responseData['trx_id'] ?? $providerReference;
+                    $result['sn'] = $note !== '' ? $note : (($statusMeta['internal_status'] === 'Pending' || $statusMeta['internal_status'] === 'Processing') ? 'Sedang Diproses' : null);
+                    $result['message'] = $providerMessage !== ''
+                        ? $providerMessage
+                        : ($isRetryStatusMode ? 'API Games status checked.' : 'API Games order accepted.');
                 } else {
-                    $result['message'] = $response['error_msg'] ?? 'ApiGames failed';
+                    $result['message'] = trim((string) ($response['message'] ?? '')) ?: 'ApiGames failed';
                 }
 
                 return $result;

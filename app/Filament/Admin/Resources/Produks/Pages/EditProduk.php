@@ -58,6 +58,8 @@ class EditProduk extends EditRecord
             $data['digiflazz_product'],
             $data['bangjeff_product_code_filter'],
             $data['bangjeff_variant'],
+            $data['apigames_price_unit_filter'],
+            $data['apigames_product'],
             $data['vip_reseller_tab'],
             $data['vip_reseller_game_filter'],
             $data['vip_reseller_status_filter'],
@@ -123,6 +125,10 @@ class EditProduk extends EditRecord
 
                 if (array_key_exists('modal_price', $row)) {
                     $row['modal_price'] = max(0, (float) ($row['modal_price'] ?? 0));
+                }
+
+                if (array_key_exists('metadata', $row)) {
+                    $row['metadata'] = is_array($row['metadata']) ? $row['metadata'] : null;
                 }
 
                 return $row;
