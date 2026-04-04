@@ -4,6 +4,7 @@ namespace App\Http\Controllers\provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
+use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 use Http;
 
@@ -87,15 +88,15 @@ class TopupediaController extends Controller
     $json = $request->getContent();
     $data = json_decode($json, true);
 
-    $poid = $data['invoice_number'];
-    $voucher = $data['voucher'];
-    $statusCode = $data['status_code'];
-
-    if ($statusCode === "SUCCESS") {
-        $statusCode = "Sukses";
-    }
+    $poid = $data['invoice_number'] ?? null;
+    $voucher = $data['voucher'] ?? null;
+    $statusCode = PembelianStatus::preferredDatabaseLabel((string) ($data['status_code'] ?? ''));
 
     \Log::info(json_encode($data));
+
+    if (! $poid) {
+        return;
+    }
 
     $pembelian = Pembelian::where('provider_order_id', $poid)->first();
 
