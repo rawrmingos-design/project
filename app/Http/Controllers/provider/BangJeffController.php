@@ -5,6 +5,7 @@ namespace App\Http\Controllers\provider;
 use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
 use App\Services\Providers\BangJeffService;
+use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 
 class BangJeffController extends Controller
@@ -69,11 +70,7 @@ class BangJeffController extends Controller
 
         $poid = $data['invoice_number'] ?? null;
         $voucher = $data['voucher'] ?? null;
-        $statusCode = $data['status_code'] ?? null;
-
-        if ($statusCode === 'SUCCESS') {
-            $statusCode = 'Sukses';
-        }
+        $normalizedStatus = PembelianStatus::preferredDatabaseLabel((string) ($data['status_code'] ?? ''));
 
         \Log::info(json_encode($data));
 
@@ -85,7 +82,7 @@ class BangJeffController extends Controller
 
         if ($pembelian) {
             $updateData = [
-                'status' => $statusCode,
+                'status' => $normalizedStatus,
             ];
 
             if ($pembelian->tipe_transaksi == 'voucher') {
@@ -96,4 +93,3 @@ class BangJeffController extends Controller
         }
     }
 }
-
