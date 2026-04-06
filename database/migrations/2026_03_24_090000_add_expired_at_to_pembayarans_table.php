@@ -16,7 +16,11 @@ return new class extends Migration
 
         if (! Schema::hasColumn('pembayarans', 'expired_at')) {
             Schema::table('pembayarans', function (Blueprint $table) {
-                $table->timestamp('expired_at')->nullable()->after('paid_at')->index();
+                $column = Schema::hasColumn('pembayarans', 'paid_at')
+                    ? 'paid_at'
+                    : (Schema::hasColumn('pembayarans', 'reference') ? 'reference' : 'status');
+
+                $table->timestamp('expired_at')->nullable()->after($column)->index();
             });
         }
 

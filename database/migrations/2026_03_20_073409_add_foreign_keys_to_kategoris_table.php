@@ -16,6 +16,28 @@ return new class extends Migration
             return;
         }
 
+        Schema::table('kategoris', function (Blueprint $table) {
+            if (! Schema::hasColumn('kategoris', 'meta_title')) {
+                $table->string('meta_title')->nullable()->after('tipe');
+            }
+
+            if (! Schema::hasColumn('kategoris', 'meta_description')) {
+                $table->text('meta_description')->nullable()->after('meta_title');
+            }
+
+            if (! Schema::hasColumn('kategoris', 'schema_markup')) {
+                $table->text('schema_markup')->nullable()->after('meta_description');
+            }
+
+            if (! Schema::hasColumn('kategoris', 'require_user_id')) {
+                $table->boolean('require_user_id')->default(true)->after('server_id');
+            }
+
+            if (! Schema::hasColumn('kategoris', 'category_type_id')) {
+                $table->unsignedBigInteger('category_type_id')->nullable()->after('updated_at');
+            }
+        });
+
         if ($this->foreignKeyExists('kategoris', 'kategoris_category_type_id_foreign')) {
             return;
         }
