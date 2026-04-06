@@ -8,9 +8,15 @@ use App\Models\Kategori;
 use App\Models\Berita;
 use App\Models\Method;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class HomeController extends Controller
 {
+    protected function beritaSortColumn(): string
+    {
+        return Schema::hasColumn('beritas', 'urutan') ? 'urutan' : 'id';
+    }
+
     public function index()
     {
         // Cache TTL: 5 minutes (300 seconds)
@@ -33,8 +39,10 @@ class HomeController extends Controller
         });
 
         $banners = Cache::remember('banner_list', $ttl, function () {
+            $sortColumn = $this->beritaSortColumn();
+
             return Berita::where('tipe', 'banner')
-                ->orderBy('urutan')
+                ->orderBy($sortColumn)
                 ->orderByDesc('id')
                 ->get();
         });
@@ -48,8 +56,10 @@ class HomeController extends Controller
         });
 
         $popup = Cache::remember('popup_latest', $ttl, function () {
+            $sortColumn = $this->beritaSortColumn();
+
             return Berita::where('tipe', 'popup')
-                ->orderBy('urutan')
+                ->orderBy($sortColumn)
                 ->orderByDesc('id')
                 ->first();
         });
