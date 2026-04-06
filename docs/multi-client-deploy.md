@@ -98,18 +98,18 @@ NGINX_PORT=9000
 PMA_PORT=9001
 ```
 
-### Client egymarket
+### Client egymarket test / staging
 
 ```env
-COMPOSE_PROJECT_NAME=egymarket
-APP_NAME="EgyMarket"
-APP_URL=https://egymarket.id
-APP_URL_CALLBACK=https://egymarket.id
+COMPOSE_PROJECT_NAME=egymarkettest
+APP_NAME="EgyMarket Test"
+APP_URL=https://test.jasakoding.web.id
+APP_URL_CALLBACK=https://test.jasakoding.web.id
 
 DB_CONNECTION=mysql
 DB_HOST=db
 DB_PORT=3306
-DB_DATABASE=egymarke_topup
+DB_DATABASE=db_egymarket_id_test
 DB_USERNAME=laravel
 DB_PASSWORD=secret
 
@@ -117,8 +117,8 @@ REDIS_HOST=redis
 REDIS_PORT=6379
 REDIS_PASSWORD=null
 
-NGINX_PORT=9010
-PMA_PORT=9011
+NGINX_PORT=8088
+PMA_PORT=8089
 
 PUBLIC_PRODUCT_LOGO_PATH=./client-assets/egymarket/public/assets/product_logo
 PUBLIC_THUMBNAIL_PATH=./client-assets/egymarket/public/assets/thumbnail
@@ -135,7 +135,7 @@ Untuk client kedua, `COMPOSE_PROJECT_NAME` tetap penting karena:
 
 - nama container akan otomatis diprefix
 - volume internal Compose tidak bentrok
-- stack `egymarket` tidak mengganggu stack utama
+- stack `egymarkettest` tidak mengganggu stack utama
 
 Karena nama volume, network, dan service Compose akan diprefix otomatis berdasarkan project name.
 
@@ -156,7 +156,7 @@ Urutan aman:
 3. jalankan migration dari code terbaru
 4. verifikasi login admin, homepage, order, invoice, callback
 
-Contoh untuk `egymarket`:
+Contoh untuk `egymarket` test / staging:
 
 ```bash
 docker compose -f docker-compose.egymarket.yml up -d db redis

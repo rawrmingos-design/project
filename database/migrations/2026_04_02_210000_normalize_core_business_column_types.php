@@ -46,15 +46,13 @@ return new class extends Migration
             return;
         }
 
-        $invalidRows = DB::table('layanans')
-            ->select('id', 'kategori_id')
-            ->whereRaw("`kategori_id` IS NULL OR `kategori_id` = '' OR `kategori_id` REGEXP '[^0-9]'")
-            ->limit(10)
-            ->get();
+        $this->repairInvalidLayanansKategoriIds();
+
+        $invalidRows = $this->getInvalidLayananKategoriRows();
 
         if ($invalidRows->isNotEmpty()) {
             $sample = $invalidRows
-                ->map(fn ($row): string => "#{$row->id}:{$row->kategori_id}")
+                ->map(fn ($row): string => "#{$row->id}:{$row->kategori_id} ({$row->layanan})")
                 ->implode(', ');
 
             throw new RuntimeException(
@@ -63,6 +61,66 @@ return new class extends Migration
         }
 
         DB::statement('ALTER TABLE `layanans` MODIFY `kategori_id` BIGINT UNSIGNED NOT NULL');
+    }
+
+    private function repairInvalidLayanansKategoriIds(): void
+    {
+        $invalidRows = DB::table('layanans')
+            ->select('id', 'kategori_id', 'layanan', 'provider_id')
+            ->whereRaw("`kategori_id` IS NULL OR `kategori_id` = '' OR `kategori_id` REGEXP '[^0-9]'")
+            ->get();
+
+        foreach ($invalidRows as $row) {
+            $resolvedKategoriId = $this->resolveKategoriIdForLegacyLayanan($row);
+
+            if ($resolvedKategoriId === null) {
+                continue;
+            }
+
+            DB::table('layanans')
+                ->where('id', $row->id)
+                ->update([
+                    'kategori_id' => (string) $resolvedKategoriId,
+                ]);
+        }
+    }
+
+    private function resolveKategoriIdForLegacyLayanan(object $row): ?int
+    {
+        $sameLayanan = DB::table('layanans')
+            ->where('id', '!=', $row->id)
+            ->where('layanan', $row->layanan)
+            ->whereRaw("`kategori_id` REGEXP '^[0-9]+$'")
+            ->selectRaw('CAST(kategori_id AS UNSIGNED) AS kategori_id')
+            ->orderByRaw('CAST(kategori_id AS UNSIGNED) asc')
+            ->value('kategori_id');
+
+        if ($sameLayanan !== null) {
+            return (int) $sameLayanan;
+        }
+
+        $sameProviderId = DB::table('layanans')
+            ->where('id', '!=', $row->id)
+            ->where('provider_id', $row->provider_id)
+            ->whereRaw("`kategori_id` REGEXP '^[0-9]+$'")
+            ->selectRaw('CAST(kategori_id AS UNSIGNED) AS kategori_id')
+            ->orderByRaw('CAST(kategori_id AS UNSIGNED) asc')
+            ->value('kategori_id');
+
+        if ($sameProviderId !== null) {
+            return (int) $sameProviderId;
+        }
+
+        return null;
+    }
+
+    private function getInvalidLayananKategoriRows()
+    {
+        return DB::table('layanans')
+            ->select('id', 'kategori_id', 'layanan')
+            ->whereRaw("`kategori_id` IS NULL OR `kategori_id` = '' OR `kategori_id` REGEXP '[^0-9]'")
+            ->limit(10)
+            ->get();
     }
 
     private function normalizePembayaransHarga(): void
@@ -111,4 +169,3 @@ return new class extends Migration
         return in_array($dataType, ['tinyint', 'smallint', 'mediumint', 'int', 'bigint', 'decimal', 'float', 'double'], true);
     }
 };
-

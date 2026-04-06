@@ -4,11 +4,11 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     ports:
-      - "${NGINX_PORT:-9010}:8080"
+      - "${NGINX_PORT:-8088}:8080"
     volumes:
       - ./.env:/var/www/html/.env
-      - egymarket_app_storage:/var/www/html/storage/app
-      - egymarket_app_logs:/var/www/html/storage/logs
+      - egymarkettest_app_storage:/var/www/html/storage/app
+      - egymarkettest_app_logs:/var/www/html/storage/logs
       - ./nginx-custom.conf:/etc/nginx/conf.d/custom_limits.conf
       - ./php-custom.ini:/usr/local/etc/php/conf.d/uploads.ini
       - ${PUBLIC_PRODUCT_LOGO_PATH:-./client-assets/egymarket/public/assets/product_logo}:/var/www/html/public/assets/product_logo
@@ -22,7 +22,7 @@ services:
       - DB_CONNECTION=mysql
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_DATABASE=${DB_DATABASE:-egymarke_topup}
+      - DB_DATABASE=${DB_DATABASE:-db_egymarket_id_test}
       - DB_USERNAME=${DB_USERNAME:-laravel}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
@@ -37,13 +37,13 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - egymarket_net
+      - egymarkettest_net
 
   phpmyadmin:
     image: phpmyadmin:latest
     restart: unless-stopped
     ports:
-      - "${PMA_PORT:-9011}:80"
+      - "${PMA_PORT:-8089}:80"
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
@@ -51,18 +51,18 @@ services:
     depends_on:
       - db
     networks:
-      - egymarket_net
+      - egymarkettest_net
 
   db:
     image: mysql:8.0
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: ${DB_DATABASE:-egymarke_topup}
+      MYSQL_DATABASE: ${DB_DATABASE:-db_egymarket_id_test}
       MYSQL_USER: ${DB_USERNAME:-laravel}
       MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
-      - egymarket_db_data:/var/lib/mysql
+      - egymarkettest_db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 10s
@@ -70,28 +70,28 @@ services:
       retries: 10
       start_period: 30s
     networks:
-      - egymarket_net
+      - egymarkettest_net
 
   redis:
     image: redis:7.2-alpine
     restart: unless-stopped
     command: redis-server --appendonly yes
     volumes:
-      - egymarket_redis_data:/data
+      - egymarkettest_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - egymarket_net
+      - egymarkettest_net
 
 volumes:
-  egymarket_db_data:
-  egymarket_redis_data:
-  egymarket_app_storage:
-  egymarket_app_logs:
+  egymarkettest_db_data:
+  egymarkettest_redis_data:
+  egymarkettest_app_storage:
+  egymarkettest_app_logs:
 
 networks:
-  egymarket_net:
+  egymarkettest_net:
     driver: bridge

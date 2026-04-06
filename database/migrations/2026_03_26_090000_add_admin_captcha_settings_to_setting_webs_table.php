@@ -14,19 +14,19 @@ return new class extends Migration
 
         Schema::table('setting_webs', function (Blueprint $table): void {
             if (! Schema::hasColumn('setting_webs', 'captcha_site_key')) {
-                $table->text('captcha_site_key')->nullable()->after('google_tag_manager_id');
+                $table->text('captcha_site_key')->nullable();
             }
 
             if (! Schema::hasColumn('setting_webs', 'captcha_secret')) {
-                $table->text('captcha_secret')->nullable()->after('captcha_site_key');
+                $table->text('captcha_secret')->nullable();
             }
 
             if (! Schema::hasColumn('setting_webs', 'captcha_enabled')) {
-                $table->boolean('captcha_enabled')->default(true)->after('captcha_secret');
+                $table->boolean('captcha_enabled')->default(true);
             }
 
             if (! Schema::hasColumn('setting_webs', 'captcha_bypass')) {
-                $table->boolean('captcha_bypass')->default(false)->after('captcha_enabled');
+                $table->boolean('captcha_bypass')->default(false);
             }
         });
     }
@@ -51,4 +51,3 @@ return new class extends Migration
         });
     }
 };
-
