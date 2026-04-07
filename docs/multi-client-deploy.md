@@ -212,6 +212,41 @@ docker compose up -d
 docker compose -f docker-compose.egymarket.yml up -d
 ```
 
+## Update app tanpa restart DB/Redis
+
+Kalau hanya update code/image app, pakai script:
+
+```bash
+sh docker/scripts/update-app.sh <compose-file>
+```
+
+Script ini akan:
+
+1. pull image `app` terbaru
+2. recreate service `app` saja dengan `--no-deps`
+3. menjalankan `post-deploy-app.sh`
+4. menjalankan migration, clear cache, publish Livewire assets, optimize, dan repair permission
+
+### Web utama
+
+```bash
+cd /www/wwwroot/istanatopup.com
+sh docker/scripts/update-app.sh docker-compose.yml
+```
+
+### Egymarket test / staging
+
+```bash
+cd /www/wwwroot/test.jasakoding.web.id
+sh docker/scripts/update-app.sh docker-compose.egymarket.yml
+```
+
+Kalau tidak ingin prune image lama setelah update:
+
+```bash
+SKIP_IMAGE_PRUNE=true sh docker/scripts/update-app.sh docker-compose.egymarket.yml
+```
+
 ## Catatan web utama
 
 Web utama masih memakai compose legacy, jadi:
