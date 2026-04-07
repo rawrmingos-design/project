@@ -116,6 +116,49 @@ class LegacyImportBootstrapSeeder extends Seeder
                 ])
             );
         }
+
+        $this->mapLegacyKategorisToCategoryTypes();
+    }
+
+    private function mapLegacyKategorisToCategoryTypes(): void
+    {
+        if (
+            ! DB::getSchemaBuilder()->hasTable('kategoris')
+            || ! DB::getSchemaBuilder()->hasColumn('kategoris', 'category_type_id')
+        ) {
+            return;
+        }
+
+        $categoryTypes = DB::table('category_types')
+            ->whereIn('slug', [
+                'top-up-games',
+                'specialist-mobile-legends',
+                'app-premium',
+                'pulsa-data',
+                'voucher',
+            ])
+            ->pluck('id', 'slug');
+
+        $mapping = [
+            'top-up-games' => ['game', 'populer'],
+            'specialist-mobile-legends' => ['giftskin', 'joki', 'jokigendong', 'vilogml'],
+            'app-premium' => ['app', 'apps', 'premium', 'app-premium'],
+            'pulsa-data' => ['pulsa', 'data', 'ppob'],
+            'voucher' => ['voucher'],
+        ];
+
+        foreach ($mapping as $slug => $legacyTypes) {
+            $categoryTypeId = $categoryTypes[$slug] ?? null;
+
+            if (! $categoryTypeId) {
+                continue;
+            }
+
+            DB::table('kategoris')
+                ->whereIn(DB::raw('LOWER(tipe)'), $legacyTypes)
+                ->whereNull('category_type_id')
+                ->update(['category_type_id' => $categoryTypeId]);
+        }
     }
 
     private function bootstrapEmailTemplates(Carbon $now): void
