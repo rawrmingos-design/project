@@ -22,11 +22,10 @@ php artisan optimize:clear
 php artisan livewire:publish --assets --silent || true
 php artisan optimize
 
-chown -R www-data:www-data public storage bootstrap/cache || true
+APP_PATH="${APP_PATH:-/var/www/html}"
 
-find public -type d -exec chmod 775 {} \;
-find public -type f -exec chmod 664 {} \;
-find storage -type d -exec chmod 775 {} \;
-find storage -type f -exec chmod 664 {} \;
-find bootstrap/cache -type d -exec chmod 775 {} \;
-find bootstrap/cache -type f -exec chmod 664 {} \;
+# Repair ownership/permission after image update and bind-mount asset changes.
+chown -R www-data:www-data "$APP_PATH" || true
+find "$APP_PATH" -type d -exec chmod 755 {} + || true
+find "$APP_PATH" -type f -exec chmod 644 {} + || true
+chmod -R 775 "$APP_PATH/storage" "$APP_PATH/bootstrap/cache" || true
