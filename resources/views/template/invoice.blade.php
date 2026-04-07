@@ -196,8 +196,8 @@
             width: min(88vw, 30rem);
             margin: 0 auto 2rem;
             pointer-events: none;
-            filter: drop-shadow(0 28px 58px rgba(2, 6, 23, .28));
             will-change: transform, opacity;
+            transform: translateZ(0);
         }
 
         .invoice-intro-lottie-shell lottie-player {
@@ -205,6 +205,7 @@
             height: auto;
             min-height: 18rem;
             background: transparent;
+            display: block;
         }
 
         .invoice-intro-overlay.is-visible .invoice-intro-stage-custom {
@@ -1734,7 +1735,7 @@
             'expired' => 4700,
             'paid' => 4300,
             'failed' => 4500,
-            default => 4000,
+            default => 5400,
         };
 
         $introBadgeText = match ($introState) {
@@ -1883,7 +1884,6 @@
                                 data-sequence="{{ implode('|', $introLottieSequence) }}"
                                 background="transparent"
                                 speed="1"
-                                autoplay
                             ></lottie-player>
                         </span>
                     @else
@@ -2482,29 +2482,7 @@
                         return;
                     }
 
-                    let switchedToSecond = false;
-                    playBannerSource(sequence[0], 'false');
-
-                    if (sequence.length > 1) {
-                        bannerPendingLottieCompleteHandler = () => {
-                            if (switchedToSecond) {
-                                return;
-                            }
-
-                            switchedToSecond = true;
-                            playBannerSource(sequence[1], 'true');
-                        };
-
-                        bannerLottiePlayer.addEventListener('complete', bannerPendingLottieCompleteHandler);
-                        bannerPendingLottieFallbackTimer = window.setTimeout(() => {
-                            if (switchedToSecond) {
-                                return;
-                            }
-
-                            switchedToSecond = true;
-                            playBannerSource(sequence[1], 'true');
-                        }, 1600);
-                    }
+                    playBannerSource(sequence[1] || sequence[0], 'true');
                 } catch (error) {
                     console.debug('Invoice banner lottie sequence skipped:', error);
                 }
@@ -2673,33 +2651,8 @@
                                 }
                             }, 60);
                         } else {
-                            let currentIndex = 0;
-                            let switchedToSecond = false;
                             lottiePlayer.setAttribute('loop', 'false');
-                            playLottieSource(sequence[currentIndex]);
-
-                            if (sequence.length > 1) {
-                                pendingLottieCompleteHandler = () => {
-                                    if (switchedToSecond) {
-                                        return;
-                                    }
-
-                                    switchedToSecond = true;
-                                    currentIndex = 1;
-                                    playLottieSource(sequence[currentIndex]);
-                                };
-
-                                lottiePlayer.addEventListener('complete', pendingLottieCompleteHandler);
-                                pendingLottieFallbackTimer = window.setTimeout(() => {
-                                    if (switchedToSecond) {
-                                        return;
-                                    }
-
-                                    switchedToSecond = true;
-                                    currentIndex = 1;
-                                    playLottieSource(sequence[currentIndex]);
-                                }, 1600);
-                            }
+                            playLottieSource(sequence[0]);
                         }
                     } catch (error) {
                         console.debug('Invoice intro lottie replay skipped:', error);
