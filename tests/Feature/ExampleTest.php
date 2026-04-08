@@ -8,14 +8,13 @@ use Tests\TestCase;
 class ExampleTest extends TestCase
 {
     /**
-     * Halaman root '/' redirect ke halaman login atau home.
-     * Sesuai behavior Laravel: guest diredirect ke login (302).
+     * Halaman root '/' permanently redirects ke homepage bahasa Indonesia.
      */
     public function test_example()
     {
         $response = $this->get('/');
 
-        // Root redirects to login or home page for guests — 302 is expected
-        $response->assertStatus(302);
+        $response->assertStatus(301);
+        $response->assertRedirect('/id');
     }
 }
