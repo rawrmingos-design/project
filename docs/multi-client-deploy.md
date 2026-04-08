@@ -247,6 +247,23 @@ Kalau tidak ingin prune image lama setelah update:
 SKIP_IMAGE_PRUNE=true sh docker/scripts/update-app.sh docker-compose.egymarket.yml
 ```
 
+## Optimasi gambar legacy
+
+Setelah import dump lama atau migrasi asset client, jalankan backfill WebP responsive sekali per client:
+
+```bash
+docker compose -f <compose-file> exec app php artisan images:optimize-existing --dry-run
+docker compose -f <compose-file> exec app php artisan images:optimize-existing
+```
+
+Untuk proses bertahap di server kecil:
+
+```bash
+docker compose -f <compose-file> exec app php artisan images:optimize-existing --limit=50
+```
+
+Command ini aman diulang. Original image tetap dipertahankan, sementara varian WebP dibuat di `public/assets/optimized/...`.
+
 ## Catatan web utama
 
 Web utama masih memakai compose legacy, jadi:

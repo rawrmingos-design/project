@@ -101,7 +101,7 @@
                     </header>
                     
                     <div class="aspect-video w-full overflow-hidden rounded-2xl mb-10 shadow-lg">
-                        <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                        <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 900px, 100vw" width="1200" height="675" loading="eager" fetchpriority="high" class="w-full h-full object-cover" />
                     </div>
 
                     <!-- Ad Placeholder (In-Content) -->
@@ -160,7 +160,7 @@
                         @foreach($recent_articles as $recent)
                         <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="flex gap-4 group items-start">
                             <div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden relative">
-                                <img src="{{ asset($recent->thumbnail) }}" alt="{{ $recent->title }}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                                <x-optimized-image :src="$recent->thumbnail" profile="article" alt="{{ $recent->title }}" sizes="96px" width="96" height="96" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                             </div>
                             <div>
                                 <h4 class="text-sm font-bold text-white group-hover:text-primary-400 leading-snug mb-2 line-clamp-2">

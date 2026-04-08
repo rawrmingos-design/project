@@ -39,9 +39,10 @@
     
     <!-- Hero Section (Featured) -->
     @if(isset($featured) && $featured)
+    @php($featuredThumbnailUrl = app(\App\Services\OptimizedImageService::class)->preferredUrl($featured->thumbnail, 'article'))
     <div class="relative w-full h-[60vh] md:h-[70vh] group overflow-hidden">
         <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
-             style="background-image: url('{{ asset($featured->thumbnail) }}');">
+             style="background-image: url('{{ $featuredThumbnailUrl }}');">
         </div>
         <div class="absolute inset-0 bg-murky-900/40 hero-gradient"></div>
         
@@ -89,7 +90,7 @@
             @foreach($articles as $article)
             <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="group relative block rounded-2xl overflow-hidden glass-card transition-all duration-300 hover:-translate-y-2 hover-glow">
                 <div class="aspect-[16/9] w-full overflow-hidden relative">
-                    <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110">
+                    <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" width="800" height="450" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60"></div>
                     <div class="absolute bottom-3 left-4 right-4 flex justify-between text-xs text-white/80 font-medium">
                         <span>{{ $article->created_at->diffForHumans() }}</span>

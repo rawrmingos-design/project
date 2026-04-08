@@ -9,8 +9,10 @@ use Illuminate\Support\Facades\Event;
 
 use App\Models\Pembelian;
 use App\Models\Kategori;
+use App\Models\MediaAsset;
 use App\Observers\PembelianObserver;
 use App\Observers\KategoriObserver;
+use App\Services\OptimizedImageService;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 
@@ -64,6 +66,23 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(MediaHasBeenAddedEvent::class, function (MediaHasBeenAddedEvent $event): void {
             $model = $event->media->model;
+
+            if ($model instanceof MediaAsset) {
+                $path = $model->resolveRelativePath();
+
+                if ($path) {
+                    app(OptimizedImageService::class)->ensureVariants(
+                        $path,
+                        match ($model->folder) {
+                            'banner' => 'banner',
+                            'artikel' => 'article',
+                            'produk' => 'product_logo',
+                            'seasonal' => 'banner',
+                            default => 'thumbnail',
+                        },
+                    );
+                }
+            }
 
             if (! $model || ! method_exists($model, 'syncLegacyMediaColumn')) {
                 return;

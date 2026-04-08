@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Methods\Pages;
 
 use App\Filament\Admin\Resources\Methods\MethodResource;
 use App\Services\MediaAssetAssignmentService;
+use App\Services\OptimizedImageService;
 use App\Support\MediaAssetPicker;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -43,6 +44,7 @@ class EditMethod extends EditRecord
     protected function afterSave(): void
     {
         $this->applySelectedMediaAsset();
+        $this->optimizeRecordImage();
     }
 
     private function applySelectedMediaAsset(): void
@@ -66,5 +68,16 @@ class EditMethod extends EditRecord
         $record->forceFill([
             'images' => $path,
         ])->saveQuietly();
+    }
+
+    private function optimizeRecordImage(): void
+    {
+        $record = $this->getRecord();
+
+        if (! $record || ! $record->images) {
+            return;
+        }
+
+        app(OptimizedImageService::class)->ensureVariants($record->images, 'payment_logo');
     }
 }

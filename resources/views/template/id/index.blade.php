@@ -27,7 +27,15 @@
         <div id="heroo"  class="swiper-wrapper ">
             @foreach($banner as $key => $data)
             <div class="swiper-slide">
-                <img src="{{ asset($data->path) }}" class="w-full h-auto object-cover  rounded-3xl "/>
+                <x-optimized-image
+                    :src="$data->path"
+                    profile="banner"
+                    alt="Banner {{ $key + 1 }}"
+                    sizes="(min-width: 1024px) 1200px, 100vw"
+                    loading="{{ $key === 0 ? 'eager' : 'lazy' }}"
+                    fetchpriority="{{ $key === 0 ? 'high' : null }}"
+                    class="w-full h-auto object-cover rounded-3xl"
+                />
             </div>
             @endforeach
         </div>
@@ -122,7 +130,7 @@
                 @for ($i = 0; $i < 0.01; $i+= 0.1)                
                 <a href="{{url('/id')}}/{{$category->kode}}" class="melpaSlideUp" style="animation-delay: {{$i}}s;">
                         <div class="bg-title-product flex items-center gap-x-1.5 rounded-2xl p-1.5 duration-300 ease-in-out hover:shadow-2xl hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 md:gap-x-3 md:rounded-2xl md:p-3">                            
-                                    <img src="{{asset($category->thumbnail)}}" class="aspect-square h-14 w-14 rounded-lg !object-cover !object-center ring-1 ring-murky-600 md:h-20 md:w-20 md:rounded-xl" alt="{{$category->nama}}" />
+                                    <x-optimized-image :src="$category->thumbnail" profile="thumbnail" alt="{{ $category->nama }}" sizes="80px" width="80" height="80" class="aspect-square h-14 w-14 rounded-lg !object-cover !object-center ring-1 ring-murky-600 md:h-20 md:w-20 md:rounded-xl" />
                             <div
                                 class="relative flex w-full flex-col">
                                 <h2 class="w-[100px] truncate text-xxs font-semibold sm:w-[200px] md:w-[275px] md:text-base"> {{$category->nama}} </h2>
@@ -367,7 +375,7 @@
             <!-- Image Container -->
             @if(isset($popup->path) && $popup->path)
             <div class="popup-image-wrapper">
-                <img alt="Promo" fetchpriority="high" decoding="async" class="popup-image" src="{{ asset($popup->path) }}" />
+                <x-optimized-image :src="$popup->path" profile="popup" alt="Promo" sizes="(min-width: 768px) 720px, 100vw" loading="eager" fetchpriority="high" class="popup-image" />
                 <div class="popup-image-fade"></div>
             </div>
             @else

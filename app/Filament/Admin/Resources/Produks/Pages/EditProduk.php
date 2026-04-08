@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Produks\Pages;
 use App\Filament\Admin\Resources\Produks\ProdukResource;
 use App\Models\PaketLayanan;
 use App\Services\MediaAssetAssignmentService;
+use App\Services\OptimizedImageService;
 use App\Services\ProductPricingService;
 use App\Support\MediaAssetPicker;
 use Filament\Actions\DeleteAction;
@@ -185,6 +186,8 @@ class EditProduk extends EditRecord
         if (!$record || empty($logoPath)) {
             return;
         }
+
+        app(OptimizedImageService::class)->ensureVariants($logoPath, 'product_logo');
 
         $paketIds = $this->selectedPaketIds;
 

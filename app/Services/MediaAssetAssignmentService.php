@@ -9,6 +9,11 @@ use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaAssetAssignmentService
 {
+    public function __construct(
+        private readonly OptimizedImageService $optimizedImages,
+    ) {
+    }
+
     public function assignToRecord(Model $record, ?int $assetId, string $collection): bool
     {
         if (! $assetId || ! $record instanceof HasMedia) {
@@ -44,6 +49,13 @@ class MediaAssetAssignmentService
                 $record->forceFill([
                     $column => $relativePath,
                 ])->saveQuietly();
+            }
+
+            if ($relativePath) {
+                $this->optimizedImages->ensureVariants(
+                    $relativePath,
+                    $this->optimizedImages->profileForCollection($collection),
+                );
             }
         }
 

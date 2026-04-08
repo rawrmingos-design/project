@@ -22,12 +22,18 @@
                         <!-- end event -->
                         <div class="w-full aspect-square relative bg-gray-700 animate-pulse">
                             <!-- Image with opacity transition -->
-                            <img
-                                alt="{{ $category->nama }}" fetchpriority="high" decoding="async" data-nimg="1"
+                            <x-optimized-image
+                                :src="$category->thumbnail"
+                                profile="thumbnail"
+                                alt="{{ $category->nama }}"
+                                sizes="(min-width: 1280px) 180px, (min-width: 768px) 25vw, 33vw"
+                                width="320"
+                                height="320"
                                 class="h-full w-full object-cover object-center absolute inset-0 transition-opacity duration-300"
-                                :class="loaded ? 'opacity-100' : 'opacity-0'"
-                                src="{{ asset($category->thumbnail) }}"
-                                style="color: transparent;" @load="loaded = true">
+                                x-bind:class="loaded ? 'opacity-100' : 'opacity-0'"
+                                style="color: transparent;"
+                                x-on:load="loaded = true"
+                            />
                         </div>
                         <div class="bg-weji neverzoom py-2">
                             <div class="flex flex-col px-3 py-1">
