@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Methods\Pages;
 
 use App\Filament\Admin\Resources\Methods\MethodResource;
 use App\Services\MediaAssetAssignmentService;
+use App\Services\OptimizedImageService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateMethod extends CreateRecord
@@ -26,6 +27,7 @@ class CreateMethod extends CreateRecord
     protected function afterCreate(): void
     {
         $this->applySelectedMediaAsset();
+        $this->optimizeRecordImage();
     }
 
     private function applySelectedMediaAsset(): void
@@ -49,5 +51,16 @@ class CreateMethod extends CreateRecord
         $record->forceFill([
             'images' => $path,
         ])->saveQuietly();
+    }
+
+    private function optimizeRecordImage(): void
+    {
+        $record = $this->getRecord();
+
+        if (! $record || ! $record->images) {
+            return;
+        }
+
+        app(OptimizedImageService::class)->ensureVariants($record->images, 'payment_logo');
     }
 }

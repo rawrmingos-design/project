@@ -1967,9 +1967,7 @@
                     <div class="invoice-detail-card invoice-panel rounded-2xl col-span-2 flex gap-8 lg:col-span-1">
                         <div
                             class="invoice-thumbnail-frame relative mt-2 aspect-[4/6] h-32 flex-none overflow-hidden rounded-lg bg-murky-600 object-cover object-center print:hidden sm:h-56 md:mt-0 md:block">
-                            <img alt="{{ $namas }}" fetchpriority="high" decoding="async" data-nimg="fill"
-                                class="object-cover object-center" sizes="100vw" src="{{ asset($thumbnails) }}"
-                                style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                            <x-optimized-image :src="$thumbnails" profile="thumbnail" alt="{{ $namas }}" sizes="224px" width="320" height="480" loading="eager" fetchpriority="high" class="object-cover object-center" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
                         </div>
                         <div>
                             <h3 class="text-lg font-medium text-white print:text-sm print:text-slate-800">

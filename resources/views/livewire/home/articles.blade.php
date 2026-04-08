@@ -186,7 +186,7 @@
                 <article class="gj-card group">
                     
                     <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-card-img-wrapper">
-                        <img src="{{ asset($article->thumbnail) }}" alt="{{ $article->title }}" class="gj-card-img">
+                        <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" width="800" height="450" class="gj-card-img" />
                         
                         <div class="gj-card-date">
                             <span class="gj-card-date-text">

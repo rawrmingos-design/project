@@ -36,6 +36,15 @@ trait SyncsLegacyMediaPaths
         $this->forceFill([
             $column => $legacyPath,
         ])->saveQuietly();
+
+        if ($legacyPath) {
+            $optimizer = app(\App\Services\OptimizedImageService::class);
+
+            $optimizer->ensureVariants(
+                $legacyPath,
+                $optimizer->profileForCollection($collection),
+            );
+        }
     }
 
     protected function resolvePreferredLegacyPath(string $collection, ?Media $media): ?string

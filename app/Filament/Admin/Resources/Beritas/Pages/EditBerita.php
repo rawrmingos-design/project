@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Beritas\Pages;
 
 use App\Filament\Admin\Resources\Beritas\BeritaResource;
 use App\Services\MediaAssetAssignmentService;
+use App\Services\OptimizedImageService;
 use App\Support\MediaAssetPicker;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -43,6 +44,7 @@ class EditBerita extends EditRecord
     protected function afterSave(): void
     {
         $this->applySelectedMediaAsset();
+        $this->optimizeRecordImage();
     }
 
     private function applySelectedMediaAsset(): void
@@ -66,5 +68,17 @@ class EditBerita extends EditRecord
         $record->forceFill([
             'path' => $path,
         ])->saveQuietly();
+    }
+
+    private function optimizeRecordImage(): void
+    {
+        $record = $this->getRecord();
+
+        if (! $record || ! $record->path) {
+            return;
+        }
+
+        $optimizer = app(OptimizedImageService::class);
+        $optimizer->ensureVariants($record->path, $optimizer->profileForBerita($record->tipe ?? null));
     }
 }

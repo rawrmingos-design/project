@@ -133,7 +133,7 @@ Route::get(
     }
 );
 
-Route::redirect('/', '/id');
+Route::redirect('/', '/id', 301);
 
 Route::prefix('id')->middleware(['xss', 'sanitize'])->group(function () {
 

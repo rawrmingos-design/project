@@ -56,9 +56,15 @@
                                                         </div>
                                                         <div class="popular-tag-overlay"></div>
                                                     </div>
-                                                    <img alt=""
+                                                    <x-optimized-image
+                                                        :src="$fs->gmr_thumb"
+                                                        profile="thumbnail"
+                                                        alt="{{ $fs->judul_flash_sale }}"
+                                                        sizes="160px"
+                                                        width="320"
+                                                        height="320"
                                                         class="flash-sale-img lazyloaded rounded-lg"
-                                                        src="{{ asset($fs->gmr_thumb) }}" />
+                                                    />
                                                     <div class="T truncatee">
                                                         <h2 class="sku text-white text-center">
                                                             <figcaption

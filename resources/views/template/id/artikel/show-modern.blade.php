@@ -49,7 +49,8 @@
 <div class="relative w-full min-h-screen pb-20">
     
     <!-- Fullscreen Hero -->
-    <div class="modern-hero" style="background-image: url('{{ asset($article->thumbnail) }}');">
+    @php($articleHeroUrl = app(\App\Services\OptimizedImageService::class)->preferredUrl($article->thumbnail, 'article'))
+    <div class="modern-hero" style="background-image: url('{{ $articleHeroUrl }}');">
         <div class="monitor:container relative z-10 text-center px-4 max-w-4xl mx-auto mt-20">
             <span class="inline-block px-4 py-2 mb-6 text-sm font-bold tracking-[0.2em] uppercase dynamic-bg rounded-lg shadow-[0_0_20px_rgba(234,179,8,0.3)]">
                 FEATURED ARTICLE
@@ -124,7 +125,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         @foreach($recent_articles as $recent)
                         <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="group relative block overflow-hidden rounded-2xl aspect-[4/3]">
-                            <img src="{{ asset($recent->thumbnail) }}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100">
+                            <x-optimized-image :src="$recent->thumbnail" profile="article" alt="{{ $recent->title }}" sizes="(min-width: 768px) 50vw, 100vw" width="800" height="600" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-70 group-hover:opacity-100" />
                             <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
                             <div class="absolute bottom-0 left-0 p-6">
                                 <h4 class="text-lg font-bold text-white leading-tight group-hover:underline decoration-yellow-500 underline-offset-4">

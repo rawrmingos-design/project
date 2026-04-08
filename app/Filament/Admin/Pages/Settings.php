@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Pages;
 use App\Models\MediaAsset;
 use App\Models\SettingWeb;
 use App\Services\EmailNotificationService;
+use App\Services\OptimizedImageService;
 use App\Services\WhatsappNotificationService;
 use App\Support\MediaAssetPicker;
 use BackedEnum;
@@ -1376,6 +1377,7 @@ class Settings extends Page implements HasForms
         // Update all fields
         $settings->fill($data);
         $settings->save();
+        $this->optimizeManagedMediaFields($settings);
         \Illuminate\Support\Facades\Cache::forget('seo:sitemap:index:v3');
         \Illuminate\Support\Facades\Cache::forget('seo:sitemap:main:v3');
         \Illuminate\Support\Facades\Cache::forget('seo:sitemap:categories:v3');
@@ -1437,6 +1439,24 @@ class Settings extends Page implements HasForms
             'logo_favicon',
             'seasonal_background_image',
         ];
+    }
+
+    private function optimizeManagedMediaFields(SettingWeb $settings): void
+    {
+        $optimizer = app(OptimizedImageService::class);
+
+        foreach ($this->getManagedMediaFields() as $field) {
+            $path = $settings->{$field} ?? null;
+
+            if (! $path) {
+                continue;
+            }
+
+            $optimizer->ensureVariants(
+                $path,
+                $field === 'seasonal_background_image' ? 'banner' : 'thumbnail',
+            );
+        }
     }
 
     private function resolveAssetIdFromStoredPath(?string $path): ?int
