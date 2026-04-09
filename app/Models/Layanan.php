@@ -28,6 +28,11 @@ class Layanan extends Model
         'expired_flash_sale' => 'datetime',
     ];
 
+    public function setCatatanAttribute($value): void
+    {
+        $this->attributes['catatan'] = $value ?? '';
+    }
+
     public function paket(): BelongsToMany
     {
         return $this->belongsToMany(Paket::class, 'paket_layanans', 'layanan_id', 'paket_id')

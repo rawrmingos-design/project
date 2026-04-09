@@ -29,6 +29,7 @@ use App\Http\Controllers\provider\MoogoldController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Support\GtmDataLayerBuilder;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
@@ -163,6 +164,17 @@ class OrderController extends Controller
             return \App\Models\Method::all();
         });
 
+        $gtmBuilder = app(GtmDataLayerBuilder::class);
+        $gtmOrderItemCatalog = $gtmBuilder->buildCatalog($layanan, $data);
+        $gtmViewItemPayload = null;
+
+        if (! empty($gtmOrderItemCatalog)) {
+            $firstTrackedItem = array_values($gtmOrderItemCatalog)[0];
+            $gtmViewItemPayload = $gtmBuilder->buildViewItemPayload($firstTrackedItem);
+        }
+
+        $gtmPaymentMethodCatalog = $gtmBuilder->buildPaymentMethods($pay_method);
+
         return view('template.order', [
             'title' => $title,
             'meta_description' => $meta_description,
@@ -174,7 +186,10 @@ class OrderController extends Controller
             'harga' => $layanan,
             'ratings' => $ratings,
             'flashsale' => $flashsale,
-            'pay_method' => $pay_method
+            'pay_method' => $pay_method,
+            'gtmViewItemPayload' => $gtmViewItemPayload,
+            'gtmOrderItemCatalog' => $gtmOrderItemCatalog,
+            'gtmPaymentMethodCatalog' => $gtmPaymentMethodCatalog,
         ]);
     }
 

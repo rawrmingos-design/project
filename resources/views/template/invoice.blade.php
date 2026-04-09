@@ -2876,6 +2876,25 @@
     @push('custom_script')
     <script>
         (() => {
+            const invoiceEvents = @json($gtmInvoiceEvents ?? []);
+
+            if (!Array.isArray(invoiceEvents) || typeof window.pushDataLayerEvent !== 'function') {
+                return;
+            }
+
+            invoiceEvents.forEach((eventConfig) => {
+                if (!eventConfig || !eventConfig.name || !eventConfig.payload) {
+                    return;
+                }
+
+                window.pushDataLayerEvent(eventConfig.name, eventConfig.payload, {
+                    dedupeKey: eventConfig.dedupe_key || null,
+                });
+            });
+        })();
+    </script>
+    <script>
+        (() => {
             const orderId = @json($data->id_pembelian);
             const url = @json(route('ajax.status', ':order')).replace(':order', orderId);
             let currentStatusPembelian = @json($data->status_pembelian);

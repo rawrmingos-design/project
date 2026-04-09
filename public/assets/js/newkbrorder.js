@@ -213,11 +213,85 @@ function getUsedPointValue() {
     return pointInput ? parseInt(pointInput.value || 0) : 0;
 }
 
+function parseRupiahValue(value) {
+    if (null == value) return 0;
+    var numeric = String(value).replace(/[^0-9]/g, "");
+    return numeric ? parseInt(numeric, 10) : 0;
+}
+
+function getSelectedPaymentMethodMeta() {
+    var methodCode = $("#metode").val() || $("input[name='paymentMethod']:checked").val() || "";
+    var catalog = window.gtmOrderTracking && window.gtmOrderTracking.paymentMethods ? window.gtmOrderTracking.paymentMethods : {};
+    var meta = catalog[methodCode] || null;
+
+    return meta || {
+        code: methodCode,
+        name: methodCode || "Tidak Diketahui",
+        provider: ""
+    };
+}
+
+function getSelectedTrackingItem() {
+    var productId = $(".product-list.active").attr("product-id") || $("#nominal").val() || "";
+    var catalog = window.gtmOrderTracking && window.gtmOrderTracking.itemCatalog ? window.gtmOrderTracking.itemCatalog : {};
+    var item = catalog[String(productId)] || catalog[productId] || null;
+
+    return item ? Object.assign({}, item) : null;
+}
+
+function getSelectedTrackingValue(item) {
+    var selectedFinalPrice = parseFloat(window.lastSelectedFinalPrice || 0);
+    if (!isNaN(selectedFinalPrice) && selectedFinalPrice > 0) {
+        return Math.round(selectedFinalPrice);
+    }
+
+    var activeMethodPrice = $(".method-list.active").find(".hargapembayaran").first().text();
+    var parsedPrice = parseRupiahValue(activeMethodPrice);
+    if (parsedPrice > 0) {
+        return parsedPrice;
+    }
+
+    return item && item.price ? parseRupiahValue(item.price) : 0;
+}
+
+function trackBeginCheckoutEvent() {
+    if ("function" != typeof window.pushDataLayerEvent) return;
+
+    var item = getSelectedTrackingItem();
+    if (!item) return;
+
+    var paymentMeta = getSelectedPaymentMethodMeta();
+    var value = getSelectedTrackingValue(item);
+    if (!(value > 0)) return;
+
+    var eventItem = Object.assign({}, item, {
+        price: value,
+        quantity: 1
+    });
+
+    window.pushDataLayerEvent("begin_checkout", {
+        payment_type: paymentMeta.name || paymentMeta.code || "Tidak Diketahui",
+        ecommerce: {
+            currency: "IDR",
+            value: value,
+            items: [eventItem]
+        }
+    }, {
+        dedupeKey: [
+            "begin_checkout",
+            item.item_id || "unknown",
+            paymentMeta.code || paymentMeta.name || "unknown",
+            value
+        ].join(":")
+    });
+}
+
 window.lastPriceRefreshKey = null;
 window.orderPriceRefreshTimer = null;
 window.orderPriceRequest = null;
 window.orderPriceRequestSeq = 0;
 window.orderPriceAppliedSeq = 0;
+window.lastSelectedFinalPrice = 0;
 
 window.refreshOrderPrice = function (e) {
     e = e || {};
@@ -262,6 +336,7 @@ window.refreshOrderPrice = function (e) {
                     window.lastBaseHarga = response.harga;
                     window.lastMethods = response.methods;
                     window.lastPointDiscount = parseFloat(response.point_discount || 0);
+                    window.lastSelectedFinalPrice = parseFloat(response.selected_final_price || response.harga || 0);
                     changeHarga(response.harga, response.methods, window.lastPointDiscount);
                     if (response.selected_final_price !== void 0 && response.selected_final_price !== null) {
                         applySelectedFinalPrice(response.selected_final_price);
@@ -362,6 +437,7 @@ $(".product-list").off("click").on("click", (function () {
                 }
             }).then((f => {
                 if (f.isConfirmed) {
+                    trackBeginCheckoutEvent();
                     var v = $("#nick").text();
                     $.ajax({
                         url: window.routes.orderedUrl,

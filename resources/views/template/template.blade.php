@@ -60,6 +60,7 @@
         $googleAnalyticsId = '';
         $hasValidGoogleTagManagerId = false;
         $hasValidGoogleAnalyticsId = false;
+        $shouldLoadDirectGoogleAnalytics = false;
     @endphp
     @if(isset($config))
         @php
@@ -69,6 +70,7 @@
             $hasValidGoogleTagManagerId = preg_match('/^GTM-[A-Z0-9]+$/i', $googleTagManagerId) === 1;
             $hasValidGoogleAnalyticsId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $googleAnalyticsId) === 1;
             $hasValidFacebookPixelId = preg_match('/^[0-9]{5,30}$/', $facebookPixelId) === 1;
+            $shouldLoadDirectGoogleAnalytics = $hasValidGoogleAnalyticsId && ! $hasValidGoogleTagManagerId;
         @endphp
 
         @if($hasValidGoogleTagManagerId)
@@ -80,7 +82,7 @@
             })(window,document,'script','dataLayer','{{ $googleTagManagerId }}');</script>
         @endif
 
-        @if($hasValidGoogleAnalyticsId)
+        @if($shouldLoadDirectGoogleAnalytics)
             <!-- Google Analytics 4 -->
             <script async src="https://www.googletagmanager.com/gtag/js?id={{ $googleAnalyticsId }}"></script>
             <script>
@@ -89,6 +91,8 @@
                 gtag('js', new Date());
                 gtag('config', '{{ $googleAnalyticsId }}');
             </script>
+        @elseif($hasValidGoogleTagManagerId && $hasValidGoogleAnalyticsId)
+            <!-- Direct Google Analytics snippet skipped because GTM is active. Configure GA4 inside GTM to avoid duplicate tracking. -->
         @endif
 
         @if($hasValidFacebookPixelId)
@@ -110,6 +114,56 @@
             /></noscript>
         @endif
     @endif
+
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        window.gtmTrackingEnabled = @json($hasValidGoogleTagManagerId ?? false);
+        window.__trackedTransactions = window.__trackedTransactions || {};
+
+        window.pushDataLayerEvent = function (eventName, payload, options) {
+            if (!window.gtmTrackingEnabled || !eventName || !payload || !window.dataLayer) {
+                return false;
+            }
+
+            const settings = options || {};
+            const dedupeKey = settings.dedupeKey || null;
+
+            if (dedupeKey) {
+                if (window.__trackedTransactions[dedupeKey]) {
+                    return false;
+                }
+
+                try {
+                    if (window.sessionStorage && window.sessionStorage.getItem('gtm:' + dedupeKey) === '1') {
+                        window.__trackedTransactions[dedupeKey] = true;
+                        return false;
+                    }
+                } catch (error) {
+                    console.debug('GTM dedupe sessionStorage unavailable:', error);
+                }
+            }
+
+            if (payload.ecommerce) {
+                window.dataLayer.push({ ecommerce: null });
+            }
+
+            window.dataLayer.push(Object.assign({ event: eventName }, payload));
+
+            if (dedupeKey) {
+                window.__trackedTransactions[dedupeKey] = true;
+
+                try {
+                    if (window.sessionStorage) {
+                        window.sessionStorage.setItem('gtm:' + dedupeKey, '1');
+                    }
+                } catch (error) {
+                    console.debug('GTM dedupe sessionStorage write skipped:', error);
+                }
+            }
+
+            return true;
+        };
+    </script>
     
     @php
         $seasonalEnabled = isset($config) ? (bool) ($config->seasonal_enabled ?? false) : false;
