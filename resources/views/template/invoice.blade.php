@@ -1589,6 +1589,8 @@
         $paymentValue = (string) ($data->no_pembayaran ?? '');
         $paymentStatus = Str::lower(trim((string) ($data->status_pembayaran ?? '')));
         $orderStatus = Str::lower(trim((string) ($data->status_pembelian ?? '')));
+        $methodNameLower = \Illuminate\Support\Str::lower(trim((string) ($metode_name ?? '')));
+        $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || \Illuminate\Support\Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
         $isQrImage = (
             str_starts_with($paymentValue, 'data:image/') ||
@@ -1610,10 +1612,12 @@
         ], true);
         $showQrImage = $data->status_pembayaran == 'Belum Lunas' &&
             $isQrMethod &&
+            ! $isDuitkuGateway &&
             $paymentValue !== '';
         $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
         $resolvedQrImageUrl = $isQrImage ? $paymentValue : $dynamicQrSource;
         $showPayButton = $data->status_pembayaran == 'Belum Lunas' && $isPaymentUrl && !$showQrImage;
+        $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
         $showCopyPaymentNumber = !$isPaymentUrl && in_array($paymentCode, [
             'ALFAMRT', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
             'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
@@ -2208,7 +2212,7 @@
                                 @elseif($showPayButton)
                                     <a class="invoice-animate invoice-animate-delay-3" target="_blank" href="{{ $data->no_pembayaran }}"><button
                                             class="invoice-pay-button mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto"
-                                            type="button"><span>Bayar Sekarang</span><svg
+                                            type="button"><span>{{ $payButtonLabel }}</span><svg
                                                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                                 stroke-width="1.5" stroke="currentColor" aria-hidden="true"
                                                 class="h-4 w-4">

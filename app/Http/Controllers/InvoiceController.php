@@ -16,6 +16,20 @@ use Illuminate\Support\Str;
 
 class InvoiceController extends Controller
 {
+    private function applyMethodsJoin($query)
+    {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            return $query->leftJoin('methods', 'pembayarans.metode', '=', 'methods.code');
+        }
+
+        return $query->leftJoin(
+            'methods',
+            DB::raw('pembayarans.metode COLLATE utf8mb4_unicode_ci'),
+            '=',
+            DB::raw('methods.code COLLATE utf8mb4_unicode_ci')
+        );
+    }
+
    public function create($order)
     {
         $payment = Pembayaran::query()
@@ -27,10 +41,11 @@ class InvoiceController extends Controller
 
         $payment->syncExpiredStatus();
 
-        $data = Pembelian::where('pembayarans.order_id', $order)
+        $dataQuery = Pembelian::where('pembayarans.order_id', $order)
             ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
-            ->leftJoin('data_joki', 'pembelians.order_id', '=', 'data_joki.order_id')
-            ->leftJoin('methods', DB::raw('pembayarans.metode COLLATE utf8mb4_unicode_ci'), '=', DB::raw('methods.code COLLATE utf8mb4_unicode_ci'))
+            ->leftJoin('data_joki', 'pembelians.order_id', '=', 'data_joki.order_id');
+
+        $data = $this->applyMethodsJoin($dataQuery)
             ->select(
                 'data_joki.*',
                 'pembayarans.status AS status_pembayaran',
