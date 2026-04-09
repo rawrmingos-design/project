@@ -10,6 +10,7 @@ use App\Models\Method;
 use Illuminate\Support\Carbon;
 use App\Models\Layanan;
 use App\Models\Kategori;
+use App\Support\GtmDataLayerBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -114,6 +115,108 @@ class InvoiceController extends Controller
             ? Carbon::parse($data->expired_at)
             : Carbon::create($data->created_at)->addHours(3);
 
+        $gtmBuilder = app(GtmDataLayerBuilder::class);
+        $gtmInvoiceItem = $gtmBuilder->buildItem([
+            'item_id' => $layanan?->id ?: $data->id_pembelian,
+            'item_name' => $data->layanan ?: $nama,
+            'item_category' => $kategori?->nama ?: $nama,
+            'item_variant' => $data->tipe_transaksi ?? null,
+            'price' => $data->harga_pembayaran ?? 0,
+            'quantity' => 1,
+        ]);
+
+        $normalizedPaymentStatus = Str::lower(trim((string) ($data->status_pembayaran ?? '')));
+        $normalizedOrderStatus = Str::lower(trim((string) ($data->status_pembelian ?? '')));
+        $transactionId = (string) $data->id_pembelian;
+        $invoiceValue = (int) round((float) ($data->harga_pembayaran ?? 0));
+        $gtmInvoiceEvents = [
+            [
+                'name' => 'invoice_viewed',
+                'payload' => $gtmBuilder->buildInvoiceViewedPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                ),
+                'dedupe_key' => "invoice_viewed:{$transactionId}",
+            ],
+        ];
+
+        if (in_array($normalizedPaymentStatus, ['belum lunas', 'unpaid', 'pending'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'add_payment_info',
+                'payload' => $gtmBuilder->buildAddPaymentInfoPayload($transactionId, $methodName, $invoiceValue, $gtmInvoiceItem),
+                'dedupe_key' => "add_payment_info:{$transactionId}",
+            ];
+            $gtmInvoiceEvents[] = [
+                'name' => 'payment_pending',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                ),
+                'dedupe_key' => "payment_pending:{$transactionId}",
+            ];
+        }
+
+        if (in_array($normalizedPaymentStatus, ['paid', 'lunas'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'purchase',
+                'payload' => $gtmBuilder->buildPurchasePayload($transactionId, $methodName, $invoiceValue, $gtmInvoiceItem),
+                'dedupe_key' => "purchase:{$transactionId}",
+            ];
+        }
+
+        if (in_array($normalizedPaymentStatus, ['expired'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'payment_expired',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                ),
+                'dedupe_key' => "payment_expired:{$transactionId}",
+            ];
+        }
+
+        if (in_array($normalizedOrderStatus, ['proses', 'processing'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'order_processing',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                ),
+                'dedupe_key' => "order_processing:{$transactionId}",
+            ];
+        }
+
+        if (in_array($normalizedOrderStatus, ['gagal', 'failed', 'batal', 'cancelled'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'order_failed',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                ),
+                'dedupe_key' => "order_failed:{$transactionId}",
+            ];
+        }
+
         return view('template.invoice', [
             'data' => $data,
             'expired' => $expired,
@@ -124,6 +227,7 @@ class InvoiceController extends Controller
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'order_id' => $data->id_pembelian,
+            'gtmInvoiceEvents' => $gtmInvoiceEvents,
         ]);
         
     }

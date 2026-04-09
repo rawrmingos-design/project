@@ -5079,6 +5079,17 @@ document.addEventListener("DOMContentLoaded", function() {
             @else
             window.userPointBalance = 0;
             @endauth
+            window.gtmOrderTracking = {
+                itemCatalog: @json($gtmOrderItemCatalog ?? []),
+                paymentMethods: @json($gtmPaymentMethodCatalog ?? []),
+                viewItemPayload: @json($gtmViewItemPayload ?? null),
+            };
+
+            if (window.gtmOrderTracking.viewItemPayload) {
+                window.pushDataLayerEvent('view_item', window.gtmOrderTracking.viewItemPayload, {
+                    dedupeKey: 'view_item:{{ $kategori->kode }}'
+                });
+            }
         </script>
         <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
 

@@ -1,0 +1,92 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
+use App\Models\SettingWeb;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class TrackingTemplateTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_direct_ga_snippet_is_skipped_when_gtm_is_active(): void
+    {
+        $settings = SettingWeb::create([
+            'id' => 1,
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'url_wa' => 'wa.me/test',
+            'url_ig' => 'instagram.com/test',
+            'url_tiktok' => 'tiktok.com/test',
+            'url_youtube' => 'youtube.com/test',
+            'url_fb' => 'facebook.com/test',
+            'topupindo_api' => 'test_api',
+            'warna1' => '#222222',
+            'warna2' => '#d06800',
+            'warna3' => '#ffa54a',
+            'warna4' => '#ff8040',
+            'paydisini_apikey' => 'test_paydisini',
+            'tripay_api' => 'test_api_key',
+            'tripay_merchant_code' => 'test_merchant',
+            'tripay_private_key' => 'test_private',
+            'username_digi' => 'test_digi',
+            'api_key_digi' => 'test_digi_key',
+            'apigames_secret' => 'secret-123',
+            'apigames_merchant' => 'merchant-123',
+            'vip_apiid' => 'test_vip_id',
+            'vip_apikey' => 'test_vip_key',
+            'apikey_bangjeff' => 'test_bangjeff_key',
+            'order_prefik' => 'INV',
+            'google_tag_manager_id' => 'GTM-TEST123',
+            'google_analytics_id' => 'G-TEST12345',
+        ]);
+
+        view()->share('config', (object) array_merge([
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'google_tag_manager_id' => 'GTM-TEST123',
+            'google_analytics_id' => 'G-TEST12345',
+        ], $settings->getAttributes()));
+
+        Pembelian::create([
+            'order_id' => 'INV-TRACKING-001',
+            'username' => 'tracking-user',
+            'user_id' => '12345678',
+            'zone' => '2001',
+            'nickname' => 'Tracking User',
+            'layanan' => 'Membership Mingguan',
+            'harga' => 15000,
+            'profit' => 1000,
+            'provider_order_id' => '',
+            'status' => 'Pending',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        Pembayaran::create([
+            'order_id' => 'INV-TRACKING-001',
+            'harga' => 15000,
+            'no_pembayaran' => 'PAY123',
+            'no_pembeli' => '08123456789',
+            'status' => 'Belum Lunas',
+            'metode' => 'QRIS',
+            'reference' => 'REF-TRACKING-001',
+        ]);
+
+        $response = $this->get('/id/invoices/INV-TRACKING-001');
+
+        $response->assertOk();
+        $response->assertSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertSee("GTM-TEST123", false);
+        $response->assertDontSee("googletagmanager.com/gtag/js?id=G-TEST12345", false);
+        $response->assertDontSee("gtag('config', 'G-TEST12345')", false);
+        $response->assertSee('Direct Google Analytics snippet skipped because GTM is active', false);
+    }
+}
