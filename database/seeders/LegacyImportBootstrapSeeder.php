@@ -24,6 +24,8 @@ class LegacyImportBootstrapSeeder extends Seeder
             return;
         }
 
+        $typeDefault = $this->resolveProvidersTypeDefault();
+
         $rows = [
             [
                 'code' => 'digiflazz',
@@ -83,6 +85,12 @@ class LegacyImportBootstrapSeeder extends Seeder
         ];
 
         foreach ($rows as $row) {
+            if ($typeDefault !== null) {
+                $row['type'] = $typeDefault === '__use_code__'
+                    ? $row['code']
+                    : $typeDefault;
+            }
+
             DB::table('providers')->updateOrInsert(
                 ['code' => $row['code']],
                 array_merge($row, [
@@ -91,6 +99,24 @@ class LegacyImportBootstrapSeeder extends Seeder
                 ])
             );
         }
+    }
+
+    private function resolveProvidersTypeDefault(): ?string
+    {
+        if (! DB::getSchemaBuilder()->hasColumn('providers', 'type')) {
+            return null;
+        }
+
+        $column = DB::selectOne("SHOW COLUMNS FROM `providers` LIKE 'type'");
+        $columnType = strtolower((string) ($column->Type ?? ''));
+
+        if (preg_match("/^enum\\((.+)\\)$/", $columnType, $matches) === 1) {
+            preg_match_all("/'([^']+)'/", $matches[1], $enumMatches);
+
+            return $enumMatches[1][0] ?? null;
+        }
+
+        return '__use_code__';
     }
 
     private function bootstrapCategoryTypes(Carbon $now): void
