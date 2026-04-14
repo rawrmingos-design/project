@@ -101,7 +101,19 @@ class Settings extends Page implements HasForms
                         TextInput::make('google_tag_manager_id')
                             ->label('Google Tag Manager ID')
                             ->placeholder('GTM-XXXXXXX')
-                            ->helperText('Container ID dari GTM (Optional)'),
+                            ->helperText('Container ID dari GTM standar. Akan diabaikan jika custom GTM snippet di bawah diisi.'),
+
+                        Textarea::make('gtm_custom_head_script')
+                            ->label('Custom GTM Head Script')
+                            ->rows(6)
+                            ->columnSpanFull()
+                            ->helperText('Opsional. Tempel raw snippet GTM custom/proxy untuk area <head>. Jika diisi, snippet ini menggantikan GTM ID standar. Hanya gunakan script dari domain/vendor yang tepercaya.'),
+
+                        Textarea::make('gtm_custom_body_noscript')
+                            ->label('Custom GTM Body Noscript')
+                            ->rows(4)
+                            ->columnSpanFull()
+                            ->helperText('Opsional. Tempel raw noscript/iframe GTM custom untuk area <body>. Dipakai bersama Custom GTM Head Script sebagai override GTM standar.'),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -1263,6 +1275,8 @@ class Settings extends Page implements HasForms
         $data['live_sales_enabled'] = array_key_exists('live_sales_enabled', $data)
             ? (bool) $data['live_sales_enabled']
             : true;
+        $data['gtm_custom_head_script'] ??= null;
+        $data['gtm_custom_body_noscript'] ??= null;
         $data['wa_provider'] ??= 'fonnte';
         $data['easywa_email'] ??= null;
         $data['easywa_secret_key'] ??= null;

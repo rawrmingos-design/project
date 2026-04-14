@@ -58,22 +58,33 @@
     @php
         $googleTagManagerId = '';
         $googleAnalyticsId = '';
+        $customGtmHeadScript = '';
+        $customGtmBodyNoscript = '';
+        $hasCustomGoogleTagManagerSnippet = false;
         $hasValidGoogleTagManagerId = false;
         $hasValidGoogleAnalyticsId = false;
         $shouldLoadDirectGoogleAnalytics = false;
+        $gtmTrackingEnabled = false;
     @endphp
     @if(isset($config))
         @php
             $googleTagManagerId = trim((string) ($config->google_tag_manager_id ?? ''));
             $googleAnalyticsId = trim((string) ($config->google_analytics_id ?? ''));
             $facebookPixelId = trim((string) ($config->facebook_pixel_id ?? ''));
+            $customGtmHeadScript = trim((string) ($config->gtm_custom_head_script ?? ''));
+            $customGtmBodyNoscript = trim((string) ($config->gtm_custom_body_noscript ?? ''));
+            $hasCustomGoogleTagManagerSnippet = $customGtmHeadScript !== '';
             $hasValidGoogleTagManagerId = preg_match('/^GTM-[A-Z0-9]+$/i', $googleTagManagerId) === 1;
             $hasValidGoogleAnalyticsId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $googleAnalyticsId) === 1;
             $hasValidFacebookPixelId = preg_match('/^[0-9]{5,30}$/', $facebookPixelId) === 1;
-            $shouldLoadDirectGoogleAnalytics = $hasValidGoogleAnalyticsId && ! $hasValidGoogleTagManagerId;
+            $gtmTrackingEnabled = $hasCustomGoogleTagManagerSnippet || $hasValidGoogleTagManagerId;
+            $shouldLoadDirectGoogleAnalytics = $hasValidGoogleAnalyticsId && ! $gtmTrackingEnabled;
         @endphp
 
-        @if($hasValidGoogleTagManagerId)
+        @if($hasCustomGoogleTagManagerSnippet)
+            <!-- Custom Google Tag Manager -->
+            {!! $customGtmHeadScript !!}
+        @elseif($hasValidGoogleTagManagerId)
             <!-- Google Tag Manager -->
             <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
             new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -91,7 +102,7 @@
                 gtag('js', new Date());
                 gtag('config', '{{ $googleAnalyticsId }}');
             </script>
-        @elseif($hasValidGoogleTagManagerId && $hasValidGoogleAnalyticsId)
+        @elseif($gtmTrackingEnabled && $hasValidGoogleAnalyticsId)
             <!-- Direct Google Analytics snippet skipped because GTM is active. Configure GA4 inside GTM to avoid duplicate tracking. -->
         @endif
 
@@ -117,7 +128,7 @@
 
     <script>
         window.dataLayer = window.dataLayer || [];
-        window.gtmTrackingEnabled = @json($hasValidGoogleTagManagerId ?? false);
+        window.gtmTrackingEnabled = @json($gtmTrackingEnabled ?? false);
         window.__trackedTransactions = window.__trackedTransactions || {};
 
         window.pushDataLayerEvent = function (eventName, payload, options) {
@@ -264,7 +275,10 @@
         x-on:keydown.escape="isSearchModalOpen=false"
     >
     
-    @if(isset($config) && !empty($hasValidGoogleTagManagerId))
+    @if(isset($config) && !empty($hasCustomGoogleTagManagerSnippet))
+        <!-- Custom Google Tag Manager (noscript) -->
+        {!! $customGtmBodyNoscript !!}
+    @elseif(isset($config) && !empty($hasValidGoogleTagManagerId))
         <!-- Google Tag Manager (noscript) -->
         <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ $googleTagManagerId }}"
         height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>

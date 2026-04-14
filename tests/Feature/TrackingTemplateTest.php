@@ -14,7 +14,62 @@ class TrackingTemplateTest extends TestCase
 
     public function test_direct_ga_snippet_is_skipped_when_gtm_is_active(): void
     {
-        $settings = SettingWeb::create([
+        $settings = $this->createSettings([
+            'google_tag_manager_id' => 'GTM-TEST123',
+            'google_analytics_id' => 'G-TEST12345',
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertSee("GTM-TEST123", false);
+        $response->assertDontSee("googletagmanager.com/gtag/js?id=G-TEST12345", false);
+        $response->assertDontSee("gtag('config', 'G-TEST12345')", false);
+        $response->assertSee('Direct Google Analytics snippet skipped because GTM is active', false);
+    }
+
+    public function test_custom_gtm_snippet_overrides_standard_gtm_and_direct_ga(): void
+    {
+        $settings = $this->createSettings([
+            'google_tag_manager_id' => 'GTM-TEST123',
+            'google_analytics_id' => 'G-TEST12345',
+            'gtm_custom_head_script' => '<script src="https://gtm.istanatopup.com/custom-loader.js"></script>',
+            'gtm_custom_body_noscript' => '<noscript><iframe src="https://gtm.istanatopup.com/ns.html?id=GTM-CUSTOM"></iframe></noscript>',
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee('https://gtm.istanatopup.com/custom-loader.js', false);
+        $response->assertSee('https://gtm.istanatopup.com/ns.html?id=GTM-CUSTOM', false);
+        $response->assertDontSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertDontSee('googletagmanager.com/ns.html?id=GTM-TEST123', false);
+        $response->assertDontSee("googletagmanager.com/gtag/js?id=G-TEST12345", false);
+        $response->assertSee('window.gtmTrackingEnabled = true', false);
+    }
+
+    public function test_direct_ga_snippet_still_loads_when_no_gtm_is_configured(): void
+    {
+        $settings = $this->createSettings([
+            'google_tag_manager_id' => null,
+            'google_analytics_id' => 'G-ONLYGA123',
+            'gtm_custom_head_script' => null,
+            'gtm_custom_body_noscript' => null,
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee('googletagmanager.com/gtag/js?id=G-ONLYGA123', false);
+        $response->assertSee("gtag('config', 'G-ONLYGA123')", false);
+        $response->assertDontSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertSee('window.gtmTrackingEnabled = false', false);
+    }
+
+    private function createSettings(array $overrides = []): SettingWeb
+    {
+        return SettingWeb::create(array_merge([
             'id' => 1,
             'judul_web' => 'Test Web',
             'deskripsi_web' => 'Test Desc',
@@ -44,16 +99,17 @@ class TrackingTemplateTest extends TestCase
             'vip_apikey' => 'test_vip_key',
             'apikey_bangjeff' => 'test_bangjeff_key',
             'order_prefik' => 'INV',
-            'google_tag_manager_id' => 'GTM-TEST123',
-            'google_analytics_id' => 'G-TEST12345',
-        ]);
+            'gtm_custom_head_script' => null,
+            'gtm_custom_body_noscript' => null,
+        ], $overrides));
+    }
 
+    private function renderTrackingPage(SettingWeb $settings)
+    {
         view()->share('config', (object) array_merge([
             'logo_header' => 'assets/logo-header.png',
             'logo_footer' => 'assets/logo-footer.png',
             'logo_favicon' => 'assets/favicon.ico',
-            'google_tag_manager_id' => 'GTM-TEST123',
-            'google_analytics_id' => 'G-TEST12345',
         ], $settings->getAttributes()));
 
         Pembelian::create([
@@ -80,13 +136,6 @@ class TrackingTemplateTest extends TestCase
             'reference' => 'REF-TRACKING-001',
         ]);
 
-        $response = $this->get('/id/invoices/INV-TRACKING-001');
-
-        $response->assertOk();
-        $response->assertSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
-        $response->assertSee("GTM-TEST123", false);
-        $response->assertDontSee("googletagmanager.com/gtag/js?id=G-TEST12345", false);
-        $response->assertDontSee("gtag('config', 'G-TEST12345')", false);
-        $response->assertSee('Direct Google Analytics snippet skipped because GTM is active', false);
+        return $this->get('/id/invoices/INV-TRACKING-001');
     }
 }
