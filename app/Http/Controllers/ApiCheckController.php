@@ -161,7 +161,7 @@ class ApiCheckController extends Controller
 
     private function connectVelixs(string $parsedGame, string $userId): array
     {
-        $apiKey = env('VELIXS_API_KEY') ?? 'b3f0bdc7ce3c73ab6404d59bc6a0324f94690d8bfa430bd8cd';
+        $apiKey = trim((string) (env('VELIXS_API_KEY') ?: 'b3f0bdc7ce3c73ab6404d59bc6a0324f94690d8bfa430bd8cd'));
 
         if (! $apiKey) {
             Log::warning('ApiCheckController:connectVelixs - VELIXS_API_KEY is not set in .env');
