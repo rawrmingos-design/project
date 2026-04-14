@@ -68,6 +68,7 @@ use App\Http\Controllers\SenangpayController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\SeoController;
+use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
 use App\Http\Controllers\ArtikelController;
@@ -84,6 +85,7 @@ Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequ
 Route::get('/senangpay/callback', [SenangpayController::class, 'handlePaymentResponse'])->name('senangpay.callback');
 
 // Live Sales FOMO Toast - recent purchases for toast notifications
+Route::get('/api/recent-purchases', [RecentPurchasesController::class, 'index'])->name('recent-purchases.index');
 
 # CRONJOB
 // /cronjob/update-gameshop
