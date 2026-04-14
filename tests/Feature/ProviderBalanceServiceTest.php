@@ -101,4 +101,37 @@ class ProviderBalanceServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame(987654.0, (float) $provider->balance);
     }
+
+    public function test_it_syncs_apigames_balance_and_updates_provider_record(): void
+    {
+        Http::fake([
+            'https://v1.apigames.id/merchant/demo-merchant*' => Http::response([
+                'status' => 1,
+                'message' => 'Sukses !',
+                'data' => [
+                    'merchant_id' => 'demo-merchant',
+                    'nama' => 'Demo Merchant',
+                    'saldo' => 245000,
+                ],
+            ]),
+        ]);
+
+        $provider = Provider::create([
+            'code' => 'apigames',
+            'name' => 'ApiGames',
+            'api_username' => 'demo-merchant',
+            'api_key' => 'demo-secret',
+            'api_endpoint' => 'https://v1.apigames.id/v2',
+            'is_active' => true,
+            'balance' => 0,
+        ]);
+
+        $result = app(ProviderBalanceService::class)->sync($provider);
+
+        $provider->refresh();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(245000.0, (float) $provider->balance);
+        $this->assertNotNull($provider->last_check_at);
+    }
 }

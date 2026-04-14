@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Controllers\DigiFlazzController;
+use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Models\Provider;
 use App\Services\Providers\BangJeffService;
@@ -63,11 +64,21 @@ class ProviderBalanceService
                     break;
 
                 case 'apigames':
-                    return [
-                        'success' => false,
-                        'balance' => $provider->balance,
-                        'message' => 'ApiGames balance check belum diimplementasikan.',
-                    ];
+                    $res = (new ApiGamesController($config))->balance();
+
+                    if (! ($res['result'] ?? false)) {
+                        return [
+                            'success' => false,
+                            'balance' => $provider->balance,
+                            'message' => $res['message'] ?? 'ApiGames gagal mengembalikan saldo akun.',
+                        ];
+                    }
+
+                    $rawBalance = $res['balance']
+                        ?? $res['data']['saldo']
+                        ?? $res['data']['balance']
+                        ?? null;
+                    break;
 
                 default:
                     return [
@@ -113,10 +124,12 @@ class ProviderBalanceService
         if (! empty($provider->api_username)) {
             $config['username'] = $provider->api_username;
             $config['api_id'] = $provider->api_username;
+            $config['merchant_id'] = $provider->api_username;
         }
 
         if (! empty($provider->api_key)) {
             $config['api_key'] = $provider->api_key;
+            $config['secret_key'] = $provider->api_key;
         }
 
         if (! empty($provider->api_sign)) {

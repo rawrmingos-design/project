@@ -84,4 +84,34 @@ class ApiGamesControllerTest extends TestCase
         $this->assertTrue($response['result']);
         $this->assertSame('Sukses', $response['data']['status']);
     }
+
+    public function test_apigames_balance_request_uses_account_info_endpoint(): void
+    {
+        Http::fake(function ($request) {
+            $this->assertSame('https://v1.apigames.id/merchant/merchant-123?signature=' . md5('merchant-123' . 'secret-123'), $request->url());
+            $this->assertSame('GET', $request->method());
+
+            return Http::response([
+                'status' => 1,
+                'message' => 'Sukses !',
+                'data' => [
+                    'merchant_id' => 'merchant-123',
+                    'nama' => 'Demo Merchant',
+                    'saldo' => 245,
+                ],
+            ]);
+        });
+
+        $controller = new ApiGamesController([
+            'merchant_id' => 'merchant-123',
+            'secret_key' => 'secret-123',
+            'endpoint' => 'https://v1.apigames.id/v2',
+        ]);
+
+        $response = $controller->balance();
+
+        $this->assertTrue($response['result']);
+        $this->assertSame(245, $response['balance']);
+        $this->assertSame('merchant-123', $response['data']['merchant_id']);
+    }
 }
