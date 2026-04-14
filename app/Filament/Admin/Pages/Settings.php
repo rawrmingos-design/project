@@ -117,6 +117,17 @@ class Settings extends Page implements HasForms
                     ])
                     ->collapsible(),
 
+                Section::make('Live Sales Toast')
+                    ->description('Kontrol toast transaksi terbaru yang tampil bergantian di homepage.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('live_sales_enabled')
+                            ->label('Aktifkan Live Sales Toast')
+                            ->default(true)
+                            ->helperText('Jika nonaktif, toast "baru saja membeli" di homepage tidak akan ditampilkan ke pengunjung.'),
+                    ])
+                    ->collapsible(),
+
                 Section::make('SEO Crawling')
                     ->description('Konfigurasi robots.txt dan sitemap.xml agar crawling bot mesin pencari tetap terkendali.')
                     ->headerActions([
@@ -1248,6 +1259,9 @@ class Settings extends Page implements HasForms
             : true;
         $data['home_popup_enabled'] = array_key_exists('home_popup_enabled', $data)
             ? (bool) $data['home_popup_enabled']
+            : true;
+        $data['live_sales_enabled'] = array_key_exists('live_sales_enabled', $data)
+            ? (bool) $data['live_sales_enabled']
             : true;
         $data['wa_provider'] ??= 'fonnte';
         $data['easywa_email'] ??= null;

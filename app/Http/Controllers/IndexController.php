@@ -7,6 +7,7 @@ use App\Models\Kategori;
 use App\Models\Berita;
 use App\Models\Tabpills;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class IndexController extends Controller
@@ -14,6 +15,34 @@ class IndexController extends Controller
     protected function beritaSortColumn(): string
     {
         return Schema::hasColumn('beritas', 'urutan') ? 'urutan' : 'id';
+    }
+
+    protected function orderedMlbbCategories(array $customOrder)
+    {
+        $query = Kategori::whereIn('id', $customOrder);
+
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            return $query
+                ->orderByRaw("FIELD(id, " . implode(',', $customOrder) . ")")
+                ->get()
+                ->map(function ($item) {
+                    $item->tipe = "mlbb";
+                    return $item;
+                });
+        }
+
+        return $query
+            ->get()
+            ->sortBy(function ($item) use ($customOrder) {
+                $position = array_search($item->id, $customOrder, true);
+
+                return $position === false ? PHP_INT_MAX : $position;
+            })
+            ->values()
+            ->map(function ($item) {
+                $item->tipe = "mlbb";
+                return $item;
+            });
     }
 
      public function create()
@@ -29,13 +58,7 @@ class IndexController extends Controller
         });
 
         $mlbb = Cache::remember('kategori_mlbb', $ttl, function () use ($customOrder) {
-            return Kategori::whereIn('id', $customOrder)
-                ->orderByRaw("FIELD(id, " . implode(',', $customOrder) . ")")
-                ->get()
-                ->map(function ($item) {
-                    $item->tipe = "mlbb";
-                    return $item;
-                });
+            return $this->orderedMlbbCategories($customOrder);
         });
 
         $banner = Cache::remember('banner_list', $ttl, function () {
@@ -106,53 +129,4 @@ class IndexController extends Controller
         }
     }
 
-    public function recentPurchases()
-    {
-        // Cache for 30 seconds to prevent query spam on high traffic
-        $recent = Cache::remember('recent_purchases_popup', 30, function() {
-            return \App\Models\Pembelian::where('status', 'Success')
-                ->orWhere('status', 'Sukses')
-                ->latest('updated_at')
-                ->take(20)
-                ->get()
-                ->map(function ($pembelian) {
-                    $rawName = $pembelian->username;
-                    // Provide a default name if it's null
-                    $name = !empty($rawName) ? $rawName : 'Seseorang';
-                    
-                    // Mask username
-                    $len = strlen($name);
-                    if ($len > 3) {
-                        $visibleCount = max(1, floor($len / 2));
-                        $name = substr($name, 0, $visibleCount) . str_repeat('*', $len - $visibleCount);
-                    }
-
-                    // Manual lookup for Category and Image
-                    $layananData = \App\Models\Layanan::where('layanan', $pembelian->layanan)->first();
-                    $kategoriName = 'Sebuah Game';
-                    $kategoriImage = null;
-
-                    if ($layananData && $layananData->kategori_id) {
-                        $kategoriData = \App\Models\Kategori::find($layananData->kategori_id);
-                        if ($kategoriData) {
-                            $kategoriName = $kategoriData->nama;
-                            $kategoriImage = $kategoriData->thumbnail;
-                        }
-                    }
-
-                    $itemName = $pembelian->layanan ?? 'Item';
-                    $timeAgo = $pembelian->updated_at ? $pembelian->updated_at->diffForHumans() : 'Baru saja';
-                    
-                    return [
-                        'name' => $name,
-                        'item' => $itemName,
-                        'game' => $kategoriName,
-                        'time_ago' => $timeAgo,
-                        'image' => $kategoriImage
-                    ];
-                });
-        });
-
-        return response()->json($recent);
-    }
 }
