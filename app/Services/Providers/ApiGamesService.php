@@ -54,6 +54,74 @@ class ApiGamesService
         ]);
     }
 
+    public function accountInfo(): array
+    {
+        if ($this->merchantId === '' || $this->secretKey === '') {
+            return [
+                'result' => false,
+                'transport_error' => false,
+                'message' => 'Konfigurasi API Games belum lengkap.',
+            ];
+        }
+
+        $url = $this->accountBaseUrl() . '/merchant/' . $this->merchantId;
+
+        try {
+            $response = Http::acceptJson()
+                ->timeout(30)
+                ->get($url, [
+                    'signature' => $this->accountSignature(),
+                ]);
+        } catch (ConnectionException $exception) {
+            Log::warning('ApiGames account info connection error', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return [
+                'result' => false,
+                'transport_error' => true,
+                'message' => $exception->getMessage(),
+            ];
+        }
+
+        $decoded = $response->json();
+
+        Log::debug('ApiGames account info request completed', [
+            'http_status' => $response->status(),
+            'provider_status' => is_array($decoded) ? ($decoded['status'] ?? null) : null,
+        ]);
+
+        if (! is_array($decoded)) {
+            return [
+                'result' => false,
+                'transport_error' => ! $response->successful(),
+                'message' => 'Invalid API Games account info response.',
+                'raw' => $response->body(),
+            ];
+        }
+
+        $decoded['result'] = (int) ($decoded['status'] ?? 0) === 1;
+        $decoded['transport_error'] = ! $response->successful();
+        $decoded['message'] = (string) ($decoded['error_msg'] ?? $decoded['message'] ?? '');
+
+        return $decoded;
+    }
+
+    public function balance(): array
+    {
+        $response = $this->accountInfo();
+
+        if (! ($response['result'] ?? false)) {
+            return $response;
+        }
+
+        $response['balance'] = $response['data']['saldo']
+            ?? $response['data']['balance']
+            ?? null;
+
+        return $response;
+    }
+
     public function verifyWebhookSignature(string $refId, ?string $signature): bool
     {
         $signature = trim((string) $signature);
@@ -129,6 +197,22 @@ class ApiGamesService
     protected function signatureFor(string $refId): string
     {
         return md5($this->merchantId . ':' . $this->secretKey . ':' . $refId);
+    }
+
+    protected function accountSignature(): string
+    {
+        return md5($this->merchantId . $this->secretKey);
+    }
+
+    protected function accountBaseUrl(): string
+    {
+        $baseUrl = rtrim($this->baseUrl, '/');
+
+        if (str_ends_with($baseUrl, '/v2')) {
+            return substr($baseUrl, 0, -3);
+        }
+
+        return $baseUrl;
     }
 
     protected function post(string $path, array $payload): array

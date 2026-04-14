@@ -24,6 +24,16 @@ class ApiGamesController extends Controller
         return $this->service->status($poid);
     }
 
+    public function accountInfo(): array
+    {
+        return $this->service->accountInfo();
+    }
+
+    public function balance(): array
+    {
+        return $this->service->balance();
+    }
+
     public function verifyWebhookSignature(string $refId, ?string $signature): bool
     {
         return $this->service->verifyWebhookSignature($refId, $signature);
