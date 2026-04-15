@@ -1,0 +1,224 @@
+.admin-onboarding-modal,
+.admin-onboarding-tour {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.admin-onboarding-modal[hidden],
+.admin-onboarding-tour[hidden],
+.admin-onboarding-tour__spotlight[hidden] {
+    display: none !important;
+}
+
+.admin-onboarding-modal__backdrop,
+.admin-onboarding-tour__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.72);
+}
+
+.admin-onboarding-tour__backdrop {
+    background: transparent;
+}
+
+.admin-onboarding-modal__panel {
+    position: relative;
+    z-index: 2;
+    max-width: 640px;
+    margin: 8vh auto 0;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow: 0 32px 80px rgba(15, 23, 42, 0.45);
+}
+
+.admin-onboarding-modal__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, 0.15);
+    color: #93c5fd;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.admin-onboarding-modal__title {
+    margin: 16px 0 8px;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 700;
+}
+
+.admin-onboarding-modal__body {
+    margin: 0 0 16px;
+    color: #cbd5e1;
+    line-height: 1.7;
+}
+
+.admin-onboarding-modal__list {
+    margin: 0;
+    padding-left: 18px;
+    color: #cbd5e1;
+    line-height: 1.8;
+}
+
+.admin-onboarding-modal__actions,
+.admin-onboarding-tour__actions {
+    margin-top: 24px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.admin-onboarding-btn {
+    border: 0;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-onboarding-btn--primary {
+    background: #2563eb;
+    color: #fff;
+}
+
+.admin-onboarding-btn--ghost {
+    background: rgba(148, 163, 184, 0.12);
+    color: #e2e8f0;
+}
+
+.admin-onboarding-target-active {
+    position: relative;
+    z-index: 10002 !important;
+    border-radius: 18px;
+}
+
+.admin-onboarding-tour__spotlight {
+    position: fixed;
+    z-index: 10001;
+    border-radius: 24px;
+    pointer-events: none;
+    background: transparent;
+    box-shadow:
+        0 0 0 9999px rgba(2, 6, 23, 0.78),
+        0 0 0 2px rgba(96, 165, 250, 0.92),
+        0 20px 46px rgba(15, 23, 42, 0.34);
+    animation: admin-onboarding-target-float 1.8s ease-in-out infinite;
+    transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
+}
+
+.admin-onboarding-tour__spotlight::before,
+.admin-onboarding-tour__spotlight::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.admin-onboarding-tour__spotlight::before {
+    inset: -6px;
+    border: 1px solid rgba(191, 219, 254, 0.45);
+    box-shadow: 0 0 22px rgba(96, 165, 250, 0.22);
+    animation: admin-onboarding-spotlight-pulse 1.8s ease-out infinite;
+}
+
+.admin-onboarding-tour__spotlight::after {
+    inset: -14px;
+    border: 2px solid rgba(96, 165, 250, 0.34);
+    opacity: 0;
+    animation: admin-onboarding-ring-pulse 1.8s ease-out infinite;
+}
+
+@keyframes admin-onboarding-target-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes admin-onboarding-spotlight-pulse {
+    0%,
+    100% {
+        opacity: 0.72;
+        transform: scale(0.995);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.008);
+    }
+}
+
+@keyframes admin-onboarding-ring-pulse {
+    0% {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    25% {
+        opacity: 0.72;
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(1.045);
+    }
+}
+
+.admin-onboarding-tour__tooltip {
+    position: fixed;
+    z-index: 10002;
+    width: min(360px, calc(100vw - 32px));
+    background: #111827;
+    color: #e5e7eb;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 24px 56px rgba(2, 6, 23, 0.5);
+}
+
+.admin-onboarding-tour__step {
+    color: #93c5fd;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-onboarding-tour__title {
+    margin: 10px 0 6px;
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 700;
+}
+
+.admin-onboarding-tour__description {
+    margin: 0;
+    color: #cbd5e1;
+    line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+    .admin-onboarding-modal__panel {
+        margin: 5vh 16px 0;
+        padding: 22px;
+    }
+
+    .admin-onboarding-modal__title {
+        font-size: 24px;
+    }
+}
