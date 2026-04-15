@@ -81,7 +81,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Kata kunci pencarian, pisahkan dengan koma (contoh: topup, game, murah)')
                             ->columnSpanFull(),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('website-information')),
 
                 // Analytics & Tracking
                 Section::make('Analytics & Tracking')
@@ -116,7 +117,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Opsional. Tempel raw noscript/iframe GTM custom untuk area <body>. Dipakai bersama Custom GTM Head Script sebagai override GTM standar.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('analytics-tracking')),
 
                 Section::make('Homepage Popup')
                     ->description('Kontrol popup pengumuman/promosi di halaman utama.')
@@ -127,7 +129,8 @@ class Settings extends Page implements HasForms
                             ->default(true)
                             ->helperText('Jika nonaktif, popup pengumuman di homepage tidak akan ditampilkan ke pengunjung.'),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('homepage-popup')),
 
                 Section::make('Live Sales Toast')
                     ->description('Kontrol toast transaksi terbaru yang tampil bergantian di homepage.')
@@ -138,7 +141,8 @@ class Settings extends Page implements HasForms
                             ->default(true)
                             ->helperText('Jika nonaktif, toast "baru saja membeli" di homepage tidak akan ditampilkan ke pengunjung.'),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('live-sales')),
 
                 Section::make('SEO Crawling')
                     ->description('Konfigurasi robots.txt dan sitemap.xml agar crawling bot mesin pencari tetap terkendali.')
@@ -329,7 +333,8 @@ class Settings extends Page implements HasForms
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('seo')),
 
                 Section::make('Admin Login CAPTCHA')
                     ->description('Konfigurasi Google reCAPTCHA untuk halaman login admin Filament. Bisa diaktifkan/nonaktifkan dan disediakan bypass darurat.')
@@ -358,7 +363,8 @@ class Settings extends Page implements HasForms
                             ->columnSpan(1),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('admin-captcha')),
                     
                 // Branding
                 Section::make('Logo & Colors')
@@ -578,7 +584,8 @@ class Settings extends Page implements HasForms
                             ->columnSpan(1),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('branding')),
 
                 Section::make('Seasonal Theme')
                     ->description('Atur nuansa event musiman (contoh Ramadhan/Halloween) tanpa mengubah struktur halaman utama.')
@@ -705,7 +712,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Kosongkan jika ingin tetap aktif sampai dinonaktifkan manual.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('seasonal-theme')),
                     
                 // Social Media
                 Section::make('Social Media Links')
@@ -743,7 +751,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Link halaman Facebook'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('social-media')),
                     
                 // Top-Up Providers
                 Section::make('TopUpIndo')
@@ -756,7 +765,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Isi dengan API key rahasia dari TopUpIndo, bukan username atau email akun.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('topupindo')),
                     
                 Section::make('BangJeff')
                     ->description('Masukkan API key dari dashboard BangJeff. Dipakai saat order dan sinkronisasi provider.')
@@ -768,7 +778,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Didapat dari dashboard BangJeff pada menu API key / developer.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('bangjeff')),
                     
                 Section::make('Aoshi')
                     ->description('Masukkan secret/API key Aoshi dari dashboard merchant/provider.')
@@ -780,7 +791,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Gunakan secret key dari panel Aoshi, bukan password login akun.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('aoshi')),
                     
                 Section::make('Mobile Game Store')
                     ->description('Masukkan API key Mobile Game Store dari dashboard merchant.')
@@ -792,7 +804,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Didapat dari menu API atau integrasi pada dashboard Mobile Game Store.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('mobile-game-store')),
                     
                 Section::make('VIP Reseller')
                     ->description('Isi kredensial VIP Reseller. API ID dan API Key biasanya tersedia di dashboard akun VIP Reseller.')
@@ -816,7 +829,8 @@ class Settings extends Page implements HasForms
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('vip-reseller')),
                     
                 // Payment Gateways
                 Section::make('Deposit Configuration')
@@ -832,7 +846,8 @@ class Settings extends Page implements HasForms
                             ->default('duitku')
                             ->required(),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('deposit-configuration')),
 
                 Section::make('PayDisini')
                     ->description('Masukkan API key PayDisini dari dashboard merchant pada menu API atau integrasi.')
@@ -844,7 +859,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Kunci rahasia untuk membuat invoice dan cek status PayDisini.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('paydisini')),
                     
                 Section::make('Tripay')
                     ->description('Isi seluruh kredensial TriPay dari dashboard akun TriPay. Biasanya ada di menu developer atau channel pembayaran.')
@@ -867,7 +883,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Private key untuk membuat signature request TriPay.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('tripay')),
                     
                 Section::make('TokoPay')
                     ->description('Masukkan Merchant ID dan Secret Key dari dashboard TokoPay.')
@@ -884,7 +901,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Secret key/API key TokoPay.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('tokopay')),
                     
                 Section::make('Duitku')
                     ->description('Configure Duitku payment gateway. Callback URL: '.config('app.url').'/wejizy/duitku/callback')
@@ -934,7 +952,8 @@ class Settings extends Page implements HasForms
                             ->columnSpan(1),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('duitku')),
                     
                 Section::make('Digiflazz')
                     ->description('Masukkan username dan API key buyer Digiflazz dari dashboard developer.')
@@ -951,7 +970,8 @@ class Settings extends Page implements HasForms
                             ->helperText('API key buyer Digiflazz dari menu API.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('digiflazz')),
                     
                 Section::make('API Games')
                     ->description('Masukkan Merchant ID dan Secret Key dari dashboard API Games.')
@@ -968,7 +988,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Secret key/API key API Games.'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('api-games')),
                     
                 // WhatsApp Integration
                 Section::make('WhatsApp Configuration')
@@ -1038,7 +1059,8 @@ class Settings extends Page implements HasForms
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa' && ($get('easywa_send_type') ?? 'sync') === 'async'),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('whatsapp-configuration')),
 
                 Section::make('Mail Configuration')
                     ->description('Konfigurasi SMTP/email yang akan dipakai sistem tanpa perlu edit file .env lagi. Nilai ini biasanya didapat dari dashboard provider email seperti Gmail App Password, Mailgun, Brevo, Zoho, Resend SMTP, atau mail server cPanel.')
@@ -1093,7 +1115,8 @@ class Settings extends Page implements HasForms
                             ->helperText('Nama pengirim yang terlihat di inbox pembeli, contoh: '. env('APP_NAME')),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('mail-configuration')),
 
                 Section::make('Invoice Delivery Channels')
                     ->description('Atur apakah invoice / update transaksi dikirim via WhatsApp, email, atau keduanya.')
@@ -1109,7 +1132,8 @@ class Settings extends Page implements HasForms
                             ->default(true)
                             ->helperText('Jika aktif, update transaksi/invoice akan dikirim ke email pembeli.'),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('invoice-delivery')),
                     
                 // Payment Accounts
                 Section::make('E-Wallet Accounts')
@@ -1141,7 +1165,8 @@ class Settings extends Page implements HasForms
                             ->tel(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('ewallet-accounts')),
                     
                 Section::make('Bank Account')
                     ->schema([
@@ -1150,7 +1175,8 @@ class Settings extends Page implements HasForms
                             ->numeric(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('bank-account')),
                     
                 // Tier Markup Settings
                 Section::make('Tier Markup Settings')
@@ -1186,7 +1212,8 @@ class Settings extends Page implements HasForms
                             ->default(0),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('tier-markup')),
 
                 // Tier System Configuration
                 Section::make('Tier System Configuration')
@@ -1208,7 +1235,8 @@ class Settings extends Page implements HasForms
                             ->required(),
                     ])
                     ->collapsible()
-                    ->collapsed(),
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('tier-system')),
 
                 // Point System Configuration
                 Section::make('Point System Configuration')
@@ -1242,10 +1270,18 @@ class Settings extends Page implements HasForms
                             ->required()
                             ->helperText('Batas maksimal % harga yang bisa dibayar dengan poin. Contoh: 50 = maksimal 50% harga bisa pakai poin'),
                     ])
-                    ->collapsible(),
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('point-system')),
             ])
 
             ->statePath('data');
+    }
+
+    private function onboardingSectionAttributes(string $key): array
+    {
+        return [
+            'data-onboarding-target' => 'settings-' . $key,
+        ];
     }
     
     protected function getSettingsData(): array
@@ -1313,8 +1349,9 @@ class Settings extends Page implements HasForms
             ? (bool) $data['seo_sitemap_include_articles']
             : true;
         $data['seo_sitemap_cache_minutes'] = max(5, (int) ($data['seo_sitemap_cache_minutes'] ?? 30));
-        $data['seo_sitemap_mode'] = in_array((string) ($data['seo_sitemap_mode'] ?? 'dynamic'), ['dynamic', 'custom_upload'], true)
-            ? (string) $data['seo_sitemap_mode']
+        $seoSitemapMode = (string) ($data['seo_sitemap_mode'] ?? 'dynamic');
+        $data['seo_sitemap_mode'] = in_array($seoSitemapMode, ['dynamic', 'custom_upload'], true)
+            ? $seoSitemapMode
             : 'dynamic';
         $data['seo_sitemap_index_asset_id'] = isset($data['seo_sitemap_index_asset_id']) ? (int) $data['seo_sitemap_index_asset_id'] : null;
         $data['seo_sitemap_main_asset_id'] = isset($data['seo_sitemap_main_asset_id']) ? (int) $data['seo_sitemap_main_asset_id'] : null;
@@ -1329,8 +1366,9 @@ class Settings extends Page implements HasForms
     {
         $data = $this->form->getState();
         $data['seo_sitemap_cache_minutes'] = max(5, min(1440, (int) ($data['seo_sitemap_cache_minutes'] ?? 30)));
-        $data['seo_sitemap_mode'] = in_array((string) ($data['seo_sitemap_mode'] ?? 'dynamic'), ['dynamic', 'custom_upload'], true)
-            ? (string) $data['seo_sitemap_mode']
+        $seoSitemapMode = (string) ($data['seo_sitemap_mode'] ?? 'dynamic');
+        $data['seo_sitemap_mode'] = in_array($seoSitemapMode, ['dynamic', 'custom_upload'], true)
+            ? $seoSitemapMode
             : 'dynamic';
         $data['seo_sitemap_index_asset_id'] = ! empty($data['seo_sitemap_index_asset_id']) ? (int) $data['seo_sitemap_index_asset_id'] : null;
         $data['seo_sitemap_main_asset_id'] = ! empty($data['seo_sitemap_main_asset_id']) ? (int) $data['seo_sitemap_main_asset_id'] : null;
