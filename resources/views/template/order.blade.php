@@ -160,7 +160,38 @@
         box-shadow: none !important;
         outline: none !important;
     }
-</style>
+
+    .order-mobile-tabs {
+        display: flex;
+        gap: 6px;
+        margin-top: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+        padding: 4px;
+    }
+
+    .order-mobile-tab-btn {
+        flex: 1 1 50%;
+        border: 0;
+        border-radius: 12px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1;
+        padding: 12px 16px;
+        transition: 180ms ease;
+        cursor: pointer;
+    }
+
+    .order-mobile-tab-btn.is-active {
+        background: linear-gradient(180deg, #ff8a24 0%, #ff6d00 100%);
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(255, 109, 0, 0.35);
+    }
+
+    </style>
 
 @endsection
 
@@ -261,9 +292,15 @@
                 </div>
             </div>
         </div>
-    <div class="container grid grid-cols-3 gap-8 pb-8 pt-8">
-      <div class="col-span-3 md:col-span-1">
-        <div class="sticky top-24 flex flex-col space-y-8">
+    <div class="container md:hidden">
+        <div class="order-mobile-tabs" data-order-mobile-tabs>
+            <button type="button" class="order-mobile-tab-btn is-active" data-mobile-tab-target="transaksi">Transaksi</button>
+            <button type="button" class="order-mobile-tab-btn" data-mobile-tab-target="keterangan">Keterangan</button>
+        </div>
+    </div>
+    <div class="container grid grid-cols-3 gap-8 pb-8 pt-8" data-order-mobile-grid>
+      <div class="col-span-3 hidden md:col-span-1 md:block" data-mobile-pane="keterangan">
+        <div class="flex flex-col space-y-8 md:sticky md:top-24">
           <div class="rounded-xl bg-murky-800 shadow-2xl">
             <div class="prose prose-sm px-4 py-2 pb-8 text-xs text-white sm:px-6">
               <div>
@@ -425,7 +462,7 @@
         @if(in_array($kategori->tipe, ['joki', 'jokigendong', 'giftskin' , 'vilogml']))
         @if($kategori->tipe === 'joki')
             
-      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2">
+      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2" data-mobile-pane="transaksi">
                 <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-input">
                          <input type="hidden" id="nominal">
                     <input type="hidden" id="metode">
@@ -1492,7 +1529,7 @@ document.addEventListener("DOMContentLoaded", function() {
         @elseif($kategori->tipe === 'jokigendong')
         
            
-      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2">
+      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2" data-mobile-pane="transaksi">
                 <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-input">
                          <input type="hidden" id="nominal">
                     <input type="hidden" id="metode">
@@ -2389,7 +2426,7 @@ document.addEventListener("DOMContentLoaded", function() {
         @elseif($kategori->tipe === 'giftskin')
         
         
-      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2">
+      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2" data-mobile-pane="transaksi">
                 <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-input">
                          <input type="hidden" id="nominal">
                     <input type="hidden" id="metode">
@@ -3252,7 +3289,7 @@ document.addEventListener("DOMContentLoaded", function() {
         
         @elseif($kategori->tipe === 'vilogml')
         
-      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2">
+      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2" data-mobile-pane="transaksi">
                 <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-input">
                          <input type="hidden" id="nominal">
                     <input type="hidden" id="metode">
@@ -4167,7 +4204,7 @@ document.addEventListener("DOMContentLoaded", function() {
         @endif
         
     @else
-      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2">
+      <ul class="col-span-3 flex flex-col space-y-8 md:col-span-2" data-mobile-pane="transaksi">
                 <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-input">
                          <input type="hidden" id="nominal">
                     <input type="hidden" id="metode">
@@ -5091,6 +5128,70 @@ document.addEventListener("DOMContentLoaded", function() {
                 });
             }
         </script>
+        <script>
+            (function () {
+                function initOrderMobileTabs() {
+                    const tabsContainer = document.querySelector('[data-order-mobile-tabs]');
+                    const orderGrid = document.querySelector('[data-order-mobile-grid]');
+
+                    if (!tabsContainer || !orderGrid) {
+                        return;
+                    }
+
+                    const transaksiPane = orderGrid.querySelector('[data-mobile-pane="transaksi"]');
+                    const keteranganPane = orderGrid.querySelector('[data-mobile-pane="keterangan"]');
+                    const buttons = Array.from(tabsContainer.querySelectorAll('[data-mobile-tab-target]'));
+                    const desktopQuery = window.matchMedia('(min-width: 768px)');
+                    let activeTab = 'transaksi';
+
+                    if (!transaksiPane || !keteranganPane || !buttons.length) {
+                        return;
+                    }
+
+                    const applyTabState = (tabName) => {
+                        activeTab = tabName === 'keterangan' ? 'keterangan' : 'transaksi';
+                        const showTransaksi = activeTab === 'transaksi';
+
+                        transaksiPane.classList.toggle('hidden', !showTransaksi);
+                        keteranganPane.classList.toggle('hidden', showTransaksi);
+
+                        buttons.forEach((button) => {
+                            button.classList.toggle('is-active', button.dataset.mobileTabTarget === activeTab);
+                        });
+                    };
+
+                    const syncByViewport = () => {
+                        if (desktopQuery.matches) {
+                            transaksiPane.classList.remove('hidden');
+                            keteranganPane.classList.remove('hidden');
+                            return;
+                        }
+
+                        applyTabState(activeTab);
+                    };
+
+                    buttons.forEach((button) => {
+                        button.addEventListener('click', () => {
+                            if (desktopQuery.matches) {
+                                return;
+                            }
+
+                            applyTabState(button.dataset.mobileTabTarget);
+                        });
+                    });
+
+                    syncByViewport();
+
+                    if (typeof desktopQuery.addEventListener === 'function') {
+                        desktopQuery.addEventListener('change', syncByViewport);
+                    } else if (typeof desktopQuery.addListener === 'function') {
+                        desktopQuery.addListener(syncByViewport);
+                    }
+                }
+
+                document.addEventListener('DOMContentLoaded', initOrderMobileTabs);
+            })();
+        </script>
         <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
 
 <!-- ===== POINT WIDGET SCRIPT ===== -->
@@ -5517,3 +5618,4 @@ updateQtyDisplay(Math.max(1, parseInt($("#qty").val())));
 @endif
 @endpush
 @endsection
+
