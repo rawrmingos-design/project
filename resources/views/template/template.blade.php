@@ -371,38 +371,105 @@
         });
     </script>
     <script>
-        var delay = function() {
-            var e = 0;
-            return function(r, a) {
-                clearTimeout(e), e = setTimeout(r, a)
+        (function () {
+            var endpoint = "{{ url('/id/cari/index') }}";
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            var pairs = [
+                {
+                    input: document.getElementById('searchProds'),
+                    result: document.querySelector('.resultsearch'),
+                    emptyState: document.getElementById('lottie-container')
+                },
+                {
+                    input: document.getElementById('searchProdsdekstop'),
+                    result: document.querySelector('.resultsearchdekstop'),
+                    emptyState: null
+                }
+            ].filter(function (pair) {
+                return pair.input && pair.result;
+            });
+
+            if (!pairs.length) {
+                return;
             }
-        }();
-        $("#searchProds").keyup(function() {
-            let e = $(this).val();
-            e.length < 1 ? ($(".resultsearch").removeClass("show"), $(".resultsearch li").remove()) : delay(function() {
-                $.ajax({
-                    url: "{{ url('/id/cari/index') }}",
-                    method: "POST",
-                    data: {
-                        data: e
-                    },
-                    beforeSend: function() {
-                        $(".resultsearch li").remove()
-                    },
-                    success: function(e) {
-                        $(".resultsearch").append(e), $(".resultsearch").addClass("show")
+
+            var debounce = function (callback, wait) {
+                var timeoutId = 0;
+                return function (value) {
+                    clearTimeout(timeoutId);
+                    timeoutId = setTimeout(function () {
+                        callback(value);
+                    }, wait);
+                };
+            };
+
+            pairs.forEach(function (pair) {
+                var requestNonce = 0;
+                var runSearch = debounce(function (rawValue) {
+                    var keyword = String(rawValue || '').trim();
+                    var currentNonce = ++requestNonce;
+
+                    if (keyword.length < 2) {
+                        pair.result.innerHTML = '';
+                        pair.result.classList.remove('show');
+                        if (pair.emptyState) {
+                            pair.emptyState.style.display = '';
+                        }
+                        return;
                     }
-                })
-            }, 100)
-        });
-    </script>
-    <script>
-        document.getElementById('searchProds').addEventListener('input', function() {
-            var lottieContainer = document.getElementById('lottie-container');
-            if (lottieContainer) {
-                lottieContainer.style.display = 'none';
-            }
-        });
+
+                    if (pair.emptyState) {
+                        pair.emptyState.style.display = 'none';
+                    }
+
+                    pair.result.innerHTML = '<li class="p-3 text-sm text-white/70">Mencari produk...</li>';
+                    pair.result.classList.add('show');
+
+                    fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': token
+                        },
+                        body: 'data=' + encodeURIComponent(keyword)
+                    })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Search request failed.');
+                        }
+                        return response.text();
+                    })
+                    .then(function (html) {
+                        if (currentNonce !== requestNonce) {
+                            return;
+                        }
+
+                        var cleaned = String(html || '').trim();
+                        if (!cleaned) {
+                            pair.result.innerHTML = '<li class="p-4 text-sm text-white/70">Produk tidak ditemukan.</li>';
+                            pair.result.classList.add('show');
+                            return;
+                        }
+
+                        pair.result.innerHTML = cleaned;
+                        pair.result.classList.add('show');
+                    })
+                    .catch(function () {
+                        if (currentNonce !== requestNonce) {
+                            return;
+                        }
+                        pair.result.innerHTML = '';
+                        pair.result.classList.remove('show');
+                    });
+                }, 220);
+
+                pair.input.addEventListener('input', function (event) {
+                    runSearch(event.target.value);
+                });
+            });
+        })();
     </script>
     <script src="{{ asset('/assets/js/oo324ddod2323sd2dd.js') }}"></script>
 
