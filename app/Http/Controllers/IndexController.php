@@ -9,9 +9,40 @@ use App\Models\Tabpills;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class IndexController extends Controller
 {
+    protected function sanitizeHomepageBanners(Collection $banners, ?Berita $popup = null): Collection
+    {
+        return $banners
+            ->filter(function ($item) use ($popup) {
+                if (! $item || ($item->tipe ?? null) !== 'banner') {
+                    return false;
+                }
+
+                $path = trim((string) ($item->path ?? ''));
+
+                if ($path === '') {
+                    return false;
+                }
+
+                if ($popup) {
+                    if (($popup->id ?? null) === ($item->id ?? null)) {
+                        return false;
+                    }
+
+                    if (trim((string) ($popup->path ?? '')) === $path) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
     protected function beritaSortColumn(): string
     {
         return Schema::hasColumn('beritas', 'urutan') ? 'urutan' : 'id';
@@ -53,8 +84,13 @@ class IndexController extends Controller
         // $customOrder = [8507, 8639, 8640, 8641, 8644, 8663, 8646];
         $customOrder = [8507, 8639, 8640, 8641, 8644, 8664];
         
-        $kategori = Cache::remember('kategori_active', $ttl, function () {
-            return Kategori::where('status', 'active')->get();
+        $kategori = Cache::remember('kategori_populer_home', $ttl, function () {
+            return Kategori::query()
+                ->select(['id', 'nama', 'sub_nama', 'thumbnail', 'kode', 'tipe'])
+                ->where('status', 'active')
+                ->where('tipe', 'populer')
+                ->orderBy('id')
+                ->get();
         });
 
         $mlbb = Cache::remember('kategori_mlbb', $ttl, function () use ($customOrder) {
@@ -87,6 +123,8 @@ class IndexController extends Controller
                 ->first();
         });
 
+        $banner = $this->sanitizeHomepageBanners($banner, $popup);
+
         $pay_method = Cache::remember('payment_methods', $ttl, function () {
             return \App\Models\Method::all();
         });
@@ -101,30 +139,49 @@ class IndexController extends Controller
     
     public function cariIndex(Request $request)
     {
-        if($request->ajax()){
+        if ($request->ajax()) {
             $requestData = $request->validate([
-                'data' => 'required|string',
+                'data' => 'required|string|min:2|max:80',
             ]);
 
-            $data = Kategori::where('nama', 'LIKE', '%'.$requestData['data'].'%')
-                            ->where('status', 'active')
-                            ->limit(6)
-                            ->get();
+            $keyword = Str::lower(trim((string) $requestData['data']));
+            $version = (int) Cache::get('public:search:categories:version', 1);
+            $cacheKey = 'public:search:legacy:v3:' . $version . ':' . md5($keyword);
+
+            $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($keyword) {
+                return Kategori::query()
+                    ->select(['nama', 'kode', 'thumbnail'])
+                    ->where('status', 'active')
+                    ->where(function ($query) use ($keyword) {
+                        $query
+                            ->whereRaw('LOWER(nama) LIKE ?', ["%{$keyword}%"])
+                            ->orWhereRaw('LOWER(COALESCE(sub_nama, "")) LIKE ?', ["%{$keyword}%"])
+                            ->orWhereRaw('LOWER(kode) LIKE ?', ["%{$keyword}%"]);
+                    })
+                    ->orderBy('nama')
+                    ->limit(6)
+                    ->get();
+            });
 
             $res = '';
 
-            foreach($data as $d){
+            foreach ($data as $d) {
+                $thumbnail = trim((string) $d->thumbnail);
+                if (! str_starts_with($thumbnail, 'http://') && ! str_starts_with($thumbnail, 'https://')) {
+                    $thumbnail = '/' . ltrim($thumbnail, '/');
+                }
+
                 $res .= '
                     <li class="p-2 dropdown-item">
-                        <a href="'.url("/id").'/'.$d->kode.'" class="text-white">
+                        <a href="' . url('/id') . '/' . e($d->kode) . '" class="text-white">
                             <div class="flex cursor-pointer select-none items-center rounded-md px-3 py-2" role="option" tabindex="-1" aria-selected="false">
-                                <img alt="'.$d->nama.'" class="aspect-square w-24 rounded-2xl object-cover" src="'.$d->thumbnail.'" />
-                                <span class="ml-3 flex-auto truncate">'.$d->nama.'</span>
+                                <img alt="' . e($d->nama) . '" class="aspect-square w-24 rounded-2xl object-cover" src="' . e($thumbnail) . '" loading="lazy" decoding="async" />
+                                <span class="ml-3 flex-auto truncate">' . e($d->nama) . '</span>
                             </div>
                         </a>
                     </li>';
             }
-            
+
             return $res;
         }
     }

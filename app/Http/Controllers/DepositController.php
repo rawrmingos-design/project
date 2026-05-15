@@ -2,271 +2,413 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use App\Models\Deposit;
 use App\Models\Berita;
+use App\Models\Deposit;
+use App\Models\Method;
 use App\Models\Pembayaran;
-use App\Http\Controllers\TokoPayController;
-use Illuminate\Support\Facades\Auth;
 use Duitku\Config;
 use Duitku\Pop;
-use App\Http\Controllers\TriPayController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DepositController extends Controller
 {
     public function reloadd()
     {
-        return view('template.reload', ['data' => Deposit::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->get(),
-        'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
-          'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-          'pay_method' => \App\Models\Method::all()
+        $showDemoMethods = app()->environment('local');
+
+        return view('template.reload', [
+            'data' => Deposit::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->get(),
+            'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
+            'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
+            'pay_method' => Method::availableForDeposit($showDemoMethods),
         ]);
     }
+
     public function create()
     {
-        // 1. Block Active Affiliates
         if (Auth::user()->isAffiliateActive()) {
             return redirect()->route('dashboard')->with('error', 'Akun Affiliate tidak dapat melakukan deposit. Silakan hubungi Admin.');
         }
 
-        // return view('components.deposit', ['data' => Deposit::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->paginate(10),
-        // 'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
-        //   'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-        // ]);
-        
-        return view('template.deposit', ['data' => Deposit::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->get(),
-        'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
-        'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-        'pay_method' => \App\Models\Method::all()
+        $showDemoMethods = app()->environment('local');
+
+        return view('template.deposit', [
+            'data' => Deposit::where('username', Auth::user()->username)->orderBy('created_at', 'desc')->get(),
+            'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
+            'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
+            'pay_method' => Method::availableForDeposit($showDemoMethods),
         ]);
     }
 
     public function store(Request $request)
     {
-        // 1. Block Active Affiliates
         if (Auth::user()->isAffiliateActive()) {
             return back()->with('error', 'Akun Affiliate tidak dapat melakukan deposit. Silakan hubungi Admin.');
         }
 
-        $request->validate([
-            'jumlah' => 'required|numeric|min:10000',
-            'metode' => 'required',
-            'no_pembayaran' => 'required_if:metode,OVO,DANA,SHOPEEPAY,LINKAJA,GOPAY', // Validate phone if e-wallet
+        $validated = $request->validate([
+            'jumlah' => ['required', 'numeric', 'min:10000'],
+            'metode' => ['required', 'string', 'max:50'],
+            'no_telfon' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\-\s]*$/'],
         ], [
-            'jumlah.numeric' => "Jumlah harus berupa angka",
-            "jumlah.min" => "Minimal deposit Rp 10.000",
-            'jumlah.required' => "Mohon isi jumlah deposit",
-            'metode.required' => "Mohon pilih metode pembayaran"
+            'jumlah.required' => 'Mohon isi jumlah deposit',
+            'jumlah.numeric' => 'Jumlah harus berupa angka',
+            'jumlah.min' => 'Minimal deposit Rp 10.000',
+            'metode.required' => 'Mohon pilih metode pembayaran',
+            'no_telfon.regex' => 'Format nomor WhatsApp tidak valid.',
         ]);
 
-        $api = \DB::table('setting_webs')->where('id',1)->first();
-        
-        $unik = date('Hs');
-        $kode_unik = substr(str_shuffle("0123456789"), 0, 8);
-        $order_id = 'DP'.$unik.$kode_unik; // DP for Deposit
-        
-        // --- 1. Fee Calculation (Server-Side) ---
-        $method = \App\Models\Method::where('code', $request->metode)->first();
-        if (!$method) {
-            return back()->withErrors(['msg' => 'Metode pembayaran tidak valid']);
+        $user = Auth::user();
+        $api = DB::table('setting_webs')->where('id', 1)->first();
+        if (! $api) {
+            return back()->withInput()->withErrors([
+                'msg' => 'Konfigurasi pembayaran belum tersedia. Silakan hubungi admin.',
+            ]);
         }
 
-        $fee_percent = $method->fee_percent ?? 0; // e.g. 0.70 means 0.7%
-        $fix_fee = $method->fix_fee ?? 0;
-        
-        $net_amount = $request->jumlah;
-        $fee_amount = ceil($net_amount * ($fee_percent / 100)) + $fix_fee;
-        $gross_amount = $net_amount + $fee_amount;
+        $paymentMethod = strtoupper(trim((string) $validated['metode']));
+        $normalizedPhone = preg_replace('/\D+/', '', (string) ($validated['no_telfon'] ?? ''));
+        $netAmount = (int) ceil((float) $validated['jumlah']);
 
-        // Determine Payment Gateway for Deposit
-        $gateway = $api->deposit_jalur ?? 'duitku'; // Default Duitku
-        $paymentMethodCode = $request->metode;
-        
-        $result = [];
-        $merchantOrderId = $order_id;
-        $paymentUrl = null;
-        $reference = null;
-        $vaNumber = null;
-        
+        $submitLockKey = 'deposit-submit:' . sha1(implode('|', [
+            (string) $user->id,
+            $paymentMethod,
+            (string) $netAmount,
+            $normalizedPhone,
+        ]));
+
+        if (! Cache::add($submitLockKey, true, 30)) {
+            return back()->withInput()->withErrors([
+                'msg' => 'Permintaan sebelumnya masih diproses. Mohon tunggu sebentar.',
+            ]);
+        }
+
         try {
-            switch ($gateway) {
-                case 'duitku':
-                    // Map generic 'QRIS' to Duitku 'SQ' or others
-                    $paymentMethodCode = $this->mapPaymentMethod($request->metode);
-                    
-                    // Duitku Config
-                    $duitkuConfig = new Config($api->duitku_merchant_key, $api->duitku_merchant_code);
-                    $duitkuConfig->setSandboxMode($api->duitku_mode === 'sandbox');
-                    $duitkuConfig->setSanitizedMode(true);
-                    $duitkuConfig->setDuitkuLogs(true);
-            
-                    $params = [
-                        'paymentAmount' => (int) $gross_amount, // User pays GROSS
-                        'merchantOrderId' => $merchantOrderId,
-                        'productDetails' => 'Deposit Saldo',
-                        'email' => Auth::user()->email ?? 'user@example.com',
-                        'phoneNumber' => $request->no_telfon ?? '08123456789',
-                        'customerVaName' => Auth::user()->name ?? Auth::user()->username,
-                        'paymentMethod' => $paymentMethodCode,
-                        'callbackUrl' => route('duitku.callback'),
-                        'returnUrl' => route('riwayat'),
-                        'expiryPeriod' => 60,
-                        'customerDetail' => [
-                            'firstName' => Auth::user()->username,
-                            'lastName' => '',
-                            'email' => Auth::user()->email ?? 'user@example.com',
-                            'phoneNumber' => $request->no_telfon ?? '08123456789',
-                        ],
-                        'itemDetails' => [
-                            [
-                                'name' => 'Deposit Saldo',
-                                'price' => (int) $gross_amount, 
-                                'quantity' => 1
-                            ]
-                        ],
-                    ];
+            $method = Method::query()
+                ->enabled()
+                ->whereRaw('UPPER(code) = ?', [$paymentMethod])
+                ->first();
 
-                    $response = Pop::createInvoice($params, $duitkuConfig);
-                    $res = json_decode($response, true);
-                    
-                    if (isset($res['statusCode']) && $res['statusCode'] == '00') {
-                        $result = [
-                            'success' => true,
-                            'reference' => $res['reference'],
-                            'pay_url' => $res['paymentUrl'] ?? null,
-                            'va_number' => $res['vaNumber'] ?? $res['qrString'] ?? null,
-                            'amount' => $gross_amount, // Duitku confirmed amount
-                            'gateway_ref' => $res['reference'],
-                            'expired_at' => now()->addMinutes(60)->toIso8601String(),
-                        ];
-                    } else {
-                        throw new \Exception('Duitku Error: ' . ($res['statusMessage'] ?? 'Unknown'));
-                    }
-                    break;
-
-                case 'tripay':
-                    $tripay = new \App\Http\Controllers\TriPayController();
-                    // Map 'QRIS' to 'QRIS' (Tripay usually uses QRIS or QRISC)
-                    // Assuming 'QRIS' input maps to Tripay 'QRIS' code
-                    $tp_method = ($request->metode == 'QRIS') ? 'QRIS' : $request->metode; 
-                    
-                    $res = $tripay->request(
-                        $merchantOrderId, 
-                        $gross_amount, 
-                        $tp_method, 
-                        Auth::user()->email ?? 'user@example.com', 
-                        $request->no_telfon ?? '08123456789'
-                    );
-                    
-                    if ($res['success']) {
-                        $result = [
-                            'success' => true,
-                            'reference' => $res['reference'],
-                            'pay_url' => null, // Tripay usually gives checkout URL or QR string
-                            'va_number' => $res['no_pembayaran'], // Can be QR String or VA
-                            'amount' => $res['amount'],
-                            'gateway_ref' => $res['reference'],
-                            'expired_at' => $res['expired_at'] ?? null,
-                        ];
-                        // If it's a URL, handle it
-                        if (filter_var($res['no_pembayaran'], FILTER_VALIDATE_URL)) {
-                             $result['pay_url'] = $res['no_pembayaran'];
-                        }
-                    } else {
-                        throw new \Exception('Tripay Error: ' . ($res['msg'] ?? 'Unknown'));
-                    }
-                    break;
-
-                case 'tokopay':
-                    $tokopay = new \App\Http\Controllers\TokoPayController();
-                    // Mapping needs verification, assuming 'QRIS'
-                    $tp_code = ($request->metode == 'QRIS') ? 'QRIS' : $request->metode;
-                    
-                    // Using createAdvanceOrder as it looks more complete in reference
-                    $res = $tokopay->createAdvanceOrder(
-                        $merchantOrderId,
-                        $tp_code,
-                        $gross_amount,
-                        Auth::user()->username,
-                        $request->no_telfon ?? '08123456789',
-                        'Deposit Saldo'
-                    );
-
-                     if (isset($res['status']) && $res['status'] == true) { // Check Tokopay success response structure
-                         $data = $res['data'];
-                         $result = [
-                            'success' => true,
-                            'reference' => $data['trx_id'] ?? $merchantOrderId, // Use Trx ID if available
-                            'pay_url' => $data['pay_url'] ?? null,
-                            'va_number' => $data['pay_url'] ?? null, // Tokopay often gives pay_url for QRIS
-                            'amount' => $data['amount'] ?? $gross_amount,
-                            'gateway_ref' => $data['trx_id'] ?? null,
-                            'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
-                        ];
-                     } else {
-                         throw new \Exception('Tokopay Error: ' . ($res['error_msg'] ?? 'Unknown'));
-                     }
-                    break;
-                    
-                default:
-                    throw new \Exception('Gateway Deposit tidak valid');
+            if (! $method) {
+                return back()->withInput()->withErrors(['msg' => 'Metode pembayaran tidak valid']);
             }
-            
-            // --- 2. Save to Database ---
-            if (isset($result['success']) && $result['success']) {
+
+            if ($method->isSaldoMethod()) {
+                return back()->withInput()->withErrors(['msg' => 'Metode saldo tidak tersedia untuk top up saldo.']);
+            }
+
+            if (! app()->environment('local') && $method->isDemoMethod()) {
+                return back()->withInput()->withErrors(['msg' => 'Metode demo tidak tersedia di environment ini.']);
+            }
+
+            if ($this->methodRequiresPhone($paymentMethod) && mb_strlen($normalizedPhone) < 8) {
+                return back()->withInput()->withErrors([
+                    'no_telfon' => 'Nomor WhatsApp aktif wajib diisi untuk metode pembayaran ini.',
+                ]);
+            }
+
+            $duplicatePending = Deposit::query()
+                ->where('username', (string) $user->username)
+                ->whereRaw('UPPER(metode) = ?', [$paymentMethod])
+                ->where('jumlah', $netAmount)
+                ->whereIn('status', ['Pending', 'pending'])
+                ->where('created_at', '>=', now()->subMinutes(2))
+                ->exists();
+
+            if ($duplicatePending) {
+                return back()->withInput()->withErrors([
+                    'msg' => 'Transaksi deposit serupa sudah dibuat. Silakan cek invoice deposit terbaru kamu.',
+                ]);
+            }
+
+            $feePercent = (float) ($method->fee_percent ?? 0);
+            $fixedFee = (float) ($method->fix_fee ?? 0);
+            $feeAmount = (int) ceil($netAmount * ($feePercent / 100)) + (int) ceil($fixedFee);
+            $grossAmount = $netAmount + $feeAmount;
+
+            $gateway = $api->deposit_jalur ?? 'duitku';
+            $merchantOrderId = $this->generateUniqueDepositOrderId();
+            $result = $this->requestGatewayInvoice(
+                gateway: (string) $gateway,
+                paymentMethod: $paymentMethod,
+                merchantOrderId: $merchantOrderId,
+                grossAmount: $grossAmount,
+                userEmail: (string) ($user->email ?? 'user@example.com'),
+                userName: (string) ($user->name ?? $user->username),
+                username: (string) $user->username,
+                phone: $normalizedPhone ?: '08123456789',
+                settings: $api,
+            );
+
+            if (! ($result['success'] ?? false)) {
+                return back()->withInput()->withErrors(['msg' => 'Gagal membuat invoice via ' . ucfirst((string) $gateway)]);
+            }
+
+            DB::transaction(function () use (
+                $merchantOrderId,
+                $user,
+                $paymentMethod,
+                $result,
+                $netAmount,
+                $normalizedPhone,
+                $gateway
+            ): void {
                 $deposit = new Deposit();
                 $deposit->order_id = $merchantOrderId;
-                $deposit->username = Auth::user()->username;
-                $deposit->metode = $request->metode;
+                $deposit->username = (string) $user->username;
+                $deposit->metode = $paymentMethod;
                 $deposit->no_pembayaran = $result['va_number'] ?? $result['pay_url'] ?? '-';
-                $deposit->jumlah = $net_amount; // NET AMOUNT (Verified)
-                $deposit->status = "Pending";
+                $deposit->jumlah = $netAmount;
+                $deposit->status = 'Pending';
                 $deposit->save();
-                
+
                 $pembayaran = new Pembayaran();
                 $pembayaran->order_id = $merchantOrderId;
-                $pembayaran->harga = $result['amount']; // GROSS AMOUNT
+                $pembayaran->harga = $result['amount'];
                 $pembayaran->no_pembayaran = $deposit->no_pembayaran;
-                $pembayaran->no_pembeli = $request->no_telfon ?? '-';
+                $pembayaran->no_pembeli = $normalizedPhone ?: '-';
                 $pembayaran->status = 'Belum Lunas';
-                $pembayaran->metode = $request->metode; // Store Method Code (e.g. QRIS)
+                $pembayaran->metode = $paymentMethod;
                 $pembayaran->reference = $result['gateway_ref'];
-                $pembayaran->expired_at = $this->resolvePaymentExpiryAt($result, $gateway);
-                // Gateway specific columns if needed
-                if ($gateway == 'duitku') {
+                $pembayaran->expired_at = $this->resolvePaymentExpiryAt($result, (string) $gateway);
+
+                if ((string) $gateway === 'duitku') {
                     $pembayaran->duitku_reference = $result['gateway_ref'];
                     $pembayaran->duitku_merchant_order_id = $merchantOrderId;
                 }
+
                 $pembayaran->save();
+            });
 
-                // Redirect
-                // if (!empty($result['pay_url'])) {
-                //      return redirect($result['pay_url']);
-                // }
-                
-                return redirect()->route('deposit.invoice', $merchantOrderId)->with('success', 'Silakan lakukan pembayaran');
+            return redirect()->route('deposit.invoice', $merchantOrderId)->with('success', 'Silakan lakukan pembayaran');
+        } catch (\Throwable $exception) {
+            report($exception);
 
-            } else {
-                 return back()->withErrors(['msg' => 'Gagal membuat invoice via ' . ucfirst($gateway)]);
-            }
-
-        } catch (\Exception $e) {
-            return back()->withErrors(['msg' => 'Terjadi kesalahan: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors([
+                'msg' => 'Terjadi kesalahan: ' . $exception->getMessage(),
+            ]);
+        } finally {
+            Cache::forget($submitLockKey);
         }
     }
 
-    private function mapPaymentMethod($code)
+    private function requestGatewayInvoice(
+        string $gateway,
+        string $paymentMethod,
+        string $merchantOrderId,
+        int $grossAmount,
+        string $userEmail,
+        string $userName,
+        string $username,
+        string $phone,
+        object $settings
+    ): array {
+        return match (strtolower($gateway)) {
+            'duitku' => $this->requestDuitkuInvoice(
+                paymentMethod: $paymentMethod,
+                merchantOrderId: $merchantOrderId,
+                grossAmount: $grossAmount,
+                userEmail: $userEmail,
+                userName: $userName,
+                username: $username,
+                phone: $phone,
+                settings: $settings
+            ),
+            'tripay' => $this->requestTripayInvoice(
+                paymentMethod: $paymentMethod,
+                merchantOrderId: $merchantOrderId,
+                grossAmount: $grossAmount,
+                userEmail: $userEmail,
+                phone: $phone
+            ),
+            'tokopay' => $this->requestTokopayInvoice(
+                paymentMethod: $paymentMethod,
+                merchantOrderId: $merchantOrderId,
+                grossAmount: $grossAmount,
+                username: $username,
+                phone: $phone
+            ),
+            default => throw new \RuntimeException('Gateway Deposit tidak valid'),
+        };
+    }
+
+    private function requestDuitkuInvoice(
+        string $paymentMethod,
+        string $merchantOrderId,
+        int $grossAmount,
+        string $userEmail,
+        string $userName,
+        string $username,
+        string $phone,
+        object $settings
+    ): array {
+        $duitkuConfig = new Config($settings->duitku_merchant_key, $settings->duitku_merchant_code);
+        $duitkuConfig->setSandboxMode($settings->duitku_mode === 'sandbox');
+        $duitkuConfig->setSanitizedMode(true);
+        $duitkuConfig->setDuitkuLogs(true);
+
+        $params = [
+            'paymentAmount' => $grossAmount,
+            'merchantOrderId' => $merchantOrderId,
+            'productDetails' => 'Deposit Saldo',
+            'email' => $userEmail,
+            'phoneNumber' => $phone,
+            'customerVaName' => $userName,
+            'paymentMethod' => $this->mapPaymentMethod($paymentMethod),
+            'callbackUrl' => route('duitku.callback'),
+            'returnUrl' => route('riwayat'),
+            'expiryPeriod' => 60,
+            'customerDetail' => [
+                'firstName' => $username,
+                'lastName' => '',
+                'email' => $userEmail,
+                'phoneNumber' => $phone,
+            ],
+            'itemDetails' => [
+                [
+                    'name' => 'Deposit Saldo',
+                    'price' => $grossAmount,
+                    'quantity' => 1,
+                ],
+            ],
+        ];
+
+        $response = Pop::createInvoice($params, $duitkuConfig);
+        $payload = json_decode($response, true);
+
+        if (! isset($payload['statusCode']) || (string) $payload['statusCode'] !== '00') {
+            throw new \RuntimeException('Duitku Error: ' . ($payload['statusMessage'] ?? 'Unknown'));
+        }
+
+        return [
+            'success' => true,
+            'reference' => $payload['reference'],
+            'pay_url' => $payload['paymentUrl'] ?? null,
+            'va_number' => $payload['vaNumber'] ?? $payload['qrString'] ?? null,
+            'amount' => $grossAmount,
+            'gateway_ref' => $payload['reference'],
+            'expired_at' => now()->addMinutes(60)->toIso8601String(),
+        ];
+    }
+
+    private function requestTripayInvoice(
+        string $paymentMethod,
+        string $merchantOrderId,
+        int $grossAmount,
+        string $userEmail,
+        string $phone
+    ): array {
+        $tripay = new TriPayController();
+        $tripayMethod = $paymentMethod === 'QRIS' ? 'QRIS' : $paymentMethod;
+
+        $payload = $tripay->request(
+            $merchantOrderId,
+            $grossAmount,
+            $tripayMethod,
+            $userEmail,
+            $phone
+        );
+
+        if (! ($payload['success'] ?? false)) {
+            throw new \RuntimeException('Tripay Error: ' . ($payload['msg'] ?? 'Unknown'));
+        }
+
+        $payUrl = null;
+        $vaOrQr = $payload['no_pembayaran'] ?? null;
+        if (filled($vaOrQr) && filter_var((string) $vaOrQr, FILTER_VALIDATE_URL)) {
+            $payUrl = $vaOrQr;
+        }
+
+        return [
+            'success' => true,
+            'reference' => $payload['reference'] ?? null,
+            'pay_url' => $payUrl,
+            'va_number' => $vaOrQr,
+            'amount' => (int) ($payload['amount'] ?? $grossAmount),
+            'gateway_ref' => $payload['reference'] ?? null,
+            'expired_at' => $payload['expired_at'] ?? null,
+        ];
+    }
+
+    private function requestTokopayInvoice(
+        string $paymentMethod,
+        string $merchantOrderId,
+        int $grossAmount,
+        string $username,
+        string $phone
+    ): array {
+        $tokopay = new TokoPayController();
+        $tokopayMethod = $paymentMethod === 'QRIS' ? 'QRIS' : $paymentMethod;
+
+        $payload = $tokopay->createAdvanceOrder(
+            $merchantOrderId,
+            $tokopayMethod,
+            $grossAmount,
+            $username,
+            $phone,
+            'Deposit Saldo'
+        );
+
+        if (! (($payload['status'] ?? false) === true)) {
+            throw new \RuntimeException('Tokopay Error: ' . ($payload['error_msg'] ?? 'Unknown'));
+        }
+
+        $data = $payload['data'] ?? [];
+
+        return [
+            'success' => true,
+            'reference' => $data['trx_id'] ?? $merchantOrderId,
+            'pay_url' => $data['pay_url'] ?? null,
+            'va_number' => $data['pay_url'] ?? null,
+            'amount' => (int) ($data['amount'] ?? $grossAmount),
+            'gateway_ref' => $data['trx_id'] ?? null,
+            'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
+        ];
+    }
+
+    private function methodRequiresPhone(string $methodCode): bool
     {
-        $maps = [
+        return in_array($methodCode, [
+            'OVO',
+            'DANA',
+            'SHOPEEPAY',
+            'LINKAJA',
+            'GOPAY',
+            'OVOPUSH',
+            'ASTRAPAY',
+            'VIRGO',
+        ], true);
+    }
+
+    private function generateUniqueDepositOrderId(): string
+    {
+        do {
+            $candidate = 'DP' . now()->format('His') . substr(str_shuffle('0123456789'), 0, 8);
+        } while (
+            Deposit::query()->where('order_id', $candidate)->exists()
+            || Pembayaran::query()->where('order_id', $candidate)->exists()
+        );
+
+        return $candidate;
+    }
+
+    private function mapPaymentMethod(string $code): string
+    {
+        $normalized = strtoupper(trim($code));
+
+        return match ($normalized) {
             'OVO' => 'OV',
             'DANA' => 'DA',
             'SHOPEEPAY' => 'SA',
             'LINKAJA' => 'LF',
             'QRIS' => 'SQ',
             'BNC' => 'NC',
-        ];
-        return $maps[$code] ?? $code;
+            default => $normalized,
+        };
     }
 
     private function resolvePaymentExpiryAt(array $result, string $gateway): ?Carbon
@@ -286,7 +428,6 @@ class DepositController extends Controller
             if (is_numeric($candidate)) {
                 $timestamp = (int) $candidate;
 
-                // Normalize millisecond epoch values from some gateways.
                 if ($timestamp > 9_999_999_999) {
                     $timestamp = (int) floor($timestamp / 1000);
                 }

@@ -2,6 +2,32 @@
 
 use Illuminate\Support\Str;
 
+$sessionDomain = env('SESSION_DOMAIN');
+if (is_string($sessionDomain)) {
+    $sessionDomain = trim($sessionDomain);
+}
+if ($sessionDomain === '' || $sessionDomain === 'null') {
+    $sessionDomain = null;
+}
+
+$runtimeHost = (string) parse_url((string) env('APP_URL', ''), PHP_URL_HOST);
+if (isset($_SERVER['HTTP_HOST'])) {
+    $runtimeHost = (string) explode(':', (string) $_SERVER['HTTP_HOST'])[0];
+}
+$runtimeHost = strtolower(trim($runtimeHost));
+$isLocalRuntime = in_array($runtimeHost, ['localhost', '127.0.0.1', '::1'], true);
+
+if ($isLocalRuntime) {
+    // Host-only cookie is safest for localhost and avoids domain mismatch.
+    $sessionDomain = null;
+} elseif (is_string($sessionDomain)) {
+    $normalizedSessionDomain = strtolower(ltrim($sessionDomain, '.'));
+    if ($normalizedSessionDomain !== '' && $runtimeHost !== '' && ! str_ends_with($runtimeHost, $normalizedSessionDomain)) {
+        // Prevent invalid domain attribute when current host differs from SESSION_DOMAIN.
+        $sessionDomain = null;
+    }
+}
+
 return [
     'driver' => env('SESSION_DRIVER', 'file'),
 
@@ -34,8 +60,8 @@ return [
     // Path untuk cookie sesi (default: '/')
     'path' => '/',
 
-    // Domain untuk cookie sesi (default: null)
-    'domain' => env('SESSION_DOMAIN', '.istanatopup.com'), // Tambahkan titik (.) di depan
+    // Domain untuk cookie sesi. Null = host-only cookie.
+    'domain' => $sessionDomain,
 
     // HTTPS Only Cookies (default: true)
     'secure' => env('SESSION_SECURE_COOKIE', true),
@@ -43,6 +69,6 @@ return [
     // HTTP Access Only (default: true)
     'http_only' => true,
 
-    // Same-Site Cookies (default: strict)
-    'same_site' => 'strict',
+    // Same-Site Cookies (lax|strict|none|null)
+    'same_site' => env('SESSION_SAME_SITE', 'lax'),
 ];
