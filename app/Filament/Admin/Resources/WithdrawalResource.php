@@ -98,7 +98,8 @@ class WithdrawalResource extends Resource
                         FileUpload::make('bukti_transfer')
                             ->label('Bukti Transfer / Pembayaran')
                             ->image()
-                            ->directory('bukti_withdraw')
+                            ->disk('assets')
+                            ->directory('assets/bukti_pencairan')
                             ->required(),
                     ])
                     ->action(function (array $data, Withdrawal $record) {

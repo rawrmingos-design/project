@@ -701,34 +701,31 @@
         }
 
         .invoice-detail-card {
-            padding: 1.25rem;
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .012));
-            border: 1px solid rgba(255, 255, 255, .06);
-            box-shadow: 0 30px 55px rgba(2, 6, 23, .14);
+            padding: 1rem;
+            border-radius: 1.25rem;
+            background: rgba(39, 39, 42, .72);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 18px 36px rgba(2, 6, 23, .18);
         }
 
         .invoice-thumbnail-frame {
             border-radius: 1rem;
-            box-shadow: 0 16px 36px rgba(2, 6, 23, .26);
+            box-shadow: 0 10px 24px rgba(2, 6, 23, .24);
         }
 
         .invoice-payment-card {
-            padding: 1.25rem;
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .012));
-            border: 1px solid rgba(255, 255, 255, .06);
-            box-shadow: 0 30px 55px rgba(2, 6, 23, .14);
+            padding: 1rem;
+            border-radius: 1.25rem;
+            background: rgba(39, 39, 42, .72);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 18px 36px rgba(2, 6, 23, .18);
         }
 
         .invoice-payment-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: .75rem;
-            padding-bottom: .85rem;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, .06);
+            display: block;
+            padding-bottom: 0;
+            margin-bottom: .35rem;
+            border-bottom: 0;
         }
 
         .invoice-method-pill {
@@ -819,11 +816,11 @@
         }
 
         .invoice-total-box {
-            padding: 1rem 1.15rem;
-            border-radius: 1.1rem;
-            background: linear-gradient(135deg, rgba(59, 130, 246, .12), rgba(255, 255, 255, .02));
-            border: 1px solid rgba(59, 130, 246, .18);
-            box-shadow: 0 18px 40px rgba(2, 6, 23, .16);
+            padding: 1rem;
+            border-radius: .75rem;
+            background: rgba(39, 39, 42, .72);
+            border: 2px solid rgba(249, 115, 22, .35);
+            box-shadow: 0 14px 28px rgba(2, 6, 23, .14);
         }
 
         .invoice-progress-card {
@@ -953,9 +950,13 @@
 
         .invoice-summary-box {
             border-radius: 1rem;
-            background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .012));
-            border: 1px solid rgba(255, 255, 255, .06);
-            box-shadow: 0 20px 45px rgba(2, 6, 23, .14);
+            background: rgba(39, 39, 42, .72);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 18px 36px rgba(2, 6, 23, .14);
+        }
+
+        .invoice-total-copy {
+            line-height: 1.1;
         }
 
         .invoice-warning-box {
@@ -1437,6 +1438,53 @@
                 display: none;
             }
 
+            .invoice-shell.container {
+                padding-top: 1.5rem;
+                padding-bottom: 1.75rem;
+            }
+
+            .invoice-content-grid {
+                row-gap: 1rem;
+            }
+
+            .invoice-account-grid {
+                gap: .72rem;
+            }
+
+            .invoice-detail-card,
+            .invoice-payment-card {
+                padding: .82rem;
+            }
+
+            .invoice-payment-detail-grid {
+                row-gap: .42rem;
+            }
+
+            .invoice-summary-toggle {
+                min-height: 2.5rem;
+            }
+
+            .invoice-summary-panel {
+                padding-top: .68rem;
+            }
+
+            .invoice-total-box {
+                margin-top: .7rem;
+            }
+
+            .invoice-total-copy {
+                font-size: 1rem;
+            }
+
+            .invoice-total-copy span#hargaPembayaran {
+                font-size: 1rem;
+            }
+
+            .invoice-copy-button {
+                padding: .38rem .56rem;
+                border-radius: .68rem;
+            }
+
             .invoice-intro-stage-custom {
                 width: min(58vw, 8.5rem);
                 height: min(58vw, 8.5rem);
@@ -1514,6 +1562,25 @@
                 max-width: 100%;
                 font-size: .98rem;
                 line-height: 1.45;
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1024px) {
+            .invoice-content-grid {
+                row-gap: 1.5rem;
+            }
+
+            .invoice-detail-card,
+            .invoice-payment-card {
+                padding: .9rem;
+            }
+
+            .invoice-payment-detail-grid {
+                row-gap: .55rem;
+            }
+
+            .invoice-total-copy {
+                font-size: 1.12rem;
             }
         }
 
@@ -1618,11 +1685,14 @@
         $resolvedQrImageUrl = $isQrImage ? $paymentValue : $dynamicQrSource;
         $showPayButton = $data->status_pembayaran == 'Belum Lunas' && $isPaymentUrl && !$showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
-        $showCopyPaymentNumber = !$isPaymentUrl && in_array($paymentCode, [
+        $showCopyPaymentNumber = !$isPaymentUrl && (
+            Str::startsWith($paymentCode, 'MANUAL') ||
+            in_array($paymentCode, [
             'ALFAMRT', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
             'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
             'DM', 'BV', 'IR', 'FT', 'BRIVA', 'DUITKU',
-        ], true);
+        ], true)
+        );
 
         $heroEyebrow = 'Terima Kasih!';
         $heroTitle = 'Harap lengkapi pembayaran.';
@@ -1967,115 +2037,113 @@
             </div>
 
             <div class="invoice-divider-block invoice-animate invoice-animate-delay-3 my-8 border-y border-murky-600 py-8">
-                <div class="grid grid-cols-2 gap-8">
-                    <div class="invoice-detail-card invoice-panel rounded-2xl col-span-2 flex gap-8 lg:col-span-1">
-                        <div
-                            class="invoice-thumbnail-frame relative mt-2 aspect-[4/6] h-32 flex-none overflow-hidden rounded-lg bg-murky-600 object-cover object-center print:hidden sm:h-56 md:mt-0 md:block">
-                            <x-optimized-image :src="$thumbnails" profile="thumbnail" alt="{{ $namas }}" sizes="224px" width="320" height="480" loading="eager" fetchpriority="high" class="object-cover object-center" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-medium text-white print:text-sm print:text-slate-800">
-                                <span href="" style="outline: none;">{{ $namas }}</span>
-                            </h3>
-                            <p class="text-sm">{{ $data->layanan }}</p>
-                            <div>
-
-                                @if ($data->tipe_transaksi == 'joki')
-                                    <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Email :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">Censored</p>
+                <div class="invoice-content-grid grid grid-cols-12 gap-y-6 md:gap-8">
+                    <div class="invoice-detail-card invoice-panel rounded-3xl col-span-12 sm:col-span-8 md:col-span-6">
+                        <div class="invoice-account-grid grid grid-cols-5 gap-4 md:grid-cols-4">
+                            <div
+                                class="invoice-thumbnail-frame relative col-span-2 aspect-square overflow-hidden rounded-2xl bg-murky-600 object-cover object-center print:hidden md:col-span-1">
+                                <x-optimized-image :src="$thumbnails" profile="thumbnail" alt="{{ $namas }}" sizes="224px" width="320" height="480" loading="eager" fetchpriority="high" class="object-cover object-center" style="position: absolute; height: 100%; width: 100%; inset: 0px; color: transparent;" />
+                            </div>
+                            <div class="col-span-3 text-sm font-medium">
+                                <h3 class="text-base font-semibold uppercase text-white print:text-sm print:text-slate-800">
+                                    <span style="outline: none;">{{ $namas }}</span>
+                                </h3>
+                                <p class="text-sm text-murky-200">{{ $data->layanan }}</p>
+                                <div class="mt-4 border-t border-murky-600 pt-3">
+                                    <div class="pb-2 text-sm font-semibold text-white print:text-slate-800">Informasi Akun</div>
+                                    @if ($data->tipe_transaksi == 'joki')
+                                        <div class="text-sm font-medium text-murky-200 print:text-slate-800">
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Email</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: Censored</p>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Password</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: Censored</p>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Login Via</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->loginvia_joki }}</p>
+                                                </div>
+                                            </div>
+                                            @if($data->nickname_joki)
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Nickname</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->nickname_joki }}</p>
+                                                </div>
+                                            </div>
+                                            @endif
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Request</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->request_joki }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Catatan</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->catatan_joki }}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Password :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">Censored</p>
+                                    @elseif($data->tipe_transaksi == 'jokigendong')
+                                        <div class="text-sm font-medium text-murky-200 print:text-slate-800">
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Catatan</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->catatan_joki }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Role</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->loginvia_joki }}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Login Via :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->loginvia_joki }}</p>
+                                    @else
+                                        <div class="text-sm font-medium text-murky-200 print:text-slate-800">
+                                            @if($data->nickname)
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">Nickname</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->nickname }}</p>
+                                                </div>
+                                            </div>
+                                            @endif
+                                            <div class="grid grid-cols-4 gap-2 pb-2">
+                                                <div class="truncate text-white print:text-slate-800">ID</div>
+                                                <div class="col-span-3">
+                                                    <p class="break-words">: {{ $data->user_id }}
+                                                        {{ $data->zone != null ? '(' . $data->zone . ')' : '' }}</p>
+                                                </div>
                                             </div>
                                         </div>
-                                        @if($data->nickname_joki)
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">NIckname :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->nickname_joki }}</p>
-                                            </div>
-                                        </div>
-                                        @endif
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Request :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->request_joki }}</p>
-                                            </div>
-                                        </div>
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Catatan :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->catatan_joki }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @elseif($data->tipe_transaksi == 'jokigendong')
-                                    <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Catatan :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->catatan_joki }}</p>
-                                            </div>
-                                        </div>
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Role :</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->loginvia_joki }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @else
-                                    <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
-                                        @if($data->nickname)
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">Nickname</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->nickname }}</p>
-                                            </div>
-                                        </div>
-                                        @endif
-                                        <div class="grid grid-cols-3 gap-4 pb-2">
-                                            <div class="text-white print:text-slate-800">ID</div>
-                                            <div class="col-span-2">
-                                                <p class="break-words">{{ $data->user_id }}
-                                                    {{ $data->zone != null ? '(' . $data->zone . ')' : '' }}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                @endif
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-span-2 row-span-3 lg:col-span-1">
-                        <div class="invoice-payment-card invoice-panel rounded-2xl w-full flex-1 print:pt-0 md:flex-auto md:pt-0">
+                    <div class="col-span-12 sm:col-span-4 md:col-span-6">
+                        <div class="invoice-payment-card invoice-panel rounded-3xl w-full flex-1 print:pt-0 md:flex-auto md:pt-0">
                             <dl class="gap-x-8 text-sm">
                                 <div class="w-full">
                                     <div class="invoice-payment-heading">
-                                        <dt class="text-lg font-medium text-white print:text-sm print:text-slate-800">Metode
+                                        <dt class="text-base font-medium text-white print:text-sm print:text-slate-800">Metode
                                             Pembayaran</dt>
-                                        <span class="invoice-method-pill">{{ $metode_name }}</span>
                                     </div>
-                                    <dd class="text-murky-200">
-                                        <div class="flex items-start space-x-4 print:text-slate-800">
-                                            <div class="text-sm text-white">{{ $metode_name }}</div>
-                                        </div>
+                                    <dd class="text-sm font-semibold text-white print:text-slate-800">{{ $metode_name }}</dd>
+                                    <div class="flex flex-col gap-x-4 gap-y-6 pt-6">
                                         @if ($showCopyPaymentNumber)
-                                            <div
-                                                class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4 mt-3 mb-2">
-                                                No Pembayaran</div>
-                                            <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
+                                            <div class="invoice-payment-detail-grid grid grid-cols-12 gap-x-4 gap-y-1 md:gap-2">
+                                                <div class="col-span-12 pt-2 text-white print:text-slate-800 md:col-span-4 md:pt-0">No Pembayaran</div>
+                                                <div class="col-span-12 text-white print:text-slate-800 md:col-span-8">
                                                 <button type="button"
                                                     class="invoice-copy-button flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden"
                                                     onclick="copyNoPembayaranToClipboard()">
@@ -2090,15 +2158,15 @@
                                                     </svg>
                                                 </button>
                                                 <span class="hidden print:block"></span>
+                                                </div>
                                             </div>
                                         @endif
-                                    </dd>
-                                    <div
-                                        class="mt-8 grid w-full grid-cols-8 gap-4 border-t border-murky-600 pt-8 text-left text-murky-200 print:border-slate-200 print:text-slate-800 md:gap-x-2">
                                         <div
-                                            class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4">
+                                            class="invoice-payment-detail-grid grid w-full grid-cols-12 gap-x-4 gap-y-2 border-t border-murky-600 pt-6 text-left text-murky-200 print:border-slate-200 print:text-slate-800 md:gap-x-2">
+                                        <div
+                                            class="col-span-12 flex items-center pt-2 text-white print:text-slate-800 md:col-span-4 md:pt-0">
                                             Nomor Invoice</div>
-                                        <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
+                                        <div class="col-span-12 text-white print:text-slate-800 md:col-span-8">
                                             <button type="button"
                                                 class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden"
                                                 onclick="copyToClipboard()">
@@ -2131,8 +2199,8 @@
                                                 $statuscolor = 'rose';
                                             }
                                         @endphp
-                                        <div class="invoice-status-row col-span-3 text-white print:text-slate-800 md:col-span-4">Status Transaksi</div>
-                                        <div class="col-span-5 md:col-span-4">
+                                        <div class="invoice-status-row col-span-12 pt-2 text-white print:text-slate-800 md:col-span-4 md:pt-0">Status Transaksi</div>
+                                        <div class="col-span-12 md:col-span-8">
                                             @if ($data->status_pembelian == 'Pending')
                                                 <span id="invoiceStatusPembelian" class="invoice-badge invoice-badge-warning">Pending</span>
                                             @elseif($data->status_pembelian == 'Proses' || $data->status_pembelian == 'Processing')
@@ -2157,9 +2225,9 @@
                                                 $pembayarancolor = 'rose';
                                             }
                                         @endphp
-                                        <div class="invoice-status-row col-span-3 text-white print:text-slate-800 md:col-span-4">Status
+                                        <div class="invoice-status-row col-span-12 pt-2 text-white print:text-slate-800 md:col-span-4 md:pt-0">Status
                                             Pembayaran</div>
-                                        <div class="col-span-5 md:col-span-4">
+                                        <div class="col-span-12 md:col-span-8">
                                             @if ($data->status_pembayaran == 'Belum Lunas')
                                                 <span id="badge-unpaid" class="invoice-badge invoice-badge-danger">Unpaid</span>
                                             @elseif($data->status_pembayaran == 'PAID' || $data->status_pembayaran == 'Lunas')
@@ -2173,9 +2241,9 @@
                                         @endphp
                                         @if ($snValue)
                                             <div
-                                                class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4">
+                                                class="col-span-12 flex items-center pt-2 text-white print:text-slate-800 md:col-span-4 md:pt-0">
                                                 Keterangan / SN</div>
-                                            <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
+                                            <div class="col-span-12 text-white print:text-slate-800 md:col-span-8">
                                                 <button onclick="copyToClipboardsn()" type="button"
                                                     class="invoice-copy-button flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden">
                                                     <div class="max-w-[172px] truncate md:w-auto md:max-w-none"
@@ -2191,6 +2259,7 @@
                                             </div>
                                         @endif
                                     </div>
+                                </div>
                                 </div>
                             </dl>
                             @if ($data->status_pembayaran == 'Belum Lunas')
@@ -2280,22 +2349,22 @@
                             @endif
                         </div>
                     </div>
-                    <div class="invoice-animate invoice-animate-delay-3 col-span-2 col-start-1 row-start-2 lg:col-span-1">
+                    <div class="invoice-animate invoice-animate-delay-3 col-span-12 pt-2 sm:col-span-8 md:col-span-6">
 
                         <button
-                            class="flex w-full justify-between rounded-lg bg-murky-800 px-4 py-2 text-left text-sm font-medium text-white duration-200 ease-in-out hover:bg-murky-800 focus:outline-none"
-                            id="toggleButton" type="button" aria-expanded="true" data-headlessui-state="open"
+                            class="invoice-summary-toggle flex w-full justify-between rounded-lg border border-murky-500 bg-murky-800/80 px-4 py-2 text-left text-sm font-medium text-white duration-200 ease-in-out hover:bg-murky-800 focus:outline-none"
+                            id="toggleButton" type="button" aria-expanded="false" data-headlessui-state=""
                             aria-controls="headlessui-disclosure-panel-:r6r:">
                             <span>Rincian Pembayaran</span>
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                                aria-hidden="true" class="rotate-180 transform h-5 w-5 text-white">
+                                aria-hidden="true" id="toggleChevron" class="h-5 w-5 text-white transition-transform duration-200">
                                 <path fill-rule="evenodd"
                                     d="M14.77 12.79a.75.75 0 01-1.06-.02L10 8.832 6.29 12.77a.75.75 0 11-1.08-1.04l4.25-4.5a.75.75 0 011.08 0l4.25 4.5a.75.75 0 01-.02 1.06z"
                                     clip-rule="evenodd"></path>
                             </svg>
                         </button>
-                        <div id="dropdownContent" class="pt-4 text-sm text-murky-200 hidden">
-                            <div class="invoice-summary-box rounded-lg bg-murky-800 p-4">
+                        <div id="dropdownContent" class="invoice-summary-panel pt-4 text-sm text-murky-200 hidden">
+                            <div class="invoice-summary-box rounded-lg bg-murky-800/80 p-4">
                                 <dl class="space-y-4 text-sm">
                                     <div class="flex justify-between">
                                         <dt class="font-medium text-white">Harga</dt>
@@ -2326,10 +2395,10 @@
                         </div>
 
                         <div class="invoice-total-box invoice-amount-pop mb-8 mt-4 flex items-center justify-between text-primary-500">
-                            <dt class="text-xl font-bold text-white print:text-sm md:text-2xl">Total Harga</dt>
+                            <dt class="text-lg font-bold text-white print:text-sm md:text-xl">Total Pembayaran</dt>
                             <dd class="font-semibold text-white print:text-slate-800">
                                 <button type="button"
-                                    class="invoice-copy-button flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 text-xl text-primary-500 print:hidden md:text-2xl"
+                                    class="invoice-total-copy invoice-copy-button flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 text-xl text-primary-500 print:hidden md:text-2xl"
                                     id="copyButton">
                                     <div class="max-w-[172px] truncate md:w-auto md:max-w-none">
                                         Rp.
@@ -2686,12 +2755,36 @@
 
             const toggleButton = document.getElementById('toggleButton');
             const dropdownContent = document.getElementById('dropdownContent');
+            const toggleChevron = document.getElementById('toggleChevron');
 
             if (toggleButton && dropdownContent) {
+                const desktopSummaryQuery = window.matchMedia('(min-width: 1024px)');
+                const syncSummaryState = () => {
+                    const expanded = toggleButton.getAttribute('aria-expanded') === 'true';
+                    dropdownContent.classList.toggle('hidden', !expanded);
+                    if (toggleChevron) {
+                        toggleChevron.classList.toggle('rotate-180', expanded);
+                    }
+                };
+
+                const syncSummaryDefaultByViewport = () => {
+                    toggleButton.setAttribute('aria-expanded', desktopSummaryQuery.matches ? 'true' : 'false');
+                    syncSummaryState();
+                };
+
+                syncSummaryState();
+                syncSummaryDefaultByViewport();
+
+                if (typeof desktopSummaryQuery.addEventListener === 'function') {
+                    desktopSummaryQuery.addEventListener('change', syncSummaryDefaultByViewport);
+                } else if (typeof desktopSummaryQuery.addListener === 'function') {
+                    desktopSummaryQuery.addListener(syncSummaryDefaultByViewport);
+                }
+
                 toggleButton.addEventListener('click', function() {
-                    const expanded = toggleButton.getAttribute('aria-expanded') === 'true' || false;
-                    toggleButton.setAttribute('aria-expanded', !expanded);
-                    dropdownContent.classList.toggle('hidden');
+                    const expanded = toggleButton.getAttribute('aria-expanded') === 'true';
+                    toggleButton.setAttribute('aria-expanded', (!expanded).toString());
+                    syncSummaryState();
                 });
             }
 

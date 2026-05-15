@@ -666,7 +666,7 @@
             </div>
           </div>
           <div class="flex justify-center bg-secondary px-4 py-2 rounded-xl">
-            <button class="inline-flex items-center justify-center whitespace-nowrap text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8" type="button" name="popup" id="closePopupButton">
+            <button class="inline-flex items-center justify-center whitespace-nowrap text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8" type="button" name="popup" id="closeJokiInfoPopupButton">
               OK, Saya Mengerti
             </button>
           </div>
@@ -679,7 +679,7 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     let popup = document.getElementById("popupdppp");
-    let closeButton = document.getElementById("closePopupButton");
+    let closeButton = document.getElementById("closeJokiInfoPopupButton");
 
     if (popup) {
         popup.classList.add("show");
@@ -4413,7 +4413,8 @@ document.addEventListener("DOMContentLoaded", function() {
     </div>
                </div>
                
-             <div class="popup-structure popup-slide flex min-h-full items-center justify-center p-4 text-center sm:p-0" id="popupppp">
+            @if(in_array($kategori->kode, ['mobile-legends']))
+             <div class="popup-structure popup-slide flex min-h-full items-center justify-center p-4 text-center sm:p-0" id="weeklyDiamondPassPopup">
     <div class="fixed inset-0 z-10 overflow-y-auto">
         <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
             <div class="relative w-full transform overflow-hidden rounded-lg bg-murky-900 text-left shadow-xl transition-all sm:my-8 sm:max-w-3xl !rounded-2xl opacity-100 translate-y-0 sm:scale-100" id="headlessui-dialog-panel-weekly-diamond-pass" data-headlessui-state="open">
@@ -4445,7 +4446,7 @@ document.addEventListener("DOMContentLoaded", function() {
                             class="inline-flex items-center justify-center whitespace-nowrap text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-8 "
                             type="button"
                             name="popup"
-                            id="closePopupButton" <!-- Add an ID to the button -->
+                            id="closeWeeklyDiamondPopupButton"
                         >
                             OK, Saya Mengerti
                         </button>
@@ -4456,6 +4457,7 @@ document.addEventListener("DOMContentLoaded", function() {
         </div>
     </div>
 </div>
+            @endif
 
 
             <div class="rounded-xl bg-murky-800 shadow-2xl" id="section-payment-channel">
@@ -5095,8 +5097,8 @@ document.addEventListener("DOMContentLoaded", function() {
         </style>
          <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <script>
-            var closePopupButtonId = "closePopupButton";
-            var popupStructureClass = ".popup-structure";
+            var closePopupButtonId = "closeWeeklyDiamondPopupButton";
+            var popupStructureClass = "#weeklyDiamondPassPopup";
             var specialListId = "specialList";
         </script>
         <script src="{{ asset('/assets/js/kb2aiuhdoiaujsd.js') }}"></script>
@@ -5476,9 +5478,6 @@ document.addEventListener("DOMContentLoaded", function() {
 })();
 </script>
 
-@if(in_array($kategori->kode, ['mobile-legends']))
-<script type="text/javascript">document.addEventListener("DOMContentLoaded",(function(){let e=document.getElementById("closePopupButton"),t=document.querySelector(".popup-structure");e.addEventListener("click",(function(){t.style.display="none",localStorage.setItem("hidePopup","true")})),"true"===localStorage.getItem("hidePopup")&&(t.style.display="none"),document.getElementById("specialList").addEventListener("click",(function(e){let n=e.target.closest(".product-list");if(n){n.getAttribute("data-layanan").toLowerCase().includes("weekly diamond pass")&&(t.style.display="block")}}))})),document.addEventListener("DOMContentLoaded",(function(){let e=document.querySelectorAll(".popup-slide"),t=!1;e.length>0&&(e[0].classList.add("show"),t=!0),document.addEventListener("click",(function(n){Array.from(e).some((e=>e.contains(n.target)))||(t=!0)}))}));</script>
-@endif
 @include('../footer')
 @push('custom_script')
 @if(in_array($kategori->tipe, ['joki', 'jokigendong' ,'vilogml' ]))

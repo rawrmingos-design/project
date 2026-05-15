@@ -1,66 +1,69 @@
-<aside class="sticky top-20 print:hidden">
-    <nav class="h-full content-start lg:grid lg:content-between">
-        <div class="space-y-4">
-            {{-- Dashboard --}}
-            <a class="group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white {{ request()->routeIs('dashboard') ? 'bg-gradient-to-r from-primary-500 to-transparent' : 'hover:from-murky-700 hover:bg-gradient-to-r' }}"
-                style="outline:none" href="{{ route('dashboard') }}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25">
-                    </path>
-                </svg>
-                <span class="hidden truncate md:block">Dashboard</span>
-            </a>
+@php
+    $currentPath = '/' . ltrim((string) request()->path(), '/');
 
-            {{-- Riwayat Transaksi --}}
-            <a class="group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white {{ request()->routeIs('riwayat') ? 'bg-gradient-to-r from-primary-500 to-transparent' : 'hover:from-murky-700 hover:bg-gradient-to-r' }}"
-                style="outline:none" href="{{ route('riwayat') }}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span class="hidden truncate md:block">Riwayat Transaksi</span>
-            </a>
+    $isDashboardActive = request()->routeIs('dashboard') || str_starts_with($currentPath, '/id/settings');
+    $isTransactionsActive = request()->routeIs('riwayat');
+    $isMutationActive = request()->routeIs('reload');
+    $isAffiliateActive = request()->routeIs('affiliate') || request()->routeIs('withdrawal');
+@endphp
 
-            {{-- Riwayat Deposit (NEW) --}}
-            <a class="group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white {{ request()->routeIs('reload') ? 'bg-gradient-to-r from-primary-500 to-transparent' : 'hover:from-murky-700 hover:bg-gradient-to-r' }}"
-                style="outline:none" href="{{ route('reload') }}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"></path>
+<aside class="public-dashboard-side lg:sticky lg:top-24">
+    <nav class="public-dashboard-side__nav flex flex-col gap-2" aria-label="Menu dashboard">
+        <a href="{{ route('dashboard') }}" class="public-dashboard-side__link flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-800/40 px-3 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-orange-400/40 hover:bg-orange-500/10 {{ $isDashboardActive ? 'is-active border-orange-400/50 bg-gradient-to-r from-orange-500/60 to-orange-500/10 text-white' : '' }}">
+            <span class="public-dashboard-side__icon inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" class="h-4 w-4">
+                    <rect x="3" y="3" width="7" height="7" rx="1.4" stroke="currentColor" stroke-width="1.5" />
+                    <rect x="14" y="3" width="7" height="7" rx="1.4" stroke="currentColor" stroke-width="1.5" />
+                    <rect x="3" y="14" width="7" height="7" rx="1.4" stroke="currentColor" stroke-width="1.5" />
+                    <rect x="14" y="14" width="7" height="7" rx="1.4" stroke="currentColor" stroke-width="1.5" />
                 </svg>
-                <span class="hidden truncate md:block">Riwayat Deposit</span>
-            </a>
+            </span>
+            <span class="public-dashboard-side__label truncate">Dashboard</span>
+        </a>
 
-            {{-- Afiliasi (Harus Aktif/Pending) --}}
-            @if(Auth::user()->affiliate_status !== 'inactive' && Auth::user()->affiliate_status !== null)
-            <a class="group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-white {{ request()->routeIs('affiliate') ? 'bg-gradient-to-r from-primary-500 to-transparent' : 'hover:from-murky-700 hover:bg-gradient-to-r' }}"
-                style="outline:none" href="{{ route('affiliate') }}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z">
-                    </path>
+        <a href="{{ route('riwayat') }}" class="public-dashboard-side__link flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-800/40 px-3 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-orange-400/40 hover:bg-orange-500/10 {{ $isTransactionsActive ? 'is-active border-orange-400/50 bg-gradient-to-r from-orange-500/60 to-orange-500/10 text-white' : '' }}">
+            <span class="public-dashboard-side__icon inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" class="h-4 w-4">
+                    <path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5" />
                 </svg>
-                <span class="hidden truncate md:block">Afiliasi</span>
-            </a>
-            @endif
+            </span>
+            <span class="public-dashboard-side__label truncate">Riwayat Transaksi</span>
+        </a>
 
-        </div>
-        <div class="w-full pt-4 ">
-            <form action="{{ route('logout') }}" method="POST" id="logout">
-                @csrf
-                <button type="submit"
-                    class="flex w-full items-center gap-3 rounded-md bg-gradient-to-r px-3 py-2 text-sm font-medium text-rose-500 hover:from-gray-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                        stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75">
-                        </path>
+        <a href="{{ route('reload') }}" class="public-dashboard-side__link flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-800/40 px-3 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-orange-400/40 hover:bg-orange-500/10 {{ $isMutationActive ? 'is-active border-orange-400/50 bg-gradient-to-r from-orange-500/60 to-orange-500/10 text-white' : '' }}">
+            <span class="public-dashboard-side__icon inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" class="h-4 w-4">
+                    <path d="m17 8 3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M20 11H9a4 4 0 0 0-4 4v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="m7 16-3-3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M4 13h11a4 4 0 0 0 4-4V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+            </span>
+            <span class="public-dashboard-side__label truncate">Riwayat Deposit</span>
+        </a>
+
+        <a href="{{ route('affiliate') }}" class="public-dashboard-side__link flex items-center gap-3 rounded-xl border border-white/10 bg-zinc-800/40 px-3 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-orange-400/40 hover:bg-orange-500/10 {{ $isAffiliateActive ? 'is-active border-orange-400/50 bg-gradient-to-r from-orange-500/60 to-orange-500/10 text-white' : '' }}">
+            <span class="public-dashboard-side__icon inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" width="16" height="16" class="h-4 w-4">
+                    <path d="M12 14a5 5 0 1 0-5-5 5 5 0 0 0 5 5Z" stroke="currentColor" stroke-width="1.5" />
+                    <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                </svg>
+            </span>
+            <span class="public-dashboard-side__label truncate">Afiliasi</span>
+        </a>
+
+        <form action="{{ route('logout') }}" method="POST">
+            @csrf
+            <button type="submit" class="public-dashboard-side__link public-dashboard-side__link--logout flex w-full items-center gap-3 rounded-xl border border-white/10 bg-zinc-800/40 px-3 py-2.5 text-sm font-semibold text-rose-300 transition hover:border-rose-400/45 hover:bg-rose-500/10 hover:text-rose-200">
+                <span class="public-dashboard-side__icon inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16" class="h-4 w-4">
+                        <path d="M14 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.5" />
+                        <path d="M20 12H9m8-4 4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
-                    <span class="hidden md:block">Keluar</span>
-                </button>
-            </form>
-        </div>
+                </span>
+                <span class="public-dashboard-side__label truncate">Keluar</span>
+            </button>
+        </form>
     </nav>
 </aside>

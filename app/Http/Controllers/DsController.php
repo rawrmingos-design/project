@@ -9,6 +9,12 @@ use App\Models\Pembayaran;
 use Illuminate\Support\Carbon;
 use App\Models\Kategori;
 use App\Models\AffiliateHistory;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Auth;
 
 
@@ -21,17 +27,56 @@ class DsController extends Controller
         $user = Auth::user();
         $username = $user->username;
 
-        // 1. Optimize: Fetch Today's Transactions ONCE
-        $todaysTransactions = Pembelian::where('username', $username)
-                            ->whereDate('created_at', $today)
-                            ->get();
+        $normalizeStatus = static fn ($status): string => strtolower(trim((string) $status));
+        $buildStats = static function (Collection $transactions) use ($normalizeStatus): array {
+            $statuses = $transactions->pluck('status')->map($normalizeStatus);
+            return [
+                'totalTransactions' => $transactions->count(),
+                'totalSales' => (int) round((float) $transactions->sum('harga')),
+                'waiting' => $statuses->filter(fn ($status) => in_array($status, ['pending', 'menunggu'], true))->count(),
+                'processing' => $statuses->filter(fn ($status) => in_array($status, ['proses', 'process', 'processing', 'diproses'], true))->count(),
+                'success' => $statuses->filter(fn ($status) => in_array($status, ['sukses', 'success'], true))->count(),
+                'failed' => $statuses->filter(fn ($status) => in_array($status, ['batal', 'gagal', 'failed', 'cancelled', 'canceled'], true))->count(),
+            ];
+        };
 
-        // 2. Calculate Daily Stats from Collection (No extra DB queries)
-        $totalPembelian = $todaysTransactions->sum('harga');
-        $banyakPembelian = $todaysTransactions->count();
-        $banyakPembelianPending = $todaysTransactions->where('status', 'Pending')->count();
-        $banyakPembelianSuccess = $todaysTransactions->whereIn('status', ['Sukses', 'Success'])->count(); // Handle both namings
-        $banyakPembelianBatal = $todaysTransactions->whereIn('status', ['Batal', 'Gagal'])->count();
+        $periodDefinitions = [
+            '1d' => [
+                'label' => 'Hari ini',
+                'start' => (clone $today)->startOfDay(),
+            ],
+            '7d' => [
+                'label' => '7 hari terakhir',
+                'start' => (clone $today)->subDays(6)->startOfDay(),
+            ],
+            '30d' => [
+                'label' => '30 hari terakhir',
+                'start' => (clone $today)->subDays(29)->startOfDay(),
+            ],
+        ];
+
+        $periodStats = [];
+        foreach ($periodDefinitions as $periodKey => $periodDefinition) {
+            $periodTransactions = Pembelian::query()
+                ->where('username', $username)
+                ->where('created_at', '>=', $periodDefinition['start'])
+                ->get();
+
+            $periodStats[$periodKey] = array_merge(
+                ['label' => $periodDefinition['label']],
+                $buildStats($periodTransactions)
+            );
+        }
+
+        $defaultPeriod = '30d';
+        $todaysStats = $periodStats['1d'] ?? ['totalTransactions' => 0, 'totalSales' => 0, 'waiting' => 0, 'processing' => 0, 'success' => 0, 'failed' => 0];
+
+        $totalPembelian = $todaysStats['totalSales'];
+        $banyakPembelian = $todaysStats['totalTransactions'];
+        $banyakPembelianPending = $todaysStats['waiting'];
+        $banyakPembelianProses = $todaysStats['processing'];
+        $banyakPembelianSuccess = $todaysStats['success'];
+        $banyakPembelianBatal = $todaysStats['failed'];
 
         // 3. Fix Tier Logic: Use LIFETIME Success Transactions
         $lifetimeSuccessCount = Pembelian::where('username', $username)
@@ -73,7 +118,6 @@ class DsController extends Controller
                             ->get();
 
         // 4. Fetch Recent Transactions for Dashboard Table (Limit 10)
-        $todaysTransactions = $todaysTransactions; // Keep for stats
         $recentTransactions = Pembelian::where('username', $username)
                                 ->latest()
                                 ->take(10)
@@ -86,8 +130,11 @@ class DsController extends Controller
             'total_pembelian' => $totalPembelian,
             'banyak_pembelian' => $banyakPembelian,
             'banyak_pembelian_pending' => $banyakPembelianPending,
+            'banyak_pembelian_proses' => $banyakPembelianProses,
             'banyak_pembelian_success' => $banyakPembelianSuccess,
             'banyak_pembelian_batal' => $banyakPembelianBatal,
+            'period_stats' => $periodStats,
+            'period_default' => $defaultPeriod,
             // Tier Data
             'tier_progress' => $progress,
             'tier_current' => $currentRole,
@@ -147,49 +194,38 @@ class DsController extends Controller
     }
     
 
-    public function affiliate(Request $request) // Added Request $request
+    public function affiliate(Request $request)
     {
         $user = Auth::user();
-        $referral_code = '-'; // Initialize with default
-        $total_commission = 0; // Initialize with default
-        $affiliate_history = collect(); // Initialize with empty collection
+        $affiliateStatus = $this->normalizeAffiliateStatus((string) ($user->affiliate_status ?? ''));
+
+        if ($request->isMethod('post')) {
+            return $this->submitAffiliateRequest($request, $user, $affiliateStatus);
+        }
+
+        if ($request->query('action') === 'request') {
+            return redirect()->route('affiliate')->with('error', 'Silakan isi formulir pengajuan affiliate terbaru terlebih dahulu.');
+        }
+
+        $referral_code = '-';
+        $total_commission = 0;
+        $affiliate_history = collect();
 
         if ($user && $user->role !== "Admin") {
-            
-             // 1. Handle Request Action
-            if ($request->has('action') && $request->action === 'request') {
-                if ($user->affiliate_status === 'inactive' || $user->affiliate_status === null) {
-                    $user->affiliate_status = 'pending';
-                    $user->save();
-                    return redirect()->back()->with('success', 'Permintaan Affiliate berhasil dikirim. Mohon tunggu persetujuan Admin.');
-                } else {
-                    return redirect()->back()->with('error', 'Anda sudah memiliki status affiliate atau permintaan sedang diproses.');
-                }
-            }
-
-            // 2. Block direct access for inactive users
-            if ($user->affiliate_status === 'inactive' || $user->affiliate_status === null) {
-                return redirect()->route('dashboard')->with('error', 'Halaman affiliate hanya untuk member yang telah bergabung.');
-            }
-
-            // 3. Affiliate Logic (Only for Active/Pending/Rejected)
-            if ($user->affiliate_status !== 'inactive' && $user->affiliate_status !== null) {
-                
-                 if (!$user->referral_code) {
-                    // Generate if validation passed but code missing (Edge case)
+            if ($affiliateStatus !== 'inactive' && blank($user->referral_code)) {
+                do {
                     $user->referral_code = 'REF-' . strtoupper(Str::random(6));
-                    $user->save();
-                }
+                } while (\App\Models\User::where('referral_code', $user->referral_code)->exists());
+                $user->save();
+            }
 
+            if ($affiliateStatus !== 'inactive') {
                 $referral_code = $user->referral_code;
-                
-                // Calculate Total Commission
-                $total_commission = AffiliateHistory::where('uplink_id', $user->id) // Changed to $user->id
+
+                $total_commission = AffiliateHistory::where('uplink_id', $user->id)
                     ->sum('amount');
-                    
-                // Get History
-                $affiliate_history = AffiliateHistory::where('uplink_id', $user->id) // Changed to $user->id
-                    // ->with('downlink') // Eager load - assuming 'downlink' relationship exists
+
+                $affiliate_history = AffiliateHistory::where('uplink_id', $user->id)
                     ->latest()
                     ->paginate(10);
             }
@@ -201,13 +237,124 @@ class DsController extends Controller
             'affiliate_history' => $affiliate_history,
             'referral_code' => $referral_code,
             'total_commission' => $total_commission,
-            'kategoris' => Kategori::where('status', 'active')->orderBy('nama', 'asc')->get()
+            'kategoris' => Kategori::where('status', 'active')->orderBy('nama', 'asc')->get(),
+            'affiliate_status_normalized' => $affiliateStatus,
         ]);
+    }
+
+    private function normalizeAffiliateStatus(string $statusRaw): string
+    {
+        $status = strtolower(trim($statusRaw));
+
+        if ($status === '') {
+            return 'inactive';
+        }
+
+        return match ($status) {
+            'active', 'pending', 'rejected', 'inactive' => $status,
+            default => 'inactive',
+        };
+    }
+
+    private function submitAffiliateRequest(Request $request, $user, string $affiliateStatus)
+    {
+        if (! $user || $user->role === 'Admin') {
+            return redirect()->route('dashboard')->with('error', 'Akses tidak diizinkan.');
+        }
+
+        if (! in_array($affiliateStatus, ['inactive', 'rejected'], true)) {
+            return redirect()->route('affiliate')->with('error', 'Permintaan tidak dapat diproses untuk status akun saat ini.');
+        }
+
+        $validated = $request->validate([
+            'whatsapp' => ['required', 'string', 'max:30', 'regex:/^[0-9+\-\s]{8,30}$/'],
+            'promotion_channel_url' => ['required', 'url', 'max:255'],
+            'notes' => ['nullable', 'string', 'max:600'],
+            'agree_terms' => ['accepted'],
+            'agree_affiliate_policy' => ['accepted'],
+        ], [
+            'whatsapp.required' => 'Nomor WhatsApp wajib diisi.',
+            'whatsapp.regex' => 'Format nomor WhatsApp belum valid.',
+            'promotion_channel_url.required' => 'URL channel promosi wajib diisi.',
+            'promotion_channel_url.url' => 'URL channel promosi tidak valid.',
+            'agree_terms.accepted' => 'Kamu wajib menyetujui syarat affiliate.',
+            'agree_affiliate_policy.accepted' => 'Kamu wajib menyetujui kebijakan data affiliate.',
+        ]);
+
+        $normalizedWhatsapp = preg_replace('/\D+/', '', (string) $validated['whatsapp']);
+        $promotionChannelUrl = trim((string) $validated['promotion_channel_url']);
+        $submitLockKey = 'affiliate-request-submit:' . sha1(implode('|', [
+            (string) $user->id,
+            (string) $normalizedWhatsapp,
+            (string) $promotionChannelUrl,
+        ]));
+
+        if (! Cache::add($submitLockKey, true, 20)) {
+            return redirect()->route('affiliate')->with('error', 'Permintaan sebelumnya masih diproses. Mohon tunggu sebentar.');
+        }
+
+        $oldPaths = [
+            $user->affiliate_identity_document_path,
+            $user->affiliate_support_document_path,
+            $user->affiliate_ktp_document_path,
+            $user->affiliate_selfie_document_path,
+            $user->affiliate_family_card_document_path,
+        ];
+        $existingMeta = is_array($user->affiliate_application_meta) ? $user->affiliate_application_meta : [];
+        $reviewHistory = data_get($existingMeta, 'review_history');
+        if (! is_array($reviewHistory)) {
+            $reviewHistory = [];
+        }
+        try {
+            DB::transaction(function () use ($user, $validated, $normalizedWhatsapp, $promotionChannelUrl, $reviewHistory, $request): void {
+                $user->no_wa = $normalizedWhatsapp;
+                $user->affiliate_status = 'pending';
+                $user->affiliate_requested_at = now();
+                $user->affiliate_requirement_acknowledged_at = now();
+                $user->affiliate_ktp_document_path = null;
+                $user->affiliate_selfie_document_path = null;
+                $user->affiliate_family_card_document_path = null;
+                $user->affiliate_identity_document_path = null;
+                $user->affiliate_support_document_path = null;
+                $user->affiliate_application_note = blank($validated['notes'] ?? null) ? null : trim((string) $validated['notes']);
+                $user->affiliate_application_meta = [
+                    'promotion_channel_url' => $promotionChannelUrl,
+                    'submitted_via' => 'blade_affiliate_form',
+                    'submitted_ip' => $request->ip(),
+                    'submitted_user_agent' => Str::limit((string) $request->userAgent(), 255),
+                    'review_history' => $reviewHistory,
+                    'review_last' => null,
+                ];
+                $user->save();
+            });
+
+            foreach ($oldPaths as $oldPath) {
+                if (! empty($oldPath)) {
+                    Storage::disk('public')->delete((string) $oldPath);
+                }
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
+            return redirect()
+                ->route('affiliate')
+                ->with('error', 'Terjadi kendala saat mengirim pengajuan. Silakan coba lagi.');
+        } finally {
+            Cache::forget($submitLockKey);
+        }
+
+        $successMessage = $affiliateStatus === 'rejected'
+            ? 'Pengajuan ulang affiliate berhasil dikirim. Data kamu sedang ditinjau admin.'
+            : 'Pengajuan affiliate berhasil dikirim. Data kamu sedang ditinjau admin.';
+
+        return redirect()->route('affiliate')->with('success', $successMessage);
     }
 
     public function withdrawal()
     {
         $user = Auth::user();
+        if (! $this->isAffiliateActiveUser($user)) {
+            return redirect()->route('dashboard')->with('error', 'Fitur redeem saldo hanya tersedia untuk akun affiliate yang sudah aktif.');
+        }
 
         $withdrawals = \App\Models\Withdrawal::where('user_id', $user->id)
             ->latest()
@@ -228,42 +375,94 @@ class DsController extends Controller
 
     public function processWithdrawal(Request $request)
     {
-        $request->validate([
-            'bank_destination' => 'required',
-            'account_number' => 'required|numeric',
-            'account_name' => 'required',
-            'amount' => 'required|numeric|min:10000',
-        ]);
-
         $user = \App\Models\User::find(Auth::id());
-        
-        // 1. Check if user already requested today
-        $hasRequestedToday = \App\Models\Withdrawal::where('user_id', $user->id)
-            ->whereDate('created_at', now()->toDateString())
-            ->exists();
-
-        if ($hasRequestedToday) {
-            return back()->with('error', 'Anda hanya dapat melakukan penarikan 1 kali dalam sehari. Silakan coba lagi besok.');
+        if (! $this->isAffiliateActiveUser($user)) {
+            return redirect()->route('dashboard')->with('error', 'Fitur redeem saldo hanya tersedia untuk akun affiliate yang sudah aktif.');
         }
 
-        // 2. Check balance
-        if ($user->balance < $request->amount) {
-            return back()->with('error', 'Saldo tidak mencukupi!');
+        $currentBalance = (int) round((float) ($user->balance ?? 0));
+        if ($currentBalance < 10000) {
+            return back()->withInput()->with('error', 'Saldo saat ini belum memenuhi minimal penarikan Rp 10.000.');
         }
 
-        // Deduct Balance Immediately
-        $user->balance -= $request->amount;
-        $user->save();
-
-        // Create Withdrawal Request
-        \App\Models\Withdrawal::create([
-            'user_id' => $user->id,
-            'rekening' => $request->bank_destination . ' - ' . $request->account_number . ' - ' . $request->account_name,
-            'total_transfer' => $request->amount,
-            'biaya_admin' => 0, // Or set a fee
-            'status' => 'pending',
+        $validated = $request->validate([
+            'bank_destination' => ['required', 'string', 'max:80'],
+            'account_number' => ['required', 'digits_between:8,24'],
+            'account_name' => ['required', 'string', 'max:80'],
+            'amount' => ['required', 'numeric', 'min:10000', 'max:' . $currentBalance],
+        ], [
+            'amount.max' => 'Jumlah penarikan tidak boleh melebihi saldo saat ini.',
+            'account_number.digits_between' => 'Nomor rekening harus terdiri dari 8 sampai 24 digit.',
         ]);
+
+        $amount = (int) round((float) $validated['amount']);
+        $accountNumber = preg_replace('/\D+/', '', (string) $validated['account_number']);
+        $lockKey = 'withdraw-submit:' . sha1(implode('|', [
+            (string) $user->id,
+            (string) $amount,
+            strtoupper(trim((string) $validated['bank_destination'])),
+            $accountNumber,
+        ]));
+
+        if (! Cache::add($lockKey, true, 30)) {
+            return back()->withInput()->with('error', 'Permintaan sebelumnya masih diproses. Mohon tunggu sebentar.');
+        }
+
+        try {
+            DB::transaction(function () use ($user, $validated, $amount, $accountNumber) {
+                $lockedUser = \App\Models\User::query()
+                    ->whereKey($user->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $lockedUser || (int) round((float) $lockedUser->balance) < $amount) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Jumlah penarikan tidak boleh melebihi saldo saat ini.',
+                    ]);
+                }
+
+                $hasRequestedToday = \App\Models\Withdrawal::query()
+                    ->where('user_id', $lockedUser->id)
+                    ->whereDate('created_at', now()->toDateString())
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($hasRequestedToday) {
+                    throw ValidationException::withMessages([
+                        'amount' => 'Anda hanya dapat melakukan penarikan 1 kali dalam sehari. Silakan coba lagi besok.',
+                    ]);
+                }
+
+                $lockedUser->balance = (int) round((float) $lockedUser->balance) - $amount;
+                $lockedUser->save();
+
+                \App\Models\Withdrawal::create([
+                    'user_id' => $lockedUser->id,
+                    'rekening' => strtoupper(trim((string) $validated['bank_destination'])) . ' - ' . $accountNumber . ' - ' . trim((string) $validated['account_name']),
+                    'total_transfer' => $amount,
+                    'biaya_admin' => 0,
+                    'status' => 'pending',
+                ]);
+            });
+        } catch (ValidationException $validationException) {
+            return back()->withInput()->withErrors($validationException->errors());
+        } finally {
+            Cache::forget($lockKey);
+        }
 
         return redirect()->back()->with('success', 'Permintaan penarikan berhasil dikirim. Menunggu persetujuan Admin.');
+    }
+
+    private function isAffiliateActiveUser($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'isAffiliateActive')) {
+            return (bool) $user->isAffiliateActive();
+        }
+
+        return strtolower(trim((string) ($user->affiliate_status ?? ''))) === 'active';
     }
 }

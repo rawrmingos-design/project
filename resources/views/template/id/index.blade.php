@@ -7,6 +7,17 @@
 @section('content')
 @include('../navbar')
 <style>
+    .defer-section {
+        content-visibility: auto;
+        contain-intrinsic-size: 1px 960px;
+    }
+
+    @media (max-width: 1023px) {
+        .hero-decorations {
+            display: none;
+        }
+    }
+
     .bg-gradient-index {
         --gradient-theme-index: linear-gradient(to top, var(--warna_2) 0%, var(--warna_1) 100%);
         background-image: var(--gradient-theme-index);
@@ -33,6 +44,7 @@
                     alt="Banner {{ $key + 1 }}"
                     sizes="(min-width: 1024px) 1200px, 100vw"
                     loading="{{ $key === 0 ? 'eager' : 'lazy' }}"
+                    decoding="{{ $key === 0 ? 'sync' : 'async' }}"
                     fetchpriority="{{ $key === 0 ? 'high' : null }}"
                     class="w-full h-auto object-cover rounded-3xl"
                 />
@@ -47,7 +59,7 @@
     <div class="absolute inset-0 -z-10">
         <div class="area">
                <ul class="circles bg-gradient-index">
-    <section class="relative flex items-center overflow-hidden bg-secondary/50 px-4 py-m lg:min-h-[521.96px]">
+    <section class="hero-decorations relative flex items-center overflow-hidden bg-secondary/50 px-4 py-m lg:min-h-[521.96px]" aria-hidden="true">
     @php
         $positions = [
             ['left' => 1130, 'delay' => 0.686975, 'duration' => 8],
@@ -146,10 +158,14 @@
      </div>
 
                  {{-- Category Tabs Section - Livewire Lazy Load --}}
-                 @livewire('home.category-tabs', [], key('category-tabs'))
+                 <div class="defer-section">
+                     @livewire('home.category-tabs', [], key('category-tabs'))
+                 </div>
 
 {{-- Article Recommendation Section - Livewire Lazy Load --}}
-@livewire('home.articles', [], key('articles'))
+<div class="defer-section">
+    @livewire('home.articles', [], key('articles'))
+</div>
 
 @php
     $homePopupEnabled = (bool) ($config->home_popup_enabled ?? true);
@@ -351,7 +367,7 @@
 </style>
 
 <div id="popupp" x-data="{ open: false, dontShowAgain: localStorage.getItem('dontShowPopup') === 'true' }" 
-     x-init="if (!dontShowAgain) { setTimeout(() => open = true, 500) }" 
+     x-init="if (!dontShowAgain) { const showPopup = () => setTimeout(() => open = true, 2200); if (document.readyState === 'complete') { showPopup(); } else { window.addEventListener('load', showPopup, { once: true }); } }" 
      @keydown.escape.window="open = false"
      class="font-sans" x-cloak>
 
@@ -375,7 +391,7 @@
             <!-- Image Container -->
             @if(isset($popup->path) && $popup->path)
             <div class="popup-image-wrapper">
-                <x-optimized-image :src="$popup->path" profile="popup" alt="Promo" sizes="(min-width: 768px) 720px, 100vw" loading="eager" fetchpriority="high" class="popup-image" />
+                <x-optimized-image :src="$popup->path" profile="popup" alt="Promo" sizes="(min-width: 768px) 720px, 100vw" loading="lazy" decoding="async" fetchpriority="low" class="popup-image" />
                 <div class="popup-image-fade"></div>
             </div>
             @else

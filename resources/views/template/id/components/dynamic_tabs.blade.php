@@ -1,7 +1,7 @@
 @foreach ($categoryTypes as $type)
     <div id="headlessui-tabs-panel-{{ $type->slug }}" role="tabpanel"
          aria-labelledby="headlessui-tabs-tab-:{{ $type->slug }}:" data-tabs-content
-         style="display: none;">
+         style="display: {{ $loop->first ? 'block' : 'none' }};">
         <div class="grid grid-cols-3 gap-4 sm:grid-cols-4 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-5 xl:grid-cols-6">
             @foreach ($type->kategoris as $category)
                 <a href="{{ url('/id/' . $category->kode) }}" class="melpazoom" x-data="{ loaded: false }">
