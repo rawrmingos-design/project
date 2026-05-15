@@ -3,8 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class Method extends Model
 {
@@ -102,5 +105,52 @@ class Method extends Model
         }
 
         return true;
+    }
+
+    public function scopeEnabled(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder): void {
+            $builder->whereNull('statuspayment')
+                ->orWhere('statuspayment', true);
+        });
+    }
+
+    public function isSaldoMethod(): bool
+    {
+        $code = Str::upper(trim((string) ($this->getRawOriginal('code') ?? $this->code)));
+        if ($code === 'SALDO') {
+            return true;
+        }
+
+        $name = Str::lower(trim((string) ($this->getRawOriginal('name') ?? $this->name)));
+
+        return str_contains($name, 'saldo');
+    }
+
+    public function isDemoMethod(): bool
+    {
+        $code = Str::lower(trim((string) ($this->getRawOriginal('code') ?? $this->code)));
+        $name = Str::lower(trim((string) ($this->getRawOriginal('name') ?? $this->name)));
+        $payment = Str::lower(trim((string) ($this->getRawOriginal('payment') ?? $this->payment)));
+
+        return str_contains($code, 'demo')
+            || str_contains($name, 'demo')
+            || str_contains($payment, 'demo');
+    }
+
+    public static function availableForDeposit(bool $allowDemoInLocal = false): Collection
+    {
+        return static::query()
+            ->enabled()
+            ->orderBy('id')
+            ->get()
+            ->reject(function (Method $method) use ($allowDemoInLocal): bool {
+                if ($method->isSaldoMethod()) {
+                    return true;
+                }
+
+                return ! $allowDemoInLocal && $method->isDemoMethod();
+            })
+            ->values();
     }
 }

@@ -39,16 +39,11 @@ use App\Http\Controllers\MethodController;
 use App\Http\Controllers\Admin\DataJokiController;
 // use App\Http\Controllers\GiftskinController;
 // use App\Http\Controllers\Admin\DataGiftSkinController;
-use App\Http\Controllers\HitungpointmwController;
 use App\Http\Controllers\CheckRegionController;
-use App\Http\Controllers\HitungpointzodiacController;
-use App\Http\Controllers\HitungwrController;
 use App\Http\Controllers\ratingCustomerController;
 use App\Http\Controllers\ratingAdminController;
 use App\Http\Controllers\IPAddressController;
 use App\Http\Controllers\PaketController;
-use App\Http\Controllers\policyandtermss\TermsController;
-use App\Http\Controllers\leaderboard\LeaderboardController;
 use App\Http\Controllers\PaketLayananController;
 use App\Http\Controllers\Admin\TabmenuController;
 use App\Http\Controllers\provider\BangJeffController;
@@ -72,6 +67,24 @@ use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
 use App\Http\Controllers\ArtikelController;
+use App\Http\Controllers\Public\HomeController as PublicHomeController;
+use App\Http\Controllers\Public\OrderPageController as PublicOrderPageController;
+use App\Http\Controllers\Public\InvoicePageController as PublicInvoicePageController;
+use App\Http\Controllers\Public\LeaderboardPageController as PublicLeaderboardPageController;
+use App\Http\Controllers\Public\CalculatorPageController as PublicCalculatorPageController;
+use App\Http\Controllers\Public\ProductSearchController as PublicProductSearchController;
+use App\Http\Controllers\Public\TransactionLookupPageController as PublicTransactionLookupPageController;
+use App\Http\Controllers\Public\ArticlePageController as PublicArticlePageController;
+use App\Http\Controllers\Public\DashboardPageController as PublicDashboardPageController;
+use App\Http\Controllers\Public\SettingsPageController as PublicSettingsPageController;
+use App\Http\Controllers\Public\TransactionHistoryPageController as PublicTransactionHistoryPageController;
+use App\Http\Controllers\Public\DepositHistoryPageController as PublicDepositHistoryPageController;
+use App\Http\Controllers\Public\DepositInvoicePageController as PublicDepositInvoicePageController;
+use App\Http\Controllers\Public\DepositPageController as PublicDepositPageController;
+use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageController;
+use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
+use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
+use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
@@ -116,67 +129,83 @@ Route::get('/wip', function () {
     return response()->json(['ip' => $ipAddress]);
 });
 
-Route::get(
-    '/weji-mt',
-    function () {
-        Illuminate\Support\Facades\Artisan::call('down', [
+Route::middleware(['auth'])->group(function () {
+    Route::get('/weji-mt', function () {
+        if ((string) (auth()->user()->role ?? '') !== 'Admin') {
+            abort(403);
+        }
+
+        Artisan::call('down', [
             '--secret' => 'kbrs-0189-kahisnxs',
         ]);
 
         dd(Artisan::output());
-    }
-);
+    });
 
-Route::get(
-    '/weji-up',
-    function () {
+    Route::get('/weji-up', function () {
+        if ((string) (auth()->user()->role ?? '') !== 'Admin') {
+            abort(403);
+        }
+
         Artisan::call('up');
         dd(Artisan::output());
-    }
-);
+    });
+});
 
 Route::redirect('/', '/id', 301);
 
-Route::prefix('id')->middleware(['xss', 'sanitize'])->group(function () {
+Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
-    // Artikel Routes
-    Route::get('/artikel', [ArtikelController::class, 'index'])->name('artikel.index');
-    Route::get('/artikel/{slug}', [ArtikelController::class, 'show'])->name('artikel.show');
+    // Artikel Routes (Inertia for bangjeff theme, blade fallback in controller for default theme)
+    Route::prefix('artikel')->name('artikel.')->controller(PublicArticlePageController::class)->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/{slug}', 'show')->where('slug', '[A-Za-z0-9\-]+')->name('show');
+    });
 
-    Route::get('/',                                                              [IndexController::class, 'create'])->name('home');
+    Route::get('/',                                                              PublicHomeController::class)->name('home');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
-        Route::get('/dashboard',                                                     [DsController::class, 'dashboard'])->name('dashboard');
-        Route::get('/settings',                                                      [DsController::class, 'editProfile'])->name('editProfile');
-        Route::post('/settings',                                                     [DsController::class, 'saveEditProfile'])->name('saveEditProfile');
-        Route::post('/id/logout',                                                    [LoginController::class, 'destroy'])->name('logout');
-        Route::get('/deposit/history',                                              [DepositController::class, 'reloadd'])->name('reload');
-        Route::get('/deposit',                                                      [DepositController::class, 'create'])->name('deposit');
-        Route::post('/deposit',                                                     [DepositController::class, 'store'])->name('deposit.store');
-        Route::get('/deposit/{order}',                                               [InvoiceDepositController::class, 'create'])->name('deposit.invoice');
-        Route::get('/dashboard/history',                                             [RiwayatPembelian::class, 'create'])->name('riwayat');
-        Route::get('/affiliate',                                                     [DsController::class, 'affiliate'])->name('affiliate');
-        Route::get('/withdrawal',                                                    [DsController::class, 'withdrawal'])->name('withdrawal');
-        Route::post('/withdrawal',                                                   [DsController::class, 'processWithdrawal'])->name('process.withdrawal');
+        Route::get('/dashboard',                                                     PublicDashboardPageController::class)->name('dashboard');
+        Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
+        Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
+        Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->name('settings.change-password');
+        Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->name('settings.api-key.regenerate');
+        Route::post('/settings/2fa/setup',                                           [PublicSettingsPageController::class, 'setupTwoFactor'])->name('settings.2fa.setup');
+        Route::post('/settings/2fa/enable',                                          [PublicSettingsPageController::class, 'enableTwoFactor'])->name('settings.2fa.enable');
+        Route::post('/settings/2fa/disable',                                         [PublicSettingsPageController::class, 'disableTwoFactor'])->name('settings.2fa.disable');
+        Route::post('/logout',                                                       [LoginController::class, 'destroy'])->name('logout');
+        Route::post('/id/logout',                                                    [LoginController::class, 'destroy'])->name('logout.legacy');
+        Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->name('reload');
+        Route::get('/deposit',                                                      PublicDepositPageController::class)->middleware('non-affiliate.only')->name('deposit');
+        Route::post('/deposit',                                                     [DepositController::class, 'store'])->middleware(['non-affiliate.only', 'throttle:public-deposit-submit'])->name('deposit.store');
+        Route::get('/deposit/{order}',                                               PublicDepositInvoicePageController::class)->name('deposit.invoice');
+        Route::get('/dashboard/history',                                             PublicTransactionHistoryPageController::class)->name('riwayat');
+        Route::get('/affiliate',                                                     PublicAffiliatePageController::class)->name('affiliate');
+        Route::post('/affiliate/request',                                            PublicAffiliatePageController::class)->middleware('throttle:public-affiliate-request')->name('affiliate.request');
+        Route::get('/withdrawal',                                                    PublicAffiliateWithdrawalPageController::class)->middleware('affiliate.only')->name('withdrawal');
+        Route::post('/withdrawal',                                                   [DsController::class, 'processWithdrawal'])->middleware(['affiliate.only', 'throttle:public-withdrawal-submit'])->name('process.withdrawal');
     });
 
     // Rute publik
     Route::post('/cari/index',                                                   [IndexController::class, 'cariIndex']);
-    Route::get('/invoices',                                                      [CariController::class, 'create'])->name('cari');
-    Route::post('/cari',                                                         [CariController::class, 'store'])->name('cari.post');
+    Route::get('/search/products',                                               [PublicProductSearchController::class, 'index'])->name('public.search.products');
+    Route::get('/invoices',                                                      [PublicTransactionLookupPageController::class, 'index'])->name('cari');
+    Route::post('/cari',                                                         [PublicTransactionLookupPageController::class, 'lookup'])->name('cari.post');
     Route::get('/price-list',                                                    [PricelistController::class, 'create'])->name('price');
-    Route::get('/calculator/magic-wheel',                                        [HitungpointmwController::class, 'create'])->name('hitungpointmw');
+    Route::get('/calculator/magic-wheel',                                        [PublicCalculatorPageController::class, 'magicWheel'])->name('hitungpointmw');
     Route::get('/cek-region',                                        [CheckRegionController::class, 'create'])->name('cekregion');
-    Route::get('/calculator/zodiac',                                             [HitungpointzodiacController::class, 'create'])->name('hitungpointzodiac');
-    Route::get('/calculator/winrate',                                            [HitungwrController::class, 'create'])->name('hitungwr');
-    Route::get('/leaderboard',                                                   [LeaderboardController::class, 'leaderboard'])->name('leaderboardd');
-    Route::get('/terms-and-condition',                                           [TermsController::class, 'terms'])->name('terms');
-    Route::get('/privacy-policy',                                                [TermsController::class, 'policy'])->name('policy');
-    Route::get('/policy',                                                [TermsController::class, 'privacy'])->name('privacy');
+    Route::get('/calculator/zodiac',                                             [PublicCalculatorPageController::class, 'zodiac'])->name('hitungpointzodiac');
+    Route::get('/calculator/winrate',                                            [PublicCalculatorPageController::class, 'winrate'])->name('hitungwr');
+    Route::get('/leaderboard',                                                   PublicLeaderboardPageController::class)->name('leaderboardd');
+    Route::get('/terms-and-condition',                                           [PublicLegalPageController::class, 'terms'])->name('terms');
+    Route::get('/privacy-policy',                                                [PublicLegalPageController::class, 'privacyPolicy'])->name('policy');
+    Route::get('/policy',                                                        [PublicLegalPageController::class, 'privacy'])->name('privacy');
+    Route::get('/affiliate/program-terms',                                       [PublicLegalPageController::class, 'affiliateProgramTerms'])->name('affiliate.program.terms');
     Route::get('/sign-in',                                                       [LoginController::class, 'create'])->name('login');
-    Route::post('/sign-in',                                                      [LoginController::class, 'store'])->name('post.login')->middleware('throttle:10,1');
+    Route::post('/sign-in',                                                      [LoginController::class, 'store'])->name('post.login')->middleware('throttle:public-login');
     Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
-    Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register');
+    Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
+    Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
     Route::get('/reviews',                                                       [RatingCustomerController::class, 'create'])->name('reviews');
     Route::get('/forgot-password',                                         [ForgotPasswordController::class, 'create'])->name('forgot');
     Route::post('/forgot-password',                                         [ForgotPasswordController::class, 'store'])->name('post.forgot');
@@ -188,17 +217,18 @@ Route::delete('/wlip/{whitelistedIP}',                                     [Whit
 Route::get('/wlip/create',                                                 [WhitelistedIPController::class, 'create'])->name('whitelisted-ips.create');
 Route::post('/wlip',                                                       [WhitelistedIPController::class, 'store'])->name('whitelisted-ips.store');
 
-Route::middleware(['xss', 'sanitize',])->group(function () {
-    Route::get('/id/{kategori:kode}',                                            [OrderController::class, 'create']);
+Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
+    Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class);
     Route::post('/id/harga',                                                     [OrderController::class, 'price'])->name('ajax.price');
     Route::post('/id/konfirmasi-data',          [OrderController::class, 'confirm'])->name('ajax.confirmation');
     Route::post('/ajax/check-account',          [OrderController::class, 'checkAccount'])->name('ajax.check-account');
     Route::post('/id',                                                           [OrderController::class, 'store'])->name('ordered');
-    Route::get('/id/invoices/{order}',                                           [InvoiceController::class, 'create'])->name('pembelian');
+    Route::get('/id/invoices/{order}',                                           PublicInvoicePageController::class)->name('pembelian');
     Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->name('rating.pembelian');
     Route::get('/ajax/transaction-status/{order}',                               [InvoiceController::class, 'checkStatus'])->name('ajax.status');
     Route::get('/ajax/deposit-status/{order}',                                   [InvoiceDepositController::class, 'checkStatus'])->name('ajax.deposit-status');
     Route::post('/check-voucher',                                                [VoucherController::class, 'confirm'])->name('check.voucher');
+    Route::post('/available-voucher',                                            [VoucherController::class, 'best'])->name('available.voucher');
 });
 
 // Rute callback

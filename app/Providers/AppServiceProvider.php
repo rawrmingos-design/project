@@ -13,6 +13,7 @@ use App\Models\MediaAsset;
 use App\Observers\PembelianObserver;
 use App\Observers\KategoriObserver;
 use App\Services\OptimizedImageService;
+use App\Support\PublicThemeRegistry;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 
@@ -35,6 +36,35 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        $defaultConfig = [
+            'judul_web' => 'Game Top-Up',
+            'deskripsi_web' => 'Platform Top-Up Game Terpercaya',
+            'keywords' => 'top up, game, diamond, voucher',
+            'logo_header' => '/assets/logo/01KGSN7TWDAQXP947X0GH07TDE.webp',
+            'logo_footer' => '/assets/logo/01KGSN7TXFTHQYY8T2SM6HQ6S2.png',
+            'logo_favicon' => '/assets/logo/favicon.ico',
+            'warna1' => '#222222',
+            'warna2' => '#d06800',
+            'warna3' => '#ffa54a',
+            'warna4' => '#ff8040',
+            'public_theme' => PublicThemeRegistry::DEFAULT,
+            'wa_key' => '',
+            'nomor_admin' => '',
+            'invoice_notify_via_whatsapp' => true,
+            'invoice_notify_via_email' => true,
+            'home_popup_enabled' => true,
+            'live_sales_enabled' => true,
+            'url_wa' => '',
+            'url_ig' => '',
+            'url_tiktok' => '',
+            'url_youtube' => '',
+            'url_fb' => '',
+            'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
+            'captcha_secret' => env('NOCAPTCHA_SECRET'),
+            'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
+            'captcha_bypass' => false,
+        ];
+
         if (!app()->runningInConsole()) {
             // Prevent accidental cross-domain assets when ASSET_URL is set in server env.
             $adminDomain = (string) env('FILAMENT_ADMIN_DOMAIN', '');
@@ -110,29 +140,8 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             $config = \DB::table('setting_webs')->where('id',1)->first();
-            
-            // Provide default values if config is null
-            if (!$config) {
-                $config = (object) [
-                    'judul_web' => 'Game Top-Up',
-                    'deskripsi_web' => 'Platform Top-Up Game Terpercaya',
-                    'keywords' => 'top up, game, diamond, voucher',
-                    'logo_favicon' => '/assets/logo/favicon.ico',
-                    'warna1' => '#222222',
-                    'warna2' => '#d06800', 
-                    'warna3' => '#ffa54a',
-                    'warna4' => '#ff8040',
-                    'wa_key' => '',
-                    'nomor_admin' => '',
-                    'invoice_notify_via_whatsapp' => true,
-                    'invoice_notify_via_email' => true,
-                    'home_popup_enabled' => true,
-                    'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
-                    'captcha_secret' => env('NOCAPTCHA_SECRET'),
-                    'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
-                    'captcha_bypass' => false,
-                ];
-            }
+
+            $config = (object) array_merge($defaultConfig, (array) $config);
 
             if ($config) {
                 config([
@@ -153,25 +162,7 @@ class AppServiceProvider extends ServiceProvider
             
         } catch (\Exception $e) {
             // Fallback config if database is not available
-            $config = (object) [
-                'judul_web' => 'Game Top-Up',
-                'deskripsi_web' => 'Platform Top-Up Game Terpercaya',
-                'keywords' => 'top up, game, diamond, voucher',
-                'logo_favicon' => '/assets/logo/favicon.ico',
-                'warna1' => '#222222',
-                'warna2' => '#d06800', 
-                'warna3' => '#ffa54a',
-                'warna4' => '#ff8040',
-                'wa_key' => '',
-                'nomor_admin' => '',
-                'invoice_notify_via_whatsapp' => true,
-                'invoice_notify_via_email' => true,
-                'home_popup_enabled' => true,
-                'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
-                'captcha_secret' => env('NOCAPTCHA_SECRET'),
-                'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
-                'captcha_bypass' => false,
-            ];
+            $config = (object) $defaultConfig;
             
             View::share('config', $config);
         }
