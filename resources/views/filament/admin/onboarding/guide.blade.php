@@ -185,6 +185,7 @@
         'Providers: cek saldo dan sinkron provider',
         'Settings: branding, payment, tracking, dan SEO',
     ],
+    'onboardingScope' => 'filament.admin.pages.dashboard',
     'onboardingTargets' => $onboardingTargets,
     'onboardingSteps' => $onboardingSteps,
 ])

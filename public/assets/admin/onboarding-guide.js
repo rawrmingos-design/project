@@ -1,4 +1,10 @@
 (function () {
+    if (window.__adminOnboardingGuideBooted) {
+        return;
+    }
+
+    window.__adminOnboardingGuideBooted = true;
+
     function initRoot(root) {
         if (!root || root.dataset.initialized === '1') {
             return;
@@ -19,15 +25,18 @@
         var prevButton = root.querySelector('[data-onboarding-prev]');
         var nextButton = root.querySelector('[data-onboarding-next]');
         var finishButton = root.querySelector('[data-onboarding-finish]');
-        var reopenButtons = document.querySelectorAll('[data-onboarding-reopen]');
+        var reopenButtons = root.querySelectorAll('[data-onboarding-reopen]');
 
         var selectors = {};
         var steps = [];
         var targetsPayload = root.querySelector('[data-onboarding-targets-payload]');
         var stepsPayload = root.querySelector('[data-onboarding-steps-payload]');
+        var scope = root.getAttribute('data-onboarding-scope') || window.location.pathname || 'global';
+        var dismissStorageKey = 'admin-onboarding:dismissed:' + scope;
+        var cookieName = root.getAttribute('data-onboarding-cookie') || ('admin_onboarding_dismissed_' + scope.replace(/[^a-zA-Z0-9_]/g, '_'));
 
         var state = {
-            isWelcomeOpen: true,
+            isWelcomeOpen: false,
             tourStarted: false,
             dismissedForPageLifecycle: false,
             currentStepIndex: 0,
@@ -48,6 +57,61 @@
         } catch (error) {
             steps = [];
         }
+
+        function readCookie(name) {
+            var cookie = document.cookie
+                .split(';')
+                .map(function (entry) { return entry.trim(); })
+                .find(function (entry) { return entry.indexOf(name + '=') === 0; });
+
+            if (!cookie) {
+                return null;
+            }
+
+            return cookie.substring((name + '=').length);
+        }
+
+        function writeCookie(name, value, days) {
+            var expires = '';
+            if (typeof days === 'number') {
+                var date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = '; expires=' + date.toUTCString();
+            }
+
+            document.cookie = name + '=' + value + expires + '; path=/; SameSite=Lax';
+        }
+
+        function readDismissedState() {
+            try {
+                var cookieDismissed = readCookie(cookieName) === '1';
+                return window.localStorage.getItem(dismissStorageKey) === '1'
+                    || window.sessionStorage.getItem(dismissStorageKey) === '1'
+                    || cookieDismissed
+                    || root.getAttribute('data-onboarding-initial-dismissed') === '1';
+            } catch (error) {
+                return readCookie(cookieName) === '1'
+                    || root.getAttribute('data-onboarding-initial-dismissed') === '1';
+            }
+        }
+
+        function writeDismissedState(value) {
+            try {
+                if (value) {
+                    window.localStorage.setItem(dismissStorageKey, '1');
+                    window.sessionStorage.setItem(dismissStorageKey, '1');
+                    writeCookie(cookieName, '1', 365);
+                } else {
+                    window.localStorage.removeItem(dismissStorageKey);
+                    window.sessionStorage.removeItem(dismissStorageKey);
+                    writeCookie(cookieName, '0', -1);
+                }
+            } catch (error) {
+                writeCookie(cookieName, value ? '1' : '0', value ? 365 : -1);
+            }
+        }
+
+        state.dismissedForPageLifecycle = readDismissedState();
 
         function isVisible(element) {
             if (!element) {
@@ -186,12 +250,19 @@
 
         function dismissForPageLifecycle() {
             state.dismissedForPageLifecycle = true;
+            writeDismissedState(true);
+            hideWelcome();
+            endTour();
+        }
+
+        function closeWelcomeForCurrentPage() {
             hideWelcome();
             endTour();
         }
 
         function reopenGuide() {
             state.dismissedForPageLifecycle = false;
+            writeDismissedState(false);
             endTour();
             showWelcome();
         }
@@ -447,7 +518,7 @@
         }
 
         if (closeButton) {
-            closeButton.addEventListener('click', dismissForPageLifecycle);
+            closeButton.addEventListener('click', closeWelcomeForCurrentPage);
         }
 
         if (prevButton) {

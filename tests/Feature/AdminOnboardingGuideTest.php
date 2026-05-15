@@ -42,7 +42,7 @@ class AdminOnboardingGuideTest extends TestCase
         $response->assertSee('Panduan Order Management');
         $response->assertSee('Kelola transaksi dari satu halaman');
         $response->assertSee('data-onboarding-guide', false);
-        $response->assertDontSee('Lihat Panduan Lagi');
+        $response->assertSee('Lihat Panduan Lagi');
     }
 
     public function test_create_produk_page_renders_its_own_onboarding_guide(): void
@@ -88,8 +88,27 @@ class AdminOnboardingGuideTest extends TestCase
             ->get(route('filament.admin.pages.settings'));
 
         $response->assertOk();
-        $response->assertSee('Panduan Settings');
-        $response->assertSee('Atur branding, tracking, SEO, dan operasional website');
+        $response->assertSee('Panduan Settings Hub');
+        $response->assertSee('Pilih submenu settings sesuai domain kerja');
+        $response->assertSee('Settings Hub');
+        $response->assertSee('General');
+        $response->assertSee('Membership & Rewards');
+        $response->assertSee('data-onboarding-guide', false);
+    }
+
+    public function test_settings_general_sub_page_renders_its_own_onboarding_guide(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'Admin',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('filament.admin.pages.settings.general'));
+
+        $response->assertOk();
+        $response->assertSee('Settings: General');
+        $response->assertSee('Kelola konfigurasi umum website');
         $response->assertSee('data-onboarding-guide', false);
     }
 
