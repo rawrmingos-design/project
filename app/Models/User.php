@@ -32,12 +32,27 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'no_wa',
         'otp',
         'api_key',
+        'google_id',
+        'google_avatar',
+        'sandbox_api_key_hash',
+        'sandbox_api_key_hint',
+        'sandbox_api_key_rotated_at',
+        'sandbox_api_key_last_used_at',
         'two_factor_secret',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'referral_code',
         'uplink',
         'affiliate_status',
+        'affiliate_requested_at',
+        'affiliate_requirement_acknowledged_at',
+        'affiliate_identity_document_path',
+        'affiliate_support_document_path',
+        'affiliate_ktp_document_path',
+        'affiliate_selfie_document_path',
+        'affiliate_family_card_document_path',
+        'affiliate_application_note',
+        'affiliate_application_meta',
         'point_balance',
         'reset_callback_enabled',
         'reset_callback_url',
@@ -57,6 +72,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'two_factor_secret',
         'two_factor_recovery_codes',
         'reset_callback_secret',
+        'sandbox_api_key_hash',
     ];
 
     /**
@@ -68,13 +84,28 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'email_verified_at' => 'datetime',
         'balance' => 'integer',
         'point_balance' => 'integer',
+        'affiliate_requested_at' => 'datetime',
+        'affiliate_requirement_acknowledged_at' => 'datetime',
+        'affiliate_application_meta' => 'array',
         'reset_callback_enabled' => 'boolean',
         'reset_callback_version' => 'integer',
+        'sandbox_api_key_rotated_at' => 'datetime',
+        'sandbox_api_key_last_used_at' => 'datetime',
     ];
+
+    public function resellerIntegrations()
+    {
+        return $this->hasMany(ResellerIntegration::class);
+    }
 
     public function resetCallbackDeliveries()
     {
         return $this->hasMany(ResetCallbackDelivery::class);
+    }
+
+    public function resellerCallbackDeliveries()
+    {
+        return $this->hasMany(ResellerCallbackDelivery::class);
     }
 
     /**
@@ -158,17 +189,27 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     // Affiliate Helper Methods
     public function isAffiliateActive(): bool
     {
-        return $this->affiliate_status === 'active';
+        return $this->normalizedAffiliateStatus() === 'active';
     }
 
     public function isAffiliatePending(): bool
     {
-        return $this->affiliate_status === 'pending';
+        return $this->normalizedAffiliateStatus() === 'pending';
     }
 
     public function isAffiliateInactive(): bool
     {
-        return $this->affiliate_status === 'inactive';
+        return $this->normalizedAffiliateStatus() === 'inactive';
+    }
+
+    public function normalizedAffiliateStatus(): string
+    {
+        $status = strtolower(trim((string) $this->affiliate_status));
+
+        return match ($status) {
+            'active', 'pending', 'rejected', 'inactive' => $status,
+            default => 'inactive',
+        };
     }
     
     // Scopes
