@@ -25,6 +25,7 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\AddExpirationDateToCookie::class,
             \App\Http\Middleware\TrackVisitors::class,
             \App\Http\Middleware\LanguageDetectMiddleware::class,
@@ -43,6 +44,7 @@ class Kernel extends HttpKernel
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'auth.api' => \App\Http\Middleware\AuthenticateApi::class,
+        'auth.sandbox.api' => \App\Http\Middleware\AuthenticateSandboxApi::class,
         'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
         'can' => \Illuminate\Auth\Middleware\Authorize::class,
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
@@ -54,5 +56,8 @@ class Kernel extends HttpKernel
         'xss' => \App\Http\Middleware\XSSProtectionMiddleware::class,
         'sanitize' => \App\Http\Middleware\SanitizeInput::class,
         'whitelist.ip' => \App\Http\Middleware\WhitelistIp::class,
+        'bangjeff.legacy.redirect' => \App\Http\Middleware\RedirectLegacyBladeWhenBangjeff::class,
+        'affiliate.only' => \App\Http\Middleware\EnsureAffiliateUser::class,
+        'non-affiliate.only' => \App\Http\Middleware\EnsureNonAffiliateUser::class,
     ];
 }

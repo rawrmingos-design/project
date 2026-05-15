@@ -6,6 +6,7 @@ use App\Support\PembelianStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Pembelian extends Model
 {
@@ -31,6 +32,8 @@ class Pembelian extends Model
         'active_provider_sku' => 'string',
         'active_attempt_token' => 'string',
         'active_attempt_reference' => 'string',
+        'environment' => 'string',
+        'is_sandbox' => 'boolean',
         'reset_status' => 'string',
         'reset_count' => 'integer',
         'reset_requested_by' => 'integer',
@@ -92,6 +95,11 @@ class Pembelian extends Model
     public function activeLayanan(): BelongsTo
     {
         return $this->belongsTo(Layanan::class, 'active_layanan_id');
+    }
+
+    public function resellerCallbackDeliveries(): HasMany
+    {
+        return $this->hasMany(ResellerCallbackDelivery::class)->latest('id');
     }
 
     // Note: layanan field stores product name, not ID
@@ -316,6 +324,15 @@ class Pembelian extends Model
         return $query->whereIn('status', PembelianStatus::aliasesFor(PembelianStatus::PROCESSING));
     }
 
+    public function scopeSandbox($query)
+    {
+        return $query->where(function ($inner): void {
+            $inner->where('is_sandbox', true)
+                ->orWhere('environment', 'sandbox')
+                ->orWhere('log', 'like', '%"environment":"sandbox"%');
+        });
+    }
+
     // Accessors
     public function getFormattedHargaAttribute()
     {
@@ -330,5 +347,40 @@ class Pembelian extends Model
     public function getStatusIconAttribute()
     {
         return PembelianStatus::icon($this->status);
+    }
+
+    public function sandboxMetadata(): array
+    {
+        $decoded = json_decode((string) ($this->log ?? ''), true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function isSandboxOrder(): bool
+    {
+        if ($this->attributes['is_sandbox'] ?? null) {
+            return (bool) $this->attributes['is_sandbox'];
+        }
+
+        $environment = strtolower(trim((string) ($this->attributes['environment'] ?? '')));
+        if ($environment !== '') {
+            return $environment === 'sandbox';
+        }
+
+        $metadata = $this->sandboxMetadata();
+
+        return ($metadata['environment'] ?? null) === 'sandbox'
+            && (($metadata['source'] ?? null) === 'reseller_h2h' || ($metadata['sandbox'] ?? false) === true);
+    }
+
+    public function sandboxEnvironmentLabel(): string
+    {
+        $environment = strtolower(trim((string) ($this->attributes['environment'] ?? '')));
+
+        if ($environment !== '') {
+            return $environment === 'sandbox' ? 'Sandbox' : ucfirst($environment);
+        }
+
+        return $this->isSandboxOrder() ? 'Sandbox' : 'Live';
     }
 }
