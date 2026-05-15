@@ -26,6 +26,7 @@ use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\BangJeffController;
 use App\Http\Controllers\provider\TopupediaController;
 use App\Http\Controllers\provider\MoogoldController;
+use App\Http\Controllers\Public\TransactionLookupPageController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,9 @@ use Illuminate\Support\Carbon;
 
 class OrderController extends Controller
 {
+    private const ORDER_IDEMPOTENCY_LOCK_SECONDS = 180;
+    private const ORDER_IDEMPOTENCY_RESULT_SECONDS = 600;
+
     public function create(Kategori $kategori)
     {
         app(CustomInputDefaults::class)->ensureExists($kategori);
@@ -327,7 +331,7 @@ class OrderController extends Controller
 
         try {
             $candidateAmount = $targetAmount;
-            $tripay = new TriPayController();
+            $tripay = app(TriPayController::class);
 
             for ($i = 0; $i < 5; $i++) {
                 $cacheKey = sprintf('tripay_customer_fee:%s:%d', $method->code, $candidateAmount);
@@ -360,52 +364,166 @@ class OrderController extends Controller
     }
 
 
-    public function confirm(Request $request)
+    private function orderErrorResponse(string $message, string $errorCode = 'ORDER_ERROR', int $statusCode = 200, array $extra = [])
     {
+        return response()->json(array_merge([
+            'status' => false,
+            'data' => $message,
+            'message' => $message,
+            'error_code' => $errorCode,
+        ], $extra), $statusCode);
+    }
 
-        if ($request->ktg_tipe === 'jokigendong') {
-            $request->validate([
+    private function orderSuccessResponse(Request $request, string $orderId, array $extra = [])
+    {
+        TransactionLookupPageController::rememberRecentOrderId($request, $orderId);
+
+        return response()->json(array_merge([
+            'status' => true,
+            'order_id' => $orderId,
+            'message' => 'Order berhasil dibuat.',
+            'error_code' => null,
+        ], $extra));
+    }
+
+    private function buildOrderIdempotencyKeys(Request $request): array
+    {
+        $fingerprint = $this->buildOrderIdempotencyFingerprint($request);
+
+        return [
+            'lock' => 'order:idempotency:lock:' . $fingerprint,
+            'result' => 'order:idempotency:result:' . $fingerprint,
+        ];
+    }
+
+    private function buildOrderIdempotencyFingerprint(Request $request): string
+    {
+        $identity = Auth::check()
+            ? 'auth:' . Auth::id()
+            : 'session:' . $request->session()->getId();
+
+        $providedIdempotencyKey = trim((string) ($request->header('X-Idempotency-Key') ?: $request->input('idempotency_key')));
+        if ($providedIdempotencyKey !== '') {
+            $sanitizedKey = preg_replace('/[^a-zA-Z0-9_.:-]/', '', $providedIdempotencyKey);
+            if (!empty($sanitizedKey)) {
+                return hash('sha256', $identity . ':client:' . Str::limit($sanitizedKey, 120, ''));
+            }
+        }
+
+        $payload = [
+            'service' => (string) $request->input('service'),
+            'payment_method' => (string) $request->input('payment_method'),
+            'nomor' => (string) $request->input('nomor'),
+            'uid' => (string) $request->input('uid'),
+            'zone' => (string) $request->input('zone'),
+            'ktg_tipe' => (string) $request->input('ktg_tipe'),
+            'qty' => (string) $request->input('qty'),
+            'voucher' => (string) $request->input('voucher'),
+            'email' => (string) $request->input('email'),
+        ];
+
+        return hash('sha256', $identity . ':' . json_encode($payload));
+    }
+
+    private function resolveSelectedMethod(string $methodCode)
+    {
+        $normalizedCode = trim($methodCode);
+        $method = Method::query()
+            ->where('code', $normalizedCode)
+            ->first();
+
+        if ($method) {
+            return $method;
+        }
+
+        if (Str::upper($normalizedCode) === 'SALDO') {
+            return (object) [
+                'id' => null,
+                'name' => 'Saldo Akun',
+                'payment' => 'manual',
+                'tipe' => 'balance',
+                'code' => 'SALDO',
+                'fee_percent' => 0,
+                'fix_fee' => 0,
+                'min_pembelian' => null,
+                'max_pembelian' => null,
+            ];
+        }
+
+        return null;
+    }
+
+    private function validateOrderRequest(Request $request, bool $forConfirmation = false): void
+    {
+        $rules = [
+            'service' => 'required|integer|exists:layanans,id',
+            'payment_method' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) {
+                    $code = trim((string) $value);
+                    if (Str::upper($code) === 'SALDO') {
+                        return;
+                    }
+
+                    if (!Method::query()->where('code', $code)->exists()) {
+                        $fail('The selected payment method is invalid.');
+                    }
+                },
+            ],
+            'nomor' => ['required', 'regex:/^[0-9]{9,16}$/'],
+            'voucher' => 'nullable|string|max:100',
+            'ktg_tipe' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'idempotency_key' => 'nullable|string|max:120',
+        ];
+
+        $isJokiGendong = $request->ktg_tipe === 'jokigendong';
+        $isJokiMode = in_array($request->ktg_tipe, ['joki', 'vilogml'], true);
+
+        if ($isJokiGendong) {
+            $rules += [
                 'nickname_joki' => 'required|string|max:255',
                 'tglmain_joki' => 'required|string|max:255',
                 'jambooking_joki' => 'required|string|max:255',
                 'loginvia_joki' => 'required',
                 'catatan_joki' => 'required',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        } elseif ($request->ktg_tipe === 'joki') {
-            $request->validate([
+            ];
+        } elseif ($isJokiMode) {
+            $rules += [
                 'email_joki' => 'required|string|max:255',
                 'password_joki' => 'required|string|max:255',
                 'loginvia_joki' => 'required|string|max:255',
                 'nickname_joki' => 'required|string|max:255',
                 'request_joki' => 'required|string|max:255',
                 'catatan_joki' => 'required|string|max:255',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
-        } elseif ($request->ktg_tipe === 'vilogml') {
-            $request->validate([
-                'email_joki' => 'required|string|max:255',
-                'password_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required|string|max:255',
-                'nickname_joki' => 'required|string|max:255',
-                'request_joki' => 'required|string|max:255',
-                'catatan_joki' => 'required|string|max:255',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
+                'qty' => ($forConfirmation ? 'nullable' : 'required') . '|integer|min:1|max:30',
+            ];
         } else {
-            $request->validate([
-                'uid' => 'required|max:25',
-                'service' => 'required|numeric',
-                'payment_method' => 'required',
-                'nomor' => 'required|numeric',
-            ]);
+            $requireUserId = true;
+            $layanan = Layanan::query()
+                ->select('kategori_id')
+                ->find($request->service);
+
+            if ($layanan && $layanan->kategori_id) {
+                $kategori = Kategori::query()
+                    ->select('require_user_id')
+                    ->find($layanan->kategori_id);
+
+                if ($kategori !== null) {
+                    $requireUserId = (bool) $kategori->require_user_id;
+                }
+            }
+
+            $rules['uid'] = $requireUserId ? 'required|string|max:50' : 'nullable|string|max:50';
         }
+
+        $request->validate($rules);
+    }
+
+    public function confirm(Request $request)
+    {
+        $this->validateOrderRequest($request, true);
 
         $item = Layanan::where('id', $request->service)->first();
         $produk = Kategori::where('id', $item->kategori_id)->first();
@@ -832,9 +950,10 @@ class OrderController extends Controller
             $username = "Anonim";
         }
 
-        $dataMethod = Method::where('code', $request->payment_method)
-            ->select('name', 'payment', 'tipe', 'code', 'fee_percent', 'fix_fee')
-            ->first();
+        $dataMethod = $this->resolveSelectedMethod((string) $request->payment_method);
+        if (!$dataMethod) {
+            return $this->orderErrorResponse('Metode pembayaran tidak ditemukan.', 'PAYMENT_METHOD_NOT_FOUND');
+        }
 
         $amountBeforePoint = (int) round($dataLayanan->harga + $this->calculateMethodFeeAmount($dataLayanan->harga, $dataMethod));
         $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
@@ -855,8 +974,36 @@ class OrderController extends Controller
         // 1. Validation
         $this->validateOrder($request);
 
-        // 2. Initial Setup
-        if (Auth::check()) {
+        $idempotencyKeys = $this->buildOrderIdempotencyKeys($request);
+        $idempotencyLockKey = $idempotencyKeys['lock'];
+        $idempotencyResultKey = $idempotencyKeys['result'];
+        $cachedOrderId = Cache::get($idempotencyResultKey);
+
+        if ($cachedOrderId) {
+            return $this->orderSuccessResponse($request, $cachedOrderId, [
+                'message' => 'Order sudah diproses sebelumnya.',
+            ]);
+        }
+
+        if (!Cache::add($idempotencyLockKey, true, now()->addSeconds(self::ORDER_IDEMPOTENCY_LOCK_SECONDS))) {
+            $cachedOrderId = Cache::get($idempotencyResultKey);
+            if ($cachedOrderId) {
+                return $this->orderSuccessResponse($request, $cachedOrderId, [
+                    'message' => 'Order sudah diproses sebelumnya.',
+                ]);
+            }
+
+            return $this->orderErrorResponse(
+                'Permintaan sedang diproses. Mohon tunggu sebentar.',
+                'ORDER_DUPLICATE_REQUEST',
+                200,
+                ['retry_after_seconds' => 5]
+            );
+        }
+
+        try {
+            // 2. Initial Setup
+            if (Auth::check()) {
             $role = Auth::user()->role;
             $column = match($role) {
                 'Member' => 'harga_member',
@@ -874,13 +1021,15 @@ class OrderController extends Controller
             $dataLayanan = Layanan::where('id', $request->service)
                 ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
-        } else {
+            } else {
             $dataLayanan = Layanan::where('id', $request->service)
                 ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
-        }
+            }
 
-        if (!$dataLayanan) return response()->json(['status' => false, 'data' => 'Layanan tidak ditemukan']);
+        if (!$dataLayanan) {
+            return $this->orderErrorResponse('Layanan tidak ditemukan', 'SERVICE_NOT_FOUND');
+        }
 
         // Flash Sale Logic — FIX #1: Atomic decrement untuk cegah race condition
         // Gunakan satu query UPDATE dengan kondisi WHERE stock > 0 supaya thread-safe
@@ -898,7 +1047,7 @@ class OrderController extends Controller
                 $dataLayanan->harga = $dataLayanan->harga_flash_sale;
             } else {
                 // Stok habis saat race condition — tolak order
-                return response()->json(['status' => false, 'data' => 'Maaf, stok flash sale sudah habis. Silakan coba produk lain.']);
+                return $this->orderErrorResponse('Maaf, stok flash sale sudah habis. Silakan coba produk lain.', 'FLASHSALE_STOCK_EMPTY');
             }
         }
 
@@ -921,16 +1070,19 @@ class OrderController extends Controller
                 if ($potongan > $voucher->max_potongan) $potongan = $voucher->max_potongan;
                 
                 if ($voucher->mintrx && $dataLayanan->harga < $voucher->mintrx) {
-                     return response()->json([
-                        'status' => false, 
-                        'data' => 'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.')
-                    ]);
+                    return $this->orderErrorResponse(
+                        'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
+                        'VOUCHER_MIN_TRANSACTION'
+                    );
                 }
                 $dataLayanan->harga = round($dataLayanan->harga - $potongan);
             }
         }
 
-        $dataMethod = Method::where('code', $request->payment_method)->first();
+        $dataMethod = $this->resolveSelectedMethod((string) $request->payment_method);
+        if (!$dataMethod) {
+            return $this->orderErrorResponse('Metode pembayaran tidak ditemukan.', 'PAYMENT_METHOD_NOT_FOUND');
+        }
 
         $baseServiceAmount = max(0, (int) round((float) $dataLayanan->harga));
         $gatewayFeeAmount = $this->calculateMethodFeeAmount($baseServiceAmount, $dataMethod);
@@ -959,7 +1111,7 @@ class OrderController extends Controller
             );
 
             if ($reservedAmount <= 0) {
-                return response()->json(['status' => false, 'data' => 'Poin tidak cukup atau gagal dipakai. Silakan refresh lalu coba lagi.']);
+                return $this->orderErrorResponse('Poin tidak cukup atau gagal dipakai. Silakan refresh lalu coba lagi.', 'POINT_REDEMPTION_FAILED');
             }
 
             $usedPointAmount = $reservedAmount;
@@ -972,10 +1124,14 @@ class OrderController extends Controller
         // 3. Process based on Payment Method
         if ($request->payment_method == "SALDO") {
             // --- BALANCE PAYMENT FLOW ---
-            if (!Auth::check()) return response()->json(['status' => false, 'data' => 'Harap login terlebih dahulu']);
+            if (!Auth::check()) {
+                return $this->orderErrorResponse('Harap login terlebih dahulu', 'LOGIN_REQUIRED');
+            }
 
             $userKey = 'user_transaction_' . Auth::id();
-            if (Cache::has($userKey)) return response()->json(['status' => false, 'data' => 'Transaksi terlalu cepat, harap tunggu sebentar.']);
+            if (Cache::has($userKey)) {
+                return $this->orderErrorResponse('Transaksi terlalu cepat, harap tunggu sebentar.', 'BALANCE_RATE_LIMIT');
+            }
             Cache::put($userKey, true, now()->addMinutes(1));
 
             DB::beginTransaction();
@@ -1059,7 +1215,7 @@ class OrderController extends Controller
                 }
                 Log::error('Order Store Exception', ['error' => $e->getMessage()]);
                 // Return clear error message to user
-                return response()->json(['status' => false, 'data' => $e->getMessage()]);
+                return $this->orderErrorResponse($e->getMessage(), 'ORDER_PROCESSING_FAILED');
             }
 
         } else {
@@ -1088,7 +1244,7 @@ class OrderController extends Controller
                             $dataLayanan->layanan
                         );
                     }
-                    return response()->json(['status' => false, 'data' => $e->getMessage()]);
+                    return $this->orderErrorResponse($e->getMessage(), 'VOUCHER_STOCK_FAILED');
                 }
             }
 
@@ -1096,7 +1252,7 @@ class OrderController extends Controller
             $gatewayResult = ['status' => false, 'msg' => 'Metode pembayaran tidak tersedia'];
             
             if ($dataMethod->payment == "tokopay") {
-                $tokopay = new TokoPayController();
+                $tokopay = app(TokoPayController::class);
                 // Parameters: $ref_id, $channel, $jumlah, $nickname, $phone_number, $service
                 $res = $tokopay->createAdvanceOrder(
                     $order_id, 
@@ -1119,7 +1275,7 @@ class OrderController extends Controller
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';
                 }
             } else if ($dataMethod->payment == "tripay") {
-                $tripay = new TriPayController();
+                $tripay = app(TriPayController::class);
                 $tripayRequestAmount = $this->resolveGatewayRequestAmount($amount, $dataMethod);
                 // FIX #10: Gunakan email user yang sebenarnya, bukan email palsu
                 $customerEmail = Auth::check() && Auth::user()->email
@@ -1152,7 +1308,7 @@ class OrderController extends Controller
                 $tempOrder->profit = $dataLayanan->profit ?? 0; // Required field
                 $tempOrder->status = 'Pending'; // Will be updated after payment
 
-                $duitku = new DuitkuPaymentController();
+                $duitku = app(DuitkuPaymentController::class);
                 // Pass payment_method from request (Duitku method code: VC, BC, I1, etc)
                 $duitkuMethodCode = $request->payment_method ?? ''; // Empty = user chooses at Duitku page
                 $res = $duitku->createInvoice($tempOrder, $duitkuMethodCode);
@@ -1170,6 +1326,8 @@ class OrderController extends Controller
                 } else {
                     $gatewayResult['msg'] = $res['message'] ?? 'Gagal membuat invoice Duitku';
                 }
+            } else if ($dataMethod->payment == "manual") {
+                $gatewayResult = $this->buildManualGatewayResult($order_id, $amount, $dataMethod);
             }
 
             if (!$gatewayResult['status']) {
@@ -1186,7 +1344,7 @@ class OrderController extends Controller
                         $dataLayanan->layanan
                     );
                 }
-                return response()->json(['status' => false, 'data' => $gatewayResult['msg'] ?? 'Gagal memproses pembayaran']);
+                return $this->orderErrorResponse($gatewayResult['msg'] ?? 'Gagal memproses pembayaran', 'PAYMENT_GATEWAY_FAILED');
             }
 
             $amount = $gatewayResult['amount'];
@@ -1219,7 +1377,7 @@ class OrderController extends Controller
                 }
 
                 Log::error('Order Store Create Record Failed', ['error' => $e->getMessage(), 'order_id' => $order_id]);
-                return response()->json(['status' => false, 'data' => $e->getMessage()]);
+                return $this->orderErrorResponse($e->getMessage(), 'ORDER_RECORD_CREATE_FAILED');
             }
 
             $paymentExpiryAt = $this->resolvePaymentExpiryAt($gatewayResult, $dataMethod, 'Belum Lunas');
@@ -1232,10 +1390,12 @@ class OrderController extends Controller
             $this->msg($request->nomor, $pesanPending);
         }
 
-        return response()->json([
-            'status' => true,
-            'order_id' => $order_id
-        ]);
+            Cache::put($idempotencyResultKey, $order_id, now()->addSeconds(self::ORDER_IDEMPOTENCY_RESULT_SECONDS));
+
+            return $this->orderSuccessResponse($request, $order_id);
+        } finally {
+            Cache::forget($idempotencyLockKey);
+        }
     }
 
     public function msg($nomor, $msg)
@@ -1422,51 +1582,7 @@ class OrderController extends Controller
     }
     private function validateOrder(Request $request)
     {
-        $rules = [
-            'service' => 'required|numeric',
-            'payment_method' => 'required',
-            'nomor' => 'required|numeric',
-            'voucher' => 'string',
-        ];
-
-        if ($request->ktg_tipe === 'jokigendong') {
-            $rules += [
-                'nickname_joki' => 'required|string|max:255',
-                'tglmain_joki' => 'required|string|max:255',
-                'jambooking_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required',
-                'catatan_joki' => 'required',
-            ];
-        } elseif ($request->ktg_tipe === 'joki' || $request->ktg_tipe === 'vilogml') {
-            $rules += [
-                'email_joki' => 'required|string|max:255',
-                'password_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required|string|max:255',
-                'nickname_joki' => 'required|string|max:255',
-                'request_joki' => 'required|string|max:255',
-                'catatan_joki' => 'required|string|max:255',
-                'qty' => 'required|numeric|max:30',
-            ];
-        } else {
-            // Cek apakah kategori game ini memerlukan User ID
-            // Query langsung dari service id yang ada di request
-            $requireUserId = true; // default wajib
-            if ($request->service) {
-                $layanan = \App\Models\Layanan::select('kategori_id')
-                    ->where('id', $request->service)
-                    ->first();
-                if ($layanan && $layanan->kategori_id) {
-                    $kategori = \App\Models\Kategori::select('require_user_id')
-                        ->find($layanan->kategori_id);
-                    if ($kategori !== null) {
-                        $requireUserId = (bool) $kategori->require_user_id;
-                    }
-                }
-            }
-            $rules['uid'] = $requireUserId ? 'required|max:25' : 'nullable|max:25';
-        }
-
-        $request->validate($rules);
+        $this->validateOrderRequest($request, false);
     }
 
     private function processGameProvider($dataLayanan, $request, $order_id)
@@ -1892,5 +2008,42 @@ class OrderController extends Controller
             'tokopay' => now()->addHours(3),
             default => now()->addHours(3),
         };
+    }
+
+    private function buildManualGatewayResult(string $orderId, int $amount, $dataMethod): array
+    {
+        $settings = \App\Models\SettingWeb::query()->first();
+        $paymentCode = Str::upper(trim((string) ($dataMethod->code ?? '')));
+        $methodName = trim((string) ($dataMethod->name ?? 'Pembayaran Manual'));
+
+        $paymentTarget = match ($paymentCode) {
+            'MANUAL_BANK' => trim((string) ($settings->bca_admin ?? '')),
+            'MANUAL_EWALLET' => trim((string) ($settings->dana_admin ?? $settings->ovo_admin ?? $settings->gopay_admin ?? '')),
+            default => trim((string) ($settings->nomor_admin ?? $settings->wa_number ?? '')),
+        };
+
+        if ($paymentTarget === '') {
+            $paymentTarget = 'Hubungi admin demo untuk instruksi pembayaran';
+        }
+
+        $accountHolder = trim((string) ($settings->judul_web ?? config('app.name', 'Demo Topup')));
+        $displayValue = $paymentTarget;
+
+        if (
+            ! str_contains(Str::lower($paymentTarget), 'hubungi') &&
+            ! str_contains(Str::lower($paymentTarget), 'admin') &&
+            $accountHolder !== ''
+        ) {
+            $displayValue = sprintf('%s a.n. %s', $paymentTarget, $accountHolder);
+        }
+
+        return [
+            'status' => true,
+            'no_pembayaran' => $displayValue,
+            'reference' => 'MANUAL-' . $orderId,
+            'amount' => $amount,
+            'expired_at' => now()->addHours(12),
+            'msg' => sprintf('%s siap digunakan.', $methodName),
+        ];
     }
 }

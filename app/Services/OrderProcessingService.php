@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
+use App\Http\Controllers\provider\TopupediaController;
 use App\Services\Providers\BangJeffService;
 
 class OrderProcessingService
@@ -115,12 +116,23 @@ class OrderProcessingService
     {
         $activeProviderCode = strtolower(trim((string) $pembelian->active_provider_code));
         $activeProviderSku = trim((string) $pembelian->active_provider_sku);
+        $resellerUserId = $this->resolveResellerUserId($pembelian);
 
         if ($activeProviderCode !== '' && $activeProviderSku !== '') {
-            return $this->routingService->resolveExplicitProvider($activeProviderCode, $activeProviderSku);
+            return $this->routingService->resolveExplicitProvider($activeProviderCode, $activeProviderSku, $resellerUserId, 'live');
         }
 
-        return $this->routingService->findBestProvider($layanan);
+        return $this->routingService->findBestProvider($layanan, $resellerUserId, 'live');
+    }
+
+    protected function resolveResellerUserId(Pembelian $pembelian): ?int
+    {
+        $linkedUser = $pembelian->user;
+        if ($linkedUser && isset($linkedUser->id)) {
+            return (int) $linkedUser->id;
+        }
+
+        return null;
     }
 
     protected function normalizeDispatchMode(string $dispatchMode): string
@@ -346,6 +358,39 @@ class OrderProcessingService
                     $result['message'] = $response['data']['statusDesc'] ?? ($response['message'] ?? 'BangJeff order accepted');
                 } else {
                     $result['message'] = $response['message'] ?? 'BangJeff Failed';
+                }
+
+                return $result;
+
+            case 'topupedia':
+                $topupedia = new TopupediaController($credentials);
+                $requestData = [['name' => 'ID', 'value' => $uid]];
+                if (! empty($zone)) {
+                    $requestData[] = ['name' => 'Server', 'value' => $zone];
+                }
+
+                $response = $topupedia->order($sku, $providerReference, 1, $requestData);
+                $responseData = is_array($response['data'] ?? null) ? $response['data'] : $response;
+                $providerMessage = trim((string) ($responseData['statusDesc'] ?? $responseData['message'] ?? $response['message'] ?? ''));
+                $providerStatus = strtoupper((string) ($responseData['statusCode'] ?? $responseData['status_code'] ?? 'PROCESSING'));
+                $providerInvoice = $responseData['invoiceNumber'] ?? $responseData['invoice_number'] ?? $providerReference;
+
+                $isSuccess = (($response['error'] ?? null) === false)
+                    || (($response['rc'] ?? null) === '00')
+                    || isset($responseData['invoiceNumber'])
+                    || isset($responseData['invoice_number']);
+
+                if ($isSuccess) {
+                    $result['success'] = true;
+                    $result['order_status'] = match ($providerStatus) {
+                        'SUCCESS', 'SUKSES' => 'Sukses',
+                        'REFUNDED', 'FAILED', 'GAGAL', 'CANCELLED', 'CANCELED' => 'Gagal',
+                        default => 'Pending',
+                    };
+                    $result['transaction_id'] = $providerInvoice;
+                    $result['message'] = $providerMessage !== '' ? $providerMessage : 'Topupedia order accepted.';
+                } else {
+                    $result['message'] = $providerMessage !== '' ? $providerMessage : 'Topupedia failed';
                 }
 
                 return $result;

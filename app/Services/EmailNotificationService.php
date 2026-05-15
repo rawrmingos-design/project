@@ -77,6 +77,51 @@ class EmailNotificationService
         }
     }
 
+    /**
+     * Send generic informational email that is not tied to transaction template slug.
+     *
+     * @param string $email
+     * @param string $subject
+     * @param string $contentHtml
+     * @param array<string, mixed> $context
+     */
+    public function sendGenericEmail(string $email, string $subject, string $contentHtml, array $context = []): bool
+    {
+        if (empty($email)) {
+            Log::warning('EmailNotificationService: No email provided for generic email.');
+
+            return false;
+        }
+
+        try {
+            $settings = SettingWeb::query()->first();
+            $this->applyMailConfiguration($settings);
+
+            $data = array_merge([
+                'order_id' => (string) ($context['reference_id'] ?? 'GENERIC-NOTIFICATION'),
+                'status' => (string) ($context['status'] ?? 'info'),
+                'nickname' => (string) ($context['recipient_name'] ?? 'Member'),
+            ], $context);
+
+            Mail::to($email)->send(new TransactionMail($data, $subject, $contentHtml));
+
+            Log::info('EmailNotificationService: Generic email sent.', [
+                'email' => $email,
+                'subject' => $subject,
+                'reference_id' => $context['reference_id'] ?? null,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('EmailNotificationService Generic Error: ' . $e->getMessage(), [
+                'email' => $email,
+                'subject' => $subject,
+            ]);
+
+            return false;
+        }
+    }
+
     public function sendTestEmail(string $email): bool
     {
         if (empty($email)) {
