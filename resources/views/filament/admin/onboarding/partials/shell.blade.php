@@ -11,12 +11,25 @@
     $guideTitle = $guideTitle ?? 'Kenali area penting halaman ini';
     $guideDescription = $guideDescription ?? 'Panduan singkat ini membantu admin memahami area utama yang paling sering dipakai.';
     $guideHighlights = $guideHighlights ?? [];
+    $onboardingScope = $onboardingScope ?? (request()->route()?->getName() ?: request()->path());
+    $onboardingScopeKey = \Illuminate\Support\Str::slug((string) $onboardingScope, '_');
+    $onboardingCookieName = 'admin_onboarding_dismissed_' . ($onboardingScopeKey !== '' ? $onboardingScopeKey : 'page');
+    $isOnboardingDismissed = request()->cookie($onboardingCookieName) === '1';
 @endphp
 
 <link rel="stylesheet" href="{{ asset('assets/admin/onboarding-guide.css') }}?v={{ $onboardingCssVersion }}">
 
-<div data-onboarding-guide>
-    <div class="admin-onboarding-modal" data-onboarding-welcome>
+<div
+    data-onboarding-guide
+    data-onboarding-scope="{{ $onboardingScope }}"
+    data-onboarding-cookie="{{ $onboardingCookieName }}"
+    data-onboarding-initial-dismissed="{{ $isOnboardingDismissed ? '1' : '0' }}"
+>
+    <button type="button" class="admin-onboarding-reopen-button" data-onboarding-reopen>
+        Lihat Panduan Lagi
+    </button>
+
+    <div class="admin-onboarding-modal" data-onboarding-welcome @if($isOnboardingDismissed) hidden style="display:none" @endif>
         <div class="admin-onboarding-modal__backdrop"></div>
         <div class="admin-onboarding-modal__panel" role="dialog" aria-modal="true" aria-labelledby="admin-onboarding-title">
             <div class="admin-onboarding-modal__badge">{{ $guideBadge }}</div>
@@ -77,4 +90,4 @@
     </script>
 </div>
 
-<script src="{{ asset('assets/admin/onboarding-guide.js') }}?v={{ $onboardingJsVersion }}" defer></script>
+<script src="{{ asset('assets/admin/onboarding-guide.js') }}?v={{ $onboardingJsVersion }}" defer data-navigate-once></script>
