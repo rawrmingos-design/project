@@ -15,6 +15,7 @@
         "filament/infolists": "4.0",
         "filament/spatie-laravel-media-library-plugin": "4",
         "guzzlehttp/guzzle": "^7.0.1",
+        "inertiajs/inertia-laravel": "^3.0",
         "intervention/image": "^3.7",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
