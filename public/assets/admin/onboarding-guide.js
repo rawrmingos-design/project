@@ -113,6 +113,33 @@
 
         state.dismissedForPageLifecycle = readDismissedState();
 
+        function mountReopenButtons() {
+            if (!reopenButtons.length) {
+                return;
+            }
+
+            var headerActionsContainer = document.querySelector('.fi-page .fi-header-actions-ctn')
+                || document.querySelector('.fi-header-actions-ctn');
+
+            reopenButtons.forEach(function (button) {
+                if (!button) {
+                    return;
+                }
+
+                if (headerActionsContainer) {
+                    button.classList.add('admin-onboarding-reopen-button--header');
+
+                    if (!headerActionsContainer.contains(button)) {
+                        headerActionsContainer.appendChild(button);
+                    }
+
+                    return;
+                }
+
+                button.classList.remove('admin-onboarding-reopen-button--header');
+            });
+        }
+
         function isVisible(element) {
             if (!element) {
                 return false;
@@ -555,6 +582,8 @@
                 button.addEventListener('click', reopenGuide);
             });
         }
+
+        mountReopenButtons();
 
         window.addEventListener('resize', function () {
             if (state.activeElement) {

@@ -6,10 +6,10 @@
 }
 
 .admin-onboarding-reopen-button {
-    position: fixed;
+    position: absolute;
     top: 76px;
     right: 22px;
-    z-index: 9998;
+    z-index: 120;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -24,6 +24,20 @@
     line-height: 1;
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-onboarding-reopen-button--header {
+    position: static;
+    top: auto;
+    right: auto;
+    margin: 0;
+    z-index: 1;
+}
+
+.fi-header-actions-ctn .admin-onboarding-reopen-button--header {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .admin-onboarding-reopen-button:hover {
@@ -240,10 +254,14 @@
 
 @media (max-width: 768px) {
     .admin-onboarding-reopen-button {
-        top: 68px;
+        top: 66px;
         right: 14px;
         font-size: 0.75rem;
         padding: 0.5rem 0.82rem;
+    }
+
+    .fi-header-actions-ctn .admin-onboarding-reopen-button--header {
+        display: none;
     }
 
     .admin-onboarding-modal__panel {
