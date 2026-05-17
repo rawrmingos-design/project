@@ -3,7 +3,7 @@
         <form wire:submit="save">
             {{ $this->form }}
 
-            <div class="fi-form-actions" data-onboarding-target="settings-save">
+            <div class="fi-form-actions settings-form-actions" data-onboarding-target="settings-save">
                 <x-filament::button
                     type="submit"
                     color="primary"
