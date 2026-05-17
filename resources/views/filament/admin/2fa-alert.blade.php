@@ -1,17 +1,16 @@
 @if(auth()->user() && !auth()->user()->two_factor_secret)
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; font-size: 14px; font-weight: 500; color: #d97706; background-color: #fffbeb; border-radius: 6px; margin-bottom: 12px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 24px; height: 24px;">
-                <x-heroicon-o-exclamation-triangle style="width: 24px; height: 24px;" />
+    <div class="fil-admin-2fa-alert" role="status" aria-live="polite">
+        <div class="fil-admin-2fa-alert__content">
+            <div class="fil-admin-2fa-alert__icon-wrap" aria-hidden="true">
+                <x-heroicon-o-exclamation-triangle class="fil-admin-2fa-alert__icon" />
             </div>
-            <span>
+            <span class="fil-admin-2fa-alert__text">
                 Keamanan akun Anda belum maksimal. Aktifkan 2FA (Two-Factor Authentication) sekarang.
             </span>
         </div>
-        
-        <a href="/profile" style="text-decoration: underline; color: #d97706;">
+
+        <a href="/profile" class="fil-admin-2fa-alert__action">
             Aktifkan Sekarang &rarr;
         </a>
     </div>
 @endif
-
