@@ -36,8 +36,9 @@ class RegisterController extends Controller
             'nama' => 'required|string|max:255',
             'username' => 'required|string|min:3|unique:users,username|max:255',
             'password' => 'required|string|min:6|max:255',
-            'email' => 'required',
-            'no_wa' => 'required|numeric|unique:users,no_wa'
+            'passwordd' => 'required|string|min:6|same:password',
+            'email' => 'required|email|max:255|unique:users,email',
+            'no_wa' => 'required|regex:/^[0-9]{10,20}$/|unique:users,no_wa',
         ];
 
         if ($this->isAuthCaptchaEnabled()) {
@@ -47,6 +48,9 @@ class RegisterController extends Controller
         $validator = Validator::make($request->all(), $rules, [
             'g-recaptcha-response.required' => 'Captcha wajib diverifikasi.',
             'g-recaptcha-response.captcha' => 'Verifikasi captcha gagal. Silakan coba lagi.',
+            'passwordd.same' => 'Konfirmasi kata sandi harus sama dengan kata sandi.',
+            'email.email' => 'Format email tidak valid.',
+            'no_wa.regex' => 'Nomor WhatsApp harus berupa angka 10-20 digit.',
         ]);
 
         if ($validator->fails()) {
