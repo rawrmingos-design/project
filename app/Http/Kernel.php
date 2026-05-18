@@ -59,5 +59,6 @@ class Kernel extends HttpKernel
         'bangjeff.legacy.redirect' => \App\Http\Middleware\RedirectLegacyBladeWhenBangjeff::class,
         'affiliate.only' => \App\Http\Middleware\EnsureAffiliateUser::class,
         'non-affiliate.only' => \App\Http\Middleware\EnsureNonAffiliateUser::class,
+        'non-admin.public-dashboard' => \App\Http\Middleware\EnsureNonAdminPublicDashboard::class,
     ];
 }
