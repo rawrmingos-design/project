@@ -29,12 +29,32 @@ class PreventRequestsDuringMaintenance extends Middleware
     public function handle($request, Closure $next)
     {
         // Pengecualian otomatis untuk domain/subdomain admin
-        $adminDomain = env('FILAMENT_ADMIN_DOMAIN', 'adminpanel.istanatopup.com');
-        
-        if ($request->getHost() === $adminDomain) {
+        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', 'adminpanel.istanatopup.com'));
+        $requestHost = $this->normalizeHost((string) $request->getHost());
+
+        if ($adminDomain !== '' && $requestHost !== '' && $requestHost === $adminDomain) {
             return $next($request);
         }
         // Jalankan sistem maintenance normal Laravel untuk domain lainnya
         return parent::handle($request, $next);
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        $normalized = trim(strtolower($host));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (str_contains($normalized, '://')) {
+            $normalized = (string) (parse_url($normalized, PHP_URL_HOST) ?? '');
+        }
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return (string) (preg_replace('/:\d+$/', '', $normalized) ?? $normalized);
     }
 }
