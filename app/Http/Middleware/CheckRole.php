@@ -17,16 +17,52 @@ class CheckRole
      */
     public function handle(Request $request, Closure $next)
     {
-        if (Auth::check()) {
-            if (Auth::user()->role == "Admin") {
-                return $next($request);
-            } elseif (Auth::user()->role == "Member") {
-                return redirect('/my/dashboard');
-            } elseif (Auth::user()->role == "Platinum") {
-                return redirect('/my/dashboard');
-            } else if (Auth::user()->role == "Gold") {
-                return redirect('/my/dashboard');
+        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+        $requestHost = $this->normalizeHost((string) $request->getHost());
+
+        if (! Auth::check()) {
+            if ($adminDomain !== '' && $requestHost !== '' && $requestHost === $adminDomain) {
+                return redirect('/login');
             }
-        }        
+
+            return redirect()->route('login');
+        }
+
+        if ((string) Auth::user()->role === 'Admin') {
+            return $next($request);
+        }
+
+        if ($adminDomain !== '' && $requestHost !== '' && $requestHost === $adminDomain) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect('/login');
+        }
+
+        if ($request->routeIs('dashboard')) {
+            abort(403);
+        }
+
+        return redirect()->route('dashboard');
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        $normalized = trim(strtolower($host));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (str_contains($normalized, '://')) {
+            $normalized = (string) (parse_url($normalized, PHP_URL_HOST) ?? '');
+        }
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return (string) (preg_replace('/:\d+$/', '', $normalized) ?? $normalized);
     }
 }

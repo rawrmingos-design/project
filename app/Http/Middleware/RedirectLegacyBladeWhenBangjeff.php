@@ -17,6 +17,13 @@ class RedirectLegacyBladeWhenBangjeff
 
     public function handle(Request $request, Closure $next): Response
     {
+        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+        $requestHost = $this->normalizeHost((string) $request->getHost());
+
+        if ($adminDomain !== '' && $requestHost !== '' && $requestHost === $adminDomain) {
+            return $next($request);
+        }
+
         if ($this->resolveActiveTheme() !== PublicThemeRegistry::BANGJEFF) {
             return $next($request);
         }
@@ -72,5 +79,24 @@ class RedirectLegacyBladeWhenBangjeff
         );
 
         return PublicThemeRegistry::normalize($theme);
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        $normalized = trim(strtolower($host));
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (str_contains($normalized, '://')) {
+            $normalized = (string) (parse_url($normalized, PHP_URL_HOST) ?? '');
+        }
+
+        if ($normalized === '') {
+            return '';
+        }
+
+        return (string) (preg_replace('/:\d+$/', '', $normalized) ?? $normalized);
     }
 }

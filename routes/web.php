@@ -152,7 +152,30 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-Route::redirect('/', '/id', 301);
+$publicHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+$adminHostRaw = trim((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+$adminHost = $adminHostRaw;
+
+if ($adminHost !== '' && str_contains($adminHost, '://')) {
+    $adminHost = (string) (parse_url($adminHost, PHP_URL_HOST) ?? '');
+}
+
+$adminHost = preg_replace('/:\d+$/', '', $adminHost) ?? '';
+
+if (is_string($publicHost) && $publicHost !== '') {
+    Route::domain($publicHost)->group(function () {
+        Route::redirect('/', '/id', 301);
+    });
+} else {
+    Route::redirect('/', '/id', 301);
+}
+
+if ($adminHost !== '') {
+    Route::domain($adminHost)->group(function () {
+        Route::redirect('/id', '/login', 302);
+        Route::redirect('/id/{any}', '/login', 302)->where('any', '.*');
+    });
+}
 
 Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
@@ -165,7 +188,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/',                                                              PublicHomeController::class)->name('home');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
-        Route::get('/dashboard',                                                     PublicDashboardPageController::class)->name('dashboard');
+        Route::get('/dashboard',                                                     PublicDashboardPageController::class)->middleware('non-admin.public-dashboard')->name('dashboard');
         Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
         Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
         Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->name('settings.change-password');
@@ -218,7 +241,8 @@ Route::get('/wlip/create',                                                 [Whit
 Route::post('/wlip',                                                       [WhitelistedIPController::class, 'store'])->name('whitelisted-ips.store');
 
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
-    Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class);
+    Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class)
+        ->missing(fn () => redirect('/id', 302));
     Route::post('/id/harga',                                                     [OrderController::class, 'price'])->name('ajax.price');
     Route::post('/id/konfirmasi-data',          [OrderController::class, 'confirm'])->name('ajax.confirmation');
     Route::post('/ajax/check-account',          [OrderController::class, 'checkAccount'])->name('ajax.check-account');
@@ -327,4 +351,24 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/data/joki',                                                     [DataJokiController::class, 'dataJoki']);
     Route::get('/joki-status/{order_id}/{status}',                               [DataJokiController::class, 'statusJoki']);
     Route::get('/joki/hapus/{id}',                                               [DataJokiController::class, 'hapusJoki']);
+});
+
+Route::fallback(function (\Illuminate\Http\Request $request) use ($publicHost, $adminHost) {
+    if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
+        abort(404);
+    }
+
+    $requestHost = strtolower(trim((string) $request->getHost()));
+    $normalizedPublicHost = strtolower(trim((string) ($publicHost ?? '')));
+    $normalizedAdminHost = strtolower(trim((string) ($adminHost ?? '')));
+
+    if ($normalizedAdminHost !== '' && $requestHost === $normalizedAdminHost) {
+        abort(404);
+    }
+
+    if ($normalizedPublicHost !== '' && $requestHost !== $normalizedPublicHost) {
+        abort(404);
+    }
+
+    return redirect('/id', 302);
 });
