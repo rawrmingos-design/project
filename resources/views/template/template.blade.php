@@ -236,8 +236,10 @@
         --warna_1: <?= $config->warna1; ?>;
         --warna_2: <?= $config->warna2; ?>;
         --warna_3: <?= $config->warna3; ?>;
-        --warna_4: <?= $config->warna4; ?>;         
+        --warna_4: <?= $config->warna4; ?>;
+        --gradient-theme: linear-gradient(to top, var(--warna_2) 0%, var(--warna_1) 100%);
     } 
+
     .bg-weji { 
         --tw-bg-opacity: 1;
         background-color: var(--warna_4);
@@ -258,6 +260,113 @@
     <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}">
+
+    @php
+        $needsPublicDashboardStyles = request()->routeIs([
+            'dashboard',
+            'editProfile',
+            'riwayat',
+            'reload',
+            'deposit',
+            'affiliate',
+            'withdrawal',
+        ]);
+    @endphp
+    @if($needsPublicDashboardStyles)
+        @unless(app()->runningUnitTests())
+            @vite(['resources/css/public-app.css'])
+        @endunless
+        <style>
+            /* Keep dashboard/settings layout classes, but inherit brand colors from setting_webs */
+            .public-dashboard-side__link,
+            .public-dashboard-card,
+            .public-dashboard-table__shell,
+            .public-settings-card {
+                background: linear-gradient(145deg, var(--warna_4) 0%, var(--warna_2) 100%);
+                border-color: color-mix(in srgb, var(--warna_3) 18%, rgba(255, 255, 255, 0.16));
+            }
+
+            .public-dashboard-table thead {
+                background: color-mix(in srgb, var(--warna_2) 84%, #000000 16%);
+            }
+
+            .public-dashboard-stat--neutral {
+                background: color-mix(in srgb, var(--warna_2) 86%, rgba(255, 255, 255, 0.14));
+                border-color: color-mix(in srgb, var(--warna_3) 20%, rgba(255, 255, 255, 0.16));
+            }
+
+            .public-settings-form input,
+            .public-settings-api__value,
+            .public-settings-2fa__meta input,
+            .public-settings-2fa__disable input {
+                background: color-mix(in srgb, var(--warna_4) 88%, #ffffff 12%);
+            }
+
+            .public-dashboard-side__link:hover,
+            .public-dashboard-side__link:focus-visible {
+                border-color: var(--warna_3);
+                background: linear-gradient(90deg, var(--warna_3) 0%, transparent 100%);
+                background: linear-gradient(90deg, color-mix(in srgb, var(--warna_3) 28%, transparent) 0%, transparent 100%);
+            }
+
+            .public-dashboard-side__link.is-active {
+                border-color: var(--warna_3);
+                background: linear-gradient(90deg, var(--warna_1) 0%, color-mix(in srgb, var(--warna_2) 58%, transparent) 100%);
+            }
+
+            .public-dashboard-side__link--logout {
+                color: #fca5a5;
+            }
+
+            .public-dashboard-alert {
+                border-color: color-mix(in srgb, var(--warna_3) 35%, #ffffff 20%);
+                background: linear-gradient(90deg, var(--warna_1) 0%, var(--warna_2) 100%);
+            }
+
+            .public-dashboard-profile__copy span {
+                border-color: var(--warna_3);
+                background: transparent;
+                border-color: color-mix(in srgb, var(--warna_3) 46%, transparent);
+                background: color-mix(in srgb, var(--warna_3) 18%, transparent);
+                color: #fff5e6;
+            }
+
+            .public-dashboard-credits__amount strong,
+            .public-dashboard-table__invoice-link {
+                color: var(--warna_3);
+            }
+
+            .public-dashboard-button--primary,
+            .public-dashboard-stats__switch-btn.is-active,
+            .public-settings-form button,
+            .public-settings-api__actions button,
+            .public-settings-2fa button {
+                background: linear-gradient(180deg, var(--warna_1) 0%, var(--warna_2) 100%);
+                color: #ffffff;
+            }
+
+            .public-dashboard-stats__switch-btn:hover,
+            .public-dashboard-stats__switch-btn:focus-visible {
+                border-color: var(--warna_3);
+            }
+
+            .public-dashboard-table tbody tr:hover td {
+                background: transparent;
+                background: color-mix(in srgb, var(--warna_3) 12%, transparent);
+            }
+
+            .public-settings-form input:focus,
+            .public-settings-2fa__meta input:focus,
+            .public-settings-2fa__disable input:focus {
+                border-color: var(--warna_3);
+                box-shadow: 0 0 0 1px var(--warna_3);
+            }
+
+            .public-settings-2fa__meta code {
+                color: var(--warna_3);
+            }
+        </style>
+    @endif
     
 
 
