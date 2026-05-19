@@ -7,11 +7,12 @@
             <div class="tabs-container flex overflow-x-auto scroll-smooth">
                 @foreach ($categoryTypes as $type)
                 <button
-                    class="tab-button whitespace-nowrap melpazoom rounded-xl border border-secondary-600 px-4 py-2 text-sm text-text-color shadow-xl outline-none duration-300 hover:bg-secondary-500 focus:bg-secondary-500 focus-visible:bg-secondary-500 bg-transparent"
+                    class="tab-button whitespace-nowrap melpazoom rounded-xl border border-secondary-600 px-4 py-2 text-sm text-text-color shadow-xl outline-none duration-300 hover:bg-secondary-500 focus:bg-secondary-500 focus-visible:bg-secondary-500 {{ $loop->first ? 'active' : 'bg-transparent' }}"
                     id="headlessui-tabs-tab-:{{ $type->slug }}:" role="tab" type="button" aria-selected="false"
                     tabindex="0" data-headlessui-state="false"
                     aria-controls="headlessui-tabs-panel-:{{ $type->slug }}:"
-                    data-tabs-toggle="#headlessui-tabs-panel-{{ $type->slug }}">
+                    data-tabs-toggle="#headlessui-tabs-panel-{{ $type->slug }}"
+                    @if($loop->first) style="background-color: var(--warna_3);" @endif>
                     {{ $type->name }}
                 </button>
                 @endforeach

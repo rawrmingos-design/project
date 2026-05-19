@@ -17,6 +17,7 @@ class Articles extends Component
     {   
         $articles = Cache::remember('latest_articles', 300, function () {
             return Artikel::where('status', 'active')
+                ->select(['id', 'slug', 'title', 'thumbnail', 'created_at', 'views'])
                 ->latest()
                 ->take(3)
                 ->get();

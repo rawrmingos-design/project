@@ -1,5 +1,9 @@
 <div>
 @if($flashsale->count() > 0)
+@php
+    $marqueeItems = $flashsale->concat($flashsale);
+    $countdownTarget = optional($flashsale->sortBy('expired_flash_sale')->first())->expired_flash_sale;
+@endphp
 <div class="container">
   <div class="rounded-2xl bg-muted/50">
     <div class="px-4 pb-3 pt-4">
@@ -39,20 +43,13 @@
                             class="assdafsdvsvasgdsgsdgwgreragwgwrgeargwrgergegsvdsDVSVcsdvdszvsbwtergerg43t34f34343ff34g34gG2">
                             <div id="special_deals">
                                 <div class="list swiper-wrapper marquee-content">
-                                    @for ($i = 0; $i < $flashsale->count(); $i++)
-                                        @foreach ($flashsale as $fs)
-                                            @php
-                                                $discount = round(
-                                                    (($fs->harga - $fs->harga_flash_sale) / $fs->harga) *
-                                                        100,
-                                                );
-                                            @endphp
+                                        @foreach ($marqueeItems as $fs)
                                             <a class="swiper-slide-link"
                                                 href="{{ url('/id') }}/{{ $fs->kode_game }}">
                                                 <div class="item relative" data-item-theme="0722">
                                                     <div class="popular-tag-container">
                                                         <div class="popular-tag-content">
-                                                            <div class="rate">{{ $fs->kategori->nama }}</div>
+                                                            <div class="rate">{{ $fs->kategori_nama }}</div>
                                                         </div>
                                                         <div class="popular-tag-overlay"></div>
                                                     </div>
@@ -103,7 +100,6 @@
                                                 </div>
                                             </a>
                                         @endforeach
-                                    @endfor
                                 </div>
                             </div>
                         </div>
@@ -119,13 +115,9 @@
 @push('custom_script')
 <script>
 function updateTimer() {
-@foreach($flashsale as $fs)
-@php
-$expiredFlashSale = new DateTime($fs->expired_flash_sale);
-$formattedDate = $expiredFlashSale->format('Y-m-d H:i:s');
-@endphp
-var countDownDate=new Date("{{ $formattedDate }}").getTime(),x=setInterval(function(){var t=new Date().getTime(),e=countDownDate-t;e>0?(document.getElementById("hours").textContent=Math.floor(e%864e5/36e5).toString().padStart(2,"0"),document.getElementById("minutes").textContent=Math.floor(e%36e5/6e4).toString().padStart(2,"0"),document.getElementById("seconds").textContent=Math.floor(e%6e4/1e3).toString().padStart(2,"0")):(clearInterval(x),document.getElementById("hours").textContent="00",document.getElementById("minutes").textContent="00",document.getElementById("seconds").textContent="00",document.getElementById("expired_time_flash_sale").textContent="Waktu sudah habis!")},1e3);
-@endforeach
+@if($countdownTarget)
+var countDownDate=new Date("{{ $countdownTarget->format('Y-m-d H:i:s') }}").getTime(),x=setInterval(function(){var t=new Date().getTime(),e=countDownDate-t;e>0?(document.getElementById("hours").textContent=Math.floor(e%864e5/36e5).toString().padStart(2,"0"),document.getElementById("minutes").textContent=Math.floor(e%36e5/6e4).toString().padStart(2,"0"),document.getElementById("seconds").textContent=Math.floor(e%6e4/1e3).toString().padStart(2,"0")):(clearInterval(x),document.getElementById("hours").textContent="00",document.getElementById("minutes").textContent="00",document.getElementById("seconds").textContent="00")},1e3);
+@endif
 }
 document.addEventListener("DOMContentLoaded", function() {updateTimer();});
 </script>
