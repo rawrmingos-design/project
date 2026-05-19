@@ -17,8 +17,12 @@ class CategoryTabs extends Component
     {   
         $categoryTypes = Cache::remember('category_types_with_kategoris', 300, function () {
             return CategoryType::orderBy('sort', 'asc')
+                ->select(['id', 'name', 'slug', 'sort'])
                 ->with(['kategoris' => function ($query) {
-                    $query->where('status', 'active');
+                    $query
+                        ->select(['id', 'category_type_id', 'nama', 'sub_nama', 'thumbnail', 'kode'])
+                        ->where('status', 'active')
+                        ->orderBy('nama');
                 }])
                 ->get();
         });
