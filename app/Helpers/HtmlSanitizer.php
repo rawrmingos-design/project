@@ -13,6 +13,13 @@ use Mews\Purifier\Facades\Purifier;
  */
 class HtmlSanitizer
 {
+    private static function resolveProfile(string $name): ?array
+    {
+        $profile = config("purifier.settings.{$name}");
+
+        return is_array($profile) ? $profile : null;
+    }
+
     /**
      * Sanitasi HTML rich-text (untuk deskripsi game, artikel, deskripsi_field).
      * Menggunakan profile 'default' dari config/purifier.php.
@@ -23,12 +30,18 @@ class HtmlSanitizer
             return '';
         }
 
-        return Purifier::clean($html, 'default');
+        $defaultProfile = self::resolveProfile('default');
+
+        return $defaultProfile
+            ? Purifier::clean($html, $defaultProfile)
+            : Purifier::clean($html);
     }
 
     /**
-     * Sanitasi lebih ketat untuk konten artikel — izinkan lebih banyak tag HTML5.
-     * Cocok untuk konten artikel blog yang sering menggunakan heading, tabel, blockquote.
+     * Sanitasi konten artikel/legal dengan profile yang aman.
+     * Catatan: `custom_definition` di config bukan profile settings, jadi
+     * kita tetap gunakan profile settings (`article` jika ada, fallback `default`)
+     * agar kompatibel dengan versi purifier terbaru.
      */
     public static function cleanArticle(?string $html): string
     {
@@ -36,7 +49,11 @@ class HtmlSanitizer
             return '';
         }
 
-        return Purifier::clean($html, 'custom_definition');
+        $articleProfile = self::resolveProfile('article') ?? self::resolveProfile('default');
+
+        return $articleProfile
+            ? Purifier::clean($html, $articleProfile)
+            : Purifier::clean($html);
     }
 
     /**
