@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Pages\Auth;
 
 use App\Models\SettingWeb;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Facades\Filament;
+use Filament\Models\Contracts\FilamentUser;
 use Filament\Schemas\Schema;
 use AbanoubNassem\FilamentGRecaptchaField\Forms\Components\GRecaptcha;
 use Illuminate\Support\Facades\Schema as SchemaFacade;
@@ -11,6 +13,28 @@ use Illuminate\Support\Facades\Schema as SchemaFacade;
 class Login extends BaseLogin
 {
     protected ?array $captchaRuntime = null;
+
+    public function mount(): void
+    {
+        $auth = Filament::auth();
+
+        if ($auth->check()) {
+            $user = $auth->user();
+            $panel = Filament::getCurrentOrDefaultPanel();
+
+            if (($user instanceof FilamentUser) && $user->canAccessPanel($panel)) {
+                redirect()->intended(Filament::getUrl());
+
+                return;
+            }
+
+            $auth->logout();
+            request()->session()->invalidate();
+            request()->session()->regenerateToken();
+        }
+
+        $this->form->fill();
+    }
 
     public function form(Schema $schema): Schema
     {
