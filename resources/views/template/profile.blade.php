@@ -7,115 +7,37 @@
 @section('content')
 
 @include('../navbar')
-<div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
-    <div class="col-span-1 hidden sm:block md:col-span-2">
-        <aside class="sticky top-20 print:hidden">
-            <nav class="h-full content-start lg:grid lg:content-between">
-                <div class="space-y-4">
-                      <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700"
-                            style="outline:none" href="/id/dashboard">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25">
-                                </path>
-                            </svg>
-                            <span class="hidden truncate md:block">Dashboard</span>
-                        </a>
-                        <a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700"
-                            style="outline:none" href="{{ route('riwayat') }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                                stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="hidden truncate md:block">Transaksi</span>
-                        </a>
-                    <!--<a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="/id/dashboard/deposit/topup">-->
-                    <!--    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">-->
-                    <!--        <path-->
-                    <!--            stroke-linecap="round"-->
-                    <!--            stroke-linejoin="round"-->
-                    <!--            d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"-->
-                    <!--        ></path>-->
-                    <!--    </svg>-->
-                    <!--    <span class="hidden truncate md:block">Riwayat Deposit</span>-->
-                    <!--</a>-->
-                    <!--<a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="/id/dashboard/mutation">-->
-                    <!--    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">-->
-                    <!--        <path-->
-                    <!--            stroke-linecap="round"-->
-                    <!--            stroke-linejoin="round"-->
-                    <!--            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"-->
-                    <!--        ></path>-->
-                    <!--    </svg>-->
-                    <!--    <span class="hidden truncate md:block">Riwayat Mutasi</span>-->
-                    <!--</a>-->
-                    <!--<a class="group flex items-center gap-3 rounded-md bg-gradient-to-r to-transparent px-3 py-2 text-sm font-medium text-white hover:from-murky-700" style="outline: none;" href="/id/dashboard/report">-->
-                    <!--    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">-->
-                    <!--        <path-->
-                    <!--            stroke-linecap="round"-->
-                    <!--            stroke-linejoin="round"-->
-                    <!--            d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25M9 16.5v.75m3-3v3M15 12v5.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"-->
-                    <!--        ></path>-->
-                    <!--    </svg>-->
-                    <!--    <span class="hidden truncate md:block">Laporan</span>-->
-                    <!--</a>-->
-                </div>
-                <div class="w-full pt-4">
-                   <form action="{{ route('logout') }}" method="POST" id="logout">
-                            @csrf                        
-                            <button type="submit" class="flex w-full items-center gap-3 rounded-md bg-gradient-to-r px-3 py-2 text-sm font-medium text-rose-500 hover:from-murky-700">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"
-                                    ></path>
-                                </svg>
-                                <span class="hidden md:block">Keluar</span>
-                            </button>
-                        </form>
-                </div>
-            </nav>
-        </aside>
-    </div>
-    <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-7 md:col-start-3">
-        <div>
-            <div>
-                <a class="inline-flex items-center space-x-2 outline-none" href="/id/dashboard">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="h-5 w-5">
-                        <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd"></path>
-                    </svg>
-                    <span>Dashboard</span>
-                </a>
-            </div>
-            <div class="pb-16 pt-8 sm:pb-24 sm:pt-12">
-                <div class="max-w-3xl space-y-8 divide-y divide-murky-600">
-                    <div class="space-y-8 divide-y divide-murky-600">
-                        <div class="space-y-6">
+<section class="public-dashboard-page public-settings-page">
+    <div class="public-shell">
+        <div class="public-dashboard public-settings-shell">
+            @include('components.sidebar-dashboard')
+
+            <main class="public-dashboard-main public-settings-main">
+                <header class="public-settings-heading">
+                    <h1>Pengaturan</h1>
+                    <p>Kelola profil akun, keamanan kata sandi, dan Two Factor Authentication.</p>
+                </header>
+
+                <section class="public-settings-card">
+                    <div class="space-y-6">
                             <div>
                                 <h3 class="text-base font-semibold leading-6 text-white">Profil</h3>
                                 <p class="mt-1 max-w-2xl text-sm text-white">Informasi ini bersifat rahasia, jadi berhati-hatilah dengan apa yang Anda bagikan.</p>
                             </div>
-                            	@if ($errors->any())
-                    <div class="alert alert-danger mt-2">
-                        <ul>
-                            @foreach ($errors->all() as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
-                @endif
-                @if(session('success'))
-			    
-			    <div class="alert alert-success mt-2">
-			       <ul>
-			           <li>{{session('success')}}</li>
-			       </ul>
-			    </div>
-			    
-			    @endif
+                            @if ($errors->any())
+                                <div class="public-settings-notice is-error">
+                                    <ul class="list-disc space-y-1 pl-4">
+                                        @foreach ($errors->all() as $error)
+                                            <li>{{ $error }}</li>
+                                        @endforeach
+                                    </ul>
+                                </div>
+                            @endif
+                            @if(session('success'))
+                                <div class="public-settings-notice is-success">
+                                    {{ session('success') }}
+                                </div>
+                            @endif
                             <form action="{{ route('saveEditProfile')}}" method="POST" class="grid grid-cols-2 gap-4">
 					          @csrf 
                                 <div class="col-span-2"></div>
@@ -211,6 +133,110 @@
                             </form>
                         </div>
 
+                        <div class="space-y-5 pt-7 sm:space-y-6 sm:pt-8">
+                            <div>
+                                <h3 class="text-base font-semibold leading-6 text-white">Two Factor Authentication</h3>
+                                <p class="mt-1 max-w-2xl text-sm text-white">Aktifkan 2FA untuk menambah keamanan akun kamu saat login.</p>
+                            </div>
+
+                            <div
+                                id="two-factor-box"
+                                class="space-y-5 rounded-xl border border-murky-600 bg-murky-700/50 p-4 sm:p-5"
+                                data-enabled="{{ filled(Auth()->user()->two_factor_secret) ? '1' : '0' }}"
+                                data-setup-url="{{ route('settings.2fa.setup') }}"
+                                data-enable-url="{{ route('settings.2fa.enable') }}"
+                                data-disable-url="{{ route('settings.2fa.disable') }}"
+                                data-csrf="{{ csrf_token() }}"
+                            >
+                                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                                    <div>
+                                        <p class="text-sm font-semibold text-white">Status 2FA:
+                                            <span id="two-factor-status-badge" class="ml-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold {{ filled(Auth()->user()->two_factor_secret) ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300' }}">
+                                                {{ filled(Auth()->user()->two_factor_secret) ? 'Aktif' : 'Belum Aktif' }}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        id="two-factor-setup-btn"
+                                        class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 {{ filled(Auth()->user()->two_factor_secret) ? 'hidden' : '' }}"
+                                    >
+                                        Generate QR 2FA
+                                    </button>
+                                </div>
+
+                                <div id="two-factor-notice" class="hidden rounded-md px-3 py-2 text-sm leading-relaxed"></div>
+
+                                <div id="two-factor-setup-panel" class="hidden grid grid-cols-1 gap-4 sm:grid-cols-[240px_minmax(0,1fr)] sm:gap-5">
+                                    <div class="rounded-lg border border-murky-600 bg-murky-800 p-3">
+                                        <img id="two-factor-qr" alt="QR Code 2FA" class="h-[220px] w-[220px] rounded-md bg-white object-contain" />
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <p class="text-xs text-murky-200">Secret Key</p>
+                                            <code id="two-factor-secret" class="mt-1 inline-block rounded-md bg-murky-800 px-2 py-1 text-xs text-amber-300"></code>
+                                        </div>
+                                        <div>
+                                            <label for="two-factor-code" class="block pb-2 text-xs font-medium text-white">Masukkan 6 digit kode dari Google Authenticator</label>
+                                            <input
+                                                id="two-factor-code"
+                                                type="text"
+                                                inputmode="numeric"
+                                                maxlength="6"
+                                                placeholder="123456"
+                                                class="relative block w-full appearance-none rounded-md border border-murky-600 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                                            />
+                                        </div>
+                                        <div class="flex flex-wrap gap-2 pt-1">
+                                            <button type="button" id="two-factor-enable-btn" class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75">
+                                                Aktifkan 2FA
+                                            </button>
+                                            <button type="button" id="two-factor-cancel-setup-btn" class="inline-flex items-center justify-center rounded-md border border-murky-600 bg-transparent px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-murky-700">
+                                                Batal
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="two-factor-recovery-panel" class="hidden space-y-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5">
+                                    <p class="text-sm font-semibold text-emerald-300">Simpan Recovery Code ini di tempat aman:</p>
+                                    <div id="two-factor-recovery-list" class="grid grid-cols-1 gap-2 sm:grid-cols-2"></div>
+                                </div>
+
+                                <div id="two-factor-disable-panel" class="space-y-3 border-t border-murky-600/80 pt-4 {{ filled(Auth()->user()->two_factor_secret) ? '' : 'hidden' }}">
+                                    <p class="text-xs text-murky-200">Untuk menonaktifkan 2FA, isi kata sandi saat ini dan kode authenticator.</p>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label for="two-factor-disable-password" class="block pb-2 text-xs font-medium text-white">Kata Sandi Saat Ini</label>
+                                            <input
+                                                id="two-factor-disable-password"
+                                                type="password"
+                                                autocomplete="current-password"
+                                                placeholder="Kata sandi"
+                                                class="relative block w-full appearance-none rounded-md border border-murky-600 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label for="two-factor-disable-code" class="block pb-2 text-xs font-medium text-white">Kode Authenticator</label>
+                                            <input
+                                                id="two-factor-disable-code"
+                                                type="text"
+                                                inputmode="numeric"
+                                                maxlength="6"
+                                                placeholder="123456"
+                                                class="relative block w-full appearance-none rounded-md border border-murky-600 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button type="button" id="two-factor-disable-btn" class="inline-flex items-center justify-center rounded-md border border-rose-400/30 bg-rose-500/20 px-4 py-2 text-sm font-medium text-rose-200 duration-300 hover:bg-rose-500/30 disabled:cursor-not-allowed disabled:opacity-75">
+                                            Nonaktifkan 2FA
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {{-- Semua tampilan riwayat deposit di profile disembunyikan sementara --}}
                         <!--<div class="space-y-6">-->
                         <!--    <div class="pt-8">-->
@@ -274,11 +300,11 @@
                         
 
                     </div>
-                </div>
-            </div>
+                </section>
+            </main>
         </div>
     </div>
-</div>
+</section>
 
       
 
@@ -290,9 +316,215 @@
 
 @include('../footer')
 @push('custom_script')
+<script>
+    (function () {
+        const root = document.getElementById('two-factor-box');
+        if (!root) return;
 
+        const setupUrl = root.dataset.setupUrl;
+        const enableUrl = root.dataset.enableUrl;
+        const disableUrl = root.dataset.disableUrl;
+        const csrf = root.dataset.csrf || '';
 
+        const setupBtn = document.getElementById('two-factor-setup-btn');
+        const statusBadge = document.getElementById('two-factor-status-badge');
+        const notice = document.getElementById('two-factor-notice');
+        const setupPanel = document.getElementById('two-factor-setup-panel');
+        const qrImage = document.getElementById('two-factor-qr');
+        const secretText = document.getElementById('two-factor-secret');
+        const codeInput = document.getElementById('two-factor-code');
+        const enableBtn = document.getElementById('two-factor-enable-btn');
+        const cancelSetupBtn = document.getElementById('two-factor-cancel-setup-btn');
+        const recoveryPanel = document.getElementById('two-factor-recovery-panel');
+        const recoveryList = document.getElementById('two-factor-recovery-list');
+        const disablePanel = document.getElementById('two-factor-disable-panel');
+        const disablePasswordInput = document.getElementById('two-factor-disable-password');
+        const disableCodeInput = document.getElementById('two-factor-disable-code');
+        const disableBtn = document.getElementById('two-factor-disable-btn');
 
+        let hasPendingSecret = false;
+
+        const setNotice = (type, message) => {
+            if (!notice) return;
+            notice.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-200', 'bg-rose-500/20', 'text-rose-200', 'bg-amber-500/20', 'text-amber-200');
+
+            if (!message) {
+                notice.classList.add('hidden');
+                notice.textContent = '';
+                return;
+            }
+
+            const classes = type === 'success'
+                ? ['bg-emerald-500/20', 'text-emerald-200']
+                : type === 'warn'
+                    ? ['bg-amber-500/20', 'text-amber-200']
+                    : ['bg-rose-500/20', 'text-rose-200'];
+
+            notice.classList.add(...classes);
+            notice.textContent = message;
+        };
+
+        const setLoading = (button, loadingText, active) => {
+            if (!button) return;
+            if (active) {
+                if (!button.dataset.originalText) button.dataset.originalText = button.textContent;
+                button.textContent = loadingText;
+                button.disabled = true;
+                return;
+            }
+            button.textContent = button.dataset.originalText || button.textContent;
+            button.disabled = false;
+        };
+
+        const setEnabledState = (enabled) => {
+            if (statusBadge) {
+                statusBadge.textContent = enabled ? 'Aktif' : 'Belum Aktif';
+                statusBadge.className = `ml-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold ${enabled ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`;
+            }
+            if (setupBtn) {
+                setupBtn.classList.toggle('hidden', enabled);
+            }
+            if (disablePanel) {
+                disablePanel.classList.toggle('hidden', !enabled);
+            }
+        };
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrf,
+            'X-Requested-With': 'XMLHttpRequest',
+        };
+
+        setupBtn?.addEventListener('click', async () => {
+            setNotice();
+            setLoading(setupBtn, 'Menyiapkan...', true);
+            recoveryPanel?.classList.add('hidden');
+            if (recoveryList) recoveryList.innerHTML = '';
+
+            try {
+                const response = await fetch(setupUrl, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({}),
+                });
+
+                const payload = await response.json();
+                if (!response.ok || payload?.status !== 'success') {
+                    throw new Error(payload?.message || 'Gagal menyiapkan 2FA.');
+                }
+
+                hasPendingSecret = true;
+                setupPanel?.classList.remove('hidden');
+                if (qrImage) qrImage.src = payload?.data?.qr_image_url || '';
+                if (secretText) secretText.textContent = payload?.data?.secret || '-';
+                if (codeInput) codeInput.value = '';
+                setNotice('success', payload?.message || 'Secret 2FA berhasil dibuat.');
+                codeInput?.focus();
+            } catch (error) {
+                setNotice('error', error.message || 'Gagal menyiapkan 2FA.');
+            } finally {
+                setLoading(setupBtn, 'Menyiapkan...', false);
+            }
+        });
+
+        cancelSetupBtn?.addEventListener('click', () => {
+            setupPanel?.classList.add('hidden');
+            hasPendingSecret = false;
+            if (codeInput) codeInput.value = '';
+            setNotice('warn', 'Setup 2FA dibatalkan.');
+        });
+
+        enableBtn?.addEventListener('click', async () => {
+            const code = (codeInput?.value || '').replace(/\D+/g, '').trim();
+            if (code.length !== 6) {
+                setNotice('error', 'Kode autentikator harus 6 digit angka.');
+                return;
+            }
+            if (!hasPendingSecret) {
+                setNotice('warn', 'Silakan klik "Generate QR 2FA" terlebih dahulu.');
+                return;
+            }
+
+            setNotice();
+            setLoading(enableBtn, 'Memverifikasi...', true);
+
+            try {
+                const response = await fetch(enableUrl, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ code }),
+                });
+
+                const payload = await response.json();
+                if (!response.ok || payload?.status !== 'success') {
+                    throw new Error(payload?.message || 'Gagal mengaktifkan 2FA.');
+                }
+
+                setEnabledState(true);
+                hasPendingSecret = false;
+                setupPanel?.classList.add('hidden');
+                if (codeInput) codeInput.value = '';
+
+                const codes = Array.isArray(payload?.data?.recovery_codes) ? payload.data.recovery_codes : [];
+                if (codes.length && recoveryList) {
+                    recoveryList.innerHTML = codes.map((item) => `<code class="rounded-md bg-murky-800 px-2 py-1 text-xs text-emerald-200">${item}</code>`).join('');
+                    recoveryPanel?.classList.remove('hidden');
+                }
+
+                setNotice('success', payload?.message || 'Two Factor Authentication berhasil diaktifkan.');
+            } catch (error) {
+                setNotice('error', error.message || 'Gagal mengaktifkan 2FA.');
+            } finally {
+                setLoading(enableBtn, 'Memverifikasi...', false);
+            }
+        });
+
+        disableBtn?.addEventListener('click', async () => {
+            const currentPassword = (disablePasswordInput?.value || '').trim();
+            const code = (disableCodeInput?.value || '').replace(/\D+/g, '').trim();
+
+            if (!currentPassword) {
+                setNotice('error', 'Kata sandi saat ini wajib diisi.');
+                return;
+            }
+            if (code.length !== 6) {
+                setNotice('error', 'Kode autentikator harus 6 digit angka.');
+                return;
+            }
+
+            setNotice();
+            setLoading(disableBtn, 'Menonaktifkan...', true);
+
+            try {
+                const response = await fetch(disableUrl, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        code,
+                    }),
+                });
+
+                const payload = await response.json();
+                if (!response.ok || payload?.status !== 'success') {
+                    throw new Error(payload?.message || 'Gagal menonaktifkan 2FA.');
+                }
+
+                setEnabledState(false);
+                if (disablePasswordInput) disablePasswordInput.value = '';
+                if (disableCodeInput) disableCodeInput.value = '';
+                recoveryPanel?.classList.add('hidden');
+                if (recoveryList) recoveryList.innerHTML = '';
+                setNotice('success', payload?.message || 'Two Factor Authentication berhasil dinonaktifkan.');
+            } catch (error) {
+                setNotice('error', error.message || 'Gagal menonaktifkan 2FA.');
+            } finally {
+                setLoading(disableBtn, 'Menonaktifkan...', false);
+            }
+        });
+    })();
+</script>
 @endpush
 
 

@@ -4,163 +4,354 @@
 @endsection
 
 @section('content')
-
 @include('../navbar')
 
-<div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
-    <div class="col-span-1 hidden sm:block md:col-span-2">
-        @include('components.sidebar-dashboard')
-    </div>
+@php
+    $currentBalance = (int) round((float) (Auth::user()->balance ?? 0));
+    $isWithdrawalDisabled = $hasRequestedToday || $currentBalance < 10000;
+    $withdrawalSubmitLabel = $hasRequestedToday
+        ? 'Sudah ditarik hari ini'
+        : ($currentBalance < 10000 ? 'Saldo belum mencukupi' : 'Kirim Permintaan');
+@endphp
 
-    <!-- Main Content -->
-    <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-7 md:col-start-3">
-        <div class="pb-8 sm:flex sm:items-center">
-            <div class="sm:flex-auto">
-                <h1 class="text-base font-semibold leading-6 text-white">Penarikan Saldo</h1>
-                <p class="mt-2 text-sm text-murky-200">Tarik saldo akun Anda ke rekening bank.</p>
+<x-dashboard-shell
+    page-class="public-affiliate-page public-affiliate-withdrawal-page"
+    header-title="Pembayaran Afiliasi"
+    header-description="Tarik komisi affiliate kamu ke rekening atau e-wallet yang valid."
+    header-class="public-dashboard-page-header--affiliate"
+>
+    @if (session('success'))
+        <div class="public-affiliate-notice is-success">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="public-affiliate-notice is-error">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="public-affiliate-notice is-error">
+            <ul class="list-disc pl-5">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <nav class="public-affiliate-tabs" aria-label="Tab afiliasi">
+        <a href="{{ route('affiliate') }}">Riwayat</a>
+        <a href="{{ route('withdrawal') }}" class="is-active">Pembayaran</a>
+    </nav>
+
+    <section class="public-affiliate-overview public-withdrawal-balance-grid">
+        <article class="public-affiliate-overview__card is-highlight">
+            <p>Saldo Saat Ini</p>
+            <strong>Rp {{ number_format($currentBalance, 0, ',', '.') }}</strong>
+            <span>Nominal komisi yang sudah masuk ke akun kamu.</span>
+        </article>
+    </section>
+
+    <section class="public-withdrawal-form-card">
+        <header class="public-withdrawal-form-card__header">
+            <h2>Form Penarikan</h2>
+            <p>Isi data tujuan pembayaran dengan benar. Permintaan hanya bisa 1 kali per hari.</p>
+        </header>
+
+        <form
+            id="withdrawal-form"
+            action="{{ route('process.withdrawal') }}"
+            method="POST"
+            class="public-withdrawal-form"
+            data-withdrawal-form
+            data-max-balance="{{ $currentBalance }}"
+        >
+            @csrf
+
+            <div class="public-withdrawal-form__grid">
+                <label>
+                    <span>Nama Bank / E-Wallet</span>
+                    <select name="bank_destination" required>
+                        <option value="">Pilih tujuan</option>
+                        @foreach (['BCA','BNI','BRI','MANDIRI','DANA','OVO','GOPAY','SHOPEEPAY'] as $bank)
+                            <option value="{{ $bank }}" @selected(old('bank_destination') === $bank)>{{ $bank }}</option>
+                        @endforeach
+                    </select>
+                    @error('bank_destination')
+                        <small>{{ $message }}</small>
+                    @enderror
+                </label>
+
+                <label>
+                    <span>Nomor Rekening / HP</span>
+                    <input
+                        type="text"
+                        name="account_number"
+                        inputmode="numeric"
+                        value="{{ old('account_number') }}"
+                        placeholder="Contoh: 62812xxxx / 1234567890"
+                        required
+                    >
+                    @error('account_number')
+                        <small>{{ $message }}</small>
+                    @enderror
+                </label>
+
+                <label class="is-full">
+                    <span>Nama Pemilik Rekening</span>
+                    <input
+                        type="text"
+                        name="account_name"
+                        value="{{ old('account_name') }}"
+                        placeholder="Sesuai nama pemilik rekening/e-wallet"
+                        required
+                    >
+                    @error('account_name')
+                        <small>{{ $message }}</small>
+                    @enderror
+                </label>
+
+                <label class="is-full">
+                    <div class="mb-1 flex items-center justify-between gap-2">
+                        <span>Jumlah Penarikan (Min. Rp 10.000)</span>
+                        <button
+                            type="button"
+                            data-withdrawal-max-btn
+                            class="inline-flex h-7 items-center rounded-full border border-white/20 px-3 text-xs font-semibold text-white transition hover:border-orange-400/40 hover:bg-orange-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                            @disabled($isWithdrawalDisabled)
+                        >
+                            Max Saldo
+                        </button>
+                    </div>
+                    <input
+                        type="number"
+                        min="10000"
+                        max="{{ $currentBalance }}"
+                        name="amount"
+                        value="{{ old('amount') }}"
+                        placeholder="10000"
+                        required
+                    >
+                    <small>Maksimal penarikan: Rp {{ number_format($currentBalance, 0, ',', '.') }}</small>
+                    @error('amount')
+                        <small>{{ $message }}</small>
+                    @enderror
+                </label>
             </div>
-        </div>
 
-        <!-- Balance Card -->
-        <div class="rounded-lg bg-gray-900/50 p-6 border border-gray-700/50 mb-8">
-            <p class="text-sm text-gray-500 mb-1">Saldo Anda Saat Ini</p>
-            <p class="text-3xl font-bold text-white">Rp {{ number_format(Auth::user()->balance, 0, ',', '.') }}</p>
-        </div>
-
-        <!-- Withdrawal Form -->
-        <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-6">
-            <form action="{{ route('process.withdrawal') }}" method="POST">
-                @csrf
-                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    
-                    <div>
-                        <label for="bank_destination" class="block text-sm font-medium leading-6 text-white">Nama Bank / E-Wallet</label>
-                        <select style="color: black;" name="bank_destination" id="bank_destination" class="mt-2 block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-primary-500 sm:text-sm sm:leading-6">
-                            <option value="BCA">BCA</option>
-                            <option value="BNI">BNI</option>
-                            <option value="BRI">BRI</option>
-                            <option value="MANDIRI">MANDIRI</option>
-                            <option value="DANA">DANA</option>
-                            <option value="OVO">OVO</option>
-                            <option value="GOPAY">GOPAY</option>
-                            <option value="SHOPEEPAY">SHOPEEPAY</option>
-                        </select>
-                         @error('bank_destination')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div>
-                         <label for="account_number" class="block text-sm font-medium leading-6 text-white">Nomor Rekening / HP</label>
-                        <input style="color: black;" type="number" name="account_number" id="account_number" class="mt-2 block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-primary-500 sm:text-sm sm:leading-6" required>
-                         @error('account_number')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="md:col-span-2">
-                        <label for="account_name" class="block text-sm font-medium leading-6 text-white">Nama Pemilik Rekening</label>
-                        <input style="color: black;" type="text" name="account_name" id="account_name" class="mt-2 block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-primary-500 sm:text-sm sm:leading-6" required placeholder="Sesuai buku tabungan">
-                         @error('account_name')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <div class="md:col-span-2">
-                         <label for="amount" class="block text-sm font-medium leading-6 text-white">Jumlah Penarikan (Min. Rp 10.000)</label>
-                        <input style="color: black;" type="number" name="amount" id="amount" min="10000" class="mt-2 block w-full rounded-md border-0 bg-white/5 py-1.5 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-primary-500 sm:text-sm sm:leading-6" required>
-                         @error('amount')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                </div>
-
-                <div class="mt-6 border-t border-gray-700/50 pt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div class="text-sm text-gray-400">
-                        <i class="fa fa-info-circle text-primary-500 mr-1"></i> Maksimal penarikan 1 kali per hari.
-                    </div>
-                    
+            <div class="public-withdrawal-form__actions">
+                <p>
                     @if($hasRequestedToday)
-                        <button type="button" disabled class="rounded-md bg-gray-600 px-4 py-2 text-sm font-semibold text-gray-300 shadow-sm cursor-not-allowed opacity-70">
-                            Sudah ditarik hari ini
-                        </button>
+                        Kamu sudah melakukan penarikan hari ini. Coba lagi besok.
+                    @elseif($currentBalance < 10000)
+                        Saldo minimal untuk melakukan penarikan adalah Rp 10.000.
                     @else
-                        <button type="submit" style="background-color: var(--warna_3);" class="rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-80 transition-opacity">
-                            Kirim Permintaan
-                        </button>
+                        Pastikan data rekening benar agar proses verifikasi admin berjalan cepat.
                     @endif
-                </div>
-            </form>
+                </p>
+
+                <button
+                    type="submit"
+                    data-withdrawal-submit
+                    data-default-label="{{ $withdrawalSubmitLabel }}"
+                    data-loading-label="Memproses..."
+                    data-locked="{{ $isWithdrawalDisabled ? '1' : '0' }}"
+                    @disabled($isWithdrawalDisabled)
+                >
+                    {{ $withdrawalSubmitLabel }}
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <section class="public-dashboard-table public-dashboard-table--history">
+        <div class="public-affiliate-history__header">
+            <h2>Riwayat Penarikan</h2>
         </div>
-        <!-- Logic for existing withdrawals can be added here or in another tab -->
-        <div class="mt-8 bg-gray-900/30 rounded-lg border border-gray-700 p-6 overflow-hidden">
-            <h2 class="text-base font-semibold leading-6 text-white mb-4">Riwayat Penarikan Saldo</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-700">
+        <div class="public-dashboard-table__shell">
+            @if($withdrawals->count() > 0)
+                <table class="public-dashboard-table__table">
                     <thead>
                         <tr>
-                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-0">Tanggal</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Tujuan</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Jumlah</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                            <th>Tanggal</th>
+                            <th>Tujuan</th>
+                            <th>Jumlah</th>
+                            <th>Biaya Admin</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-700">
-                        @forelse($withdrawals as $w)
-                        <tr>
-                            <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-300 sm:pl-0">
-                                {{ $w->created_at->format('d M Y, H:i') }}
-                            </td>
-                            <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-300">
-                                {{ $w->rekening }}
-                            </td>
-                            <td class="whitespace-nowrap px-3 py-4 text-sm text-white font-medium">
-                                Rp {{ number_format($w->total_transfer, 0, ',', '.') }}
-                            </td>
-                            <td class="whitespace-nowrap px-3 py-4 text-sm">
-                                @if(strtolower($w->status) == 'pending')
-                                    <span class="inline-flex items-center rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 ring-1 ring-inset ring-yellow-400/20">Pending</span>
-                                @elseif(strtolower($w->status) == 'success' || strtolower($w->status) == 'sukses')
-                                    <span class="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20">Selesai</span>
-                                @elseif(strtolower($w->status) == 'rejected' || strtolower($w->status) == 'batal' || strtolower($w->status) == 'ditolak')
-                                    <span class="inline-flex items-center rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 ring-1 ring-inset ring-red-400/20">Ditolak</span>
-                                @else
-                                    <span class="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 ring-1 ring-inset ring-gray-400/20">{{ ucfirst($w->status) }}</span>
-                                @endif
-                                
-                                @if((strtolower($w->status) == 'success' || strtolower($w->status) == 'sukses') && !empty($w->bukti_transfer))
-                                    <div class="mt-2">
-                                        <a href="{{ asset('storage/' . $w->bukti_transfer) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-primary-400 hover:text-primary-300 transition-colors">
-                                            <i class="fa fa-external-link"></i> Lihat Bukti
-                                        </a>
-                                    </div>
-                                @endif
-                                
-                                {{-- We don't have alasan_tolak property yet so leaving it out to avoid errors --}}
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="4" class="py-6 text-center text-sm text-gray-500">
-                                Belum ada riwayat penarikan.
-                            </td>
-                        </tr>
-                        @endforelse
+                    <tbody>
+                        @foreach($withdrawals as $row)
+                            @php
+                                $statusRaw = strtolower(trim((string) ($row->status ?? 'pending')));
+                                $statusTone = 'pending';
+                                $statusLabel = Str::title((string) ($row->status ?? 'Pending'));
+
+                                if (in_array($statusRaw, ['success', 'sukses', 'berhasil', 'paid'], true)) {
+                                    $statusTone = 'success';
+                                    $statusLabel = 'Success';
+                                } elseif (in_array($statusRaw, ['proses', 'processing', 'process', 'diproses'], true)) {
+                                    $statusTone = 'processing';
+                                    $statusLabel = 'Process';
+                                } elseif (in_array($statusRaw, ['gagal', 'failed', 'cancelled', 'canceled', 'ditolak', 'rejected'], true)) {
+                                    $statusTone = 'failed';
+                                    $statusLabel = 'Failed';
+                                }
+                            @endphp
+                            <tr>
+                                <td>{{ optional($row->created_at)->format('d M Y, H:i') ?: '-' }}</td>
+                                <td>{{ $row->rekening ?: '-' }}</td>
+                                <td>Rp {{ number_format((int) ($row->total_transfer ?? 0), 0, ',', '.') }}</td>
+                                <td>Rp {{ number_format((int) ($row->biaya_admin ?? 0), 0, ',', '.') }}</td>
+                                <td>
+                                    <span class="public-dashboard-table__badge public-dashboard-table__badge--{{ $statusTone }}">
+                                        {{ $statusLabel }}
+                                    </span>
+                                    @if(!empty($row->bukti_transfer))
+                                        <a class="public-withdrawal-proof-link" href="{{ asset($row->bukti_transfer) }}" target="_blank" rel="noopener noreferrer">Bukti</a>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
                     </tbody>
                 </table>
-            </div>
-            
-            @if($withdrawals->hasPages())
-                <div class="mt-4 pt-4 border-t border-gray-700">
-                    {{ $withdrawals->links('pagination::tailwind') }}
-                </div>
+            @else
+                <div class="public-dashboard-table__empty">Belum ada riwayat penarikan.</div>
             @endif
         </div>
 
-    </div>
-</div>
+        @if(method_exists($withdrawals, 'hasPages') && $withdrawals->hasPages())
+            <div class="public-affiliate-pagination">
+                <span>Halaman {{ $withdrawals->currentPage() }} dari {{ $withdrawals->lastPage() }}</span>
+                <div class="flex items-center gap-2">
+                    @if($withdrawals->onFirstPage())
+                        <span class="is-disabled">Sebelumnya</span>
+                    @else
+                        <a href="{{ $withdrawals->previousPageUrl() }}">Sebelumnya</a>
+                    @endif
+
+                    @if($withdrawals->hasMorePages())
+                        <a href="{{ $withdrawals->nextPageUrl() }}">Berikutnya</a>
+                    @else
+                        <span class="is-disabled">Berikutnya</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </section>
+</x-dashboard-shell>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('[data-withdrawal-form]');
+    if (!form) {
+        return;
+    }
+
+    const bankDestinationField = form.querySelector('select[name="bank_destination"]');
+    const accountNumberField = form.querySelector('input[name="account_number"]');
+    const accountNameField = form.querySelector('input[name="account_name"]');
+    const amountField = form.querySelector('input[name="amount"]');
+    const maxButton = form.querySelector('[data-withdrawal-max-btn]');
+    const submitButton = form.querySelector('[data-withdrawal-submit]');
+
+    if (!submitButton || !amountField) {
+        return;
+    }
+
+    const lockedByBusinessRule = submitButton.dataset.locked === '1';
+    const maxBalance = Number(form.dataset.maxBalance || 0);
+    const minimumAmount = Number(amountField.min || 10000);
+    let isSubmitting = false;
+
+    const isFilled = (field) => {
+        if (!field) {
+            return false;
+        }
+
+        return String(field.value || '').trim().length > 0;
+    };
+
+    const getAmount = () => {
+        const parsed = Number(amountField.value || 0);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const canSubmit = () => {
+        if (lockedByBusinessRule || isSubmitting) {
+            return false;
+        }
+
+        if (!isFilled(bankDestinationField) || !isFilled(accountNumberField) || !isFilled(accountNameField)) {
+            return false;
+        }
+
+        const amount = getAmount();
+        if (amount < minimumAmount) {
+            return false;
+        }
+
+        return amount <= maxBalance;
+    };
+
+    const syncSubmitState = () => {
+        const disabled = !canSubmit();
+        submitButton.disabled = disabled;
+        submitButton.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+
+        if (!isSubmitting) {
+            submitButton.textContent = submitButton.dataset.defaultLabel || 'Kirim Permintaan';
+        }
+    };
+
+    const applyMaxBalance = () => {
+        if (lockedByBusinessRule || !maxButton || maxButton.disabled) {
+            return;
+        }
+
+        amountField.value = String(maxBalance);
+        amountField.dispatchEvent(new Event('input', { bubbles: true }));
+        amountField.dispatchEvent(new Event('change', { bubbles: true }));
+        amountField.focus();
+    };
+
+    [bankDestinationField, accountNumberField, accountNameField, amountField].forEach((field) => {
+        if (!field) {
+            return;
+        }
+
+        field.addEventListener('input', syncSubmitState);
+        field.addEventListener('change', syncSubmitState);
+    });
+
+    if (maxButton) {
+        maxButton.addEventListener('click', applyMaxBalance);
+    }
+
+    form.addEventListener('submit', (event) => {
+        if (!canSubmit()) {
+            event.preventDefault();
+            syncSubmitState();
+            return;
+        }
+
+        if (isSubmitting) {
+            event.preventDefault();
+            return;
+        }
+
+        isSubmitting = true;
+        submitButton.disabled = true;
+        submitButton.setAttribute('aria-disabled', 'true');
+        submitButton.textContent = submitButton.dataset.loadingLabel || 'Memproses...';
+    });
+
+    syncSubmitState();
+});
+</script>
 
 @include('../footer')
-
 @endsection

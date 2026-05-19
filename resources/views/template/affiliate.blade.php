@@ -7,37 +7,140 @@
 
 @include('../navbar')
 
-<div class="container grid grid-cols-8 gap-8 pt-8 sm:pt-16">
-    <div class="col-span-1 hidden sm:block md:col-span-2">
-        @include('components.sidebar-dashboard')
-    </div>
+<section class="public-dashboard-page public-affiliate-page">
+    <div class="public-shell">
+        <div class="public-dashboard">
+            @include('components.sidebar-dashboard')
 
-    <!-- Main Content -->
-    <div class="col-span-8 sm:col-span-7 sm:col-start-2 md:col-span-7 md:col-start-3">
-        <div class="pb-8 sm:flex sm:items-center">
-            <div class="sm:flex-auto">
-                <h1 class="text-base font-semibold leading-6 text-white">Program Afiliasi</h1>
-                <p class="mt-2 text-sm text-murky-200">Ajak teman dan dapatkan komisi dari setiap transaksi mereka.</p>
-            </div>
-        </div>
+            <main class="public-dashboard-main">
+                <header class="public-dashboard-page-header public-dashboard-page-header--affiliate">
+                    <h1>Program Afiliasi</h1>
+                    <p>Ajak teman dan dapatkan komisi dari setiap transaksi mereka.</p>
+                </header>
 
-        @if(Auth::user()->isAffiliateInactive())
-        <!-- State 1: Inactive (Request Button) -->
-        <div class="bg-gray-900/30 rounded-lg border border-gray-700 p-8 text-center">
-            <div class="mx-auto h-16 w-16 rounded-full bg-primary-500/10 flex items-center justify-center mb-4 border border-primary-500/20">
-                <i class="fas fa-handshake text-2xl text-primary-500"></i>
+                <nav class="public-affiliate-tabs" aria-label="Tab afiliasi">
+                    <a href="{{ route('affiliate') }}" class="is-active">Riwayat</a>
+                    <a href="{{ route('withdrawal') }}">Pembayaran</a>
+                </nav>
+
+        @if (session('success'))
+            <div class="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                {{ session('success') }}
             </div>
-            <h2 class="text-xl font-semibold text-white mb-2">Bergabung dengan Program Afiliasi</h2>
-            <p class="text-gray-400 mb-6 max-w-lg mx-auto">
-                Dapatkan penghasilan tambahan dengan mereferensikan teman Anda. 
-                Nikmati komisi menarik dari setiap transaksi yang dilakukan oleh referral Anda.
-            </p>
-            
-            <form action="{{ route('user.affiliate') }}" method="GET">
-                <input type="hidden" name="action" value="request">
-                <button type="submit" class="inline-flex items-center gap-2 rounded-md bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 transition-all">
-                    <span>Ajukan Permintaan Sekarang</span>
-                    <i class="fas fa-arrow-right"></i>
+        @endif
+
+        @if (session('error'))
+            <div class="mb-6 rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        @php
+            $affiliateStatusNormalized = $affiliate_status_normalized ?? 'inactive';
+            $canApplyAffiliate = in_array($affiliateStatusNormalized, ['inactive', 'rejected'], true);
+            $lastReviewNote = data_get(Auth::user()->affiliate_application_meta, 'review_last.note');
+        @endphp
+
+        <div class="public-affiliate-content">
+        @if($canApplyAffiliate)
+        <div class="rounded-lg border border-gray-700 bg-gray-900/30 p-6 md:p-8">
+            @if($affiliateStatusNormalized === 'rejected')
+                <div class="mb-5 rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                    <strong>Pengajuan sebelumnya ditolak.</strong>
+                    @if(filled($lastReviewNote))
+                        Catatan admin: {{ $lastReviewNote }}
+                    @else
+                        Silakan lengkapi ulang data terbaru untuk pengajuan ulang.
+                    @endif
+                </div>
+            @endif
+
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-white">Bergabung dengan Program Afiliasi</h2>
+                <p class="mx-auto mt-2 max-w-3xl text-gray-300">
+                    Dapatkan penghasilan tambahan dengan mereferensikan teman. Nikmati komisi menarik dari setiap transaksi referral kamu.
+                </p>
+            </div>
+
+            <ul class="mt-6 space-y-2 rounded-md border border-gray-700 bg-black/20 p-4 text-sm text-gray-200">
+                <li>• Data akun harus valid dan menggunakan nomor WhatsApp aktif.</li>
+                <li>• Wajib isi URL channel promosi/sosial media yang dipakai untuk referral.</li>
+                <li>• Pengajuan affiliate akan ditinjau admin maksimal 1x24 jam kerja.</li>
+                <li>• Verifikasi tambahan hanya diminta admin jika memang dibutuhkan.</li>
+            </ul>
+
+            <form id="affiliate-application-form" action="{{ route('affiliate.request') }}" method="POST" class="mt-6 space-y-4">
+                @csrf
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                        <label for="whatsapp" class="mb-2 block text-sm font-medium text-white">No. WhatsApp Aktif</label>
+                        <input
+                            id="whatsapp"
+                            name="whatsapp"
+                            type="text"
+                            required
+                            value="{{ old('whatsapp', Auth::user()->no_wa ?? '') }}"
+                            placeholder="628123456789"
+                            class="block w-full rounded-md border border-gray-700 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-primary-500 focus:outline-none"
+                        />
+                        @error('whatsapp')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label for="promotion_channel_url" class="mb-2 block text-sm font-medium text-white">URL Channel Promosi (Wajib)</label>
+                        <input
+                            id="promotion_channel_url"
+                            name="promotion_channel_url"
+                            type="url"
+                            required
+                            value="{{ old('promotion_channel_url') }}"
+                            placeholder="https://instagram.com/username"
+                            class="block w-full rounded-md border border-gray-700 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-primary-500 focus:outline-none"
+                        />
+                        @error('promotion_channel_url')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div>
+                    <label for="notes" class="mb-2 block text-sm font-medium text-white">Catatan Tambahan (Opsional)</label>
+                    <textarea
+                        id="notes"
+                        name="notes"
+                        rows="3"
+                        placeholder="Ceritakan singkat pengalaman atau strategi promosi kamu."
+                        class="block w-full rounded-md border border-gray-700 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-primary-500 focus:outline-none"
+                    >{{ old('notes') }}</textarea>
+                    @error('notes')<p class="mt-1 text-xs text-rose-300">{{ $message }}</p>@enderror
+                </div>
+
+                <div class="space-y-3 text-sm text-gray-200">
+                    <label class="flex items-start gap-2">
+                        <input id="agree_terms" name="agree_terms" type="checkbox" value="1" class="mt-1 h-4 w-4 rounded border-gray-600 bg-black/30 text-primary-500" {{ old('agree_terms') ? 'checked' : '' }} />
+                        <span>Saya menyetujui <a class="text-primary-400 underline hover:text-primary-300" href="{{ route('affiliate.program.terms') }}" target="_blank" rel="noreferrer">syarat program affiliate</a>.</span>
+                    </label>
+                    @error('agree_terms')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror
+
+                    <label class="flex items-start gap-2">
+                        <input id="agree_affiliate_policy" name="agree_affiliate_policy" type="checkbox" value="1" class="mt-1 h-4 w-4 rounded border-gray-600 bg-black/30 text-primary-500" {{ old('agree_affiliate_policy') ? 'checked' : '' }} />
+                        <span>
+                            Saya menyetujui verifikasi data dan kebijakan privasi:
+                            <a class="text-primary-400 underline hover:text-primary-300" href="{{ route('terms') }}" target="_blank" rel="noreferrer">Terms &amp; Conditions</a>
+                            dan
+                            <a class="text-primary-400 underline hover:text-primary-300" href="{{ route('policy') }}" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                        </span>
+                    </label>
+                    @error('agree_affiliate_policy')<p class="text-xs text-rose-300">{{ $message }}</p>@enderror
+                </div>
+
+                <p class="text-xs text-gray-400">Tidak perlu upload dokumen pada tahap pendaftaran awal.</p>
+
+                <button
+                    id="affiliate-submit-btn"
+                    type="submit"
+                    class="w-full rounded-md bg-primary-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    Ajukan Permintaan Sekarang
                 </button>
             </form>
         </div>
@@ -62,19 +165,6 @@
                     Status: Pending
                 </span>
             </div>
-        </div>
-
-        @elseif(Auth::user()->affiliate_status === 'rejected')
-         <!-- State 4: Rejected -->
-         <div class="bg-gray-900/30 rounded-lg border border-red-500/30 p-8 text-center">
-            <div class="mx-auto h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 border border-red-500/20">
-                <i class="fas fa-times text-2xl text-red-500"></i>
-            </div>
-            <h2 class="text-xl font-semibold text-white mb-2">Permintaan Ditolak</h2>
-            <p class="text-gray-400 mb-6 max-w-lg mx-auto">
-                Maaf, permintaan afiliasi Anda belum dapat kami setujui saat ini. 
-                Silakan hubungi admin untuk informasi lebih lanjut.
-            </p>
         </div>
 
         @else
@@ -230,9 +320,12 @@
             @endif
         </div>
         @endif
+        </div>
 
+            </main>
+        </div>
     </div>
-</div>
+</section>
 
 @include('../footer')
 
@@ -285,6 +378,40 @@
         if (openUrl) {
             window.open(openUrl, '_blank', 'width=600,height=550');
         }
+    }
+
+    const affiliateForm = document.getElementById('affiliate-application-form');
+    const affiliateSubmitBtn = document.getElementById('affiliate-submit-btn');
+
+    if (affiliateForm && affiliateSubmitBtn) {
+        const requiredInputs = [
+            affiliateForm.querySelector('#whatsapp'),
+            affiliateForm.querySelector('#promotion_channel_url'),
+        ].filter(Boolean);
+
+        const requiredChecks = [
+            affiliateForm.querySelector('#agree_terms'),
+            affiliateForm.querySelector('#agree_affiliate_policy'),
+        ].filter(Boolean);
+
+        const canSubmitAffiliate = () => {
+            const fieldsOk = requiredInputs.every((input) => String(input.value || '').trim() !== '');
+
+            const checksOk = requiredChecks.every((check) => check.checked);
+            return fieldsOk && checksOk;
+        };
+
+        const syncAffiliateButton = () => {
+            affiliateSubmitBtn.disabled = !canSubmitAffiliate();
+        };
+
+        requiredInputs.forEach((input) => {
+            input.addEventListener('input', syncAffiliateButton);
+            input.addEventListener('change', syncAffiliateButton);
+        });
+        requiredChecks.forEach((check) => check.addEventListener('change', syncAffiliateButton));
+
+        syncAffiliateButton();
     }
 </script>
 @endpush

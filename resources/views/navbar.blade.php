@@ -1,3 +1,38 @@
+@php
+    $publicAuthUser = Auth::user();
+    $publicAllowedRoles = ['Member', 'Platinum', 'Gold', 'Admin'];
+    $publicHasMemberMenu = $publicAuthUser && in_array((string) $publicAuthUser->role, $publicAllowedRoles, true);
+
+    $publicDisplayName = Str::title((string) ($publicAuthUser?->name ?: $publicAuthUser?->username ?: 'Member'));
+    $publicAvatarFallback = 'https://ui-avatars.com/api/?color=FFFFFF&background=50a7ff&name=' . urlencode($publicDisplayName);
+    $publicAvatarCandidate = trim((string) ($publicAuthUser?->google_avatar ?? ''));
+
+    if ($publicAvatarCandidate !== '' && ! str_starts_with($publicAvatarCandidate, 'http://') && ! str_starts_with($publicAvatarCandidate, 'https://')) {
+        $publicAvatarCandidate = '/' . ltrim($publicAvatarCandidate, '/');
+    }
+
+    $publicAvatarUrl = $publicAvatarCandidate !== '' ? $publicAvatarCandidate : $publicAvatarFallback;
+    $publicLogoHeaderRaw = trim((string) ($config->logo_header ?? ''));
+    $publicLogoHeader = '';
+    if ($publicLogoHeaderRaw !== '') {
+        $publicLogoHeader = Str::startsWith($publicLogoHeaderRaw, ['http://', 'https://', '//'])
+            ? $publicLogoHeaderRaw
+            : asset(ltrim($publicLogoHeaderRaw, '/'));
+    }
+    $publicDropdownMenu = [
+        ['label' => 'Dashboard', 'href' => route('dashboard')],
+        ['label' => 'Pengaturan', 'href' => route('editProfile')],
+    ];
+
+    $publicDashboardMenu = [
+        ['label' => 'Dashboard', 'href' => route('dashboard')],
+        ['label' => 'Riwayat Transaksi', 'href' => route('riwayat')],
+        ['label' => 'Riwayat Deposit', 'href' => route('reload')],
+        ['label' => 'Afiliasi', 'href' => route('affiliate')],
+        ['label' => 'Pengaturan', 'href' => route('editProfile')],
+    ];
+@endphp
+
 <style>
     .blurred-navbar {
         -webkit-backdrop-filter: blur(5px);
@@ -51,6 +86,26 @@
         background-color: var(--warna_2) !important;
         color: #fff !important;
     }
+
+    .public-nav-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 9999px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.08);
+        flex-shrink: 0;
+    }
+
+    .public-nav-avatar__image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
 </style>
 <header class="sticky z-40 w-full flex-none backdrop-blur duration-500 ease-in-out print:hidden top-0 mt-0" style="z-index:50">
 
@@ -58,9 +113,7 @@
             <div class="flex items-center justify-start">
                 <a href="/" style="outline:none">
                     <span class="sr-only">{{ $config->judul_web }}.</span>
-                <a href="/" style="outline:none">
-                    <span class="sr-only">{{ $config->judul_web }}.</span>
-                <img alt="{{ $config->judul_web }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ asset($config ? $config->logo_header : '') }}" style="color:transparent"></a>
+                <img alt="{{ $config->judul_web }}." fetchpriority="high" width="1000" height="1000" decoding="async" data-nimg="1" class="h-9 w-auto lg:h-10" src="{{ $publicLogoHeader }}" style="color:transparent"></a>
             </div>
             <div class="flex flex-1 items-center justify-end gap-2">
                 <div class="relative w-full hidden md:flex">
@@ -107,14 +160,8 @@
                        
                     </button>
                 </div>
-                <div class=" lg:flex space-x-2 lg:hidden lg:flex-1 lg:items-center lg:justify-end gap-2">
-                         @if(Auth::check())
-        @php
-            $userRole = Auth::user()->role;
-            $allowedRoles = ['Member', 'Platinum', 'Gold', 'Admin'];
-        @endphp
-
-        @if(in_array($userRole, $allowedRoles))   
+                <div class="hidden lg:flex lg:items-center lg:justify-end gap-2">
+                         @if($publicHasMemberMenu)
                             
                             
                         <div
@@ -150,10 +197,15 @@
                                     class="inline-flex w-full items-center justify-center justify-center gap-x-1 rounded-full border border-secondary-600 px-2 py-2 text-sm font-semibold uppercase text-white hover:bg-murky-800 focus:bg-murky-800" 
                                     aria-expanded="false"
                                     aria-controls="languange-dropdown-1">
-                                    <div class="flex space-x-2">
-                                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-</svg>
+                                    <div class="flex items-center space-x-2">
+                                          <span class="public-nav-avatar">
+                                              <img
+                                                  src="{{ $publicAvatarUrl }}"
+                                                  alt="{{ $publicDisplayName }}"
+                                                  class="public-nav-avatar__image"
+                                                  onerror="this.onerror=null;this.src='{{ $publicAvatarFallback }}';"
+                                              />
+                                          </span>
                                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
                             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
                         </svg>
@@ -178,31 +230,28 @@
                             </p>
                         </div>
                                 <div class="py-1" role="none">
-                         
                                     <a
-                                class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm"
-                                id="headlessui-menu-item-:r17:"
-                                role="menuitem"
-                                tabindex="-1"
-                                data-headlessui-state=""
-                                href="{{ route('deposit') }}"
-                                style="outline: none;"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
-                                    ></path>
-                                </svg>
-                                <span>Rp {{ number_format(Auth::user()->balance, 0, ',', '.') }} </span>
-                            </a>
-                              <a class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm" id="headlessui-menu-item-:r18:" role="menuitem" tabindex="-1" data-headlessui-state="" href="{{ route('dashboard') }}" style="outline: none;">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"></path>
-                                </svg>
-                                <span>Dashboard</span>
-                            </a>
+                                        class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm"
+                                        id="headlessui-menu-item-:r17:"
+                                        role="menuitem"
+                                        tabindex="-1"
+                                        data-headlessui-state=""
+                                        href="{{ route('dashboard') }}"
+                                        style="outline: none;"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"></path>
+                                        </svg>
+                                        <span>Rp {{ number_format((int) (Auth::user()->balance ?? 0), 0, ',', '.') }}</span>
+                                    </a>
+                                    @foreach($publicDropdownMenu as $menuItem)
+                                        <a class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm" role="menuitem" tabindex="-1" href="{{ $menuItem['href'] }}" style="outline: none;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 12h10M9 19h10M4.5 5h.01M4.5 12h.01M4.5 19h.01"></path>
+                                            </svg>
+                                            <span>{{ $menuItem['label'] }}</span>
+                                        </a>
+                                    @endforeach
                                 </div>
                                 
                         <div class="py-1" role="none">
@@ -222,8 +271,6 @@
                         </div>    
                             
                             @endif
-    @else
-                        @endif
                         </div>
                 <div>
                     
@@ -249,7 +296,7 @@
 
 <div class="border-b border-murky-600"></div>
 
-<nav class="container flex justify-between hidden lg:block w-full md:flex print:hidden h-16">
+<nav class="container hidden w-full items-center justify-between print:hidden lg:flex h-16">
 
      <div class="flex h-full gap-3">
         <a class="relative z-10 -mb-px flex items-center space-x-2 border-b-2 pt-px text-sm font-medium transition-colors duration-200 ease-out border-transparent hover:border-primary-500 hover:text-primary-300 {{ Request::is('id') ? 'border-primary-500 text-primary-300' : '' }}" style="outline: none;" href="/id">
@@ -364,19 +411,13 @@
         </div>
     </div>
 </div>
-        <div class="ml-auto flex h-full items-center justify-between space-x-2">
+        <div class="ml-auto flex h-full items-center justify-end gap-2 {{ $publicHasMemberMenu ? 'hidden' : '' }}">
                     
 
                         <div class="desktop-only">
                         </div>
-                        <div class="lg:flex space-x-2 lg:flex-1 lg:items-center lg:justify-end gap-2">
-                         @if(Auth::check())
-        @php
-            $userRole = Auth::user()->role;
-            $allowedRoles = ['Member', 'Platinum', 'Gold', 'Admin'];
-        @endphp
-
-        @if(in_array($userRole, $allowedRoles))   
+                        <div class="lg:flex lg:items-center lg:justify-end gap-2 space-x-2">
+                         @if($publicHasMemberMenu)
                             
                             
                         <div
@@ -412,10 +453,15 @@
                                     class="inline-flex w-full items-center justify-center justify-center gap-x-1 rounded-full border border-secondary-600 px-2 py-2 text-sm font-semibold uppercase text-white hover:bg-murky-800 focus:bg-murky-800" 
                                     aria-expanded="false"
                                     aria-controls="languange-dropdown-1">
-                                    <div class="flex space-x-2">
-                                           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-</svg>
+                                    <div class="flex items-center space-x-2">
+                                          <span class="public-nav-avatar">
+                                              <img
+                                                  src="{{ $publicAvatarUrl }}"
+                                                  alt="{{ $publicDisplayName }}"
+                                                  class="public-nav-avatar__image"
+                                                  onerror="this.onerror=null;this.src='{{ $publicAvatarFallback }}';"
+                                              />
+                                          </span>
                                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="h-5 w-5">
                             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"></path>
                         </svg>
@@ -440,32 +486,28 @@
                             </p>
                         </div>
                                 <div class="py-1" role="none">
-                         
                                     <a
-                                class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm"
-                                id="headlessui-menu-item-:r17-mobile:"
-                                role="menuitem"
-                                tabindex="-1"
-                                data-headlessui-state=""
-                                href="{{ route('deposit') }}"
-                                style="outline: none;"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"
-                                    ></path>
-                                </svg>
-                                <span>Rp {{ number_format(Auth::user()->balance, 0, ',', '.') }} </span>
-                            </a>
-                              <a class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm" id="headlessui-menu-item-:r18:" role="menuitem" tabindex="-1" data-headlessui-state="" href="{{ route('dashboard') }}" style="outline: none;">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                </svg>
-                                <span>Dashboard</span>
-                            </a>
+                                        class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm"
+                                        id="headlessui-menu-item-:r17-mobile:"
+                                        role="menuitem"
+                                        tabindex="-1"
+                                        data-headlessui-state=""
+                                        href="{{ route('dashboard') }}"
+                                        style="outline: none;"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"></path>
+                                        </svg>
+                                        <span>Rp {{ number_format((int) (Auth::user()->balance ?? 0), 0, ',', '.') }}</span>
+                                    </a>
+                                    @foreach($publicDropdownMenu as $menuItem)
+                                        <a class="text-murky-100 flex w-full items-center space-x-2 px-4 py-2 text-sm" role="menuitem" tabindex="-1" href="{{ $menuItem['href'] }}" style="outline: none;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 12h10M9 19h10M4.5 5h.01M4.5 12h.01M4.5 19h.01"></path>
+                                            </svg>
+                                            <span>{{ $menuItem['label'] }}</span>
+                                        </a>
+                                    @endforeach
                                 </div>
                                 
                         <div class="py-1" role="none">
@@ -484,7 +526,6 @@
                             </div>
                         </div>    
                             
-                            @endif
     @else
                         
                         </div>
@@ -520,10 +561,30 @@
         </header>
                 <!-- Drawer Menu -->
                
-        <div x-data="drawerMenu()" x-cloak @open-menu.window="open = $event.detail.open" @keydown.window.tab="usedKeyboard = true" @keydown.escape="open = false" x-init="init()">
-         <div x-show.transition.opacity.duration.500="open" @click="open = false" class="fixed z-40 inset-0  bg-opacity-25 blur"></div>
+        <div
+            x-data="{
+                open: false,
+                usedKeyboard: false,
+                init() {
+                    this.$watch('open', (value) => {
+                        if (value && this.$refs.closeButton) {
+                            this.$refs.closeButton.focus();
+                        }
 
-            <div class="fixed inset-0 z-50 transition duration-300 left-0 top-0 transform w-full max-w-xs h-screen bg-secondary pb-12 shadow-xl overflow-y-auto" :class="{'-translate-x-full': !open}">
+                        document.body.classList.toggle('h-screen', value);
+                        document.body.classList.toggle('overflow-hidden', value);
+                    });
+                },
+            }"
+            x-cloak
+            @open-menu.window="open = $event.detail.open"
+            @keydown.window.tab="usedKeyboard = true"
+            @keydown.escape="open = false"
+            x-init="init()"
+        >
+         <div x-show.transition.opacity.duration.500="open" @click="open = false" class="fixed z-40 inset-0 bg-opacity-25 blur" style="display: none;"></div>
+
+            <div class="fixed inset-0 z-50 transition duration-300 left-0 top-0 transform w-full max-w-xs h-screen bg-secondary pb-12 shadow-xl overflow-y-auto -translate-x-full" :class="{ 'translate-x-0': open, '-translate-x-full': !open }">
                 <div class="relative flex w-full flex-col">
                     <div class="flex flex-row-reverse items-center justify-between p-4">
                            <button type="button" class="-m-2 inline-flex items-center justify-center rounded-md p-2 text-murky-400 hover:ring-primary-500 hover:ring-offset-2" @click="open = false" x-ref="closeButton" :class="{'focus:outline-none': !usedKeyboard}" tabindex="0">
@@ -536,7 +597,7 @@
                         <div class="flex">
                             <a href="/" style="outline: none;">
                                 <span class="sr-only"> {{ $config->judul_web }}.</span>
-                                <img src="{{ !$config ? '' : $config->logo_header }}"  class="h-7 w-auto" width="100" height="43" style="color: transparent;" alt="{{ $config->judul_web }}." />
+                                <img src="{{ $publicLogoHeader }}"  class="h-7 w-auto" width="100" height="43" style="color: transparent;" alt="{{ $config->judul_web }}." />
                             </a>
                         </div>
                     </div>
@@ -592,34 +653,16 @@
                         </div>
                     </div>
                    <div class="space-y-2 p-4">
-    @if(Auth::check())
-        @php
-            $userRole = Auth::user()->role;
-            $allowedRoles = ['Member', 'Platinum', 'Gold', 'Admin'];
-        @endphp
-
-        @if(in_array($userRole, $allowedRoles))
+    @if($publicHasMemberMenu)
             <div>
-                    <a class="group flex items-center justify-between rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700 outline-none" href="{{ route('dashboard') }}">
-                        <span>Dashboard</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="hidden h-5 w-5 group-hover:block">
-                            <path fill-rule="evenodd" d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z" clip-rule="evenodd"></path>
-                        </svg>
-                    </a>
-               
-                
-                    <a class="group flex items-center justify-between rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700 outline-none" href="/id/dashboard/history">
-                        <span>Transaksi</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="hidden h-5 w-5 group-hover:block">
-                            <path fill-rule="evenodd" d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z" clip-rule="evenodd"></path>
-                        </svg>
-                    </a>
-                    <a class="group flex items-center justify-between rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700 outline-none" href="{{ route('deposit') }}">
-                        <span>Deposit</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="hidden h-5 w-5 group-hover:block">
-                            <path fill-rule="evenodd" d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z" clip-rule="evenodd"></path>
-                        </svg>
-                    </a> 
+                    @foreach($publicDashboardMenu as $menuItem)
+                        <a class="group flex items-center justify-between rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700 outline-none" href="{{ $menuItem['href'] }}">
+                            <span>{{ $menuItem['label'] }}</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="hidden h-5 w-5 group-hover:block">
+                                <path fill-rule="evenodd" d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z" clip-rule="evenodd"></path>
+                            </svg>
+                        </a>
+                    @endforeach
                     <form action="{{ route('logout') }}" method="POST" id="logout">
     @csrf 
     <button type="submit" class="group flex w-full items-center justify-between bg-transparent rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700">
@@ -641,7 +684,6 @@
 <div>
     </div>
 
-        @endif
     @else
         <div>
             <a class="group flex items-center justify-between rounded-md py-2 px-4 font-medium text-white hover:bg-murky-700 outline-none" href="{{ route('login') }}">
