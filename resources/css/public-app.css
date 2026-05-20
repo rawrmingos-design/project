@@ -3379,6 +3379,28 @@ textarea {
     cursor: not-allowed;
 }
 
+.public-app--bangjeff button.variant-card.variant-card--bangjeff {
+    cursor: pointer !important;
+}
+
+.public-app--bangjeff button.variant-card.variant-card--bangjeff:disabled {
+    cursor: not-allowed !important;
+}
+
+.public-app--bangjeff .order-panel.order-panel--bangjeff.order-panel--bangjeff-account {
+    border-radius: 16px !important;
+}
+
+.public-app--bangjeff .order-panel.order-panel--bangjeff.order-panel--bangjeff-account>.order-panel__header--bangjeff {
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+}
+
+.public-app--bangjeff .order-panel.order-panel--bangjeff.order-panel--bangjeff-account>.order-panel__body--bangjeff {
+    border-bottom-left-radius: 16px !important;
+    border-bottom-right-radius: 16px !important;
+}
+
 .variant-card--bangjeff:hover,
 .variant-card--bangjeff:focus-visible {
     border-color: rgba(249, 115, 22, 0.28);
