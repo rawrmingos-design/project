@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\HtmlSanitizer;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
@@ -25,7 +26,7 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:{$kategori->kode}:{$role}";
+        $cacheKey = "inertia_order_page:v2:{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -68,7 +69,7 @@ class PublicOrderPageDataService
                     'orderMode' => $this->resolveOrderMode($category->tipe),
                     'thumbnail' => '/' . ltrim((string) $category->thumbnail, '/'),
                     'banner' => '/' . ltrim((string) $category->banner, '/'),
-                    'description' => $category->deskripsi_game,
+                    'description' => $this->sanitizeCategoryDescription($category->deskripsi_game),
                     'fieldDescription' => $category->deskripsi_field,
                     'requireUserId' => (bool) ($category->require_user_id ?? true),
                     'serverId' => (bool) ($category->server_id ?? false),
@@ -86,6 +87,19 @@ class PublicOrderPageDataService
                 'paymentMethods' => $methods,
             ];
         });
+    }
+
+    private function sanitizeCategoryDescription(?string $description): string
+    {
+        $raw = trim((string) $description);
+
+        if ($raw === '') {
+            return '<p>Deskripsi kategori belum tersedia.</p>';
+        }
+
+        $decoded = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return HtmlSanitizer::cleanArticle($decoded);
     }
 
     private function resolveOrderMode(string $type): string
