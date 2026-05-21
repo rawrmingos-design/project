@@ -10713,6 +10713,22 @@ textarea {
     height: 3.25rem;
 }
 
+.invoice-status-banner-react__intro-icon--lottie {
+    width: min(280px, 72vw);
+    height: min(280px, 72vw);
+    border-radius: 0;
+    margin-bottom: 0.75rem;
+    animation-duration: 3.4s;
+}
+
+.invoice-status-banner-react__intro-lottie,
+.invoice-status-banner-react__intro-icon--lottie lottie-player {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent;
+}
+
 .invoice-status-banner-react__intro-title {
     margin: 0;
     color: #fffef7;
@@ -11694,6 +11710,11 @@ textarea {
         width: 118px;
         height: 118px;
         margin-bottom: 0.85rem;
+    }
+
+    .invoice-status-banner-react__intro-icon--lottie {
+        width: min(220px, 70vw);
+        height: min(220px, 70vw);
     }
 
     .invoice-status-banner-react__intro-icon svg {
