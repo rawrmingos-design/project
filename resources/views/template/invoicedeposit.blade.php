@@ -265,6 +265,7 @@
     }
 
     .deposit-page-shell {
+        padding-bottom: 5rem;
         opacity: 0;
         transform: translateY(32px) scale(.985);
         transition: opacity .7s cubic-bezier(.22, 1, .36, 1), transform .95s cubic-bezier(.22, 1, .36, 1);
@@ -280,6 +281,9 @@
         border-radius: 18px;
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
         box-shadow: 0 24px 60px rgba(2, 6, 23, 0.35);
+        width: 100%;
+        max-width: 380px;
+        padding: 1rem 1.15rem;
     }
 
     .deposit-expiry-label {
@@ -314,6 +318,211 @@
         font-size: 0.92rem;
         color: rgba(226, 232, 240, 0.9);
     }
+
+    .deposit-hero-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .deposit-print-actions {
+        margin-top: .15rem;
+        flex-shrink: 0;
+    }
+
+    .deposit-content-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 1.5rem;
+    }
+
+    .deposit-info-card {
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 14px;
+        background: rgba(15, 23, 42, 0.35);
+        padding: 1rem 1.1rem;
+    }
+
+    .deposit-info-card__label {
+        font-size: .78rem;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.94);
+    }
+
+    .deposit-info-card__value {
+        margin-top: .45rem;
+        font-size: 1.02rem;
+        font-weight: 700;
+        color: #fff;
+        word-break: break-word;
+    }
+
+    .deposit-panel {
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        border-radius: 1.25rem;
+        background: rgba(15, 23, 42, 0.34);
+        padding: 1rem;
+    }
+
+    .deposit-panel-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .deposit-detail-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .75rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(71, 85, 105, 0.45);
+    }
+
+    .deposit-detail-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: .25rem;
+    }
+
+    .deposit-detail-label {
+        font-size: .78rem;
+        color: rgba(148, 163, 184, 0.96);
+    }
+
+    .deposit-detail-value {
+        font-size: .95rem;
+        color: #fff;
+        font-weight: 600;
+        word-break: break-word;
+    }
+
+    .deposit-summary-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: .75rem;
+        border: 1px solid rgba(71, 85, 105, 0.55);
+        background: rgba(30, 41, 59, 0.62);
+        padding: .65rem .9rem;
+        color: #fff;
+        font-size: .9rem;
+        font-weight: 600;
+    }
+
+    .deposit-summary-toggle:hover {
+        background: rgba(30, 41, 59, 0.84);
+    }
+
+    .deposit-summary-panel {
+        margin-top: .75rem;
+        border-radius: .85rem;
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        background: rgba(15, 23, 42, 0.54);
+        padding: .9rem;
+    }
+
+    .deposit-summary-panel__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .5rem;
+        color: rgba(226, 232, 240, 0.96);
+        font-size: .9rem;
+    }
+
+    .deposit-summary-panel__row + .deposit-summary-panel__row {
+        margin-top: .7rem;
+    }
+
+    .deposit-summary-divider {
+        margin: .75rem 0;
+        height: 1px;
+        background: rgba(71, 85, 105, 0.55);
+    }
+
+    .deposit-total-row {
+        margin-top: 1rem;
+        border: 1px solid rgba(249, 115, 22, 0.45);
+        border-radius: 1rem;
+        background: rgba(15, 23, 42, 0.35);
+        padding: .9rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+
+    .deposit-status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: .375rem;
+        padding: .15rem .5rem;
+        font-size: .75rem;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .deposit-status-badge--danger {
+        background: rgb(253 164 175);
+        color: rgb(136 19 55);
+    }
+
+    .deposit-status-badge--success {
+        background: rgb(167 243 208);
+        color: rgb(6 95 70);
+    }
+
+    .deposit-status-badge--neutral {
+        background: rgb(203 213 225);
+        color: rgb(30 41 59);
+    }
+
+    .deposit-warning-box {
+        margin-top: 1rem;
+        border-left: 4px solid rgb(253 224 71);
+        background: rgb(254 249 195);
+        border-radius: .35rem;
+        padding: .75rem .9rem;
+    }
+
+    .deposit-qr-panel {
+        margin-top: 1.5rem;
+        border: 1px solid rgba(71, 85, 105, 0.55);
+        border-radius: .85rem;
+        background: rgba(30, 41, 59, 0.78);
+        padding: 1rem;
+    }
+
+    .deposit-qr-panel__title {
+        margin-bottom: .9rem;
+        text-align: center;
+        font-size: .92rem;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .deposit-qr-panel__code-wrap {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: .75rem;
+        background: #fff;
+        padding: .55rem;
+    }
+
+    .deposit-qr-panel__meta {
+        margin-top: .6rem;
+        font-size: .72rem;
+        color: rgba(148, 163, 184, 0.95);
+        word-break: break-all;
+    }
     
     .container-image {
     width: 150px;
@@ -336,7 +545,40 @@
     border-radius: 10px;
   }
 
-  @media (max-width: 767px) {
+    @media (min-width: 768px) {
+    .deposit-detail-row {
+        grid-template-columns: 10rem 1fr;
+        gap: .7rem;
+        align-items: center;
+    }
+
+    .deposit-content-grid > .deposit-col {
+        grid-column: span 6 / span 6;
+    }
+    }
+
+    @media (max-width: 767px) {
+    .deposit-print-actions {
+        width: 100%;
+    }
+
+    .deposit-print-actions button {
+        width: 100%;
+    }
+
+    .deposit-expiry-card {
+        max-width: 100%;
+    }
+
+    .deposit-expiry-countdown {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .deposit-content-grid > .deposit-col {
+        grid-column: span 12 / span 12;
+    }
+
     .deposit-intro-stage {
         width: min(88vw, 22rem);
         margin-bottom: 1.5rem;
@@ -476,33 +718,15 @@
 <main class="deposit-page-shell relative mt-5 p-2" id="invoice">
     <div class=" print:!text-slate-800">
         <div class="container py-12 print:py-8 md:py-8">
-            <div class="flex flex-col-reverse items-end justify-between gap-8 print:mt-0 print:flex-row print:items-start print:gap-0 md:mt-0 md:flex-row md:items-start md:gap-0">
+            <div class="deposit-hero-row">
                 <div class="max-w-3xl">
                     <h1 class="text-base font-medium text-primary-500">{{ $depositHeroEyebrow }}</h1>
                     <p class="mt-2 text-4xl font-bold tracking-tight">{{ $depositHeroTitle }}</p>
                     <p class="mt-2 text-base text-murky-200">{{ $depositHeroDescription }}</p>
                 </div>
-            </div>
-            <div class="mt-8 flex flex-col items-end justify-between gap-8 print:flex-row md:flex-row">
-                <dl class="w-full text-left text-sm font-medium md:w-auto deposit-expiry-card p-5">
-                    <dt class="deposit-expiry-label">{{ $depositExpiryLabel }}</dt>
-                    <dd class="mt-3 text-primary-500">
-                        <div
-                            id="depositExpiryCountdown"
-                            class="deposit-expiry-countdown"
-                            data-expired-at="{{ $expiredIso }}"
-                            data-status="{{ $data->status_pembayaran }}"
-                        >
-                            --:--:--
-                        </div>
-                        <div class="deposit-expiry-meta">
-                            {{ $depositExpiryMeta }}
-                        </div>
-                    </dd>
-                </dl>
-                <div class="absolute top-4 right-4 print:hidden md:static mt-3">
+                <div class="deposit-print-actions print:hidden">
                     <button
-                        class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 flex items-center space-x-2"
+                        class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 space-x-2"
                         onclick="print_invoice()"
                         id="printInvoiceButton"
                         type="button"
@@ -518,168 +742,84 @@
                     </button>
                 </div>
             </div>
+            <div class="mt-8">
+                <dl class="deposit-expiry-card text-left text-sm font-medium">
+                    <dt class="deposit-expiry-label">{{ $depositExpiryLabel }}</dt>
+                    <dd class="mt-3 text-primary-500">
+                        <div
+                            id="depositExpiryCountdown"
+                            class="deposit-expiry-countdown"
+                            data-expired-at="{{ $expiredIso }}"
+                            data-status="{{ $data->status_pembayaran }}"
+                        >
+                            --:--:--
+                        </div>
+                        <div class="deposit-expiry-meta">
+                            {{ $depositExpiryMeta }}
+                        </div>
+                    </dd>
+                </dl>
+            </div>
             <div class="my-8 border-y border-murky-600 py-8">
-                <div class="grid grid-cols-2 gap-8">
-                    <div class="col-span-2 flex gap-8 lg:col-span-1">
-                   
-                        <div>
-                            <h3 class="text-lg font-medium text-white print:text-sm print:text-slate-800"><a href="" style="outline: none;"> </a></h3>
-                            <p class="text-sm">{{ $data->layanan }}</p>
-                            <div>
-                                <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
-                                    <div class="grid grid-cols-3 gap-4 pb-2">
-                                        <div class="text-white print:text-slate-800">Deposit Dengan No Invoice {{ $data->id_pembelian }} </div>
-                                    </div>
+                <div class="deposit-content-grid">
+                    <div class="deposit-col">
+                        <div class="deposit-panel">
+                            <div class="deposit-panel-title">Informasi Deposit</div>
+                            <div class="deposit-detail-grid">
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">No. Invoice</div>
+                                    <div class="deposit-detail-value">{{ $data->id_pembelian }}</div>
+                                </div>
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">Tanggal Buat</div>
+                                    <div class="deposit-detail-value">{{ \Illuminate\Support\Carbon::parse($data->created_at)->format('d-m-Y H:i:s') }}</div>
+                                </div>
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">Layanan</div>
+                                    <div class="deposit-detail-value">{{ $data->layanan ?? 'Top Up Saldo' }}</div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-span-2 row-span-3 lg:col-span-1">
-                        <div class="w-full flex-1 print:pt-0 md:flex-auto md:pt-0">
-                            <dl class="gap-x-8 text-sm">
-                                <div class="w-full">
-                                    <dt class="text-lg font-medium text-white print:text-sm print:text-slate-800">Metode Pembayaran</dt>
-                                    <dd class="text-murky-200">
-                                        <div class="flex items-start space-x-4 print:text-slate-800">
-                                            <div class="text-sm text-white">QRIS DEPOSIT</div></div>
-                                    </dd>
-                                    <div class="mt-8 grid w-full grid-cols-8 gap-4 border-t border-murky-600 pt-8 text-left text-murky-200 print:border-slate-200 print:text-slate-800 md:gap-x-2">
-                                    <div class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4">Nomor Invoice</div>
-                                    <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
-                                        <button type="button" id="copyButton1" class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden" onclick="copyToClipboard('copyButton1')">
-                                            <div class="max-w-[172px] truncate md:w-auto md:max-w-none">{{ $data->id_pembelian }}</div>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-4">
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-                                                ></path>
-                                            </svg>
-                                        </button>
-                                        <span class="hidden print:block"></span>
-                                    </div>
-                                        <!--conditional status pembelian & pembayaran-->
-                                        @php
-                                            $statuscolor = '';
-                                            
-                                            if($data->status_pembelian == "Pending"){
-                                                $statuscolor = 'yellow';
-                                            } elseif($data->status_pembelian == "Sukses" || $data->status_pembelian == "Success"){
-                                                $statuscolor = 'green';
-                                            } elseif($data->status_pembelian == "Proses"){
-                                                $statuscolor = 'cyan';
-                                            } else {
-                                                $statuscolor = 'rose';
-                                            }
-                                        @endphp
-                                        <!--<div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Status Transaksi</div>-->
-                                        <!--<div class="col-span-5 md:col-span-4"><span class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-{{$statuscolor}}-300 text-{{$statuscolor}}-800">-->
-                                        <!--    @if($data->status_pembelian == "Pending")-->
-                                        <!--        Pending-->
-                                        <!--    @elseif($data->status_pembelian == "Proses")-->
-                                        <!--        Processing-->
-                                        <!--    @elseif($data->status_pembelian == "Sukses" || $data->status_pembelian == "Success")-->
-                                        <!--        Sukses-->
-                                        <!--    @endif-->
-                                        <!--</span></div>-->
-                                         @php
-                                            $pembayarancolor = '';
-                                            
-                                            if($data->status_pembayaran == "Belum Lunas"){
-                                                $pembayarancolor = 'rose';
-                                            } elseif($data->status_pembayaran == "Success" || $data->status_pembayaran == "Lunas"){
-                                                $pembayarancolor = 'green';
-                                            }else {
-                                                $pembayarancolor = 'rose';
-                                            }
-                                        @endphp
-                                        <div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Status Pembayaran</div>
-                                        <div class="col-span-5 md:col-span-4"><span id="badge-unpaid" class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-{{$pembayarancolor}}-300 text-{{$pembayarancolor}}-800">
-                                        @if($data->status_pembayaran == "Belum Lunas")
-                                               <div class="whitespace-nowrap"> <span class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-rose-300 text-emerald-900">Unpaid</span> </div>
-                                            @elseif($data->status_pembayaran == "PAID" || $data->status_pembayaran == "Lunas")
-                                                <td class="table-cell px-3 py-3.5 text-left text-xs font-medium text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
-                                                   <div class="whitespace-nowrap">
-                                                        <span class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-emerald-200 text-emerald-900">Paid</span>
-                                                    </div>
-                                                </td>
-                                            @elseif($data->status_pembayaran == "Expired")
-                                                <div class="whitespace-nowrap"> <span class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-slate-300 text-slate-900">Expired</span> </div>
-                                            @else
-                                                <div class="whitespace-nowrap"> <span class="inline-flex rounded-sm px-2 text-xs font-semibold leading-5 print:p-0 bg-rose-300 text-emerald-900">Expired</span> </div>
-                                            @endif
-                                        </span></div>
-                                        <div class="col-span-3 text-white print:text-slate-800 md:col-span-4">Pesan</div>
-                                        <div class="col-span-5 md:col-span-4">
-                                            @if($data->status_pembayaran == "Belum Lunas")
-                                            Menunggu pembayaran deposit saldo
-                                            @elseif($data->status_pembayaran == "PAID" || $data->status_pembayaran == "Lunas")
-                                            Saldo berhasil ditambahkan pada {{ $data->updated_at }}. Diproses oleh sistem.
-                                            @elseif($data->status_pembayaran == "Expired")
-                                            Pembayaran deposit telah kedaluwarsa.
-                                            @else
-                                                Expired
-                                            @endif
-                                        </div>
-                                        @if($data->voucher !== null)
-                                        <div class="col-span-3 flex items-center text-white print:text-slate-800 md:col-span-4">Kode Voucher / SN</div>
-                                        <div class="col-span-5 text-white print:text-slate-800 md:col-span-4">
-                                            <button type="button" class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden">
-                                                <div class="max-w-[172px] truncate md:w-auto md:max-w-none">{{ $data->voucher }}</div>
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-4">
-                                                    <path
-                                                        stroke-linecap="round"
-                                                        stroke-linejoin="round"
-                                                        d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"
-                                                    ></path>
-                                                </svg>
-                                            </button>
-                                            <span class="hidden print:block"></span>
-                                        </div>
-                                        @endif
-                                    </div>
+
+                        <div class="mt-4">
+                            <button
+                                class="deposit-summary-toggle"
+                                id="depositSummaryToggle"
+                                type="button"
+                                aria-expanded="false"
+                                aria-controls="depositSummaryPanel"
+                            >
+                                <span>Rincian Pembayaran</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" id="depositSummaryChevron" class="h-5 w-5 transition-transform duration-200" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M14.77 12.79a.75.75 0 01-1.06-.02L10 8.832 6.29 12.77a.75.75 0 11-1.08-1.04l4.25-4.5a.75.75 0 011.08 0l4.25 4.5a.75.75 0 01-.02 1.06z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                            <div id="depositSummaryPanel" class="deposit-summary-panel hidden">
+                                <div class="deposit-summary-panel__row">
+                                    <span>Harga</span>
+                                    <span>Rp {{ number_format($data->harga_pembayaran, 0, ',', '.') }},-</span>
                                 </div>
-                            </dl>
-                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" || Str::upper($data->metode_pembayaran) == "SQ")
-                            <div class="relative mt-8 flex flex-col items-center justify-center rounded-lg bg-white p-4">
-                                <h3 class="mb-4 text-gray-800 font-bold">Scan QRIS / Lanjut Bayar</h3>
-                                <div id="qris-payment" class="w-full flex justify-center">
-                                    {{-- Logic: If URL contains 'duitku', it's a payment page -> Show Button --}}
-                                    @if(str_contains($data->no_pembayaran, 'duitku') || str_contains($data->no_pembayaran, 'sandbox.duitku.com') || str_contains($data->no_pembayaran, 'passport.duitku.com'))
-                                         <a href="{{ $data->no_pembayaran }}" target="_blank" class="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all duration-300 hover:bg-blue-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                                            Buka Halaman Pembayaran
-                                         </a>
-                                    {{-- Logic: If it is a URL but NOT Duitku, it's likely a QR Image (TriPay/TokoPay) -> Show Image --}}
-                                    @elseif(filter_var($data->no_pembayaran, FILTER_VALIDATE_URL))
-                                         <a href="{{ $data->no_pembayaran }}" target="_blank">
-                                            <img src="{{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto mb-2 max-w-[200px]">
-                                         </a>
-                                    {{-- Logic: If not a URL, it is a Raw QR String -> Generate QR Image --}}
-                                    @else
-                                         <div class="text-center">
-                                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto mb-2">
-                                            <p class="mt-2 text-xs text-gray-400 font-mono break-all max-w-[200px] mx-auto">{{ $data->no_pembayaran }}</p>
-                                         </div>
-                                    @endif
+                                <div class="deposit-summary-panel__row">
+                                    <span>Jumlah</span>
+                                    <span>1x</span>
+                                </div>
+                                <div class="deposit-summary-panel__row">
+                                    <span>Metode Pembayaran</span>
+                                    <span>{{ Str::upper((string) $data->metode_pembayaran) }}</span>
+                                </div>
+                                <div class="deposit-summary-divider"></div>
+                                <div class="deposit-summary-panel__row">
+                                    <span>Subtotal</span>
+                                    <span>Rp {{ number_format($data->harga_pembayaran, 0, ',', '.') }},-</span>
+                                </div>
+                                <div class="deposit-summary-panel__row">
+                                    <span>Biaya</span>
+                                    <span>Rp 0</span>
                                 </div>
                             </div>
-                            @endif
-                            
-                            @if(Str::upper($data->metode_pembayaran) == "SHOPEEPAY" || Str::upper($data->metode_pembayaran) == "OVOPUSH" || Str::upper($data->metode_pembayaran) == "DANA" || Str::upper($data->metode_pembayaran) == "LINKAJA" || Str::upper($data->metode_pembayaran) == "11" || Str::upper($data->metode_pembayaran) == "17" || Str::upper($data->metode_pembayaran) == "23")
-                            <a href="{{$data->no_pembayaran}}" target="_blank">
-                                <button class="mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto" type="button">
-                                    <span>Klik di sini untuk melakukan pembayaran</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path>
-                                    </svg>
-                                </button>
-                            </a>
-                            @endif
                         </div>
-                    </div>
-                    <div class="col-span-2 col-start-1 row-start-2 lg:col-span-1">
-                    
-                       <div class="mb-8 mt-4 flex items-center justify-between text-primary-500">
+
+                        <div class="deposit-total-row text-primary-500">
                             <dt class="text-xl font-bold text-white print:text-sm md:text-2xl">Total Pembayaran</dt>
                             <dd class="font-semibold text-white print:text-slate-800">
                                 <button type="button" id="copyButton" class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 text-xl text-primary-500 print:hidden md:text-2xl" >
@@ -697,31 +837,112 @@
                                 </button>
                             </dd>
                         </div>
-                        <div class="border-l-4 border-yellow-300 bg-yellow-100 p-4 print:hidden">
-                            <div>
-                                
-                             @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" )
-                                <div class="text-yellow-800 print:hidden">
-                                    <p>Gunakan <strong>Ewallet </strong>atau <strong>aplikasi mobile banking</strong> yang tersedia scan QRIS</p>
+                    </div>
+
+                    <div class="deposit-col">
+                        <div class="deposit-panel">
+                            <div class="deposit-panel-title">Metode Pembayaran</div>
+                            <div class="mt-2 text-sm font-semibold text-white">{{ Str::upper((string) $data->metode_pembayaran) }}</div>
+                            <div class="deposit-detail-grid">
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">Nomor Invoice</div>
+                                    <div class="deposit-detail-value">
+                                        <button type="button" id="copyButton1" class="flex items-center space-x-2 rounded-md border border-murky-400 bg-murky-600 px-2.5 py-1 hover:bg-murky-700 print:hidden" onclick="copyToClipboard('copyButton1')">
+                                            <div class="max-w-[172px] truncate md:w-auto md:max-w-none">{{ $data->id_pembelian }}</div>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-4">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
-                                @elseif(Str::upper($data->metode_pembayaran) == "BRIVA" || Str::upper($data->metode_pembayaran) == "BCAVA" || Str::upper($data->metode_pembayaran) == "BNIVA" || Str::upper($data->metode_pembayaran) == "MANDIRIVA" || Str::upper($data->metode_pembayaran) == "PERMATAVA" || Str::upper($data->metode_pembayaran) == "CIMBVA" || Str::upper($data->metode_pembayaran) == "DANAMONVA" || Str::upper($data->metode_pembayaran) == "BSIVA")
-                                 <div class="text-yellow-800 print:hidden">
-                                    <p>Gunakan <strong>aplikasi mobile banking</strong> untuk melakukan pembayaran</p>
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">Status Pembayaran</div>
+                                    <div class="deposit-detail-value">
+                                        @if($data->status_pembayaran == "Belum Lunas")
+                                            <span id="badge-unpaid" class="deposit-status-badge deposit-status-badge--danger">Unpaid</span>
+                                        @elseif($data->status_pembayaran == "PAID" || $data->status_pembayaran == "Lunas")
+                                            <span id="badge-unpaid" class="deposit-status-badge deposit-status-badge--success">Paid</span>
+                                        @else
+                                            <span id="badge-unpaid" class="deposit-status-badge deposit-status-badge--neutral">Expired</span>
+                                        @endif
+                                    </div>
                                 </div>
-                                @elseif(Str::upper($data->metode_pembayaran) == "INDOMARET")
-                                <div class="text-yellow-800 print:hidden">
-                                    <p>Silahkan tunjukkan <strong>nomor pembayaran </strong> ke kasir indomaret agar pesanan dapat diproses</p>
+                                <div class="deposit-detail-row">
+                                    <div class="deposit-detail-label">Pesan</div>
+                                    <div class="deposit-detail-value">
+                                        @if($data->status_pembayaran == "Belum Lunas")
+                                        Menunggu pembayaran deposit saldo
+                                        @elseif($data->status_pembayaran == "PAID" || $data->status_pembayaran == "Lunas")
+                                        Saldo berhasil ditambahkan pada {{ $data->updated_at }}. Diproses oleh sistem.
+                                        @elseif($data->status_pembayaran == "Expired")
+                                        Pembayaran deposit telah kedaluwarsa.
+                                        @else
+                                            Expired
+                                        @endif
+                                    </div>
                                 </div>
-                                @elseif(Str::upper($data->metode_pembayaran) == "ALFAMART")
-                                <div class="text-yellow-800 print:hidden">
-                                    <p>Silahkan tunjukkan <strong>nomor pembayaran </strong> ke kasir alfamart agar pesanan dapat diproses</p>
-                                </div>
-                                @else
-                                <div class="text-yellow-800 print:hidden">
-                                    <p>Gunakan Aplikasi <strong>Ewallet </strong> untuk melakukan pembayaran</p>
-                                </div>
-                                @endif
                             </div>
+
+                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" || Str::upper($data->metode_pembayaran) == "SQ")
+                            <div class="deposit-qr-panel relative flex flex-col items-center justify-center">
+                                <h3 class="deposit-qr-panel__title">Scan QRIS / Lanjut Bayar</h3>
+                                <div id="qris-payment" class="w-full flex justify-center">
+                                    @if(str_contains($data->no_pembayaran, 'duitku') || str_contains($data->no_pembayaran, 'sandbox.duitku.com') || str_contains($data->no_pembayaran, 'passport.duitku.com'))
+                                         <a href="{{ $data->no_pembayaran }}" target="_blank" class="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all duration-300 hover:bg-blue-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                            Buka Halaman Pembayaran
+                                         </a>
+                                    @elseif(filter_var($data->no_pembayaran, FILTER_VALIDATE_URL))
+                                         <a href="{{ $data->no_pembayaran }}" target="_blank">
+                                            <span class="deposit-qr-panel__code-wrap">
+                                                <img src="{{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto max-w-[200px]">
+                                            </span>
+                                         </a>
+                                    @else
+                                         <div class="text-center">
+                                            <span class="deposit-qr-panel__code-wrap">
+                                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ $data->no_pembayaran }}" alt="QRIS Code" class="mx-auto">
+                                            </span>
+                                            <p class="deposit-qr-panel__meta font-mono max-w-[220px] mx-auto">{{ $data->no_pembayaran }}</p>
+                                         </div>
+                                    @endif
+                                </div>
+                            </div>
+                            @endif
+                            
+                            @if(Str::upper($data->metode_pembayaran) == "SHOPEEPAY" || Str::upper($data->metode_pembayaran) == "OVOPUSH" || Str::upper($data->metode_pembayaran) == "DANA" || Str::upper($data->metode_pembayaran) == "LINKAJA" || Str::upper($data->metode_pembayaran) == "11" || Str::upper($data->metode_pembayaran) == "17" || Str::upper($data->metode_pembayaran) == "23")
+                            <a href="{{$data->no_pembayaran}}" target="_blank">
+                                <button class="mt-6 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto" type="button">
+                                    <span>Klik di sini untuk melakukan pembayaran</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-4 w-4">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path>
+                                    </svg>
+                                </button>
+                            </a>
+                            @endif
+                        </div>
+
+                        <div class="deposit-warning-box print:hidden">
+                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" )
+                            <div class="text-yellow-800">
+                                <p>Gunakan <strong>Ewallet </strong>atau <strong>aplikasi mobile banking</strong> yang tersedia scan QRIS</p>
+                            </div>
+                            @elseif(Str::upper($data->metode_pembayaran) == "BRIVA" || Str::upper($data->metode_pembayaran) == "BCAVA" || Str::upper($data->metode_pembayaran) == "BNIVA" || Str::upper($data->metode_pembayaran) == "MANDIRIVA" || Str::upper($data->metode_pembayaran) == "PERMATAVA" || Str::upper($data->metode_pembayaran) == "CIMBVA" || Str::upper($data->metode_pembayaran) == "DANAMONVA" || Str::upper($data->metode_pembayaran) == "BSIVA")
+                            <div class="text-yellow-800">
+                                <p>Gunakan <strong>aplikasi mobile banking</strong> untuk melakukan pembayaran</p>
+                            </div>
+                            @elseif(Str::upper($data->metode_pembayaran) == "INDOMARET")
+                            <div class="text-yellow-800">
+                                <p>Silahkan tunjukkan <strong>nomor pembayaran </strong> ke kasir indomaret agar pesanan dapat diproses</p>
+                            </div>
+                            @elseif(Str::upper($data->metode_pembayaran) == "ALFAMART")
+                            <div class="text-yellow-800">
+                                <p>Silahkan tunjukkan <strong>nomor pembayaran </strong> ke kasir alfamart agar pesanan dapat diproses</p>
+                            </div>
+                            @else
+                            <div class="text-yellow-800">
+                                <p>Gunakan Aplikasi <strong>Ewallet </strong> untuk melakukan pembayaran</p>
+                            </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -801,7 +1022,41 @@
         }
 
         prepareDepositIntro();
-        window.addEventListener('pageshow', prepareDepositIntro);
+        window.addEventListener('pageshow', function (event) {
+            if (event && event.persisted) {
+                prepareDepositIntro();
+            }
+        });
+
+        window.addEventListener('pagehide', function () {
+            if (introTimer) {
+                window.clearTimeout(introTimer);
+                introTimer = null;
+            }
+        });
+    })();
+</script>
+
+<script>
+    (function () {
+        const toggleButton = document.getElementById('depositSummaryToggle');
+        const content = document.getElementById('depositSummaryPanel');
+        const chevron = document.getElementById('depositSummaryChevron');
+
+        if (!toggleButton || !content) {
+            return;
+        }
+
+        toggleButton.addEventListener('click', function () {
+            const isHidden = content.classList.contains('hidden');
+
+            content.classList.toggle('hidden');
+            toggleButton.setAttribute('aria-expanded', String(isHidden));
+
+            if (chevron) {
+                chevron.classList.toggle('rotate-180', isHidden);
+            }
+        });
     })();
 </script>
 
@@ -838,7 +1093,7 @@
               "showMethod": "show",
               "hideMethod": "hide"
             }
-            toastr.success('No pembayaran berhasil disalin!');
+            toastr.success('Total pembayaran berhasil disalin!');
         });
     }
     
