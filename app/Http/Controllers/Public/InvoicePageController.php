@@ -203,7 +203,7 @@ class InvoicePageController extends Controller
             'expired' => 4700,
             'paid' => 4300,
             'failed' => 4500,
-            default => 5400,
+            default => 4300,
         };
 
         $introBadgeText = match ($introState) {

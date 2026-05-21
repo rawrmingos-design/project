@@ -1739,7 +1739,7 @@
             'expired' => 4700,
             'paid' => 4300,
             'failed' => 4500,
-            default => 5400,
+            default => 4300,
         };
 
         $introBadgeText = match ($introState) {
@@ -2394,10 +2394,9 @@
             let introStartedAt = 0;
             let introMinDuration = 3200;
             const INTRO_HIDE_DURATION_MS = 750;
-            let pendingLottieCompleteHandler = null;
-            let pendingLottieFallbackTimer = null;
-            let bannerPendingLottieCompleteHandler = null;
-            let bannerPendingLottieFallbackTimer = null;
+            let pendingLottieStartTimer = null;
+            let pendingLottieSequenceTimer = null;
+            let bannerPendingLottieStartTimer = null;
 
             function hidePageShell() {
                 const pageShell = document.getElementById('invoicePageShell');
@@ -2419,14 +2418,9 @@
                     return;
                 }
 
-                if (bannerPendingLottieCompleteHandler) {
-                    bannerLottiePlayer.removeEventListener('complete', bannerPendingLottieCompleteHandler);
-                    bannerPendingLottieCompleteHandler = null;
-                }
-
-                if (bannerPendingLottieFallbackTimer) {
-                    window.clearTimeout(bannerPendingLottieFallbackTimer);
-                    bannerPendingLottieFallbackTimer = null;
+                if (bannerPendingLottieStartTimer) {
+                    window.clearTimeout(bannerPendingLottieStartTimer);
+                    bannerPendingLottieStartTimer = null;
                 }
 
                 try {
@@ -2468,7 +2462,7 @@
                             bannerLottiePlayer.stop();
                         }
 
-                        window.setTimeout(() => {
+                        bannerPendingLottieStartTimer = window.setTimeout(() => {
                             if (typeof bannerLottiePlayer.play === 'function') {
                                 bannerLottiePlayer.play();
                             }
@@ -2587,9 +2581,14 @@
 
                 resetBannerPendingLottie();
 
-                if (pendingLottieFallbackTimer) {
-                    window.clearTimeout(pendingLottieFallbackTimer);
-                    pendingLottieFallbackTimer = null;
+                if (pendingLottieStartTimer) {
+                    window.clearTimeout(pendingLottieStartTimer);
+                    pendingLottieStartTimer = null;
+                }
+
+                if (pendingLottieSequenceTimer) {
+                    window.clearTimeout(pendingLottieSequenceTimer);
+                    pendingLottieSequenceTimer = null;
                 }
 
                 if (customIntroStage) {
@@ -2608,13 +2607,11 @@
                     });
                 }
 
+                const rawIntroDuration = Number(introOverlay?.dataset.duration || 0);
+                const safeIntroDuration = Number.isFinite(rawIntroDuration) && rawIntroDuration > 0 ? rawIntroDuration : 3600;
+
                 if (lottiePlayer) {
                     try {
-                        if (pendingLottieCompleteHandler) {
-                            lottiePlayer.removeEventListener('complete', pendingLottieCompleteHandler);
-                            pendingLottieCompleteHandler = null;
-                        }
-
                         const introState = String(introOverlay?.dataset.state || '').toLowerCase();
                         const rawSequence = String(lottiePlayer.dataset.sequence || '');
                         const sequence = rawSequence.split('|').map((item) => item.trim()).filter(Boolean);
@@ -2624,7 +2621,7 @@
                             lottiePlayer.stop();
                         }
 
-                        const playLottieSource = (src) => {
+                        const playLottieSource = (src, loopMode = false) => {
                             if (!src) {
                                 return;
                             }
@@ -2635,11 +2632,13 @@
                                 lottiePlayer.setAttribute('src', src);
                             }
 
+                            lottiePlayer.setAttribute('loop', loopMode ? 'true' : 'false');
+
                             if (typeof lottiePlayer.stop === 'function') {
                                 lottiePlayer.stop();
                             }
 
-                            window.setTimeout(() => {
+                            pendingLottieStartTimer = window.setTimeout(() => {
                                 if (typeof lottiePlayer.play === 'function') {
                                     lottiePlayer.play();
                                 }
@@ -2653,16 +2652,18 @@
                                 }
                             }, 60);
                         } else {
-                            lottiePlayer.setAttribute('loop', 'false');
-                            playLottieSource(sequence[0]);
+                            playLottieSource(sequence[0], false);
+
+                            if (sequence.length > 1) {
+                                pendingLottieSequenceTimer = window.setTimeout(() => {
+                                    playLottieSource(sequence[1], true);
+                                }, Math.max(180, Math.round(safeIntroDuration / 2)));
+                            }
                         }
                     } catch (error) {
                         console.debug('Invoice intro lottie replay skipped:', error);
                     }
                 }
-
-                const rawIntroDuration = Number(introOverlay?.dataset.duration || 0);
-                const safeIntroDuration = Number.isFinite(rawIntroDuration) && rawIntroDuration > 0 ? rawIntroDuration : 3600;
                 const isFromOrderPage = /\/(order|ordered|checkout)/i.test(document.referrer || '');
                 introMinDuration = isFromOrderPage ? Math.max(safeIntroDuration, 3800) : Math.max(safeIntroDuration, 3200);
                 introStartedAt = Date.now();
@@ -2681,6 +2682,23 @@
             window.addEventListener('pageshow', (event) => {
                 if (event && event.persisted) {
                     prepareIntroOverlay();
+                }
+            });
+
+            window.addEventListener('pagehide', () => {
+                if (pendingLottieStartTimer) {
+                    window.clearTimeout(pendingLottieStartTimer);
+                    pendingLottieStartTimer = null;
+                }
+
+                if (pendingLottieSequenceTimer) {
+                    window.clearTimeout(pendingLottieSequenceTimer);
+                    pendingLottieSequenceTimer = null;
+                }
+
+                if (bannerPendingLottieStartTimer) {
+                    window.clearTimeout(bannerPendingLottieStartTimer);
+                    bannerPendingLottieStartTimer = null;
                 }
             });
 
