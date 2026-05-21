@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import SequentialLottiePlayer from '../../Components/SequentialLottiePlayer';
 import PublicLayout from '../../Layouts/PublicLayout';
 
 function formatCurrency(value) {
@@ -165,6 +166,32 @@ function isFinalStatus(paymentCode, depositCode) {
         || depositCode === 'failed';
 }
 
+function renderIntroIcon(iconKey) {
+    const normalized = String(iconKey || '').toLowerCase().trim();
+
+    if (normalized === 'check') {
+        return (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+        );
+    }
+
+    if (normalized === 'x' || normalized === 'warning') {
+        return (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        );
+    }
+
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    );
+}
+
 export default function DepositInvoice({ invoice, meta }) {
     const [paymentStatus, setPaymentStatus] = useState(invoice?.status?.payment || { code: 'unpaid', label: 'Unpaid' });
     const [depositStatus, setDepositStatus] = useState(invoice?.status?.deposit || { code: 'pending', label: 'Pending' });
@@ -179,7 +206,18 @@ export default function DepositInvoice({ invoice, meta }) {
     const [copyToast, setCopyToast] = useState(null);
     const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
     const [isPageReady, setIsPageReady] = useState(false);
+    const [isIntroOverlayMounted, setIsIntroOverlayMounted] = useState(true);
+    const [isIntroOverlayExiting, setIsIntroOverlayExiting] = useState(false);
     const toastTimerRef = useRef(null);
+    const introConfig = invoice?.intro ?? {};
+    const introState = String(introConfig.state || 'pending');
+    const introTone = introState === 'success' ? 'paid' : introState;
+    const introSequence = Array.isArray(introConfig.lottieSequence) ? introConfig.lottieSequence : [];
+    const introUsesLottie = Boolean(introConfig.usesLottie);
+    const hasIntroLottie = introState === 'pending' && introUsesLottie && introSequence.length > 0;
+    const introDurationMs = Math.max(4300, Number(introConfig.durationMs) || 4300);
+    const introSequenceSwitchMs = Math.max(180, Math.round(introDurationMs / 2));
+    const introIcon = useMemo(() => renderIntroIcon(introConfig.icon), [introConfig.icon]);
 
     const showQrImage = Boolean(
         invoice?.payment?.showQrImage
@@ -255,9 +293,48 @@ export default function DepositInvoice({ invoice, meta }) {
     }, [progressIndex, progressSteps.length]);
 
     useEffect(() => {
-        const timer = window.setTimeout(() => setIsPageReady(true), 140);
-        return () => window.clearTimeout(timer);
-    }, []);
+        let frameId = null;
+        let shellTimer = null;
+        let introExitTimer = null;
+        let introUnmountTimer = null;
+        const introExitDurationMs = 760;
+
+        if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            setIsPageReady(true);
+            setIsIntroOverlayExiting(true);
+            setIsIntroOverlayMounted(false);
+            return undefined;
+        }
+
+        frameId = window.requestAnimationFrame(() => {
+            introExitTimer = window.setTimeout(() => {
+                setIsIntroOverlayExiting(true);
+            }, Math.max(320, introDurationMs - introExitDurationMs));
+
+            shellTimer = window.setTimeout(() => {
+                setIsPageReady(true);
+            }, introDurationMs);
+
+            introUnmountTimer = window.setTimeout(() => {
+                setIsIntroOverlayMounted(false);
+            }, introDurationMs);
+        });
+
+        return () => {
+            if (frameId) {
+                window.cancelAnimationFrame(frameId);
+            }
+            if (shellTimer) {
+                window.clearTimeout(shellTimer);
+            }
+            if (introExitTimer) {
+                window.clearTimeout(introExitTimer);
+            }
+            if (introUnmountTimer) {
+                window.clearTimeout(introUnmountTimer);
+            }
+        };
+    }, [introDurationMs]);
 
     useEffect(() => () => {
         if (toastTimerRef.current) {
@@ -353,6 +430,25 @@ export default function DepositInvoice({ invoice, meta }) {
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
             <section className="public-deposit-invoice-page">
+                {isIntroOverlayMounted ? (
+                    <div className={`invoice-status-banner-react__intro-overlay invoice-status-banner-react__intro-overlay--${introTone} ${isIntroOverlayExiting ? 'is-exiting' : 'is-visible'}`} aria-hidden="true">
+                        <div className="invoice-status-banner-react__intro-panel">
+                            <span className={`invoice-status-banner-react__intro-icon ${hasIntroLottie ? 'invoice-status-banner-react__intro-icon--lottie' : ''}`}>
+                                {hasIntroLottie ? (
+                                    <SequentialLottiePlayer
+                                        sequence={introSequence}
+                                        switchAfterMs={introSequenceSwitchMs}
+                                        loopLast
+                                        className="invoice-status-banner-react__intro-lottie"
+                                    />
+                                ) : introIcon}
+                            </span>
+                            <h2 className="invoice-status-banner-react__intro-title">{introConfig.title || invoice?.hero?.title}</h2>
+                            <p className="invoice-status-banner-react__intro-description">{introConfig.subtitle || invoice?.hero?.description}</p>
+                        </div>
+                    </div>
+                ) : null}
+
                 <div className="public-deposit-invoice-hero">
                     <div className="public-shell">
                         <div className="public-deposit-invoice-hero__inner">

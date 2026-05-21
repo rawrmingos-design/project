@@ -226,6 +226,11 @@ class DepositInvoicePageController extends Controller
             'title' => 'Menunggu Pembayaran',
             'subtitle' => 'Invoice deposit sedang disiapkan. Mohon selesaikan pembayaran untuk melanjutkan proses deposit.',
             'icon' => 'clock',
+            'badgeText' => 'Menunggu Pembayaran',
+            'durationMs' => 4300,
+            'usesLottie' => false,
+            'lottieSrc' => null,
+            'lottieSequence' => [],
         ];
 
         if ($paymentStatus['code'] === 'paid') {
@@ -237,6 +242,11 @@ class DepositInvoicePageController extends Controller
                 'title' => 'Deposit Diterima',
                 'subtitle' => 'Pembayaran deposit berhasil diterima. Sistem sedang menyelesaikan penambahan saldo.',
                 'icon' => 'check',
+                'badgeText' => 'Deposit Diterima',
+                'durationMs' => 4300,
+                'usesLottie' => false,
+                'lottieSrc' => null,
+                'lottieSequence' => [],
             ];
         } elseif ($paymentStatus['code'] === 'expired') {
             $hero['eyebrow'] = 'Perhatian';
@@ -248,7 +258,30 @@ class DepositInvoicePageController extends Controller
                 'title' => 'Pembayaran Kedaluwarsa',
                 'subtitle' => 'Batas waktu pembayaran deposit telah berakhir. Silakan buat invoice deposit baru jika masih diperlukan.',
                 'icon' => 'x',
+                'badgeText' => 'Pembayaran Kedaluwarsa',
+                'durationMs' => 4700,
+                'usesLottie' => false,
+                'lottieSrc' => null,
+                'lottieSequence' => [],
             ];
+        }
+
+        if ($intro['state'] === 'pending') {
+            $pendingLottieSequence = [];
+
+            foreach (['First.json', 'Second.json'] as $candidateFile) {
+                $candidatePath = public_path('assets/invoice-intro/lottie/' . $candidateFile);
+
+                if (is_file($candidatePath)) {
+                    $pendingLottieSequence[] = asset('assets/invoice-intro/lottie/' . rawurlencode($candidateFile));
+                }
+            }
+
+            if (!empty($pendingLottieSequence)) {
+                $intro['usesLottie'] = true;
+                $intro['lottieSrc'] = $pendingLottieSequence[0];
+                $intro['lottieSequence'] = $pendingLottieSequence;
+            }
         }
 
         return [$hero, $intro];

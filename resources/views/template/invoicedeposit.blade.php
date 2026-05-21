@@ -643,7 +643,7 @@
     $depositIntroTitle = 'Menunggu Pembayaran';
     $depositIntroSubtitle = 'Invoice deposit sedang disiapkan. Mohon selesaikan pembayaran untuk melanjutkan proses deposit.';
     $depositIntroIcon = 'clock';
-    $depositIntroDuration = 4000;
+    $depositIntroDuration = 4300;
 
     if (in_array($depositPaymentStatus, ['paid', 'lunas', 'success'], true)) {
         $depositIntroState = 'paid';
@@ -665,10 +665,27 @@
         default => 'Menunggu Pembayaran',
     };
 
-    $depositIntroUsesLottie = $depositIntroState === 'expired';
-    $depositIntroLottieSrc = $depositIntroUsesLottie
-        ? asset('assets/invoice-intro/lottie/expired.json')
-        : null;
+    $depositIntroLottieSequence = [];
+    $depositIntroUsesLottie = false;
+    $depositIntroLottieSrc = null;
+
+    if ($depositIntroState === 'pending') {
+        foreach (['First.json', 'Second.json'] as $candidateFile) {
+            $candidatePath = public_path('assets/invoice-intro/lottie/' . $candidateFile);
+
+            if (is_file($candidatePath)) {
+                $depositIntroLottieSequence[] = asset('assets/invoice-intro/lottie/' . rawurlencode($candidateFile));
+            }
+        }
+
+        if (!empty($depositIntroLottieSequence)) {
+            $depositIntroUsesLottie = true;
+            $depositIntroLottieSrc = $depositIntroLottieSequence[0];
+        }
+    } elseif ($depositIntroState === 'expired' && is_file(public_path('assets/invoice-intro/lottie/expired.json'))) {
+        $depositIntroUsesLottie = true;
+        $depositIntroLottieSrc = asset('assets/invoice-intro/lottie/expired.json');
+    }
 @endphp
 
 <div id="depositIntroOverlay" class="deposit-intro-overlay is-visible print:hidden" data-state="{{ $depositIntroState }}" data-duration="{{ $depositIntroDuration }}">
@@ -678,6 +695,7 @@
                 <lottie-player
                     id="depositIntroLottie"
                     src="{{ $depositIntroLottieSrc }}"
+                    data-sequence="{{ implode('|', $depositIntroLottieSequence) }}"
                     background="transparent"
                     speed="1"
                     autoplay
@@ -956,6 +974,8 @@
     (() => {
         let introDismissed = false;
         let introTimer = null;
+        let introLottieStartTimer = null;
+        let introLottieSequenceTimer = null;
 
         function dismissDepositIntro() {
             if (introDismissed) {
@@ -1007,11 +1027,50 @@
                         lottiePlayer.stop();
                     }
 
-                    window.setTimeout(() => {
-                        if (typeof lottiePlayer.play === 'function') {
-                            lottiePlayer.play();
+                    const introState = String(introOverlay?.dataset.state || '').toLowerCase();
+                    const rawSequence = String(lottiePlayer.dataset.sequence || '');
+                    const sequence = rawSequence.split('|').map((item) => item.trim()).filter(Boolean);
+                    const introDuration = Number(introOverlay?.dataset.duration || 4300);
+
+                    const playLottieSource = (src, loopMode = false) => {
+                        if (!src) {
+                            return;
                         }
-                    }, 60);
+
+                        if (typeof lottiePlayer.load === 'function') {
+                            lottiePlayer.load(src);
+                        } else {
+                            lottiePlayer.setAttribute('src', src);
+                        }
+
+                        lottiePlayer.setAttribute('loop', loopMode ? 'true' : 'false');
+
+                        if (typeof lottiePlayer.stop === 'function') {
+                            lottiePlayer.stop();
+                        }
+
+                        introLottieStartTimer = window.setTimeout(() => {
+                            if (typeof lottiePlayer.play === 'function') {
+                                lottiePlayer.play();
+                            }
+                        }, 60);
+                    };
+
+                    if (introState === 'pending' && sequence.length > 0) {
+                        playLottieSource(sequence[0], false);
+
+                        if (sequence.length > 1) {
+                            introLottieSequenceTimer = window.setTimeout(() => {
+                                playLottieSource(sequence[1], true);
+                            }, Math.max(180, Math.round(introDuration / 2)));
+                        }
+                    } else {
+                        introLottieStartTimer = window.setTimeout(() => {
+                            if (typeof lottiePlayer.play === 'function') {
+                                lottiePlayer.play();
+                            }
+                        }, 60);
+                    }
                 } catch (error) {
                     console.debug('Deposit intro lottie replay skipped:', error);
                 }
@@ -1032,6 +1091,16 @@
             if (introTimer) {
                 window.clearTimeout(introTimer);
                 introTimer = null;
+            }
+
+            if (introLottieStartTimer) {
+                window.clearTimeout(introLottieStartTimer);
+                introLottieStartTimer = null;
+            }
+
+            if (introLottieSequenceTimer) {
+                window.clearTimeout(introLottieSequenceTimer);
+                introLottieSequenceTimer = null;
             }
         });
     })();

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import SequentialLottiePlayer from '../../Components/SequentialLottiePlayer';
 import PublicLayout from '../../Layouts/PublicLayout';
 
 function formatCurrency(value) {
@@ -198,7 +199,6 @@ export default function Invoice({ invoice, meta }) {
     const [isStatusBannerRevealed, setIsStatusBannerRevealed] = useState(false);
     const [isIntroOverlayMounted, setIsIntroOverlayMounted] = useState(true);
     const [isIntroOverlayExiting, setIsIntroOverlayExiting] = useState(false);
-    const [isLottieReady, setIsLottieReady] = useState(false);
     const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
     const [copyToast, setCopyToast] = useState(null);
     const [isMethodLogoBroken, setIsMethodLogoBroken] = useState(false);
@@ -222,7 +222,9 @@ export default function Invoice({ invoice, meta }) {
     const introState = String(introConfig.state || 'pending');
     const introUsesLottie = Boolean(introConfig.usesLottie);
     const introLottieSequence = Array.isArray(introConfig.lottieSequence) ? introConfig.lottieSequence : [];
-    const hasBannerLottie = introUsesLottie && introLottieSequence.length > 0;
+    const hasIntroLottie = introState === 'pending' && introUsesLottie && introLottieSequence.length > 0;
+    const introDurationMs = Math.max(4300, Number(introConfig.durationMs) || 4300);
+    const introSequenceSwitchMs = Math.max(180, Math.round(introDurationMs / 2));
     const countdownParts = useMemo(() => parseCountdownParts(countdown), [countdown]);
     const isCountdownExpired = countdown === 'Pembayaran kedaluwarsa';
     const hasPayButton = Boolean(invoice?.payment?.showPayButton && invoice?.payment?.paymentUrl);
@@ -272,50 +274,13 @@ export default function Invoice({ invoice, meta }) {
     }, [invoice?.expiry?.expiresAt, paymentStatus.code]);
 
     useEffect(() => {
-        if (!hasBannerLottie || typeof window === 'undefined') {
-            setIsLottieReady(false);
-            return undefined;
-        }
-
-        if (window.customElements?.get('lottie-player')) {
-            setIsLottieReady(true);
-            return undefined;
-        }
-
-        const existingScript = document.querySelector('script[data-lottie-player-loader="invoice"]');
-        if (existingScript) {
-            const onLoad = () => setIsLottieReady(Boolean(window.customElements?.get('lottie-player')));
-            existingScript.addEventListener('load', onLoad);
-            existingScript.addEventListener('error', onLoad);
-            return () => {
-                existingScript.removeEventListener('load', onLoad);
-                existingScript.removeEventListener('error', onLoad);
-            };
-        }
-
-        const script = document.createElement('script');
-        script.src = '/assets/vendor/lottie/lottie-player.js';
-        script.async = true;
-        script.defer = true;
-        script.dataset.lottiePlayerLoader = 'invoice';
-        const onLoad = () => setIsLottieReady(Boolean(window.customElements?.get('lottie-player')));
-        script.addEventListener('load', onLoad);
-        script.addEventListener('error', onLoad);
-        document.head.appendChild(script);
-
-        return () => {
-            script.removeEventListener('load', onLoad);
-            script.removeEventListener('error', onLoad);
-        };
-    }, [hasBannerLottie]);
-
-    useEffect(() => {
         let frameId = null;
         let shellTimer = null;
         let bannerTimer = null;
         let contentTimer = null;
         let introExitTimer = null;
         let introUnmountTimer = null;
+        const introExitDurationMs = 760;
 
         if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             setIsStatusBannerRevealed(true);
@@ -329,23 +294,23 @@ export default function Invoice({ invoice, meta }) {
         frameId = window.requestAnimationFrame(() => {
             bannerTimer = window.setTimeout(() => {
                 setIsStatusBannerRevealed(true);
-            }, 260);
+            }, Math.max(120, introDurationMs - 180));
 
             shellTimer = window.setTimeout(() => {
                 setIsPageShellReady(true);
-            }, 540);
+            }, introDurationMs);
 
             contentTimer = window.setTimeout(() => {
                 setIsInvoiceAnimated(true);
-            }, 700);
+            }, introDurationMs + 90);
 
             introExitTimer = window.setTimeout(() => {
                 setIsIntroOverlayExiting(true);
-            }, 380);
+            }, Math.max(320, introDurationMs - introExitDurationMs));
 
             introUnmountTimer = window.setTimeout(() => {
                 setIsIntroOverlayMounted(false);
-            }, 1120);
+            }, introDurationMs);
         });
 
         return () => {
@@ -368,7 +333,7 @@ export default function Invoice({ invoice, meta }) {
                 window.clearTimeout(introUnmountTimer);
             }
         };
-    }, []);
+    }, [introDurationMs]);
 
     useEffect(() => {
         if (!invoice?.orderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
@@ -580,8 +545,15 @@ export default function Invoice({ invoice, meta }) {
                 {isIntroOverlayMounted ? (
                     <div className={introOverlayClassName} aria-hidden="true">
                         <div className="invoice-status-banner-react__intro-panel">
-                            <span className="invoice-status-banner-react__intro-icon">
-                                {introIcon}
+                            <span className={`invoice-status-banner-react__intro-icon ${hasIntroLottie ? 'invoice-status-banner-react__intro-icon--lottie' : ''}`}>
+                                {hasIntroLottie ? (
+                                    <SequentialLottiePlayer
+                                        sequence={introLottieSequence}
+                                        switchAfterMs={introSequenceSwitchMs}
+                                        loopLast
+                                        className="invoice-status-banner-react__intro-lottie"
+                                    />
+                                ) : introIcon}
                             </span>
                             <h1 className="invoice-status-banner-react__intro-title">{invoice?.hero?.title}</h1>
                             <p className="invoice-status-banner-react__intro-description">{invoice?.hero?.description}</p>
@@ -591,14 +563,11 @@ export default function Invoice({ invoice, meta }) {
 
                 <div className={`invoice-status-banner-react__inner ${isStatusBannerRevealed ? 'is-visible' : ''}`}>
                     <div className="invoice-status-banner-react__panel">
-                        {introTone === 'pending' && introUsesLottie && isLottieReady && introLottieSequence.length > 0 ? (
+                        {introTone === 'pending' && introUsesLottie && introLottieSequence.length > 0 ? (
                             <span className="invoice-status-banner-react__icon invoice-status-banner-react__icon--lottie" aria-hidden="true">
-                                <lottie-player
-                                    src={introLottieSequence[1] || introLottieSequence[0]}
-                                    background="transparent"
-                                    speed="1"
-                                    autoplay
-                                    loop
+                                <SequentialLottiePlayer
+                                    sequence={[introLottieSequence[1] || introLottieSequence[0]]}
+                                    loopLast
                                 />
                             </span>
                         ) : (
