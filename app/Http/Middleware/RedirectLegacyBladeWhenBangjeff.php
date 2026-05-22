@@ -21,6 +21,10 @@ class RedirectLegacyBladeWhenBangjeff
         $requestHost = $this->normalizeHost((string) $request->getHost());
 
         if ($adminDomain !== '' && $requestHost !== '' && strcasecmp($requestHost, $adminDomain) === 0) {
+            if ($this->isEligibleForAdminIdRedirect($request)) {
+                return redirect('/login', 302);
+            }
+
             return $next($request);
         }
 
@@ -44,6 +48,15 @@ class RedirectLegacyBladeWhenBangjeff
     }
 
     private function isEligibleForStrictRedirect(Request $request): bool
+    {
+        if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
+            return false;
+        }
+
+        return $request->is('id') || $request->is('id/*');
+    }
+
+    private function isEligibleForAdminIdRedirect(Request $request): bool
     {
         if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
             return false;

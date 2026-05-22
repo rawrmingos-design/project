@@ -29,6 +29,7 @@ class ResetSideEffectIdempotencyTest extends TestCase
         $uplink = User::factory()->create([
             'username' => 'uplink-user',
             'balance' => 0,
+            'affiliate_status' => 'active',
         ]);
 
         $user = User::factory()->create([
