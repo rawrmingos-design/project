@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\SettingWeb;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class PublicSiteConfigService
 {
@@ -38,7 +40,16 @@ class PublicSiteConfigService
             'seasonal_theme' => 'ramadhan',
         ];
 
-        $settings = SettingWeb::query()->find(1);
+        $settings = null;
+
+        try {
+            if (Schema::hasTable('setting_webs')) {
+                $settings = SettingWeb::query()->find(1);
+            }
+        } catch (Throwable) {
+            $settings = null;
+        }
+
         $merged = array_merge($defaults, $settings?->toArray() ?? []);
         $merged['public_theme'] = PublicThemeRegistry::normalize($merged['public_theme'] ?? null);
 
