@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Artikel;
 use App\Models\Berita;
 use App\Models\SettingWeb;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -12,13 +13,28 @@ class ThemeSwitchAuthRouteHardeningTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function createApplication()
+    {
+        putenv('APP_URL=http://public.istanatopup.test');
+        putenv('FILAMENT_ADMIN_DOMAIN=admin.istanatopup.test');
+        $_ENV['APP_URL'] = 'http://public.istanatopup.test';
+        $_ENV['FILAMENT_ADMIN_DOMAIN'] = 'admin.istanatopup.test';
+        $_SERVER['APP_URL'] = 'http://public.istanatopup.test';
+        $_SERVER['FILAMENT_ADMIN_DOMAIN'] = 'admin.istanatopup.test';
+
+        $app = require __DIR__ . '/../../bootstrap/app.php';
+        $app->make(Kernel::class)->bootstrap();
+
+        return $app;
+    }
+
     public function test_sign_in_and_sign_up_are_accessible_on_public_host_when_theme_is_bangjeff(): void
     {
         $this->withoutVite();
         $this->seedBasePublicData('bangjeff');
 
-        $this->get('/id/sign-in')->assertOk();
-        $this->get('/id/sign-up')->assertOk();
+        $this->get('http://public.istanatopup.test/id/sign-in')->assertOk();
+        $this->get('http://public.istanatopup.test/id/sign-up')->assertOk();
     }
 
     public function test_admin_host_redirects_public_id_routes_to_login_to_avoid_loop(): void
@@ -26,24 +42,11 @@ class ThemeSwitchAuthRouteHardeningTest extends TestCase
         $this->withoutVite();
         $this->seedBasePublicData('bangjeff');
 
-        $adminHost = trim((string) env('FILAMENT_ADMIN_DOMAIN', ''));
-        if ($adminHost === '') {
-            $this->markTestSkipped('FILAMENT_ADMIN_DOMAIN is empty.');
-        }
-
-        if (str_contains($adminHost, '://')) {
-            $adminHost = (string) (parse_url($adminHost, PHP_URL_HOST) ?? '');
-        }
-
-        $adminHost = preg_replace('/:\d+$/', '', $adminHost) ?? '';
-
-        $this->withServerVariables(['HTTP_HOST' => $adminHost])
-            ->get('/id')
+        $this->get('http://admin.istanatopup.test/id')
             ->assertStatus(302)
             ->assertRedirect('/login');
 
-        $this->withServerVariables(['HTTP_HOST' => $adminHost])
-            ->get('/id/sign-in')
+        $this->get('http://admin.istanatopup.test/id/sign-in')
             ->assertStatus(302)
             ->assertRedirect('/login');
     }
