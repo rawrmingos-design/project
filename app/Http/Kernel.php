@@ -45,6 +45,7 @@ class Kernel extends HttpKernel
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'auth.api' => \App\Http\Middleware\AuthenticateApi::class,
         'auth.sandbox.api' => \App\Http\Middleware\AuthenticateSandboxApi::class,
+        'resolve.live.reseller.integration' => \App\Http\Middleware\ResolveLiveResellerIntegration::class,
         'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
         'can' => \Illuminate\Auth\Middleware\Authorize::class,
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,

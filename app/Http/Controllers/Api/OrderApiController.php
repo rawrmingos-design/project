@@ -16,8 +16,10 @@ use App\Libraries\Provider\ElitediasProvider;
 use App\Models\Pembelian;
 use App\Models\Pembayaran;
 use App\Models\ProviderPath;
+use App\Models\ResellerIntegration;
 use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Response;
 
@@ -44,7 +46,11 @@ class OrderApiController extends Controller
         } 
         
         
-        $user = \App\Models\User::where('api_key', $bearerToken)->first();
+        $user = $request->attributes->get('api_user');
+
+        if (! $user instanceof \App\Models\User) {
+            $user = \App\Models\User::where('api_key', $bearerToken)->first();
+        }
         
          $buka= fopen(storage_path('logging.txt'), 'w');
                     
@@ -484,40 +490,63 @@ class OrderApiController extends Controller
 
         
         if($order['status']){
-            
-            $user->update([
-                'balance' => $user->balance - $harga
-            ]);
-            
-            $pembelian = new Pembelian();
-            $pembelian->username = $user->username;
-            $pembelian->order_id = $order_id;
-            $pembelian->user_id = $datagame[0];
-            $pembelian->zone = isset($datagame[1]) ? $datagame[1] : null;
-            $pembelian->layanan = $service->layanan;
-            $pembelian->harga = $harga;
-            $pembelian->profit = is_numeric($modalPrice)
-                ? max(0, (int) round($harga - (float) $modalPrice))
-                : (int) round($harga * ENV("MARGIN_PROFIT"));
-            $pembelian->status = $resolvedOrderStatus;
-            $pembelian->active_layanan_id = $service->id;
-            $pembelian->active_provider_code = $providerCode;
-            $pembelian->active_provider_sku = $providerSku;
-            $pembelian->provider_order_id = $provider_order_id ? $provider_order_id : "";
-            $pembelian->log = json_encode($order);
-            $pembelian->tipe_transaksi = 'game';
-            $pembelian->save();
+            $integration = $request->attributes->get('live_reseller_integration');
 
-            $pembayaran = new Pembayaran();
-            $pembayaran->order_id = $order_id;
-            $pembayaran->harga = $harga;
-            $pembayaran->no_pembayaran = "SALDO";
-            $pembayaran->no_pembeli = $user->no_wa;
-            $pembayaran->status = 'Lunas';
-            $pembayaran->metode = 'SALDO';
-            $pembayaran->reference = $data->referenceNumber;
-            $pembayaran->expired_at = null;
-            $pembayaran->save();  
+            if (! $integration instanceof ResellerIntegration) {
+                $integration = null;
+            }
+
+            DB::transaction(function () use (
+                $user,
+                $harga,
+                $order_id,
+                $datagame,
+                $service,
+                $modalPrice,
+                $resolvedOrderStatus,
+                $providerCode,
+                $providerSku,
+                $provider_order_id,
+                $order,
+                $data,
+                $integration
+            ): void {
+                $user->update([
+                    'balance' => $user->balance - $harga
+                ]);
+
+                $pembelian = new Pembelian();
+                $pembelian->username = $user->username;
+                $pembelian->reseller_integration_id = $integration?->getKey();
+                $pembelian->order_id = $order_id;
+                $pembelian->user_id = $datagame[0];
+                $pembelian->zone = isset($datagame[1]) ? $datagame[1] : null;
+                $pembelian->layanan = $service->layanan;
+                $pembelian->harga = $harga;
+                $pembelian->profit = is_numeric($modalPrice)
+                    ? max(0, (int) round($harga - (float) $modalPrice))
+                    : (int) round($harga * ENV("MARGIN_PROFIT"));
+                $pembelian->status = $resolvedOrderStatus;
+                $pembelian->active_layanan_id = $service->id;
+                $pembelian->active_provider_code = $providerCode;
+                $pembelian->active_provider_sku = $providerSku;
+                $pembelian->provider_order_id = $provider_order_id ? $provider_order_id : "";
+                $pembelian->log = json_encode($order);
+                $pembelian->traffic_source = $integration ? 'reseller_h2h' : $pembelian->traffic_source;
+                $pembelian->tipe_transaksi = 'game';
+                $pembelian->save();
+
+                $pembayaran = new Pembayaran();
+                $pembayaran->order_id = $order_id;
+                $pembayaran->harga = $harga;
+                $pembayaran->no_pembayaran = "SALDO";
+                $pembayaran->no_pembeli = $user->no_wa;
+                $pembayaran->status = 'Lunas';
+                $pembayaran->metode = 'SALDO';
+                $pembayaran->reference = $data->referenceNumber;
+                $pembayaran->expired_at = null;
+                $pembayaran->save();
+            });
             
             return response()->json([
               "error" => false,

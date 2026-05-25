@@ -30,7 +30,8 @@ Route::middleware('auth.api')->group(function () {
     Route::post('/v1/balance', [OrderApiController::class,'balance']);
     Route::post('/v1/product', [OrderApiController::class,'product']);
     Route::post('/v1/variant', [OrderApiController::class,'listVariant']);
-    Route::post('/v1/order', [OrderApiController::class,'order']);
+    Route::post('/v1/order', [OrderApiController::class,'order'])
+        ->middleware('resolve.live.reseller.integration');
     Route::post('/v1/status-order/{invoice}', [OrderApiController::class,'statusOrder']);
 });
 
