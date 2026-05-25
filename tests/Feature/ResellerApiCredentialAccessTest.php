@@ -42,7 +42,7 @@ class ResellerApiCredentialAccessTest extends TestCase
             ->postJson('/api/v1/status-order/INV-API-404');
 
         $response
-            ->assertOk()
+            ->assertStatus(403)
             ->assertJsonPath('error', true)
             ->assertJsonPath('message', 'Access Token is required');
 

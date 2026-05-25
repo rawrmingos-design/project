@@ -1,0 +1,867 @@
+{
+  "info": {
+    "name": "Reseller API Regression",
+    "_postman_id": "b8f27328-7ac8-4501-b98f-eab86bf3d2a6",
+    "description": "Collection untuk regression test reseller API setelah hardening auth, validation, idempotency, dan invoice ownership. Fokus ke balance, product, variant, order, dan status-order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth & Catalog",
+      "item": [
+        {
+          "name": "Balance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Balance returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Balance payload is successful', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(json.data).to.have.property('balance');",
+                  "  pm.expect(json.data).to.have.property('membership');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/balance",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "balance"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Product returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Product payload is successful', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(Array.isArray(json.data)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/product",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "product"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Variant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Variant returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Variant payload is successful', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(Array.isArray(json.data)).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_category_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/variant",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "variant"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Variant - Missing Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Variant validation returns 422', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Variant validation payload contains code error', function () {",
+                  "  pm.expect(json.error).to.eql(true);",
+                  "  pm.expect(json.message).to.eql('Validation failed');",
+                  "  pm.expect(json.errors).to.have.property('code');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/variant",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "variant"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create Live Order",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const referenceNumber = `H2H-REG-${Date.now()}`;",
+                  "pm.variables.set('generated_reference_number', referenceNumber);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Create order returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Create order payload is successful', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(json.data).to.have.property('invoiceNumber');",
+                  "});",
+                  "if (json && json.data && json.data.invoiceNumber) {",
+                  "  pm.environment.set('latest_invoice_number', json.data.invoiceNumber);",
+                  "  pm.environment.set('last_reference_number', pm.variables.get('generated_reference_number'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Reseller-Integration-Code",
+                "value": "{{reseller_integration_code}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_code}}\",\n  \"referenceNumber\": \"{{generated_reference_number}}\",\n  \"data\": \"{{test_user_data}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/order",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "order"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Repeat Same Reference Number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Duplicate reference returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Duplicate reference reuses same invoice safely', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(json.data).to.have.property('invoiceNumber');",
+                  "  pm.expect(json.data.isDuplicate).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Reseller-Integration-Code",
+                "value": "{{reseller_integration_code}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_code}}\",\n  \"referenceNumber\": \"{{last_reference_number}}\",\n  \"data\": \"{{test_user_data}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/order",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "order"
+              ]
+            },
+            "description": "Jalankan setelah Create Live Order. Request ini memastikan referenceNumber yang sama tidak membuat order ganda."
+          }
+        },
+        {
+          "name": "Status Order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status order returns 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status order payload is successful', function () {",
+                  "  pm.expect(json.error).to.eql(false);",
+                  "  pm.expect(json.data).to.have.property('invoiceNumber');",
+                  "  pm.expect(json.data).to.have.property('statusCode');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/status-order/{{latest_invoice_number}}",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "status-order",
+                "{{latest_invoice_number}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Status Order - Foreign Invoice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Foreign invoice returns 404', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Foreign invoice is rejected', function () {",
+                  "  pm.expect(json.error).to.eql(true);",
+                  "  pm.expect(json.message).to.eql('Invoice Not Found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/status-order/{{foreign_invoice_number}}",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "status-order",
+                "{{foreign_invoice_number}}"
+              ]
+            },
+            "description": "Isi foreign_invoice_number dengan invoice milik reseller lain."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative Auth",
+      "item": [
+        {
+          "name": "Balance - Invalid Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid token returns 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Invalid token payload is correct', function () {",
+                  "  pm.expect(json.error).to.eql(true);",
+                  "  pm.expect(json.message).to.eql('Invalid Token');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{invalid_reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/balance",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "balance"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Negative Orders",
+      "item": [
+        {
+          "name": "Create Live Order - Missing Integration Header",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const referenceNumber = `H2H-NO-HEADER-${Date.now()}`;",
+                  "pm.variables.set('generated_reference_number', referenceNumber);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Missing integration header returns 422', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Missing integration header payload is correct', function () {",
+                  "  pm.expect(json.error).to.eql(true);",
+                  "  pm.expect(json.message).to.eql('X-Reseller-Integration-Code header is required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_code}}\",\n  \"referenceNumber\": \"{{generated_reference_number}}\",\n  \"data\": \"{{test_user_data}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/order",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "order"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Live Order - Invalid Integration Code",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const referenceNumber = `H2H-BAD-INTEGRATION-${Date.now()}`;",
+                  "pm.variables.set('generated_reference_number', referenceNumber);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid integration code returns 403', function () {",
+                  "  pm.response.to.have.status(403);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Invalid integration code payload is correct', function () {",
+                  "  pm.expect(json.error).to.eql(true);",
+                  "  pm.expect(json.message).to.eql('Invalid or inactive reseller integration code');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Reseller-Integration-Code",
+                "value": "{{invalid_reseller_integration_code}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_code}}\",\n  \"referenceNumber\": \"{{generated_reference_number}}\",\n  \"data\": \"{{test_user_data}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/order",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "order"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Throttle",
+      "item": [
+        {
+          "name": "Balance Burst",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Balance burst returns 200 or 429', function () {",
+                  "  pm.expect([200, 429]).to.include(status);",
+                  "});",
+                  "if (status === 429) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('last_retry_after', String(json.retryAfterSeconds || ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/balance",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "balance"
+              ]
+            },
+            "description": "Jalankan request ini berulang via Collection Runner sampai muncul 429. Dipakai untuk membaca Retry-After pada limiter balance."
+          }
+        },
+        {
+          "name": "Order Burst",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const referenceNumber = `H2H-THROTTLE-ORDER-${Date.now()}`;",
+                  "pm.variables.set('generated_reference_number', referenceNumber);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Order burst returns 403 or 429', function () {",
+                  "  pm.expect([403, 429]).to.include(status);",
+                  "});",
+                  "if (status === 429) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('last_retry_after', String(json.retryAfterSeconds || ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Reseller-Integration-Code",
+                "value": "{{invalid_reseller_integration_code}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{test_product_code}}\",\n  \"referenceNumber\": \"{{generated_reference_number}}\",\n  \"data\": \"{{test_user_data}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/order",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "order"
+              ]
+            },
+            "description": "Jalankan berulang via Collection Runner. Request ini sengaja memakai integration code invalid supaya tidak membuat order sungguhan, tapi tetap menguji limiter order."
+          }
+        },
+        {
+          "name": "Status Burst",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const status = pm.response.code;",
+                  "pm.test('Status burst returns 200 or 429', function () {",
+                  "  pm.expect([200, 429]).to.include(status);",
+                  "});",
+                  "if (status === 429) {",
+                  "  const json = pm.response.json();",
+                  "  pm.environment.set('last_retry_after', String(json.retryAfterSeconds || ''));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{reseller_api_key}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{api_base_url}}/api/v1/status-order/{{latest_invoice_number}}",
+              "host": [
+                "{{api_base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "status-order",
+                "{{latest_invoice_number}}"
+              ]
+            },
+            "description": "Jalankan berulang untuk melihat bahwa status-order lebih longgar dari order. latest_invoice_number harus sudah terisi lebih dulu."
+          }
+        }
+      ]
+    }
+  ]
+}
