@@ -55,7 +55,7 @@ class Kernel extends HttpKernel
         'check.role' => \App\Http\Middleware\CheckRole::class,
         'xss' => \App\Http\Middleware\XSSProtectionMiddleware::class,
         'sanitize' => \App\Http\Middleware\SanitizeInput::class,
-        'whitelist.ip' => \App\Http\Middleware\WhitelistIp::class,
+        'inbound.whitelist' => \App\Http\Middleware\InboundSourceWhitelist::class,
         'bangjeff.legacy.redirect' => \App\Http\Middleware\RedirectLegacyBladeWhenBangjeff::class,
         'affiliate.only' => \App\Http\Middleware\EnsureAffiliateUser::class,
         'non-affiliate.only' => \App\Http\Middleware\EnsureNonAffiliateUser::class,

@@ -47,7 +47,6 @@ class DatabaseSeeder extends Seeder
 
             // Misc
             VouchersSeeder::class,
-            WhitelistedIpsSeeder::class,
         ]);
 
         $this->command->newLine();

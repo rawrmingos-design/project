@@ -58,10 +58,10 @@
 
                 </div>
                 <hr />
-          <div class="max-w-3xl">
+<div class="max-w-3xl">
     <h2 class="text-lg font-semibold">Getting Started</h2>
     <p class="pt-2 text-sm font-medium">
-        Untuk memulai integrasi, tersedia satu metode, yaitu melalui API dengan menggunakan metode POST. Anda memerlukan API TOKEN dan IP Whitelist untuk dapat mengakses layanan ini.
+        Untuk memulai integrasi, tersedia satu metode, yaitu melalui API dengan menggunakan metode POST. Akses reseller API menggunakan API TOKEN yang valid dan tidak dibatasi berdasarkan IP caller.
     </p>
 </div>
 <div class="max-w-3xl">
@@ -70,7 +70,7 @@
         - TOKEN API dapat diperoleh dari Administrator {{ $config->judul_web }} untuk memverifikasi identitas Anda.
     </p>
     <p class="pt-2 text-sm font-medium">
-        - Untuk menambahkan IP SERVER ke whitelist, silakan hubungi Administrator {{ $config->judul_web }}.
+        - IP whitelist hanya diberlakukan untuk endpoint callback atau webhook tertentu milik sistem. Hubungi Administrator {{ $config->judul_web }} jika Anda membutuhkan integrasi callback inbound.
     </p>
 </div>
 
@@ -538,4 +538,3 @@
 @push('custom_script')
 @endpush
 @endsection
-
