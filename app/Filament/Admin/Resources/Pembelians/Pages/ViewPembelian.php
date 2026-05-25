@@ -146,6 +146,48 @@ class ViewPembelian extends ViewRecord
                     ])
                     ->columns(2),
 
+                Section::make('Reseller Callback')
+                    ->description('Ringkasan outbound callback live H2H untuk order ini.')
+                    ->visible(fn (): bool => $this->hasResellerCallbackContext())
+                    ->schema([
+                        TextEntry::make('reseller_integration_code')
+                            ->label('Integration Code')
+                            ->state(fn (): string => $this->record->resellerIntegration?->integration_code ?: 'N/A')
+                            ->copyable(),
+                        TextEntry::make('reseller_callback_enabled')
+                            ->label('Callback Profile')
+                            ->state(fn (): string => $this->record->resellerIntegration?->callbackProfile?->is_enabled ? 'Enabled' : 'Disabled / Missing')
+                            ->badge()
+                            ->color(fn (): string => $this->record->resellerIntegration?->callbackProfile?->is_enabled ? 'success' : 'warning'),
+                        TextEntry::make('reseller_callback_url')
+                            ->label('Callback URL')
+                            ->state(fn (): string => $this->latestResellerCallbackUrl())
+                            ->copyable()
+                            ->columnSpanFull(),
+                        TextEntry::make('reseller_callback_latest_status')
+                            ->label('Latest Delivery Status')
+                            ->state(fn (): string => $this->latestResellerCallbackStatus())
+                            ->badge()
+                            ->color(fn (): string => $this->latestResellerCallbackStatusColor()),
+                        TextEntry::make('reseller_callback_last_attempted_at')
+                            ->label('Last Attempted At')
+                            ->state(fn (): string => optional($this->latestResellerCallbackDelivery()?->last_attempted_at)->format('d M Y H:i:s') ?: '-'),
+                        TextEntry::make('reseller_callback_last_response_status')
+                            ->label('HTTP Status')
+                            ->state(fn (): string => (string) ($this->latestResellerCallbackDelivery()?->last_response_status ?? '-')),
+                        TextEntry::make('reseller_callback_last_error')
+                            ->label('Last Error')
+                            ->state(fn (): string => (string) ($this->latestResellerCallbackDelivery()?->last_error ?: '-'))
+                            ->columnSpanFull(),
+                        TextEntry::make('reseller_callback_history')
+                            ->label('Recent Delivery Log')
+                            ->state(fn (): string => $this->resellerCallbackHistorySummary())
+                            ->fontFamily('mono')
+                            ->wrap()
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
+
                 Section::make('System Information')
                     ->schema([
                         TextEntry::make('keterangan_sn')
@@ -515,5 +557,73 @@ class ViewPembelian extends ViewRecord
         }
 
         return mb_substr($combined, -$limit);
+    }
+
+    private function hasResellerCallbackContext(): bool
+    {
+        $this->record->loadMissing(['resellerIntegration.callbackProfile', 'resellerCallbackDeliveries']);
+
+        return $this->record->reseller_integration_id !== null
+            || $this->record->resellerCallbackDeliveries->isNotEmpty();
+    }
+
+    private function latestResellerCallbackDelivery()
+    {
+        $this->record->loadMissing(['resellerCallbackDeliveries']);
+
+        return $this->record->resellerCallbackDeliveries->first();
+    }
+
+    private function latestResellerCallbackStatus(): string
+    {
+        return (string) ($this->latestResellerCallbackDelivery()?->status ?: 'No deliveries');
+    }
+
+    private function latestResellerCallbackStatusColor(): string
+    {
+        return match ($this->latestResellerCallbackStatus()) {
+            'delivered' => 'success',
+            'failed' => 'danger',
+            'pending' => 'warning',
+            default => 'gray',
+        };
+    }
+
+    private function latestResellerCallbackUrl(): string
+    {
+        $this->record->loadMissing(['resellerIntegration.callbackProfile']);
+
+        return (string) (
+            $this->latestResellerCallbackDelivery()?->callback_url
+            ?: $this->record->resellerIntegration?->callbackProfile?->callback_url
+            ?: 'N/A'
+        );
+    }
+
+    private function resellerCallbackHistorySummary(): string
+    {
+        $this->record->loadMissing(['resellerCallbackDeliveries']);
+
+        if ($this->record->resellerCallbackDeliveries->isEmpty()) {
+            return 'Belum ada delivery log outbound.';
+        }
+
+        return $this->record->resellerCallbackDeliveries
+            ->take(5)
+            ->map(function ($delivery): string {
+                $attemptedAt = optional($delivery->last_attempted_at)->format('Y-m-d H:i:s') ?: '-';
+                $statusCode = $delivery->last_response_status !== null ? (string) $delivery->last_response_status : '-';
+                $error = trim((string) ($delivery->last_error ?? ''));
+
+                return sprintf(
+                    '[%s] %s event=%s http=%s error=%s',
+                    $attemptedAt,
+                    $delivery->status,
+                    $delivery->event_name,
+                    $statusCode,
+                    $error !== '' ? $error : '-',
+                );
+            })
+            ->implode(PHP_EOL);
     }
 }

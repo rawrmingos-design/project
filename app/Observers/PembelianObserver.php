@@ -7,6 +7,7 @@ use App\Events\TransactionSuccess;
 use App\Services\TierService;
 use App\Services\AffiliateService;
 use App\Services\PointService;
+use App\Services\ResellerCallbackDeliveryService;
 use App\Services\ResetOutboundCallbackService;
 use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,7 @@ class PembelianObserver
             $currentStatus = PembelianStatus::normalize($pembelian->status);
 
             $this->syncResetLifecycleState($pembelian, $currentStatus);
+            $this->dispatchResellerCallbackAfterCommit($pembelian, $previousStatus, $currentStatus);
             $this->dispatchResetCallbackAfterCommit($pembelian, $previousStatus, $currentStatus);
         }
 
@@ -69,6 +71,8 @@ class PembelianObserver
      */
     public function created(Pembelian $pembelian): void
     {
+        $this->dispatchInitialResellerCallbackAfterCommit($pembelian);
+
         if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} created as Success. Checking Tier Upgrade & Affiliate Commission.");
 
@@ -117,6 +121,56 @@ class PembelianObserver
             }
 
             $this->resetOutboundCallbackService->dispatchForStatusTransition(
+                $freshPembelian,
+                $previousStatus,
+                $currentStatus,
+            );
+        });
+    }
+
+    private function dispatchInitialResellerCallbackAfterCommit(Pembelian $pembelian): void
+    {
+        if ($pembelian->reseller_integration_id === null) {
+            return;
+        }
+
+        $pembelianId = $pembelian->getKey();
+
+        DB::afterCommit(function () use ($pembelianId): void {
+            $freshPembelian = Pembelian::query()
+                ->with(['user', 'pembayaran', 'resellerIntegration.callbackProfile'])
+                ->find($pembelianId);
+
+            if (! $freshPembelian) {
+                return;
+            }
+
+            app(ResellerCallbackDeliveryService::class)->dispatchInitial($freshPembelian);
+        });
+    }
+
+    private function dispatchResellerCallbackAfterCommit(
+        Pembelian $pembelian,
+        string $previousStatus,
+        string $currentStatus,
+    ): void
+    {
+        if ($pembelian->reseller_integration_id === null) {
+            return;
+        }
+
+        $pembelianId = $pembelian->getKey();
+
+        DB::afterCommit(function () use ($pembelianId, $previousStatus, $currentStatus): void {
+            $freshPembelian = Pembelian::query()
+                ->with(['user', 'pembayaran', 'resellerIntegration.callbackProfile'])
+                ->find($pembelianId);
+
+            if (! $freshPembelian) {
+                return;
+            }
+
+            app(ResellerCallbackDeliveryService::class)->dispatchFinalStatusTransition(
                 $freshPembelian,
                 $previousStatus,
                 $currentStatus,

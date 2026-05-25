@@ -24,6 +24,7 @@ class Pembelian extends Model
     protected $casts = [
         'harga' => 'integer',
         'email_pembeli' => 'string',
+        'reseller_integration_id' => 'integer',
         'base_order_id' => 'string',
         'invoice_version' => 'integer',
         'display_order_id' => 'string',
@@ -95,6 +96,11 @@ class Pembelian extends Model
     public function activeLayanan(): BelongsTo
     {
         return $this->belongsTo(Layanan::class, 'active_layanan_id');
+    }
+
+    public function resellerIntegration(): BelongsTo
+    {
+        return $this->belongsTo(ResellerIntegration::class);
     }
 
     public function resellerCallbackDeliveries(): HasMany
