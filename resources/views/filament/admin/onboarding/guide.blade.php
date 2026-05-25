@@ -20,7 +20,7 @@
         'mediaAssets' => 'a[href="' . route('filament.admin.resources.media-assets.index') . '"]',
         'emailTemplates' => 'a[href="' . route('filament.admin.resources.email-templates.index') . '"]',
         'whatsappTemplates' => 'a[href="' . route('filament.admin.resources.whatsapp-templates.index') . '"]',
-        'whitelistedIps' => 'a[href="' . route('filament.admin.resources.whitelisted-i-ps.whitelisted-i-p-s.index') . '"]',
+        'inboundWhitelist' => 'a[href="' . route('filament.admin.resources.inbound-source-policies.index') . '"]',
         'affiliateRequests' => 'a[href="' . route('filament.admin.resources.affiliate-requests.index') . '"]',
         'affiliateHistories' => 'a[href="' . route('filament.admin.resources.affiliate-histories.index') . '"]',
         'withdrawals' => 'a[href="' . route('filament.admin.resources.withdrawals.index') . '"]',
@@ -148,9 +148,9 @@
             'placement' => 'right',
         ],
         [
-            'targetKey' => 'whitelistedIps',
-            'title' => 'Whitelisted IPs',
-            'description' => 'Menu ini dipakai untuk membatasi IP tepercaya agar akses area tertentu dan callback lebih aman.',
+            'targetKey' => 'inboundWhitelist',
+            'title' => 'Inbound Whitelist',
+            'description' => 'Menu ini dipakai untuk mengelola IP atau CIDR tepercaya bagi callback supplier dan payment gateway.',
             'placement' => 'right',
         ],
         [

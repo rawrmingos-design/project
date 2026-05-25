@@ -8,7 +8,6 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceDepositController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
-use App\Http\Controllers\Admin\AdminLoginController;
 use App\Http\Controllers\Admin\OrderController as AdminOrder;
 use App\Http\Controllers\Admin\Berita;
 use App\Http\Controllers\CariController;
@@ -42,7 +41,6 @@ use App\Http\Controllers\Admin\DataJokiController;
 use App\Http\Controllers\CheckRegionController;
 use App\Http\Controllers\ratingCustomerController;
 use App\Http\Controllers\ratingAdminController;
-use App\Http\Controllers\IPAddressController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaketLayananController;
 use App\Http\Controllers\Admin\TabmenuController;
@@ -52,7 +50,6 @@ use App\Http\Controllers\Admin\BangjeffdashboardController;
 use App\Http\Controllers\Admin\DigiflazzdashboardController;
 use App\Http\Controllers\Admin\TopupediadashboardController;
 use App\Http\Controllers\ApiCheckController;
-use App\Http\Controllers\Admin\WhitelistedIPController;
 use App\Models\PaketLayanan;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
@@ -235,11 +232,6 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/docs', [OrderApiController::class, 'documentation'])->name('docs');
 });
 
-Route::get('/wlip',                                                        [WhitelistedIPController::class, 'index'])->name('whitelisted-ips.index');
-Route::delete('/wlip/{whitelistedIP}',                                     [WhitelistedIPController::class, 'destroy'])->name('whitelisted-ips.destroy');
-Route::get('/wlip/create',                                                 [WhitelistedIPController::class, 'create'])->name('whitelisted-ips.create');
-Route::post('/wlip',                                                       [WhitelistedIPController::class, 'store'])->name('whitelisted-ips.store');
-
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
     Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class)
         ->missing(fn () => redirect('/id', 302));
@@ -256,15 +248,27 @@ Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(functi
 });
 
 // Rute callback
-Route::post('/wejizy/digi/payload',                                                   [DigiflazzCallbackController::class, 'handle']);
-Route::post('/wejizy/vip/callback',                                                   [VipResellerCallbackController::class, 'handle']);
-Route::match(['get', 'post'], '/wejizy/apigames/callback', [ApiGamesCallbackController::class, 'handle']);
-Route::post('/wejizy/tokopay/callback',                                              [TokoPayCallbackController::class, 'handle']);
-Route::post('/wejizy/tripay/callback', [TriPayCallbackController::class, 'handle']);
-Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, 'callbackTransaction']);
-Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])->name('duitku.callback');
-Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])->name('ipay88.callback');
-Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])->name('ipay88.backend');
+Route::post('/wejizy/digi/payload', [DigiflazzCallbackController::class, 'handle'])
+    ->middleware('inbound.whitelist:supplier_callback,digiflazz,log_only');
+Route::post('/wejizy/vip/callback', [VipResellerCallbackController::class, 'handle'])
+    ->middleware('inbound.whitelist:supplier_callback,vip,log_only');
+Route::match(['get', 'post'], '/wejizy/apigames/callback', [ApiGamesCallbackController::class, 'handle'])
+    ->middleware('inbound.whitelist:supplier_callback,apigames,log_only');
+Route::post('/wejizy/tokopay/callback', [TokoPayCallbackController::class, 'handle'])
+    ->middleware('inbound.whitelist:payment_gateway,tokopay,log_only');
+Route::post('/wejizy/tripay/callback', [TriPayCallbackController::class, 'handle'])
+    ->middleware('inbound.whitelist:payment_gateway,tripay,log_only');
+Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, 'callbackTransaction'])
+    ->middleware('inbound.whitelist:payment_gateway,paydisini,log_only');
+Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])
+    ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
+    ->name('duitku.callback');
+Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])
+    ->middleware('inbound.whitelist:payment_gateway,ipay88,log_only')
+    ->name('ipay88.callback');
+Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])
+    ->middleware('inbound.whitelist:payment_gateway,ipay88,log_only')
+    ->name('ipay88.backend');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard.legacy');

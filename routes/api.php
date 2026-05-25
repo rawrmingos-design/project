@@ -45,11 +45,23 @@ Route::middleware('auth.api')->group(function () {
 */
 
 Route::prefix('webhooks')->group(function () {
-    Route::post('/digiflazz', [WebhookController::class, 'digiflazz'])->name('webhooks.digiflazz');
-    Route::post('/bangjeff', [WebhookController::class, 'bangjeff'])->name('webhooks.bangjeff');
-    Route::post('/topupedia', [WebhookController::class, 'generic'])->defaults('provider', 'topupedia')->name('webhooks.topupedia');
-    Route::post('/apigames', [WebhookController::class, 'generic'])->defaults('provider', 'apigames')->name('webhooks.apigames');
-    Route::post('/{provider}', [WebhookController::class, 'generic'])->name('webhooks.generic');
+    Route::post('/digiflazz', [WebhookController::class, 'digiflazz'])
+        ->middleware('inbound.whitelist:supplier_callback,digiflazz,log_only')
+        ->name('webhooks.digiflazz');
+    Route::post('/bangjeff', [WebhookController::class, 'bangjeff'])
+        ->middleware('inbound.whitelist:supplier_callback,bangjeff,log_only')
+        ->name('webhooks.bangjeff');
+    Route::post('/topupedia', [WebhookController::class, 'generic'])
+        ->defaults('provider', 'topupedia')
+        ->middleware('inbound.whitelist:supplier_callback,topupedia,log_only')
+        ->name('webhooks.topupedia');
+    Route::post('/apigames', [WebhookController::class, 'generic'])
+        ->defaults('provider', 'apigames')
+        ->middleware('inbound.whitelist:supplier_callback,apigames,log_only')
+        ->name('webhooks.apigames');
+    Route::post('/{provider}', [WebhookController::class, 'generic'])
+        ->middleware('inbound.whitelist:supplier_callback,@provider,log_only')
+        ->name('webhooks.generic');
 });
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
