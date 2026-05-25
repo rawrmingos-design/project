@@ -26,13 +26,17 @@ use App\Http\Controllers\Api\ContentController;
 |
 */
 
-Route::middleware('auth.api')->group(function () {
-    Route::post('/v1/balance', [OrderApiController::class,'balance']);
-    Route::post('/v1/product', [OrderApiController::class,'product']);
-    Route::post('/v1/variant', [OrderApiController::class,'listVariant']);
-    Route::post('/v1/order', [OrderApiController::class,'order'])
-        ->middleware('resolve.live.reseller.integration');
-    Route::post('/v1/status-order/{invoice}', [OrderApiController::class,'statusOrder']);
+Route::prefix('v1')->group(function () {
+    Route::post('/balance', [OrderApiController::class,'balance'])
+        ->middleware(['throttle:reseller-api-balance', 'auth.api']);
+    Route::post('/product', [OrderApiController::class,'product'])
+        ->middleware(['throttle:reseller-api-product', 'auth.api']);
+    Route::post('/variant', [OrderApiController::class,'listVariant'])
+        ->middleware(['throttle:reseller-api-variant', 'auth.api']);
+    Route::post('/order', [OrderApiController::class,'order'])
+        ->middleware(['throttle:reseller-api-order', 'auth.api', 'resolve.live.reseller.integration']);
+    Route::post('/status-order/{invoice}', [OrderApiController::class,'statusOrder'])
+        ->middleware(['throttle:reseller-api-status', 'auth.api']);
 });
 
 /*

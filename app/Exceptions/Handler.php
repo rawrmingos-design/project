@@ -54,6 +54,24 @@ class Handler extends ExceptionHandler
                 ]);
         }
 
+        if (
+            $exception instanceof TooManyRequestsHttpException
+            && ($request->expectsJson() || $request->is('api/v1/*'))
+        ) {
+            $retryAfter = (int) ($exception->getHeaders()['Retry-After'] ?? 0);
+
+            if ($retryAfter <= 0) {
+                $retryAfter = 60;
+            }
+
+            return response()->json([
+                'error' => true,
+                'code' => 429,
+                'message' => 'Too Many Requests',
+                'retryAfterSeconds' => $retryAfter,
+            ], 429, $exception->getHeaders());
+        }
+
         // Handle Livewire context provider errors gracefully
         if (str_contains($exception->getMessage(), 'LaravelLivewireRequestContextProvider') || 
             str_contains($exception->getMessage(), 'Trying to access array offset on null')) {

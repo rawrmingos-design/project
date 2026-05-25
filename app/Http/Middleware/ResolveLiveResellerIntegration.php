@@ -11,17 +11,21 @@ class ResolveLiveResellerIntegration
 {
     public function handle(Request $request, Closure $next)
     {
-        $bearerToken = $request->bearerToken();
+        $user = $request->attributes->get('api_user');
 
-        if (! $bearerToken) {
-            return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => 'Access Token is required',
-            ], 403);
+        if (! $user instanceof User) {
+            $bearerToken = trim((string) $request->bearerToken());
+
+            if ($bearerToken === '') {
+                return response()->json([
+                    'error' => true,
+                    'code' => 403,
+                    'message' => 'Access Token is required',
+                ], 403);
+            }
+
+            $user = User::query()->where('api_key', $bearerToken)->first();
         }
-
-        $user = User::query()->where('api_key', $bearerToken)->first();
 
         if (! $user) {
             return response()->json([

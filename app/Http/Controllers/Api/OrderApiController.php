@@ -13,14 +13,19 @@ use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
+use App\Models\Kategori;
+use App\Models\Layanan;
 use App\Models\Pembelian;
 use App\Models\Pembayaran;
 use App\Models\ProviderPath;
 use App\Models\ResellerIntegration;
+use App\Models\User;
 use App\Support\PembelianStatus;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Response;
 
 
@@ -34,34 +39,10 @@ class OrderApiController extends Controller
     
    public function balance(Request $request)
    {
-     
-        $bearerToken = $request->bearerToken();
+        $user = $this->resolveApiUser($request);
 
-        if(!$bearerToken) {
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Access Token is required"
-           ]);
-        } 
-        
-        
-        $user = $request->attributes->get('api_user');
-
-        if (! $user instanceof \App\Models\User) {
-            $user = \App\Models\User::where('api_key', $bearerToken)->first();
-        }
-        
-         $buka= fopen(storage_path('logging.txt'), 'w');
-                    
-         fwrite($buka,'test'.$user);
-        
-        if(!$user){
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Invalid Token"
-           ]);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse($request);
         }
         
         return response()->json([
@@ -71,48 +52,29 @@ class OrderApiController extends Controller
               'data' => [
                 "name" => $user->name,
                 "telp" => $user->no_wa,
-                "name" => $user->name,
                 'membership' => $user->role,
                 'balance' => $user->balance
               ]
-        ]);
+        ], 200);
         
    }
    
    public function product(Request $request)
    {
-     
-        $bearerToken = $request->bearerToken();
+        $user = $this->resolveApiUser($request);
 
-        if(!$bearerToken) {
-           
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Access Token is required"
-           ]);
-        } 
-        
-        
-        $user = \App\Models\User::where('api_key', $bearerToken)->first();
-        
-        if(!$user){
-            
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Invalid Token"
-           ]);
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse($request);
         }
-        
-       $product = \App\Models\Kategori::all();
-       
-       
+
+       $product = Kategori::query()->orderBy('nama')->get();
+       $list = [];
+
        foreach($product as $p){
            $list[] = [
               "code" => $p->kode,
               "name" => $p->nama,
-              "is_active" =>  ($p->status == 'active' ? true : false),  
+              "is_active" =>  ($p->status == 'active'),
            ];
        }
        return response()->json([
@@ -120,7 +82,7 @@ class OrderApiController extends Controller
            "code" => 200,
            "message" => "Success",
            'data' => $list
-      ]);
+      ], 200);
        
         
    }
@@ -128,55 +90,39 @@ class OrderApiController extends Controller
    
    public function listVariant(Request $request)
    {
-     
-        $bearerToken = $request->bearerToken();
+        $user = $this->resolveApiUser($request);
 
-        if(!$bearerToken) {
-           
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Access Token is required"
-           ]);
-        } 
-        
-        $user = \App\Models\User::where('api_key', $bearerToken)->first();
-        
-        
-        if(!$user){
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Invalid Token"
-           ]);
-            
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse($request);
         }
-        
-       $json = $request->getContent();
-       
-       $data = json_decode($json);
-       
-       if(empty($data)){
-           return response()->json([
-              "error" => true,
-              "code" => 404,
-              "message" => "Code Not Found"
-          ]);
-           
+
+       $payload = $this->parseJsonPayload($request);
+
+       if ($payload instanceof JsonResponse) {
+           return $payload;
        }
-       
-       $product = \App\Models\Kategori::where('kode', $data->code)->first();
+
+       if ($validation = $this->validatePayload($payload, [
+           'code' => ['required', 'string'],
+       ])) {
+           return $validation;
+       }
+
+       $product = Kategori::query()->where('kode', trim((string) $payload['code']))->first();
        
        if(!$product){
            return response()->json([
               "error" => true,
               "code" => 404,
               "message" => "Code Not Found"
-          ]);
+          ], 404);
            
        }
        
-       $service = \App\Models\Layanan::where('kategori_id', $product->id)->get();
+       $service = Layanan::query()
+           ->where('kategori_id', $product->id)
+           ->orderBy('layanan')
+           ->get();
        
         $list = [];
        foreach($service as $s){
@@ -209,79 +155,50 @@ class OrderApiController extends Controller
            "code" => 200,
            "message" => "Success",
            'data' => $list
-      ]);
+      ], 200);
    }
    
    
    public function order(Request $request)
    {
-       
-       $bearerToken = $request->bearerToken();
+        $user = $this->resolveApiUser($request);
 
-        if(!$bearerToken) {
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Access Token is required"
-           ]);
-           
-        } 
-        
-        
-        $user = \App\Models\User::where('api_key', $bearerToken)->first();
-        
-        if(!$user){
-            
-           return response()->json([
-                'error' => true,
-                'code' => 403,
-                'message' => "Invalid Token"
-           ]);
-            
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse($request);
         }
-        
-       $json = $request->getContent();
-       $data = json_decode($json);
-       
-       if(empty($data)){
+
+       $payload = $this->parseJsonPayload($request);
+
+       if ($payload instanceof JsonResponse) {
+           return $payload;
+       }
+
+       if ($validation = $this->validatePayload($payload, [
+           'code' => ['required', 'string'],
+           'referenceNumber' => ['required', 'string'],
+           'data' => ['required', 'string'],
+       ])) {
+           return $validation;
+       }
+
+       $referenceNumber = trim((string) $payload['referenceNumber']);
+       $existingOrder = $this->findExistingOrderByReference($user, $referenceNumber);
+
+       if ($existingOrder instanceof Pembelian) {
            return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Please Fill in All The Required Data"
-          ]);
-           
+               'error' => false,
+               'code' => 200,
+               'message' => 'Success',
+               'data' => [
+                   'invoiceNumber' => $existingOrder->order_id,
+                   'status' => PembelianStatus::apiStatusCode($existingOrder->status),
+                   'isDuplicate' => true,
+               ],
+           ], 200);
        }
        
        
-       if(empty($data->code)){
-          return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Please Fill in All The Required Data"
-          ]);
-           
-       }
-       
-       if(empty($data->referenceNumber)){
-          return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Please Fill in All The Required Data"
-          ]);
-           
-       }
-       
-       if(empty($data->data)){
-          return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Please Fill in All The Required Data"
-          ]);
-           
-       }
-       
-       
-       $target = $this->resolveOrderTargetByExternalCode((string) $data->code);
+       $target = $this->resolveOrderTargetByExternalCode(trim((string) $payload['code']));
        $service = $target['service'];
        $providerRoute = $target['route'];
        $modalPrice = $target['modal_price'];
@@ -291,7 +208,7 @@ class OrderApiController extends Controller
               "error" => true,
               "code" => 404,
               "message" => "Code Not Found"
-          ]);
+          ], 404);
            
        }
        
@@ -312,16 +229,16 @@ class OrderApiController extends Controller
               "error" => true,
               "code" => 400,
               "message" => "Your Balance is Insufficient"
-          ]);
+          ], 400);
            
        }
       
-       if (strpos($data->data, '|') !== false) {
+       if (strpos($payload['data'], '|') !== false) {
             // Jika data yang diterima mengandung karakter '|', lakukan explode
-            $datagame = explode('|', $data->data);
+            $datagame = explode('|', $payload['data']);
         } else {
             // Jika data yang diterima hanya satu, gunakan data tersebut tanpa explode
-            $datagame = array($data->data);
+            $datagame = array($payload['data']);
         }
        $unik = date('Hs');
        $kode_unik = substr(str_shuffle(1234567890),0,3);
@@ -508,7 +425,7 @@ class OrderApiController extends Controller
                 $providerSku,
                 $provider_order_id,
                 $order,
-                $data,
+                $referenceNumber,
                 $integration
             ): void {
                 $user->update([
@@ -543,7 +460,7 @@ class OrderApiController extends Controller
                 $pembayaran->no_pembeli = $user->no_wa;
                 $pembayaran->status = 'Lunas';
                 $pembayaran->metode = 'SALDO';
-                $pembayaran->reference = $data->referenceNumber;
+                $pembayaran->reference = $referenceNumber;
                 $pembayaran->expired_at = null;
                 $pembayaran->save();
             });
@@ -556,47 +473,36 @@ class OrderApiController extends Controller
                 "invoiceNumber" => $order_id,
                 "status" => PembelianStatus::apiStatusCode($resolvedOrderStatus),
               ]
-            ]);
+            ], 200);
         }else{
             return response()->json([
               "error" => true,
               "code" => 400,
               "message" => "Failed" 
-            ]);
+            ], 400);
         }
    }
    
    
    public function statusOrder(Request $request, $invoice)
     {
-        $bearerToken = $request->bearerToken();
-    
-        if (!$bearerToken) {
-            return response()->json([
-                'error'   => true,
-                'code'    => 403,
-                'message' => "Access Token is required"
-            ]);
+        $user = $this->resolveApiUser($request);
+
+        if (! $user instanceof User) {
+            return $this->unauthenticatedResponse($request);
         }
-    
-        $user = \App\Models\User::where('api_key', $bearerToken)->first();
-    
-        if (!$user) {
-            return response()->json([
-                'error'   => true,
-                'code'    => 403,
-                'message' => "Invalid Token"
-            ]);
-        }
-    
-        $cek = Pembelian::where('order_id', $invoice)->first();
+
+        $cek = Pembelian::query()
+            ->where('order_id', trim((string) $invoice))
+            ->where('username', $user->username)
+            ->first();
     
         if (!$cek) {
             return response()->json([
                 'error'   => true,
                 'code'    => 404,
                 'message' => "Invoice Not Found"
-            ]);
+            ], 404);
         }
     
         $statusCode = PembelianStatus::apiStatusCode($cek->status);
@@ -613,7 +519,7 @@ class OrderApiController extends Controller
                 "sn"            => $cek->keterangan_sn,
                 "keteranganSn"  => $cek->keterangan_sn,
             ]
-        ]);
+        ], 200);
     }
 
     private function resolveOrderTargetByExternalCode(string $requestedCode): array
@@ -660,5 +566,89 @@ class OrderApiController extends Controller
             'route' => null,
             'modal_price' => null,
         ];
+    }
+
+    private function resolveApiUser(Request $request): ?User
+    {
+        $resolved = $request->attributes->get('api_user');
+
+        if ($resolved instanceof User) {
+            return $resolved;
+        }
+
+        $token = trim((string) $request->bearerToken());
+
+        if ($token === '') {
+            return null;
+        }
+
+        return User::query()->where('api_key', $token)->first();
+    }
+
+    private function unauthenticatedResponse(Request $request): JsonResponse
+    {
+        $message = trim((string) $request->bearerToken()) === ''
+            ? 'Access Token is required'
+            : 'Invalid Token';
+
+        return response()->json([
+            'error' => true,
+            'code' => 403,
+            'message' => $message,
+        ], 403);
+    }
+
+    private function parseJsonPayload(Request $request): array|JsonResponse
+    {
+        $content = trim((string) $request->getContent());
+
+        if ($content === '') {
+            return [];
+        }
+
+        $decoded = json_decode($content, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+            return response()->json([
+                'error' => true,
+                'code' => 400,
+                'message' => 'Invalid JSON payload',
+            ], 400);
+        }
+
+        return $decoded;
+    }
+
+    private function validatePayload(array $payload, array $rules): ?JsonResponse
+    {
+        $validator = Validator::make($payload, $rules);
+
+        if (! $validator->fails()) {
+            return null;
+        }
+
+        return response()->json([
+            'error' => true,
+            'code' => 422,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors(),
+        ], 422);
+    }
+
+    private function findExistingOrderByReference(User $user, string $referenceNumber): ?Pembelian
+    {
+        if ($referenceNumber === '') {
+            return null;
+        }
+
+        return Pembayaran::query()
+            ->with('pembelian')
+            ->where('reference', $referenceNumber)
+            ->whereHas('pembelian', function ($query) use ($user): void {
+                $query->where('username', $user->username);
+            })
+            ->latest('id')
+            ->first()
+            ?->pembelian;
     }
 }

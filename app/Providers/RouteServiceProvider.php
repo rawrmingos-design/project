@@ -57,7 +57,27 @@ class RouteServiceProvider extends ServiceProvider
     protected function configureRateLimiting()
     {
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
+            return Limit::perMinute(240)->by('api-ip:' . $request->ip());
+        });
+
+        RateLimiter::for('reseller-api-balance', function (Request $request) {
+            return $this->resellerApiLimits($request, 30, 120, 'balance');
+        });
+
+        RateLimiter::for('reseller-api-product', function (Request $request) {
+            return $this->resellerApiLimits($request, 60, 180, 'product');
+        });
+
+        RateLimiter::for('reseller-api-variant', function (Request $request) {
+            return $this->resellerApiLimits($request, 90, 240, 'variant');
+        });
+
+        RateLimiter::for('reseller-api-order', function (Request $request) {
+            return $this->resellerApiLimits($request, 20, 60, 'order');
+        });
+
+        RateLimiter::for('reseller-api-status', function (Request $request) {
+            return $this->resellerApiLimits($request, 180, 300, 'status');
         });
 
         RateLimiter::for('public-login', function (Request $request) {
@@ -106,5 +126,18 @@ class RouteServiceProvider extends ServiceProvider
                 Limit::perMinute(6)->by('withdraw-submit-ip:' . $request->ip()),
             ];
         });
+    }
+
+    private function resellerApiLimits(Request $request, int $tokenLimit, int $ipLimit, string $segment): array
+    {
+        $token = trim((string) $request->bearerToken());
+        $tokenKey = $token === ''
+            ? 'missing-token:' . $request->ip()
+            : 'token:' . hash('sha256', $token);
+
+        return [
+            Limit::perMinute($tokenLimit)->by('reseller-api:' . $segment . ':' . $tokenKey),
+            Limit::perMinute($ipLimit)->by('reseller-api:' . $segment . ':ip:' . $request->ip()),
+        ];
     }
 }
