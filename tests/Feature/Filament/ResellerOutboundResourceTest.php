@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Admin\Resources\ResellerCallbackProfiles\ResellerCallbackProfileResource;
+use App\Filament\Admin\Resources\ResellerIntegrations\ResellerIntegrationResource;
 use App\Models\ResellerCallbackProfile;
 use App\Models\ResellerIntegration;
 use App\Models\User;
@@ -34,13 +36,13 @@ class ResellerOutboundResourceTest extends TestCase
 
         $this->actingAs($admin);
 
-        $this->get(route('filament.admin.resources.reseller-integrations.index'))->assertOk();
-        $this->get(route('filament.admin.resources.reseller-integrations.create'))->assertOk();
-        $this->get(route('filament.admin.resources.reseller-integrations.edit', ['record' => $integration]))->assertOk();
+        $this->get(ResellerIntegrationResource::getUrl('index'))->assertOk();
+        $this->get(ResellerIntegrationResource::getUrl('create'))->assertOk();
+        $this->get(ResellerIntegrationResource::getUrl('edit', ['record' => $integration]))->assertOk();
 
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.index'))->assertOk();
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.create'))->assertOk();
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.edit', ['record' => $profile]))->assertOk();
+        $this->get(ResellerCallbackProfileResource::getUrl('index'))->assertOk();
+        $this->get(ResellerCallbackProfileResource::getUrl('create'))->assertOk();
+        $this->get(ResellerCallbackProfileResource::getUrl('edit', ['record' => $profile]))->assertOk();
     }
 
     public function test_non_admin_cannot_access_reseller_outbound_resource_pages(): void
@@ -65,12 +67,12 @@ class ResellerOutboundResourceTest extends TestCase
 
         $this->actingAs($member);
 
-        $this->get(route('filament.admin.resources.reseller-integrations.index'))->assertForbidden();
-        $this->get(route('filament.admin.resources.reseller-integrations.create'))->assertForbidden();
-        $this->get(route('filament.admin.resources.reseller-integrations.edit', ['record' => $integration]))->assertForbidden();
+        $this->get(ResellerIntegrationResource::getUrl('index'))->assertForbidden();
+        $this->get(ResellerIntegrationResource::getUrl('create'))->assertForbidden();
+        $this->get(ResellerIntegrationResource::getUrl('edit', ['record' => $integration]))->assertForbidden();
 
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.index'))->assertForbidden();
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.create'))->assertForbidden();
-        $this->get(route('filament.admin.resources.reseller-callback-profiles.edit', ['record' => $profile]))->assertForbidden();
+        $this->get(ResellerCallbackProfileResource::getUrl('index'))->assertForbidden();
+        $this->get(ResellerCallbackProfileResource::getUrl('create'))->assertForbidden();
+        $this->get(ResellerCallbackProfileResource::getUrl('edit', ['record' => $profile]))->assertForbidden();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\InboundSourcePolicies;
 
+use App\Filament\Admin\Clusters\Integrations;
 use App\Filament\Admin\Resources\InboundSourcePolicies\Pages\CreateInboundSourcePolicy;
 use App\Filament\Admin\Resources\InboundSourcePolicies\Pages\EditInboundSourcePolicy;
 use App\Filament\Admin\Resources\InboundSourcePolicies\Pages\ListInboundSourcePolicies;
@@ -26,17 +27,17 @@ class InboundSourcePolicyResource extends Resource
 {
     protected static ?string $model = InboundSourcePolicy::class;
 
+    protected static ?string $cluster = Integrations::class;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shield-check';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static ?int $navigationSort = 2;
 
-    protected static ?int $navigationSort = 4;
+    protected static ?string $navigationLabel = 'Incoming Rules';
 
-    protected static ?string $navigationLabel = 'Inbound Whitelist';
+    protected static ?string $modelLabel = 'Incoming Rule';
 
-    protected static ?string $modelLabel = 'Inbound Source Policy';
-
-    protected static ?string $pluralModelLabel = 'Inbound Source Policies';
+    protected static ?string $pluralModelLabel = 'Incoming Rules';
 
     protected static ?string $recordTitleAttribute = 'source_name';
 
@@ -44,11 +45,11 @@ class InboundSourcePolicyResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Policy')
-                    ->description('Kelola whitelist inbound untuk callback supplier dan payment gateway. Gunakan mode log_only sebagai baseline sampai audit proxy selesai.')
+                Section::make('Incoming Rule')
+                    ->description('Atur source callback mana yang boleh masuk ke sistem kita. Gunakan mode log_only sebagai tahap observasi sebelum enforce di production.')
                     ->schema([
                         Select::make('source_domain')
-                            ->label('Source Domain')
+                            ->label('Source Type')
                             ->options([
                                 'supplier_callback' => 'Supplier Callback',
                                 'payment_gateway' => 'Payment Gateway',
@@ -56,12 +57,13 @@ class InboundSourcePolicyResource extends Resource
                             ->required()
                             ->native(false),
                         TextInput::make('source_name')
-                            ->label('Source Name')
+                            ->label('Provider / Gateway')
                             ->placeholder('digiflazz, vip, tripay, duitku, bangjeff')
-                            ->helperText('Gunakan slug provider yang sama dengan middleware route callback.')
+                            ->helperText('Gunakan nama provider atau gateway yang sama dengan route callback di aplikasi.')
                             ->required()
                             ->maxLength(255),
                         Select::make('mode')
+                            ->label('Mode')
                             ->options([
                                 'disabled' => 'disabled',
                                 'log_only' => 'log_only',
@@ -70,12 +72,12 @@ class InboundSourcePolicyResource extends Resource
                             ->default('log_only')
                             ->required()
                             ->native(false)
-                            ->helperText('enforce hanya aman bila TrustProxies dan chain proxy sudah diaudit.'),
+                            ->helperText('log_only hanya mencatat. enforce mulai memblokir source IP yang tidak cocok.'),
                         Toggle::make('is_active')
                             ->label('Active')
                             ->default(true),
                         TextInput::make('description')
-                            ->label('Short Description')
+                            ->label('Short Label')
                             ->maxLength(255),
                         Textarea::make('notes')
                             ->rows(4)
@@ -90,7 +92,7 @@ class InboundSourcePolicyResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('source_domain')
-                    ->label('Domain')
+                    ->label('Source Type')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'supplier_callback' => 'Supplier Callback',
@@ -100,7 +102,7 @@ class InboundSourcePolicyResource extends Resource
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('source_name')
-                    ->label('Source Name')
+                    ->label('Provider / Gateway')
                     ->searchable()
                     ->weight('bold')
                     ->sortable(),
@@ -116,7 +118,7 @@ class InboundSourcePolicyResource extends Resource
                     ->boolean()
                     ->label('Active'),
                 TextColumn::make('entries_count')
-                    ->label('Entries')
+                    ->label('Allowed IPs')
                     ->counts('entries'),
                 TextColumn::make('updated_at')
                     ->label('Updated')

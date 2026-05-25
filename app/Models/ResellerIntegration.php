@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ResellerCallbackUrlValidator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,8 +51,103 @@ class ResellerIntegration extends Model
         return $this->hasMany(ResellerCallbackDelivery::class)->latest('id');
     }
 
+    public function latestCallbackDelivery(): HasOne
+    {
+        return $this->hasOne(ResellerCallbackDelivery::class)->latestOfMany();
+    }
+
     public function pembelians(): HasMany
     {
         return $this->hasMany(Pembelian::class);
+    }
+
+    public function outboundReadinessSummary(): array
+    {
+        if (! $this->is_active) {
+            return [
+                'state' => 'inactive',
+                'label' => 'Inactive',
+                'color' => 'gray',
+            ];
+        }
+
+        $profile = $this->callbackProfile;
+
+        if (! $profile) {
+            return [
+                'state' => 'missing_profile',
+                'label' => 'Needs setup',
+                'color' => 'warning',
+            ];
+        }
+
+        if (! $profile->is_enabled) {
+            return [
+                'state' => 'disabled',
+                'label' => 'Disabled',
+                'color' => 'gray',
+            ];
+        }
+
+        if (trim((string) $profile->callback_url) === '') {
+            return [
+                'state' => 'missing_url',
+                'label' => 'Missing URL',
+                'color' => 'warning',
+            ];
+        }
+
+        if ($profile->decryptedWebhookSecret() === '') {
+            return [
+                'state' => 'missing_secret',
+                'label' => 'Missing secret',
+                'color' => 'warning',
+            ];
+        }
+
+        if (ResellerCallbackUrlValidator::failureReason($profile->callback_url) !== null) {
+            return [
+                'state' => 'invalid_url',
+                'label' => 'Fix URL',
+                'color' => 'danger',
+            ];
+        }
+
+        return [
+            'state' => 'ready',
+            'label' => 'Ready',
+            'color' => 'success',
+        ];
+    }
+
+    public function overallReadinessSummary(bool $incomingConfigured): array
+    {
+        if (! $this->is_active) {
+            return [
+                'label' => 'Inactive',
+                'color' => 'gray',
+            ];
+        }
+
+        $outbound = $this->outboundReadinessSummary();
+
+        if ($incomingConfigured && $outbound['state'] === 'ready') {
+            return [
+                'label' => 'Ready',
+                'color' => 'success',
+            ];
+        }
+
+        if ($incomingConfigured || $outbound['state'] === 'ready') {
+            return [
+                'label' => 'Partial',
+                'color' => 'warning',
+            ];
+        }
+
+        return [
+            'label' => 'Needs setup',
+            'color' => 'danger',
+        ];
     }
 }

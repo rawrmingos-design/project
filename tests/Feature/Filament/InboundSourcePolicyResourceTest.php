@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Filament;
 
+use App\Filament\Admin\Resources\InboundSourcePolicies\InboundSourcePolicyResource;
 use App\Models\InboundSourcePolicy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,9 +25,9 @@ class InboundSourcePolicyResourceTest extends TestCase
 
         $this->actingAs($admin);
 
-        $this->get(route('filament.admin.resources.inbound-source-policies.index'))->assertOk();
-        $this->get(route('filament.admin.resources.inbound-source-policies.create'))->assertOk();
-        $this->get(route('filament.admin.resources.inbound-source-policies.edit', ['record' => $policy]))->assertOk();
+        $this->get(InboundSourcePolicyResource::getUrl('index'))->assertOk();
+        $this->get(InboundSourcePolicyResource::getUrl('create'))->assertOk();
+        $this->get(InboundSourcePolicyResource::getUrl('edit', ['record' => $policy]))->assertOk();
     }
 
     public function test_non_admin_cannot_access_inbound_whitelist_resource_pages(): void
@@ -41,9 +42,9 @@ class InboundSourcePolicyResourceTest extends TestCase
 
         $this->actingAs($member);
 
-        $this->get(route('filament.admin.resources.inbound-source-policies.index'))->assertForbidden();
-        $this->get(route('filament.admin.resources.inbound-source-policies.create'))->assertForbidden();
-        $this->get(route('filament.admin.resources.inbound-source-policies.edit', ['record' => $policy]))->assertForbidden();
+        $this->get(InboundSourcePolicyResource::getUrl('index'))->assertForbidden();
+        $this->get(InboundSourcePolicyResource::getUrl('create'))->assertForbidden();
+        $this->get(InboundSourcePolicyResource::getUrl('edit', ['record' => $policy]))->assertForbidden();
     }
 
     public function test_legacy_whitelisted_ips_table_is_removed_from_fresh_migrations(): void
