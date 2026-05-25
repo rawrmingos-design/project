@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ResellerCallbackProfiles;
 
+use App\Filament\Admin\Clusters\Integrations;
 use App\Filament\Admin\Resources\ResellerCallbackProfiles\Pages\CreateResellerCallbackProfile;
 use App\Filament\Admin\Resources\ResellerCallbackProfiles\Pages\EditResellerCallbackProfile;
 use App\Filament\Admin\Resources\ResellerCallbackProfiles\Pages\ListResellerCallbackProfiles;
@@ -23,17 +24,17 @@ class ResellerCallbackProfileResource extends Resource
 {
     protected static ?string $model = ResellerCallbackProfile::class;
 
+    protected static ?string $cluster = Integrations::class;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-paper-airplane';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static ?int $navigationSort = 3;
 
-    protected static ?int $navigationSort = 6;
+    protected static ?string $navigationLabel = 'Outgoing Webhooks';
 
-    protected static ?string $navigationLabel = 'Reseller Callbacks';
+    protected static ?string $modelLabel = 'Outgoing Webhook';
 
-    protected static ?string $modelLabel = 'Reseller Callback Profile';
-
-    protected static ?string $pluralModelLabel = 'Reseller Callback Profiles';
+    protected static ?string $pluralModelLabel = 'Outgoing Webhooks';
 
     protected static ?string $recordTitleAttribute = 'callback_url';
 
@@ -41,11 +42,11 @@ class ResellerCallbackProfileResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Callback Configuration')
-                    ->description('Live callback dikirim sekali lalu dicatat. URL live harus HTTPS dan mengarah ke host publik.')
+                Section::make('Webhook Destination')
+                    ->description('Atur ke mana server kita mengirim callback status order live. Field dasar di bawah ini sudah cukup untuk kebanyakan client.')
                     ->schema([
                         Select::make('reseller_integration_id')
-                            ->label('Integration')
+                            ->label('Connection')
                             ->relationship('integration', 'integration_code', modifyQueryUsing: fn ($query) => $query->where('mode', 'live'))
                             ->searchable()
                             ->preload()
@@ -54,7 +55,7 @@ class ResellerCallbackProfileResource extends Resource
                             ->label('Enabled')
                             ->default(true),
                         TextInput::make('callback_url')
-                            ->label('Callback URL')
+                            ->label('Destination URL')
                             ->required()
                             ->url()
                             ->maxLength(2048)
@@ -73,7 +74,13 @@ class ResellerCallbackProfileResource extends Resource
                             ->required(fn (string $operation): bool => $operation === 'create')
                             ->dehydrated(fn ($state): bool => filled($state))
                             ->helperText('Kosongkan saat edit bila tidak ingin mengganti secret.'),
+                    ])
+                    ->columns(2),
+                Section::make('Advanced')
+                    ->description('Sebagian besar client tidak perlu mengubah bagian ini. Default yang ada biasanya sudah cukup.')
+                    ->schema([
                         Select::make('signing_algorithm')
+                            ->label('Signing Algorithm')
                             ->options([
                                 'sha1' => 'sha1',
                                 'sha256' => 'sha256',
@@ -83,16 +90,20 @@ class ResellerCallbackProfileResource extends Resource
                             ->required()
                             ->native(false),
                         TextInput::make('signature_header')
+                            ->label('Signature Header')
                             ->default('X-Callback-Signature')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('version')
+                            ->label('Version')
                             ->numeric()
                             ->default(1)
                             ->minValue(1)
                             ->required(),
                     ])
-                    ->columns(2),
+                    ->columns(2)
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 
@@ -101,25 +112,21 @@ class ResellerCallbackProfileResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('integration.integration_code')
-                    ->label('Integration')
+                    ->label('Connection')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('integration.user.username')
-                    ->label('Username')
+                    ->label('Partner User')
                     ->searchable()
                     ->sortable(),
                 IconColumn::make('is_enabled')
                     ->boolean()
-                    ->label('Enabled'),
+                    ->label('Active'),
                 TextColumn::make('callback_url')
-                    ->label('Callback URL')
+                    ->label('Destination URL')
                     ->limit(40)
                     ->copyable(),
-                TextColumn::make('signing_algorithm')
-                    ->badge(),
-                TextColumn::make('version')
-                    ->badge(),
                 TextColumn::make('updated_at')
                     ->label('Updated')
                     ->since()

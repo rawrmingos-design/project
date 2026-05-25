@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\InboundSourceEntry;
+use App\Models\InboundSourceEvent;
 use App\Models\InboundSourcePolicy;
 use App\Support\IpAddressMatcher;
 use Closure;
@@ -88,6 +89,15 @@ class InboundSourceWhitelist
                 'exception' => $throwable->getMessage(),
             ]);
 
+            $this->storeEvent($context + [
+                'mode' => $mode,
+                'decision' => 'error',
+                'reason' => 'policy_lookup_failed',
+                'details' => [
+                    'exception' => $throwable->getMessage(),
+                ],
+            ]);
+
             if ($mode === 'enforce') {
                 return $this->deny();
             }
@@ -152,5 +162,36 @@ class InboundSourceWhitelist
             'decision' => $decision,
             'reason' => $reason,
         ]);
+
+        $this->storeEvent($context + [
+            'decision' => $decision,
+            'reason' => $reason,
+        ]);
+    }
+
+    private function storeEvent(array $context): void
+    {
+        try {
+            InboundSourceEvent::query()->create([
+                'source_domain' => $context['source_domain'] ?? null,
+                'source_name' => $context['source_name'] ?? null,
+                'route_uri' => $context['route_uri'] ?? null,
+                'route_name' => $context['route_name'] ?? null,
+                'method' => $context['method'] ?? null,
+                'resolved_client_ip' => $context['resolved_client_ip'] ?? null,
+                'normalized_client_ip' => $context['normalized_client_ip'] ?? null,
+                'mode' => $context['mode'] ?? null,
+                'decision' => $context['decision'] ?? 'unknown',
+                'reason' => $context['reason'] ?? null,
+                'matched_entry_id' => $context['matched_entry_id'] ?? null,
+                'matched_entry_value' => $context['matched_entry_value'] ?? null,
+                'response_status' => $context['response_status'] ?? null,
+                'details' => $context,
+            ]);
+        } catch (\Throwable $exception) {
+            Log::debug('Inbound whitelist event persistence failed.', [
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 }

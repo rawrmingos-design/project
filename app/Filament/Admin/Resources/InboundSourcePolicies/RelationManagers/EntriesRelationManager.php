@@ -20,7 +20,7 @@ class EntriesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'value';
 
-    protected static ?string $title = 'Allowed IP / CIDR Entries';
+    protected static ?string $title = 'Allowed Source IPs';
 
     public function form(Schema $schema): Schema
     {
@@ -43,6 +43,7 @@ class EntriesRelationManager extends RelationManager
                     ->required()
                     ->native(false),
                 TextInput::make('label')
+                    ->label('Display Label')
                     ->maxLength(255),
                 Toggle::make('is_active')
                     ->label('Active')

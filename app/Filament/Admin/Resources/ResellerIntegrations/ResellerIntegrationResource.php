@@ -2,9 +2,11 @@
 
 namespace App\Filament\Admin\Resources\ResellerIntegrations;
 
+use App\Filament\Admin\Clusters\Integrations;
 use App\Filament\Admin\Resources\ResellerIntegrations\Pages\CreateResellerIntegration;
 use App\Filament\Admin\Resources\ResellerIntegrations\Pages\EditResellerIntegration;
 use App\Filament\Admin\Resources\ResellerIntegrations\Pages\ListResellerIntegrations;
+use App\Models\InboundSourcePolicy;
 use App\Models\ResellerIntegration;
 use BackedEnum;
 use Filament\Forms\Components\Hidden;
@@ -15,38 +17,76 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class ResellerIntegrationResource extends Resource
 {
     protected static ?string $model = ResellerIntegration::class;
 
+    protected static ?string $cluster = Integrations::class;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-link';
 
-    protected static UnitEnum|string|null $navigationGroup = 'Settings';
+    protected static ?int $navigationSort = 1;
 
-    protected static ?int $navigationSort = 5;
+    protected static ?string $navigationLabel = 'Connections';
 
-    protected static ?string $navigationLabel = 'Reseller Integrations';
+    protected static ?string $modelLabel = 'Connection';
 
-    protected static ?string $modelLabel = 'Reseller Integration';
-
-    protected static ?string $pluralModelLabel = 'Reseller Integrations';
+    protected static ?string $pluralModelLabel = 'Connections';
 
     protected static ?string $recordTitleAttribute = 'integration_code';
+
+    public static function sharedIncomingSnapshot(): array
+    {
+        static $snapshot = null;
+
+        if ($snapshot !== null) {
+            return $snapshot;
+        }
+
+        $policies = InboundSourcePolicy::query()
+            ->where('is_active', true)
+            ->withCount([
+                'entries' => fn ($query) => $query->where('is_active', true),
+            ])
+            ->get();
+
+        $activeRules = $policies->count();
+        $protectedRules = $policies->filter(fn (InboundSourcePolicy $policy): bool => $policy->entries_count > 0)->count();
+        $allowedIps = (int) $policies->sum('entries_count');
+
+        $snapshot = [
+            'active_rules' => $activeRules,
+            'protected_rules' => $protectedRules,
+            'allowed_ips' => $allowedIps,
+            'configured' => $protectedRules > 0,
+            'label' => $protectedRules > 0
+                ? 'Configured'
+                : ($activeRules > 0 ? 'Needs IPs' : 'Not set'),
+            'color' => $protectedRules > 0
+                ? 'success'
+                : ($activeRules > 0 ? 'warning' : 'gray'),
+        ];
+
+        return $snapshot;
+    }
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Integration')
-                    ->description('Gunakan integration code yang unik dan stabil. Header X-Reseller-Integration-Code pada order live akan diarahkan ke record ini.')
+                Section::make('Connection')
+                    ->description('Buat satu connection live untuk tiap partner atau reseller. Header X-Reseller-Integration-Code pada order live akan diarahkan ke record ini.')
                     ->schema([
                         Select::make('user_id')
-                            ->label('Reseller User')
+                            ->label('Partner User')
                             ->relationship('user', 'username')
                             ->searchable()
                             ->preload()
@@ -83,6 +123,7 @@ class ResellerIntegrationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'callbackProfile', 'latestCallbackDelivery']))
             ->columns([
                 TextColumn::make('integration_code')
                     ->label('Integration Code')
@@ -90,19 +131,41 @@ class ResellerIntegrationResource extends Resource
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('user.username')
-                    ->label('Username')
+                    ->label('Partner User')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('mode')
-                    ->badge(),
+                BadgeColumn::make('incoming_shared_readiness')
+                    ->label('Incoming (Shared)')
+                    ->state(fn (): string => static::sharedIncomingSnapshot()['label'])
+                    ->color(fn (): string => static::sharedIncomingSnapshot()['color'])
+                    ->tooltip('Incoming rules berlaku shared per source/provider, bukan dikaitkan 1:1 ke connection ini.'),
+                BadgeColumn::make('outbound_readiness')
+                    ->label('Outgoing')
+                    ->state(fn (ResellerIntegration $record): string => $record->outboundReadinessSummary()['label'])
+                    ->color(fn (ResellerIntegration $record): string => $record->outboundReadinessSummary()['color']),
+                BadgeColumn::make('overall_readiness')
+                    ->label('Readiness')
+                    ->state(fn (ResellerIntegration $record): string => $record->overallReadinessSummary(static::sharedIncomingSnapshot()['configured'])['label'])
+                    ->color(fn (ResellerIntegration $record): string => $record->overallReadinessSummary(static::sharedIncomingSnapshot()['configured'])['color']),
                 IconColumn::make('is_active')
                     ->boolean()
                     ->label('Active'),
-                TextColumn::make('callbackProfile.is_enabled')
-                    ->label('Callback')
+                TextColumn::make('latest_callback_delivery_status')
+                    ->label('Last Delivery')
+                    ->state(function (ResellerIntegration $record): string {
+                        $status = $record->latestCallbackDelivery?->status;
+
+                        return $status ? Str::headline($status) : 'No logs';
+                    })
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => $state ? 'Enabled' : 'Disabled')
-                    ->color(fn ($state): string => $state ? 'success' : 'gray'),
+                    ->color(function (ResellerIntegration $record): string {
+                        return match ($record->latestCallbackDelivery?->status) {
+                            'delivered' => 'success',
+                            'failed' => 'danger',
+                            'pending' => 'warning',
+                            default => 'gray',
+                        };
+                    }),
                 TextColumn::make('updated_at')
                     ->label('Updated')
                     ->since()

@@ -20,7 +20,7 @@
         'mediaAssets' => 'a[href="' . route('filament.admin.resources.media-assets.index') . '"]',
         'emailTemplates' => 'a[href="' . route('filament.admin.resources.email-templates.index') . '"]',
         'whatsappTemplates' => 'a[href="' . route('filament.admin.resources.whatsapp-templates.index') . '"]',
-        'inboundWhitelist' => 'a[href="' . route('filament.admin.resources.inbound-source-policies.index') . '"]',
+        'inboundWhitelist' => 'a[href="' . \App\Filament\Admin\Resources\InboundSourcePolicies\InboundSourcePolicyResource::getUrl() . '"]',
         'affiliateRequests' => 'a[href="' . route('filament.admin.resources.affiliate-requests.index') . '"]',
         'affiliateHistories' => 'a[href="' . route('filament.admin.resources.affiliate-histories.index') . '"]',
         'withdrawals' => 'a[href="' . route('filament.admin.resources.withdrawals.index') . '"]',
