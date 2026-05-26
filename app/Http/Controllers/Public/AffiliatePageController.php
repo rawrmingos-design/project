@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -45,13 +46,20 @@ class AffiliatePageController extends Controller
             return redirect()->route('affiliate')->with('error', 'Silakan isi formulir pengajuan affiliate terbaru terlebih dahulu.');
         }
 
-        if ($affiliateStatus !== 'inactive' && blank($user->referral_code)) {
+        if (in_array($affiliateStatus, ['pending', 'active'], true) && blank($user->referral_code)) {
             $user->referral_code = $this->generateUniqueReferralCode();
             $user->save();
         }
 
         $referralCode = (string) ($user->referral_code ?: '-');
-        $totalCommission = (int) round((float) AffiliateHistory::query()->where('uplink_id', $user->id)->sum('amount'));
+        $commissionQuery = AffiliateHistory::query()->where('uplink_id', $user->id);
+        $totalCommission = (int) round((float) (clone $commissionQuery)->sum('amount'));
+        $commissionThisMonth = (int) round((float) (clone $commissionQuery)
+            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+            ->sum('amount'));
+        $latestCommissionAt = (clone $commissionQuery)->latest('created_at')->value('created_at');
+        $downlineCount = User::query()->where('uplink', $user->username)->count();
+        $recentDownlines = $this->buildRecentDownlines($user);
 
         $historyPaginator = AffiliateHistory::query()
             ->with('downlink')
@@ -95,7 +103,11 @@ class AffiliatePageController extends Controller
             'affiliate' => [
                 'status' => $affiliateStatus,
                 'referralCode' => $referralCode,
+                'availableBalance' => (int) round((float) ($user->balance ?? 0)),
                 'totalCommission' => $totalCommission,
+                'commissionThisMonth' => $commissionThisMonth,
+                'downlineCount' => $downlineCount,
+                'latestCommissionAt' => $this->formatDateTime($latestCommissionAt, 'd M Y H:i'),
                 'categories' => $categoryLinks,
                 'application' => [
                     'defaultWhatsapp' => (string) ($user->no_wa ?: ''),
@@ -117,6 +129,8 @@ class AffiliatePageController extends Controller
                     ],
                 ],
                 'histories' => $histories,
+                'commissionHistory' => $histories,
+                'recentDownlines' => $recentDownlines,
                 'pagination' => [
                     'currentPage' => $historyPaginator->currentPage(),
                     'lastPage' => $historyPaginator->lastPage(),
@@ -256,12 +270,50 @@ class AffiliatePageController extends Controller
         return redirect()->route('affiliate')->with('success', $successMessage);
     }
 
+    private function buildRecentDownlines(User $user): array
+    {
+        $downlines = User::query()
+            ->where('uplink', $user->username)
+            ->latest('created_at')
+            ->limit(8)
+            ->get(['id', 'name', 'username', 'created_at']);
+
+        if ($downlines->isEmpty()) {
+            return [];
+        }
+
+        $downlineIds = $downlines->pluck('id')->map(fn ($id): string => (string) $id)->all();
+        $commissionSummary = AffiliateHistory::query()
+            ->selectRaw('downlink_id, count(*) as commission_orders, sum(amount) as commission_total, max(created_at) as latest_commission_at')
+            ->where('uplink_id', $user->id)
+            ->whereIn('downlink_id', $downlineIds)
+            ->groupBy('downlink_id')
+            ->get()
+            ->keyBy(fn (AffiliateHistory $history): string => (string) $history->downlink_id);
+
+        return $downlines
+            ->map(function (User $downline) use ($commissionSummary): array {
+                $summary = $commissionSummary->get((string) $downline->id);
+
+                return [
+                    'username' => (string) ($downline->username ?: '-'),
+                    'name' => (string) ($downline->name ?: $downline->username ?: '-'),
+                    'joinedAt' => $this->formatDateTime($downline->created_at, 'd M Y'),
+                    'orderCount' => (int) ($summary?->commission_orders ?? 0),
+                    'totalCommission' => (int) round((float) ($summary?->commission_total ?? 0)),
+                    'latestCommissionAt' => $this->formatDateTime($summary?->latest_commission_at, 'd M Y H:i'),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
     private function formatDateTime(mixed $value, string $format): ?string
     {
         if (! $value) {
             return null;
         }
 
-        return $value->timezone(config('app.timezone'))->format($format);
+        return Carbon::parse($value)->timezone(config('app.timezone'))->format($format);
     }
 }

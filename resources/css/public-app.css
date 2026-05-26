@@ -13379,6 +13379,10 @@ textarea {
     gap: 0.9rem;
 }
 
+.public-affiliate-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .public-affiliate-overview__card {
     border-radius: 0.92rem;
     border: 1px solid rgba(250, 250, 249, 0.14);
@@ -13418,6 +13422,13 @@ textarea {
 .public-affiliate-codebox {
     display: grid;
     gap: 0.5rem;
+}
+
+.public-affiliate-codebox--inline {
+    border-radius: 0.68rem;
+    border: 1px solid rgba(250, 250, 249, 0.12);
+    background: rgba(24, 24, 27, 0.76);
+    padding: 0.66rem;
 }
 
 .public-affiliate-codebox strong {
@@ -13568,6 +13579,14 @@ textarea {
     color: #fafaf9;
 }
 
+.public-affiliate-muted-line {
+    margin-top: 0.16rem;
+    display: block;
+    color: rgba(250, 250, 249, 0.54);
+    font-size: 0.7rem;
+    line-height: 1.25;
+}
+
 .public-affiliate-pagination {
     margin-top: 0.76rem;
     display: flex;
@@ -13687,6 +13706,29 @@ textarea {
     outline: none;
     border-color: #f97316;
     box-shadow: 0 0 0 1px #f97316;
+}
+
+.public-withdrawal-amount-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+}
+
+.public-withdrawal-amount-row button {
+    min-height: 2.18rem;
+    border-radius: 0.56rem;
+    border: 1px solid rgba(250, 250, 249, 0.15);
+    background: rgba(39, 39, 42, 0.82);
+    color: #fafaf9;
+    padding: 0 0.72rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.public-withdrawal-amount-row button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .public-withdrawal-form__grid label small {
@@ -13853,6 +13895,10 @@ textarea {
         grid-template-columns: 1fr;
     }
 
+    .public-affiliate-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .public-affiliate-tools__body {
         grid-template-columns: 1fr;
     }
@@ -13917,6 +13963,14 @@ textarea {
 
     .public-withdrawal-form {
         padding: 0.82rem;
+    }
+
+    .public-affiliate-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .public-withdrawal-amount-row {
+        grid-template-columns: 1fr;
     }
 
     .public-withdrawal-form__actions p {
