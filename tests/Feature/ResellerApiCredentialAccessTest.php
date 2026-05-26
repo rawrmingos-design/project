@@ -44,7 +44,8 @@ class ResellerApiCredentialAccessTest extends TestCase
         $response
             ->assertStatus(403)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Access Token is required');
+            ->assertJsonPath('message', 'Access Token is required')
+            ->assertJsonPath('error_code', 'ACCESS_TOKEN_REQUIRED');
 
         $this->assertStringNotContainsString(
             'Access denied - is not authorized to access this resource.',

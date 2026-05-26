@@ -37,7 +37,8 @@ class OutboundH2hOrderApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'X-Reseller-Integration-Code header is required');
+            ->assertJsonPath('message', 'X-Reseller-Integration-Code header is required')
+            ->assertJsonPath('error_code', 'INTEGRATION_CODE_REQUIRED');
     }
 
     public function test_order_rejects_foreign_or_inactive_integration_code(): void
@@ -73,7 +74,8 @@ class OutboundH2hOrderApiTest extends TestCase
 
         $response->assertStatus(403)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Invalid or inactive reseller integration code');
+            ->assertJsonPath('message', 'Invalid or inactive reseller integration code')
+            ->assertJsonPath('error_code', 'INVALID_INTEGRATION_CODE');
     }
 
     public function test_valid_live_order_stores_integration_and_sends_signed_callback(): void
