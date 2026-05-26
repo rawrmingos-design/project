@@ -46,11 +46,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'affiliate_status',
         'affiliate_requested_at',
         'affiliate_requirement_acknowledged_at',
-        'affiliate_identity_document_path',
-        'affiliate_support_document_path',
-        'affiliate_ktp_document_path',
-        'affiliate_selfie_document_path',
-        'affiliate_family_card_document_path',
+        // Legacy affiliate KYC document columns remain readable for compatibility, but are no longer writable.
         'affiliate_application_note',
         'affiliate_application_meta',
         'point_balance',

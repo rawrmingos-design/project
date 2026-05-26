@@ -14,7 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -109,9 +108,6 @@ class AffiliatePageController extends Controller
                     'allowedFilesLabel' => 'Tidak perlu upload dokumen pada tahap pendaftaran awal.',
                     'lastSubmission' => [
                         'requestedAt' => $this->formatDateTime($user->affiliate_requested_at, 'd M Y, H:i'),
-                        'ktpDocumentUrl' => $this->buildPublicStorageUrl($user->affiliate_ktp_document_path ?? $user->affiliate_identity_document_path),
-                        'selfieDocumentUrl' => $this->buildPublicStorageUrl($user->affiliate_selfie_document_path ?? $user->affiliate_support_document_path),
-                        'familyCardDocumentUrl' => $this->buildPublicStorageUrl($user->affiliate_family_card_document_path),
                     ],
                     'lastReview' => [
                         'decision' => (string) (data_get($user->affiliate_application_meta, 'review_last.decision') ?: ''),
@@ -213,13 +209,6 @@ class AffiliatePageController extends Controller
             return redirect()->route('affiliate')->with('error', 'Permintaan sebelumnya masih diproses. Mohon tunggu sebentar.');
         }
 
-        $oldPaths = [
-            $user->affiliate_identity_document_path,
-            $user->affiliate_support_document_path,
-            $user->affiliate_ktp_document_path,
-            $user->affiliate_selfie_document_path,
-            $user->affiliate_family_card_document_path,
-        ];
         $existingMeta = is_array($user->affiliate_application_meta) ? $user->affiliate_application_meta : [];
         $reviewHistory = data_get($existingMeta, 'review_history');
         if (! is_array($reviewHistory)) {
@@ -239,11 +228,6 @@ class AffiliatePageController extends Controller
                 $user->affiliate_status = 'pending';
                 $user->affiliate_requested_at = now();
                 $user->affiliate_requirement_acknowledged_at = now();
-                $user->affiliate_ktp_document_path = null;
-                $user->affiliate_selfie_document_path = null;
-                $user->affiliate_family_card_document_path = null;
-                $user->affiliate_identity_document_path = null;
-                $user->affiliate_support_document_path = null;
                 $user->affiliate_application_note = blank($validated['notes'] ?? null) ? null : trim((string) $validated['notes']);
                 $user->affiliate_application_meta = [
                     'promotion_channel_url' => $promotionChannelUrl,
@@ -255,12 +239,6 @@ class AffiliatePageController extends Controller
                 ];
                 $user->save();
             });
-
-            foreach ($oldPaths as $oldPath) {
-                if (filled($oldPath)) {
-                    Storage::disk('public')->delete((string) $oldPath);
-                }
-            }
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -276,15 +254,6 @@ class AffiliatePageController extends Controller
             : 'Pengajuan affiliate berhasil dikirim. Data kamu sedang ditinjau admin.';
 
         return redirect()->route('affiliate')->with('success', $successMessage);
-    }
-
-    private function buildPublicStorageUrl(?string $path): ?string
-    {
-        if (blank($path)) {
-            return null;
-        }
-
-        return asset('storage/' . ltrim((string) $path, '/'));
     }
 
     private function formatDateTime(mixed $value, string $format): ?string

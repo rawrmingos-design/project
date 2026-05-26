@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources;
 use App\Filament\Admin\Resources\AffiliateRequestResource\Pages;
 use App\Models\User;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -83,12 +84,19 @@ class AffiliateRequestResource extends Resource
                     ->label('Terima')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->action(function (User $record) {
+                    ->form([
+                        Textarea::make('review_note')
+                            ->label('Catatan Review')
+                            ->rows(3)
+                            ->maxLength(600),
+                    ])
+                    ->action(function (array $data, User $record) {
                         $record->affiliate_status = 'active';
                         // Generate referral code if not exists
                         if (!$record->referral_code) {
                             $record->referral_code = 'REF-' . strtoupper(\Str::random(6));
                         }
+                        static::recordAffiliateReview($record, 'approved', $data['review_note'] ?? null);
                         $record->save();
                     })
                     ->requiresConfirmation(),
@@ -97,8 +105,15 @@ class AffiliateRequestResource extends Resource
                     ->label('Tolak')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->action(function (User $record) {
+                    ->form([
+                        Textarea::make('review_note')
+                            ->label('Catatan Review')
+                            ->rows(3)
+                            ->maxLength(600),
+                    ])
+                    ->action(function (array $data, User $record) {
                         $record->affiliate_status = 'rejected';
+                        static::recordAffiliateReview($record, 'rejected', $data['review_note'] ?? null);
                         $record->save();
                     })
                     ->requiresConfirmation(),
@@ -120,5 +135,32 @@ class AffiliateRequestResource extends Resource
         return [
             'index' => Pages\ListAffiliateRequests::route('/'),
         ];
+    }
+
+    private static function recordAffiliateReview(User $record, string $decision, ?string $note): void
+    {
+        $meta = is_array($record->affiliate_application_meta)
+            ? $record->affiliate_application_meta
+            : [];
+
+        $history = data_get($meta, 'review_history');
+        if (! is_array($history)) {
+            $history = [];
+        }
+
+        $review = [
+            'decision' => $decision,
+            'note' => blank($note) ? null : trim((string) $note),
+            'reviewed_at' => now()->toIso8601String(),
+            'reviewed_by_id' => auth()->id(),
+            'reviewed_by_username' => auth()->user()?->username,
+        ];
+
+        $history[] = $review;
+
+        $record->affiliate_application_meta = array_merge($meta, [
+            'review_history' => $history,
+            'review_last' => $review,
+        ]);
     }
 }
