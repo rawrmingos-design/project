@@ -21,12 +21,12 @@ use App\Models\ProviderPath;
 use App\Models\ResellerIntegration;
 use App\Models\User;
 use App\Support\PembelianStatus;
+use App\Support\ResellerApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Response;
 
 
 class OrderApiController extends Controller
@@ -111,11 +111,11 @@ class OrderApiController extends Controller
        $product = Kategori::query()->where('kode', trim((string) $payload['code']))->first();
        
        if(!$product){
-           return response()->json([
-              "error" => true,
-              "code" => 404,
-              "message" => "Code Not Found"
-          ], 404);
+           return ResellerApiResponse::error(
+              'Code Not Found',
+              ResellerApiResponse::CODE_NOT_FOUND,
+              404,
+          );
            
        }
        
@@ -204,11 +204,11 @@ class OrderApiController extends Controller
        $modalPrice = $target['modal_price'];
        
        if(!$service){
-           return response()->json([
-              "error" => true,
-              "code" => 404,
-              "message" => "Code Not Found"
-          ], 404);
+           return ResellerApiResponse::error(
+              'Code Not Found',
+              ResellerApiResponse::CODE_NOT_FOUND,
+              404,
+          );
            
        }
        
@@ -225,11 +225,11 @@ class OrderApiController extends Controller
        
        
        if($user->balance < $harga){
-           return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Your Balance is Insufficient"
-          ], 400);
+           return ResellerApiResponse::error(
+              'Your Balance is Insufficient',
+              ResellerApiResponse::INSUFFICIENT_BALANCE,
+              400,
+          );
            
        }
       
@@ -249,6 +249,7 @@ class OrderApiController extends Controller
        $resolvedOrderStatus = 'Pending';
        $provider_order_id = '';
        $providerReference = $order_id;
+       $order = ['status' => false];
 
        if($providerCode == "digiflazz"){
             $digi = new DigiFlazzController($credentials);
@@ -406,7 +407,7 @@ class OrderApiController extends Controller
         
 
         
-        if($order['status']){
+        if((bool) ($order['status'] ?? false)){
             $integration = $request->attributes->get('live_reseller_integration');
 
             if (! $integration instanceof ResellerIntegration) {
@@ -475,11 +476,11 @@ class OrderApiController extends Controller
               ]
             ], 200);
         }else{
-            return response()->json([
-              "error" => true,
-              "code" => 400,
-              "message" => "Failed" 
-            ], 400);
+            return ResellerApiResponse::error(
+              'Order failed',
+              ResellerApiResponse::ORDER_FAILED,
+              400,
+            );
         }
    }
    
@@ -498,11 +499,11 @@ class OrderApiController extends Controller
             ->first();
     
         if (!$cek) {
-            return response()->json([
-                'error'   => true,
-                'code'    => 404,
-                'message' => "Invoice Not Found"
-            ], 404);
+            return ResellerApiResponse::error(
+                'Invoice Not Found',
+                ResellerApiResponse::INVOICE_NOT_FOUND,
+                404,
+            );
         }
     
         $statusCode = PembelianStatus::apiStatusCode($cek->status);
@@ -591,11 +592,13 @@ class OrderApiController extends Controller
             ? 'Access Token is required'
             : 'Invalid Token';
 
-        return response()->json([
-            'error' => true,
-            'code' => 403,
-            'message' => $message,
-        ], 403);
+        return ResellerApiResponse::error(
+            $message,
+            $message === 'Access Token is required'
+                ? ResellerApiResponse::ACCESS_TOKEN_REQUIRED
+                : ResellerApiResponse::INVALID_TOKEN,
+            403,
+        );
     }
 
     private function parseJsonPayload(Request $request): array|JsonResponse
@@ -609,11 +612,11 @@ class OrderApiController extends Controller
         $decoded = json_decode($content, true);
 
         if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
-            return response()->json([
-                'error' => true,
-                'code' => 400,
-                'message' => 'Invalid JSON payload',
-            ], 400);
+            return ResellerApiResponse::error(
+                'Invalid JSON payload',
+                ResellerApiResponse::INVALID_JSON_PAYLOAD,
+                400,
+            );
         }
 
         return $decoded;
@@ -621,18 +624,25 @@ class OrderApiController extends Controller
 
     private function validatePayload(array $payload, array $rules): ?JsonResponse
     {
-        $validator = Validator::make($payload, $rules);
+        $validator = Validator::make($payload, $rules, [
+            'code.required' => 'The code field is required.',
+            'code.string' => 'The code field must be a string.',
+            'referenceNumber.required' => 'The referenceNumber field is required.',
+            'referenceNumber.string' => 'The referenceNumber field must be a string.',
+            'data.required' => 'The data field is required.',
+            'data.string' => 'The data field must be a string.',
+        ]);
 
         if (! $validator->fails()) {
             return null;
         }
 
-        return response()->json([
-            'error' => true,
-            'code' => 422,
-            'message' => 'Validation failed',
-            'errors' => $validator->errors(),
-        ], 422);
+        return ResellerApiResponse::error(
+            'Validation failed',
+            ResellerApiResponse::VALIDATION_FAILED,
+            422,
+            $validator->errors()->toArray(),
+        );
     }
 
     private function findExistingOrderByReference(User $user, string $referenceNumber): ?Pembelian

@@ -45,6 +45,7 @@ class ResellerApiThrottleTest extends TestCase
             ->assertJsonPath('error', true)
             ->assertJsonPath('code', 429)
             ->assertJsonPath('message', 'Too Many Requests')
+            ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS')
             ->assertJsonStructure(['retryAfterSeconds']);
     }
 
@@ -97,7 +98,8 @@ class ResellerApiThrottleTest extends TestCase
                 'data' => '12345678|2001',
             ])
             ->assertStatus(429)
-            ->assertJsonPath('message', 'Too Many Requests');
+            ->assertJsonPath('message', 'Too Many Requests')
+            ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS');
 
         for ($i = 0; $i < 25; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
@@ -128,7 +130,8 @@ class ResellerApiThrottleTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->withHeader('Authorization', 'Bearer ' . $userA->api_key)
             ->postJson('/api/v1/balance')
-            ->assertStatus(429);
+            ->assertStatus(429)
+            ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS');
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->withHeader('Authorization', 'Bearer ' . $userB->api_key)
@@ -144,13 +147,15 @@ class ResellerApiThrottleTest extends TestCase
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
                 ->postJson('/api/v1/balance')
                 ->assertStatus(403)
-                ->assertJsonPath('message', 'Access Token is required');
+                ->assertJsonPath('message', 'Access Token is required')
+                ->assertJsonPath('error_code', 'ACCESS_TOKEN_REQUIRED');
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->postJson('/api/v1/balance')
             ->assertStatus(429)
             ->assertJsonPath('message', 'Too Many Requests')
+            ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS')
             ->assertJsonStructure(['retryAfterSeconds']);
     }
 
@@ -163,14 +168,16 @@ class ResellerApiThrottleTest extends TestCase
                 ->withHeader('Authorization', 'Bearer invalid-throttle-token')
                 ->postJson('/api/v1/balance')
                 ->assertStatus(403)
-                ->assertJsonPath('message', 'Invalid Token');
+                ->assertJsonPath('message', 'Invalid Token')
+                ->assertJsonPath('error_code', 'INVALID_TOKEN');
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->withHeader('Authorization', 'Bearer invalid-throttle-token')
             ->postJson('/api/v1/balance')
             ->assertStatus(429)
-            ->assertJsonPath('message', 'Too Many Requests');
+            ->assertJsonPath('message', 'Too Many Requests')
+            ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS');
     }
 
     private function assertRouteHasThrottle(string $uri, string $limiter): void

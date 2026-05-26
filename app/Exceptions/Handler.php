@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Support\ResellerApiResponse;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
 use Illuminate\Support\Facades\Log;
@@ -64,12 +65,7 @@ class Handler extends ExceptionHandler
                 $retryAfter = 60;
             }
 
-            return response()->json([
-                'error' => true,
-                'code' => 429,
-                'message' => 'Too Many Requests',
-                'retryAfterSeconds' => $retryAfter,
-            ], 429, $exception->getHeaders());
+            return ResellerApiResponse::tooManyRequests($retryAfter, $exception->getHeaders());
         }
 
         // Handle Livewire context provider errors gracefully

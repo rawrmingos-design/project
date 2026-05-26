@@ -44,7 +44,8 @@ class ResellerApiRegressionTest extends TestCase
             ->postJson('/api/v1/balance')
             ->assertStatus(403)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Invalid Token');
+            ->assertJsonPath('message', 'Invalid Token')
+            ->assertJsonPath('error_code', 'INVALID_TOKEN');
     }
 
     public function test_product_lists_categories_for_authenticated_reseller(): void
@@ -87,9 +88,27 @@ class ResellerApiRegressionTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('error', true)
             ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonPath('error_code', 'VALIDATION_FAILED')
             ->assertJsonStructure([
-                'errors' => ['code'],
+                'details' => ['code'],
             ]);
+    }
+
+    public function test_variant_rejects_malformed_json_payload(): void
+    {
+        User::factory()->create([
+            'api_key' => 'token-variant-bad-json',
+        ]);
+
+        $this->call('POST', '/api/v1/variant', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_AUTHORIZATION' => 'Bearer token-variant-bad-json',
+        ], '{"code":')
+            ->assertStatus(400)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Invalid JSON payload')
+            ->assertJsonPath('error_code', 'INVALID_JSON_PAYLOAD');
     }
 
     public function test_variant_returns_best_provider_path_and_role_price(): void
@@ -166,7 +185,136 @@ class ResellerApiRegressionTest extends TestCase
             ->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
             ->assertStatus(404)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Invoice Not Found');
+            ->assertJsonPath('message', 'Invoice Not Found')
+            ->assertJsonPath('error_code', 'INVOICE_NOT_FOUND');
+    }
+
+    public function test_order_requires_reference_number_with_validation_details(): void
+    {
+        $user = User::factory()->create([
+            'api_key' => 'token-order-missing-reference',
+            'balance' => 50000,
+        ]);
+        $integration = $this->createIntegrationWithProfile($user);
+        $this->createManualLayanan();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $user->api_key,
+            'X-Reseller-Integration-Code' => $integration->integration_code,
+        ])->postJson('/api/v1/order', [
+            'code' => 'MANUAL-MVP-001',
+            'data' => '12345678|2001',
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Validation failed')
+            ->assertJsonPath('error_code', 'VALIDATION_FAILED')
+            ->assertJsonStructure([
+                'details' => ['referenceNumber'],
+            ]);
+    }
+
+    public function test_variant_unknown_product_code_returns_stable_error_code(): void
+    {
+        User::factory()->create([
+            'api_key' => 'token-variant-code-not-found',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer token-variant-code-not-found')
+            ->postJson('/api/v1/variant', [
+                'code' => 'missing-category',
+            ])
+            ->assertStatus(404)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Code Not Found')
+            ->assertJsonPath('error_code', 'CODE_NOT_FOUND');
+    }
+
+    public function test_order_unknown_service_code_returns_stable_error_code(): void
+    {
+        $user = User::factory()->create([
+            'api_key' => 'token-order-code-not-found',
+            'balance' => 50000,
+        ]);
+        $integration = $this->createIntegrationWithProfile($user);
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $user->api_key,
+            'X-Reseller-Integration-Code' => $integration->integration_code,
+        ])->postJson('/api/v1/order', [
+            'code' => 'MISSING-SERVICE-001',
+            'referenceNumber' => 'REF-CODE-NOT-FOUND-001',
+            'data' => '12345678|2001',
+        ])
+            ->assertStatus(404)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Code Not Found')
+            ->assertJsonPath('error_code', 'CODE_NOT_FOUND');
+    }
+
+    public function test_order_rejects_insufficient_balance_with_stable_error_code(): void
+    {
+        $user = User::factory()->create([
+            'api_key' => 'token-order-low-balance',
+            'balance' => 100,
+        ]);
+        $integration = $this->createIntegrationWithProfile($user);
+        $this->createManualLayanan();
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $user->api_key,
+            'X-Reseller-Integration-Code' => $integration->integration_code,
+        ])->postJson('/api/v1/order', [
+            'code' => 'MANUAL-MVP-001',
+            'referenceNumber' => 'REF-LOW-BALANCE-001',
+            'data' => '12345678|2001',
+        ])
+            ->assertStatus(400)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Your Balance is Insufficient')
+            ->assertJsonPath('error_code', 'INSUFFICIENT_BALANCE');
+    }
+
+    public function test_provider_failure_returns_safe_order_failed_error(): void
+    {
+        $user = User::factory()->create([
+            'api_key' => 'token-order-provider-failed',
+            'balance' => 50000,
+        ]);
+        $integration = $this->createIntegrationWithProfile($user);
+
+        Layanan::query()->create([
+            'kategori_id' => '1',
+            'layanan' => 'VIP Failure Service',
+            'provider_id' => 'VIP-FAIL-MVP-001',
+            'harga' => 10000,
+            'harga_member' => 10000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10000,
+            'harga_flash_sale' => 0,
+            'profit_member' => 0,
+            'profit_platinum' => 0,
+            'profit_gold' => 0,
+            'is_flash_sale' => 0,
+            'stock_flash_sale' => 0,
+            'catatan' => '-',
+            'status' => 'available',
+            'provider' => 'vip',
+        ]);
+
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $user->api_key,
+            'X-Reseller-Integration-Code' => $integration->integration_code,
+        ])->postJson('/api/v1/order', [
+            'code' => 'VIP-FAIL-MVP-001',
+            'referenceNumber' => 'REF-PROVIDER-FAILED-001',
+            'data' => '12345678|2001',
+        ])
+            ->assertStatus(400)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('message', 'Order failed')
+            ->assertJsonPath('error_code', 'ORDER_FAILED')
+            ->assertJsonMissingPath('details');
     }
 
     public function test_order_duplicate_reference_number_returns_existing_invoice_without_duplicate_side_effects(): void
