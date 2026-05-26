@@ -12,7 +12,6 @@ use App\Models\AffiliateHistory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Auth;
@@ -293,13 +292,6 @@ class DsController extends Controller
             return redirect()->route('affiliate')->with('error', 'Permintaan sebelumnya masih diproses. Mohon tunggu sebentar.');
         }
 
-        $oldPaths = [
-            $user->affiliate_identity_document_path,
-            $user->affiliate_support_document_path,
-            $user->affiliate_ktp_document_path,
-            $user->affiliate_selfie_document_path,
-            $user->affiliate_family_card_document_path,
-        ];
         $existingMeta = is_array($user->affiliate_application_meta) ? $user->affiliate_application_meta : [];
         $reviewHistory = data_get($existingMeta, 'review_history');
         if (! is_array($reviewHistory)) {
@@ -311,11 +303,6 @@ class DsController extends Controller
                 $user->affiliate_status = 'pending';
                 $user->affiliate_requested_at = now();
                 $user->affiliate_requirement_acknowledged_at = now();
-                $user->affiliate_ktp_document_path = null;
-                $user->affiliate_selfie_document_path = null;
-                $user->affiliate_family_card_document_path = null;
-                $user->affiliate_identity_document_path = null;
-                $user->affiliate_support_document_path = null;
                 $user->affiliate_application_note = blank($validated['notes'] ?? null) ? null : trim((string) $validated['notes']);
                 $user->affiliate_application_meta = [
                     'promotion_channel_url' => $promotionChannelUrl,
@@ -327,12 +314,6 @@ class DsController extends Controller
                 ];
                 $user->save();
             });
-
-            foreach ($oldPaths as $oldPath) {
-                if (! empty($oldPath)) {
-                    Storage::disk('public')->delete((string) $oldPath);
-                }
-            }
         } catch (\Throwable $exception) {
             report($exception);
             return redirect()
