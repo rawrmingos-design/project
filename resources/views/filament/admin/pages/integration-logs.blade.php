@@ -215,6 +215,12 @@
             color: #fcd34d;
         }
 
+        .integration-logs__badge--info {
+            background: rgba(59, 130, 246, .16);
+            border-color: rgba(59, 130, 246, .35);
+            color: #93c5fd;
+        }
+
         .integration-logs__badge--danger {
             background: rgba(239, 68, 68, .14);
             border-color: rgba(239, 68, 68, .35);
@@ -283,7 +289,7 @@
 
             <section class="integration-logs__summary-card">
                 <h3 class="integration-logs__summary-title">Outgoing Activity</h3>
-                <p class="integration-logs__summary-meta">Delivery log terbaru dari webhook outbound live H2H.</p>
+                <p class="integration-logs__summary-meta">Delivery log terbaru dari webhook outbound H2H live dan sandbox.</p>
                 <div class="integration-logs__summary-stats">
                     <div class="integration-logs__metric">
                         <span class="integration-logs__metric-label">Recent Deliveries</span>
@@ -300,6 +306,10 @@
                     <div class="integration-logs__metric">
                         <span class="integration-logs__metric-label">Pending</span>
                         <span class="integration-logs__metric-value">{{ $outgoingSummary['pending'] }}</span>
+                    </div>
+                    <div class="integration-logs__metric">
+                        <span class="integration-logs__metric-label">Sandbox</span>
+                        <span class="integration-logs__metric-value">{{ $outgoingSummary['sandbox'] }}</span>
                     </div>
                 </div>
             </section>
@@ -364,7 +374,7 @@
                 <div class="integration-logs__panel-head">
                     <h3 class="integration-logs__panel-title">Outgoing</h3>
                     <p class="integration-logs__panel-desc">
-                        Webhook keluar ke partner atau reseller. Gunakan tabel ini untuk melihat connection, invoice, URL tujuan, status delivery, dan error terakhir.
+                        Webhook keluar ke partner atau reseller. Gunakan tabel ini untuk melihat connection, mode environment, invoice, URL tujuan, status delivery, dan error terakhir.
                     </p>
                 </div>
                 @if ($outgoingDeliveries->isEmpty())
@@ -376,6 +386,7 @@
                                 <tr>
                                     <th>Time</th>
                                     <th>Connection</th>
+                                    <th>Env</th>
                                     <th>Invoice</th>
                                     <th>Destination</th>
                                     <th>Status</th>
@@ -390,6 +401,11 @@
                                         <td>
                                             <div>{{ $delivery->integration?->integration_code ?: '-' }}</div>
                                             <div class="integration-logs__mono">{{ $delivery->integration?->user?->username ?: '-' }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="integration-logs__badge integration-logs__badge--{{ ($delivery->environment === 'sandbox') ? 'info' : 'gray' }}">
+                                                {{ \App\Filament\Admin\Pages\IntegrationLogs::headline($delivery->environment) }}
+                                            </span>
                                         </td>
                                         <td>
                                             @if ($delivery->pembelian_id)

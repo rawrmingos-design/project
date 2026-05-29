@@ -6,18 +6,19 @@ use DomainException;
 
 final class ResellerCallbackUrlValidator
 {
-    public static function assertAllowed(?string $url): void
+    public static function assertAllowed(?string $url, ?string $mode = 'live'): void
     {
-        $reason = self::failureReason($url);
+        $reason = self::failureReason($url, $mode);
 
         if ($reason !== null) {
             throw new DomainException($reason);
         }
     }
 
-    public static function failureReason(?string $url): ?string
+    public static function failureReason(?string $url, ?string $mode = 'live'): ?string
     {
         $url = trim((string) $url);
+        $mode = strtolower(trim((string) $mode)) === 'sandbox' ? 'sandbox' : 'live';
 
         if ($url === '') {
             return 'Callback URL wajib diisi.';
@@ -30,6 +31,14 @@ final class ResellerCallbackUrlValidator
         $parts = parse_url($url);
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         $host = strtolower((string) ($parts['host'] ?? ''));
+
+        if ($mode === 'sandbox') {
+            if (! in_array($scheme, ['http', 'https'], true)) {
+                return 'Sandbox callback URL harus menggunakan HTTP atau HTTPS.';
+            }
+
+            return null;
+        }
 
         if ($scheme !== 'https') {
             return 'Live callback URL harus menggunakan HTTPS.';

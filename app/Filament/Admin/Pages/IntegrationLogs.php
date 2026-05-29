@@ -72,6 +72,7 @@ class IntegrationLogs extends Page
             'delivered' => $outgoingDeliveries->where('status', 'delivered')->count(),
             'failed' => $outgoingDeliveries->where('status', 'failed')->count(),
             'pending' => $outgoingDeliveries->where('status', 'pending')->count(),
+            'sandbox' => $outgoingDeliveries->where('environment', 'sandbox')->count(),
         ];
     }
 

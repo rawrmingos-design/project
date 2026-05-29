@@ -18,7 +18,7 @@ class ListResellerIntegrations extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Ringkasan kesiapan incoming shared rules dan outgoing webhooks per partner.';
+        return 'Ringkasan connection live dan sandbox, termasuk incoming shared rules dan outgoing webhooks per partner.';
     }
 
     protected function getHeaderActions(): array

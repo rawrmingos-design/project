@@ -105,7 +105,7 @@ class ResellerIntegration extends Model
             ];
         }
 
-        if (ResellerCallbackUrlValidator::failureReason($profile->callback_url) !== null) {
+        if (ResellerCallbackUrlValidator::failureReason($profile->callback_url, $this->mode) !== null) {
             return [
                 'state' => 'invalid_url',
                 'label' => 'Fix URL',

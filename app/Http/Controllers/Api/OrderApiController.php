@@ -182,7 +182,7 @@ class OrderApiController extends Controller
        }
 
        $referenceNumber = trim((string) $payload['referenceNumber']);
-       $existingOrder = $this->findExistingOrderByReference($user, $referenceNumber);
+       $existingOrder = $this->findExistingOrderByReference($user, $referenceNumber, 'live');
 
        if ($existingOrder instanceof Pembelian) {
            return response()->json([
@@ -452,6 +452,8 @@ class OrderApiController extends Controller
                 $pembelian->log = json_encode($order);
                 $pembelian->traffic_source = $integration ? 'reseller_h2h' : $pembelian->traffic_source;
                 $pembelian->tipe_transaksi = 'game';
+                $pembelian->environment = $integration ? 'live' : $pembelian->environment;
+                $pembelian->is_sandbox = false;
                 $pembelian->save();
 
                 $pembayaran = new Pembayaran();
@@ -512,18 +514,11 @@ class OrderApiController extends Controller
             "error"   => false,
             "code"    => 200,
             "message" => "Success",
-            "data"    => [
-                "invoiceNumber" => $cek->order_id,
-                "productName"   => $cek->layanan,
-                "userData"      => $cek->user_id . '|' . $cek->zone,
-                "statusCode"    => $statusCode,
-                "sn"            => $cek->keterangan_sn,
-                "keteranganSn"  => $cek->keterangan_sn,
-            ]
+            "data"    => $this->buildStatusPayload($cek),
         ], 200);
     }
 
-    private function resolveOrderTargetByExternalCode(string $requestedCode): array
+    protected function resolveOrderTargetByExternalCode(string $requestedCode): array
     {
         $requestedCode = trim($requestedCode);
         $routingService = app(\App\Services\ProviderRoutingService::class);
@@ -569,7 +564,7 @@ class OrderApiController extends Controller
         ];
     }
 
-    private function resolveApiUser(Request $request): ?User
+    protected function resolveApiUser(Request $request): ?User
     {
         $resolved = $request->attributes->get('api_user');
 
@@ -586,7 +581,7 @@ class OrderApiController extends Controller
         return User::query()->where('api_key', $token)->first();
     }
 
-    private function unauthenticatedResponse(Request $request): JsonResponse
+    protected function unauthenticatedResponse(Request $request): JsonResponse
     {
         $message = trim((string) $request->bearerToken()) === ''
             ? 'Access Token is required'
@@ -601,7 +596,7 @@ class OrderApiController extends Controller
         );
     }
 
-    private function parseJsonPayload(Request $request): array|JsonResponse
+    protected function parseJsonPayload(Request $request): array|JsonResponse
     {
         $content = trim((string) $request->getContent());
 
@@ -622,7 +617,7 @@ class OrderApiController extends Controller
         return $decoded;
     }
 
-    private function validatePayload(array $payload, array $rules): ?JsonResponse
+    protected function validatePayload(array $payload, array $rules): ?JsonResponse
     {
         $validator = Validator::make($payload, $rules, [
             'code.required' => 'The code field is required.',
@@ -645,7 +640,7 @@ class OrderApiController extends Controller
         );
     }
 
-    private function findExistingOrderByReference(User $user, string $referenceNumber): ?Pembelian
+    protected function findExistingOrderByReference(User $user, string $referenceNumber, ?string $environment = null): ?Pembelian
     {
         if ($referenceNumber === '') {
             return null;
@@ -654,11 +649,52 @@ class OrderApiController extends Controller
         return Pembayaran::query()
             ->with('pembelian')
             ->where('reference', $referenceNumber)
-            ->whereHas('pembelian', function ($query) use ($user): void {
+            ->whereHas('pembelian', function ($query) use ($user, $environment): void {
                 $query->where('username', $user->username);
+
+                if ($environment === 'sandbox') {
+                    $query->where(function ($sandboxQuery): void {
+                        $sandboxQuery->where('is_sandbox', true)
+                            ->orWhere('environment', 'sandbox');
+                    });
+                }
+
+                if ($environment === 'live') {
+                    $query->where(function ($liveQuery): void {
+                        $liveQuery->whereNull('is_sandbox')
+                            ->orWhere('is_sandbox', false);
+                    })->where(function ($liveQuery): void {
+                        $liveQuery->whereNull('environment')
+                            ->orWhere('environment', 'live');
+                    });
+                }
             })
             ->latest('id')
             ->first()
             ?->pembelian;
+    }
+
+    protected function buildStatusPayload(Pembelian $pembelian): array
+    {
+        return [
+            'invoiceNumber' => $pembelian->order_id,
+            'productName' => $pembelian->layanan,
+            'userData' => $this->buildUserData($pembelian),
+            'statusCode' => PembelianStatus::apiStatusCode($pembelian->status),
+            'sn' => $pembelian->keterangan_sn,
+            'keteranganSn' => $pembelian->keterangan_sn,
+        ];
+    }
+
+    protected function buildUserData(Pembelian $pembelian): string
+    {
+        $userData = (string) $pembelian->user_id;
+        $zone = trim((string) $pembelian->zone);
+
+        if ($zone !== '') {
+            $userData .= '|' . $zone;
+        }
+
+        return $userData;
     }
 }

@@ -47,6 +47,10 @@ class PembelianObserver
             $this->dispatchResetCallbackAfterCommit($pembelian, $previousStatus, $currentStatus);
         }
 
+        if ($pembelian->isSandboxOrder()) {
+            return;
+        }
+
         if ($pembelian->wasChanged('status') && $this->transitionedToSuccess($pembelian)) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} marked as Success. Checking Tier Upgrade & Affiliate Commission.");
 
@@ -72,6 +76,10 @@ class PembelianObserver
     public function created(Pembelian $pembelian): void
     {
         $this->dispatchInitialResellerCallbackAfterCommit($pembelian);
+
+        if ($pembelian->isSandboxOrder()) {
+            return;
+        }
 
         if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS) {
             Log::info("PembelianObserver: Order {$pembelian->order_id} created as Success. Checking Tier Upgrade & Affiliate Commission.");
