@@ -83,7 +83,7 @@ class ResellerIntegrationResource extends Resource
         return $schema
             ->components([
                 Section::make('Connection')
-                    ->description('Buat satu connection live untuk tiap partner atau reseller. Header X-Reseller-Integration-Code pada order live akan diarahkan ke record ini.')
+                    ->description('Buat satu connection per partner untuk live atau sandbox. Header X-Reseller-Integration-Code pada order akan diarahkan ke record sesuai mode request.')
                     ->schema([
                         Select::make('user_id')
                             ->label('Partner User')
@@ -105,10 +105,12 @@ class ResellerIntegrationResource extends Resource
                         Select::make('mode')
                             ->options([
                                 'live' => 'live',
+                                'sandbox' => 'sandbox',
                             ])
                             ->default('live')
                             ->required()
-                            ->native(false),
+                            ->native(false)
+                            ->helperText('Live dipakai untuk order produksi. Sandbox dipakai untuk testing integrator dengan order simulasi lokal.'),
                         Toggle::make('is_active')
                             ->label('Active')
                             ->default(true),
@@ -134,6 +136,13 @@ class ResellerIntegrationResource extends Resource
                     ->label('Partner User')
                     ->searchable()
                     ->sortable(),
+                BadgeColumn::make('mode')
+                    ->label('Mode')
+                    ->colors([
+                        'success' => 'live',
+                        'info' => 'sandbox',
+                    ])
+                    ->formatStateUsing(fn (?string $state): string => Str::headline((string) $state)),
                 BadgeColumn::make('incoming_shared_readiness')
                     ->label('Incoming (Shared)')
                     ->state(fn (): string => static::sharedIncomingSnapshot()['label'])

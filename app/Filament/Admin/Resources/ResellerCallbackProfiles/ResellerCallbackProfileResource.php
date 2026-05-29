@@ -43,11 +43,11 @@ class ResellerCallbackProfileResource extends Resource
         return $schema
             ->components([
                 Section::make('Webhook Destination')
-                    ->description('Atur ke mana server kita mengirim callback status order live. Field dasar di bawah ini sudah cukup untuk kebanyakan client.')
+                    ->description('Atur ke mana server kita mengirim callback status order live atau sandbox. Live harus pakai target publik, sedangkan sandbox boleh pakai URL lokal untuk testing.')
                     ->schema([
                         Select::make('reseller_integration_id')
                             ->label('Connection')
-                            ->relationship('integration', 'integration_code', modifyQueryUsing: fn ($query) => $query->where('mode', 'live'))
+                            ->relationship('integration', 'integration_code')
                             ->searchable()
                             ->preload()
                             ->required(),
@@ -59,15 +59,7 @@ class ResellerCallbackProfileResource extends Resource
                             ->required()
                             ->url()
                             ->maxLength(2048)
-                            ->rule(function () {
-                                return function (string $attribute, $value, \Closure $fail): void {
-                                    $reason = ResellerCallbackUrlValidator::failureReason((string) $value);
-
-                                    if ($reason !== null) {
-                                        $fail($reason);
-                                    }
-                                };
-                            }),
+                            ->helperText('Sandbox connection boleh memakai localhost/tunnel/dev host. Live connection tetap wajib HTTPS + host publik.'),
                         TextInput::make('webhook_secret')
                             ->label('Webhook Secret')
                             ->password()
@@ -120,6 +112,10 @@ class ResellerCallbackProfileResource extends Resource
                     ->label('Partner User')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('integration.mode')
+                    ->label('Mode')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => ucfirst((string) $state)),
                 IconColumn::make('is_enabled')
                     ->boolean()
                     ->label('Active'),

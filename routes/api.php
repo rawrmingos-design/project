@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderApiController;
+use App\Http\Controllers\Api\SandboxOrderApiController;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HomeController;
@@ -37,6 +38,21 @@ Route::prefix('v1')->group(function () {
         ->middleware(['throttle:reseller-api-order', 'auth.api', 'resolve.live.reseller.integration']);
     Route::post('/status-order/{invoice}', [OrderApiController::class,'statusOrder'])
         ->middleware(['throttle:reseller-api-status', 'auth.api']);
+
+    Route::prefix('sandbox')->group(function () {
+        Route::post('/balance', [SandboxOrderApiController::class, 'balance'])
+            ->middleware(['throttle:reseller-api-balance', 'auth.sandbox.api']);
+        Route::post('/product', [SandboxOrderApiController::class, 'product'])
+            ->middleware(['throttle:reseller-api-product', 'auth.sandbox.api']);
+        Route::post('/variant', [SandboxOrderApiController::class, 'listVariant'])
+            ->middleware(['throttle:reseller-api-variant', 'auth.sandbox.api']);
+        Route::post('/order', [SandboxOrderApiController::class, 'order'])
+            ->middleware(['throttle:reseller-api-order', 'auth.sandbox.api', 'resolve.sandbox.reseller.integration']);
+        Route::post('/status-order/{invoice}', [SandboxOrderApiController::class, 'statusOrder'])
+            ->middleware(['throttle:reseller-api-status', 'auth.sandbox.api']);
+        Route::post('/simulate-status/{invoice}', [SandboxOrderApiController::class, 'simulateStatus'])
+            ->middleware(['throttle:reseller-api-order', 'auth.sandbox.api']);
+    });
 });
 
 /*

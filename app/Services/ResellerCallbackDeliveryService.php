@@ -13,7 +13,8 @@ use Throwable;
 
 class ResellerCallbackDeliveryService
 {
-    public const EVENT_NAME = 'h2h.order.updated';
+    public const LIVE_EVENT_NAME = 'h2h.order.updated';
+    public const SANDBOX_EVENT_NAME = 'h2h.sandbox.order.updated';
 
     public function dispatchInitial(Pembelian $pembelian): array
     {
@@ -48,6 +49,7 @@ class ResellerCallbackDeliveryService
 
         $integration = $pembelian->resellerIntegration;
         $profile = $integration?->callbackProfile;
+        $context = $this->resolveDeliveryContext($pembelian, $integration);
 
         if (! $integration || ! $profile || ! $profile->is_enabled) {
             Log::info('Reseller outbound callback skipped because callback profile is incomplete.', [
@@ -70,8 +72,8 @@ class ResellerCallbackDeliveryService
             'reseller_integration_id' => $integration->getKey(),
             'reseller_callback_profile_id' => $profile->getKey(),
             'pembelian_id' => $pembelian->getKey(),
-            'environment' => 'live',
-            'event_name' => self::EVENT_NAME,
+            'environment' => $context['environment'],
+            'event_name' => $context['event_name'],
             'order_id' => (string) $pembelian->order_id,
             'reference_number' => (string) ($pembelian->pembayaran?->reference ?? ''),
             'callback_url' => (string) $profile->callback_url,
@@ -82,7 +84,7 @@ class ResellerCallbackDeliveryService
             'last_attempted_at' => now(),
         ]);
 
-        $failureReason = ResellerCallbackUrlValidator::failureReason($delivery->callback_url);
+        $failureReason = ResellerCallbackUrlValidator::failureReason($delivery->callback_url, $context['environment']);
 
         if ($failureReason !== null) {
             $delivery->update([
@@ -96,7 +98,7 @@ class ResellerCallbackDeliveryService
         $headers = [
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
-            'X-Callback-Event' => self::EVENT_NAME,
+            'X-Callback-Event' => $context['event_name'],
             'X-Callback-Version' => (string) max(1, (int) ($profile->version ?? 1)),
             'X-Callback-Timestamp' => (string) ($payload['timestamp'] ?? now()->toIso8601String()),
         ];
@@ -119,7 +121,7 @@ class ResellerCallbackDeliveryService
         );
 
         try {
-            $response = Http::timeout(10)
+            $response = Http::timeout($this->resolveTimeoutSeconds((int) ($profile->timeout_ms ?? 10000)))
                 ->withHeaders($headers)
                 ->withBody($rawPayload, 'application/json')
                 ->post($delivery->callback_url);
@@ -159,32 +161,56 @@ class ResellerCallbackDeliveryService
     private function shouldDispatchForOrder(Pembelian $pembelian): bool
     {
         return $pembelian->reseller_integration_id !== null
-            && strtolower(trim((string) $pembelian->traffic_source)) === 'reseller_h2h';
+            && (
+                strtolower(trim((string) $pembelian->traffic_source)) === 'reseller_h2h'
+                || $pembelian->isSandboxOrder()
+            );
     }
 
     private function buildPayload(Pembelian $pembelian): array
     {
         $payment = $pembelian->pembayaran;
-        $zone = trim((string) $pembelian->zone);
+        $context = $this->resolveDeliveryContext($pembelian, $pembelian->resellerIntegration);
+
+        return [
+            'event' => $context['event_name'],
+            'timestamp' => now()->toIso8601String(),
+            'invoiceNumber' => (string) $pembelian->order_id,
+            'referenceNumber' => (string) ($payment?->reference ?? ''),
+            'productName' => (string) $pembelian->layanan,
+            'userData' => $this->buildUserData($pembelian),
+            'statusCode' => PembelianStatus::apiStatusCode($pembelian->status),
+            'statusLabel' => PembelianStatus::label($pembelian->status),
+            'sn' => (string) ($pembelian->keterangan_sn ?? ''),
+            'keteranganSn' => (string) ($pembelian->keterangan_sn ?? ''),
+            'sandbox' => $context['environment'] === 'sandbox',
+            'environment' => $context['environment'],
+        ];
+    }
+
+    private function buildUserData(Pembelian $pembelian): string
+    {
         $userData = trim((string) $pembelian->user_id);
+        $zone = trim((string) $pembelian->zone);
 
         if ($zone !== '') {
             $userData .= '|' . $zone;
         }
 
+        return $userData;
+    }
+
+    private function resolveDeliveryContext(Pembelian $pembelian, $integration): array
+    {
+        $environment = $pembelian->isSandboxOrder() || strtolower(trim((string) ($integration?->mode ?? ''))) === 'sandbox'
+            ? 'sandbox'
+            : 'live';
+
         return [
-            'event' => self::EVENT_NAME,
-            'timestamp' => now()->toIso8601String(),
-            'invoiceNumber' => (string) $pembelian->order_id,
-            'referenceNumber' => (string) ($payment?->reference ?? ''),
-            'productName' => (string) $pembelian->layanan,
-            'userData' => $userData,
-            'statusCode' => PembelianStatus::apiStatusCode($pembelian->status),
-            'statusLabel' => PembelianStatus::label($pembelian->status),
-            'sn' => (string) ($pembelian->keterangan_sn ?? ''),
-            'keteranganSn' => (string) ($pembelian->keterangan_sn ?? ''),
-            'sandbox' => false,
-            'environment' => 'live',
+            'environment' => $environment,
+            'event_name' => $environment === 'sandbox'
+                ? self::SANDBOX_EVENT_NAME
+                : self::LIVE_EVENT_NAME,
         ];
     }
 
@@ -200,5 +226,10 @@ class ResellerCallbackDeliveryService
         $header = trim((string) $header);
 
         return $header !== '' ? $header : 'X-Callback-Signature';
+    }
+
+    private function resolveTimeoutSeconds(int $timeoutMs): int
+    {
+        return max(1, (int) ceil(max(1000, $timeoutMs) / 1000));
     }
 }

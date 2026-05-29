@@ -2,14 +2,13 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\ResellerIntegration;
-use App\Services\ResellerIntegrationLookup;
 use App\Models\User;
+use App\Services\ResellerIntegrationLookup;
 use App\Support\ResellerApiResponse;
 use Closure;
 use Illuminate\Http\Request;
 
-class ResolveLiveResellerIntegration
+class ResolveSandboxResellerIntegration
 {
     public function __construct(
         private readonly ResellerIntegrationLookup $lookup
@@ -21,20 +20,6 @@ class ResolveLiveResellerIntegration
         $user = $request->attributes->get('api_user');
 
         if (! $user instanceof User) {
-            $bearerToken = trim((string) $request->bearerToken());
-
-            if ($bearerToken === '') {
-                return ResellerApiResponse::error(
-                    'Access Token is required',
-                    ResellerApiResponse::ACCESS_TOKEN_REQUIRED,
-                    403,
-                );
-            }
-
-            $user = User::query()->where('api_key', $bearerToken)->first();
-        }
-
-        if (! $user) {
             return ResellerApiResponse::error(
                 'Invalid Token',
                 ResellerApiResponse::INVALID_TOKEN,
@@ -52,7 +37,7 @@ class ResolveLiveResellerIntegration
             );
         }
 
-        $integration = $this->lookup->findOwnedActive($user, $integrationCode, 'live');
+        $integration = $this->lookup->findOwnedActive($user, $integrationCode, 'sandbox');
 
         if (! $integration) {
             return ResellerApiResponse::error(
@@ -62,8 +47,7 @@ class ResolveLiveResellerIntegration
             );
         }
 
-        $request->attributes->set('api_user', $user);
-        $request->attributes->set('live_reseller_integration', $integration);
+        $request->attributes->set('sandbox_reseller_integration', $integration);
 
         return $next($request);
     }
