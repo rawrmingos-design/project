@@ -73,6 +73,21 @@
         - IP whitelist hanya diberlakukan untuk endpoint callback atau webhook tertentu milik sistem. Hubungi Administrator {{ $config->judul_web }} jika Anda membutuhkan integrasi callback inbound.
     </p>
 </div>
+</div>
+<div class="max-w-3xl pt-4">
+    <h2 class="text-lg font-semibold">Sandbox Environment</h2>
+    <p class="pt-2 text-sm font-medium">
+        Untuk keperluan pengujian tanpa memotong saldo nyata, gunakan endpoint <code>/api/v1/sandbox/*</code> (contoh: <code>/api/v1/sandbox/balance</code>, <code>/api/v1/sandbox/order</code>).
+        <br><strong>Wajib:</strong> Sertakan header <code>X-Reseller-Integration-Code: {KODE_INTEGRASI_SANDBOX}</code> bersama dengan Token API Sandbox Anda.
+    </p>
+</div>
+<div class="max-w-3xl pt-4">
+    <h2 class="text-lg font-semibold">Webhooks / Callbacks</h2>
+    <p class="pt-2 text-sm font-medium">
+        Sistem kami mendukung push notification (Webhook) ke server Anda saat status pesanan berubah. Anda dapat mengatur URL Webhook melalui Panel Reseller.
+        <br>Untuk memverifikasi keaslian webhook, periksa header <code>X-Reseller-Signature</code> yang merupakan hash HMAC-SHA256 dari body payload menggunakan <strong>Webhook Secret</strong> Anda.
+    </p>
+</div>
 
             </div>
             <div class="flex flex-col">
