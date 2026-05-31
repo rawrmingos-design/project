@@ -362,6 +362,52 @@ class ResellerApiRegressionTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_live_status_order_cannot_read_sandbox_order(): void
+    {
+        $user = User::factory()->create([
+            'api_key'  => 'token-live-cant-read-sandbox',
+            'username' => 'live-sandbox-scope-user',
+        ]);
+
+        // Create a sandbox order owned by the same user
+        Pembelian::factory()->create([
+            'order_id'    => 'SBX-SCOPE-001',
+            'username'    => $user->username,
+            'is_sandbox'  => true,
+            'environment' => 'sandbox',
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer token-live-cant-read-sandbox')
+            ->postJson('/api/v1/status-order/SBX-SCOPE-001')
+            ->assertStatus(404)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('error_code', 'INVOICE_NOT_FOUND');
+    }
+
+    public function test_live_status_order_reads_legacy_order_with_null_environment(): void
+    {
+        $user = User::factory()->create([
+            'api_key'  => 'token-live-legacy-scope',
+            'username' => 'live-legacy-scope-user',
+        ]);
+
+        // Legacy orders created before the environment column existed have
+        // is_sandbox=false and environment=NULL. The live endpoint must still return them.
+        Pembelian::factory()->create([
+            'order_id'    => 'LEGACY-NULL-001',
+            'username'    => $user->username,
+            'status'      => 'Sukses',
+            'is_sandbox'  => false,
+            'environment' => null,
+        ]);
+
+        $this->withHeader('Authorization', 'Bearer token-live-legacy-scope')
+            ->postJson('/api/v1/status-order/LEGACY-NULL-001')
+            ->assertOk()
+            ->assertJsonPath('error', false)
+            ->assertJsonPath('data.invoiceNumber', 'LEGACY-NULL-001');
+    }
+
     private function createManualLayanan(): Layanan
     {
         return Layanan::query()->create([

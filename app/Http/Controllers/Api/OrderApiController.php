@@ -498,6 +498,14 @@ class OrderApiController extends Controller
         $cek = Pembelian::query()
             ->where('order_id', trim((string) $invoice))
             ->where('username', $user->username)
+            ->where(function ($query): void {
+                // Exclude sandbox orders: live endpoint only returns live/legacy records.
+                // Legacy orders pre-dating the environment column have NULL on both fields.
+                $query->whereNull('is_sandbox')->orWhere('is_sandbox', false);
+            })
+            ->where(function ($query): void {
+                $query->whereNull('environment')->orWhere('environment', 'live');
+            })
             ->first();
     
         if (!$cek) {
@@ -517,6 +525,7 @@ class OrderApiController extends Controller
             "data"    => $this->buildStatusPayload($cek),
         ], 200);
     }
+
 
     protected function resolveOrderTargetByExternalCode(string $requestedCode): array
     {
