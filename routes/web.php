@@ -204,6 +204,11 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::post('/affiliate/request',                                            PublicAffiliatePageController::class)->middleware('throttle:public-affiliate-request')->name('affiliate.request');
         Route::get('/withdrawal',                                                    PublicAffiliateWithdrawalPageController::class)->middleware('affiliate.only')->name('withdrawal');
         Route::post('/withdrawal',                                                   [DsController::class, 'processWithdrawal'])->middleware(['affiliate.only', 'throttle:public-withdrawal-submit'])->name('process.withdrawal');
+
+        // Reseller Panel MVP Routes
+        Route::prefix('reseller')->name('reseller.')->middleware(['reseller.only'])->group(function () {
+            Route::get('/', [\App\Http\Controllers\Public\Reseller\DashboardController::class, 'index'])->name('dashboard');
+        });
     });
 
     // Rute publik

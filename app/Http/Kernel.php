@@ -62,5 +62,6 @@ class Kernel extends HttpKernel
         'affiliate.only' => \App\Http\Middleware\EnsureAffiliateUser::class,
         'non-affiliate.only' => \App\Http\Middleware\EnsureNonAffiliateUser::class,
         'non-admin.public-dashboard' => \App\Http\Middleware\EnsureNonAdminPublicDashboard::class,
+        'reseller.only' => \App\Http\Middleware\EnsureIsReseller::class,
     ];
 }
