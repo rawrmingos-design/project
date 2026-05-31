@@ -32,6 +32,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'no_wa',
         'otp',
         'api_key',
+        'api_key_hint',
         'google_id',
         'google_avatar',
         'sandbox_api_key_hash',
@@ -69,6 +70,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'two_factor_recovery_codes',
         'reset_callback_secret',
         'sandbox_api_key_hash',
+        'api_key',
     ];
 
     /**
@@ -88,6 +90,23 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'sandbox_api_key_rotated_at' => 'datetime',
         'sandbox_api_key_last_used_at' => 'datetime',
     ];
+
+    /**
+     * When api_key is assigned, automatically populate api_key_hint with
+     * a masked representation (last 6 chars) so the raw key is never
+     * needed for display purposes.
+     */
+    public function setApiKeyAttribute($value): void
+    {
+        $this->attributes['api_key'] = $value;
+
+        if (filled($value)) {
+            $valueStr = (string) $value;
+            $this->attributes['api_key_hint'] = '...' . substr($valueStr, -6);
+        } else {
+            $this->attributes['api_key_hint'] = null;
+        }
+    }
 
     public function resellerIntegrations()
     {
