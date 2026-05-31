@@ -119,4 +119,78 @@ class ResellerPanelTest extends TestCase
         $response->assertSee('...sandbox');
         $response->assertSee('sandbox-integration-test');
     }
+
+    public function test_orders_page_only_shows_authenticated_reseller_orders(): void
+    {
+        $user1 = User::factory()->create(['role' => 'Member']);
+        $user2 = User::factory()->create(['role' => 'Member']);
+
+        $integration1 = ResellerIntegration::query()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
+        $integration2 = ResellerIntegration::query()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
+
+        $order1 = \App\Models\Pembelian::query()->create([
+            'user_id' => $user1->id,
+            'username' => $user1->username,
+            'order_id' => 'INV-USER1-TEST',
+            'reseller_integration_id' => $integration1->id,
+            'harga' => 1000,
+            'profit' => 100,
+            'layanan' => 'Test Product',
+            'status' => 'Pending',
+        ]);
+
+        $order2 = \App\Models\Pembelian::query()->create([
+            'user_id' => $user2->id,
+            'username' => $user2->username,
+            'order_id' => 'INV-USER2-TEST',
+            'reseller_integration_id' => $integration2->id,
+            'harga' => 1000,
+            'profit' => 100,
+            'layanan' => 'Test Product',
+            'status' => 'Pending',
+        ]);
+
+        $response = $this->actingAs($user1)->get('/id/reseller/orders');
+        
+        $response->assertOk();
+        $response->assertSee('INV-USER1-TEST');
+        $response->assertDontSee('INV-USER2-TEST');
+    }
+
+    public function test_callback_logs_only_show_authenticated_reseller_deliveries(): void
+    {
+        $user1 = User::factory()->create(['role' => 'Member']);
+        $user2 = User::factory()->create(['role' => 'Member']);
+
+        $integration1 = ResellerIntegration::query()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
+        $integration2 = ResellerIntegration::query()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
+
+        $profile1 = \App\Models\ResellerCallbackProfile::query()->create(['reseller_integration_id' => $integration1->id, 'callback_url' => 'http://1']);
+        $profile2 = \App\Models\ResellerCallbackProfile::query()->create(['reseller_integration_id' => $integration2->id, 'callback_url' => 'http://2']);
+
+        \App\Models\ResellerCallbackDelivery::query()->create([
+            'reseller_integration_id' => $integration1->id,
+            'reseller_callback_profile_id' => $profile1->id,
+            'event_name' => 'order.status_changed',
+            'callback_url' => 'http://1',
+            'payload' => ['user' => 1],
+            'status' => 'success',
+        ]);
+
+        \App\Models\ResellerCallbackDelivery::query()->create([
+            'reseller_integration_id' => $integration2->id,
+            'reseller_callback_profile_id' => $profile2->id,
+            'event_name' => 'order.status_changed',
+            'callback_url' => 'http://2',
+            'payload' => ['user' => 2],
+            'status' => 'failed',
+            'last_response_status' => 500,
+        ]);
+
+        $response = $this->actingAs($user1)->get('/id/reseller/callbacks');
+        
+        $response->assertOk();
+        $response->assertSee('"status":"success"', false); // User 1 has success
+        $response->assertDontSee('500'); // User 2 has 500
+    }
 }

@@ -210,6 +210,9 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/', [\App\Http\Controllers\Public\Reseller\DashboardController::class, 'index'])->name('dashboard');
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
             Route::get('/docs', [\App\Http\Controllers\Public\Reseller\DocsController::class, 'index'])->name('docs');
+            Route::get('/callbacks', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'index'])->name('callbacks');
+            Route::get('/orders', [\App\Http\Controllers\Public\Reseller\OrderLogController::class, 'index'])->name('orders');
+            Route::get('/sandbox', [\App\Http\Controllers\Public\Reseller\SandboxController::class, 'index'])->name('sandbox');
         });
 
     });
