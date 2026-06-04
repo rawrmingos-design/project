@@ -409,7 +409,7 @@
             <!-- Request Body -->
             <div>
                 <div class="font-semibold">Request Body</div>
-                <div class="text-muted"> { "code": "string", "referenceNumber": "string", "data": "string" }</div>
+                <div class="text-muted"> { "code": "string", "referenceNumber": "string", "user_id": "string", "zone_id": "string|null" }</div>
             </div>
         </div>
 
@@ -523,7 +523,8 @@
         <div>&nbsp;&nbsp;<span class="json-key">"data"</span>: {</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"invoiceNumber"</span>: <span class="json-string">"WEJIZY-RAPIXXXXXX"</span>,</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"productName"</span>: <span class="json-string">"string"</span>,</div>
-        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"userData"</span>: <span class="json-string">"string"</span>,</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"userId"</span>: <span class="json-string">"string"</span>,</div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"zoneId"</span>: <span class="json-string">"string | null"</span>,</div>
         <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="json-key">"statusCode"</span>: <span class="json-string">"Success"</span></div>
         <div>&nbsp;&nbsp;}</div>
         <div>}</div>

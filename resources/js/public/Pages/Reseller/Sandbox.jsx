@@ -1,69 +1,55 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
+import ResellerLayout from '../../Layouts/ResellerLayout';
 
 export default function Sandbox({ is_sandbox_active }) {
     return (
-        <div className="p-6">
+        <ResellerLayout headerTitle="Sandbox Environment">
             <Head title="Sandbox Guide" />
-            <h1 className="text-2xl font-bold mb-6">Sandbox Testing Guide</h1>
 
-            {!is_sandbox_active ? (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded mb-6">
-                    <p className="font-semibold">Sandbox Inactive</p>
-                    <p className="text-sm">You do not have an active Sandbox integration. Contact an administrator to enable it for your account.</p>
-                </div>
-            ) : null}
+            {!is_sandbox_active && (
+                <article className="rh-alert rh-alert--warning" style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: 'var(--accent-danger)' }}>
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <div>
+                        <h2 style={{ margin: '0 0 8px', color: 'var(--accent-danger)', fontSize: '1rem' }}>Sandbox Inactive</h2>
+                        <p style={{ margin: 0, color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>
+                            You do not have an active Sandbox integration. Contact an administrator to enable it for your account.
+                        </p>
+                    </div>
+                </article>
+            )}
 
-            <div className="space-y-6">
-                <section className="bg-white shadow p-6 rounded-lg border">
-                    <h2 className="text-xl font-semibold mb-4">1. Understand the Sandbox Environment</h2>
-                    <p className="text-gray-600 mb-4">
+            <section style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+                <article className="rh-card">
+                    <h3 style={{ margin: '0 0 16px', color: 'var(--primary)', fontSize: '1.2rem' }}>1. Understand the Sandbox Environment</h3>
+                    <p style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', lineHeight: 1.6 }}>
                         The Sandbox environment allows you to test your integration without spending real balance. 
                         It simulates provider responses and order status updates locally.
                     </p>
-                    <ul className="list-disc list-inside text-gray-700 space-y-2">
-                        <li>Use the <code className="bg-gray-100 px-1">/api/v1/sandbox/*</code> endpoints.</li>
+                    <ul style={{ color: '#fff', paddingLeft: '20px', lineHeight: 1.8 }}>
+                        <li>Use the <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-primary)' }}>/api/v1/sandbox/*</code> endpoints.</li>
                         <li>Pass your <strong>Sandbox API Key</strong> as the Bearer Token.</li>
-                        <li>Pass your <strong>Sandbox Integration Code</strong> in the <code className="bg-gray-100 px-1">X-Reseller-Integration-Code</code> header.</li>
                     </ul>
-                </section>
+                </article>
 
-                <section className="bg-white shadow p-6 rounded-lg border">
-                    <h2 className="text-xl font-semibold mb-4">2. Testing Callbacks (Webhooks)</h2>
-                    <p className="text-gray-600 mb-4">
+                <article className="rh-card">
+                    <h3 style={{ margin: '0 0 16px', color: 'var(--primary)', fontSize: '1.2rem' }}>2. Testing Callbacks (Webhooks)</h3>
+                    <p style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', lineHeight: 1.6 }}>
                         When an order status changes in Sandbox, we will fire a webhook to your configured Live webhook URL, 
-                        but the payload will include <code className="bg-gray-100 px-1">"mode": "sandbox"</code>.
+                        but the payload will include <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-primary)' }}>"mode": "sandbox"</code>.
                     </p>
-                    <p className="text-gray-600">
-                        <strong>Interactive Webhook Testing:</strong> 
-                        Currently under development. Soon, you will be able to manually trigger test payloads to your endpoint from this page.
-                    </p>
-                </section>
-
-                <section className="bg-white shadow p-6 rounded-lg border">
-                    <h2 className="text-xl font-semibold mb-4">3. Simulating Status Changes</h2>
-                    <p className="text-gray-600 mb-4">
-                        In the Sandbox environment, you can force an order to change its status to test your webhook handling.
-                    </p>
-                    <pre className="bg-gray-800 text-green-400 p-4 rounded overflow-x-auto text-sm">
-{`POST /api/v1/sandbox/simulate-status
-Content-Type: application/json
-Authorization: Bearer <SANDBOX_API_KEY>
-X-Reseller-Integration-Code: <SANDBOX_INTEGRATION_CODE>
-
-{
-    "invoice": "INV-12345",
-    "status": "Success" // or "Failed", "Processing"
-}`}
-                    </pre>
-                </section>
-            </div>
-            
-            <div className="mt-8 text-center">
-                <Link href="/id/reseller/docs" className="text-blue-600 hover:underline">
-                    &larr; Back to API Documentation
-                </Link>
-            </div>
-        </div>
+                    <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
+                        <p style={{ color: '#fff', margin: 0 }}>
+                            <strong style={{ color: 'var(--accent-secondary)' }}>Interactive Webhook Testing:</strong><br/>
+                            Currently under development. Soon, you will be able to manually trigger test payloads to your endpoint from this page.
+                        </p>
+                    </div>
+                </article>
+            </section>
+        </ResellerLayout>
     );
 }

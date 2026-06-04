@@ -1,28 +1,47 @@
-window._ = require('lodash');
+import _ from 'lodash';
+import axios from 'axios';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
 
-/**
- * We'll load the axios HTTP library which allows us to easily issue requests
- * to our Laravel back-end. This library automatically handles sending the
- * CSRF token as a header based on the value of the "XSRF" token cookie.
- */
-
-window.axios = require('axios');
-
+window._ = _;
+window.axios = axios;
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-/**
- * Echo exposes an expressive API for subscribing to channels and listening
- * for events that are broadcast by Laravel. Echo and event broadcasting
- * allows your team to easily build robust real-time web applications.
- */
+window.Pusher = Pusher;
 
-import Echo from 'laravel-echo';
+// Enable verbose Pusher logging so we can see connection + auth details
+Pusher.logToConsole = true;
 
-window.Pusher = require('pusher-js');
+const reverbKey    = import.meta.env.VITE_REVERB_APP_KEY;
+const reverbHost   = import.meta.env.VITE_REVERB_HOST;
+const reverbPort   = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
+const reverbScheme = import.meta.env.VITE_REVERB_SCHEME ?? 'http';
+const isTLS        = reverbScheme === 'https';
+
+console.log('[bootstrap] Reverb config →', { reverbKey, reverbHost, reverbPort, reverbScheme, isTLS });
 
 window.Echo = new Echo({
-    broadcaster: 'pusher',
-    key: process.env.MIX_PUSHER_APP_KEY,
-    cluster: process.env.MIX_PUSHER_APP_CLUSTER,
-    forceTLS: true
+    broadcaster: 'reverb',
+    key: reverbKey,
+    wsHost: reverbHost,
+    wsPort: reverbPort,
+    wssPort: reverbPort,
+    forceTLS: isTLS,
+    // 'ws' is the ONLY valid WebSocket transport in Pusher-js (covers both ws:// and wss://)
+    // TLS is handled by forceTLS above, NOT by the transport name
+    enabledTransports: ['ws'],
+    // Custom authorizer so axios carries session cookies + CSRF automatically
+    authorizer: (channel) => ({
+        authorize: (socketId, callback) => {
+            axios.post('/broadcasting/auth', {
+                socket_id: socketId,
+                channel_name: channel.name,
+            })
+            .then(res => callback(null, res.data))
+            .catch(err => {
+                console.error('[Echo Auth] Channel auth failed:', channel.name, err?.response?.status, err?.response?.data);
+                callback(err);
+            });
+        },
+    }),
 });

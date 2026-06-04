@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
-
+import './bootstrap';
 createInertiaApp({
     resolve: (name) => {
         const pages = import.meta.glob('./public/Pages/**/*.jsx', { eager: true });
