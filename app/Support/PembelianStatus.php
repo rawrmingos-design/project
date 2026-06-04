@@ -158,14 +158,34 @@ final class PembelianStatus
     public static function manualStatusOptions(): array
     {
         return [
-            'Sukses' => 'Sukses',
-            'Pending' => 'Pending',
+            'Sukses'     => 'Sukses',
+            'Pending'    => 'Pending',
             'Processing' => 'Processing',
-            'Proses' => 'Proses',
-            'Failed' => 'Failed',
-            'Gagal' => 'Gagal',
-            'Batal' => 'Batal',
-            'Refunded' => 'Refunded',
+            'Proses'     => 'Proses',
+            'Failed'     => 'Failed',
+            'Gagal'      => 'Gagal',
+            'Batal'      => 'Batal',
+            'Refunded'   => 'Refunded',
         ];
+    }
+
+    /**
+     * Phase 5 — Task 5.4
+     * DB label sets for use in OrderLogController ?status= filter.
+     * These match the PREFERRED_DATABASE_LABELS values stored in the DB.
+     */
+    public static function failedLabels(): array
+    {
+        return ['Gagal', 'Batal', 'Failed'];
+    }
+
+    public static function pendingLabels(): array
+    {
+        return ['Pending', 'Processing', 'Proses'];
+    }
+
+    public static function successLabels(): array
+    {
+        return ['Sukses', 'Success'];
     }
 }

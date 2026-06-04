@@ -6,6 +6,7 @@ services:
     working_dir: /var/www/html
     ports:
       - "${NGINX_PORT:-9000}:8080"
+      - "${REVERB_PORT:-9001}:9001"
     volumes:
       - ./.env:/var/www/html/.env
       - istana_app_storage:/var/www/html/storage/app

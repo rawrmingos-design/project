@@ -17,6 +17,8 @@ final class ResellerApiResponse
     public const INTEGRATION_CODE_REQUIRED = 'INTEGRATION_CODE_REQUIRED';
     public const INVALID_INTEGRATION_CODE = 'INVALID_INTEGRATION_CODE';
     public const TOO_MANY_REQUESTS = 'TOO_MANY_REQUESTS';
+    public const IP_WHITELIST_EMPTY = 'IP_WHITELIST_EMPTY';
+    public const IP_NOT_WHITELISTED = 'IP_NOT_WHITELISTED';
 
     /**
      * @param array<string, mixed>|null $details
@@ -35,6 +37,70 @@ final class ResellerApiResponse
         }
 
         return response()->json($payload, $httpStatus);
+    }
+
+    /**
+     * Structured response for a failed order.
+     *
+     * Provides reseller-facing context:
+     *   - balance_deducted: apakah saldo sudah terpotong (biasanya false — order gagal sebelum DB commit)
+     *   - can_retry: apakah boleh retry dengan referenceNumber yang sama
+     *   - reason: penjelasan singkat dari provider (sudah disanitasi, tidak expose internal keys/secrets)
+     */
+    public static function orderFailed(
+        ?string $reason = null,
+        bool $balanceDeducted = false,
+        bool $canRetry = true,
+    ): JsonResponse {
+        $payload = [
+            'error'      => true,
+            'code'       => 400,
+            'message'    => 'Order failed',
+            'error_code' => self::ORDER_FAILED,
+            'data'       => [
+                'balance_deducted' => $balanceDeducted,
+                'can_retry'        => $canRetry,
+            ],
+        ];
+
+        $sanitized = self::sanitizeProviderReason($reason);
+        if ($sanitized !== null && $sanitized !== '') {
+            $payload['data']['reason'] = $sanitized;
+        }
+
+        return response()->json($payload, 400);
+    }
+
+    /**
+     * Sanitize provider error messages before exposing them to resellers.
+     *
+     * Provider errors may contain internal API keys, secrets, or tokens.
+     * We strip those and return a generic message if any sensitive keyword found.
+     */
+    private static function sanitizeProviderReason(?string $reason): ?string
+    {
+        if ($reason === null || $reason === '') {
+            return null;
+        }
+
+        // Keywords that indicate the message contains sensitive internal info
+        $sensitivePatterns = [
+            '/api[_\-]?key/i',
+            '/secret/i',
+            '/token/i',
+            '/password/i',
+            '/credential/i',
+            '/authorization/i',
+        ];
+
+        foreach ($sensitivePatterns as $pattern) {
+            if (preg_match($pattern, $reason)) {
+                return 'Provider returned an error. Please contact support if this persists.';
+            }
+        }
+
+        // Truncate long messages to prevent verbose provider stack traces leaking
+        return mb_substr(trim($reason), 0, 200);
     }
 
     /**
