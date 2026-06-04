@@ -161,6 +161,9 @@ class OrderApiController extends Controller
    
    public function order(Request $request)
    {
+        // Phase 5 — Task 5.4: capture start time for provider duration_ms logging
+        $orderStartTime = hrtime(true);
+
         $user = $this->resolveApiUser($request);
 
         if (! $user instanceof User) {
@@ -174,9 +177,10 @@ class OrderApiController extends Controller
        }
 
        if ($validation = $this->validatePayload($payload, [
-           'code' => ['required', 'string'],
+           'code'            => ['required', 'string'],
            'referenceNumber' => ['required', 'string'],
-           'data' => ['required', 'string'],
+           'user_id'         => ['required', 'string', 'max:100'],
+           'zone_id'         => ['nullable', 'string', 'max:100'],
        ])) {
            return $validation;
        }
@@ -233,176 +237,178 @@ class OrderApiController extends Controller
            
        }
       
-       if (strpos($payload['data'], '|') !== false) {
-            // Jika data yang diterima mengandung karakter '|', lakukan explode
-            $datagame = explode('|', $payload['data']);
-        } else {
-            // Jika data yang diterima hanya satu, gunakan data tersebut tanpa explode
-            $datagame = array($payload['data']);
-        }
-       $unik = date('Hs');
-       $kode_unik = substr(str_shuffle(1234567890),0,3);
-       $order_id = 'WEJIZY-RAPI'.$unik.$kode_unik;
+       // Phase 5 — explicit named fields replace the ambiguous pipe-separated `data` field.
+       $userId = trim((string) $payload['user_id']);
+       $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
+           ? trim((string) $payload['zone_id'])
+           : null;
+       $order_id = $this->generateOrderId();
        $providerCode = strtolower(trim((string) ($providerRoute['provider_code'] ?? $service->provider)));
        $providerSku = trim((string) ($providerRoute['sku'] ?? $service->provider_id));
        $credentials = $providerRoute['credentials'] ?? [];
-       $resolvedOrderStatus = 'Pending';
+
+       // ── Status label constants — avoid raw string literals scattered below ─
+       $STATUS_PENDING = PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING);
+       $STATUS_SUCCESS = PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS);
+       $STATUS_FAILED  = PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED);
+
+       $resolvedOrderStatus = $STATUS_PENDING;
        $provider_order_id = '';
        $providerReference = $order_id;
        $order = ['status' => false];
 
-       if($providerCode == "digiflazz"){
+       if ($providerCode == "digiflazz") {
             $digi = new DigiFlazzController($credentials);
             $random_part = mt_rand(100000, 999999);
-            $provider_order_id = 'WEJIZY-RAPID'. $random_part;
-            $order = $digi->order($datagame[0], $datagame[1], $providerSku, $provider_order_id);
+            $provider_order_id = 'WEJIZY-RAPID' . $random_part;
+            $order = $digi->order($userId, $zoneId, $providerSku, $provider_order_id);
 
             if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
                 $order['status'] = true;
             } else {
                 $order['status'] = false;
             }
-            $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($order['data']['status'] ?? 'Pending');
+            $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($order['data']['status'] ?? PembelianStatus::PENDING);
         } else if ($providerCode == "moogold") {
-                $moo = new MoogoldController();
-                $random_part = mt_rand(100000, 999999);
-                $provider_order_id = 'WJMG-RAPID' . $random_part;
-            
-                $order = $moo->order($datagame[0], $providerSku, $provider_order_id, $datagame[1]);
-            
-                 if(isset($order['status'])){
-                        $provider_order_id = $order['order_id'];
-                        $order['status'] = true;
-                    }else{
-                        $order['status'] = false;
-                    }
-                 $resolvedOrderStatus = 'Pending';
-        } else if($providerCode == "vip" || $providerCode == "vip_reseller"){
-                    $vip = new VipResellerController($credentials);
-                    $order = $vip->order($datagame[0], $datagame[1] ?? null, $providerSku);
-                    
-                    if(($order['result'] ?? false) === true){
-                        $statusMeta = VipResellerController::normalizeStatusMeta($order['data']['status'] ?? null);
-                        $order['data']['status'] = $order['result'];
-                        $order['transactionId'] = $order['data']['trxid'] ?? null;
-                        $order['provider_status'] = $statusMeta['internal_status'];
-                        $provider_order_id = $order['data']['trxid'] ?? '';
-                        $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($statusMeta['internal_status']);
-                    }else{
-                        $order['data']['status'] = false;
-                    }
-                }else if($providerCode == "apigames"){
-                    $apigames = new ApiGamesController($credentials);
-                    $provider_order_id = $providerReference;
-                    $order = $apigames->order($datagame[0], $datagame[1] ?? null, $providerSku, $providerReference);
+            $moo = new MoogoldController();
+            $random_part = mt_rand(100000, 999999);
+            $provider_order_id = 'WJMG-RAPID' . $random_part;
 
-                    $statusMeta = ApiGamesController::normalizeStatusMeta($order['data']['status'] ?? null);
+            $order = $moo->order($userId, $providerSku, $provider_order_id, $zoneId);
 
-                    if(($order['result'] ?? false) === true){
-                        $order['transactionId'] = $order['data']['trx_id'] ?? $providerReference;
-                        $order['provider_status'] = $statusMeta['internal_status'];
-                        $order['provider_order_id'] = $order['data']['trx_id'] ?? null;
-                        $provider_order_id = $order['data']['trx_id'] ?? $providerReference;
-                        $order['data']['status'] = true;
-                        $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($statusMeta['internal_status']);
-                    }else if (($order['transport_error'] ?? false) === true){
-                        $order['provider_status'] = 'Pending';
-                        $order['data']['status'] = true;
-                        $resolvedOrderStatus = 'Pending';
-                    }else{
-                        $order['data']['status'] = false;
-                    }
-                }else if($providerCode == "bangjeff"){
-                    $bangjeff = new BangJeffController($credentials);
-                    $requestData = [['name' => 'ID', 'value' => $datagame[0]]];
-                    if (!empty($datagame[1] ?? null)) {
-                        $requestData[] = ['name' => 'Server', 'value' => $datagame[1]];
-                    }
+            if (isset($order['status'])) {
+                $provider_order_id = $order['order_id'];
+                $order['status'] = true;
+            } else {
+                $order['status'] = false;
+            }
+            $resolvedOrderStatus = $STATUS_PENDING;
+        } else if ($providerCode == "vip" || $providerCode == "vip_reseller") {
+            $vip = new VipResellerController($credentials);
+            $order = $vip->order($userId, $zoneId, $providerSku);
 
-                    $order = $bangjeff->order($providerSku, $providerReference, 1, $requestData);
-                    $isSuccess = (($order['error'] ?? null) === false) || (($order['rc'] ?? null) === '00');
-                    $statusCode = strtoupper((string) ($order['data']['statusCode'] ?? 'PROCESSING'));
+            if (($order['result'] ?? false) === true) {
+                $statusMeta = VipResellerController::normalizeStatusMeta($order['data']['status'] ?? null);
+                $order['data']['status'] = $order['result'];
+                $order['transactionId'] = $order['data']['trxid'] ?? null;
+                $order['provider_status'] = $statusMeta['internal_status'];
+                $provider_order_id = $order['data']['trxid'] ?? '';
+                $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($statusMeta['internal_status']);
+            } else {
+                $order['data']['status'] = false;
+            }
+        } else if ($providerCode == "apigames") {
+            $apigames = new ApiGamesController($credentials);
+            $provider_order_id = $providerReference;
+            $order = $apigames->order($userId, $zoneId, $providerSku, $providerReference);
 
-                    if ($isSuccess) {
-                        $provider_order_id = $order['data']['invoiceNumber'] ?? $providerReference;
-                        $order['status'] = true;
-                        $resolvedOrderStatus = $statusCode === 'SUCCESS'
-                            ? 'Sukses'
-                            : ($statusCode === 'REFUNDED' ? 'Gagal' : 'Pending');
-                    } else {
-                        $order['status'] = false;
-                    }
-                }else if($providerCode == "topupedia"){
-                    $topupedia = new TopupediaController($credentials);
-                    $requestData = [['name' => 'ID', 'value' => $datagame[0]]];
-                    if (!empty($datagame[1] ?? null)) {
-                        $requestData[] = ['name' => 'Server', 'value' => $datagame[1]];
-                    }
+            $statusMeta = ApiGamesController::normalizeStatusMeta($order['data']['status'] ?? null);
 
-                    $order = $topupedia->order($providerSku, $providerReference, 1, $requestData);
+            if (($order['result'] ?? false) === true) {
+                $order['transactionId'] = $order['data']['trx_id'] ?? $providerReference;
+                $order['provider_status'] = $statusMeta['internal_status'];
+                $order['provider_order_id'] = $order['data']['trx_id'] ?? null;
+                $provider_order_id = $order['data']['trx_id'] ?? $providerReference;
+                $order['data']['status'] = true;
+                $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($statusMeta['internal_status']);
+            } else if (($order['transport_error'] ?? false) === true) {
+                $order['provider_status'] = PembelianStatus::PENDING;
+                $order['data']['status'] = true;
+                $resolvedOrderStatus = $STATUS_PENDING;
+            } else {
+                $order['data']['status'] = false;
+            }
+        } else if ($providerCode == "bangjeff") {
+            $bangjeff = new BangJeffController($credentials);
+            $requestData = [['name' => 'ID', 'value' => $userId]];
+            if (!empty($zoneId)) {
+                $requestData[] = ['name' => 'Server', 'value' => $zoneId];
+            }
 
-                    if (($order['error'] ?? true) === false) {
-                        $provider_order_id = $order['data']['invoiceNumber'] ?? $providerReference;
-                        $order['status'] = true;
-                        $resolvedOrderStatus = 'Pending';
-                    } else {
-                        $order['status'] = false;
-                    }
-                } else if ($providerCode == "gameshop") {
-                    $gameshop =  new GameShopProvider;
-                    $random_part = mt_rand(100000, 999999);
-                    $provider_order_id = 'WJGS-RAPI' . $random_part;
-                    $order = $gameshop->order($datagame[0], $providerSku, $provider_order_id, $datagame[1]);
-                    Log::info('callback gameshop ' . json_encode($order));
-                    if(isset($order['data']['order_no'])){
-                        $provider_order_id = $order['data']['order_no'];
-                        $order['status'] = true;
-                    }else{
-                        $order['status'] = false;
-                    }
-                    $resolvedOrderStatus = 'Pending';
-                } else if ($providerCode == "strleyashop") {
-                    $strleyashop =  new StrleyaShopProvider;
-                    $random_part = mt_rand(100000, 999999);
-                    $provider_order_id = 'WJSS-RAPI' . $random_part;
-                    $order = $strleyashop->order($datagame[0], $providerSku, $provider_order_id, $datagame[1]);
-                    Log::info('callback strleyashop ' . json_encode($order));
-                    if(isset($order['order_details']['bot_order_id'])){
-                        $provider_order_id = $order['order_details']['bot_order_id'];
-                        $order['status'] = true;
-                    }else{
-                        $order['status'] = false;
-                    }
-                    $resolvedOrderStatus = 'Pending';
-                } else if ($providerCode == "yezzpay") {
-                    $yezzpay =  new YezzpayProvider;
-                    $random_part = mt_rand(100000, 999999);
-                    $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-                    $order = $yezzpay->order($datagame[0], $providerSku, $provider_order_id, $datagame[1]);
-                    Log::info('callback yezzpay ' . json_encode($order));
-                    if(isset($order['data']['trx_id'])){
-                        $provider_order_id = $provider_order_id;
-                        $order['status'] = true;
-                    }else{
-                        $order['status'] = false;
-                    }
-                    $resolvedOrderStatus = 'Pending';
-                } else if ($providerCode == "elitedias") {
-                    $elitedias =  new EliteDiasProvider;
-                    $random_part = mt_rand(100000, 999999);
-                    $provider_order_id = 'WJED-RAPI' . $random_part;
-                    $order = $elitedias->order($datagame[0], $providerSku, $provider_order_id, $datagame[1]);
-                    Log::info('callback elitedias ' . json_encode($order));
-                    if(isset($order['order_id'])){
-                        $provider_order_id = $order['order_id'];
-                        $order['status'] = true;
-                    }else{
-                        $order['status'] = false;
-                    }
-                    $resolvedOrderStatus = 'Pending';
-        } else if($providerCode == "joki" || $providerCode == "manual"){
+            $order = $bangjeff->order($providerSku, $providerReference, 1, $requestData);
+            $isSuccess = (($order['error'] ?? null) === false) || (($order['rc'] ?? null) === '00');
+            $statusCode = strtoupper((string) ($order['data']['statusCode'] ?? 'PROCESSING'));
+
+            if ($isSuccess) {
+                $provider_order_id = $order['data']['invoiceNumber'] ?? $providerReference;
+                $order['status'] = true;
+                $resolvedOrderStatus = match ($statusCode) {
+                    'SUCCESS'  => $STATUS_SUCCESS,
+                    'REFUNDED' => $STATUS_FAILED,
+                    default    => $STATUS_PENDING,
+                };
+            } else {
+                $order['status'] = false;
+            }
+        } else if ($providerCode == "topupedia") {
+            $topupedia = new TopupediaController($credentials);
+            $requestData = [['name' => 'ID', 'value' => $userId]];
+            if (!empty($zoneId)) {
+                $requestData[] = ['name' => 'Server', 'value' => $zoneId];
+            }
+
+            $order = $topupedia->order($providerSku, $providerReference, 1, $requestData);
+
+            if (($order['error'] ?? true) === false) {
+                $provider_order_id = $order['data']['invoiceNumber'] ?? $providerReference;
+                $order['status'] = true;
+                $resolvedOrderStatus = $STATUS_PENDING;
+            } else {
+                $order['status'] = false;
+            }
+        } else if ($providerCode == "gameshop") {
+            $gameshop = new GameShopProvider;
+            $random_part = mt_rand(100000, 999999);
+            $provider_order_id = 'WJGS-RAPI' . $random_part;
+            $order = $gameshop->order($userId, $providerSku, $provider_order_id, $zoneId);
+            Log::info('callback gameshop ' . json_encode($order));
+            if (isset($order['data']['order_no'])) {
+                $provider_order_id = $order['data']['order_no'];
+                $order['status'] = true;
+            } else {
+                $order['status'] = false;
+            }
+            $resolvedOrderStatus = $STATUS_PENDING;
+        } else if ($providerCode == "strleyashop") {
+            $strleyashop = new StrleyaShopProvider;
+            $random_part = mt_rand(100000, 999999);
+            $provider_order_id = 'WJSS-RAPI' . $random_part;
+            $order = $strleyashop->order($userId, $providerSku, $provider_order_id, $zoneId);
+            Log::info('callback strleyashop ' . json_encode($order));
+            if (isset($order['order_details']['bot_order_id'])) {
+                $provider_order_id = $order['order_details']['bot_order_id'];
+                $order['status'] = true;
+            } else {
+                $order['status'] = false;
+            }
+            $resolvedOrderStatus = $STATUS_PENDING;
+        } else if ($providerCode == "yezzpay") {
+            $yezzpay = new YezzpayProvider;
+            $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
+            $order = $yezzpay->order($userId, $providerSku, $provider_order_id, $zoneId);
+            Log::info('callback yezzpay ' . json_encode($order));
+            if (isset($order['data']['trx_id'])) {
+                $order['status'] = true;
+            } else {
+                $order['status'] = false;
+            }
+            $resolvedOrderStatus = $STATUS_PENDING;
+        } else if ($providerCode == "elitedias") {
+            $elitedias = new EliteDiasProvider;
+            $random_part = mt_rand(100000, 999999);
+            $provider_order_id = 'WJED-RAPI' . $random_part;
+            $order = $elitedias->order($userId, $providerSku, $provider_order_id, $zoneId);
+            Log::info('callback elitedias ' . json_encode($order));
+            if (isset($order['order_id'])) {
+                $provider_order_id = $order['order_id'];
+                $order['status'] = true;
+            } else {
+                $order['status'] = false;
+            }
+            $resolvedOrderStatus = $STATUS_PENDING;
+        } else if ($providerCode == "joki" || $providerCode == "manual") {
             $order['status'] = true;
-            $resolvedOrderStatus = 'Sukses';
+            $resolvedOrderStatus = $STATUS_SUCCESS;
         }
         
 
@@ -418,7 +424,8 @@ class OrderApiController extends Controller
                 $user,
                 $harga,
                 $order_id,
-                $datagame,
+                $userId,
+                $zoneId,
                 $service,
                 $modalPrice,
                 $resolvedOrderStatus,
@@ -437,8 +444,8 @@ class OrderApiController extends Controller
                 $pembelian->username = $user->username;
                 $pembelian->reseller_integration_id = $integration?->getKey();
                 $pembelian->order_id = $order_id;
-                $pembelian->user_id = $datagame[0];
-                $pembelian->zone = isset($datagame[1]) ? $datagame[1] : null;
+                $pembelian->user_id = $userId;
+                $pembelian->zone = $zoneId;
                 $pembelian->layanan = $service->layanan;
                 $pembelian->harga = $harga;
                 $pembelian->profit = is_numeric($modalPrice)
@@ -478,10 +485,24 @@ class OrderApiController extends Controller
               ]
             ], 200);
         }else{
-            return ResellerApiResponse::error(
-              'Order failed',
-              ResellerApiResponse::ORDER_FAILED,
-              400,
+            // Phase 5 — Task 5.4: Structured warning log for provider failures.
+            // Includes duration_ms so we can identify slow/flaky providers in log monitoring.
+            $durationMs = (int) round((hrtime(true) - $orderStartTime) / 1_000_000);
+            Log::warning('reseller.provider_failure', [
+                'provider'    => $providerCode ?? 'unknown',
+                'layanan'     => $service->layanan ?? 'unknown',
+                'username'    => $user->username,
+                'code'        => trim((string) ($payload['code'] ?? '')),
+                'duration_ms' => $durationMs,
+                'reason'      => $order['message'] ?? ($order['data']['message'] ?? null),
+            ]);
+
+            // Saldo tidak terpotong — DB transaction tidak commit karena order gagal.
+            // Reseller bisa langsung retry dengan referenceNumber yang sama.
+            return ResellerApiResponse::orderFailed(
+                reason: $order['message'] ?? ($order['data']['message'] ?? null),
+                balanceDeducted: false,
+                canRetry: true,
             );
         }
    }
@@ -573,21 +594,45 @@ class OrderApiController extends Controller
         ];
     }
 
+    /**
+     * Generate a unique order ID with low collision probability.
+     *
+     * Format: WEJIZY-H2H-{YYMMDDHHmmss}{8-char-random}
+     * Example: WEJIZY-H2H-2606021435AB3XYZ8
+     *
+     * Old format was WEJIZY-RAPI{HHss}{3 digits} which had ~1000 combinations/second.
+     * New format has >2 trillion combinations per second — effectively unique.
+     * A retry loop is included as defense-in-depth (essentially unreachable in practice).
+     */
+    private function generateOrderId(): string
+    {
+        $maxAttempts = 5;
+
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $candidate = 'WEJIZY-H2H-' . now()->format('ymdHis') . \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(8));
+
+            if (! \App\Models\Pembelian::where('order_id', $candidate)->exists()) {
+                return $candidate;
+            }
+        }
+
+        // Extremely unlikely to reach here; log a warning so we can investigate
+        \Illuminate\Support\Facades\Log::warning('OrderApiController: order ID generation exhausted retries', [
+            'last_candidate' => $candidate ?? 'none',
+        ]);
+
+        // Final fallback: add microseconds to guarantee uniqueness
+        return 'WEJIZY-H2H-' . now()->format('ymdHisu') . \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(4));
+    }
+
     protected function resolveApiUser(Request $request): ?User
     {
+        // api_user di-set oleh AuthenticateApi middleware sebelum controller dieksekusi.
+        // Tidak ada DB fallback di sini — controller tidak boleh duplikat logika middleware.
+        // Jika api_user tidak ada di attributes, berarti middleware dilewati (tidak seharusnya).
         $resolved = $request->attributes->get('api_user');
 
-        if ($resolved instanceof User) {
-            return $resolved;
-        }
-
-        $token = trim((string) $request->bearerToken());
-
-        if ($token === '') {
-            return null;
-        }
-
-        return User::query()->where('api_key', $token)->first();
+        return $resolved instanceof User ? $resolved : null;
     }
 
     protected function unauthenticatedResponse(Request $request): JsonResponse

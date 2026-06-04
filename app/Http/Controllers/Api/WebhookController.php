@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\OrderRefundService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -119,13 +120,16 @@ class WebhookController extends Controller
         $newStatus = $this->mapDigiflazzStatus($status);
         
         $transaction->update([
-            'status' => $newStatus,
+            'status'        => $newStatus,
             'keterangan_sn' => $sn,
-            'log' => json_encode($data),
-            'updated_at' => now(),
+            'log'           => json_encode($data),
+            'updated_at'    => now(),
         ]);
-        
+
         Log::debug("Transaction {$refId} updated to status: {$newStatus}");
+
+        // Auto-refund saldo jika order H2H gagal (A1 — Phase 2)
+        app(OrderRefundService::class)->refundIfEligible($transaction->fresh());
     }
 
     /**
@@ -154,13 +158,16 @@ class WebhookController extends Controller
         $newStatus = $this->mapBangJeffStatus($status);
         
         $transaction->update([
-            'status' => $newStatus,
+            'status'        => $newStatus,
             'keterangan_sn' => $sn,
-            'log' => json_encode($data),
-            'updated_at' => now(),
+            'log'           => json_encode($data),
+            'updated_at'    => now(),
         ]);
-        
+
         Log::debug("Transaction {$orderId} updated to status: {$newStatus}");
+
+        // Auto-refund saldo jika order H2H gagal (A1 — Phase 2)
+        app(OrderRefundService::class)->refundIfEligible($transaction->fresh());
     }
 
     /**
@@ -197,11 +204,17 @@ class WebhookController extends Controller
     private function verifyDigiflazzSignature(Request $request): bool
     {
         $signature = $request->header('X-Digiflazz-Signature');
-        $payload = $request->getContent();
-        $secret = config('providers.digiflazz.webhook_secret');
-        
+
+        // PHP 8: hash_equals() throws TypeError if either argument is not a string.
+        // Return false (not crash) when the header is absent or empty.
+        if (!is_string($signature) || $signature === '') {
+            return false;
+        }
+
+        $payload           = $request->getContent();
+        $secret            = config('providers.digiflazz.webhook_secret');
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
-        
+
         return hash_equals($expectedSignature, $signature);
     }
 
@@ -211,11 +224,17 @@ class WebhookController extends Controller
     private function verifyBangJeffSignature(Request $request): bool
     {
         $signature = $request->header('X-BangJeff-Signature');
-        $payload = $request->getContent();
-        $secret = config('providers.bangjeff.webhook_secret');
-        
+
+        // PHP 8: hash_equals() throws TypeError if either argument is not a string.
+        // Return false (not crash) when the header is absent or empty.
+        if (!is_string($signature) || $signature === '') {
+            return false;
+        }
+
+        $payload           = $request->getContent();
+        $secret            = config('providers.bangjeff.webhook_secret');
         $expectedSignature = hash_hmac('sha256', $payload, $secret);
-        
+
         return hash_equals($expectedSignature, $signature);
     }
 

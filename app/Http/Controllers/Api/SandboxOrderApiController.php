@@ -30,9 +30,10 @@ class SandboxOrderApiController extends OrderApiController
         }
 
         if ($validation = $this->validatePayload($payload, [
-            'code' => ['required', 'string'],
+            'code'            => ['required', 'string'],
             'referenceNumber' => ['required', 'string'],
-            'data' => ['required', 'string'],
+            'user_id'         => ['required', 'string', 'max:100'],
+            'zone_id'         => ['nullable', 'string', 'max:100'],
         ])) {
             return $validation;
         }
@@ -74,23 +75,25 @@ class SandboxOrderApiController extends OrderApiController
             );
         }
 
-        $datagame = str_contains((string) $payload['data'], '|')
-            ? explode('|', (string) $payload['data'])
-            : [(string) $payload['data']];
+        // Phase 5 — explicit named fields replace the ambiguous pipe-separated `data` field.
+        $userId = trim((string) $payload['user_id']);
+        $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
+            ? trim((string) $payload['zone_id'])
+            : null;
 
         $orderId = sprintf('WEJIZY-SBX%s%s', now()->format('His'), Str::upper(Str::random(4)));
 
-        DB::transaction(function () use ($user, $integration, $service, $datagame, $orderId, $referenceNumber): void {
+        DB::transaction(function () use ($user, $integration, $service, $userId, $zoneId, $orderId, $referenceNumber): void {
             Pembelian::query()->create([
                 'username' => $user->username,
                 'reseller_integration_id' => $integration->getKey(),
                 'order_id' => $orderId,
-                'user_id' => $datagame[0],
-                'zone' => $datagame[1] ?? null,
+                'user_id'  => $userId,
+                'zone'     => $zoneId,
                 'layanan' => $service->layanan,
                 'harga' => 0,
                 'profit' => 0,
-                'status' => 'Pending',
+                'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
                 'provider_order_id' => 'SANDBOX-' . $orderId,
                 'log' => json_encode([
                     'environment' => 'sandbox',
@@ -125,7 +128,7 @@ class SandboxOrderApiController extends OrderApiController
             'message' => 'Success',
             'data' => [
                 'invoiceNumber' => $orderId,
-                'status' => 'Pending',
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
             ],
         ], 200);
     }

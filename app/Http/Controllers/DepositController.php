@@ -132,6 +132,10 @@ class DepositController extends Controller
 
             $gateway = $api->deposit_jalur ?? 'duitku';
             $merchantOrderId = $this->generateUniqueDepositOrderId();
+
+            $isReseller = strtolower(trim((string) $user->role)) === 'reseller';
+            $returnUrl = $isReseller ? route('reseller.dashboard') : route('riwayat');
+
             $result = $this->requestGatewayInvoice(
                 gateway: (string) $gateway,
                 paymentMethod: $paymentMethod,
@@ -142,11 +146,14 @@ class DepositController extends Controller
                 username: (string) $user->username,
                 phone: $normalizedPhone ?: '08123456789',
                 settings: $api,
+                returnUrl: $returnUrl
             );
 
             if (! ($result['success'] ?? false)) {
                 return back()->withInput()->withErrors(['msg' => 'Gagal membuat invoice via ' . ucfirst((string) $gateway)]);
             }
+
+            $expiredAt = $this->resolvePaymentExpiryAt($result, (string) $gateway);
 
             DB::transaction(function () use (
                 $merchantOrderId,
@@ -155,7 +162,8 @@ class DepositController extends Controller
                 $result,
                 $netAmount,
                 $normalizedPhone,
-                $gateway
+                $gateway,
+                $expiredAt
             ): void {
                 $deposit = new Deposit();
                 $deposit->order_id = $merchantOrderId;
@@ -174,7 +182,7 @@ class DepositController extends Controller
                 $pembayaran->status = 'Belum Lunas';
                 $pembayaran->metode = $paymentMethod;
                 $pembayaran->reference = $result['gateway_ref'];
-                $pembayaran->expired_at = $this->resolvePaymentExpiryAt($result, (string) $gateway);
+                $pembayaran->expired_at = $expiredAt;
 
                 if ((string) $gateway === 'duitku') {
                     $pembayaran->duitku_reference = $result['gateway_ref'];
@@ -183,6 +191,20 @@ class DepositController extends Controller
 
                 $pembayaran->save();
             });
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'order_id' => $merchantOrderId,
+                    'amount' => $netAmount,
+                    'fee' => $feeAmount,
+                    'gross_amount' => $grossAmount,
+                    'pay_url' => $result['pay_url'] ?? null,
+                    'va_number' => $result['va_number'] ?? null,
+                    'expired_at' => $expiredAt,
+                    'message' => 'Silakan lakukan pembayaran'
+                ]);
+            }
 
             return redirect()->route('deposit.invoice', $merchantOrderId)->with('success', 'Silakan lakukan pembayaran');
         } catch (\Throwable $exception) {
@@ -205,7 +227,8 @@ class DepositController extends Controller
         string $userName,
         string $username,
         string $phone,
-        object $settings
+        object $settings,
+        string $returnUrl = ''
     ): array {
         return match (strtolower($gateway)) {
             'duitku' => $this->requestDuitkuInvoice(
@@ -216,21 +239,24 @@ class DepositController extends Controller
                 userName: $userName,
                 username: $username,
                 phone: $phone,
-                settings: $settings
+                settings: $settings,
+                returnUrl: $returnUrl
             ),
             'tripay' => $this->requestTripayInvoice(
                 paymentMethod: $paymentMethod,
                 merchantOrderId: $merchantOrderId,
                 grossAmount: $grossAmount,
                 userEmail: $userEmail,
-                phone: $phone
+                phone: $phone,
+                returnUrl: $returnUrl
             ),
             'tokopay' => $this->requestTokopayInvoice(
                 paymentMethod: $paymentMethod,
                 merchantOrderId: $merchantOrderId,
                 grossAmount: $grossAmount,
                 username: $username,
-                phone: $phone
+                phone: $phone,
+                returnUrl: $returnUrl
             ),
             default => throw new \RuntimeException('Gateway Deposit tidak valid'),
         };
@@ -244,7 +270,8 @@ class DepositController extends Controller
         string $userName,
         string $username,
         string $phone,
-        object $settings
+        object $settings,
+        string $returnUrl
     ): array {
         $duitkuConfig = new Config($settings->duitku_merchant_key, $settings->duitku_merchant_code);
         $duitkuConfig->setSandboxMode($settings->duitku_mode === 'sandbox');
@@ -260,7 +287,7 @@ class DepositController extends Controller
             'customerVaName' => $userName,
             'paymentMethod' => $this->mapPaymentMethod($paymentMethod),
             'callbackUrl' => route('duitku.callback'),
-            'returnUrl' => route('riwayat'),
+            'returnUrl' => $returnUrl ?: route('riwayat'),
             'expiryPeriod' => 60,
             'customerDetail' => [
                 'firstName' => $username,
@@ -300,7 +327,8 @@ class DepositController extends Controller
         string $merchantOrderId,
         int $grossAmount,
         string $userEmail,
-        string $phone
+        string $phone,
+        string $returnUrl
     ): array {
         $tripay = new TriPayController();
         $tripayMethod = $paymentMethod === 'QRIS' ? 'QRIS' : $paymentMethod;
@@ -310,7 +338,8 @@ class DepositController extends Controller
             $grossAmount,
             $tripayMethod,
             $userEmail,
-            $phone
+            $phone,
+            $returnUrl
         );
 
         if (! ($payload['success'] ?? false)) {
@@ -339,7 +368,8 @@ class DepositController extends Controller
         string $merchantOrderId,
         int $grossAmount,
         string $username,
-        string $phone
+        string $phone,
+        string $returnUrl
     ): array {
         $tokopay = new TokoPayController();
         $tokopayMethod = $paymentMethod === 'QRIS' ? 'QRIS' : $paymentMethod;
@@ -350,7 +380,8 @@ class DepositController extends Controller
             $grossAmount,
             $username,
             $phone,
-            'Deposit Saldo'
+            'Deposit Saldo',
+            $returnUrl
         );
 
         if (! (($payload['status'] ?? false) === true)) {
