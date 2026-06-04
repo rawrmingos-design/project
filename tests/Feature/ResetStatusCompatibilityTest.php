@@ -44,12 +44,17 @@ class ResetStatusCompatibilityTest extends TestCase
 
         $request = Request::create('/api/status-order/' . $pembelian->order_id, 'GET');
         $request->headers->set('Authorization', 'Bearer ' . $user->api_key);
+        // Phase 3: resolveApiUser() reads from middleware-set request attribute.
+        // Tests that call the controller directly must inject api_user themselves,
+        // since middleware is not invoked in this code path.
+        $request->attributes->set('api_user', $user);
 
         $response = app(OrderApiController::class)->statusOrder($request, $pembelian->order_id);
         $payload = $response->getData(true);
 
         $this->assertSame($expectedApiStatusCode, $payload['data']['statusCode']);
         $this->assertSame($pembelian->order_id, $payload['data']['invoiceNumber']);
+
     }
 
     public static function legacyStatusProvider(): array

@@ -45,6 +45,12 @@ class PointSystemFeatureTest extends TestCase
         ]);
     }
 
+    protected function tearDown(): void
+    {
+        DB::table('setting_webs')->delete();
+        parent::tearDown();
+    }
+
     // =====================================================
     // EVENT & LISTENER TESTS
     // =====================================================

@@ -45,6 +45,8 @@ class ApiOrderApiGamesFlowTest extends TestCase
         ], json_encode([
             'code' => $kategori->kode,
         ]));
+        // Phase 3: controller reads api_user from request attributes (no DB fallback)
+        $request->attributes->set('api_user', $user);
 
         $response = app(OrderApiController::class)->listVariant($request);
         $payload = $response->getData(true);
@@ -105,10 +107,13 @@ class ApiOrderApiGamesFlowTest extends TestCase
             'HTTP_AUTHORIZATION' => 'Bearer ' . $user->api_key,
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
-            'code' => 'AG-ML86',
+            'code'            => 'AG-ML86',
             'referenceNumber' => 'EXT-REF-001',
-            'data' => '12345678|9012',
+            'user_id'         => '12345678',
+            'zone_id'         => '9012',
         ]));
+        // Phase 3: controller reads api_user from request attributes (no DB fallback)
+        $request->attributes->set('api_user', $user);
 
         $response = app(OrderApiController::class)->order($request);
         $payload = $response->getData(true);
@@ -175,10 +180,13 @@ class ApiOrderApiGamesFlowTest extends TestCase
             'HTTP_AUTHORIZATION' => 'Bearer ' . $user->api_key,
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
-            'code' => 'BJ-WP',
+            'code'            => 'BJ-WP',
             'referenceNumber' => 'EXT-REF-BJ-001',
-            'data' => '12345678|9012',
+            'user_id'         => '12345678',
+            'zone_id'         => '9012',
         ]));
+        // Phase 3: controller reads api_user from request attributes (no DB fallback)
+        $request->attributes->set('api_user', $user);
 
         $response = app(OrderApiController::class)->order($request);
         $payload = $response->getData(true);

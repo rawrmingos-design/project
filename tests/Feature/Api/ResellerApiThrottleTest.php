@@ -57,18 +57,19 @@ class ResellerApiThrottleTest extends TestCase
         ]);
 
         ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
+            'user_id'          => $user->getKey(),
             'integration_code' => 'live-throttle-order',
-            'mode' => 'live',
-            'is_active' => true,
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['203.0.113.11']],
         ]);
 
         Pembelian::factory()->create([
             'order_id' => 'INV-STATUS-LONG-001',
             'username' => $user->username,
-            'user_id' => '998877',
-            'zone' => '3344',
-            'status' => 'Sukses',
+            'user_id'  => '998877',
+            'zone'     => '3344',
+            'status'   => 'Sukses',
         ]);
 
         $ip = '203.0.113.11';
@@ -76,34 +77,38 @@ class ResellerApiThrottleTest extends TestCase
         for ($i = 0; $i < 20; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
                 ->withHeaders([
-                    'Authorization' => 'Bearer ' . $user->api_key,
+                    'Authorization'               => 'Bearer ' . $user->api_key,
                     'X-Reseller-Integration-Code' => 'invalid-live-code',
                 ])
                 ->postJson('/api/v1/order', [
-                    'code' => 'MANUAL-MVP-001',
+                    'code'            => 'MANUAL-MVP-001',
                     'referenceNumber' => 'THROTTLE-ORDER-' . $i,
-                    'data' => '12345678|2001',
+                    'data'            => '12345678|2001',
                 ])
                 ->assertStatus(403);
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->withHeaders([
-                'Authorization' => 'Bearer ' . $user->api_key,
+                'Authorization'               => 'Bearer ' . $user->api_key,
                 'X-Reseller-Integration-Code' => 'invalid-live-code',
             ])
             ->postJson('/api/v1/order', [
-                'code' => 'MANUAL-MVP-001',
+                'code'            => 'MANUAL-MVP-001',
                 'referenceNumber' => 'THROTTLE-ORDER-FINAL',
-                'data' => '12345678|2001',
+                'data'            => '12345678|2001',
             ])
             ->assertStatus(429)
             ->assertJsonPath('message', 'Too Many Requests')
             ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS');
 
+        // Status-order has a higher limit (50), so 25 requests should still be OK
         for ($i = 0; $i < 25; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
-                ->withHeader('Authorization', 'Bearer ' . $user->api_key)
+                ->withHeaders([
+                    'Authorization'               => 'Bearer ' . $user->api_key,
+                    'X-Reseller-Integration-Code' => 'live-throttle-order',
+                ])
                 ->postJson('/api/v1/status-order/INV-STATUS-LONG-001')
                 ->assertOk();
         }

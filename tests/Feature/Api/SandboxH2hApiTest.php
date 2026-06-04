@@ -165,9 +165,10 @@ class SandboxH2hApiTest extends TestCase
             'Authorization' => 'Bearer ' . $rawKey,
             'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
-            'code' => 'MANUAL-SBX-001',
+            'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-ORDER-001',
-            'data' => '12345678|2001',
+            'user_id'         => '12345678',
+            'zone_id'         => '2001',
         ]);
 
         $response->assertOk()
@@ -215,9 +216,10 @@ class SandboxH2hApiTest extends TestCase
             'Authorization' => 'Bearer ' . $ownerKey,
             'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
-            'code' => 'MANUAL-SBX-001',
+            'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-SIM-001',
-            'data' => '12345678|2001',
+            'user_id'         => '12345678',
+            'zone_id'         => '2001',
         ])->assertOk();
 
         $invoiceNumber = $createResponse->json('data.invoiceNumber');
@@ -270,9 +272,10 @@ class SandboxH2hApiTest extends TestCase
             'Authorization' => 'Bearer ' . $rawKey,
             'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
-            'code' => 'MANUAL-SBX-001',
+            'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-SIDE-EFFECT-001',
-            'data' => '12345678|2001',
+            'user_id'         => '12345678',
+            'zone_id'         => '2001',
         ])->assertOk();
 
         $this->withHeader('Authorization', 'Bearer ' . $rawKey)
