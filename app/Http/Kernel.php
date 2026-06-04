@@ -62,6 +62,10 @@ class Kernel extends HttpKernel
         'affiliate.only' => \App\Http\Middleware\EnsureAffiliateUser::class,
         'non-affiliate.only' => \App\Http\Middleware\EnsureNonAffiliateUser::class,
         'non-admin.public-dashboard' => \App\Http\Middleware\EnsureNonAdminPublicDashboard::class,
-        'reseller.only' => \App\Http\Middleware\EnsureIsReseller::class,
+        'reseller.only'     => \App\Http\Middleware\EnsureIsReseller::class,
+        'reseller.redirect' => \App\Http\Middleware\RedirectResellerToDedicatedHub::class,
+        'not-reseller'      => \App\Http\Middleware\EnsureNotReseller::class,
+        'reseller.ip.enforce' => \App\Http\Middleware\EnforceResellerIpWhitelist::class,
+        'add.api.version'   => \App\Http\Middleware\AddApiVersionHeader::class,
     ];
 }
