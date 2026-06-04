@@ -185,21 +185,21 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/',                                                              PublicHomeController::class)->name('home');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
-        Route::get('/dashboard',                                                     PublicDashboardPageController::class)->middleware('non-admin.public-dashboard')->name('dashboard');
+        Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
         Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
         Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
         Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->name('settings.change-password');
-        Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->name('settings.api-key.regenerate');
+        Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->middleware('not-reseller')->name('settings.api-key.regenerate');
         Route::post('/settings/2fa/setup',                                           [PublicSettingsPageController::class, 'setupTwoFactor'])->name('settings.2fa.setup');
         Route::post('/settings/2fa/enable',                                          [PublicSettingsPageController::class, 'enableTwoFactor'])->name('settings.2fa.enable');
         Route::post('/settings/2fa/disable',                                         [PublicSettingsPageController::class, 'disableTwoFactor'])->name('settings.2fa.disable');
         Route::post('/logout',                                                       [LoginController::class, 'destroy'])->name('logout');
         Route::post('/id/logout',                                                    [LoginController::class, 'destroy'])->name('logout.legacy');
-        Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->name('reload');
+        Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->middleware('not-reseller:reseller.deposits')->name('reload');
         Route::get('/deposit',                                                      PublicDepositPageController::class)->middleware('non-affiliate.only')->name('deposit');
         Route::post('/deposit',                                                     [DepositController::class, 'store'])->middleware(['non-affiliate.only', 'throttle:public-deposit-submit'])->name('deposit.store');
         Route::get('/deposit/{order}',                                               PublicDepositInvoicePageController::class)->name('deposit.invoice');
-        Route::get('/dashboard/history',                                             PublicTransactionHistoryPageController::class)->name('riwayat');
+        Route::get('/dashboard/history',                                             PublicTransactionHistoryPageController::class)->middleware('not-reseller')->name('riwayat');
         Route::get('/affiliate',                                                     PublicAffiliatePageController::class)->name('affiliate');
         Route::post('/affiliate/request',                                            PublicAffiliatePageController::class)->middleware('throttle:public-affiliate-request')->name('affiliate.request');
         Route::get('/withdrawal',                                                    PublicAffiliateWithdrawalPageController::class)->middleware('affiliate.only')->name('withdrawal');
@@ -208,11 +208,32 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         // Reseller Panel MVP Routes
         Route::prefix('reseller')->name('reseller.')->middleware(['reseller.only'])->group(function () {
             Route::get('/', [\App\Http\Controllers\Public\Reseller\DashboardController::class, 'index'])->name('dashboard');
+            Route::get('/settings', [\App\Http\Controllers\Public\Reseller\SettingsController::class, 'index'])->name('settings');
+            Route::get('/deposit-methods', [\App\Http\Controllers\Public\Reseller\DepositMethodController::class, 'index'])->name('deposit.methods');
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
+            Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->name('credentials.rotate.live');
+            Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->name('credentials.rotate.sandbox');
+            Route::post('/ip-whitelist', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'store'])->name('ip.whitelist.store');
+            Route::delete('/ip-whitelist/{ip}', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'destroy'])->where('ip', '.*')->name('ip.whitelist.destroy');
             Route::get('/docs', [\App\Http\Controllers\Public\Reseller\DocsController::class, 'index'])->name('docs');
             Route::get('/callbacks', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'index'])->name('callbacks');
-            Route::get('/orders', [\App\Http\Controllers\Public\Reseller\OrderLogController::class, 'index'])->name('orders');
-            Route::get('/sandbox', [\App\Http\Controllers\Public\Reseller\SandboxController::class, 'index'])->name('sandbox');
+            Route::post('/callbacks/{delivery}/resend', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'resend'])
+                ->middleware('throttle:reseller-callback-resend')
+                ->name('callbacks.resend');
+            // Phase 5 — Task 5.3: Sandbox webhook tester
+            Route::post('/callbacks/test', [\App\Http\Controllers\Public\Reseller\CallbackTestController::class, 'fire'])
+                ->middleware('throttle:reseller-callback-test')
+                ->name('callbacks.test');
+
+            Route::get('/orders',    [\App\Http\Controllers\Public\Reseller\OrderLogController::class,        'index'])->name('orders');
+            Route::get('/deposits',  [\App\Http\Controllers\Public\Reseller\DepositHistoryController::class,  'index'])->name('deposits');
+            Route::get('/sandbox',   [\App\Http\Controllers\Public\Reseller\SandboxController::class,          'index'])->name('sandbox');
+            
+            // Notifications API
+            Route::get('/notifications', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'index'])->name('notifications.index');
+            Route::get('/notifications/unread-count', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
+            Route::post('/notifications/read-all', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+            Route::post('/notifications/{id}/read', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAsRead'])->name('notifications.read');
         });
 
     });
@@ -368,14 +389,24 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/joki/hapus/{id}',                                               [DataJokiController::class, 'hapusJoki']);
 });
 
-Route::fallback(function (\Illuminate\Http\Request $request) use ($publicHost, $adminHost) {
+Route::fallback(function (\Illuminate\Http\Request $request) {
     if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
         abort(404);
     }
 
-    $requestHost = strtolower(trim((string) $request->getHost()));
-    $normalizedPublicHost = strtolower(trim((string) ($publicHost ?? '')));
-    $normalizedAdminHost = strtolower(trim((string) ($adminHost ?? '')));
+    // Read lazily at request time so test suite app-instance overrides (putenv) are respected
+    $lazyPublicHost  = parse_url((string) config('app.url'), PHP_URL_HOST);
+    $lazyAdminRaw    = trim((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+    $lazyAdminHost   = $lazyAdminRaw;
+
+    if ($lazyAdminHost !== '' && str_contains($lazyAdminHost, '://')) {
+        $lazyAdminHost = (string) (parse_url($lazyAdminHost, PHP_URL_HOST) ?? '');
+    }
+    $lazyAdminHost = preg_replace('/:\d+$/', '', $lazyAdminHost) ?? '';
+
+    $requestHost           = strtolower(trim((string) $request->getHost()));
+    $normalizedPublicHost  = strtolower(trim((string) ($lazyPublicHost ?? '')));
+    $normalizedAdminHost   = strtolower(trim((string) $lazyAdminHost));
 
     if ($normalizedAdminHost !== '' && $requestHost === $normalizedAdminHost) {
         abort(404);
