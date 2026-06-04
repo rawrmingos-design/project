@@ -25,6 +25,9 @@
 
         .bg-gradient-theme {
             background-image: var(--gradient-theme);
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            min-height: 100vh;
         }
 
         .area {
