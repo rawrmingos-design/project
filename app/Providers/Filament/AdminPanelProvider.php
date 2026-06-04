@@ -45,7 +45,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('')
             ->domain(env('FILAMENT_ADMIN_DOMAIN', 'admin.istanatopup.com'))
             ->multiFactorAuthentication([
-            AppAuthentication::make(),
+                AppAuthentication::make()->codeWindow(15),
             ])
             ->profile()
             ->login(\App\Filament\Admin\Pages\Auth\Login::class)

@@ -108,6 +108,6 @@ COPY docker/nginx/app.conf /etc/nginx/nginx.conf
 # Pastikan dir nginx ada
 RUN mkdir -p /run/nginx
 
-EXPOSE 8080
+EXPOSE 8080 9001
 
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -30,6 +30,6 @@ class EventServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        \App\Models\Deposit::observe(\App\Observers\DepositObserver::class);
     }
 }

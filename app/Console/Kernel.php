@@ -24,6 +24,10 @@ class Kernel extends ConsoleKernel
         //  $schedule->command('Service')->everyMinute();
 
          $schedule->job(new \App\Jobs\DigiflazzSyncJob)->hourly();
+         
+         $schedule->command('model:prune', [
+             '--model' => [\Illuminate\Notifications\DatabaseNotification::class],
+         ])->daily();
     }
 
     /**

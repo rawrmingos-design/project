@@ -126,6 +126,24 @@ class RouteServiceProvider extends ServiceProvider
                 Limit::perMinute(6)->by('withdraw-submit-ip:' . $request->ip()),
             ];
         });
+
+        // Rate limit for manual callback resend via Reseller Hub.
+        // Keyed by authenticated user ID so each user has their own independent bucket.
+        // 10 requests/minute allows reasonable retry workflow without enabling abuse.
+        RateLimiter::for('reseller-callback-resend', function (Request $request) {
+            $userKey = (string) (optional($request->user())->id ?: 'guest-' . $request->ip());
+
+            return Limit::perMinute(10)->by('callback-resend-user:' . $userKey);
+        });
+
+        // Phase 5 — Task 5.3
+        // Rate limit for sandbox webhook test trigger.
+        // Very conservative (5/minute) — this is a manual debug tool, not a production flow.
+        RateLimiter::for('reseller-callback-test', function (Request $request) {
+            $userKey = (string) (optional($request->user())->id ?: 'guest-' . $request->ip());
+
+            return Limit::perMinute(5)->by('callback-test-user:' . $userKey);
+        });
     }
 
     private function resellerApiLimits(Request $request, int $tokenLimit, int $ipLimit, string $segment): array

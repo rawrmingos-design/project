@@ -39,3 +39,23 @@ yarn-error.log
 /%TEMP%
 /docs
 /postman
+.agents
+~
+/plan
+/public/vendor
+testsprite_tests\tmp\config.json
+/.claude
+/claude
+
+# Laravel Framework Cache & Sessions
+/bootstrap/cache/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/framework/testing/
+
+# Scratch & Test Reports
+/testsprite_tests/
+/scratch/
+/test_endpoint.php
+/test_notif.php
