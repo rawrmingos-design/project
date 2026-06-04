@@ -33,13 +33,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'otp',
         'api_key',
         'api_key_hint',
+        'api_key_prefix',
         'google_id',
         'google_avatar',
         'sandbox_api_key_hash',
         'sandbox_api_key_hint',
         'sandbox_api_key_rotated_at',
         'sandbox_api_key_last_used_at',
-        'two_factor_secret',
         'two_factor_secret',
         'two_factor_recovery_codes',
         'referral_code',
@@ -92,9 +92,19 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     ];
 
     /**
-     * When api_key is assigned, automatically populate api_key_hint with
-     * a masked representation (last 6 chars) so the raw key is never
-     * needed for display purposes.
+     * When api_key is assigned, automatically populate api_key_hint (last 6
+     * chars of the RAW key) and api_key_prefix (first 8 chars of the RAW key)
+     * so the raw key is never needed for display or lookup after this point.
+     *
+     * IMPORTANT: pass the RAW key here. The caller is responsible for storing
+     * the bcrypt hash separately (e.g. via Hash::make) in the same attribute
+     * after calling this setter — or the setter can receive the hash if the
+     * caller has already computed hint/prefix separately.
+     *
+     * Convention used in RotateKeyController:
+     *   1. Compute $rawKey
+     *   2. Set prefix/hint manually from rawKey
+     *   3. Assign Hash::make($rawKey) to api_key directly via $attributes
      */
     public function setApiKeyAttribute($value): void
     {
@@ -102,10 +112,34 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
 
         if (filled($value)) {
             $valueStr = (string) $value;
-            $this->attributes['api_key_hint'] = '...' . substr($valueStr, -6);
+            $this->attributes['api_key_hint']   = '...' . substr($valueStr, -6);
+            $this->attributes['api_key_prefix'] = substr($valueStr, 0, 8);
         } else {
-            $this->attributes['api_key_hint'] = null;
+            $this->attributes['api_key_hint']   = null;
+            $this->attributes['api_key_prefix'] = null;
         }
+    }
+
+    /**
+     * Verify a raw bearer token against the stored bcrypt-hashed api_key.
+     * Use this instead of plain-text comparison for security.
+     */
+    public function verifyApiKey(string $token): bool
+    {
+        $stored = $this->getRawOriginal('api_key');
+
+        if (blank($stored)) {
+            return false;
+        }
+
+        // Support legacy plain-text keys (pre-rotation) by checking if the
+        // stored value looks like a bcrypt hash.
+        if (str_starts_with($stored, '$2y$') || str_starts_with($stored, '$2b$')) {
+            return \Illuminate\Support\Facades\Hash::check($token, $stored);
+        }
+
+        // Legacy fallback: plain-text comparison (will be removed in Phase 3)
+        return hash_equals($stored, $token);
     }
 
     public function resellerIntegrations()

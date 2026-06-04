@@ -17,6 +17,7 @@ class ResellerIntegration extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'metadata' => 'json',
     ];
 
     protected static function booted(): void
@@ -149,5 +150,18 @@ class ResellerIntegration extends Model
             'label' => 'Needs setup',
             'color' => 'danger',
         ];
+    }
+
+    public function getAllowedIpsAttribute()
+    {
+        $metadata = $this->metadata ?? [];
+        return $metadata['allowed_ips'] ?? [];
+    }
+
+    public function setAllowedIpsAttribute($value)
+    {
+        $metadata = $this->metadata ?? [];
+        $metadata['allowed_ips'] = $value;
+        $this->metadata = $metadata;
     }
 }
