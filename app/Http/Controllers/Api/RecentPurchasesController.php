@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
 use App\Models\Kategori;
+use App\Support\PembelianStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 
@@ -17,7 +18,7 @@ class RecentPurchasesController extends Controller
     public function index(): JsonResponse
     {
         $data = Cache::remember('recent_purchases_toast_api', 60, function () {
-            $purchases = Pembelian::whereIn('status', ['Success', 'Sukses'])
+            $purchases = Pembelian::whereIn('status', PembelianStatus::aliasesFor(PembelianStatus::SUCCESS))
                 ->orderBy('created_at', 'desc')
                 ->limit(20)
                 ->get(['layanan', 'nickname', 'user_id', 'created_at']);
