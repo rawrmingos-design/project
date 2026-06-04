@@ -173,7 +173,7 @@ jobs:
           username: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_USER || secrets.CLIENT2_VPS_USER }}
           key: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_SSH_KEY || secrets.CLIENT2_VPS_SSH_KEY }}
           port: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_PORT || secrets.CLIENT2_VPS_PORT || 22 }}
-          source: "docker-compose.yml,docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
+          source: "docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
           target: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_APP_PATH || secrets.CLIENT2_VPS_APP_PATH }}
           overwrite: true
 
