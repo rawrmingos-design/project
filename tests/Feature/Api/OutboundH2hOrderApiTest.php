@@ -98,7 +98,8 @@ class OutboundH2hOrderApiTest extends TestCase
         ])->postJson('/api/v1/order', [
             'code' => 'MANUAL-MVP-001',
             'referenceNumber' => 'EXT-REF-VALID-001',
-            'data' => '12345678|2001',
+            'user_id' => '12345678',
+            'zone_id' => '2001',
         ]);
 
         $response->assertOk()
@@ -128,7 +129,9 @@ class OutboundH2hOrderApiTest extends TestCase
         $this->assertSame($invoiceNumber, $payload['invoiceNumber'] ?? null);
         $this->assertSame('EXT-REF-VALID-001', $payload['referenceNumber'] ?? null);
         $this->assertSame('Manual MVP Service', $payload['productName'] ?? null);
-        $this->assertSame('12345678|2001', $payload['userData'] ?? null);
+        $this->assertSame('12345678', $payload['userId'] ?? null);
+        $this->assertSame('2001', $payload['zoneId'] ?? null);
+        $this->assertArrayNotHasKey('userData', $payload);
         $this->assertSame('Success', $payload['statusCode'] ?? null);
         $this->assertFalse($payload['sandbox'] ?? true);
         $this->assertSame('live', $payload['environment'] ?? null);
@@ -252,10 +255,11 @@ class OutboundH2hOrderApiTest extends TestCase
         ]);
 
         $integration = ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
+            'user_id'          => $user->getKey(),
             'integration_code' => 'live-invalid-url-01',
-            'mode' => 'live',
-            'is_active' => true,
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
         ]);
 
         ResellerCallbackProfile::query()->create([
@@ -328,20 +332,22 @@ class OutboundH2hOrderApiTest extends TestCase
     private function createIntegrationWithProfile(User $user): ResellerIntegration
     {
         $integration = ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
+            'user_id'          => $user->getKey(),
             'integration_code' => 'live-integration-001-' . $user->getKey(),
-            'mode' => 'live',
-            'is_active' => true,
+            'mode'             => 'live',
+            'is_active'        => true,
+            // 127.0.0.1 is the loopback used by Laravel's test HTTP client
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
         ]);
 
         ResellerCallbackProfile::query()->create([
             'reseller_integration_id' => $integration->getKey(),
-            'is_enabled' => true,
-            'callback_url' => 'https://client.example/callback',
-            'webhook_secret' => 'live-secret-001',
-            'signing_algorithm' => 'sha256',
-            'signature_header' => 'X-Callback-Signature',
-            'version' => 1,
+            'is_enabled'              => true,
+            'callback_url'            => 'https://client.example/callback',
+            'webhook_secret'          => 'live-secret-001',
+            'signing_algorithm'       => 'sha256',
+            'signature_header'        => 'X-Callback-Signature',
+            'version'                 => 1,
         ]);
 
         return $integration;

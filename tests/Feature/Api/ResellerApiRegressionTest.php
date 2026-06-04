@@ -159,30 +159,52 @@ class ResellerApiRegressionTest extends TestCase
     public function test_status_order_is_scoped_to_authenticated_reseller(): void
     {
         $owner = User::factory()->create([
-            'api_key' => 'token-status-owner',
+            'api_key'  => 'token-status-owner',
             'username' => 'owner.reseller',
         ]);
         $outsider = User::factory()->create([
-            'api_key' => 'token-status-outsider',
+            'api_key'  => 'token-status-outsider',
             'username' => 'outsider.reseller',
+        ]);
+
+        // Both users need a live integration with 127.0.0.1 whitelisted (test loopback)
+        $ownerIntegration = ResellerIntegration::query()->create([
+            'user_id'          => $owner->getKey(),
+            'integration_code' => 'live-status-scope-owner',
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        ]);
+        ResellerIntegration::query()->create([
+            'user_id'          => $outsider->getKey(),
+            'integration_code' => 'live-status-scope-outsider',
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
         ]);
 
         Pembelian::factory()->create([
             'order_id' => 'INV-OWNER-ONLY-001',
             'username' => $owner->username,
-            'user_id' => '998877',
-            'zone' => '3344',
-            'status' => 'Sukses',
+            'user_id'  => '998877',
+            'zone'     => '3344',
+            'status'   => 'Sukses',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer ' . $owner->api_key)
-            ->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
+        // Owner can read their own order
+        $this->withHeaders([
+            'Authorization'               => 'Bearer ' . $owner->api_key,
+            'X-Reseller-Integration-Code' => $ownerIntegration->integration_code,
+        ])->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
             ->assertOk()
             ->assertJsonPath('error', false)
             ->assertJsonPath('data.invoiceNumber', 'INV-OWNER-ONLY-001');
 
-        $this->withHeader('Authorization', 'Bearer ' . $outsider->api_key)
-            ->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
+        // Outsider cannot read owner's order — 404 not found
+        $this->withHeaders([
+            'Authorization'               => 'Bearer token-status-outsider',
+            'X-Reseller-Integration-Code' => 'live-status-scope-outsider',
+        ])->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
             ->assertStatus(404)
             ->assertJsonPath('error', true)
             ->assertJsonPath('message', 'Invoice Not Found')
@@ -244,7 +266,8 @@ class ResellerApiRegressionTest extends TestCase
         ])->postJson('/api/v1/order', [
             'code' => 'MISSING-SERVICE-001',
             'referenceNumber' => 'REF-CODE-NOT-FOUND-001',
-            'data' => '12345678|2001',
+            'user_id' => '12345678',
+            'zone_id' => '2001',
         ])
             ->assertStatus(404)
             ->assertJsonPath('error', true)
@@ -267,7 +290,8 @@ class ResellerApiRegressionTest extends TestCase
         ])->postJson('/api/v1/order', [
             'code' => 'MANUAL-MVP-001',
             'referenceNumber' => 'REF-LOW-BALANCE-001',
-            'data' => '12345678|2001',
+            'user_id' => '12345678',
+            'zone_id' => '2001',
         ])
             ->assertStatus(400)
             ->assertJsonPath('error', true)
@@ -308,7 +332,8 @@ class ResellerApiRegressionTest extends TestCase
         ])->postJson('/api/v1/order', [
             'code' => 'VIP-FAIL-MVP-001',
             'referenceNumber' => 'REF-PROVIDER-FAILED-001',
-            'data' => '12345678|2001',
+            'user_id' => '12345678',
+            'zone_id' => '2001',
         ])
             ->assertStatus(400)
             ->assertJsonPath('error', true)
@@ -335,7 +360,8 @@ class ResellerApiRegressionTest extends TestCase
         $payload = [
             'code' => 'MANUAL-MVP-001',
             'referenceNumber' => 'REF-IDEMPOTENT-001',
-            'data' => '12345678|2001',
+            'user_id' => '12345678',
+            'zone_id' => '2001',
         ];
 
         $headers = [
@@ -369,6 +395,14 @@ class ResellerApiRegressionTest extends TestCase
             'username' => 'live-sandbox-scope-user',
         ]);
 
+        ResellerIntegration::query()->create([
+            'user_id'          => $user->getKey(),
+            'integration_code' => 'live-sandbox-scope-integration',
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        ]);
+
         // Create a sandbox order owned by the same user
         Pembelian::factory()->create([
             'order_id'    => 'SBX-SCOPE-001',
@@ -377,8 +411,10 @@ class ResellerApiRegressionTest extends TestCase
             'environment' => 'sandbox',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer token-live-cant-read-sandbox')
-            ->postJson('/api/v1/status-order/SBX-SCOPE-001')
+        $this->withHeaders([
+            'Authorization'               => 'Bearer token-live-cant-read-sandbox',
+            'X-Reseller-Integration-Code' => 'live-sandbox-scope-integration',
+        ])->postJson('/api/v1/status-order/SBX-SCOPE-001')
             ->assertStatus(404)
             ->assertJsonPath('error', true)
             ->assertJsonPath('error_code', 'INVOICE_NOT_FOUND');
@@ -391,6 +427,14 @@ class ResellerApiRegressionTest extends TestCase
             'username' => 'live-legacy-scope-user',
         ]);
 
+        ResellerIntegration::query()->create([
+            'user_id'          => $user->getKey(),
+            'integration_code' => 'live-legacy-scope-integration',
+            'mode'             => 'live',
+            'is_active'        => true,
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        ]);
+
         // Legacy orders created before the environment column existed have
         // is_sandbox=false and environment=NULL. The live endpoint must still return them.
         Pembelian::factory()->create([
@@ -401,8 +445,10 @@ class ResellerApiRegressionTest extends TestCase
             'environment' => null,
         ]);
 
-        $this->withHeader('Authorization', 'Bearer token-live-legacy-scope')
-            ->postJson('/api/v1/status-order/LEGACY-NULL-001')
+        $this->withHeaders([
+            'Authorization'               => 'Bearer token-live-legacy-scope',
+            'X-Reseller-Integration-Code' => 'live-legacy-scope-integration',
+        ])->postJson('/api/v1/status-order/LEGACY-NULL-001')
             ->assertOk()
             ->assertJsonPath('error', false)
             ->assertJsonPath('data.invoiceNumber', 'LEGACY-NULL-001');
@@ -433,20 +479,22 @@ class ResellerApiRegressionTest extends TestCase
     private function createIntegrationWithProfile(User $user): ResellerIntegration
     {
         $integration = ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
+            'user_id'          => $user->getKey(),
             'integration_code' => 'live-regression-' . $user->getKey(),
-            'mode' => 'live',
-            'is_active' => true,
+            'mode'             => 'live',
+            'is_active'        => true,
+            // 127.0.0.1 is the loopback used by Laravel's test HTTP client
+            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
         ]);
 
         ResellerCallbackProfile::query()->create([
             'reseller_integration_id' => $integration->getKey(),
-            'is_enabled' => true,
-            'callback_url' => 'https://client.example/callback',
-            'webhook_secret' => 'live-secret-001',
-            'signing_algorithm' => 'sha256',
-            'signature_header' => 'X-Callback-Signature',
-            'version' => 1,
+            'is_enabled'              => true,
+            'callback_url'            => 'https://client.example/callback',
+            'webhook_secret'          => 'live-secret-001',
+            'signing_algorithm'       => 'sha256',
+            'signature_header'        => 'X-Callback-Signature',
+            'version'                 => 1,
         ]);
 
         return $integration;

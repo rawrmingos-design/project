@@ -99,8 +99,7 @@ class VoucherTransactionTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function voucher_validity_and_calculation()
+    public function test_voucher_validity_and_calculation()
     {
         $response = $this->actingAs($this->user)->postJson('/id', [
             'uid' => '12345',
@@ -129,8 +128,7 @@ class VoucherTransactionTest extends TestCase
         ]);
     }
 
-    /** @test */
-    public function min_transaction_failure()
+    public function test_min_transaction_failure()
     {
         $this->voucher->update(['mintrx' => 200000]);
 
@@ -148,8 +146,7 @@ class VoucherTransactionTest extends TestCase
         $response->assertJson(['status' => false]);
     }
 
-    /** @test */
-    public function insufficient_stock_failure()
+    public function test_insufficient_stock_failure()
     {
         $this->voucher->update(['stock' => 0]);
 
@@ -167,8 +164,7 @@ class VoucherTransactionTest extends TestCase
         $response->assertJson(['status' => false]);
     }
 
-    /** @test */
-    public function insufficient_user_balance_does_not_consume_voucher()
+    public function test_insufficient_user_balance_does_not_consume_voucher()
     {
         $this->user->update(['balance' => 1000]);
 
