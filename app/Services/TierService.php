@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Pembelian;
+use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\Log;
 
 class TierService
@@ -26,7 +27,7 @@ class TierService
         // Assuming 'username' in Pembelian matches User 'username' or relationship exists
         // Based on User model, relationship is hasMany Pembelian via username
         $transactionCount = Pembelian::where('username', $user->username)
-            ->whereIn('status', ['Success', 'Sukses'])
+            ->whereIn('status', PembelianStatus::aliasesFor(PembelianStatus::SUCCESS))
             ->count();
             
         $currentRole = $user->role;

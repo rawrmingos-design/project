@@ -32,11 +32,20 @@ class CredentialController extends Controller
                 ];
             }
 
+            // IP Whitelist
+            $allowedIps = [];
+            if (!empty($liveIntegration->allowed_ips)) {
+                $allowedIps = is_array($liveIntegration->allowed_ips) 
+                    ? $liveIntegration->allowed_ips 
+                    : json_decode($liveIntegration->allowed_ips, true) ?? [];
+            }
+
             $liveData = [
                 'is_active' => $liveIntegration->is_active,
                 'integration_code' => $liveIntegration->integration_code,
                 'api_key_hint' => $user->api_key_hint,
                 'webhook' => $webhook,
+                'allowed_ips' => $allowedIps,
             ];
         }
 

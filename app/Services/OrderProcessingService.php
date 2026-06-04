@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Pembelian;
 use App\Models\Layanan;
+use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
@@ -353,7 +354,11 @@ class OrderProcessingService
 
                 if ($isSuccess) {
                     $result['success'] = true;
-                    $result['order_status'] = $statusCode === 'SUCCESS' ? 'Sukses' : ($statusCode === 'REFUNDED' ? 'Gagal' : 'Pending');
+                    $result['order_status'] = match ($statusCode) {
+                        'SUCCESS'  => PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS),
+                        'REFUNDED' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED),
+                        default    => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+                    };
                     $result['transaction_id'] = $response['data']['invoiceNumber'] ?? $providerReference;
                     $result['message'] = $response['data']['statusDesc'] ?? ($response['message'] ?? 'BangJeff order accepted');
                 } else {
@@ -398,7 +403,7 @@ class OrderProcessingService
             case 'manual':
             case 'joki':
                 $result['success'] = true;
-                $result['order_status'] = 'Sukses';
+                $result['order_status'] = PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS);
                 $result['message'] = 'Manual/Joki order marked as processing.';
 
                 return $result;

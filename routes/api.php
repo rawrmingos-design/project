@@ -27,7 +27,7 @@ use App\Http\Controllers\Api\ContentController;
 |
 */
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
     Route::post('/balance', [OrderApiController::class,'balance'])
         ->middleware(['throttle:reseller-api-balance', 'auth.api']);
     Route::post('/product', [OrderApiController::class,'product'])
@@ -35,9 +35,9 @@ Route::prefix('v1')->group(function () {
     Route::post('/variant', [OrderApiController::class,'listVariant'])
         ->middleware(['throttle:reseller-api-variant', 'auth.api']);
     Route::post('/order', [OrderApiController::class,'order'])
-        ->middleware(['throttle:reseller-api-order', 'auth.api', 'resolve.live.reseller.integration']);
+        ->middleware(['throttle:reseller-api-order', 'auth.api', 'resolve.live.reseller.integration', 'reseller.ip.enforce']);
     Route::post('/status-order/{invoice}', [OrderApiController::class,'statusOrder'])
-        ->middleware(['throttle:reseller-api-status', 'auth.api']);
+        ->middleware(['throttle:reseller-api-status', 'auth.api', 'resolve.live.reseller.integration', 'reseller.ip.enforce']);
 
     Route::prefix('sandbox')->group(function () {
         Route::post('/balance', [SandboxOrderApiController::class, 'balance'])
@@ -54,6 +54,7 @@ Route::prefix('v1')->group(function () {
             ->middleware(['throttle:reseller-api-order', 'auth.sandbox.api']);
     });
 });
+
 
 /*
 |--------------------------------------------------------------------------
