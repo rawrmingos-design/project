@@ -13,7 +13,7 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
 docker pull "$APP_IMAGE"
 docker compose pull app
-docker compose up -d --no-deps --force-recreate --remove-orphans app
+docker compose up -d --remove-orphans
 docker compose exec -T app sh /var/www/html/docker/scripts/post-deploy-app.sh
 docker image prune -f
 
