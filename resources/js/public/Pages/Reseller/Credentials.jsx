@@ -62,6 +62,16 @@ export default function Credentials() {
         }
     };
 
+    // Modal for New Webhook Secret
+    const [webhookSecretModalOpen, setWebhookSecretModalOpen] = useState(false);
+    const flash = usePage().props.flash;
+
+    React.useEffect(() => {
+        if (flash?.new_webhook_secret) {
+            setWebhookSecretModalOpen(true);
+        }
+    }, [flash?.new_webhook_secret]);
+
     const handleCloseModal = () => {
         setRotateModalOpen(false);
         if (rotateStep === 3) {
@@ -177,6 +187,91 @@ export default function Credentials() {
                         >
                             Rotate Sandbox Key
                         </button>
+                    </div>
+                </article>
+            </section>
+
+            {/* Webhook Settings Section */}
+            <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', marginBottom: '32px' }}>
+                {/* Live Webhook */}
+                <article className="rh-card">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>Live Webhook</h3>
+                            <span className={`rh-badge rh-badge--${live?.webhook?.is_enabled ? 'success' : 'warning'}`}>
+                                {live?.webhook?.is_enabled ? 'Active' : 'Not Configured'}
+                            </span>
+                        </div>
+
+                        <form style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }} onSubmit={(e) => { e.preventDefault(); router.post('/id/reseller/credentials/webhook', { mode: 'live', url: e.target.elements.url.value, generate_secret: false }, { preserveScroll: true }); }}>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Webhook URL</label>
+                                <input 
+                                    type="url" 
+                                    name="url"
+                                    id="live-url"
+                                    className="rh-input" 
+                                    placeholder="https://your-server.com/api/callback" 
+                                    defaultValue={live?.webhook?.url || ''}
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Webhook Secret</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: live?.webhook?.has_secret ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                                        {live?.webhook?.has_secret ? '••••••••••••••••••••••••••••' : 'Belum digenerate'}
+                                    </div>
+                                    <button type="button" className="rh-button rh-button--secondary" onClick={() => { const currentUrl = document.getElementById('live-url').value; if(!currentUrl) return alert('Silakan isi Webhook URL terlebih dahulu!'); if(confirm('Generate secret baru? Secret lama akan langsung tidak berlaku!')) { router.post('/id/reseller/credentials/webhook', { mode: 'live', url: currentUrl, generate_secret: true }, { preserveScroll: true }); } }}>
+                                        Generate
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" className="rh-button rh-button--primary" style={{ alignSelf: 'flex-start' }}>Simpan URL</button>
+                        </form>
+                    </div>
+                </article>
+
+                {/* Sandbox Webhook */}
+                <article className="rh-card">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>Sandbox Webhook</h3>
+                            <span className={`rh-badge rh-badge--${sandbox?.webhook?.is_enabled ? 'success' : 'warning'}`}>
+                                {sandbox?.webhook?.is_enabled ? 'Active' : 'Not Configured'}
+                            </span>
+                        </div>
+
+                        <form style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }} onSubmit={(e) => { e.preventDefault(); router.post('/id/reseller/credentials/webhook', { mode: 'sandbox', url: e.target.elements.url.value, generate_secret: false }, { preserveScroll: true }); }}>
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Sandbox Webhook URL</label>
+                                <input 
+                                    type="url" 
+                                    name="url"
+                                    id="sandbox-url"
+                                    className="rh-input" 
+                                    placeholder="https://your-server.com/api/callback/sandbox" 
+                                    defaultValue={sandbox?.webhook?.url || ''}
+                                    required
+                                />
+                            </div>
+                            
+                            <div>
+                                <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Sandbox Webhook Secret</label>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: sandbox?.webhook?.has_secret ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                                        {sandbox?.webhook?.has_secret ? '••••••••••••••••••••••••••••' : 'Belum digenerate'}
+                                    </div>
+                                    <button type="button" className="rh-button rh-button--secondary" onClick={() => { const currentUrl = document.getElementById('sandbox-url').value; if(!currentUrl) return alert('Silakan isi Sandbox Webhook URL terlebih dahulu!'); if(confirm('Generate secret sandbox baru?')) { router.post('/id/reseller/credentials/webhook', { mode: 'sandbox', url: currentUrl, generate_secret: true }, { preserveScroll: true }); } }}>
+                                        Generate
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" className="rh-button rh-button--primary" style={{ alignSelf: 'flex-start' }}>Simpan URL</button>
+                        </form>
                     </div>
                 </article>
             </section>
@@ -335,6 +430,45 @@ export default function Credentials() {
                                 </button>
                             </>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Webhook Secret Modal */}
+            {webhookSecretModalOpen && (
+                <div className="rh-modal-overlay">
+                    <div className="rh-modal">
+                        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <h2 style={{ margin: '0 0 8px', fontSize: '1.5rem', color: '#fff' }}>Webhook Secret Berhasil Dibuat!</h2>
+                            <p style={{ color: 'var(--on-surface-variant)', margin: 0 }}>
+                                Harap salin secret ini sekarang. Secret tidak akan ditampilkan lagi setelah jendela ini ditutup untuk alasan keamanan.
+                            </p>
+                        </div>
+
+                        <div style={{ background: 'rgba(0,0,0,0.3)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--accent-primary)', marginBottom: '24px', position: 'relative' }}>
+                            <div style={{ fontFamily: 'var(--font-mono, monospace)', color: 'var(--primary)', wordBreak: 'break-all', paddingRight: '40px' }}>
+                                {flash?.new_webhook_secret}
+                            </div>
+                            <button 
+                                onClick={() => copyToClipboard(flash?.new_webhook_secret)}
+                                style={{ position: 'absolute', top: '50%', right: '16px', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}
+                                title="Copy to clipboard"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <button className="rh-button rh-button--primary" style={{ width: '100%' }} onClick={() => setWebhookSecretModalOpen(false)}>
+                            Saya sudah menyalinnya, Tutup.
+                        </button>
                     </div>
                 </div>
             )}
