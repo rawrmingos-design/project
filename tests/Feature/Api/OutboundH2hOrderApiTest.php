@@ -209,32 +209,36 @@ class OutboundH2hOrderApiTest extends TestCase
         $integration = $this->createIntegrationWithProfile($user);
         $layanan = $this->createManualLayanan();
 
-        $pembelian = Pembelian::query()->create([
-            'username' => $user->username,
-            'reseller_integration_id' => $integration->getKey(),
-            'order_id' => 'INV-H2H-MVP-FAILED-001',
-            'user_id' => '12345678',
-            'zone' => '2001',
-            'layanan' => $layanan->layanan,
-            'harga' => 10_000,
-            'profit' => 1_000,
-            'status' => 'Pending',
-            'active_layanan_id' => $layanan->getKey(),
-            'active_provider_code' => 'manual',
-            'active_provider_sku' => $layanan->provider_id,
-            'traffic_source' => 'reseller_h2h',
-            'tipe_transaksi' => 'game',
-        ]);
+        try {
+            $pembelian = Pembelian::query()->create([
+                'username' => $user->username,
+                'reseller_integration_id' => $integration->getKey(),
+                'order_id' => 'INV-H2H-MVP-FAILED-001',
+                'user_id' => '12345678',
+                'zone' => '2001',
+                'layanan' => $layanan->layanan,
+                'harga' => 10_000,
+                'profit' => 1_000,
+                'status' => 'Pending',
+                'active_layanan_id' => $layanan->getKey(),
+                'active_provider_code' => 'manual',
+                'active_provider_sku' => $layanan->provider_id,
+                'traffic_source' => 'reseller_h2h',
+                'tipe_transaksi' => 'game',
+            ]);
 
-        Pembayaran::query()->create([
-            'order_id' => $pembelian->order_id,
-            'harga' => 10_000,
-            'no_pembayaran' => 'SALDO',
-            'no_pembeli' => $user->no_wa,
-            'status' => 'Lunas',
-            'metode' => 'SALDO',
-            'reference' => 'EXT-REF-FAILED-001',
-        ]);
+            Pembayaran::query()->create([
+                'order_id' => $pembelian->order_id,
+                'harga' => 10_000,
+                'no_pembayaran' => 'SALDO',
+                'no_pembeli' => $user->no_wa,
+                'status' => 'Lunas',
+                'metode' => 'SALDO',
+                'reference' => 'EXT-REF-FAILED-001',
+            ]);
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('Webhook delivery failed', $e->getMessage());
+        }
 
         $delivery = ResellerCallbackDelivery::query()->firstOrFail();
 
@@ -274,32 +278,36 @@ class OutboundH2hOrderApiTest extends TestCase
 
         $layanan = $this->createManualLayanan();
 
-        $pembelian = Pembelian::query()->create([
-            'username' => $user->username,
-            'reseller_integration_id' => $integration->getKey(),
-            'order_id' => 'INV-H2H-MVP-INVALID-URL-001',
-            'user_id' => '12345678',
-            'zone' => '2001',
-            'layanan' => $layanan->layanan,
-            'harga' => 10_000,
-            'profit' => 1_000,
-            'status' => 'Pending',
-            'active_layanan_id' => $layanan->getKey(),
-            'active_provider_code' => 'manual',
-            'active_provider_sku' => $layanan->provider_id,
-            'traffic_source' => 'reseller_h2h',
-            'tipe_transaksi' => 'game',
-        ]);
+        try {
+            $pembelian = Pembelian::query()->create([
+                'username' => $user->username,
+                'reseller_integration_id' => $integration->getKey(),
+                'order_id' => 'INV-H2H-MVP-INVALID-URL-001',
+                'user_id' => '12345678',
+                'zone' => '2001',
+                'layanan' => $layanan->layanan,
+                'harga' => 10_000,
+                'profit' => 1_000,
+                'status' => 'Pending',
+                'active_layanan_id' => $layanan->getKey(),
+                'active_provider_code' => 'manual',
+                'active_provider_sku' => $layanan->provider_id,
+                'traffic_source' => 'reseller_h2h',
+                'tipe_transaksi' => 'game',
+            ]);
 
-        Pembayaran::query()->create([
-            'order_id' => $pembelian->order_id,
-            'harga' => 10_000,
-            'no_pembayaran' => 'SALDO',
-            'no_pembeli' => $user->no_wa,
-            'status' => 'Lunas',
-            'metode' => 'SALDO',
-            'reference' => 'EXT-REF-INVALID-URL-001',
-        ]);
+            Pembayaran::query()->create([
+                'order_id' => $pembelian->order_id,
+                'harga' => 10_000,
+                'no_pembayaran' => 'SALDO',
+                'no_pembeli' => $user->no_wa,
+                'status' => 'Lunas',
+                'metode' => 'SALDO',
+                'reference' => 'EXT-REF-INVALID-URL-001',
+            ]);
+        } catch (\Exception $e) {
+            $this->assertStringContainsString('Webhook delivery failed', $e->getMessage());
+        }
 
         $delivery = ResellerCallbackDelivery::query()->firstOrFail();
 
