@@ -213,6 +213,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
             Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->name('credentials.rotate.live');
             Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->name('credentials.rotate.sandbox');
+            Route::post('/credentials/webhook', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'updateWebhook'])->name('credentials.webhook.update');
             Route::post('/ip-whitelist', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'store'])->name('ip.whitelist.store');
             Route::delete('/ip-whitelist/{ip}', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'destroy'])->where('ip', '.*')->name('ip.whitelist.destroy');
             Route::get('/docs', [\App\Http\Controllers\Public\Reseller\DocsController::class, 'index'])->name('docs');
@@ -228,6 +229,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/orders',    [\App\Http\Controllers\Public\Reseller\OrderLogController::class,        'index'])->name('orders');
             Route::get('/deposits',  [\App\Http\Controllers\Public\Reseller\DepositHistoryController::class,  'index'])->name('deposits');
             Route::get('/sandbox',   [\App\Http\Controllers\Public\Reseller\SandboxController::class,          'index'])->name('sandbox');
+            Route::post('/sandbox/simulate', [\App\Http\Controllers\Public\Reseller\SandboxController::class,  'simulateStatus'])->name('sandbox.simulate');
             
             // Notifications API
             Route::get('/notifications', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'index'])->name('notifications.index');
