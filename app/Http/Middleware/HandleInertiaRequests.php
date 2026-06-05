@@ -38,9 +38,11 @@ class HandleInertiaRequests extends Middleware
                 // Controllers use redirect()->with('success', '...') etc.
                 // Pages read from usePage().props.flash in React.
                 'flash' => [
-                    'success' => $request->session()->get('success'),
-                    'error'   => $request->session()->get('error'),
-                    'info'    => $request->session()->get('info'),
+                    'success' => $request->session()->get('success') ?? $request->session()->get('flash_success'),
+                    'error'   => $request->session()->get('error') ?? $request->session()->get('flash_error'),
+                    'info'    => $request->session()->get('info') ?? $request->session()->get('flash_info'),
+                    'new_webhook_secret' => $request->session()->get('new_webhook_secret'),
+                    'webhook_mode' => $request->session()->get('webhook_mode'),
                 ],
             ]
         );
