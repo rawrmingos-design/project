@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/rawrmingos-design/laravel-topup:latest
+    image: ghcr.io/rawrmingos-design/laravel-topup:${IMAGE_TAG:-latest}
     container_name: istana_topup
     restart: unless-stopped
     working_dir: /var/www/html
