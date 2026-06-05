@@ -1,8 +1,29 @@
-import React from 'react';
-import { Head } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, useForm } from '@inertiajs/react';
 import ResellerLayout from '../../Layouts/ResellerLayout';
 
-export default function Sandbox({ is_sandbox_active }) {
+export default function Sandbox({ is_sandbox_active, recent_orders = [] }) {
+    const webhookForm = useForm({});
+    const simulateForm = useForm({
+        invoice: '',
+        status: 'Success'
+    });
+
+    const fireWebhook = (e) => {
+        e.preventDefault();
+        webhookForm.post('/id/reseller/callbacks/test', {
+            preserveScroll: true,
+        });
+    };
+
+    const submitSimulate = (e) => {
+        e.preventDefault();
+        simulateForm.post('/id/reseller/sandbox/simulate', {
+            preserveScroll: true,
+            onSuccess: () => simulateForm.reset('invoice', 'status')
+        });
+    };
+
     return (
         <ResellerLayout headerTitle="Sandbox Environment">
             <Head title="Sandbox Guide" />
@@ -36,18 +57,84 @@ export default function Sandbox({ is_sandbox_active }) {
                     </ul>
                 </article>
 
+                {/* NEW: Sandbox Order Simulator */}
                 <article className="rh-card">
-                    <h3 style={{ margin: '0 0 16px', color: 'var(--primary)', fontSize: '1.2rem' }}>2. Testing Callbacks (Webhooks)</h3>
+                    <h3 style={{ margin: '0 0 16px', color: 'var(--primary)', fontSize: '1.2rem' }}>2. Order Status Simulator</h3>
+                    <p style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', lineHeight: 1.6 }}>
+                        Ubah status pesanan sandbox Anda secara manual untuk menguji bagaimana sistem Anda merespons perubahan status.
+                    </p>
+
+                    <form onSubmit={submitSimulate} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '20px', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div>
+                            <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginBottom: '8px' }}>
+                                Pilih Pesanan Sandbox Terakhir (atau input manual)
+                            </label>
+                            {recent_orders.length > 0 ? (
+                                <select 
+                                    className="rh-input" 
+                                    style={{ width: '100%', marginBottom: '8px' }}
+                                    onChange={(e) => simulateForm.setData('invoice', e.target.value)}
+                                    value={simulateForm.data.invoice}
+                                >
+                                    <option value="" disabled style={{ background: '#191f31', color: '#fff' }}>-- Pilih Invoice --</option>
+                                    {recent_orders.map(order => (
+                                        <option key={order.order_id} value={order.order_id} style={{ background: '#191f31', color: '#fff' }}>
+                                            {order.order_id} - {order.layanan} ({order.status})
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: 'var(--accent-warning)', margin: '0 0 8px' }}>Belum ada pesanan Sandbox.</p>
+                            )}
+                            <input
+                                type="text"
+                                className="rh-input"
+                                placeholder="Input manual Order ID (opsional jika pilih di atas)"
+                                value={simulateForm.data.invoice}
+                                onChange={e => simulateForm.setData('invoice', e.target.value)}
+                                style={{ width: '100%', colorScheme: 'dark' }}
+                            />
+                            {simulateForm.errors.invoice && <div style={{ color: 'var(--accent-danger)', fontSize: '0.8rem', marginTop: '4px' }}>{simulateForm.errors.invoice}</div>}
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginBottom: '8px' }}>Target Status</label>
+                            <select
+                                className="rh-input"
+                                value={simulateForm.data.status}
+                                onChange={e => simulateForm.setData('status', e.target.value)}
+                                style={{ width: '100%', colorScheme: 'dark' }}
+                            >
+                                <option value="Pending" style={{ background: '#191f31', color: '#fff' }}>Pending</option>
+                                <option value="Processing" style={{ background: '#191f31', color: '#fff' }}>Processing</option>
+                                <option value="Success" style={{ background: '#191f31', color: '#fff' }}>Success</option>
+                                <option value="Failed" style={{ background: '#191f31', color: '#fff' }}>Failed</option>
+                                <option value="Cancelled" style={{ background: '#191f31', color: '#fff' }}>Cancelled</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" className="rh-button rh-button--primary" disabled={simulateForm.processing} style={{ alignSelf: 'flex-start' }}>
+                            {simulateForm.processing ? 'Memproses...' : 'Simulasi Status'}
+                        </button>
+                    </form>
+                </article>
+
+                <article className="rh-card">
+                    <h3 style={{ margin: '0 0 16px', color: 'var(--primary)', fontSize: '1.2rem' }}>3. Testing Callbacks (Webhooks)</h3>
                     <p style={{ color: 'var(--on-surface-variant)', marginBottom: '16px', lineHeight: 1.6 }}>
                         When an order status changes in Sandbox, we will fire a webhook to your configured Live webhook URL, 
                         but the payload will include <code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono, monospace)', color: 'var(--accent-primary)' }}>"mode": "sandbox"</code>.
                     </p>
-                    <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: 'var(--radius-md)' }}>
-                        <p style={{ color: '#fff', margin: 0 }}>
-                            <strong style={{ color: 'var(--accent-secondary)' }}>Interactive Webhook Testing:</strong><br/>
-                            Currently under development. Soon, you will be able to manually trigger test payloads to your endpoint from this page.
+                    
+                    <form onSubmit={fireWebhook} style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', padding: '20px', borderRadius: 'var(--radius-md)' }}>
+                        <h4 style={{ margin: '0 0 12px', color: 'var(--accent-secondary)' }}>Interactive Webhook Testing</h4>
+                        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', marginBottom: '16px' }}>
+                            Kirimkan payload tiruan (*dummy*) ke endpoint Webhook URL Anda untuk memverifikasi apakah server Anda merespons dengan benar.
                         </p>
-                    </div>
+                        <button type="submit" className="rh-button rh-button--secondary" disabled={webhookForm.processing}>
+                            {webhookForm.processing ? 'Mengirim...' : 'Kirim Test Webhook'}
+                        </button>
+                    </form>
                 </article>
             </section>
         </ResellerLayout>
