@@ -124,9 +124,9 @@ class ResellerCallbackDeliveryService
             'callback_url' => (string) $profile->callback_url,
             'signature_algorithm' => $this->resolveSigningAlgorithm($profile->signing_algorithm),
             'payload' => $payload,
-            'attempt_count' => 1,
+            'attempt_count' => 0,
             'status' => 'pending',
-            'last_attempted_at' => now(),
+            'last_attempted_at' => null,
         ]);
 
         $failureReason = ResellerCallbackUrlValidator::failureReason($delivery->callback_url, $context['environment']);
@@ -140,67 +140,10 @@ class ResellerCallbackDeliveryService
             return ['status' => 'failed', 'reason' => $failureReason];
         }
 
-        $headers = [
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-            'X-Callback-Event' => $context['event_name'],
-            'X-Callback-Version' => (string) max(1, (int) ($profile->version ?? 1)),
-            'X-Callback-Timestamp' => (string) ($payload['timestamp'] ?? now()->toIso8601String()),
-        ];
+        // Dispatch background job for async webhook delivery with exponential backoff
+        \App\Jobs\DeliverResellerWebhookJob::dispatch($delivery)->onQueue('webhook');
 
-        $secret = $profile->decryptedWebhookSecret();
-
-        if ($secret === '') {
-            $delivery->update([
-                'status' => 'failed',
-                'last_error' => 'Webhook secret belum dikonfigurasi.',
-            ]);
-
-            return ['status' => 'failed', 'reason' => 'missing_secret'];
-        }
-
-        $headers[$this->resolveSignatureHeader($profile->signature_header)] = hash_hmac(
-            $delivery->signature_algorithm,
-            $rawPayload,
-            $secret,
-        );
-
-        try {
-            $response = Http::timeout($this->resolveTimeoutSeconds((int) ($profile->timeout_ms ?? 10000)))
-                ->withHeaders($headers)
-                ->withBody($rawPayload, 'application/json')
-                ->post($delivery->callback_url);
-
-            $delivery->last_response_status = $response->status();
-            $delivery->last_response_body = Str::limit($response->body(), 2000);
-
-            if ($response->successful()) {
-                $delivery->status = 'delivered';
-                $delivery->delivered_at = now();
-                $delivery->last_error = null;
-                $delivery->save();
-
-                return ['status' => 'delivered', 'status_code' => $delivery->last_response_status];
-            }
-
-            $delivery->status = 'failed';
-            $delivery->last_error = sprintf('HTTP %d response', $response->status());
-            $delivery->save();
-
-            return ['status' => 'failed', 'status_code' => $delivery->last_response_status];
-        } catch (Throwable $exception) {
-            $delivery->status = 'failed';
-            $delivery->last_error = $exception->getMessage();
-            $delivery->save();
-
-            Log::error('Reseller outbound callback threw an exception.', [
-                'order_id' => $pembelian->order_id,
-                'reseller_integration_id' => $integration->getKey(),
-                'message' => $exception->getMessage(),
-            ]);
-
-            return ['status' => 'failed', 'reason' => $exception->getMessage()];
-        }
+        return ['status' => 'pending', 'reason' => 'dispatched_to_queue'];
     }
 
     /**
@@ -210,7 +153,7 @@ class ResellerCallbackDeliveryService
      * It uses the payload, callback_url, and signature already stored
      * on the delivery row — rebuilt fresh for the resend attempt.
      */
-    private function redeliver(ResellerCallbackDelivery $delivery): array
+    public function redeliver(ResellerCallbackDelivery $delivery): array
     {
         $profile  = $delivery->callbackProfile;
         $pembelian = $delivery->pembelian;
