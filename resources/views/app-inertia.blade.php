@@ -136,6 +136,18 @@
         <script type="application/ld+json">{!! $schemaJson !!}</script>
     @endif
 
+    <!-- Inject runtime environment variables for React/Vite -->
+    <script>
+        window.Laravel = {
+            reverb: {
+                key: "{{ env('REVERB_APP_KEY') }}",
+                host: "{{ env('REVERB_HOST') }}",
+                port: {{ env('REVERB_PORT', 8080) }},
+                scheme: "{{ env('REVERB_SCHEME', 'http') }}"
+            }
+        };
+    </script>
+
     @inertiaHead
     @unless(app()->runningUnitTests())
         @viteReactRefresh

@@ -12,10 +12,12 @@ window.Pusher = Pusher;
 // Enable verbose Pusher logging so we can see connection + auth details
 Pusher.logToConsole = true;
 
-const reverbKey    = import.meta.env.VITE_REVERB_APP_KEY;
-const reverbHost   = import.meta.env.VITE_REVERB_HOST;
-const reverbPort   = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
-const reverbScheme = import.meta.env.VITE_REVERB_SCHEME ?? 'http';
+const reverbConfig = window.Laravel?.reverb || {};
+
+const reverbKey    = reverbConfig.key || import.meta.env.VITE_REVERB_APP_KEY;
+const reverbHost   = reverbConfig.host || import.meta.env.VITE_REVERB_HOST;
+const reverbPort   = Number(reverbConfig.port || import.meta.env.VITE_REVERB_PORT || 8080);
+const reverbScheme = reverbConfig.scheme || import.meta.env.VITE_REVERB_SCHEME || 'http';
 const isTLS        = reverbScheme === 'https';
 
 console.log('[bootstrap] Reverb config →', { reverbKey, reverbHost, reverbPort, reverbScheme, isTLS });
