@@ -49,7 +49,7 @@ export default function ResellerLayout({ children, meta, headerTitle = "Overview
             <Head>
                 {meta?.title && <title>{meta.title}</title>}
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-                <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+                <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet" />
                 {faviconPath && <link rel="icon" href={faviconPath} />}
                 {faviconPath && <link rel="shortcut icon" href={faviconPath} />}
             </Head>
