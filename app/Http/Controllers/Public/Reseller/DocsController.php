@@ -22,11 +22,11 @@ class DocsController extends Controller
             'sandbox_base_url' => url('/api/v1/sandbox'),
             'live' => $liveIntegration ? [
                 'integration_code' => $liveIntegration->integration_code,
-                'api_key_hint' => $user->api_key_hint,
+                'api_key_hint' => $liveIntegration->api_key_hint,
             ] : null,
             'sandbox' => $sandboxIntegration ? [
                 'integration_code' => $sandboxIntegration->integration_code,
-                'api_key_hint' => $user->sandbox_api_key_hint,
+                'api_key_hint' => $sandboxIntegration->api_key_hint,
             ] : null,
         ]);
     }
