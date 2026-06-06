@@ -143,6 +143,14 @@ class ResellerIntegrationResource extends Resource
                         'info' => 'sandbox',
                     ])
                     ->formatStateUsing(fn (?string $state): string => Str::headline((string) $state)),
+                TextColumn::make('api_key_hint')
+                    ->label('API Key')
+                    ->placeholder('Not generated')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('api_key_rotated_at')
+                    ->label('Key Rotated')
+                    ->dateTime('d M Y H:i')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 BadgeColumn::make('incoming_shared_readiness')
                     ->label('Incoming (Shared)')
                     ->state(fn (): string => static::sharedIncomingSnapshot()['label'])

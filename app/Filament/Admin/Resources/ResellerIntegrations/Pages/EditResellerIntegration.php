@@ -16,19 +16,23 @@ class EditResellerIntegration extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('rotateSandboxApiKey')
-                ->label('Rotate Sandbox API Key')
+            Action::make('rotateApiKey')
+                ->label(fn (): string => 'Rotate ' . ucfirst($this->record->mode) . ' API Key')
                 ->icon('heroicon-o-key')
                 ->color('warning')
-                ->visible(fn (): bool => $this->record->mode === 'sandbox')
                 ->requiresConfirmation()
-                ->modalHeading('Rotate Sandbox API Key')
-                ->modalDescription('Akan membuat API key sandbox baru untuk user partner ini. Raw key hanya ditampilkan sekali setelah action dijalankan.')
-                ->action(function (SandboxApiKeyService $sandboxApiKeyService): void {
-                    $rawKey = $sandboxApiKeyService->rotateForUser($this->record->user);
+                ->modalHeading(fn (): string => 'Rotate ' . ucfirst($this->record->mode) . ' API Key')
+                ->modalDescription('Akan membuat API key baru untuk integrasi ini. Raw key hanya ditampilkan sekali setelah action dijalankan.')
+                ->action(function (): void {
+                    $prefix = $this->record->mode === 'sandbox' ? 'egysbx_' : 'egylive_';
+                    $rawKey = $prefix . \Illuminate\Support\Str::random(40);
+
+                    $this->record->api_key = $rawKey;
+                    $this->record->api_key_rotated_at = now();
+                    $this->record->save();
 
                     Notification::make()
-                        ->title('Sandbox API key rotated')
+                        ->title(ucfirst($this->record->mode) . ' API key rotated')
                         ->body("Copy key ini sekarang: {$rawKey}")
                         ->warning()
                         ->persistent()

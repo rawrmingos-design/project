@@ -79,13 +79,7 @@ class UsersTable
                         'heroicon-o-user' => 'Member',
                     ]),
                     
-                TextColumn::make('api_key')
-                    ->label('API Key')
-                    ->limit(20)
-                    ->copyable()
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->placeholder('Not generated'),
-                    
+
                 TextColumn::make('created_at')
                     ->label('Joined')
                     ->dateTime('d M Y')
