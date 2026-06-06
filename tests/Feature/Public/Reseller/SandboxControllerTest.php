@@ -4,8 +4,8 @@ namespace Tests\Feature\Public\Reseller;
 
 use App\Models\User;
 use App\Models\ResellerIntegration;
+use App\Models\Pembelian;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -27,9 +27,6 @@ class SandboxControllerTest extends TestCase
             'integration_code' => 'TEST-SANDBOX-01',
             'is_active'        => true,
             'mode'             => 'sandbox',
-            'callback_url'     => 'https://my-webhook.com/api',
-            'api_key'          => 'hashed_sandbox_secret',
-            'api_key_hint'     => 'sandbox_secret_hint',
         ]);
     }
 
@@ -41,72 +38,30 @@ class SandboxControllerTest extends TestCase
         $response = $this->actingAs($user)->get('/id/reseller/sandbox');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn (Assert $page) => $page->component('Public/Pages/Reseller/Sandbox'));
+        $response->assertInertia(fn (Assert $page) => $page->component('Reseller/Sandbox'));
     }
 
-    public function test_reseller_can_trigger_sandbox_delivery_successfully(): void
+    public function test_reseller_can_simulate_status(): void
     {
         $user = $this->createResellerUser();
         $this->setupSandboxIntegration($user);
 
-        // Fake HTTP response to simulate a successful 200 OK from the reseller's webhook server
-        Http::fake([
-            'https://my-webhook.com/api' => Http::response(['status' => 'ok'], 200),
+        $pembelian = Pembelian::create([
+            'order_id' => 'TRX-123',
+            'username' => $user->username,
+            'status'   => 'Pending',
+            'is_sandbox' => true,
         ]);
 
-        $response = $this->actingAs($user)->post('/id/reseller/sandbox/test-webhook');
-
-        $response->assertRedirect('/id/reseller/sandbox');
-        $response->assertSessionHas('success', 'Webhook Sandbox berhasil dikirim dan direspon dengan HTTP 200!');
-        
-        $this->assertDatabaseHas('reseller_callbacks', [
-            'user_id' => $user->id,
-            'event'   => 'sandbox.ping',
-            'status'  => 'delivered',
-            'response_code' => 200,
+        $response = $this->actingAs($user)->post('/id/reseller/sandbox/simulate', [
+            'invoice' => 'TRX-123',
+            'status' => 'Success',
         ]);
-    }
-
-    public function test_reseller_sandbox_delivery_handles_failed_response(): void
-    {
-        $user = $this->createResellerUser();
-        $this->setupSandboxIntegration($user);
-
-        // Fake HTTP response to simulate a failure (e.g. 500 Internal Server Error)
-        Http::fake([
-            'https://my-webhook.com/api' => Http::response(['error' => 'internal error'], 500),
-        ]);
-
-        $response = $this->actingAs($user)->post('/id/reseller/sandbox/test-webhook');
-
-        $response->assertRedirect('/id/reseller/sandbox');
-        $response->assertSessionHas('error');
-        $this->assertStringContainsString('Webhook Sandbox dikirim, tapi server Anda merespon dengan error HTTP 500', session('error'));
-
-        $this->assertDatabaseHas('reseller_callbacks', [
-            'user_id' => $user->id,
-            'event'   => 'sandbox.ping',
-            'status'  => 'failed',
-            'response_code' => 500,
-        ]);
-    }
-
-    public function test_reseller_cannot_trigger_sandbox_without_url(): void
-    {
-        $user = $this->createResellerUser();
-        
-        // Setup integration but without callback_url
-        ResellerIntegration::create([
-            'user_id'          => $user->id,
-            'integration_code' => 'TEST-SANDBOX-02',
-            'is_active'        => true,
-            'mode'             => 'sandbox',
-            'callback_url'     => null, // Missing URL
-        ]);
-
-        $response = $this->actingAs($user)->post('/id/reseller/sandbox/test-webhook');
 
         $response->assertRedirect();
-        $response->assertSessionHas('error', 'URL Webhook Sandbox belum diatur. Silakan isi URL terlebih dahulu.');
+        $response->assertSessionHas('flash_success');
+        
+        $pembelian->refresh();
+        $this->assertEquals('Sukses', $pembelian->status);
     }
 }
