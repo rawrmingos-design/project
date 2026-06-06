@@ -83,6 +83,12 @@ class ResellerCredentialsPageTest extends TestCase
                         ->has('name')
                         ->has('email')
                         ->has('twoFactorEnabled')
+                        ->has('username')
+                        ->has('role')
+                        ->has('balance')
+                        ->has('pointBalance')
+                        ->has('avatar')
+                        ->has('canShowAffiliate')
                 )
             );
     }
