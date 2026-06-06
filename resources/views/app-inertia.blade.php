@@ -140,10 +140,10 @@
     <script>
         window.Laravel = {
             reverb: {
-                key: "{{ env('REVERB_APP_KEY') }}",
-                host: "{{ env('REVERB_HOST') }}",
-                port: {{ env('REVERB_PORT', 8080) }},
-                scheme: "{{ env('REVERB_SCHEME', 'http') }}"
+                key: "{{ env('REVERB_APP_KEY', env('PUSHER_APP_KEY', env('VITE_PUSHER_APP_KEY'))) }}",
+                host: "{{ env('REVERB_HOST', env('PUSHER_HOST', env('VITE_PUSHER_HOST'))) }}",
+                port: {{ env('REVERB_PORT', env('PUSHER_PORT', env('VITE_PUSHER_PORT', 8080))) }},
+                scheme: "{{ env('REVERB_SCHEME', env('PUSHER_SCHEME', env('VITE_PUSHER_SCHEME', 'http'))) }}"
             }
         };
     </script>
