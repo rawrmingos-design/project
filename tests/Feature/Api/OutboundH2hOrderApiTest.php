@@ -17,84 +17,17 @@ class OutboundH2hOrderApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_order_requires_reseller_integration_header(): void
-    {
-        $user = User::factory()->create([
-            'api_key' => 'token-live-no-header',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-
-        $this->createManualLayanan();
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-        ])->postJson('/api/v1/order', [
-            'code' => 'MANUAL-MVP-001',
-            'referenceNumber' => 'REF-NO-HEADER-001',
-            'data' => '12345678|2001',
-        ]);
-
-        $response->assertStatus(422)
-            ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'X-Reseller-Integration-Code header is required')
-            ->assertJsonPath('error_code', 'INTEGRATION_CODE_REQUIRED');
-    }
-
-    public function test_order_rejects_foreign_or_inactive_integration_code(): void
-    {
-        $user = User::factory()->create([
-            'api_key' => 'token-live-owner-a',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-        $otherUser = User::factory()->create([
-            'api_key' => 'token-live-owner-b',
-            'balance' => 50_000,
-            'no_wa' => '081234567891',
-        ]);
-
-        $integration = ResellerIntegration::query()->create([
-            'user_id' => $otherUser->getKey(),
-            'integration_code' => 'other-live-01',
-            'mode' => 'live',
-            'is_active' => true,
-        ]);
-
-        $this->createManualLayanan();
-
-        $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
-        ])->postJson('/api/v1/order', [
-            'code' => 'MANUAL-MVP-001',
-            'referenceNumber' => 'REF-FOREIGN-001',
-            'data' => '12345678|2001',
-        ]);
-
-        $response->assertStatus(403)
-            ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Invalid or inactive reseller integration code')
-            ->assertJsonPath('error_code', 'INVALID_INTEGRATION_CODE');
-    }
-
     public function test_valid_live_order_stores_integration_and_sends_signed_callback(): void
     {
         Http::fake([
             'https://client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
-        $user = User::factory()->create([
-            'api_key' => 'token-live-valid',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
         $this->createManualLayanan();
 
         $response = $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ])->postJson('/api/v1/order', [
             'code' => 'MANUAL-MVP-001',
             'referenceNumber' => 'EXT-REF-VALID-001',
@@ -143,16 +76,11 @@ class OutboundH2hOrderApiTest extends TestCase
             'https://client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
-        $user = User::factory()->create([
-            'api_key' => 'token-live-transition',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
         $layanan = $this->createManualLayanan();
 
         $pembelian = Pembelian::query()->create([
-            'username' => $user->username,
+            'username' => $integration->user->username,
             'reseller_integration_id' => $integration->getKey(),
             'order_id' => 'INV-H2H-MVP-TRANSITION-001',
             'user_id' => '12345678',
@@ -172,7 +100,7 @@ class OutboundH2hOrderApiTest extends TestCase
             'order_id' => $pembelian->order_id,
             'harga' => 10_000,
             'no_pembayaran' => 'SALDO',
-            'no_pembeli' => $user->no_wa,
+            'no_pembeli' => $integration->user->no_wa,
             'status' => 'Lunas',
             'metode' => 'SALDO',
             'reference' => 'EXT-REF-TRANSITION-001',
@@ -201,17 +129,12 @@ class OutboundH2hOrderApiTest extends TestCase
             'https://client.example/callback' => Http::response(['error' => 'upstream-fail'], 500),
         ]);
 
-        $user = User::factory()->create([
-            'api_key' => 'token-live-failed-callback',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
         $layanan = $this->createManualLayanan();
 
         try {
             $pembelian = Pembelian::query()->create([
-                'username' => $user->username,
+                'username' => $integration->user->username,
                 'reseller_integration_id' => $integration->getKey(),
                 'order_id' => 'INV-H2H-MVP-FAILED-001',
                 'user_id' => '12345678',
@@ -231,7 +154,7 @@ class OutboundH2hOrderApiTest extends TestCase
                 'order_id' => $pembelian->order_id,
                 'harga' => 10_000,
                 'no_pembayaran' => 'SALDO',
-                'no_pembeli' => $user->no_wa,
+                'no_pembeli' => $integration->user->no_wa,
                 'status' => 'Lunas',
                 'metode' => 'SALDO',
                 'reference' => 'EXT-REF-FAILED-001',
@@ -252,18 +175,10 @@ class OutboundH2hOrderApiTest extends TestCase
     {
         Http::preventStrayRequests();
 
-        $user = User::factory()->create([
-            'api_key' => 'token-live-invalid-url',
-            'balance' => 50_000,
-            'no_wa' => '081234567890',
-        ]);
-
-        $integration = ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-invalid-url-01',
+        $integration = ResellerIntegration::factory()->create([
             'mode'             => 'live',
             'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+            'allowed_ips'      => ['127.0.0.1'],
         ]);
 
         ResellerCallbackProfile::query()->create([
@@ -280,7 +195,7 @@ class OutboundH2hOrderApiTest extends TestCase
 
         try {
             $pembelian = Pembelian::query()->create([
-                'username' => $user->username,
+                'username' => $integration->user->username,
                 'reseller_integration_id' => $integration->getKey(),
                 'order_id' => 'INV-H2H-MVP-INVALID-URL-001',
                 'user_id' => '12345678',
@@ -300,7 +215,7 @@ class OutboundH2hOrderApiTest extends TestCase
                 'order_id' => $pembelian->order_id,
                 'harga' => 10_000,
                 'no_pembayaran' => 'SALDO',
-                'no_pembeli' => $user->no_wa,
+                'no_pembeli' => $integration->user->no_wa,
                 'status' => 'Lunas',
                 'metode' => 'SALDO',
                 'reference' => 'EXT-REF-INVALID-URL-001',
@@ -337,16 +252,17 @@ class OutboundH2hOrderApiTest extends TestCase
         ]);
     }
 
-    private function createIntegrationWithProfile(User $user): ResellerIntegration
+    private function createIntegrationWithProfile(): ResellerIntegration
     {
-        $integration = ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-integration-001-' . $user->getKey(),
+        $integration = ResellerIntegration::factory()->create([
             'mode'             => 'live',
             'is_active'        => true,
             // 127.0.0.1 is the loopback used by Laravel's test HTTP client
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+            'allowed_ips'      => ['127.0.0.1'],
         ]);
+
+        // ensure user balance for testing
+        $integration->user->update(['balance' => 50000]);
 
         ResellerCallbackProfile::query()->create([
             'reseller_integration_id' => $integration->getKey(),

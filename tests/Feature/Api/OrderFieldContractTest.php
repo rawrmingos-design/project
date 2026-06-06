@@ -30,8 +30,6 @@ class OrderFieldContractTest extends TestCase
             'username'       => 'reseller.contract.' . uniqid(),
             'role'           => 'Member',
             'balance'        => 500_000,
-            'api_key'        => $this->rawKey,
-            'api_key_prefix' => null,
         ]);
 
         ResellerIntegration::factory()->create([
@@ -40,6 +38,7 @@ class OrderFieldContractTest extends TestCase
             'mode'             => 'live',
             'is_active'        => true,
             'allowed_ips'      => ['127.0.0.1'],
+            'api_key_hash'     => hash('sha256', $this->rawKey),
         ]);
 
         ResellerIntegration::factory()->create([

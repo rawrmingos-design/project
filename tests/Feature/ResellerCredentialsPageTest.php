@@ -18,15 +18,15 @@ class ResellerCredentialsPageTest extends TestCase
         $user = User::factory()->create([
             'role'              => 'Member',
             'two_factor_secret' => $with2fa ? 'JBSWY3DPEHPK3PXP' : null,
-            'api_key'           => Hash::make('live_test_key'),
-            'api_key_hint'      => '...hint',
         ]);
 
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-CRED-01',
             'is_active'        => true,
             'mode'             => 'live',
+            'api_key_hash'     => Hash::make('live_test_key'),
+            'api_key_hint'     => '...hint',
         ]);
 
         return $user;

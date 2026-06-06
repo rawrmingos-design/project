@@ -25,21 +25,23 @@ class ResellerApiThrottleTest extends TestCase
 
     public function test_balance_returns_json_429_after_token_limit_is_exhausted(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-throttle-balance',
+        ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'token-throttle-balance'),
+            'mode' => 'live',
+            'is_active' => true,
         ]);
 
         $ip = '203.0.113.10';
 
         for ($i = 0; $i < 30; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
-                ->withHeader('Authorization', 'Bearer ' . $user->api_key)
+                ->withHeader('Authorization', 'Bearer token-throttle-balance')
                 ->postJson('/api/v1/balance')
                 ->assertOk();
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
-            ->withHeader('Authorization', 'Bearer ' . $user->api_key)
+            ->withHeader('Authorization', 'Bearer token-throttle-balance')
             ->postJson('/api/v1/balance')
             ->assertStatus(429)
             ->assertJsonPath('error', true)
@@ -51,22 +53,16 @@ class ResellerApiThrottleTest extends TestCase
 
     public function test_order_throttles_faster_than_status_order(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-throttle-order',
-            'username' => 'throttle.order',
-        ]);
-
-        ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-throttle-order',
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'token-throttle-order'),
             'mode'             => 'live',
             'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['203.0.113.11']],
+            'allowed_ips'      => ['203.0.113.11'],
         ]);
 
         Pembelian::factory()->create([
             'order_id' => 'INV-STATUS-LONG-001',
-            'username' => $user->username,
+            'username' => $integration->user->username,
             'user_id'  => '998877',
             'zone'     => '3344',
             'status'   => 'Sukses',
@@ -77,21 +73,19 @@ class ResellerApiThrottleTest extends TestCase
         for ($i = 0; $i < 20; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
                 ->withHeaders([
-                    'Authorization'               => 'Bearer ' . $user->api_key,
-                    'X-Reseller-Integration-Code' => 'invalid-live-code',
+                    'Authorization'               => 'Bearer token-throttle-order',
                 ])
                 ->postJson('/api/v1/order', [
                     'code'            => 'MANUAL-MVP-001',
                     'referenceNumber' => 'THROTTLE-ORDER-' . $i,
                     'data'            => '12345678|2001',
                 ])
-                ->assertStatus(403);
+                ->assertStatus(422); // Unprocessable Entity because missing user_id etc, but passes throttle
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
             ->withHeaders([
-                'Authorization'               => 'Bearer ' . $user->api_key,
-                'X-Reseller-Integration-Code' => 'invalid-live-code',
+                'Authorization'               => 'Bearer token-throttle-order',
             ])
             ->postJson('/api/v1/order', [
                 'code'            => 'MANUAL-MVP-001',
@@ -106,8 +100,7 @@ class ResellerApiThrottleTest extends TestCase
         for ($i = 0; $i < 25; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
                 ->withHeaders([
-                    'Authorization'               => 'Bearer ' . $user->api_key,
-                    'X-Reseller-Integration-Code' => 'live-throttle-order',
+                    'Authorization'               => 'Bearer token-throttle-order',
                 ])
                 ->postJson('/api/v1/status-order/INV-STATUS-LONG-001')
                 ->assertOk();
@@ -116,30 +109,34 @@ class ResellerApiThrottleTest extends TestCase
 
     public function test_two_tokens_on_same_ip_do_not_share_balance_quota(): void
     {
-        $userA = User::factory()->create([
-            'api_key' => 'token-throttle-shared-a',
+        ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'token-throttle-shared-a'),
+            'mode' => 'live',
+            'is_active' => true,
         ]);
-        $userB = User::factory()->create([
-            'api_key' => 'token-throttle-shared-b',
+        ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'token-throttle-shared-b'),
+            'mode' => 'live',
+            'is_active' => true,
         ]);
 
         $ip = '203.0.113.12';
 
         for ($i = 0; $i < 30; $i++) {
             $this->withServerVariables(['REMOTE_ADDR' => $ip])
-                ->withHeader('Authorization', 'Bearer ' . $userA->api_key)
+                ->withHeader('Authorization', 'Bearer token-throttle-shared-a')
                 ->postJson('/api/v1/balance')
                 ->assertOk();
         }
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
-            ->withHeader('Authorization', 'Bearer ' . $userA->api_key)
+            ->withHeader('Authorization', 'Bearer token-throttle-shared-a')
             ->postJson('/api/v1/balance')
             ->assertStatus(429)
             ->assertJsonPath('error_code', 'TOO_MANY_REQUESTS');
 
         $this->withServerVariables(['REMOTE_ADDR' => $ip])
-            ->withHeader('Authorization', 'Bearer ' . $userB->api_key)
+            ->withHeader('Authorization', 'Bearer token-throttle-shared-b')
             ->postJson('/api/v1/balance')
             ->assertOk();
     }
