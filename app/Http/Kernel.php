@@ -43,10 +43,8 @@ class Kernel extends HttpKernel
     protected $routeMiddleware = [
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
-        'auth.api' => \App\Http\Middleware\AuthenticateApi::class,
-        'auth.sandbox.api' => \App\Http\Middleware\AuthenticateSandboxApi::class,
-        'resolve.live.reseller.integration' => \App\Http\Middleware\ResolveLiveResellerIntegration::class,
-        'resolve.sandbox.reseller.integration' => \App\Http\Middleware\ResolveSandboxResellerIntegration::class,
+        'auth.api' => \App\Http\Middleware\ResolveLiveResellerIntegration::class,
+        'auth.sandbox.api' => \App\Http\Middleware\ResolveSandboxResellerIntegration::class,
         'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
         'can' => \Illuminate\Auth\Middleware\Authorize::class,
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,

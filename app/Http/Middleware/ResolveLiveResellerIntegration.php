@@ -11,30 +11,27 @@ use Illuminate\Http\Request;
 
 class ResolveLiveResellerIntegration
 {
-    public function __construct(
-        private readonly ResellerIntegrationLookup $lookup
-    ) {
-    }
-
     public function handle(Request $request, Closure $next)
     {
-        $user = $request->attributes->get('api_user');
+        $bearerToken = trim((string) $request->bearerToken());
 
-        if (! $user instanceof User) {
-            $bearerToken = trim((string) $request->bearerToken());
-
-            if ($bearerToken === '') {
-                return ResellerApiResponse::error(
-                    'Access Token is required',
-                    ResellerApiResponse::ACCESS_TOKEN_REQUIRED,
-                    403,
-                );
-            }
-
-            $user = User::query()->where('api_key', $bearerToken)->first();
+        if ($bearerToken === '') {
+            return ResellerApiResponse::error(
+                'Access Token is required',
+                ResellerApiResponse::ACCESS_TOKEN_REQUIRED,
+                403,
+            );
         }
 
-        if (! $user) {
+        // SHA-256 Lookup
+        $hash = hash('sha256', $bearerToken);
+        $integration = ResellerIntegration::where('api_key_hash', $hash)
+            ->where('mode', 'live')
+            ->where('is_active', true)
+            ->with('user')
+            ->first();
+
+        if (! $integration || ! $integration->user) {
             return ResellerApiResponse::error(
                 'Invalid Token',
                 ResellerApiResponse::INVALID_TOKEN,
@@ -42,27 +39,10 @@ class ResolveLiveResellerIntegration
             );
         }
 
-        $integrationCode = trim((string) $request->header('X-Reseller-Integration-Code'));
+        // Token is valid, update last used at (optional, can be moved to a job if high load)
+        $integration->updateQuietly(['api_key_last_used_at' => now()]);
 
-        if ($integrationCode === '') {
-            return ResellerApiResponse::error(
-                'X-Reseller-Integration-Code header is required',
-                ResellerApiResponse::INTEGRATION_CODE_REQUIRED,
-                422,
-            );
-        }
-
-        $integration = $this->lookup->findOwnedActive($user, $integrationCode, 'live');
-
-        if (! $integration) {
-            return ResellerApiResponse::error(
-                'Invalid or inactive reseller integration code',
-                ResellerApiResponse::INVALID_INTEGRATION_CODE,
-                403,
-            );
-        }
-
-        $request->attributes->set('api_user', $user);
+        $request->attributes->set('api_user', $integration->user);
         $request->attributes->set('live_reseller_integration', $integration);
 
         return $next($request);
