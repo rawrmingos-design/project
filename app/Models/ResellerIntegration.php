@@ -15,9 +15,15 @@ class ResellerIntegration extends Model
 
     protected $guarded = [];
 
+    protected $hidden = [
+        'api_key_hash',
+    ];
+
     protected $casts = [
         'is_active' => 'boolean',
         'metadata' => 'json',
+        'api_key_last_used_at' => 'datetime',
+        'api_key_rotated_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -163,5 +169,30 @@ class ResellerIntegration extends Model
         $metadata = $this->metadata ?? [];
         $metadata['allowed_ips'] = $value;
         $this->metadata = $metadata;
+    }
+
+    public function setApiKeyAttribute($value): void
+    {
+        if (filled($value)) {
+            $valueStr = (string) $value;
+            $this->attributes['api_key_hash'] = hash('sha256', $valueStr);
+            $this->attributes['api_key_hint'] = '...' . substr($valueStr, -6);
+            $this->attributes['api_key_prefix'] = substr($valueStr, 0, 8);
+        } else {
+            $this->attributes['api_key_hash'] = null;
+            $this->attributes['api_key_hint'] = null;
+            $this->attributes['api_key_prefix'] = null;
+        }
+    }
+
+    public function verifyApiKey(string $token): bool
+    {
+        $storedHash = $this->api_key_hash;
+
+        if (blank($storedHash)) {
+            return false;
+        }
+
+        return hash_equals($storedHash, hash('sha256', $token));
     }
 }
