@@ -5,9 +5,9 @@ import ResellerLayout from '@/public/Layouts/ResellerLayout.jsx';
 const SECTIONS = [
     { id: 'authentication', label: 'Authentication' },
     { id: 'endpoints', label: 'Endpoints' },
-    { id: 'data-fields', label: 'user_id & zone_id' },
-    { id: 'webhook', label: 'Webhook / Callback' },
-    { id: 'error-codes', label: 'Error Codes' },
+    { id: 'data-fields', label: 'Identifiers (user_id & zone_id)' },
+    { id: 'webhook', label: 'Webhooks & Callbacks' },
+    { id: 'error-codes', label: 'Error Codes Reference' },
 ];
 
 function CodeBlock({ children, language = 'bash' }) {
@@ -18,30 +18,43 @@ function CodeBlock({ children, language = 'bash' }) {
         setTimeout(() => setCopied(false), 2000);
     };
     return (
-        <div className="relative group">
-            <pre className="bg-slate-900 text-slate-100 rounded-lg p-4 overflow-x-auto text-sm font-mono leading-relaxed mt-2 mb-4">
+        <div className="relative group mt-3 mb-6 rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+            <div className="flex items-center px-4 py-2 bg-slate-900/90 backdrop-blur border-b border-white/10">
+                <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                </div>
+                <span className="ml-4 text-xs font-medium text-slate-400 uppercase tracking-wider">{language}</span>
+            </div>
+            <pre className="bg-[#0f111a] text-slate-300 p-5 overflow-x-auto text-sm font-mono leading-relaxed">
                 <code>{children.trim()}</code>
             </pre>
             <button
                 onClick={handleCopy}
-                className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2 py-1 rounded"
+                className={`absolute top-12 right-4 transition-all duration-200 px-3 py-1.5 rounded-md text-xs font-medium shadow-sm backdrop-blur-md ${
+                    copied 
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' 
+                    : 'bg-white/5 text-slate-300 border border-white/10 opacity-0 group-hover:opacity-100 hover:bg-white/10'
+                }`}
             >
-                {copied ? '✓ Copied' : 'Copy'}
+                {copied ? '✓ Copied' : 'Copy Code'}
             </button>
         </div>
     );
 }
 
 function Badge({ children, variant = 'blue' }) {
-    const colors = {
-        blue: 'bg-blue-100 text-blue-800',
-        green: 'bg-green-100 text-green-800',
-        yellow: 'bg-yellow-100 text-yellow-800',
-        red: 'bg-red-100 text-red-800',
-        gray: 'bg-gray-100 text-gray-700',
+    const variants = {
+        blue: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
+        green: 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20',
+        amber: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+        red: 'bg-rose-500/10 text-rose-600 border border-rose-500/20',
+        gray: 'bg-slate-500/10 text-slate-600 border border-slate-500/20',
+        purple: 'bg-purple-500/10 text-purple-600 border border-purple-500/20',
     };
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${colors[variant]}`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide ${variants[variant]}`}>
             {children}
         </span>
     );
@@ -49,12 +62,58 @@ function Badge({ children, variant = 'blue' }) {
 
 function Section({ id, title, children }) {
     return (
-        <section id={id} className="scroll-mt-24 mb-12">
-            <h2 className="text-xl font-bold text-gray-900 border-b border-gray-200 pb-3 mb-6">
+        <section id={id} className="scroll-mt-32 mb-16 group">
+            <h2 className="text-2xl font-bold text-slate-900 border-b border-slate-200 pb-4 mb-8 flex items-center gap-3 transition-colors group-hover:text-purple-600">
+                <span className="text-purple-500 opacity-50 text-xl font-light">#</span>
                 {title}
             </h2>
-            {children}
+            <div className="prose prose-slate max-w-none prose-headings:font-semibold prose-a:text-purple-600 hover:prose-a:text-purple-500">
+                {children}
+            </div>
         </section>
+    );
+}
+
+function EnvironmentCard({ title, baseUrl, isSandbox, hint }) {
+    return (
+        <div className={`relative overflow-hidden rounded-2xl p-6 border transition-all duration-300 hover:shadow-xl ${
+            isSandbox 
+                ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/50 hover:border-amber-300' 
+                : 'bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-200/50 hover:border-indigo-300'
+        }`}>
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                    {isSandbox 
+                        ? <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                        : <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    }
+                </svg>
+            </div>
+            
+            <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                    <h3 className={`text-lg font-bold ${isSandbox ? 'text-amber-900' : 'text-indigo-900'}`}>{title}</h3>
+                    <Badge variant={isSandbox ? 'amber' : 'purple'}>{isSandbox ? 'Testing' : 'Production'}</Badge>
+                </div>
+                
+                <div className="space-y-4">
+                    <div>
+                        <span className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isSandbox ? 'text-amber-700/70' : 'text-indigo-700/70'}`}>Base URL</span>
+                        <code className={`block text-sm font-mono p-2.5 rounded-lg border bg-white/60 backdrop-blur-sm ${
+                            isSandbox ? 'text-amber-800 border-amber-200' : 'text-indigo-800 border-indigo-200'
+                        }`}>{baseUrl}</code>
+                    </div>
+                    
+                    <div>
+                        <span className={`block text-xs font-bold uppercase tracking-wider mb-1 ${isSandbox ? 'text-amber-700/70' : 'text-indigo-700/70'}`}>API Key Hint</span>
+                        <div className="flex items-center justify-between">
+                            <code className="text-sm font-mono font-medium text-slate-700">{hint ?? 'Not configured'}</code>
+                            <span className="text-xs text-slate-500">Rotate via Credentials</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -70,7 +129,7 @@ export default function ApiDocs({ canonical_url, live_base_url, sandbox_base_url
                     if (entry.isIntersecting) setActiveSection(entry.target.id);
                 });
             },
-            { rootMargin: '-80px 0px -60% 0px', threshold: 0 }
+            { rootMargin: '-100px 0px -60% 0px', threshold: 0 }
         );
         sections.forEach(s => observerRef.current.observe(s));
         return () => observerRef.current?.disconnect();
@@ -84,105 +143,109 @@ export default function ApiDocs({ canonical_url, live_base_url, sandbox_base_url
         <ResellerLayout>
             <Head title="API Documentation — Reseller Hub" />
 
-            {/* Page Header */}
-            <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl font-bold text-gray-900">API Documentation</h1>
-                    <Badge variant="blue">v1</Badge>
-                </div>
-                <p className="text-gray-500 text-sm">
-                    Technical reference untuk integrasi H2H API.
-                    Credentials Anda sudah diisi otomatis di bawah.
-                </p>
-            </div>
-
-            <div className="flex gap-8">
-                {/* Sidebar */}
-                <nav className="hidden lg:block w-48 shrink-0 sticky top-24 self-start">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Contents</p>
-                    <ul className="space-y-1">
-                        {SECTIONS.map(s => (
-                            <li key={s.id}>
-                                <button
-                                    onClick={() => scrollTo(s.id)}
-                                    className={`w-full text-left text-sm px-3 py-1.5 rounded-md transition-colors ${
-                                        activeSection === s.id
-                                            ? 'bg-purple-50 text-purple-700 font-medium'
-                                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    {s.label}
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-
-                    {/* ── Section 1: Authentication ── */}
-                    <Section id="authentication" title="Authentication">
-                        <p className="text-gray-700 text-sm mb-4">
-                            Semua request ke API harus menyertakan header <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">Authorization</code> dengan format Bearer token.
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+                {/* Hero Header */}
+                <div className="relative mb-16 p-8 rounded-3xl bg-slate-900 overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-500/20"></div>
+                    <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-500/30 blur-3xl rounded-full"></div>
+                    <div className="absolute bottom-0 left-10 w-72 h-72 bg-blue-500/20 blur-3xl rounded-full"></div>
+                    
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Badge variant="purple">Developer API</Badge>
+                            <Badge variant="blue">v1.0</Badge>
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
+                            API Reference
+                        </h1>
+                        <p className="text-lg text-slate-300 max-w-2xl leading-relaxed">
+                            Integrasikan platform Anda dengan layanan Host-to-Host Egymarket. 
+                            Dokumentasi ini telah diperbarui untuk mendukung arsitektur Bearer Token terbaru.
                         </p>
+                    </div>
+                </div>
 
-                        <h3 className="font-semibold text-gray-800 mb-2 mt-4">Live API</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Base URL</span>
-                                <code className="block text-sm text-purple-700 mt-1 break-all">{live_base_url}</code>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Integration Code Header</span>
-                                <code className="block text-sm mt-1 break-all">{live?.integration_code ?? '—'}</code>
-                            </div>
-                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">API Key Hint</span>
-                                <code className="block text-sm mt-1">{live?.api_key_hint ?? '—'}</code>
-                                <p className="text-xs text-gray-400 mt-1">Rotate via Credentials page. Key hanya tampil sekali saat rotasi.</p>
-                            </div>
+                <div className="flex flex-col lg:flex-row gap-12 relative">
+                    {/* Sticky Sidebar Navigation */}
+                    <nav className="hidden lg:block w-64 shrink-0">
+                        <div className="sticky top-28 bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-2xl p-5 shadow-sm">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">On this page</p>
+                            <ul className="space-y-1.5">
+                                {SECTIONS.map(s => (
+                                    <li key={s.id}>
+                                        <button
+                                            onClick={() => scrollTo(s.id)}
+                                            className={`w-full flex items-center text-left text-sm px-4 py-2.5 rounded-xl transition-all duration-200 ${
+                                                activeSection === s.id
+                                                    ? 'bg-purple-50 text-purple-700 font-semibold shadow-sm'
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {activeSection === s.id && (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-purple-600 mr-2.5"></div>
+                                            )}
+                                            {s.label}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
+                    </nav>
 
-                        <h3 className="font-semibold text-gray-800 mb-2 mt-6">Sandbox API</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                                <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Base URL</span>
-                                <code className="block text-sm text-amber-700 mt-1 break-all">{sandbox_base_url}</code>
+                    {/* Main Content Area */}
+                    <div className="flex-1 min-w-0 bg-white rounded-3xl p-8 lg:p-12 shadow-sm border border-slate-200/60">
+
+                        {/* ── Section 1: Authentication ── */}
+                        <Section id="authentication" title="Authentication">
+                            <p className="text-slate-600 text-lg mb-8 leading-relaxed">
+                                Autentikasi API menggunakan standar industri <strong className="text-slate-900 font-semibold">Bearer Token</strong>. 
+                                Anda hanya perlu menyertakan satu header <code className="bg-slate-100 text-purple-700 px-1.5 py-0.5 rounded-md text-sm">Authorization</code> 
+                                pada setiap request. Header lama seperti <del className="text-slate-400">X-Reseller-Integration-Code</del> sudah <strong>tidak diperlukan</strong>.
+                            </p>
+
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+                                <EnvironmentCard 
+                                    title="Live Environment" 
+                                    baseUrl={live_base_url} 
+                                    isSandbox={false} 
+                                    hint={live?.api_key_hint} 
+                                />
+                                <EnvironmentCard 
+                                    title="Sandbox Environment" 
+                                    baseUrl={sandbox_base_url} 
+                                    isSandbox={true} 
+                                    hint={sandbox?.api_key_hint} 
+                                />
                             </div>
-                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                                <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Integration Code Header</span>
-                                <code className="block text-sm mt-1 break-all">{sandbox?.integration_code ?? '—'}</code>
+
+                            <div className="bg-emerald-50 border-l-4 border-emerald-500 rounded-r-xl p-5 text-sm text-emerald-800 flex gap-4 items-start shadow-sm">
+                                <svg className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                <div>
+                                    <h4 className="font-bold text-emerald-900 text-base mb-1">IP Whitelist Enforcement</h4>
+                                    <p className="opacity-90">Lingkungan Live mewajibkan alamat IP server Anda didaftarkan pada halaman Credentials demi keamanan. Request dari IP tidak terdaftar akan otomatis ditolak (HTTP 403).</p>
+                                </div>
                             </div>
-                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                                <span className="text-xs font-bold text-amber-600 uppercase tracking-wide">Sandbox API Key Hint</span>
-                                <code className="block text-sm mt-1">{sandbox?.api_key_hint ?? '—'}</code>
-                            </div>
-                        </div>
+                        </Section>
 
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                            <strong>Catatan:</strong> Header <code className="bg-blue-100 px-1 rounded text-xs">X-Reseller-Integration-Code</code> wajib disertakan pada endpoint <code className="bg-blue-100 px-1 rounded text-xs">/order</code>. Endpoint lain (<code className="bg-blue-100 px-1 rounded text-xs">balance</code>, <code className="bg-blue-100 px-1 rounded text-xs">product</code>, <code className="bg-blue-100 px-1 rounded text-xs">variant</code>) hanya butuh Bearer token.
-                        </div>
-                    </Section>
+                        {/* ── Section 2: Endpoints ── */}
+                        <Section id="endpoints" title="Endpoints">
+                            <div className="space-y-6">
 
-                    {/* ── Section 2: Endpoints ── */}
-                    <Section id="endpoints" title="Endpoints">
-                        <div className="space-y-4">
-
-                            {/* Balance */}
-                            <details className="bg-white border border-gray-200 rounded-lg group">
-                                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
-                                    <Badge variant="blue">POST</Badge>
-                                    <code className="text-sm font-mono">/api/v1/balance</code>
-                                    <span className="text-gray-500 text-sm ml-auto">Cek saldo reseller</span>
-                                </summary>
-                                <div className="px-4 pb-4 border-t border-gray-100 mt-1">
-                                    <p className="text-sm text-gray-600 mt-3 mb-2">Tidak membutuhkan request body.</p>
-                                    <CodeBlock>{`curl -X POST "${live_base_url}/balance" \\
+                                {/* Balance Endpoint */}
+                                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+                                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-4">
+                                        <Badge variant="blue">POST</Badge>
+                                        <code className="text-base font-bold text-slate-800">/api/v1/balance</code>
+                                        <span className="text-slate-500 text-sm ml-auto hidden sm:block">Cek saldo reseller</span>
+                                    </div>
+                                    <div className="p-6 bg-white">
+                                        <CodeBlock>{`curl -X POST "${live_base_url}/balance" \\
   -H "Authorization: Bearer {API_KEY}" \\
-  -H "Content-Type: application/json"`}</CodeBlock>
-                                    <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Response</p>
-                                    <CodeBlock>{`{
+  -H "Accept: application/json"`}</CodeBlock>
+                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-4">Success Response</p>
+                                        <CodeBlock language="json">{`{
   "error": false,
   "code": 200,
   "message": "Success",
@@ -193,219 +256,233 @@ export default function ApiDocs({ canonical_url, live_base_url, sandbox_base_url
     "balance": 500000
   }
 }`}</CodeBlock>
-                                </div>
-                            </details>
-
-                            {/* Order */}
-                            <details className="bg-white border border-gray-200 rounded-lg">
-                                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
-                                    <Badge variant="blue">POST</Badge>
-                                    <code className="text-sm font-mono">/api/v1/order</code>
-                                    <span className="text-gray-500 text-sm ml-auto">Buat order baru</span>
-                                </summary>
-                                <div className="px-4 pb-4 border-t border-gray-100 mt-1">
-                                    <p className="text-sm text-gray-600 mt-3 mb-2">Wajib menyertakan header <code className="bg-gray-100 px-1 rounded text-xs">X-Reseller-Integration-Code</code>.</p>
-                                    <div className="mb-3">
-                                        <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Request Body Fields</p>
-                                        <table className="w-full text-sm border-collapse">
-                                            <thead>
-                                                <tr className="bg-gray-50">
-                                                    <th className="text-left p-2 font-semibold text-gray-600 border border-gray-200">Field</th>
-                                                    <th className="text-left p-2 font-semibold text-gray-600 border border-gray-200">Type</th>
-                                                    <th className="text-left p-2 font-semibold text-gray-600 border border-gray-200">Wajib</th>
-                                                    <th className="text-left p-2 font-semibold text-gray-600 border border-gray-200">Keterangan</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td className="p-2 border border-gray-200"><code className="text-xs">code</code></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-500">string</td>
-                                                    <td className="p-2 border border-gray-200"><Badge variant="red">Ya</Badge></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-600">Kode produk dari /variant</td>
-                                                </tr>
-                                                <tr className="bg-gray-50">
-                                                    <td className="p-2 border border-gray-200"><code className="text-xs">referenceNumber</code></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-500">string</td>
-                                                    <td className="p-2 border border-gray-200"><Badge variant="red">Ya</Badge></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-600">ID unik dari sistem Anda (idempotency key)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td className="p-2 border border-gray-200"><code className="text-xs">user_id</code></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-500">string</td>
-                                                    <td className="p-2 border border-gray-200"><Badge variant="red">Ya</Badge></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-600">ID akun target (User ID game, nomor HP, dll)</td>
-                                                </tr>
-                                                <tr className="bg-gray-50">
-                                                    <td className="p-2 border border-gray-200"><code className="text-xs">zone_id</code></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-500">string | null</td>
-                                                    <td className="p-2 border border-gray-200"><Badge variant="gray">Opsional</Badge></td>
-                                                    <td className="p-2 border border-gray-200 text-gray-600">Zone/Server ID (hanya untuk produk yang butuh, misal Mobile Legends)</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
                                     </div>
-                                    <CodeBlock>{`curl -X POST "${live_base_url}/order" \\
+                                </div>
+
+                                {/* Order Endpoint */}
+                                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+                                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-4">
+                                        <Badge variant="emerald">POST</Badge>
+                                        <code className="text-base font-bold text-slate-800">/api/v1/order</code>
+                                        <span className="text-slate-500 text-sm ml-auto hidden sm:block">Buat order baru</span>
+                                    </div>
+                                    <div className="p-6 bg-white">
+                                        <div className="mb-6 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+                                            <table className="w-full text-sm text-left">
+                                                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                                    <tr>
+                                                        <th className="px-4 py-3">Payload Field</th>
+                                                        <th className="px-4 py-3">Type</th>
+                                                        <th className="px-4 py-3">Required</th>
+                                                        <th className="px-4 py-3">Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    <tr>
+                                                        <td className="px-4 py-3 font-mono text-purple-700">code</td>
+                                                        <td className="px-4 py-3 text-slate-500">string</td>
+                                                        <td className="px-4 py-3"><Badge variant="red">Yes</Badge></td>
+                                                        <td className="px-4 py-3 text-slate-600">Kode produk valid dari katalog /variant</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-3 font-mono text-purple-700">referenceNumber</td>
+                                                        <td className="px-4 py-3 text-slate-500">string</td>
+                                                        <td className="px-4 py-3"><Badge variant="red">Yes</Badge></td>
+                                                        <td className="px-4 py-3 text-slate-600">ID unik order dari sistem Anda (Idempotency Key)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-3 font-mono text-purple-700">user_id</td>
+                                                        <td className="px-4 py-3 text-slate-500">string</td>
+                                                        <td className="px-4 py-3"><Badge variant="red">Yes</Badge></td>
+                                                        <td className="px-4 py-3 text-slate-600">ID akun game target / Nomor HP pembeli</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td className="px-4 py-3 font-mono text-purple-700">zone_id</td>
+                                                        <td className="px-4 py-3 text-slate-500">string | null</td>
+                                                        <td className="px-4 py-3"><Badge variant="gray">Optional</Badge></td>
+                                                        <td className="px-4 py-3 text-slate-600">Zone/Server ID (khusus game tertentu seperti MLBB)</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <CodeBlock>{`curl -X POST "${live_base_url}/order" \\
   -H "Authorization: Bearer {API_KEY}" \\
-  -H "X-Reseller-Integration-Code: ${live?.integration_code ?? '{INTEGRATION_CODE}'}" \\
   -H "Content-Type: application/json" \\
+  -H "Accept: application/json" \\
   -d '{
     "code": "ML-DIAMOND-100",
     "referenceNumber": "INV-2026060301",
     "user_id": "12345678",
     "zone_id": "9001"
   }'`}</CodeBlock>
+                                    </div>
                                 </div>
-                            </details>
 
-                            {/* Status Order */}
-                            <details className="bg-white border border-gray-200 rounded-lg">
-                                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
-                                    <Badge variant="blue">POST</Badge>
-                                    <code className="text-sm font-mono">/api/v1/status-order/{'{invoice}'}</code>
-                                    <span className="text-gray-500 text-sm ml-auto">Cek status order</span>
-                                </summary>
-                                <div className="px-4 pb-4 border-t border-gray-100 mt-1">
-                                    <p className="text-sm text-gray-600 mt-3 mb-2">Invoice adalah <code className="bg-gray-100 px-1 rounded text-xs">invoiceNumber</code> yang dikembalikan dari endpoint <code className="bg-gray-100 px-1 rounded text-xs">/order</code>.</p>
-                                    <CodeBlock>{`curl -X POST "${live_base_url}/status-order/WEJIZY-RAPI123456" \\
-  -H "Authorization: Bearer {API_KEY}"`}</CodeBlock>
+                                {/* Status Order Endpoint */}
+                                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+                                    <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center gap-4">
+                                        <Badge variant="blue">POST</Badge>
+                                        <code className="text-base font-bold text-slate-800">/api/v1/status-order/{'{invoice}'}</code>
+                                        <span className="text-slate-500 text-sm ml-auto hidden sm:block">Cek status order spesifik</span>
+                                    </div>
+                                    <div className="p-6 bg-white">
+                                        <p className="text-slate-600 text-sm mb-4">
+                                            Path parameter <code className="bg-slate-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">invoice</code> adalah 
+                                            nomor tagihan unik yang dikembalikan server kami pada response endpoint <code className="bg-slate-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">/order</code>.
+                                        </p>
+                                        <CodeBlock>{`curl -X POST "${live_base_url}/status-order/WEJIZY-RAPI123456" \\
+  -H "Authorization: Bearer {API_KEY}" \\
+  -H "Accept: application/json"`}</CodeBlock>
+                                    </div>
                                 </div>
-                            </details>
-
-                            {/* Sandbox note */}
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                                <strong>Sandbox:</strong> Semua endpoint di atas tersedia dengan prefix <code className="bg-amber-100 px-1 rounded text-xs">/api/v1/sandbox/</code> — tidak memotong saldo, tidak memanggil provider real. Tambahkan <code className="bg-amber-100 px-1 rounded text-xs">/simulate-status/{'{invoice}'}</code> untuk trigger perubahan status.
+                                
+                                <div className="bg-amber-50 rounded-xl p-5 text-sm text-amber-800 border border-amber-200/50 shadow-sm">
+                                    <strong className="text-amber-900 block mb-1">Testing di Sandbox</strong>
+                                    Di environment Sandbox, saldo Anda tidak akan terpotong dan transaksi tidak dikirim ke provider asli. 
+                                    Anda dapat memanggil endpoint <code className="bg-amber-100 px-1.5 py-0.5 rounded-md font-mono text-amber-900">/api/v1/sandbox/simulate-status/{'{invoice}'}</code> untuk mengubah status order menjadi Sukses/Gagal untuk mengetes respon sistem Anda.
+                                </div>
                             </div>
-                        </div>
-                    </Section>
+                        </Section>
 
-                    {/* ── Section 3: user_id & zone_id ── */}
-                    <Section id="data-fields" title="Field user_id & zone_id">
-                        <p className="text-sm text-gray-700 mb-4">
-                            Field <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">user_id</code> selalu wajib diisi.
-                            Field <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">zone_id</code> hanya diperlukan untuk produk yang membutuhkan dua identifier (contoh: Mobile Legends). Jika tidak diperlukan, kirimkan <code className="bg-gray-100 px-1 py-0.5 rounded text-xs font-mono">null</code> atau hilangkan field dari request.
-                        </p>
+                        {/* ── Section 3: Data Fields ── */}
+                        <Section id="data-fields" title="Identifiers: user_id & zone_id">
+                            <p className="text-slate-600 mb-6 leading-relaxed">
+                                Keperluan pengisian target tujuan bervariasi bergantung pada kategori produk. Beberapa game membutuhkan dua parameter (User ID & Zone ID), sementara produk lain hanya satu.
+                            </p>
 
-                        <div className="overflow-x-auto rounded-lg border border-gray-200">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left p-3 font-semibold text-gray-600">Kategori Produk</th>
-                                        <th className="text-left p-3 font-semibold text-gray-600">user_id</th>
-                                        <th className="text-left p-3 font-semibold text-gray-600">zone_id</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        ['Mobile Legends', 'User ID akun ML (contoh: 12345678)', 'Zone ID (contoh: 9001) — WAJIB'],
-                                        ['Free Fire', 'Player ID / UID FF', '— (kosongkan)'],
-                                        ['PUBG Mobile', 'Player ID PUBG', '— (kosongkan)'],
-                                        ['Genshin Impact', 'UID Genshin', '— (kosongkan)'],
-                                        ['Pulsa / Data', 'Nomor HP (08xxx atau 62xxx)', '— (kosongkan)'],
-                                        ['Steam Wallet', 'Steam ID / email Steam', '— (kosongkan)'],
-                                        ['Voucher Game', 'ID / kode target', 'Tergantung produk — cek keterangan di /variant'],
-                                    ].map(([category, uid, zid], i) => (
-                                        <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
-                                            <td className="p-3 border-b border-gray-100 font-medium text-gray-800">{category}</td>
-                                            <td className="p-3 border-b border-gray-100 text-gray-600 font-mono text-xs">{uid}</td>
-                                            <td className={`p-3 border-b border-gray-100 font-mono text-xs ${zid.startsWith('—') ? 'text-gray-400' : 'text-red-600 font-medium'}`}>{zid}</td>
+                            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-5 py-4">Kategori Produk</th>
+                                            <th className="px-5 py-4">Format user_id</th>
+                                            <th className="px-5 py-4">Format zone_id</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {[
+                                            ['Mobile Legends', 'User ID (contoh: 12345678)', <span className="text-rose-600 font-medium">Zone ID (contoh: 9001)</span>],
+                                            ['Free Fire', 'Player ID / UID', <span className="text-slate-400 italic">kosong / null</span>],
+                                            ['PUBG Mobile', 'Player ID', <span className="text-slate-400 italic">kosong / null</span>],
+                                            ['Genshin Impact', 'UID Server', <span className="text-slate-400 italic">kosong / null</span>],
+                                            ['Pulsa / Paket Data', 'Nomor HP (08xxx atau 62xxx)', <span className="text-slate-400 italic">kosong / null</span>],
+                                            ['Voucher Game', 'Kode target / Email', <span className="text-slate-400 italic">kosong / null</span>],
+                                        ].map(([category, uid, zid], i) => (
+                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-5 py-4 font-medium text-slate-800">{category}</td>
+                                                <td className="px-5 py-4 text-slate-600 font-mono text-xs bg-slate-50/50">{uid}</td>
+                                                <td className="px-5 py-4 font-mono text-xs">{zid}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Section>
 
-                        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                            <strong>Cara cek per produk:</strong> Panggil endpoint <code className="bg-blue-100 px-1 rounded text-xs">/api/v1/variant</code> dengan <code className="bg-blue-100 px-1 rounded text-xs">{"{ \"code\": \"ml\" }"}</code> — lihat nama produk untuk memahami apakah butuh zone ID.
-                        </div>
-                    </Section>
+                        {/* ── Section 4: Webhook ── */}
+                        <Section id="webhook" title="Webhooks & Callbacks">
+                            <p className="text-slate-600 mb-6 leading-relaxed">
+                                Webhook adalah cara efisien bagi server kami memberi tahu server Anda seketika (real-time) 
+                                saat status pesanan (Live/Sandbox) berubah mencapai status final (Sukses atau Gagal). 
+                                Kami menggunakan HTTP POST dengan payload JSON terenkripsi HMAC-SHA256.
+                            </p>
 
-                    {/* ── Section 4: Webhook ── */}
-                    <Section id="webhook" title="Webhook / Callback">
-                        <p className="text-sm text-gray-700 mb-4">
-                            Sistem mengirim HTTP POST ke URL webhook Anda saat status order berubah menjadi final (Sukses / Gagal). Anda harus setup webhook URL dan secret di halaman <strong>Credentials</strong>.
-                        </p>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                    <div className="font-mono text-xs font-bold text-purple-700 mb-2">h2h.order.updated</div>
+                                    <p className="text-xs text-slate-600">Dipicu saat order di lingkungan Live berhasil dikonfirmasi atau dibatalkan oleh provider.</p>
+                                </div>
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                    <div className="font-mono text-xs font-bold text-purple-700 mb-2">h2h.sandbox.order.updated</div>
+                                    <p className="text-xs text-slate-600">Dipicu saat order Sandbox disimulasikan selesai/gagal via endpoint simulasi.</p>
+                                </div>
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                    <div className="font-mono text-xs font-bold text-purple-700 mb-2">h2h.webhook.test</div>
+                                    <p className="text-xs text-slate-600">Ping sintetis untuk menguji konfigurasi Webhook Secret dan konektivitas firewall.</p>
+                                </div>
+                            </div>
 
-                        <h3 className="font-semibold text-gray-800 mt-4 mb-2">Event Types</h3>
-                        <div className="overflow-x-auto rounded-lg border border-gray-200 mb-4">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left p-3 font-semibold text-gray-600">Event</th>
-                                        <th className="text-left p-3 font-semibold text-gray-600">Deskripsi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td className="p-3 border-b border-gray-100 font-mono text-xs">h2h.order.updated</td>
-                                        <td className="p-3 border-b border-gray-100 text-gray-600">Live order — status berubah ke final</td>
-                                    </tr>
-                                    <tr className="bg-gray-50">
-                                        <td className="p-3 border-b border-gray-100 font-mono text-xs">h2h.sandbox.order.updated</td>
-                                        <td className="p-3 border-b border-gray-100 text-gray-600">Sandbox order — status berubah ke final</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="p-3 border-b border-gray-100 font-mono text-xs">h2h.webhook.test</td>
-                                        <td className="p-3 border-b border-gray-100 text-gray-600">Synthetic test — dikirim dari tombol "Test Webhook" di Callback Logs page</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                Keamanan & Verifikasi Signature
+                            </h3>
+                            <p className="text-slate-600 text-sm mb-4">
+                                Demi keamanan, abaikan semua HTTP POST ke Webhook URL Anda yang tidak memiliki header 
+                                <code className="bg-slate-100 text-purple-700 px-1.5 py-0.5 mx-1 rounded font-mono">X-Callback-Signature</code> yang valid. 
+                                Header ini di-generate menggunakan algoritma HMAC-SHA256 dari <strong className="text-slate-800">raw request body</strong> dikalikan dengan 
+                                <strong className="text-slate-800"> Webhook Secret</strong> yang Anda simpan di halaman Credentials.
+                            </p>
+                            
+                            <CodeBlock language="php">{`<?php
+// Contoh Verifikasi Webhook di PHP
 
-                        <h3 className="font-semibold text-gray-800 mt-4 mb-2">Verifikasi Signature</h3>
-                        <p className="text-sm text-gray-700 mb-2">Header <code className="bg-gray-100 px-1 rounded text-xs">X-Callback-Signature</code> berisi HMAC-SHA256 dari raw request body menggunakan Webhook Secret Anda.</p>
-                        <CodeBlock>{`// PHP — verifikasi signature
-$rawBody  = file_get_contents('php://input');
-$secret   = getenv('WEBHOOK_SECRET');
-$expected = hash_hmac('sha256', $rawBody, $secret);
-$received = $_SERVER['HTTP_X_CALLBACK_SIGNATURE'] ?? '';
+$rawBody = file_get_contents('php://input');
+$secret = getenv('WEBHOOK_SECRET'); // Ambil dari file .env sistem Anda
 
-if (!hash_equals($expected, $received)) {
+// 1. Hitung Signature
+$expectedSignature = hash_hmac('sha256', $rawBody, $secret);
+
+// 2. Ambil Signature dari Header
+$receivedSignature = $_SERVER['HTTP_X_CALLBACK_SIGNATURE'] ?? '';
+
+// 3. Validasi
+if (!hash_equals($expectedSignature, $receivedSignature)) {
     http_response_code(401);
-    exit('Unauthorized');
+    exit(json_encode(['error' => 'Invalid signature']));
 }
 
+// 4. Proses Payload secara aman
 $payload = json_decode($rawBody, true);
-// Proses $payload['event'], $payload['invoiceNumber'],
-// $payload['userId'], $payload['zoneId'], $payload['statusCode'], dst.`}</CodeBlock>
-                    </Section>
+// ...update status order di database Anda...
 
-                    {/* ── Section 5: Error Codes ── */}
-                    <Section id="error-codes" title="Error Codes Reference">
-                        <p className="text-sm text-gray-700 mb-4">
-                            Semua error response menggunakan format: <code className="bg-gray-100 px-1 rounded text-xs">{'{ "error": true, "error_code": "CODE", "message": "..." }'}</code>
-                        </p>
-                        <div className="overflow-x-auto rounded-lg border border-gray-200">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200">
-                                        <th className="text-left p-3 font-semibold text-gray-600">error_code</th>
-                                        <th className="text-left p-3 font-semibold text-gray-600">HTTP</th>
-                                        <th className="text-left p-3 font-semibold text-gray-600">Arti & Cara Resolve</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {[
-                                        ['UNAUTHENTICATED', '401', 'API key tidak valid atau tidak ditemukan. Pastikan format "Bearer {key}" benar.'],
-                                        ['INVALID_INTEGRATION_CODE', '403', 'X-Reseller-Integration-Code tidak valid, bukan milik Anda, atau integration tidak aktif.'],
-                                        ['IP_NOT_WHITELISTED', '403', 'IP caller tidak ada di whitelist integration. Tambah IP di halaman Credentials.'],
-                                        ['CODE_NOT_FOUND', '404', 'Kode produk tidak ditemukan di katalog. Gunakan /product dan /variant untuk cek kode yang valid.'],
-                                        ['INVOICE_NOT_FOUND', '404', 'Invoice tidak ditemukan atau bukan milik Anda di environment ini.'],
-                                        ['INSUFFICIENT_BALANCE', '400', 'Saldo tidak cukup. Top up saldo terlebih dahulu.'],
-                                        ['DUPLICATE_REFERENCE', '200', 'referenceNumber sudah pernah dipakai. Response berisi order yang sudah ada (idempotent).'],
-                                        ['ORDER_FAILED', '200', 'Order diterima tapi provider gagal. Saldo tidak terpotong. Bisa retry dengan referenceNumber yang sama.'],
-                                        ['VALIDATION_ERROR', '422', 'Request body tidak valid. Cek field yang wajib (code, referenceNumber, user_id).'],
-                                    ].map(([code, status, desc], i) => (
-                                        <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50'}>
-                                            <td className="p-3 border-b border-gray-100 font-mono text-xs text-red-600">{code}</td>
-                                            <td className="p-3 border-b border-gray-100 text-center"><Badge variant={status === '200' ? 'green' : status.startsWith('4') ? 'red' : 'gray'}>{status}</Badge></td>
-                                            <td className="p-3 border-b border-gray-100 text-gray-600">{desc}</td>
+// 5. Kembalikan 200 OK agar server kami berhenti meretry
+http_response_code(200);
+echo json_encode(['status' => 'success']);`}</CodeBlock>
+                        </Section>
+
+                        {/* ── Section 5: Error Codes ── */}
+                        <Section id="error-codes" title="Error Codes Reference">
+                            <p className="text-slate-600 mb-6">
+                                Kami merespons dengan HTTP Status Code yang tepat. Selalu periksa nilai <code className="bg-slate-100 text-purple-700 px-1.5 py-0.5 rounded font-mono">error_code</code> untuk menangani exception secara programmatic.
+                            </p>
+                            
+                            <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                        <tr>
+                                            <th className="px-5 py-4 w-1/4">Error Code</th>
+                                            <th className="px-5 py-4 w-1/6">HTTP Status</th>
+                                            <th className="px-5 py-4">Resolusi</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Section>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                        {[
+                                            ['INVALID_TOKEN', '403 Forbidden', 'API Key salah, dihapus, atau tidak aktif. Periksa kembali header Authorization: Bearer Anda.'],
+                                            ['IP_NOT_WHITELISTED', '403 Forbidden', 'Alamat IP server Anda diblokir karena tidak terdaftar. Tambahkan IP tersebut di menu Credentials panel kami.'],
+                                            ['CODE_NOT_FOUND', '404 Not Found', 'Produk tidak dikenali. Selalu ambil list product_code terbaru dari endpoint /variant kami.'],
+                                            ['INSUFFICIENT_BALANCE', '400 Bad Request', 'Saldo deposit Anda tidak mencukupi untuk melakukan transaksi ini. Segera Top Up.'],
+                                            ['DUPLICATE_REFERENCE', '200 OK', 'referenceNumber ini sudah Anda kirim sebelumnya. Server mengembalikan order yang sama (idempotent).'],
+                                            ['ORDER_FAILED', '200 OK', 'Transaksi diterima namun provider kami menggagalkannya (contoh: zone id salah). Saldo Anda dikembalikan otomatis.'],
+                                            ['VALIDATION_ERROR', '422 Unprocessable', 'Request body Anda tidak sesuai skema (misalnya kurang field user_id atau referenceNumber).'],
+                                        ].map(([code, status, desc], i) => (
+                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                <td className="px-5 py-4 font-mono text-xs font-bold text-rose-600">{code}</td>
+                                                <td className="px-5 py-4">
+                                                    <Badge variant={status.includes('200') ? 'green' : status.includes('403') || status.includes('404') ? 'red' : 'amber'}>
+                                                        {status}
+                                                    </Badge>
+                                                </td>
+                                                <td className="px-5 py-4 text-slate-600 leading-relaxed">{desc}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Section>
 
+                    </div>
                 </div>
             </div>
         </ResellerLayout>
