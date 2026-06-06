@@ -137,13 +137,21 @@
     @endif
 
     <!-- Inject runtime environment variables for React/Vite -->
+    @php
+        $broadcaster = config('broadcasting.default');
+        $broadcastConfig = config("broadcasting.connections.{$broadcaster}");
+        $reverbKey = $broadcastConfig['key'] ?? null;
+        $reverbHost = $broadcastConfig['options']['host'] ?? null;
+        $reverbPort = $broadcastConfig['options']['port'] ?? 8080;
+        $reverbScheme = $broadcastConfig['options']['scheme'] ?? 'http';
+    @endphp
     <script>
         window.Laravel = {
             reverb: {
-                key: "{{ env('REVERB_APP_KEY', env('PUSHER_APP_KEY', env('VITE_PUSHER_APP_KEY'))) }}",
-                host: "{{ env('REVERB_HOST', env('PUSHER_HOST', env('VITE_PUSHER_HOST'))) }}",
-                port: {{ env('REVERB_PORT', env('PUSHER_PORT', env('VITE_PUSHER_PORT', 8080))) }},
-                scheme: "{{ env('REVERB_SCHEME', env('PUSHER_SCHEME', env('VITE_PUSHER_SCHEME', 'http'))) }}"
+                key: "{{ $reverbKey }}",
+                host: "{{ $reverbHost }}",
+                port: {{ $reverbPort }},
+                scheme: "{{ $reverbScheme }}"
             }
         };
     </script>
