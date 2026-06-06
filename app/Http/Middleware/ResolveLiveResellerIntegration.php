@@ -23,13 +23,9 @@ class ResolveLiveResellerIntegration
             );
         }
 
-        // SHA-256 Lookup
-        $hash = hash('sha256', $bearerToken);
-        $integration = ResellerIntegration::where('api_key_hash', $hash)
-            ->where('mode', 'live')
-            ->where('is_active', true)
-            ->with('user')
-            ->first();
+        // Resolve via Cache Service
+        $cacheService = app(\App\Services\ResellerIntegrationCacheService::class);
+        $integration = $cacheService->resolveByHash(hash('sha256', $bearerToken), 'live');
 
         if (! $integration || ! $integration->user) {
             return ResellerApiResponse::error(
@@ -39,8 +35,8 @@ class ResolveLiveResellerIntegration
             );
         }
 
-        // Token is valid, update last used at (optional, can be moved to a job if high load)
-        $integration->updateQuietly(['api_key_last_used_at' => now()]);
+        // Token is valid, defer last used update to after response (throttled)
+        $cacheService->touchLastUsed($integration);
 
         $request->attributes->set('api_user', $integration->user);
         $request->attributes->set('live_reseller_integration', $integration);

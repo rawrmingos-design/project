@@ -41,6 +41,30 @@ class ResellerIntegration extends Model
                 $integration->mode = 'live';
             }
         });
+
+        static::saved(function (self $integration): void {
+            $cacheService = app(\App\Services\ResellerIntegrationCacheService::class);
+            
+            // Forget current hash
+            if ($integration->api_key_hash) {
+                $cacheService->forgetByHash($integration->api_key_hash, $integration->mode);
+            }
+
+            // Forget original hash if it was changed (e.g. key rotation)
+            $originalHash = $integration->getOriginal('api_key_hash');
+            $originalMode = $integration->getOriginal('mode') ?? $integration->mode;
+            
+            if ($originalHash && $originalHash !== $integration->api_key_hash) {
+                $cacheService->forgetByHash($originalHash, $originalMode);
+            }
+        });
+
+        static::deleted(function (self $integration): void {
+            if ($integration->api_key_hash) {
+                app(\App\Services\ResellerIntegrationCacheService::class)
+                    ->forgetByHash($integration->api_key_hash, $integration->mode);
+            }
+        });
     }
 
     public function user(): BelongsTo
