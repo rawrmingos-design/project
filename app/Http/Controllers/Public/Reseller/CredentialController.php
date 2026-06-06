@@ -43,7 +43,9 @@ class CredentialController extends Controller
             $liveData = [
                 'is_active' => $liveIntegration->is_active,
                 'integration_code' => $liveIntegration->integration_code,
-                'api_key_hint' => $user->api_key_hint,
+                'api_key_hint' => $liveIntegration->api_key_hint,
+                'rotated_at' => $liveIntegration->api_key_rotated_at ? $liveIntegration->api_key_rotated_at->toIso8601String() : null,
+                'last_used_at' => $liveIntegration->api_key_last_used_at ? $liveIntegration->api_key_last_used_at->toIso8601String() : null,
                 'webhook' => $webhook,
                 'allowed_ips' => $allowedIps,
             ];
@@ -63,9 +65,9 @@ class CredentialController extends Controller
             $sandboxData = [
                 'is_active' => $sandboxIntegration->is_active,
                 'integration_code' => $sandboxIntegration->integration_code,
-                'api_key_hint' => $user->sandbox_api_key_hint,
-                'rotated_at' => $user->sandbox_api_key_rotated_at ? $user->sandbox_api_key_rotated_at->toIso8601String() : null,
-                'last_used_at' => $user->sandbox_api_key_last_used_at ? $user->sandbox_api_key_last_used_at->toIso8601String() : null,
+                'api_key_hint' => $sandboxIntegration->api_key_hint,
+                'rotated_at' => $sandboxIntegration->api_key_rotated_at ? $sandboxIntegration->api_key_rotated_at->toIso8601String() : null,
+                'last_used_at' => $sandboxIntegration->api_key_last_used_at ? $sandboxIntegration->api_key_last_used_at->toIso8601String() : null,
                 'webhook' => $sandboxWebhook,
             ];
         }

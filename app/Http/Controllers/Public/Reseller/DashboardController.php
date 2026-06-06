@@ -31,7 +31,7 @@ class DashboardController extends Controller
 
         $sandbox = $sandboxIntegration ? [
             'is_active'    => (bool) $sandboxIntegration->is_active,
-            'api_key_hint' => $user->sandbox_api_key_hint,
+            'api_key_hint' => $sandboxIntegration->api_key_hint,
         ] : null;
 
         return Inertia::render('Reseller/Dashboard', [

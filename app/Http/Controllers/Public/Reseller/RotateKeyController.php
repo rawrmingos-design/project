@@ -48,22 +48,19 @@ class RotateKeyController extends Controller
             return response()->json(['message' => 'Kode 2FA tidak valid.'], 422);
         }
 
-        $rawKey = 'live_' . Str::random(40);
+        $integration = $user->resellerIntegrations()->where('mode', 'live')->first();
 
-        // Derive hint and prefix from the RAW key before hashing
-        $hint   = '...' . substr($rawKey, -6);
-        $prefix = substr($rawKey, 0, 8);
+        if (!$integration) {
+            return response()->json(['message' => 'Integrasi Live tidak ditemukan.'], 404);
+        }
 
-        // Store the bcrypt HASH in api_key — raw key is never persisted
-        // Bypass the Eloquent mutator to avoid it overwriting hint/prefix
-        // with values derived from the hash string
-        $user->forceFill([
-            'api_key'        => Hash::make($rawKey),
-            'api_key_hint'   => $hint,
-            'api_key_prefix' => $prefix,
-        ])->save();
+        $rawKey = 'egylive_' . Str::random(40);
 
-        Log::info('Reseller Live API Key rotated', ['user_id' => $user->id]);
+        $integration->api_key = $rawKey; // This triggers the mutator
+        $integration->api_key_rotated_at = now();
+        $integration->save();
+
+        Log::info('Reseller Live API Key rotated', ['integration_id' => $integration->id, 'user_id' => $user->id]);
 
         $user->notify(new ResellerSecurityNotification(
             'Security Alert',
@@ -72,12 +69,12 @@ class RotateKeyController extends Controller
 
         return response()->json([
             'message' => 'Live API Key berhasil dirotasi.',
-            'raw_key' => $rawKey,   // shown ONCE — user must copy this immediately
-            'hint'    => $hint,
+            'raw_key' => $rawKey,
+            'hint'    => $integration->api_key_hint,
         ]);
     }
 
-    public function rotateSandbox(Request $request, SandboxApiKeyService $sandboxService)
+    public function rotateSandbox(Request $request)
     {
         $user = $request->user();
 
@@ -89,18 +86,26 @@ class RotateKeyController extends Controller
             return response()->json(['message' => 'Kode 2FA tidak valid.'], 422);
         }
 
-        $rawKey = $sandboxService->rotateForUser($user);
-        $user->refresh();
-        $hint = $user->sandbox_api_key_hint;
+        $integration = $user->resellerIntegrations()->where('mode', 'sandbox')->first();
 
-        Log::info('Reseller Sandbox API Key rotated', ['user_id' => $user->id]);
+        if (!$integration) {
+            return response()->json(['message' => 'Integrasi Sandbox tidak ditemukan.'], 404);
+        }
+
+        $rawKey = 'egysbx_' . Str::random(40);
+
+        $integration->api_key = $rawKey; // This triggers the mutator
+        $integration->api_key_rotated_at = now();
+        $integration->save();
+
+        Log::info('Reseller Sandbox API Key rotated', ['integration_id' => $integration->id, 'user_id' => $user->id]);
 
         $user->notify(new ResellerSecurityNotification('Security Alert', 'Your Sandbox API Key has been rotated.'));
 
         return response()->json([
             'message' => 'Sandbox API Key berhasil dirotasi.',
             'raw_key' => $rawKey,
-            'hint' => $hint
+            'hint' => $integration->api_key_hint
         ]);
     }
 }
