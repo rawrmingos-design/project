@@ -35,7 +35,7 @@ class ResellerPanelTest extends TestCase
             'role' => 'Member',
         ]);
 
-        ResellerIntegration::query()->create([
+        ResellerIntegration::factory()->create([
             'user_id' => $user->id,
             'integration_code' => 'test-integration',
             'mode' => 'sandbox',
@@ -65,14 +65,15 @@ class ResellerPanelTest extends TestCase
     {
         $user = User::factory()->create([
             'role' => 'Member',
-            'api_key' => 'secret-live-key-123456',
         ]);
 
-        $integration = ResellerIntegration::query()->create([
+        $integration = ResellerIntegration::factory()->create([
             'user_id' => $user->id,
             'integration_code' => 'live-integration-test',
             'mode' => 'live',
             'is_active' => true,
+            'api_key_hash' => \Illuminate\Support\Facades\Hash::make('secret-live-key-123456'),
+            'api_key_hint' => '...123456',
         ]);
 
         $profile = \App\Models\ResellerCallbackProfile::query()->create([
@@ -101,15 +102,15 @@ class ResellerPanelTest extends TestCase
     {
         $user = User::factory()->create([
             'role' => 'Member',
-            'sandbox_api_key_hint' => '...sandbox',
-            'api_key' => 'secret-live-key-123456',
         ]);
 
-        ResellerIntegration::query()->create([
+        ResellerIntegration::factory()->create([
             'user_id' => $user->id,
             'integration_code' => 'sandbox-integration-test',
             'mode' => 'sandbox',
             'is_active' => true,
+            'api_key_hint' => '...sandbox',
+            'api_key_hash' => \Illuminate\Support\Facades\Hash::make('secret-live-key-123456'),
         ]);
 
         $response = $this->actingAs($user)->get('/id/reseller/docs');
@@ -125,8 +126,8 @@ class ResellerPanelTest extends TestCase
         $user1 = User::factory()->create(['role' => 'Member']);
         $user2 = User::factory()->create(['role' => 'Member']);
 
-        $integration1 = ResellerIntegration::query()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
-        $integration2 = ResellerIntegration::query()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
+        $integration1 = ResellerIntegration::factory()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
+        $integration2 = ResellerIntegration::factory()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
 
         $order1 = \App\Models\Pembelian::query()->create([
             'user_id' => $user1->id,
@@ -162,8 +163,8 @@ class ResellerPanelTest extends TestCase
         $user1 = User::factory()->create(['role' => 'Member']);
         $user2 = User::factory()->create(['role' => 'Member']);
 
-        $integration1 = ResellerIntegration::query()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
-        $integration2 = ResellerIntegration::query()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
+        $integration1 = ResellerIntegration::factory()->create(['user_id' => $user1->id, 'integration_code' => 'int-1', 'mode' => 'live', 'is_active' => true]);
+        $integration2 = ResellerIntegration::factory()->create(['user_id' => $user2->id, 'integration_code' => 'int-2', 'mode' => 'live', 'is_active' => true]);
 
         $profile1 = \App\Models\ResellerCallbackProfile::query()->create(['reseller_integration_id' => $integration1->id, 'callback_url' => 'http://1']);
         $profile2 = \App\Models\ResellerCallbackProfile::query()->create(['reseller_integration_id' => $integration2->id, 'callback_url' => 'http://2']);

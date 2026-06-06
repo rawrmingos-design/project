@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Models\Pembelian;
 use App\Models\User;
+use App\Models\ResellerIntegration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,7 +23,14 @@ class ResetStatusCompatibilityTest extends TestCase
         string $expectedBadgeColor,
         string $expectedApiStatusCode
     ): void {
-        $user = User::factory()->create(['api_key' => 'token-' . md5($rawStatus)]);
+        $token = 'token-' . md5($rawStatus);
+        
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', $token),
+            'mode' => 'live',
+            'is_active' => true,
+        ]);
+        $user = $integration->user;
 
         $pembelian = Pembelian::create([
             'order_id' => 'INV-' . strtoupper(md5($rawStatus)),
@@ -43,7 +51,7 @@ class ResetStatusCompatibilityTest extends TestCase
         $this->assertNotEmpty($pembelian->status_icon);
 
         $request = Request::create('/api/status-order/' . $pembelian->order_id, 'GET');
-        $request->headers->set('Authorization', 'Bearer ' . $user->api_key);
+        $request->headers->set('Authorization', 'Bearer ' . $token);
         // Phase 3: resolveApiUser() reads from middleware-set request attribute.
         // Tests that call the controller directly must inject api_user themselves,
         // since middleware is not invoked in this code path.

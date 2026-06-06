@@ -16,7 +16,7 @@ class ResellerDashboardTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'Member']);
 
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-DASH-' . strtoupper($mode),
             'mode'             => $mode,
@@ -79,14 +79,14 @@ class ResellerDashboardTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'Member']);
 
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-DASH-LIVE',
             'mode'             => 'live',
             'is_active'        => true,
         ]);
 
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-DASH-SANDBOX',
             'mode'             => 'sandbox',
@@ -113,7 +113,7 @@ class ResellerDashboardTest extends TestCase
         $user = User::factory()->create(['role' => 'Member']);
 
         // Only sandbox integration
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-DASH-SBX-ONLY',
             'mode'             => 'sandbox',

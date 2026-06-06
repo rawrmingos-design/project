@@ -32,8 +32,6 @@ class OrderApiResponseTest extends TestCase
             'username'       => 'reseller.api.' . uniqid(),
             'role'           => 'Member',
             'balance'        => 100_000,
-            'api_key'        => $this->rawKey,   // plain-text (legacy path)
-            'api_key_prefix' => null,
         ]);
 
         // Attach a live integration so IP whitelist resolves correctly
@@ -43,6 +41,7 @@ class OrderApiResponseTest extends TestCase
             'mode'             => 'live',
             'is_active'        => true,
             'allowed_ips'      => ['127.0.0.1'],
+            'api_key_hash'     => hash('sha256', $this->rawKey),
         ]);
     }
 
@@ -135,25 +134,4 @@ class OrderApiResponseTest extends TestCase
 
     // ── Tests: legacy key usage emits warning log (Task 3.4) ─────────────────
 
-    public function test_legacy_key_usage_emits_warning_log(): void
-    {
-        Log::shouldReceive('warning')
-            ->once()
-            ->withArgs(function (string $message, array $context) {
-                return str_contains($message, 'Legacy plain-text key')
-                    && isset($context['user_id'])
-                    && isset($context['username']);
-            });
-
-        // Allow other log calls
-        Log::shouldReceive('debug')->zeroOrMoreTimes();
-        Log::shouldReceive('info')->zeroOrMoreTimes();
-        Log::shouldReceive('error')->zeroOrMoreTimes();
-        Log::shouldReceive('notice')->zeroOrMoreTimes();
-
-        // Trigger the middleware with a plain-text (legacy) key
-        $this->withoutMiddleware(\App\Http\Middleware\InboundSourceWhitelist::class)
-            ->withToken($this->rawKey)
-            ->postJson('/api/v1/balance');
-    }
 }

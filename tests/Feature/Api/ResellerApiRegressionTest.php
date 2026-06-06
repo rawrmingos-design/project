@@ -21,15 +21,18 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_balance_returns_authenticated_reseller_profile(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-balance-valid',
-            'name' => 'Reseller Demo',
-            'role' => 'Gold',
+        $integration = ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
+        ]);
+        
+        $integration->user->update([
+            'name'    => 'Reseller Demo',
+            'role'    => 'Gold',
             'balance' => 123456,
-            'no_wa' => '081234567890',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer ' . $user->api_key)
+        $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/balance')
             ->assertOk()
             ->assertJsonPath('error', false)
@@ -50,8 +53,9 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_product_lists_categories_for_authenticated_reseller(): void
     {
-        User::factory()->create([
-            'api_key' => 'token-product-valid',
+        ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
         ]);
 
         Kategori::factory()->create([
@@ -66,7 +70,7 @@ class ResellerApiRegressionTest extends TestCase
             'status' => 'inactive',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer token-product-valid')
+        $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/product')
             ->assertOk()
             ->assertJsonPath('error', false)
@@ -79,11 +83,12 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_variant_requires_code_field(): void
     {
-        User::factory()->create([
-            'api_key' => 'token-variant-validation',
+        ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
         ]);
 
-        $this->withHeader('Authorization', 'Bearer token-variant-validation')
+        $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/variant', [])
             ->assertStatus(422)
             ->assertJsonPath('error', true)
@@ -96,14 +101,15 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_variant_rejects_malformed_json_payload(): void
     {
-        User::factory()->create([
-            'api_key' => 'token-variant-bad-json',
+        ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
         ]);
 
         $this->call('POST', '/api/v1/variant', [], [], [], [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
-            'HTTP_AUTHORIZATION' => 'Bearer token-variant-bad-json',
+            'HTTP_AUTHORIZATION' => 'Bearer testing_live_key',
         ], '{"code":')
             ->assertStatus(400)
             ->assertJsonPath('error', true)
@@ -113,8 +119,12 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_variant_returns_best_provider_path_and_role_price(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-variant-success',
+        $integration = ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
+        ]);
+        
+        $integration->user->update([
             'role' => 'Gold',
         ]);
 
@@ -145,7 +155,7 @@ class ResellerApiRegressionTest extends TestCase
             'status' => 'available',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer ' . $user->api_key)
+        $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/variant', [
                 'code' => $kategori->kode,
             ])
@@ -158,34 +168,28 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_status_order_is_scoped_to_authenticated_reseller(): void
     {
-        $owner = User::factory()->create([
-            'api_key'  => 'token-status-owner',
-            'username' => 'owner.reseller',
+        $ownerIntegration = ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
+            'allowed_ips' => ['127.0.0.1'],
         ]);
+
+        // Create outsider without setting testing_live_key as we will use invalid token
         $outsider = User::factory()->create([
-            'api_key'  => 'token-status-outsider',
             'username' => 'outsider.reseller',
         ]);
 
-        // Both users need a live integration with 127.0.0.1 whitelisted (test loopback)
-        $ownerIntegration = ResellerIntegration::query()->create([
-            'user_id'          => $owner->getKey(),
-            'integration_code' => 'live-status-scope-owner',
-            'mode'             => 'live',
-            'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
-        ]);
-        ResellerIntegration::query()->create([
-            'user_id'          => $outsider->getKey(),
-            'integration_code' => 'live-status-scope-outsider',
-            'mode'             => 'live',
-            'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        ResellerIntegration::factory()->create([
+            'user_id' => $outsider->getKey(),
+            'mode'      => 'live',
+            'is_active' => true,
+            'allowed_ips' => ['127.0.0.1'],
+            'api_key_hash' => hash('sha256', 'outsider_token'),
         ]);
 
         Pembelian::factory()->create([
             'order_id' => 'INV-OWNER-ONLY-001',
-            'username' => $owner->username,
+            'username' => $ownerIntegration->user->username,
             'user_id'  => '998877',
             'zone'     => '3344',
             'status'   => 'Sukses',
@@ -193,8 +197,7 @@ class ResellerApiRegressionTest extends TestCase
 
         // Owner can read their own order
         $this->withHeaders([
-            'Authorization'               => 'Bearer ' . $owner->api_key,
-            'X-Reseller-Integration-Code' => $ownerIntegration->integration_code,
+            'Authorization'               => 'Bearer testing_live_key',
         ])->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
             ->assertOk()
             ->assertJsonPath('error', false)
@@ -202,8 +205,7 @@ class ResellerApiRegressionTest extends TestCase
 
         // Outsider cannot read owner's order — 404 not found
         $this->withHeaders([
-            'Authorization'               => 'Bearer token-status-outsider',
-            'X-Reseller-Integration-Code' => 'live-status-scope-outsider',
+            'Authorization'               => 'Bearer outsider_token',
         ])->postJson('/api/v1/status-order/INV-OWNER-ONLY-001')
             ->assertStatus(404)
             ->assertJsonPath('error', true)
@@ -213,16 +215,11 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_order_requires_reference_number_with_validation_details(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-order-missing-reference',
-            'balance' => 50000,
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
         $this->createManualLayanan();
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ])->postJson('/api/v1/order', [
             'code' => 'MANUAL-MVP-001',
             'data' => '12345678|2001',
@@ -238,11 +235,12 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_variant_unknown_product_code_returns_stable_error_code(): void
     {
-        User::factory()->create([
-            'api_key' => 'token-variant-code-not-found',
+        ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
         ]);
 
-        $this->withHeader('Authorization', 'Bearer token-variant-code-not-found')
+        $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/variant', [
                 'code' => 'missing-category',
             ])
@@ -254,15 +252,10 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_order_unknown_service_code_returns_stable_error_code(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-order-code-not-found',
-            'balance' => 50000,
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ])->postJson('/api/v1/order', [
             'code' => 'MISSING-SERVICE-001',
             'referenceNumber' => 'REF-CODE-NOT-FOUND-001',
@@ -277,16 +270,12 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_order_rejects_insufficient_balance_with_stable_error_code(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-order-low-balance',
-            'balance' => 100,
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
+        $integration->user->update(['balance' => 100]);
         $this->createManualLayanan();
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ])->postJson('/api/v1/order', [
             'code' => 'MANUAL-MVP-001',
             'referenceNumber' => 'REF-LOW-BALANCE-001',
@@ -301,11 +290,7 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_provider_failure_returns_safe_order_failed_error(): void
     {
-        $user = User::factory()->create([
-            'api_key' => 'token-order-provider-failed',
-            'balance' => 50000,
-        ]);
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
 
         Layanan::query()->create([
             'kategori_id' => '1',
@@ -327,8 +312,7 @@ class ResellerApiRegressionTest extends TestCase
         ]);
 
         $this->withHeaders([
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ])->postJson('/api/v1/order', [
             'code' => 'VIP-FAIL-MVP-001',
             'referenceNumber' => 'REF-PROVIDER-FAILED-001',
@@ -348,13 +332,7 @@ class ResellerApiRegressionTest extends TestCase
             'https://client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
-        $user = User::factory()->create([
-            'api_key' => 'token-order-idempotent',
-            'balance' => 50000,
-            'no_wa' => '081234567890',
-        ]);
-
-        $integration = $this->createIntegrationWithProfile($user);
+        $integration = $this->createIntegrationWithProfile();
         $this->createManualLayanan();
 
         $payload = [
@@ -365,8 +343,7 @@ class ResellerApiRegressionTest extends TestCase
         ];
 
         $headers = [
-            'Authorization' => 'Bearer ' . $user->api_key,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
+            'Authorization' => 'Bearer testing_live_key',
         ];
 
         $firstResponse = $this->withHeaders($headers)->postJson('/api/v1/order', $payload);
@@ -383,37 +360,29 @@ class ResellerApiRegressionTest extends TestCase
         $this->assertSame(1, Pembelian::query()->count());
         $this->assertSame(1, Pembayaran::query()->count());
         $this->assertSame(1, ResellerCallbackDelivery::query()->count());
-        $this->assertSame(40000, $user->fresh()->balance);
+        $this->assertSame(40000, $integration->user->fresh()->balance);
 
         Http::assertSentCount(1);
     }
 
     public function test_live_status_order_cannot_read_sandbox_order(): void
     {
-        $user = User::factory()->create([
-            'api_key'  => 'token-live-cant-read-sandbox',
-            'username' => 'live-sandbox-scope-user',
-        ]);
-
-        ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-sandbox-scope-integration',
-            'mode'             => 'live',
-            'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        $integration = ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
+            'allowed_ips' => ['127.0.0.1'],
         ]);
 
         // Create a sandbox order owned by the same user
         Pembelian::factory()->create([
             'order_id'    => 'SBX-SCOPE-001',
-            'username'    => $user->username,
+            'username'    => $integration->user->username,
             'is_sandbox'  => true,
             'environment' => 'sandbox',
         ]);
 
         $this->withHeaders([
-            'Authorization'               => 'Bearer token-live-cant-read-sandbox',
-            'X-Reseller-Integration-Code' => 'live-sandbox-scope-integration',
+            'Authorization'               => 'Bearer testing_live_key',
         ])->postJson('/api/v1/status-order/SBX-SCOPE-001')
             ->assertStatus(404)
             ->assertJsonPath('error', true)
@@ -422,32 +391,24 @@ class ResellerApiRegressionTest extends TestCase
 
     public function test_live_status_order_reads_legacy_order_with_null_environment(): void
     {
-        $user = User::factory()->create([
-            'api_key'  => 'token-live-legacy-scope',
-            'username' => 'live-legacy-scope-user',
-        ]);
-
-        ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-legacy-scope-integration',
-            'mode'             => 'live',
-            'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+        $integration = ResellerIntegration::factory()->create([
+            'mode'      => 'live',
+            'is_active' => true,
+            'allowed_ips' => ['127.0.0.1'],
         ]);
 
         // Legacy orders created before the environment column existed have
         // is_sandbox=false and environment=NULL. The live endpoint must still return them.
         Pembelian::factory()->create([
             'order_id'    => 'LEGACY-NULL-001',
-            'username'    => $user->username,
+            'username'    => $integration->user->username,
             'status'      => 'Sukses',
             'is_sandbox'  => false,
             'environment' => null,
         ]);
 
         $this->withHeaders([
-            'Authorization'               => 'Bearer token-live-legacy-scope',
-            'X-Reseller-Integration-Code' => 'live-legacy-scope-integration',
+            'Authorization'               => 'Bearer testing_live_key',
         ])->postJson('/api/v1/status-order/LEGACY-NULL-001')
             ->assertOk()
             ->assertJsonPath('error', false)
@@ -476,16 +437,16 @@ class ResellerApiRegressionTest extends TestCase
         ]);
     }
 
-    private function createIntegrationWithProfile(User $user): ResellerIntegration
+    private function createIntegrationWithProfile(): ResellerIntegration
     {
-        $integration = ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'live-regression-' . $user->getKey(),
+        $integration = ResellerIntegration::factory()->create([
             'mode'             => 'live',
             'is_active'        => true,
             // 127.0.0.1 is the loopback used by Laravel's test HTTP client
-            'metadata'         => ['allowed_ips' => ['127.0.0.1']],
+            'allowed_ips'         => ['127.0.0.1'],
         ]);
+
+        $integration->user->update(['balance' => 50000]);
 
         ResellerCallbackProfile::query()->create([
             'reseller_integration_id' => $integration->getKey(),

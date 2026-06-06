@@ -20,7 +20,13 @@ class ApiOrderApiGamesFlowTest extends TestCase
 
     public function test_list_variant_exposes_best_provider_path_sku(): void
     {
-        $user = User::factory()->create(['api_key' => 'token-apigames-list']);
+        $token = 'token-apigames-list';
+        $integration = \App\Models\ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', $token),
+            'mode' => 'live',
+            'is_active' => true,
+        ]);
+        $user = $integration->user;
         $kategori = Kategori::factory()->create(['kode' => 'mobile-legends']);
         $layanan = Layanan::factory()->create([
             'kategori_id' => $kategori->id,
@@ -41,7 +47,7 @@ class ApiOrderApiGamesFlowTest extends TestCase
         ]);
 
         $request = Request::create('/api/list-variant', 'POST', [], [], [], [
-            'HTTP_AUTHORIZATION' => 'Bearer ' . $user->api_key,
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
         ], json_encode([
             'code' => $kategori->kode,
         ]));
@@ -60,8 +66,14 @@ class ApiOrderApiGamesFlowTest extends TestCase
     {
         $this->seedSettings();
 
-        $user = User::factory()->create([
-            'api_key' => 'token-apigames-order',
+        $token = 'token-apigames-order';
+        $integration = \App\Models\ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', $token),
+            'mode' => 'live',
+            'is_active' => true,
+        ]);
+        $user = $integration->user;
+        $user->update([
             'balance' => 50000,
             'no_wa' => '08123456789',
         ]);
@@ -104,7 +116,7 @@ class ApiOrderApiGamesFlowTest extends TestCase
         ]);
 
         $request = Request::create('/api/order', 'POST', [], [], [], [
-            'HTTP_AUTHORIZATION' => 'Bearer ' . $user->api_key,
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
             'code'            => 'AG-ML86',
@@ -135,8 +147,14 @@ class ApiOrderApiGamesFlowTest extends TestCase
             'apikey_bangjeff' => 'bangjeff-key',
         ]);
 
-        $user = User::factory()->create([
-            'api_key' => 'token-bangjeff-order',
+        $token = 'token-bangjeff-order';
+        $integration = \App\Models\ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', $token),
+            'mode' => 'live',
+            'is_active' => true,
+        ]);
+        $user = $integration->user;
+        $user->update([
             'balance' => 50000,
             'no_wa' => '08123456789',
         ]);
@@ -177,7 +195,7 @@ class ApiOrderApiGamesFlowTest extends TestCase
         config()->set('providers.bangjeff.use_sandbox_on_local', true);
 
         $request = Request::create('/api/order', 'POST', [], [], [], [
-            'HTTP_AUTHORIZATION' => 'Bearer ' . $user->api_key,
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
             'code'            => 'BJ-WP',

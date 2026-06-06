@@ -15,8 +15,7 @@ class ResellerApiCredentialAccessTest extends TestCase
     /**
      * Since Phase 1 hardening, IP whitelist is MANDATORY for live API access.
      * Status-order now requires both:
-     *   - Bearer token (auth.api)
-     *   - X-Reseller-Integration-Code (resolve.live.reseller.integration)
+     *   - Bearer token (auth.api) resolves integration directly
      *   - Caller IP must be in integration's allowed_ips (reseller.ip.enforce)
      *
      * This test verifies that a reseller with proper credentials AND a
@@ -26,23 +25,21 @@ class ResellerApiCredentialAccessTest extends TestCase
     {
         $clientIp = '203.0.113.99';
 
-        $user = User::factory()->create([
-            'api_key'  => 'demo-token',
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash'     => hash('sha256', 'demo-token'),
+            'mode'             => 'live',
+            'is_active'        => true,
+            'allowed_ips'      => [$clientIp],
+        ]);
+
+        $integration->user->update([
             'username' => 'api.member',
             'role'     => 'Member',
         ]);
 
-        $integration = ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'demo-live-integration',
-            'mode'             => 'live',
-            'is_active'        => true,
-            'metadata'         => ['allowed_ips' => [$clientIp]],
-        ]);
-
         Pembelian::factory()->create([
             'order_id' => 'INV-API-001',
-            'username' => $user->username,
+            'username' => $integration->user->username,
             'user_id'  => '998877',
             'zone'     => '3344',
             'status'   => 'Sukses',
@@ -51,7 +48,6 @@ class ResellerApiCredentialAccessTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => $clientIp])
             ->withHeaders([
                 'Authorization'               => 'Bearer demo-token',
-                'X-Reseller-Integration-Code' => $integration->integration_code,
             ])
             ->postJson('/api/v1/status-order/INV-API-001')
             ->assertOk()
@@ -67,24 +63,21 @@ class ResellerApiCredentialAccessTest extends TestCase
      */
     public function test_reseller_api_status_order_denies_valid_token_when_ip_not_whitelisted(): void
     {
-        $user = User::factory()->create([
-            'api_key'  => 'demo-token-no-ip',
-            'username' => 'api.member.no.ip',
-            'role'     => 'Member',
-        ]);
-
-        ResellerIntegration::query()->create([
-            'user_id'          => $user->getKey(),
-            'integration_code' => 'demo-live-no-ip',
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash'     => hash('sha256', 'demo-token-no-ip'),
             'mode'             => 'live',
             'is_active'        => true,
-            'metadata'         => ['allowed_ips' => ['1.2.3.4']], // different IP
+            'allowed_ips'      => ['1.2.3.4'], // different IP
+        ]);
+
+        $integration->user->update([
+            'username' => 'api.member.no.ip',
+            'role'     => 'Member',
         ]);
 
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])
             ->withHeaders([
                 'Authorization'               => 'Bearer demo-token-no-ip',
-                'X-Reseller-Integration-Code' => 'demo-live-no-ip',
             ])
             ->postJson('/api/v1/status-order/INV-API-404')
             ->assertStatus(403)

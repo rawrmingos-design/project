@@ -12,7 +12,6 @@ use App\Models\ResellerCallbackDelivery;
 use App\Models\ResellerCallbackProfile;
 use App\Models\ResellerIntegration;
 use App\Models\User;
-use App\Services\SandboxApiKeyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -24,10 +23,10 @@ class SandboxH2hApiTest extends TestCase
 
     public function test_sandbox_key_and_order_schema_columns_exist(): void
     {
-        $this->assertTrue(Schema::hasColumn('users', 'sandbox_api_key_hash'));
-        $this->assertTrue(Schema::hasColumn('users', 'sandbox_api_key_hint'));
-        $this->assertTrue(Schema::hasColumn('users', 'sandbox_api_key_rotated_at'));
-        $this->assertTrue(Schema::hasColumn('users', 'sandbox_api_key_last_used_at'));
+        $this->assertTrue(Schema::hasColumn('reseller_integrations', 'api_key_hash'));
+        $this->assertTrue(Schema::hasColumn('reseller_integrations', 'api_key_hint'));
+        $this->assertTrue(Schema::hasColumn('reseller_integrations', 'api_key_rotated_at'));
+        $this->assertTrue(Schema::hasColumn('reseller_integrations', 'api_key_last_used_at'));
         $this->assertTrue(Schema::hasColumn('pembelians', 'environment'));
         $this->assertTrue(Schema::hasColumn('pembelians', 'is_sandbox'));
     }
@@ -38,7 +37,9 @@ class SandboxH2hApiTest extends TestCase
             'name' => 'Sandbox Reseller',
             'balance' => 123456,
         ]);
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($user);
+        
+        $integration = ResellerIntegration::factory()->sandbox()->create(['user_id' => $user->id]);
+        $rawKey = 'testing_sbx_key';
 
         $this->withHeader('Authorization', 'Bearer ' . $rawKey)
             ->postJson('/api/v1/sandbox/balance')
@@ -47,7 +48,7 @@ class SandboxH2hApiTest extends TestCase
             ->assertJsonPath('data.name', 'Sandbox Reseller')
             ->assertJsonPath('data.balance', 123456);
 
-        $this->assertNotNull($user->fresh()->sandbox_api_key_last_used_at);
+        $this->assertNotNull($integration->fresh()->api_key_last_used_at);
     }
 
     public function test_sandbox_auth_rejects_missing_and_invalid_key(): void
@@ -65,7 +66,9 @@ class SandboxH2hApiTest extends TestCase
     public function test_sandbox_catalog_endpoints_match_live_shape(): void
     {
         $user = User::factory()->create();
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($user);
+        ResellerIntegration::factory()->sandbox()->create(['user_id' => $user->id]);
+        $rawKey = 'testing_sbx_key';
+        
         $kategori = Kategori::factory()->create([
             'kode' => 'mlbb',
             'nama' => 'Mobile Legends',
@@ -98,53 +101,22 @@ class SandboxH2hApiTest extends TestCase
             ->assertJsonPath('data.0.provider', 'manual');
     }
 
-    public function test_sandbox_order_requires_sandbox_integration_header(): void
+    public function test_sandbox_order_rejects_live_integration_key(): void
     {
         $user = User::factory()->create(['balance' => 50000]);
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($user);
+        $liveIntegration = ResellerIntegration::factory()->create(['user_id' => $user->id]);
+        $rawKey = 'testing_live_key';
         $this->createManualLayanan();
 
-        $this->withHeader('Authorization', 'Bearer ' . $rawKey)
-            ->postJson('/api/v1/sandbox/order', [
-                'code' => 'MANUAL-SBX-001',
-                'referenceNumber' => 'SBX-NO-HEADER-001',
-                'data' => '12345678|2001',
-            ])
-            ->assertStatus(422)
-            ->assertJsonPath('error_code', 'INTEGRATION_CODE_REQUIRED');
-    }
-
-    public function test_sandbox_order_rejects_live_or_foreign_integration_code(): void
-    {
-        $user = User::factory()->create(['balance' => 50000]);
-        $otherUser = User::factory()->create(['balance' => 50000]);
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($user);
-        $liveIntegration = ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
-            'integration_code' => 'live-not-sandbox',
-            'mode' => 'live',
-            'is_active' => true,
-        ]);
-        $foreignSandbox = ResellerIntegration::query()->create([
-            'user_id' => $otherUser->getKey(),
-            'integration_code' => 'foreign-sandbox',
-            'mode' => 'sandbox',
-            'is_active' => true,
-        ]);
-        $this->createManualLayanan();
-
-        foreach ([$liveIntegration->integration_code, $foreignSandbox->integration_code] as $integrationCode) {
-            $this->withHeaders([
-                'Authorization' => 'Bearer ' . $rawKey,
-                'X-Reseller-Integration-Code' => $integrationCode,
-            ])->postJson('/api/v1/sandbox/order', [
-                'code' => 'MANUAL-SBX-001',
-                'referenceNumber' => 'SBX-REJECT-' . $integrationCode,
-                'data' => '12345678|2001',
-            ])
-                ->assertStatus(403)
-                ->assertJsonPath('error_code', 'INVALID_INTEGRATION_CODE');
-        }
+        $this->withHeaders([
+            'Authorization' => 'Bearer ' . $rawKey,
+        ])->postJson('/api/v1/sandbox/order', [
+            'code' => 'MANUAL-SBX-001',
+            'referenceNumber' => 'SBX-REJECT-LIVE',
+            'data' => '12345678|2001',
+        ])
+            ->assertStatus(403)
+            ->assertJsonPath('error_code', 'INVALID_TOKEN');
     }
 
     public function test_valid_sandbox_order_does_not_cut_balance_and_sends_sandbox_callback(): void
@@ -157,13 +129,13 @@ class SandboxH2hApiTest extends TestCase
             'balance' => 50000,
             'no_wa' => '081234567890',
         ]);
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($user);
         $integration = $this->createSandboxIntegrationWithProfile($user);
+        $rawKey = 'testing_sbx_key';
+        
         $this->createManualLayanan();
 
         $response = $this->withHeaders([
             'Authorization' => 'Bearer ' . $rawKey,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
             'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-ORDER-001',
@@ -207,14 +179,23 @@ class SandboxH2hApiTest extends TestCase
 
         $owner = User::factory()->create(['balance' => 50000]);
         $outsider = User::factory()->create(['balance' => 50000]);
-        $ownerKey = app(SandboxApiKeyService::class)->rotateForUser($owner);
-        $outsiderKey = app(SandboxApiKeyService::class)->rotateForUser($outsider);
+        
         $integration = $this->createSandboxIntegrationWithProfile($owner);
+        $ownerKey = 'testing_sbx_key';
+        
+        $outsiderIntegration = ResellerIntegration::factory()->sandbox()->create(['user_id' => $outsider->id]);
+        $outsiderKey = 'testing_sbx_key'; // They both use testing_sbx_key but wait! 
+        // If they both use the SAME rawKey, then the hash is the SAME in the database!
+        // That's a collision! Let's update the rawKey for outsider
+        
+        $outsiderKey = 'testing_sbx_key_OUTSIDER';
+        $outsiderIntegration->api_key = $outsiderKey;
+        $outsiderIntegration->save();
+        
         $this->createManualLayanan();
 
         $createResponse = $this->withHeaders([
             'Authorization' => 'Bearer ' . $ownerKey,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
             'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-SIM-001',
@@ -264,13 +245,14 @@ class SandboxH2hApiTest extends TestCase
             'uplink' => $affiliate->username,
             'balance' => 50000,
         ]);
-        $rawKey = app(SandboxApiKeyService::class)->rotateForUser($downline);
+        
         $integration = $this->createSandboxIntegrationWithProfile($downline);
+        $rawKey = 'testing_sbx_key';
+        
         $this->createManualLayanan();
 
         $createResponse = $this->withHeaders([
             'Authorization' => 'Bearer ' . $rawKey,
-            'X-Reseller-Integration-Code' => $integration->integration_code,
         ])->postJson('/api/v1/sandbox/order', [
             'code'            => 'MANUAL-SBX-001',
             'referenceNumber' => 'SBX-SIDE-EFFECT-001',
@@ -313,11 +295,8 @@ class SandboxH2hApiTest extends TestCase
 
     private function createSandboxIntegrationWithProfile(User $user): ResellerIntegration
     {
-        $integration = ResellerIntegration::query()->create([
-            'user_id' => $user->getKey(),
-            'integration_code' => 'sandbox-integration-' . $user->getKey(),
-            'mode' => 'sandbox',
-            'is_active' => true,
+        $integration = ResellerIntegration::factory()->sandbox()->create([
+            'user_id' => $user->id,
         ]);
 
         ResellerCallbackProfile::query()->create([

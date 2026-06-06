@@ -17,7 +17,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'Member']);
 
-        ResellerIntegration::create([
+        ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
             'integration_code' => 'TEST-BL-' . strtoupper(uniqid()),
             'mode'             => 'live',
