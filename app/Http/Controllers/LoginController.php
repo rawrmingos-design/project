@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAuthCaptchaRuntime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 use App\Models\Berita;
 use App\Models\SettingWeb;
 use Illuminate\Validation\ValidationException;
@@ -99,7 +100,11 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Gunakan Inertia::location() agar browser melakukan full page reload
+        // ke homepage. Jika hanya pakai redirect() biasa, Inertia SPA akan
+        // mencoba merender halaman non-Inertia sebagai komponen, menyebabkan
+        // login modal ter-overlay di atas layout Reseller Hub yang masih hidup.
+        return Inertia::location(url('/'));
     }
 
     private function resolveGoogleClientId(): string
