@@ -33,7 +33,19 @@
                                 </a>
                             </li>
                             <li>
-                                <a href="{{ route('docs') }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                @php
+                                    $docsUrl = '#';
+                                    try {
+                                        if (Route::has('docs.index')) {
+                                            $docsUrl = route('docs.index');
+                                        } elseif (env('DOCS_URL')) {
+                                            $docsUrl = env('DOCS_URL');
+                                        }
+                                    } catch (\Exception $e) {
+                                        $docsUrl = env('DOCS_URL', '#');
+                                    }
+                                @endphp
+                                <a href="{{ $docsUrl }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
                                    
                                     <span>Documentation APi </span>
                                 </a>
