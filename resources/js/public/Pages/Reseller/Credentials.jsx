@@ -130,17 +130,38 @@ export default function Credentials() {
 
                         <div style={{ flex: 1 }}>
                             <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Secret Key</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: '#fff' }}>
-                                    {live?.api_key_hint || 'Belum diatur'}
-                                </div>
-                                <button className="rh-button rh-button--secondary" onClick={() => copyToClipboard(live?.api_key_hint)}>
-                                    Copy
-                                </button>
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
-                                Kunci ini tersensor untuk keamanan. Jika Anda kehilangannya, silakan rotasi.
-                            </div>
+                            
+                            {live?.is_new_key ? (
+                                // NEW KEY - Show full key with copy button
+                                <>
+                                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '12px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                                            <div style={{ flex: 1, fontSize: '0.85rem', color: '#fbbf24' }}>
+                                                <strong>PENTING:</strong> Salin key sekarang! Key hanya ditampilkan sekali. Full key juga sudah dikirim ke email/WhatsApp Anda.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', wordBreak: 'break-all' }}>
+                                            {live?.api_key_full}
+                                        </div>
+                                        <button className="rh-button rh-button--primary" onClick={() => copyToClipboard(live?.api_key_full)}>
+                                            Copy
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                // EXISTING KEY - Show hint only, no copy button
+                                <>
+                                    <div style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', marginBottom: '8px' }}>
+                                        {live?.api_key_hint || 'Belum diatur'}
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>
+                                        Full key dikirim ke email/WhatsApp saat approval. Gunakan "Rotate Key" untuk generate key baru jika hilang.
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <button 
@@ -166,17 +187,38 @@ export default function Credentials() {
 
                         <div style={{ flex: 1 }}>
                             <label style={{ fontSize: '0.85rem', color: 'var(--on-surface-variant)', display: 'block', marginBottom: '8px' }}>Sandbox Key</label>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: '#fff' }}>
-                                    {sandbox?.api_key_hint || 'Belum diatur'}
-                                </div>
-                                <button className="rh-button rh-button--secondary" onClick={() => copyToClipboard(sandbox?.api_key_hint)}>
-                                    Copy
-                                </button>
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
-                                Digunakan khusus untuk environment testing.
-                            </div>
+                            
+                            {sandbox?.is_new_key ? (
+                                // NEW KEY - Show full key with copy button
+                                <>
+                                    <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.3)', borderRadius: 'var(--radius-md)', padding: '12px', marginBottom: '12px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                                            <div style={{ flex: 1, fontSize: '0.85rem', color: '#fbbf24' }}>
+                                                <strong>PENTING:</strong> Salin key sekarang! Key hanya ditampilkan sekali. Full key juga sudah dikirim ke email/WhatsApp Anda.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ flex: 1, fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', wordBreak: 'break-all' }}>
+                                            {sandbox?.api_key_full}
+                                        </div>
+                                        <button className="rh-button rh-button--primary" onClick={() => copyToClipboard(sandbox?.api_key_full)}>
+                                            Copy
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                // EXISTING KEY - Show hint only, no copy button
+                                <>
+                                    <div style={{ fontFamily: 'var(--font-mono, monospace)', letterSpacing: '1px', background: 'rgba(0,0,0,0.3)', padding: '10px 12px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', marginBottom: '8px' }}>
+                                        {sandbox?.api_key_hint || 'Belum diatur'}
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>
+                                        Full key dikirim ke email/WhatsApp saat approval. Digunakan khusus untuk testing.
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <button 
