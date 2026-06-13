@@ -47,9 +47,16 @@ class SandboxOrderApiController extends OrderApiController
                 'code' => 200,
                 'message' => 'Success',
                 'data' => [
-                    'invoiceNumber' => $existingOrder->order_id,
-                    'status' => PembelianStatus::apiStatusCode($existingOrder->status),
-                    'isDuplicate' => true,
+                    'invoiceNumber'    => $existingOrder->order_id,
+                    'referenceNumber'  => $referenceNumber,
+                    'code'             => trim((string) $payload['code']),
+                    'user_id'          => trim((string) $payload['user_id']),
+                    'zone_id'          => isset($payload['zone_id']) ? trim((string) $payload['zone_id']) : null,
+                    'price'            => 0,
+                    'buyer_last_saldo' => (float) $user->balance,
+                    'status'           => PembelianStatus::apiStatusCode($existingOrder->status),
+                    'message'          => null,
+                    'isDuplicate'      => true,
                 ],
             ], 200);
         }
@@ -76,19 +83,20 @@ class SandboxOrderApiController extends OrderApiController
         }
 
         // Phase 5 — explicit named fields replace the ambiguous pipe-separated `data` field.
-        $userId = trim((string) $payload['user_id']);
+        $targetUserId = trim((string) $payload['user_id']);
         $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
             ? trim((string) $payload['zone_id'])
             : null;
 
-        $orderId = sprintf('WEJIZY-SBX%s%s', now()->format('His'), Str::upper(Str::random(4)));
 
-        DB::transaction(function () use ($user, $integration, $service, $userId, $zoneId, $orderId, $referenceNumber): void {
+        $orderId = sprintf('TRX-SBX-%s%s', now()->format('His'), Str::upper(Str::random(4)));
+
+        DB::transaction(function () use ($user, $integration, $service, $targetUserId, $zoneId, $orderId, $referenceNumber): void {
             Pembelian::query()->create([
                 'username' => $user->username,
                 'reseller_integration_id' => $integration->getKey(),
                 'order_id' => $orderId,
-                'user_id'  => $userId,
+                'user_id'  => $targetUserId,
                 'zone'     => $zoneId,
                 'layanan' => $service->layanan,
                 'harga' => 0,
@@ -123,12 +131,19 @@ class SandboxOrderApiController extends OrderApiController
         });
 
         return response()->json([
-            'error' => false,
-            'code' => 200,
+            'error'   => false,
+            'code'    => 200,
             'message' => 'Success',
-            'data' => [
-                'invoiceNumber' => $orderId,
-                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+            'data'    => [
+                'invoiceNumber'    => $orderId,
+                'referenceNumber'  => $referenceNumber,
+                'code'             => trim((string) $payload['code']),
+                'user_id'          => $targetUserId,
+                'zone_id'          => $zoneId,
+                'price'            => 0,
+                'buyer_last_saldo' => (float) $user->balance,
+                'status'           => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
+                'message'          => null,
             ],
         ], 200);
     }

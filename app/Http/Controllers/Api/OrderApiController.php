@@ -27,15 +27,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 
 class OrderApiController extends Controller
 {   
     
-   public function documentation()
-   {
-        return view('documentation.index');
-   }
+
     
    public function balance(Request $request)
    {
@@ -59,7 +57,7 @@ class OrderApiController extends Controller
         
    }
    
-   public function product(Request $request)
+   public function category(Request $request)
    {
         $user = $this->resolveApiUser($request);
 
@@ -72,19 +70,18 @@ class OrderApiController extends Controller
 
        foreach($product as $p){
            $list[] = [
-              "code" => $p->kode,
-              "name" => $p->nama,
-              "is_active" =>  ($p->status == 'active'),
+              "code"      => $p->kode,
+              "name"      => $p->nama,
+              "type"      => $p->tipe,
+              "is_active" => ($p->status == 'active'),
            ];
        }
        return response()->json([
-           'error' => false,
-           "code" => 200,
-           "message" => "Success",
-           'data' => $list
+           'error'   => false,
+           'code'    => 200,
+           'message' => 'Success',
+           'data'    => $list,
       ], 200);
-       
-        
    }
    
    
@@ -126,10 +123,10 @@ class OrderApiController extends Controller
        
         $list = [];
        foreach($service as $s){
+           /** @var \App\Models\Layanan $s */
            $route = app(\App\Services\ProviderRoutingService::class)->findBestProvider($s);
            $variantCode = trim((string) ($route['sku'] ?? $s->provider_id));
-           $providerCode = strtolower(trim((string) ($route['provider_code'] ?? $s->provider)));
-           
+
             if ($user->role == 'Platinum') {
                 $harga = $s->harga_platinum;
             } elseif ($user->role == 'Gold') {
@@ -139,22 +136,19 @@ class OrderApiController extends Controller
             } else {
                 $harga = $s->harga;
             }
-            
-           
+
            $list[] = [
-                "id" => $s->id,
-                "code" => $variantCode,
-                "name" => $s->layanan,
-                "provider" => $providerCode !== '' ? $providerCode : $s->provider,
-                "is_active" => ($s->status == 'available' && $variantCode !== '' ? 'active' : 'inactive'),
-                "price" => $harga,
+                'code'      => $variantCode,
+                'name'      => $s->layanan,
+                'is_active' => ($s->status == 'available' && $variantCode !== ''),
+                'price'     => $harga,
             ];
        }
        return response()->json([
-           'error' => false,
-           "code" => 200,
-           "message" => "Success",
-           'data' => $list
+           'error'   => false,
+           'code'    => 200,
+           'message' => 'Success',
+           'data'    => $list,
       ], 200);
    }
    
@@ -238,7 +232,7 @@ class OrderApiController extends Controller
        }
       
        // Phase 5 — explicit named fields replace the ambiguous pipe-separated `data` field.
-       $userId = trim((string) $payload['user_id']);
+       $targetUserId = trim((string) $payload['user_id']);
        $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
            ? trim((string) $payload['zone_id'])
            : null;
@@ -261,7 +255,7 @@ class OrderApiController extends Controller
             $digi = new DigiFlazzController($credentials);
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WEJIZY-RAPID' . $random_part;
-            $order = $digi->order($userId, $zoneId, $providerSku, $provider_order_id);
+            $order = $digi->order($targetUserId, $zoneId, $providerSku, $provider_order_id);
 
             if ($order['data']['status'] == "Pending" || $order['data']['status'] == "Sukses") {
                 $order['status'] = true;
@@ -274,7 +268,7 @@ class OrderApiController extends Controller
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WJMG-RAPID' . $random_part;
 
-            $order = $moo->order($userId, $providerSku, $provider_order_id, $zoneId);
+            $order = $moo->order($targetUserId, $providerSku, $provider_order_id, $zoneId);
 
             if (isset($order['status'])) {
                 $provider_order_id = $order['order_id'];
@@ -285,7 +279,7 @@ class OrderApiController extends Controller
             $resolvedOrderStatus = $STATUS_PENDING;
         } else if ($providerCode == "vip" || $providerCode == "vip_reseller") {
             $vip = new VipResellerController($credentials);
-            $order = $vip->order($userId, $zoneId, $providerSku);
+            $order = $vip->order($targetUserId, $zoneId, $providerSku);
 
             if (($order['result'] ?? false) === true) {
                 $statusMeta = VipResellerController::normalizeStatusMeta($order['data']['status'] ?? null);
@@ -300,7 +294,7 @@ class OrderApiController extends Controller
         } else if ($providerCode == "apigames") {
             $apigames = new ApiGamesController($credentials);
             $provider_order_id = $providerReference;
-            $order = $apigames->order($userId, $zoneId, $providerSku, $providerReference);
+            $order = $apigames->order($targetUserId, $zoneId, $providerSku, $providerReference);
 
             $statusMeta = ApiGamesController::normalizeStatusMeta($order['data']['status'] ?? null);
 
@@ -320,7 +314,7 @@ class OrderApiController extends Controller
             }
         } else if ($providerCode == "bangjeff") {
             $bangjeff = new BangJeffController($credentials);
-            $requestData = [['name' => 'ID', 'value' => $userId]];
+            $requestData = [['name' => 'ID', 'value' => $targetUserId]];
             if (!empty($zoneId)) {
                 $requestData[] = ['name' => 'Server', 'value' => $zoneId];
             }
@@ -342,7 +336,7 @@ class OrderApiController extends Controller
             }
         } else if ($providerCode == "topupedia") {
             $topupedia = new TopupediaController($credentials);
-            $requestData = [['name' => 'ID', 'value' => $userId]];
+            $requestData = [['name' => 'ID', 'value' => $targetUserId]];
             if (!empty($zoneId)) {
                 $requestData[] = ['name' => 'Server', 'value' => $zoneId];
             }
@@ -360,7 +354,7 @@ class OrderApiController extends Controller
             $gameshop = new GameShopProvider;
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WJGS-RAPI' . $random_part;
-            $order = $gameshop->order($userId, $providerSku, $provider_order_id, $zoneId);
+            $order = $gameshop->order($targetUserId, $providerSku, $provider_order_id, $zoneId);
             Log::info('callback gameshop ' . json_encode($order));
             if (isset($order['data']['order_no'])) {
                 $provider_order_id = $order['data']['order_no'];
@@ -373,7 +367,7 @@ class OrderApiController extends Controller
             $strleyashop = new StrleyaShopProvider;
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WJSS-RAPI' . $random_part;
-            $order = $strleyashop->order($userId, $providerSku, $provider_order_id, $zoneId);
+            $order = $strleyashop->order($targetUserId, $providerSku, $provider_order_id, $zoneId);
             Log::info('callback strleyashop ' . json_encode($order));
             if (isset($order['order_details']['bot_order_id'])) {
                 $provider_order_id = $order['order_details']['bot_order_id'];
@@ -385,7 +379,7 @@ class OrderApiController extends Controller
         } else if ($providerCode == "yezzpay") {
             $yezzpay = new YezzpayProvider;
             $provider_order_id = strtoupper(str_replace('.', '', uniqid('ACID-YEZZPAY', true)));
-            $order = $yezzpay->order($userId, $providerSku, $provider_order_id, $zoneId);
+            $order = $yezzpay->order($targetUserId, $providerSku, $provider_order_id, $zoneId);
             Log::info('callback yezzpay ' . json_encode($order));
             if (isset($order['data']['trx_id'])) {
                 $order['status'] = true;
@@ -397,7 +391,7 @@ class OrderApiController extends Controller
             $elitedias = new EliteDiasProvider;
             $random_part = mt_rand(100000, 999999);
             $provider_order_id = 'WJED-RAPI' . $random_part;
-            $order = $elitedias->order($userId, $providerSku, $provider_order_id, $zoneId);
+            $order = $elitedias->order($targetUserId, $providerSku, $provider_order_id, $zoneId);
             Log::info('callback elitedias ' . json_encode($order));
             if (isset($order['order_id'])) {
                 $provider_order_id = $order['order_id'];
@@ -420,11 +414,14 @@ class OrderApiController extends Controller
                 $integration = null;
             }
 
+            // Snapshot balance BEFORE deduction so we can report buyer_last_saldo accurately
+            $balanceBefore = (float) $user->balance;
+
             DB::transaction(function () use (
                 $user,
                 $harga,
                 $order_id,
-                $userId,
+                $targetUserId,
                 $zoneId,
                 $service,
                 $modalPrice,
@@ -444,7 +441,7 @@ class OrderApiController extends Controller
                 $pembelian->username = $user->username;
                 $pembelian->reseller_integration_id = $integration?->getKey();
                 $pembelian->order_id = $order_id;
-                $pembelian->user_id = $userId;
+                $pembelian->user_id = $targetUserId;
                 $pembelian->zone = $zoneId;
                 $pembelian->layanan = $service->layanan;
                 $pembelian->harga = $harga;
@@ -474,19 +471,27 @@ class OrderApiController extends Controller
                 $pembayaran->expired_at = null;
                 $pembayaran->save();
             });
-            
+
+            $buyerLastSaldo = (float) ($balanceBefore - $harga);
+
             return response()->json([
-              "error" => false,
-              "code" => 200,
-              "message" => "Success",
-              "data" => [
-                "invoiceNumber" => $order_id,
-                "status" => PembelianStatus::apiStatusCode($resolvedOrderStatus),
+              'error'   => false,
+              'code'    => 200,
+              'message' => 'Success',
+              'data'    => [
+                'invoiceNumber'    => $order_id,
+                'referenceNumber'  => $referenceNumber,
+                'code'             => trim((string) $payload['code']),
+                'user_id'          => $targetUserId,
+                'zone_id'          => $zoneId,
+                'price'            => $harga,
+                'buyer_last_saldo' => $buyerLastSaldo,
+                'status'           => PembelianStatus::apiStatusCode($resolvedOrderStatus),
+                'message'          => null,
               ]
             ], 200);
         }else{
-            // Phase 5 — Task 5.4: Structured warning log for provider failures.
-            // Includes duration_ms so we can identify slow/flaky providers in log monitoring.
+            // Structured warning log for provider failures — includes duration_ms to detect flaky providers.
             $durationMs = (int) round((hrtime(true) - $orderStartTime) / 1_000_000);
             Log::warning('reseller.provider_failure', [
                 'provider'    => $providerCode ?? 'unknown',
@@ -498,12 +503,27 @@ class OrderApiController extends Controller
             ]);
 
             // Saldo tidak terpotong — DB transaction tidak commit karena order gagal.
-            // Reseller bisa langsung retry dengan referenceNumber yang sama.
-            return ResellerApiResponse::orderFailed(
-                reason: $order['message'] ?? ($order['data']['message'] ?? null),
-                balanceDeducted: false,
-                canRetry: true,
+            // Reseller bisa retry dengan referenceNumber yang sama.
+            $providerMessage = $this->sanitizeOrderFailedReason(
+                $order['message'] ?? ($order['data']['message'] ?? null)
             );
+
+            return response()->json([
+                'error'   => true,
+                'code'    => 400,
+                'message' => 'Order Failed',
+                'data'    => [
+                    'invoiceNumber'    => null,
+                    'referenceNumber'  => $referenceNumber,
+                    'code'             => trim((string) $payload['code']),
+                    'user_id'          => $targetUserId,
+                    'zone_id'          => $zoneId,
+                    'price'            => $harga,
+                    'buyer_last_saldo' => (float) $user->balance,
+                    'status'           => 'failed',
+                    'message'          => $providerMessage,
+                ],
+            ], 400);
         }
    }
    
@@ -553,7 +573,7 @@ class OrderApiController extends Controller
         $requestedCode = trim($requestedCode);
         $routingService = app(\App\Services\ProviderRoutingService::class);
 
-        $service = \App\Models\Layanan::where('provider_id', $requestedCode)->first();
+        $service = Layanan::where('provider_id', $requestedCode)->first();
 
         if ($service) {
             $route = $routingService->resolveExplicitProvider(
@@ -597,10 +617,13 @@ class OrderApiController extends Controller
     /**
      * Generate a unique order ID with low collision probability.
      *
-     * Format: WEJIZY-H2H-{YYMMDDHHmmss}{8-char-random}
-     * Example: WEJIZY-H2H-2606021435AB3XYZ8
+     * Format: TRX-{YYMMDDHHmmss}{8-char-random}
+     * Example: TRX-2606021435AB3XYZ8
+     * 
+     * Uses hardcoded 'TRX' prefix for performance (avoids DB query on every order).
+     * The dash separator distinguishes reseller API orders from customer orders.
      *
-     * Old format was WEJIZY-RAPI{HHss}{3 digits} which had ~1000 combinations/second.
+     * Old format was WEJIZY-H2H-{...} which is now deprecated.
      * New format has >2 trillion combinations per second — effectively unique.
      * A retry loop is included as defense-in-depth (essentially unreachable in practice).
      */
@@ -609,20 +632,20 @@ class OrderApiController extends Controller
         $maxAttempts = 5;
 
         for ($i = 0; $i < $maxAttempts; $i++) {
-            $candidate = 'WEJIZY-H2H-' . now()->format('ymdHis') . \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(8));
+            $candidate = 'TRX-' . now()->format('ymdHis') . Str::upper(Str::random(8));
 
-            if (! \App\Models\Pembelian::where('order_id', $candidate)->exists()) {
+            if (! Pembelian::where('order_id', $candidate)->exists()) {
                 return $candidate;
             }
         }
 
         // Extremely unlikely to reach here; log a warning so we can investigate
-        \Illuminate\Support\Facades\Log::warning('OrderApiController: order ID generation exhausted retries', [
+        Log::warning('OrderApiController: order ID generation exhausted retries', [
             'last_candidate' => $candidate ?? 'none',
         ]);
 
         // Final fallback: add microseconds to guarantee uniqueness
-        return 'WEJIZY-H2H-' . now()->format('ymdHisu') . \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(4));
+        return 'TRX-' . now()->format('ymdHisu') . Str::upper(Str::random(4));
     }
 
     protected function resolveApiUser(Request $request): ?User
@@ -674,12 +697,12 @@ class OrderApiController extends Controller
     protected function validatePayload(array $payload, array $rules): ?JsonResponse
     {
         $validator = Validator::make($payload, $rules, [
-            'code.required' => 'The code field is required.',
-            'code.string' => 'The code field must be a string.',
+            'code.required'            => 'The code field is required.',
+            'code.string'              => 'The code field must be a string.',
             'referenceNumber.required' => 'The referenceNumber field is required.',
-            'referenceNumber.string' => 'The referenceNumber field must be a string.',
-            'data.required' => 'The data field is required.',
-            'data.string' => 'The data field must be a string.',
+            'referenceNumber.string'   => 'The referenceNumber field must be a string.',
+            'user_id.required'         => 'The user_id field is required.',
+            'user_id.string'           => 'The user_id field must be a string.',
         ]);
 
         if (! $validator->fails()) {
@@ -730,25 +753,44 @@ class OrderApiController extends Controller
 
     protected function buildStatusPayload(Pembelian $pembelian): array
     {
+        $zone = trim((string) $pembelian->zone);
+
         return [
-            'invoiceNumber' => $pembelian->order_id,
-            'productName' => $pembelian->layanan,
-            'userData' => $this->buildUserData($pembelian),
-            'statusCode' => PembelianStatus::apiStatusCode($pembelian->status),
-            'sn' => $pembelian->keterangan_sn,
-            'keteranganSn' => $pembelian->keterangan_sn,
+            'invoiceNumber'  => $pembelian->order_id,
+            'productName'    => $pembelian->layanan,
+            'user_id'        => (string) $pembelian->user_id,
+            'zone_id'        => $zone !== '' ? $zone : null,
+            'statusCode'     => PembelianStatus::apiStatusCode($pembelian->status),
+            'sn'             => $pembelian->keterangan_sn,
+            'keteranganSn'   => $pembelian->keterangan_sn,
         ];
     }
 
-    protected function buildUserData(Pembelian $pembelian): string
+    /**
+     * Sanitize provider error messages for order failure responses.
+     * Strips sensitive keywords and truncates verbose stack traces.
+     */
+    protected function sanitizeOrderFailedReason(?string $reason): ?string
     {
-        $userData = (string) $pembelian->user_id;
-        $zone = trim((string) $pembelian->zone);
-
-        if ($zone !== '') {
-            $userData .= '|' . $zone;
+        if ($reason === null || $reason === '') {
+            return null;
         }
 
-        return $userData;
+        $sensitivePatterns = [
+            '/api[_\-]?key/i',
+            '/secret/i',
+            '/token/i',
+            '/password/i',
+            '/credential/i',
+            '/authorization/i',
+        ];
+
+        foreach ($sensitivePatterns as $pattern) {
+            if (preg_match($pattern, $reason)) {
+                return 'Provider returned an error. Please contact support if this persists.';
+            }
+        }
+
+        return mb_substr(trim($reason), 0, 200);
     }
 }
