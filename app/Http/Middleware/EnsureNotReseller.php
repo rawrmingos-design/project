@@ -24,7 +24,8 @@ class EnsureNotReseller
     {
         $user = $request->user();
 
-        if ($user && $user->resellerIntegrations()->exists()) {
+        // Block Gold and Platinum users (active resellers)
+        if ($user && in_array($user->role, ['Gold', 'Platinum'], true)) {
             $redirect = redirect()->route($redirectTo);
 
             // Only show a flash message when redirecting to the generic hub,

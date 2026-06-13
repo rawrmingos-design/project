@@ -88,7 +88,8 @@ class RegisterController extends Controller
         $user->username = htmlspecialchars($request->username, ENT_QUOTES, 'UTF-8');
         $user->password = $hashedPassword;
         $user->email = htmlspecialchars($request->email, ENT_QUOTES, 'UTF-8');
-        $user->api_key = Str::random(32);
+        // Removed: $user->api_key = Str::random(32); 
+        // API keys now generated only for approved resellers in reseller_integrations table
         $user->balance = 0;
         $user->no_wa = htmlspecialchars($no_wa, ENT_QUOTES, 'UTF-8');
         $user->role = 'Member';

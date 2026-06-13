@@ -67,10 +67,14 @@ class CallbackTestController extends Controller
             'timestamp'       => $timestamp,
             'invoiceNumber'   => $testInvoice,
             'referenceNumber' => 'TEST-REF-' . now()->format('YmdHis'),
+            'code'            => 'TEST-SKU-001',
             'productName'     => 'Webhook Test Event',
-            'status'          => 'Sukses',
+            'user_id'         => 'test_user_id',
+            'zone_id'         => '',
             'statusCode'      => 'SUCCESS',
-            'userData'        => 'test_user_id',
+            'statusLabel'     => 'Sukses',
+            'sn'              => '',
+            'keteranganSn'    => '',
         ];
 
         // Use the existing delivery service to send the webhook
