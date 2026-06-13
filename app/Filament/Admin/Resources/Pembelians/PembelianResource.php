@@ -17,17 +17,17 @@ class PembelianResource extends Resource
     protected static ?string $model = Pembelian::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shopping-cart';
-    
+
     protected static string|UnitEnum|null $navigationGroup = 'Manajemen Transaksi';
-    
+
     protected static ?string $recordTitleAttribute = 'order_id';
-    
+
     protected static ?string $navigationLabel = 'Order Management';
-    
+
     protected static ?int $navigationSort = 1;
-    
+
     protected static ?string $modelLabel = 'Order';
-    
+
     protected static ?string $pluralModelLabel = 'Orders';
 
     // Disable create and edit - read-only views only
@@ -49,6 +49,7 @@ class PembelianResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->whereNull('reseller_integration_id') // Exclude reseller API orders - only show regular customer orders
             ->with([
                 'pembayaran:id,order_id,status,no_pembeli,metode',
                 'user:id,username,name,email,no_wa',

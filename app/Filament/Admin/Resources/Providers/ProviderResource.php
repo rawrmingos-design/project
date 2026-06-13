@@ -26,7 +26,7 @@ class ProviderResource extends Resource
 {
     protected static ?string $model = Provider::class;
 
-    protected static ?string $navigationLabel = 'Provider';
+    protected static ?string $navigationLabel = 'Check Provider Balance';
 
     protected static UnitEnum|string|null $navigationGroup = 'Settings';
 
@@ -72,18 +72,18 @@ class ProviderResource extends Resource
                     ->label('Service Provider')
                     ->searchable()
                     ->weight('bold')
-                    ->description(fn (Provider $record) => $record->code),
-                
+                    ->description(fn(Provider $record) => $record->code),
+
                 ToggleColumn::make('is_active')
                     ->label('Online / Offline')
                     ->onColor('success')
                     ->offColor('danger'),
-                    
+
                 TextColumn::make('balance')
                     ->label('Balance')
                     ->money('IDR')
                     ->weight('bold')
-                    ->color(fn ($state) => $state < 100000 ? 'danger' : 'success')
+                    ->color(fn($state) => $state < 100000 ? 'danger' : 'success')
                     ->sortable(),
 
                 TextColumn::make('last_check_at')
@@ -100,14 +100,14 @@ class ProviderResource extends Resource
                 Action::make('check_balance')
                     ->label('Check Balance')
                     ->icon('heroicon-o-arrow-path')
-                    ->disabled(fn (Provider $record): bool => ! in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true))
-                    ->tooltip(fn (Provider $record): ?string => in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true)
+                    ->disabled(fn(Provider $record): bool => !in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true))
+                    ->tooltip(fn(Provider $record): ?string => in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true)
                         ? null
                         : 'Provider ini belum mendukung check balance otomatis.')
                     ->action(function (Provider $record) {
                         $lock = Cache::lock('provider-balance-check:' . $record->id, 8);
 
-                        if (! $lock->get()) {
+                        if (!$lock->get()) {
                             \Filament\Notifications\Notification::make()
                                 ->title('Check sedang diproses')
                                 ->body('Permintaan check sebelumnya masih berjalan.')
