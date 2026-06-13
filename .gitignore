@@ -59,3 +59,22 @@ testsprite_tests\tmp\config.json
 /scratch/
 /test_endpoint.php
 /test_notif.php
+
+/public/assets/reseller-documents/
+
+# Local scratch/debug artifacts
+/test-*.php
+/check-captcha-config.php
+/test_*.json
+/test_*.txt
+/asd.txt
+/testsprite_prd.md
+/.stitch/
+
+# Generated local database artifacts
+/database/schema/temp-sqlite-dump.db
+
+# Test output artifacts
+/coverage/
+/test-results/
+/playwright-report/
