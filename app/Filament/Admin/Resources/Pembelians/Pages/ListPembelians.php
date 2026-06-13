@@ -16,7 +16,7 @@ class ListPembelians extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            // CreateAction removed - orders are read-only
         ];
     }
 }

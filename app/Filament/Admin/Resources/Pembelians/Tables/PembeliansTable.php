@@ -36,22 +36,34 @@ class PembeliansTable
                     ->searchable()
                     ->sortable()
                     ->copyable()
-                    ->description(fn ($record) => $record->display_order_id !== $record->order_id
+                    ->description(fn($record) => $record->display_order_id !== $record->order_id
                         ? 'Canonical: ' . $record->order_id
                         : null)
                     ->weight('bold'),
-                    
+
                 TextColumn::make('nickname')
-                    ->label('Nickname')
-                    ->searchable()
+                    ->label('Game Account')
+                    ->getStateUsing(function ($record) {
+                        $userId = $record->user_id ?? '-';
+                        $zone = $record->zone;
+
+                        // Show user_id (zone) if zone exists, otherwise just user_id
+                        if ($zone && $zone !== 'N/A' && trim($zone) !== '') {
+                            return $userId . ' (' . $zone . ')';
+                        }
+
+                        return $userId;
+                    })
+                    ->description(fn($record) => $record->nickname ?? '-')
+                    ->searchable(['user_id', 'nickname', 'zone'])
                     ->sortable(),
-                    
+
                 TextColumn::make('username')
                     ->label('Username')
                     ->searchable()
                     ->default('Anonim')
                     ->toggleable(isToggledHiddenByDefault: true),
-                    
+
                 TextColumn::make('layanan')
                     ->label('Product')
                     ->searchable()
@@ -75,20 +87,21 @@ class PembeliansTable
                             "<span class='inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200'>{$icon} {$source}</span>"
                         );
                     }),
-                    
+
                 TextColumn::make('status')
                     ->label('Status Provider')
                     ->badge()
-                    ->getStateUsing(fn ($record) => $record->status_display_label)
-                    ->color(fn ($record) => $record->status_badge_color)
-                    ->icon(fn ($record) => $record->status_icon)
+                    ->getStateUsing(fn($record) => $record->status_display_label)
+                    ->color(fn($record) => $record->status_badge_color)
+                    ->icon(fn($record) => $record->status_icon)
                     ->sortable(),
 
                 TextColumn::make('dispatch_state')
                     ->label('Dispatch')
                     ->badge()
-                    ->getStateUsing(fn ($record): string => ProviderDispatchTracker::label($record->getKey()))
-                    ->color(fn ($record): string => ProviderDispatchTracker::badgeColor($record->getKey())),
+                    ->getStateUsing(fn($record): string => ProviderDispatchTracker::label($record->getKey()))
+                    ->color(fn($record): string => ProviderDispatchTracker::badgeColor($record->getKey()))
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 BadgeColumn::make('pembayaran.status')
                     ->label('Status Pembelian')
@@ -119,7 +132,7 @@ class PembeliansTable
                     ->limit(50),
 
                 TextColumn::make('used_points')
-                    ->label('Poin')
+                    ->label('Poin Digunakan')
                     ->getStateUsing(function ($record) {
                         $usedPoints = (int) ($record->used_points ?? 0);
 
@@ -149,14 +162,14 @@ class PembeliansTable
                     ->toggleable(),
 
 
-                    
+
                 TextColumn::make('harga')
                     ->label('Amount')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
                     ->weight('bold'),
-                    
+
                 TextColumn::make('pembayaran.metode')
                     ->label('Metode')
                     ->searchable()
@@ -168,34 +181,36 @@ class PembeliansTable
                         if ($methodCache === null) {
                             $methodCache = \App\Models\Method::pluck('payment', 'code')->toArray();
                         }
-                        
+
                         $metode = optional($record->pembayaran)->metode;
-                        if (!$metode) return '-';
-                        if (strtoupper($metode) === 'SALDO') return 'SALDO';
-                        
+                        if (!$metode)
+                            return '-';
+                        if (strtoupper($metode) === 'SALDO')
+                            return 'SALDO';
+
                         $provider = $methodCache[$metode] ?? null;
                         return $provider ? $provider . '.' . strtolower($metode) : $metode;
                     })
                     ->toggleable(),
-                    
+
                 TextColumn::make('profit')
                     ->label('Profit')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
-                    
+                    ->color(fn($state) => $state > 0 ? 'success' : 'danger'),
+
                 TextColumn::make('zone')
                     ->label('Zone/Server')
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->default('N/A'),
-                    
+
                 TextColumn::make('tipe_transaksi')
                     ->label('Type')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
-                    
+
                 TextColumn::make('created_at')
                     ->label('Order Date')
                     ->dateTime('d M Y H:i')
@@ -215,7 +230,7 @@ class PembeliansTable
                         }
 
                         $rawStatuses = collect($values)
-                            ->flatMap(static fn (string $status) => PembelianStatus::aliasesFor($status))
+                            ->flatMap(static fn(string $status) => PembelianStatus::aliasesFor($status))
                             ->filter()
                             ->unique()
                             ->values()
@@ -227,7 +242,7 @@ class PembeliansTable
 
                         return $query->whereIn('status', $rawStatuses);
                     }),
-                    
+
                 SelectFilter::make('tipe_transaksi')
                     ->label('Transaction Type')
                     ->options([
@@ -237,7 +252,7 @@ class PembeliansTable
                         'pln' => 'PLN',
                     ])
                     ->multiple(),
-                    
+
                 Filter::make('created_at')
                     ->form([
                         DatePicker::make('created_from')
@@ -249,14 +264,14 @@ class PembeliansTable
                         return $query
                             ->when(
                                 $data['created_from'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
                             )
                             ->when(
                                 $data['created_until'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
-                    
+
                 Filter::make('amount_range')
                     ->form([
                         \Filament\Forms\Components\TextInput::make('amount_from')
@@ -270,11 +285,11 @@ class PembeliansTable
                         return $query
                             ->when(
                                 $data['amount_from'],
-                                fn (Builder $query, $amount): Builder => $query->where('harga', '>=', $amount),
+                                fn(Builder $query, $amount): Builder => $query->where('harga', '>=', $amount),
                             )
                             ->when(
                                 $data['amount_until'],
-                                fn (Builder $query, $amount): Builder => $query->where('harga', '<=', $amount),
+                                fn(Builder $query, $amount): Builder => $query->where('harga', '<=', $amount),
                             );
                     }),
             ])
@@ -292,13 +307,14 @@ class PembeliansTable
                                 ->label('Status Baru')
                                 ->options(PembelianStatus::manualStatusOptions())
                                 ->required()
-                                ->default(fn ($record) => $record->status),
+                                ->default(fn($record) => $record->status),
                         ])
                         ->action(function ($record, array $data) {
                             $oldStatus = $record->status;
                             $newStatus = $data['status'];
 
-                            if ($oldStatus === $newStatus) return;
+                            if ($oldStatus === $newStatus)
+                                return;
 
                             $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
                             $record->update(['status' => $newStatus, 'log' => $logMsg]);
@@ -318,7 +334,7 @@ class PembeliansTable
                         ->label('Process')
                         ->icon('heroicon-o-play')
                         ->color('success')
-                        ->visible(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))
+                        ->visible(fn($record) => $record->hasStatus(PembelianStatus::PENDING))
                         ->action(function ($record) {
                             $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING)]);
                             Notification::make()
@@ -332,7 +348,7 @@ class PembeliansTable
                         ->label('Cancel')
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')
-                        ->visible(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))
+                        ->visible(fn($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))
                         ->action(function ($record) {
                             $logMsg = 'Cancelled by admin at ' . now()->format('Y-m-d H:i:s');
 
@@ -356,7 +372,7 @@ class PembeliansTable
                         ->label('Refund Saldo Deposit')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('warning')
-                        ->visible(fn ($record) => $record->hasStatus(PembelianStatus::SUCCESS))
+                        ->visible(fn($record) => $record->hasStatus(PembelianStatus::SUCCESS))
                         ->action(function ($record) {
                             $logMsg = 'Refund processed by admin at ' . now()->format('Y-m-d H:i:s');
 
@@ -381,11 +397,11 @@ class PembeliansTable
                         ->label('Retry Order')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
-                        ->visible(fn ($record) => $record->canBeRetried())
-                        ->disabled(fn ($record) => ! $record->canRunRetryStatusCheck())
-                        ->tooltip(fn ($record): ?string => $record->retryUnavailableReason())
+                        ->visible(fn($record) => $record->canBeRetried())
+                        ->disabled(fn($record) => !$record->canRunRetryStatusCheck())
+                        ->tooltip(fn($record): ?string => $record->retryUnavailableReason())
                         ->action(function ($record) {
-                            if (! $record->canRunRetryStatusCheck()) {
+                            if (!$record->canRunRetryStatusCheck()) {
                                 Notification::make()
                                     ->title('Retry status belum bisa dijalankan')
                                     ->body($record->retryUnavailableReason() ?? 'Retry status tidak tersedia untuk transaksi ini.')
@@ -550,69 +566,69 @@ class PembeliansTable
                             ExcelExport::make()
                                 ->askForFilename()
                                 ->askForWriterType()
-                                ->withFilename(fn () => 'laporan-sales-' . now()->format('Y-m-d'))
+                                ->withFilename(fn() => 'laporan-sales-' . now()->format('Y-m-d'))
                                 ->withColumns([
                                     \pxlrbt\FilamentExcel\Columns\Column::make('order_id')
                                         ->heading('INVOICE')
-                                        ->getStateUsing(fn ($record) => $record->order_id),
-                                    
+                                        ->getStateUsing(fn($record) => $record->order_id),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('created_at')
                                         ->heading('TANGGAL')
-                                        ->getStateUsing(fn ($record) => $record->created_at?->format('d/m/Y H:i')),
-                                    
+                                        ->getStateUsing(fn($record) => $record->created_at?->format('d/m/Y H:i')),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('status')
                                         ->heading('STATUS')
-                                        ->getStateUsing(fn ($record) => $record->status),
-                                    
+                                        ->getStateUsing(fn($record) => $record->status),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('user.no_wa')
                                         ->heading('WHATSAPP')
-                                        ->getStateUsing(fn ($record) => $record->user?->no_wa),
-                                    
+                                        ->getStateUsing(fn($record) => $record->user?->no_wa),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('user.email')
                                         ->heading('EMAIL')
-                                        ->getStateUsing(fn ($record) => $record->user?->email),
-                                        
+                                        ->getStateUsing(fn($record) => $record->user?->email),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('layanan')
                                         ->heading('PRODUK')
-                                        ->getStateUsing(fn ($record) => $record->layanan),
-                                    
+                                        ->getStateUsing(fn($record) => $record->layanan),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('harga')
                                         ->heading('HARGA JUAL')
-                                        ->formatStateUsing(fn ($state) => 'Rp ' . number_format((float)$state, 0, ',', '.'))
-                                        ->getStateUsing(fn ($record) => $record->harga),
-                                        
+                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                                        ->getStateUsing(fn($record) => $record->harga),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('profit')
                                         ->heading('PROFIT')
-                                        ->formatStateUsing(fn ($state) => 'Rp ' . number_format((float)$state, 0, ',', '.'))
-                                        ->getStateUsing(fn ($record) => $record->profit),
-                                        
+                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                                        ->getStateUsing(fn($record) => $record->profit),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('traffic_source')
                                         ->heading('AD SOURCE')
-                                        ->getStateUsing(fn ($record) => $record->traffic_source),
+                                        ->getStateUsing(fn($record) => $record->traffic_source),
 
                                     \pxlrbt\FilamentExcel\Columns\Column::make('zone')
                                         ->heading('ZONE / SERVER')
-                                        ->getStateUsing(fn ($record) => $record->zone),
-                                    
+                                        ->getStateUsing(fn($record) => $record->zone),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('nickname')
                                         ->heading('GAME NICKNAME')
-                                        ->getStateUsing(fn ($record) => $record->nickname),
-                                    
+                                        ->getStateUsing(fn($record) => $record->nickname),
+
                                     \pxlrbt\FilamentExcel\Columns\Column::make('provider_order_id')
                                         ->heading('TRX ID PROVIDER')
-                                        ->getStateUsing(fn ($record) => $record->provider_order_id),
+                                        ->getStateUsing(fn($record) => $record->provider_order_id),
                                 ]),
                         ]),
-                BulkAction::make('bulk_process')
-                    ->label('Process Selected')
-                    ->icon('heroicon-o-play')
-                    ->color('success')
+                    BulkAction::make('bulk_process')
+                        ->label('Process Selected')
+                        ->icon('heroicon-o-play')
+                        ->color('success')
                         ->action(function (Collection $records) {
-                        $count = $records->filter(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))->count();
-                        $records->filter(fn ($record) => $record->hasStatus(PembelianStatus::PENDING))->each(function ($record) {
+                            $count = $records->filter(fn($record) => $record->hasStatus(PembelianStatus::PENDING))->count();
+                            $records->filter(fn($record) => $record->hasStatus(PembelianStatus::PENDING))->each(function ($record) {
                                 $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING)]);
                             });
-                            
+
                             Notification::make()
                                 ->title('Bulk process completed')
                                 ->body("{$count} orders have been processed")
@@ -621,16 +637,16 @@ class PembeliansTable
                         })
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion(),
-                BulkAction::make('bulk_cancel')
-                    ->label('Cancel Selected')
-                    ->icon('heroicon-o-x-mark')
-                    ->color('danger')
-                    ->action(function (Collection $records) {
-                        $count = $records->filter(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->count();
-                            $records->filter(fn ($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->each(function ($record) {
+                    BulkAction::make('bulk_cancel')
+                        ->label('Cancel Selected')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('danger')
+                        ->action(function (Collection $records) {
+                            $count = $records->filter(fn($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->count();
+                            $records->filter(fn($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))->each(function ($record) {
                                 $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED), 'log' => 'Bulk cancelled by admin at ' . now()->format('Y-m-d H:i:s')]);
                             });
-                            
+
                             Notification::make()
                                 ->title('Bulk cancel completed')
                                 ->body("{$count} orders have been cancelled")
