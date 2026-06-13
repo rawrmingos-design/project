@@ -159,6 +159,13 @@ if ($adminHost !== '' && str_contains($adminHost, '://')) {
 
 $adminHost = preg_replace('/:\d+$/', '', $adminHost) ?? '';
 
+$docsHostRaw = trim((string) env('DOCS_DOMAIN', ''));
+$docsHost = $docsHostRaw;
+if ($docsHost !== '' && str_contains($docsHost, '://')) {
+    $docsHost = (string) (parse_url($docsHost, PHP_URL_HOST) ?? '');
+}
+$docsHost = preg_replace('/:\d+$/', '', $docsHost) ?? '';
+
 if (is_string($publicHost) && $publicHost !== '') {
     Route::domain($publicHost)->group(function () {
         Route::redirect('/', '/id', 301);
@@ -171,6 +178,12 @@ if ($adminHost !== '') {
     Route::domain($adminHost)->group(function () {
         Route::redirect('/id', '/login', 302);
         Route::redirect('/id/{any}', '/login', 302)->where('any', '.*');
+    });
+}
+
+if ($docsHost !== '') {
+    Route::domain($docsHost)->middleware(['xss', 'sanitize'])->group(function () {
+        Route::get('/', [\App\Http\Controllers\Public\DocsController::class, 'index'])->name('docs.index');
     });
 }
 
@@ -216,7 +229,6 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::post('/credentials/webhook', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'updateWebhook'])->name('credentials.webhook.update');
             Route::post('/ip-whitelist', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'store'])->name('ip.whitelist.store');
             Route::delete('/ip-whitelist/{ip}', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'destroy'])->where('ip', '.*')->name('ip.whitelist.destroy');
-            Route::get('/docs', [\App\Http\Controllers\Public\Reseller\DocsController::class, 'index'])->name('docs');
             Route::get('/callbacks', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'index'])->name('callbacks');
             Route::post('/callbacks/{delivery}/resend', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'resend'])
                 ->middleware('throttle:reseller-callback-resend')
@@ -238,7 +250,20 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::post('/notifications/{id}/read', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAsRead'])->name('notifications.read');
         });
 
+
     });
+
+    // Reseller Registry (Application Form) - Public viewing, auth required for submit
+    Route::get('/reseller/registry', [\App\Http\Controllers\Public\Reseller\RegistryController::class, 'showForm'])
+        ->middleware(['xss', 'sanitize'])
+        ->name('reseller.registry.form');
+    Route::post('/reseller/registry', [\App\Http\Controllers\Public\Reseller\RegistryController::class, 'submit'])
+        ->middleware(['xss', 'sanitize', 'auth', 'throttle:5,1'])
+        ->name('reseller.registry.submit');
+
+    // Reseller Sales Page (Public - no auth required)
+    Route::get('/reseller', [\App\Http\Controllers\Public\Reseller\SalesPageController::class, '__invoke'])
+        ->name('reseller.sales');
 
     // Rute publik
     Route::post('/cari/index',                                                   [IndexController::class, 'cariIndex']);
@@ -263,7 +288,6 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/reviews',                                                       [RatingCustomerController::class, 'create'])->name('reviews');
     Route::get('/forgot-password',                                         [ForgotPasswordController::class, 'create'])->name('forgot');
     Route::post('/forgot-password',                                         [ForgotPasswordController::class, 'store'])->name('post.forgot');
-    Route::get('/docs', [OrderApiController::class, 'documentation'])->name('docs');
 });
 
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
@@ -406,11 +430,24 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
     }
     $lazyAdminHost = preg_replace('/:\d+$/', '', $lazyAdminHost) ?? '';
 
+    $lazyDocsRaw     = trim((string) env('DOCS_DOMAIN', ''));
+    $lazyDocsHost    = $lazyDocsRaw;
+
+    if ($lazyDocsHost !== '' && str_contains($lazyDocsHost, '://')) {
+        $lazyDocsHost = (string) (parse_url($lazyDocsHost, PHP_URL_HOST) ?? '');
+    }
+    $lazyDocsHost = preg_replace('/:\d+$/', '', $lazyDocsHost) ?? '';
+
     $requestHost           = strtolower(trim((string) $request->getHost()));
     $normalizedPublicHost  = strtolower(trim((string) ($lazyPublicHost ?? '')));
     $normalizedAdminHost   = strtolower(trim((string) $lazyAdminHost));
+    $normalizedDocsHost    = strtolower(trim((string) $lazyDocsHost));
 
     if ($normalizedAdminHost !== '' && $requestHost === $normalizedAdminHost) {
+        abort(404);
+    }
+
+    if ($normalizedDocsHost !== '' && $requestHost === $normalizedDocsHost) {
         abort(404);
     }
 
