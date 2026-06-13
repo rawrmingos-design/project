@@ -59,7 +59,12 @@ class ApiOrderApiGamesFlowTest extends TestCase
 
         $this->assertFalse($payload['error']);
         $this->assertSame('AG-ML86', $payload['data'][0]['code']);
-        $this->assertSame('apigames', $payload['data'][0]['provider']);
+        // provider field is intentionally removed from /variant response (API contract v2)
+        // The best provider path (apigames) is still selected internally;
+        // we verify this by confirming the SKU is the one from the apigames ProviderPath.
+        $this->assertArrayNotHasKey('provider', $payload['data'][0]);
+        $this->assertArrayNotHasKey('id', $payload['data'][0]);
+        $this->assertIsBool($payload['data'][0]['is_active']);
     }
 
     public function test_api_order_uses_apigames_provider_path_and_persists_pending_status(): void

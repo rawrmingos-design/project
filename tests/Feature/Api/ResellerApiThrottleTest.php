@@ -17,7 +17,7 @@ class ResellerApiThrottleTest extends TestCase
     public function test_reseller_api_routes_are_bound_to_expected_throttle_limiters(): void
     {
         $this->assertRouteHasThrottle('/api/v1/balance', 'reseller-api-balance');
-        $this->assertRouteHasThrottle('/api/v1/product', 'reseller-api-product');
+        $this->assertRouteHasThrottle('/api/v1/category', 'reseller-api-category');
         $this->assertRouteHasThrottle('/api/v1/variant', 'reseller-api-variant');
         $this->assertRouteHasThrottle('/api/v1/order', 'reseller-api-order');
         $this->assertRouteHasThrottle('/api/v1/status-order/INV-THROTTLE-001', 'reseller-api-status');

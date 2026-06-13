@@ -51,7 +51,7 @@ class ResellerApiRegressionTest extends TestCase
             ->assertJsonPath('error_code', 'INVALID_TOKEN');
     }
 
-    public function test_product_lists_categories_for_authenticated_reseller(): void
+    public function test_category_lists_categories_for_authenticated_reseller(): void
     {
         ResellerIntegration::factory()->create([
             'mode'      => 'live',
@@ -71,7 +71,7 @@ class ResellerApiRegressionTest extends TestCase
         ]);
 
         $this->withHeader('Authorization', 'Bearer testing_live_key')
-            ->postJson('/api/v1/product')
+            ->postJson('/api/v1/category')
             ->assertOk()
             ->assertJsonPath('error', false)
             ->assertJsonCount(2, 'data')
@@ -155,15 +155,18 @@ class ResellerApiRegressionTest extends TestCase
             'status' => 'available',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer testing_live_key')
+        $response = $this->withHeader('Authorization', 'Bearer testing_live_key')
             ->postJson('/api/v1/variant', [
                 'code' => $kategori->kode,
             ])
             ->assertOk()
             ->assertJsonPath('error', false)
             ->assertJsonPath('data.0.code', 'AG-ML86')
-            ->assertJsonPath('data.0.provider', 'apigames')
             ->assertJsonPath('data.0.price', 13500);
+
+        // provider field is intentionally removed from /variant response (API contract v2)
+        $this->assertArrayNotHasKey('provider', $response->json('data.0'));
+        $this->assertIsBool($response->json('data.0.is_active'));
     }
 
     public function test_status_order_is_scoped_to_authenticated_reseller(): void
@@ -321,8 +324,10 @@ class ResellerApiRegressionTest extends TestCase
         ])
             ->assertStatus(400)
             ->assertJsonPath('error', true)
-            ->assertJsonPath('message', 'Order failed')
-            ->assertJsonPath('error_code', 'ORDER_FAILED')
+            ->assertJsonPath('message', 'Order Failed')
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.invoiceNumber', null)
+            ->assertJsonMissingPath('error_code')
             ->assertJsonMissingPath('details');
     }
 
