@@ -8,7 +8,37 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+
+/**
+ * Pembelian (Order) Model
+ * 
+ * IMPORTANT: Naming Ambiguity Alert
+ * ================================
+ * Due to legacy schema design, this model has confusing field names that violate Laravel conventions:
+ * 
+ * - `username` (string): The RESELLER's username. This is the buyer/agent who placed the order.
+ *                        Relates to the `users` table as a string FK (not a proper foreign key).
+ * 
+ * - `user_id` (string):  The TARGET GAME ACCOUNT ID (e.g., Mobile Legends ID: "12345678").
+ *                        This is NOT a foreign key to users table. This is the end-customer's game account.
+ * 
+ * - `zone` (string):     The TARGET GAME ZONE/SERVER ID (e.g., server ID for games that require it).
+ * 
+ * In Laravel conventions, `user_id` typically means a FK to the users table. Here it does NOT.
+ * Use the `target_game_account_id` accessor alias for semantic clarity in new code.
+ * 
+ * @property string $username              Reseller username (FK to users.username)
+ * @property string $user_id               Target game account ID (NOT a FK)
+ * @property string|null $zone             Target game zone/server ID
+ * @property string $order_id              Unique order identifier
+ * @property string $layanan               Product/service name
+ * @property int $harga                    Order price in IDR
+ * @property int $profit                   Profit margin
+ * @property string $status                Order status (Pending, Success, Failed, etc.)
+ * @property-read string $target_game_account_id  Semantic alias for user_id field
+ */
 class Pembelian extends Model
+
 {
     use HasFactory;
 
@@ -19,6 +49,7 @@ class Pembelian extends Model
         'is_reset_attempt',
         'normalized_status',
         'status_display_label',
+        'target_game_account_id',
     ];
 
     protected $casts = [
@@ -167,6 +198,26 @@ class Pembelian extends Model
     public function getStatusDisplayLabelAttribute(): string
     {
         return PembelianStatus::label($this->status);
+    }
+
+    /**
+     * Semantic accessor for the target game account ID.
+     * 
+     * This provides a clearer alternative to accessing $pembelian->user_id directly,
+     * making it explicit that this is NOT a reseller/user FK but rather the
+     * end-customer's game account identifier.
+     * 
+     * Usage:
+     *   $gameAccountId = $pembelian->target_game_account_id;
+     *   
+     * Instead of the ambiguous:
+     *   $userId = $pembelian->user_id;  // Confusing - is this the reseller or game account?
+     * 
+     * @return string The target game account ID
+     */
+    public function getTargetGameAccountIdAttribute(): string
+    {
+        return (string) $this->user_id;
     }
 
     public function hasStatus(string|array $statuses): bool
