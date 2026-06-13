@@ -64,8 +64,8 @@ class RouteServiceProvider extends ServiceProvider
             return $this->resellerApiLimits($request, 30, 120, 'balance');
         });
 
-        RateLimiter::for('reseller-api-product', function (Request $request) {
-            return $this->resellerApiLimits($request, 60, 180, 'product');
+        RateLimiter::for('reseller-api-category', function (Request $request) {
+            return $this->resellerApiLimits($request, 60, 180, 'category');
         });
 
         RateLimiter::for('reseller-api-variant', function (Request $request) {
