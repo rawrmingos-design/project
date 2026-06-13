@@ -156,6 +156,24 @@
         };
     </script>
 
+    {{-- Google Analytics 4 --}}
+    @if(!app()->runningUnitTests() && config('services.google_analytics.measurement_id'))
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.google_analytics.measurement_id') }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{{ config('services.google_analytics.measurement_id') }}', {
+                'send_page_view': true,
+                'anonymize_ip': true
+            });
+        </script>
+    @endif
+
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
     @inertiaHead
     @unless(app()->runningUnitTests())
         @viteReactRefresh

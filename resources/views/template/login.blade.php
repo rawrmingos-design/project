@@ -63,6 +63,10 @@
         background-color: #f43f5e;
     }
 
+    .auth-login-alert-warning {
+        background-color: #f59e0b;
+    }
+
     .auth-login-copy {
         color: #e5e7eb;
     }
@@ -179,6 +183,12 @@
             @if(session('success'))
                 <div class="auth-login-alert-success rounded-md px-4 py-3 text-sm text-white">
                     <div>{{ session('success') }}</div>
+                </div>
+            @endif
+
+            @if(session('warning'))
+                <div class="auth-login-alert-warning rounded-md px-4 py-3 text-sm text-white">
+                    <div>{{ session('warning') }}</div>
                 </div>
             @endif
 
