@@ -24,17 +24,32 @@ class EditResellerIntegration extends EditRecord
                 ->modalHeading(fn (): string => 'Rotate ' . ucfirst($this->record->mode) . ' API Key')
                 ->modalDescription('Akan membuat API key baru untuk integrasi ini. Raw key hanya ditampilkan sekali setelah action dijalankan.')
                 ->action(function (): void {
-                    $prefix = $this->record->mode === 'sandbox' ? 'egysbx_' : 'egylive_';
+                    $prefix = $this->record->mode === 'sandbox' ? 'rsbx_' : 'rliv_';
                     $rawKey = $prefix . \Illuminate\Support\Str::random(40);
 
                     $this->record->api_key = $rawKey;
                     $this->record->api_key_rotated_at = now();
                     $this->record->save();
 
+                    // Flash new key to session for one-time display
+                    $sessionKey = $this->record->mode === 'sandbox' ? 'new_sandbox_api_key' : 'new_live_api_key';
+                    session()->flash($sessionKey, $rawKey);
+
+                    // Also dispatch notification job to send key via email/WhatsApp
+                    $liveKey = $this->record->mode === 'live' ? $rawKey : null;
+                    $sandboxKey = $this->record->mode === 'sandbox' ? $rawKey : null;
+                    
+                    \App\Jobs\NotifyResellerKeysJob::dispatch(
+                        $this->record->user,
+                        $liveKey,
+                        $sandboxKey,
+                        'rotation'
+                    );
+
                     Notification::make()
                         ->title(ucfirst($this->record->mode) . ' API key rotated')
-                        ->body("Copy key ini sekarang: {$rawKey}")
-                        ->warning()
+                        ->body("New key has been sent to your email/WhatsApp and is available to copy on the credentials page.")
+                        ->success()
                         ->persistent()
                         ->send();
                 }),
