@@ -207,7 +207,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
 
         // Reseller Panel MVP Routes
         Route::prefix('reseller')->name('reseller.')->middleware(['reseller.only'])->group(function () {
-            Route::get('/', [\App\Http\Controllers\Public\Reseller\DashboardController::class, 'index'])->name('dashboard');
+            Route::get('/dashboard', [\App\Http\Controllers\Public\Reseller\DashboardController::class, 'index'])->name('dashboard');
             Route::get('/settings', [\App\Http\Controllers\Public\Reseller\SettingsController::class, 'index'])->name('settings');
             Route::get('/deposit-methods', [\App\Http\Controllers\Public\Reseller\DepositMethodController::class, 'index'])->name('deposit.methods');
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
