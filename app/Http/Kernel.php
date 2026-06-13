@@ -65,5 +65,6 @@ class Kernel extends HttpKernel
         'not-reseller'      => \App\Http\Middleware\EnsureNotReseller::class,
         'reseller.ip.enforce' => \App\Http\Middleware\EnforceResellerIpWhitelist::class,
         'add.api.version'   => \App\Http\Middleware\AddApiVersionHeader::class,
+        'auth.message'      => \App\Http\Middleware\RequireAuthWithMessage::class,
     ];
 }
