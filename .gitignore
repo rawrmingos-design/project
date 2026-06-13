@@ -11,6 +11,8 @@
 /vendor
 .env.backup
 .env.production
+.env.egymarket.example
+/docker-compose.egymarket.yml
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
