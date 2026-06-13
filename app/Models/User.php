@@ -98,6 +98,24 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     }
 
     /**
+     * Reseller Application Relationships
+     */
+    public function resellerApplication()
+    {
+        return $this->hasOne(ResellerApplication::class);
+    }
+
+    public function resellerDocuments()
+    {
+        return $this->hasMany(ResellerDocument::class);
+    }
+
+    public function resellerApplicationReviews()
+    {
+        return $this->hasMany(ResellerApplicationReview::class);
+    }
+
+    /**
     * Get the app authentication (TOTP) secret.
     */
     public function getAppAuthenticationSecret(): ?string
@@ -199,6 +217,39 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
             'active', 'pending', 'rejected', 'inactive' => $status,
             default => 'inactive',
         };
+    }
+    
+    // Reseller Helper Methods
+    public function hasResellerApplication(): bool
+    {
+        return $this->resellerApplication()->exists();
+    }
+
+    public function hasPendingResellerApplication(): bool
+    {
+        return $this->resellerApplication()
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public function hasResellerAccess(): bool
+    {
+        return in_array($this->role, ['Gold', 'Platinum', 'Admin'], true);
+    }
+
+    public function hasAllResellerDocuments(): bool
+    {
+        $requiredTypes = ['identity', 'selfie', 'business_proof'];
+        $uploadedTypes = $this->resellerDocuments()->pluck('document_type')->toArray();
+        
+        return count(array_diff($requiredTypes, $uploadedTypes)) === 0;
+    }
+
+    public function getResellerDocument(string $type): ?ResellerDocument
+    {
+        return $this->resellerDocuments()
+            ->where('document_type', $type)
+            ->first();
     }
     
     // Scopes
