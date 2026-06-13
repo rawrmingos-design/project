@@ -78,3 +78,10 @@ testsprite_tests\tmp\config.json
 /coverage/
 /test-results/
 /playwright-report/
+
+# Local backup files
+*.bak
+
+# Runtime upload artifacts
+/public/images/
+/storage/app/bukti_withdraw/
