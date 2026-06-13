@@ -24,7 +24,7 @@ export default function ResellerLayout({ children, meta, headerTitle = "Overview
 
     // Reseller Sidebar items mapping to Material Symbols
     const sidebarItems = [
-        { key: 'dashboard',    label: 'Dashboard',      href: '/id/reseller',             icon: 'dashboard' },
+        { key: 'dashboard',    label: 'Dashboard',      href: '/id/reseller/dashboard',  icon: 'dashboard' },
         { key: 'credentials',  label: 'Credentials',    href: '/id/reseller/credentials', icon: 'vpn_key' },
         { key: 'orders',       label: 'Order History',  href: '/id/reseller/orders',      icon: 'receipt_long' },
         { key: 'deposits',     label: 'Riwayat Deposit',href: '/id/reseller/deposits',    icon: 'payments' },
@@ -33,8 +33,8 @@ export default function ResellerLayout({ children, meta, headerTitle = "Overview
     ];
 
     const isActive = (href) => {
-        if (href === '/id/reseller') {
-            return url === '/id/reseller';
+        if (href === '/id/reseller/dashboard') {
+            return url === '/id/reseller/dashboard';
         }
         return url.startsWith(href);
     };
