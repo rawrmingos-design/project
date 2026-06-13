@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\RecentPurchasesController;
 use App\Http\Controllers\Api\ContentController;
+use App\Http\Controllers\Api\PostmanExportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,8 +31,8 @@ use App\Http\Controllers\Api\ContentController;
 Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
     Route::post('/balance', [OrderApiController::class,'balance'])
         ->middleware(['throttle:reseller-api-balance', 'auth.api']);
-    Route::post('/product', [OrderApiController::class,'product'])
-        ->middleware(['throttle:reseller-api-product', 'auth.api']);
+    Route::post('/category', [OrderApiController::class,'category'])
+        ->middleware(['throttle:reseller-api-category', 'auth.api']);
     Route::post('/variant', [OrderApiController::class,'listVariant'])
         ->middleware(['throttle:reseller-api-variant', 'auth.api']);
     Route::post('/order', [OrderApiController::class,'order'])
@@ -42,8 +43,8 @@ Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
     Route::prefix('sandbox')->group(function () {
         Route::post('/balance', [SandboxOrderApiController::class, 'balance'])
             ->middleware(['throttle:reseller-api-balance', 'auth.sandbox.api']);
-        Route::post('/product', [SandboxOrderApiController::class, 'product'])
-            ->middleware(['throttle:reseller-api-product', 'auth.sandbox.api']);
+        Route::post('/category', [SandboxOrderApiController::class, 'category'])
+            ->middleware(['throttle:reseller-api-category', 'auth.sandbox.api']);
         Route::post('/variant', [SandboxOrderApiController::class, 'listVariant'])
             ->middleware(['throttle:reseller-api-variant', 'auth.sandbox.api']);
         Route::post('/order', [SandboxOrderApiController::class, 'order'])
@@ -119,3 +120,13 @@ Route::prefix('v2')->group(function () {
     Route::get('/order/status/{order_id}', [OrderController::class, 'show']);
     Route::post('/order/voucher', [OrderController::class, 'validateVoucher']);
 });
+
+// ── POSTMAN EXPORT ──────────────────────────────────────
+Route::prefix('postman')->group(function () {
+    Route::get('/collection', [PostmanExportController::class, 'collection'])
+        ->name('api.postman.collection');
+    Route::get('/environment', [PostmanExportController::class, 'environment'])
+        ->middleware('auth:sanctum')
+        ->name('api.postman.environment');
+});
+
