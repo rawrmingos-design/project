@@ -72,7 +72,7 @@ RUN composer install \
 COPY . .
 
 # Install & build Node.js assets
-RUN npm ci && npm run production && npm run build && rm -rf node_modules
+RUN npm ci --legacy-peer-deps && npm run production && npm run build && rm -rf node_modules
 
 # Buat direktori yang dibutuhkan Laravel SEBELUM artisan commands
 RUN mkdir -p bootstrap/cache \
