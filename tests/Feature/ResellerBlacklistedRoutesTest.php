@@ -15,7 +15,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
 
     private function createResellerUser(): User
     {
-        $user = User::factory()->create(['role' => 'Member']);
+        $user = User::factory()->create(['role' => 'Gold']);
 
         ResellerIntegration::factory()->create([
             'user_id'          => $user->id,
