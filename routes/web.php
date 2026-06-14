@@ -224,7 +224,18 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/settings', [\App\Http\Controllers\Public\Reseller\SettingsController::class, 'index'])->name('settings');
             Route::get('/deposit-methods', [\App\Http\Controllers\Public\Reseller\DepositMethodController::class, 'index'])->name('deposit.methods');
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
-            Route::get('/docs', [\App\Http\Controllers\Public\Reseller\DocsController::class, 'index'])->name('docs');
+            Route::get('/docs', function () {
+                if (Route::has('docs.index')) {
+                    return redirect()->route('docs.index', [], 301);
+                }
+
+                $docsUrl = trim((string) env('DOCS_URL', ''));
+                if ($docsUrl !== '') {
+                    return redirect()->away($docsUrl, 301);
+                }
+
+                abort(404);
+            })->name('docs');
             Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->name('credentials.rotate.live');
             Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->name('credentials.rotate.sandbox');
             Route::post('/credentials/webhook', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'updateWebhook'])->name('credentials.webhook.update');

@@ -23,13 +23,27 @@ class SalesPageController extends Controller
             'allProducts' => $allProducts, // All products for search
             'ctaConfig' => [
                 'primaryUrl' => route('reseller.registry.form'),
-                'docsUrl' => route('reseller.docs'),
+                'docsUrl' => $this->docsUrl(),
             ],
             'seoMeta' => [
                 'title' => 'Elite Reseller | H2H API Integration Portal - Top Up Game Tercepat',
                 'description' => 'Gateway Host-to-Host (H2H) paling stabil di Indonesia. API Top Up dengan response time <200ms, uptime 99.99%, dan harga wholesale untuk reseller profesional.',
             ],
         ]);
+    }
+
+    /**
+     * Resolve the canonical API docs URL without rendering duplicate reseller docs content.
+     */
+    private function docsUrl(): string
+    {
+        if (\Illuminate\Support\Facades\Route::has('docs.index')) {
+            return route('docs.index');
+        }
+
+        $docsUrl = trim((string) env('DOCS_URL', ''));
+
+        return $docsUrl !== '' ? $docsUrl : '#';
     }
 
     /**
