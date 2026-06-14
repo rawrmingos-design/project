@@ -759,8 +759,8 @@ class OrderApiController extends Controller
         return [
             'invoiceNumber'  => $pembelian->order_id,
             'productName'    => $pembelian->layanan,
-            'user_id'        => (string) $pembelian->user_id,
-            'zone_id'        => $zone !== '' ? $zone : null,
+            'userId'         => (string) $pembelian->user_id,
+            'zoneId'         => $zone !== '' ? $zone : null,
             'statusCode'     => PembelianStatus::apiStatusCode($pembelian->status),
             'sn'             => $pembelian->keterangan_sn,
             'keteranganSn'   => $pembelian->keterangan_sn,
