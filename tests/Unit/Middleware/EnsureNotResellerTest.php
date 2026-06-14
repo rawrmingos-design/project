@@ -28,7 +28,7 @@ class EnsureNotResellerTest extends TestCase
 
     private function createResellerUser(): User
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'Gold']);
 
         ResellerIntegration::create([
             'user_id'          => $user->id,
