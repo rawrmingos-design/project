@@ -57,7 +57,7 @@ class EnsureNotResellerTest extends TestCase
     public function test_reseller_is_redirected_to_default_hub(): void
     {
         // Register a dummy route so route() helper resolves
-        Route::name('reseller.dashboard')->get('/id/reseller', fn () => 'ok');
+        Route::name('reseller.dashboard')->get('/id/reseller/dashboard', fn () => 'ok');
 
         $user    = $this->createResellerUser();
         $request = $this->makeRequest($user);
@@ -74,7 +74,7 @@ class EnsureNotResellerTest extends TestCase
 
     public function test_reseller_redirect_includes_flash_message_for_default_target(): void
     {
-        Route::name('reseller.dashboard')->get('/id/reseller', fn () => 'ok');
+        Route::name('reseller.dashboard')->get('/id/reseller/dashboard', fn () => 'ok');
 
         $user    = $this->createResellerUser();
         $request = $this->makeRequest($user);

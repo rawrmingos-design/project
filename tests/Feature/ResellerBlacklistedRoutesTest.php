@@ -69,7 +69,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
 
         $this->actingAs($reseller)
             ->get('/id/dashboard/history')
-            ->assertRedirect('/id/reseller');
+            ->assertRedirect('/id/reseller/dashboard');
     }
 
     public function test_redirect_from_dashboard_history_shows_flash_message(): void
@@ -78,7 +78,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
 
         $this->actingAs($reseller)
             ->get('/id/dashboard/history')
-            ->assertRedirect('/id/reseller')
+            ->assertRedirect('/id/reseller/dashboard')
             ->assertSessionHas('info', 'Halaman ini tidak tersedia untuk akun Reseller Hub.');
     }
 
@@ -94,7 +94,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
 
         $this->actingAs($reseller)
             ->post('/id/settings/api-key/regenerate')
-            ->assertRedirect('/id/reseller');
+            ->assertRedirect('/id/reseller/dashboard');
     }
 
     public function test_legacy_api_key_redirect_shows_flash_message(): void
@@ -103,7 +103,7 @@ class ResellerBlacklistedRoutesTest extends TestCase
 
         $this->actingAs($reseller)
             ->post('/id/settings/api-key/regenerate')
-            ->assertRedirect('/id/reseller')
+            ->assertRedirect('/id/reseller/dashboard')
             ->assertSessionHas('info', 'Halaman ini tidak tersedia untuk akun Reseller Hub.');
     }
 
