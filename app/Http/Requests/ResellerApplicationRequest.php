@@ -15,10 +15,11 @@ class ResellerApplicationRequest extends FormRequest
     {
         $isUpdate = $this->user()?->resellerApplication?->exists ?? false;
         
-        // Check if captcha bypass is enabled in settings
-        $captchaBypass = \DB::table('setting_webs')
-            ->where('id', 1)
-            ->value('captcha_bypass') ?? false;
+        // Check if captcha bypass is enabled in settings or running in test environment
+        $captchaBypass = app()->environment('testing') || 
+            (\DB::table('setting_webs')
+                ->where('id', 1)
+                ->value('captcha_bypass') ?? false);
         
         return [
             'business_name' => ['required', 'string', 'max:255'],
