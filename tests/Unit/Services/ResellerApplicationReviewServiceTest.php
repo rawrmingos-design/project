@@ -66,7 +66,11 @@ class ResellerApplicationReviewServiceTest extends TestCase
         $provisioningService
             ->expects($this->once())
             ->method('provision')
-            ->with($this->callback(fn (User $user) => $user->id === $owner->id));
+            ->with($this->callback(fn (User $user) => $user->id === $owner->id))
+            ->willReturn([
+                'live_key' => 'test-key',
+                'sandbox_key' => 'test-key',
+            ]);
 
         $service = new ResellerApplicationReviewService($provisioningService);
 
@@ -197,7 +201,11 @@ class ResellerApplicationReviewServiceTest extends TestCase
         $provisioningService = $this->createMock(ResellerProvisioningService::class);
         $provisioningService
             ->expects($this->once())
-            ->method('provision');
+            ->method('provision')
+            ->willReturn([
+                'live_key' => 'test-live-key-' . uniqid(),
+                'sandbox_key' => 'test-sandbox-key-' . uniqid(),
+            ]);
 
         return new ResellerApplicationReviewService($provisioningService);
     }

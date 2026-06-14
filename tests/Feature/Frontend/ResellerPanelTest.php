@@ -13,7 +13,7 @@ class ResellerPanelTest extends TestCase
 
     public function test_unauthenticated_user_cannot_access_panel(): void
     {
-        $response = $this->get('/id/reseller');
+        $response = $this->get('/id/reseller/dashboard');
         $response->assertRedirect(route('login'));
     }
 
@@ -23,7 +23,7 @@ class ResellerPanelTest extends TestCase
             'role' => 'Member',
         ]);
 
-        $response = $this->actingAs($user)->get('/id/reseller');
+        $response = $this->actingAs($user)->get('/id/reseller/dashboard');
 
         $response->assertRedirect(route('dashboard'));
         $response->assertSessionHas('error', 'Akses ditolak: Anda tidak memiliki integrasi Reseller.');
@@ -55,7 +55,7 @@ class ResellerPanelTest extends TestCase
             'role' => 'Admin',
         ]);
 
-        $response = $this->actingAs($admin)->get('/id/reseller');
+        $response = $this->actingAs($admin)->get('/id/reseller/dashboard');
 
         $response->assertRedirect(route('dashboard'));
         $response->assertSessionHas('error', 'Akses ditolak: Anda tidak memiliki integrasi Reseller.');
