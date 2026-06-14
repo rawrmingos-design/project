@@ -28,7 +28,7 @@ class ResellerDashboardTest extends TestCase
 
     public function test_guest_cannot_access_dashboard(): void
     {
-        $this->get('/id/reseller')->assertStatus(302);
+        $this->get('/id/reseller/dashboard')->assertStatus(302);
     }
 
     public function test_dashboard_shows_live_active_when_integration_is_active(): void
@@ -36,7 +36,7 @@ class ResellerDashboardTest extends TestCase
         $user = $this->createResellerUser('live', true);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page->where('live.is_active', true)
             );
@@ -47,7 +47,7 @@ class ResellerDashboardTest extends TestCase
         $user = $this->createResellerUser('live', false);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page->where('live.is_active', false)
             );
@@ -58,7 +58,7 @@ class ResellerDashboardTest extends TestCase
         $user = $this->createResellerUser('sandbox', true);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page->where('sandbox.is_active', true)
             );
@@ -69,7 +69,7 @@ class ResellerDashboardTest extends TestCase
         $user = $this->createResellerUser('sandbox', false);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page->where('sandbox.is_active', false)
             );
@@ -94,7 +94,7 @@ class ResellerDashboardTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page
                     ->has('live', fn (Assert $live) =>
@@ -121,7 +121,7 @@ class ResellerDashboardTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertInertia(fn (Assert $page) =>
                 $page->where('live', null)
                      ->where('sandbox.is_active', true)

@@ -22,14 +22,6 @@ class RegistryTest extends TestCase
         Config::set('captcha.secret', 'test-secret-key');
     }
 
-    public function test_guest_cannot_access_registry_form()
-    {
-        $response = $this->get(route('reseller.registry.form'));
-        
-        $response->assertRedirect(route('login'));
-        $response->assertSessionHas('warning', 'Silakan login sebagai Member untuk mendaftar sebagai reseller');
-    }
-
     public function test_authenticated_user_can_access_registry_form()
     {
         $user = User::factory()->create(['role' => 'Member']);

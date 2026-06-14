@@ -33,7 +33,7 @@ class ResellerRouteAccessTest extends TestCase
 
         $this->actingAs($reseller)
             ->get('/id/dashboard')
-            ->assertRedirect('/id/reseller');
+            ->assertRedirect('/id/reseller/dashboard');
     }
 
     public function test_regular_user_can_still_access_user_dashboard(): void
@@ -58,7 +58,7 @@ class ResellerRouteAccessTest extends TestCase
         $user = User::factory()->create(['role' => 'Member']);
 
         $this->actingAs($user)
-            ->get('/id/reseller')
+            ->get('/id/reseller/dashboard')
             ->assertRedirect('/id/dashboard');
     }
 
@@ -67,7 +67,7 @@ class ResellerRouteAccessTest extends TestCase
         $reseller = $this->createResellerUser();
 
         $routes = [
-            '/id/reseller',
+            '/id/reseller/dashboard',
             '/id/reseller/credentials',
             '/id/reseller/orders',
             '/id/reseller/deposits',
@@ -86,7 +86,7 @@ class ResellerRouteAccessTest extends TestCase
     public function test_guest_cannot_access_any_reseller_hub_route(): void
     {
         $routes = [
-            '/id/reseller',
+            '/id/reseller/dashboard',
             '/id/reseller/credentials',
             '/id/reseller/deposits',
         ];
