@@ -88,7 +88,7 @@ class SandboxH2hApiTest extends TestCase
         $headers = ['Authorization' => 'Bearer ' . $rawKey];
 
         $this->withHeaders($headers)
-            ->postJson('/api/v1/sandbox/product')
+            ->postJson('/api/v1/sandbox/category')
             ->assertOk()
             ->assertJsonPath('error', false)
             ->assertJsonPath('data.0.code', 'mlbb');

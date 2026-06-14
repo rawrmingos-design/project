@@ -142,6 +142,7 @@ class OrderApiController extends Controller
                 'name'      => $s->layanan,
                 'is_active' => ($s->status == 'available' && $variantCode !== ''),
                 'price'     => $harga,
+                'provider'  => $s->provider,
             ];
        }
        return response()->json([
