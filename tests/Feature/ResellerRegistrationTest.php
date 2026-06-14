@@ -171,7 +171,7 @@ test('files are stored in correct directory', function () {
     $documents = $user->fresh()->resellerDocuments;
     
     foreach ($documents as $document) {
-        Storage::disk('public')->assertExists($document->file_path);
+        $this->assertFileExists(public_path($document->file_path));
     }
 });
 
