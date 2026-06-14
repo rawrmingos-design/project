@@ -192,6 +192,6 @@ class ResellerPanelTest extends TestCase
         
         $response->assertOk();
         $response->assertSee('"status":"success"', false); // User 1 has success
-        $response->assertDontSee('500'); // User 2 has 500
+        $response->assertDontSee('"last_response_status":500', false); // User 2's error status shouldn't appear
     }
 }
