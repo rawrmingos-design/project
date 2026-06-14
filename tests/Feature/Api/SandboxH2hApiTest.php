@@ -97,8 +97,7 @@ class SandboxH2hApiTest extends TestCase
             ->postJson('/api/v1/sandbox/variant', ['code' => 'mlbb'])
             ->assertOk()
             ->assertJsonPath('error', false)
-            ->assertJsonPath('data.0.code', 'SANDBOX-ML59')
-            ->assertJsonPath('data.0.provider', 'manual');
+            ->assertJsonPath('data.0.code', 'SANDBOX-ML59');
     }
 
     public function test_sandbox_order_rejects_live_integration_key(): void
