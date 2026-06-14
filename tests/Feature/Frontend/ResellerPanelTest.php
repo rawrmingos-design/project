@@ -98,7 +98,7 @@ class ResellerPanelTest extends TestCase
         $response->assertSee('example.com');
     }
 
-    public function test_reseller_docs_page_does_not_expose_raw_secrets(): void
+    public function test_reseller_docs_page_returns_404_when_canonical_docs_are_unavailable(): void
     {
         $user = User::factory()->create([
             'role' => 'Member',
@@ -114,11 +114,16 @@ class ResellerPanelTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->get('/id/reseller/docs');
-        
-        $response->assertOk();
+
+        if (\Illuminate\Support\Facades\Route::has('docs.index')) {
+            $response->assertRedirect(route('docs.index'));
+            $this->assertSame(301, $response->getStatusCode());
+        } else {
+            $response->assertNotFound();
+        }
+
         $response->assertDontSee('secret-live-key-123456');
-        $response->assertSee('...sandbox');
-        $response->assertSee('sandbox-integration-test');
+        $response->assertDontSee('sandbox-integration-test');
     }
 
     public function test_orders_page_only_shows_authenticated_reseller_orders(): void

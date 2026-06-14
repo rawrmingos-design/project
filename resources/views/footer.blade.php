@@ -36,8 +36,8 @@
                                 @php
                                     $docsUrl = '#';
                                     try {
-                                        if (Route::has('reseller.docs')) {
-                                            $docsUrl = route('reseller.docs');
+                                        if (Route::has('docs.index')) {
+                                            $docsUrl = route('docs.index');
                                         } elseif (env('DOCS_URL')) {
                                             $docsUrl = env('DOCS_URL');
                                         }
