@@ -23,7 +23,7 @@ class SalesPageController extends Controller
             'allProducts' => $allProducts, // All products for search
             'ctaConfig' => [
                 'primaryUrl' => route('reseller.registry.form'),
-                'docsUrl' => route('docs.index'), // ✅ Fixed: Use actual docs route
+                'docsUrl' => route('reseller.docs'),
             ],
             'seoMeta' => [
                 'title' => 'Elite Reseller | H2H API Integration Portal - Top Up Game Tercepat',
