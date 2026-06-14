@@ -152,20 +152,26 @@ test('submission with invalid business url fails validation', function () {
 });
 
 test('files are stored in correct directory', function () {
+    // Disable captcha and set up fake storage
+    config(['captcha.enabled' => false]);
+    Storage::fake(); // Fake all disks
+    
     $user = User::factory()->create(['role' => 'Member']);
     
-    $this->actingAs($user)->post('/id/reseller/registry', [
+    $response = $this->actingAs($user)->post('/id/reseller/registry', [
         'business_name' => 'Test Business',
         'identity' => UploadedFile::fake()->image('ktp.jpg'),
         'selfie' => UploadedFile::fake()->image('selfie.jpg'),
         'business_proof' => UploadedFile::fake()->image('proof.jpg'),
     ]);
     
-    // Check files exist in storage
-    $documents = $user->resellerDocuments;
+    $response->assertRedirect();
+    
+    // Reload user with relationships
+    $documents = $user->fresh()->resellerDocuments;
     
     foreach ($documents as $document) {
-        $this->assertTrue(Storage::disk('public')->exists($document->file_path));
+        Storage::disk('public')->assertExists($document->file_path);
     }
 });
 
