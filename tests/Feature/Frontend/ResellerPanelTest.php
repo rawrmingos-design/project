@@ -107,7 +107,7 @@ class ResellerPanelTest extends TestCase
         ResellerIntegration::factory()->create([
             'user_id' => $user->id,
             'integration_code' => 'sandbox-integration-test',
-            'mode' => 'sandbox',
+            'mode' => 'live',
             'is_active' => true,
             'api_key_hint' => '...sandbox',
             'api_key_hash' => \Illuminate\Support\Facades\Hash::make('secret-live-key-123456'),

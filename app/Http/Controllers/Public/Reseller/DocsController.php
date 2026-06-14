@@ -17,7 +17,7 @@ class DocsController extends Controller
         $sandboxIntegration = $user->resellerIntegrations->where('mode', 'sandbox')->first();
 
         return Inertia::render('Reseller/ApiDocs', [
-            'canonical_url' => route('docs'),
+            'canonical_url' => route('reseller.docs'),
             'live_base_url' => url('/api/v1'),
             'sandbox_base_url' => url('/api/v1/sandbox'),
             'live' => $liveIntegration ? [
