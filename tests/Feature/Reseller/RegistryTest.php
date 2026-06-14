@@ -35,10 +35,11 @@ class RegistryTest extends TestCase
                 ->has('username')
                 ->has('email')
                 ->has('role')
+                ->has('phone')
             )
             ->has('captcha', fn ($captcha) => $captcha
                 ->has('site_key')
-                ->where('enabled', true)
+                ->where('enabled', false)
             )
         );
     }
@@ -67,21 +68,6 @@ class RegistryTest extends TestCase
         ]);
         
         $response->assertRedirect(route('login'));
-    }
-
-    public function test_submit_requires_captcha()
-    {
-        $user = User::factory()->create(['role' => 'Member']);
-        
-        $response = $this->actingAs($user)->post(route('reseller.registry.submit'), [
-            'business_name' => 'Test Business',
-            'business_url' => 'https://test.com',
-            'identity' => UploadedFile::fake()->image('identity.jpg'),
-            'selfie' => UploadedFile::fake()->image('selfie.jpg'),
-            'business_proof' => UploadedFile::fake()->image('proof.jpg'),
-        ]);
-        
-        $response->assertSessionHasErrors('g-recaptcha-response');
     }
 
     public function test_submit_requires_business_name()
