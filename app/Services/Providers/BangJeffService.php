@@ -45,11 +45,19 @@ class BangJeffService extends BaseProviderService
 
     private function resolveAdminApiKey(): ?string
     {
-        if (! Schema::hasTable('setting_webs')) {
+        try {
+            if (! Schema::hasTable('setting_webs')) {
+                return null;
+            }
+
+            $settingsApiKey = SettingWeb::query()->value('apikey_bangjeff');
+        } catch (\Throwable $e) {
+            Log::debug('BangJeff admin API key lookup skipped during bootstrap.', [
+                'exception' => $e::class,
+            ]);
+
             return null;
         }
-
-        $settingsApiKey = SettingWeb::query()->value('apikey_bangjeff');
 
         if ($settingsApiKey === null || trim((string) $settingsApiKey) === '') {
             return null;
