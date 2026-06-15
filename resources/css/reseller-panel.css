@@ -337,6 +337,12 @@
     margin: 0;
 }
 
+.reseller-theme .rh-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .reseller-theme .rh-sidebar-link {
     display: flex;
     align-items: center;
