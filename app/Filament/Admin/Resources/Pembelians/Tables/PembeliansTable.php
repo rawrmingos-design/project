@@ -264,11 +264,19 @@ class PembeliansTable
                         return $query
                             ->when(
                                 $data['created_from'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                                fn(Builder $query, $date): Builder => $query->where(
+                                    'created_at',
+                                    '>=',
+                                    \Carbon\Carbon::parse($date)->startOfDay(),
+                                ),
                             )
                             ->when(
                                 $data['created_until'],
-                                fn(Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                                fn(Builder $query, $date): Builder => $query->where(
+                                    'created_at',
+                                    '<=',
+                                    \Carbon\Carbon::parse($date)->endOfDay(),
+                                ),
                             );
                     }),
 
