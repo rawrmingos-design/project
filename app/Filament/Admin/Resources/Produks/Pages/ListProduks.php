@@ -13,6 +13,9 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Http\Controllers\DigiFlazzController;
 use App\Services\ProductPricingService;
+use App\Services\Providers\BangJeffService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ListProduks extends ListRecords
 {
@@ -36,36 +39,71 @@ class ListProduks extends ListRecords
                         $products = $data['data'] ?? null;
 
                         if (is_array($products) && array_is_list($products)) {
+                            $fetchedCount = 0;
                             $updatedCount = 0;
+                            $skippedInactiveCount = 0;
+                            $skippedInvalidCount = 0;
+                            $skippedNoCategoryCount = 0;
+                            $skippedNoLocalProductCount = 0;
 
                             foreach ($products as $product) {
                                 if (! is_array($product)) {
+                                    $skippedInvalidCount++;
                                     continue;
                                 }
+
+                                $fetchedCount++;
 
                                 $isActive = (bool) ($product['buyer_product_status'] ?? false);
                                 $brand = trim((string) ($product['brand'] ?? ''));
                                 $providerSku = trim((string) ($product['buyer_sku_code'] ?? ''));
                                 $price = $product['price'] ?? null;
 
-                                if (! $isActive || $brand === '' || $providerSku === '' || ! is_numeric($price)) {
+                                if (! $isActive) {
+                                    $skippedInactiveCount++;
+                                    continue;
+                                }
+
+                                if ($brand === '' || $providerSku === '' || ! is_numeric($price)) {
+                                    $skippedInvalidCount++;
                                     continue;
                                 }
 
                                 $dataGames = Kategori::where('nama', $brand)->first();
-                                $dataProduct = Layanan::where('provider_id', $providerSku)->first();
 
-                                if ($dataGames && $dataProduct) {
-                                    $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $price);
-                                    $dataProduct->save();
-
-                                    $updatedCount++;
+                                if (! $dataGames) {
+                                    $skippedNoCategoryCount++;
+                                    continue;
                                 }
+
+                                $dataProduct = Layanan::query()
+                                    ->where('provider', 'digiflazz')
+                                    ->where('provider_id', $providerSku)
+                                    ->first();
+
+                                if (! $dataProduct) {
+                                    $skippedNoLocalProductCount++;
+                                    continue;
+                                }
+
+                                $pricing->rebaseFromNewBaseCostKeepingMargins($dataProduct, $price);
+                                $dataProduct->save();
+
+                                $updatedCount++;
                             }
+
+                            Log::info('DigiFlazz product sync completed', [
+                                'fetched' => $fetchedCount,
+                                'updated' => $updatedCount,
+                                'skipped_inactive' => $skippedInactiveCount,
+                                'skipped_invalid' => $skippedInvalidCount,
+                                'skipped_no_category' => $skippedNoCategoryCount,
+                                'skipped_no_local_product' => $skippedNoLocalProductCount,
+                            ]);
 
                             Notification::make()
                                 ->title('DigiFlazz Sync Completed')
-                                ->body("Successfully updated {$updatedCount} products from DigiFlazz")
+                                ->body("Fetched products: {$fetchedCount} | Updated: {$updatedCount} | Skipped inactive: {$skippedInactiveCount} | Skipped invalid: {$skippedInvalidCount} | No category: {$skippedNoCategoryCount} | Not found: {$skippedNoLocalProductCount}")
                                 ->success()
                                 ->send();
                         } else {
@@ -97,30 +135,47 @@ class ListProduks extends ListRecords
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
                 ->form([
+                    Toggle::make('refresh_products_cache')
+                        ->label('Refresh Produk BangJeff dari API sebelum sync')
+                        ->helperText('Aktifkan kalau list Produk BangJeff di dropdown belum update. Cache produk akan dihapus dan diambil ulang saat submit.')
+                        ->default(false),
+                    Select::make('bangjeff_product_code')
+                        ->label('Produk BangJeff')
+                        ->options(fn (): array => $this->getCachedBangJeffProductOptions())
+                        ->required()
+                        ->searchable(),
                     Select::make('kategori_id')
-                        ->label('Target Kategori')
+                        ->label('Kategori Lokal')
                         ->options(Kategori::pluck('nama', 'id'))
                         ->required()
                         ->searchable(),
                     Toggle::make('update_existing')
                         ->label('Update Existing Products')
-                        ->default(false),
-                    Toggle::make('auto_activate')
-                        ->label('Auto Activate New Products')
-                        ->default(true),
+                        ->helperText('Fase ini hanya update produk BangJeff yang sudah ada di kategori lokal pilihan. Variant yang belum ada akan diskip.')
+                        ->default(true)
+                        ->disabled(),
                 ])
                 ->action(function (array $data) {
-                    // Simulate API call to BangJeff
-                    $this->syncFromBangJeff($data);
-                    
-                    Notification::make()
-                        ->title('BangJeff Sync Started')
-                        ->body('Product synchronization from BangJeff has been initiated')
-                        ->info()
-                        ->send();
+                    try {
+                        $summary = $this->syncFromBangJeff($data);
+
+                        Notification::make()
+                            ->title('BangJeff Sync Completed')
+                            ->body("Fetched variants: {$summary['fetched']} | Updated: {$summary['updated']} | Skipped inactive: {$summary['skipped_inactive']} | Skipped invalid: {$summary['skipped_invalid']} | Skipped not found: {$summary['skipped_not_found']}")
+                            ->success()
+                            ->send();
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('BangJeff Sync Failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 })
                 ->requiresConfirmation()
-                ->modalDescription('This will fetch products from BangJeff API and sync them to your database.'),
+                ->modalHeading('Sync BangJeff Products')
+                ->modalDescription('Pilih Produk BangJeff dari API dan Kategori Lokal untuk update banyak produk BangJeff existing dalam kategori tersebut. Tidak membuat produk baru.')
+                ->modalSubmitActionLabel('Sync Now'),
                 
             Action::make('sync_topupedia')
                 ->label('Sync Topupedia')
@@ -227,40 +282,121 @@ class ListProduks extends ListRecords
         ];
     }
     
-    private function syncFromBangJeff(array $data): void
+    private function syncFromBangJeff(array $data): array
     {
-        // Simulate BangJeff API sync
-        // In real implementation, you would:
-        // 1. Call BangJeff API
-        // 2. Parse response
-        // 3. Create/update products
-        // 4. Handle errors
-        
-        // Mock implementation
-        sleep(1); // Simulate API delay
-        
-        // Example: Create sample products
-        $sampleProducts = [
-            [
-                'layanan' => 'Mobile Legends 5 Diamond',
-                'provider_id' => 'BANGJEFF_ML_5',
-                'kategori_id' => $data['kategori_id'],
-                'provider' => 'bangjeff',
-                'harga' => 1500,
-                'harga_member' => 1600,
-                'harga_platinum' => 1650,
-                'harga_gold' => 1700,
-                'status' => $data['auto_activate'] ? 'active' : 'inactive',
-                'catatan' => 'Synced from BangJeff API',
-            ],
+        $productCode = trim((string) ($data['bangjeff_product_code'] ?? ''));
+        $kategoriId = $data['kategori_id'] ?? null;
+
+        $summary = [
+            'fetched' => 0,
+            'updated' => 0,
+            'skipped_inactive' => 0,
+            'skipped_invalid' => 0,
+            'skipped_not_found' => 0,
         ];
-        
-        foreach ($sampleProducts as $productData) {
-            \App\Models\Produk::updateOrCreate(
-                ['provider_id' => $productData['provider_id']],
-                $productData
-            );
+
+        if ($productCode === '' || blank($kategoriId)) {
+            throw new \InvalidArgumentException('Produk BangJeff dan Kategori Lokal wajib dipilih.');
         }
+
+        $productOptions = $this->getCachedBangJeffProductOptions((bool) ($data['refresh_products_cache'] ?? false));
+
+        if (! array_key_exists($productCode, $productOptions)) {
+            throw new \RuntimeException('Produk BangJeff yang dipilih tidak ditemukan di cache/API. Coba aktifkan refresh cache lalu sync ulang.');
+        }
+
+        $response = app(BangJeffService::class)->listVariant($productCode);
+
+        if (($response['error'] ?? false) === true || (($response['rc'] ?? null) && $response['rc'] !== '00')) {
+            throw new \RuntimeException((string) ($response['message'] ?? 'Gagal mengambil variant BangJeff.'));
+        }
+
+        $variants = $response['data'] ?? [];
+
+        if (! is_array($variants)) {
+            throw new \RuntimeException('Response variant BangJeff tidak valid.');
+        }
+
+        $pricing = app(ProductPricingService::class);
+
+        foreach ($variants as $variant) {
+            if (! is_array($variant)) {
+                $summary['skipped_invalid']++;
+                continue;
+            }
+
+            $summary['fetched']++;
+
+            $variantCode = trim((string) ($variant['code'] ?? $variant['variantCode'] ?? ''));
+            $rawStatus = strtoupper((string) ($variant['status'] ?? ''));
+            $price = $variant['price']['value'] ?? $variant['price'] ?? null;
+
+            if ($variantCode === '' || ! is_numeric($price)) {
+                $summary['skipped_invalid']++;
+                continue;
+            }
+
+            if ($rawStatus !== 'ACTIVE') {
+                $summary['skipped_inactive']++;
+                continue;
+            }
+
+            $product = Layanan::query()
+                ->where('provider', 'bangjeff')
+                ->where('provider_id', $variantCode)
+                ->where('kategori_id', $kategoriId)
+                ->first();
+
+            if (! $product) {
+                $summary['skipped_not_found']++;
+                continue;
+            }
+
+            $pricing->rebaseFromNewBaseCostKeepingMargins($product, $price);
+            $product->save();
+
+            $summary['updated']++;
+        }
+
+        Log::info('BangJeff product sync completed', [
+            'product_code' => $productCode,
+            'kategori_id' => $kategoriId,
+            'fetched' => $summary['fetched'],
+            'updated' => $summary['updated'],
+            'skipped_inactive' => $summary['skipped_inactive'],
+            'skipped_invalid' => $summary['skipped_invalid'],
+            'skipped_not_found' => $summary['skipped_not_found'],
+        ]);
+
+        return $summary;
+    }
+
+    private function getCachedBangJeffProductOptions(bool $refresh = false): array
+    {
+        $cacheKey = 'bangjeff.products.ID';
+
+        if ($refresh) {
+            Cache::forget($cacheKey);
+        }
+
+        return Cache::remember($cacheKey, now()->addHours(6), function (): array {
+            $products = app(BangJeffService::class)->getProducts();
+
+            if (! is_array($products) || (($products['success'] ?? true) === false)) {
+                Log::warning('BangJeff product options cache skipped: invalid product response.');
+
+                return [];
+            }
+
+            return collect($products)
+                ->filter(fn ($product): bool => is_array($product))
+                ->filter(fn (array $product): bool => ($product['status'] ?? null) === 'available')
+                ->filter(fn (array $product): bool => filled($product['provider_id'] ?? null) && filled($product['name'] ?? null))
+                ->mapWithKeys(fn (array $product): array => [
+                    (string) $product['provider_id'] => sprintf('%s - %s', $product['provider_id'], $product['name']),
+                ])
+                ->toArray();
+        });
     }
     
     private function syncFromTopupedia(array $data): void
