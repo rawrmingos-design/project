@@ -1665,8 +1665,12 @@ class OrderController extends Controller
                     $bangjeffo = new BangJeffController($credentials);
                     $requestData = [['name' => 'ID', 'value' => $request->uid]];
                     if ($request->has('zone')) $requestData[] = ['name' => 'Server', 'value' => $request->zone];
+                    $price = [
+                        'currency' => 'IDR',
+                        'value' => (int) round((float) ($dataLayanan->modal_harga ?? $dataLayanan->harga)),
+                    ];
                     
-                    $order = $bangjeffo->order($sku, $order_id, 1, $requestData);
+                    $order = $bangjeffo->order($sku, $order_id, 1, $requestData, $price);
                     $isSuccess = (($order['error'] ?? null) === false) || (($order['rc'] ?? null) === '00');
                     $statusCode = strtoupper((string) ($order['data']['statusCode'] ?? 'PROCESSING'));
 
