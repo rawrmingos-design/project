@@ -2,9 +2,11 @@
 
 namespace App\Services\Providers;
 
+use App\Models\SettingWeb;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class BangJeffService extends BaseProviderService
 {
@@ -23,8 +25,12 @@ class BangJeffService extends BaseProviderService
 
     protected function initializeCredentials(): void
     {
+        $apiKey = $this->overrides['api_key']
+            ?? $this->resolveAdminApiKey()
+            ?? config('providers.bangjeff.api_key');
+
         $this->credentials = [
-            'api_key' => (string) ($this->overrides['api_key'] ?? config('providers.bangjeff.api_key')),
+            'api_key' => (string) $apiKey,
         ];
 
         $this->region = strtoupper((string) ($this->overrides['region'] ?? config('providers.bangjeff.region', 'ID')));
@@ -35,6 +41,21 @@ class BangJeffService extends BaseProviderService
 
         $configuredBaseUrl = (string) ($this->overrides['endpoint'] ?? config('providers.bangjeff.base_url', self::BASE_URL_PRODUCTION));
         $this->baseUrl = $this->resolveBaseUrl($configuredBaseUrl);
+    }
+
+    private function resolveAdminApiKey(): ?string
+    {
+        if (! Schema::hasTable('setting_webs')) {
+            return null;
+        }
+
+        $settingsApiKey = SettingWeb::query()->value('apikey_bangjeff');
+
+        if ($settingsApiKey === null || trim((string) $settingsApiKey) === '') {
+            return null;
+        }
+
+        return (string) $settingsApiKey;
     }
 
     protected function initializeHeaders(): void
