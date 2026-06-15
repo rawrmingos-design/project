@@ -51,7 +51,7 @@ class ProviderResource extends Resource
                     ->label('API Key / Secret')
                     ->password()
                     ->revealable()
-                    ->helperText('Warning: Gunakan API Key Production.')
+                    ->helperText('Untuk BangJeff, gunakan Settings > BangJeff API Key sebagai sumber utama. Field ini hanya override provider lain.')
                     ->maxLength(255),
                 TextInput::make('api_sign')
                     ->label('API Sign (VIP)')

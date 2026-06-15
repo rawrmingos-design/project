@@ -119,6 +119,7 @@ class ProviderBalanceService
 
     private function resolveConfig(Provider $provider): array
     {
+        $providerCode = strtolower((string) $provider->code);
         $config = [];
 
         if (! empty($provider->api_username)) {
@@ -127,7 +128,7 @@ class ProviderBalanceService
             $config['merchant_id'] = $provider->api_username;
         }
 
-        if (! empty($provider->api_key)) {
+        if ($providerCode !== 'bangjeff' && ! empty($provider->api_key)) {
             $config['api_key'] = $provider->api_key;
             $config['secret_key'] = $provider->api_key;
         }

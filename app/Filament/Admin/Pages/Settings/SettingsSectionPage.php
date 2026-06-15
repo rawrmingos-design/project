@@ -785,13 +785,13 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('topupindo')),
                     
                 Section::make('BangJeff')
-                    ->description('Masukkan API key dari dashboard BangJeff. Dipakai saat order dan sinkronisasi provider.')
+                    ->description('Masukkan API key dari dashboard BangJeff. Ini menjadi sumber utama untuk check balance, ambil produk/variant, dan order provider.')
                     ->schema([
                         TextInput::make('apikey_bangjeff')
                             ->label('BangJeff API Key')
                             ->password()
                             ->revealable()
-                            ->helperText('Didapat dari dashboard BangJeff pada menu API key / developer.'),
+                            ->helperText('Untuk sandbox/live, simpan key BangJeff di sini. Jangan commit key ke .env/repository; env hanya fallback teknis bila admin setting kosong.'),
                     ])
                     ->collapsible()
                     ->collapsed()

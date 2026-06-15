@@ -672,21 +672,25 @@ class ProdukForm
 
     protected static function getBangJeffProducts(): array
     {
-        return Cache::remember('filament.bangjeff.products', now()->addMinutes(5), function () {
-            $response = app(BangJeffService::class)->getProductsRaw();
+        $cacheKey = 'filament.bangjeff.products';
+        $cached = Cache::get($cacheKey);
 
-            if (($response['error'] ?? false) === true) {
-                return [];
-            }
+        if (is_array($cached)) {
+            return $cached;
+        }
 
-            if (($response['rc'] ?? '00') !== '00') {
-                return [];
-            }
+        $response = app(BangJeffService::class)->getProductsRaw();
 
-            $products = $response['data'] ?? [];
+        if (($response['error'] ?? false) === true || (($response['rc'] ?? '00') !== '00')) {
+            return [];
+        }
 
-            return is_array($products) ? $products : [];
-        });
+        $products = $response['data'] ?? [];
+        $products = is_array($products) ? $products : [];
+
+        Cache::put($cacheKey, $products, now()->addMinutes(5));
+
+        return $products;
     }
 
     protected static function getBangJeffVariants(string $productCode): array
@@ -698,22 +702,24 @@ class ProdukForm
         }
 
         $cacheKey = 'filament.bangjeff.variants.' . strtoupper($normalizedCode);
+        $cached = Cache::get($cacheKey);
 
-        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($normalizedCode) {
-            $response = app(BangJeffService::class)->listVariant($normalizedCode);
+        if (is_array($cached)) {
+            return $cached;
+        }
 
-            if (($response['error'] ?? false) === true) {
-                return [];
-            }
+        $response = app(BangJeffService::class)->listVariant($normalizedCode);
 
-            if (($response['rc'] ?? '00') !== '00') {
-                return [];
-            }
+        if (($response['error'] ?? false) === true || (($response['rc'] ?? '00') !== '00')) {
+            return [];
+        }
 
-            $variants = $response['data'] ?? [];
+        $variants = $response['data'] ?? [];
+        $variants = is_array($variants) ? $variants : [];
 
-            return is_array($variants) ? $variants : [];
-        });
+        Cache::put($cacheKey, $variants, now()->addMinutes(5));
+
+        return $variants;
     }
 
     protected static function refreshBangJeffCache(?string $productCode = null): void
