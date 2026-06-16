@@ -129,9 +129,10 @@ class ProviderBalanceService
         }
 
         if (! empty($provider->api_key)) {
-            $config['api_key'] = $provider->api_key;
-
-            if ($providerCode !== 'bangjeff') {
+            if ($providerCode === 'bangjeff') {
+                $config['fallback_api_key'] = $provider->api_key;
+            } else {
+                $config['api_key'] = $provider->api_key;
                 $config['secret_key'] = $provider->api_key;
             }
         }
