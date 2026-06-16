@@ -27,6 +27,7 @@ class BangJeffService extends BaseProviderService
     {
         $apiKey = $this->overrides['api_key']
             ?? $this->resolveAdminApiKey()
+            ?? $this->overrides['fallback_api_key']
             ?? config('providers.bangjeff.api_key');
 
         $this->credentials = [
