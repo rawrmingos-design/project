@@ -130,16 +130,6 @@ class DigiFlazzController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($this->endpoint . $url, $data);
 
-            Log::debug("DigiFlazz Request to $url", [
-                'status' => $response->status(),
-                'payload_meta' => [
-                    'ref_id' => $data['ref_id'] ?? null,
-                    'buyer_sku_code' => $data['buyer_sku_code'] ?? null,
-                    'command' => $data['command'] ?? null,
-                ],
-                'body' => $response->body(),
-            ]);
-
             return $response->json();
         } catch (\Exception $e) {
             Log::error("DigiFlazz Connection Error: " . $e->getMessage(), ['url' => $this->endpoint . $url, 'data' => $data]);

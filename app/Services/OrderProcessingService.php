@@ -31,7 +31,6 @@ class OrderProcessingService
      */
     public function process(Pembelian $pembelian, string $dispatchMode = 'auto'): array
     {
-        Log::debug("OrderProcessingService: Processing order {$pembelian->order_id} ({$pembelian->layanan})");
         $this->dispatchMode = $this->normalizeDispatchMode($dispatchMode);
         $this->vipStatusReference = $this->resolveVipStatusReference($pembelian, $this->dispatchMode);
 
@@ -64,13 +63,6 @@ class OrderProcessingService
         $zone = $pembelian->zone;
         $providerReference = $this->resolveProviderReference($pembelian);
 
-        Log::debug("OrderProcessingService: Routed to {$providerCode} with SKU {$sku}", [
-            'canonical_order_id' => $pembelian->order_id,
-            'provider_reference' => $providerReference,
-            'active_layanan_id' => $pembelian->active_layanan_id,
-            'dispatch_mode' => $this->dispatchMode,
-            'vip_status_reference' => $this->vipStatusReference,
-        ]);
 
         $result = [
             'success' => false,
@@ -184,11 +176,6 @@ class OrderProcessingService
                 $digiflazz = new DigiFlazzController($credentials);
                 $response = $digiflazz->order($uid, $zone, $sku, $providerReference);
 
-                Log::debug("Digiflazz Response for {$providerReference}", [
-                    'status' => $response['data']['status'] ?? null,
-                    'ref_id' => $response['data']['ref_id'] ?? null,
-                    'message' => $response['data']['message'] ?? null,
-                ]);
 
                 $responseData = $response['data'] ?? [];
                 $providerStatus = $responseData['status'] ?? null;
@@ -271,17 +258,6 @@ class OrderProcessingService
                         ? 'VIP Reseller status checked.'
                         : 'VIP Reseller order processed.');
 
-                    Log::debug('OrderProcessingService: VIP response processed.', [
-                        'order_id' => $providerReference,
-                        'provider_code' => $providerCode,
-                        'sku' => $sku,
-                        'dispatch_mode' => $this->dispatchMode,
-                        'status_reference' => $statusReference,
-                        'provider_status' => $statusData['status'] ?? null,
-                        'internal_status' => $result['order_status'],
-                        'trxid' => $result['transaction_id'],
-                        'message' => $result['message'],
-                    ]);
                 } else {
                     $result['message'] = $response['message'] ?? 'VIP Reseller failed';
 

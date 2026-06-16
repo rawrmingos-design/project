@@ -46,12 +46,6 @@ class WhatsappNotificationService
             $settings &&
             $settings->invoice_notify_via_whatsapp === false
         ) {
-            Log::debug('WhatsappNotificationService: Invoice WhatsApp disabled by admin setting.', [
-                'order_id' => $data['order_id'] ?? null,
-                'target' => $target,
-                'template' => $templateSlug,
-            ]);
-
             return ['success' => false, 'message' => 'Invoice WhatsApp disabled by admin setting'];
         }
 
@@ -114,10 +108,6 @@ class WhatsappNotificationService
                     'message' => $message,
                 ]);
 
-            Log::debug("WhatsappNotificationService Sent to $target", [
-                'status' => $response->status(),
-                'response' => $response->body(),
-            ]);
 
             return $this->normalizeFonnteResponse($response);
 
@@ -155,10 +145,6 @@ class WhatsappNotificationService
             'secret-key' => $api->easywa_secret_key,
         ])->post('https://api.easywa.id/v1/send-message', $payload);
 
-        Log::debug("WhatsappNotificationService EasyWA Sent to {$target}", [
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
 
         if (! $response->successful()) {
             return [
@@ -232,10 +218,6 @@ class WhatsappNotificationService
             'secret-key' => $api->easywa_secret_key,
         ])->get('https://api.easywa.id/v1/status');
 
-        Log::debug('WhatsappNotificationService EasyWA Status', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
 
         if (! $response->successful()) {
             return [

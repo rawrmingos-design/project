@@ -97,11 +97,6 @@ class ResellerCallbackDeliveryService
         $context = $this->resolveDeliveryContext($pembelian, $integration);
 
         if (! $integration || ! $profile || ! $profile->is_enabled) {
-            Log::info('Reseller outbound callback skipped because callback profile is incomplete.', [
-                'order_id' => $pembelian->order_id,
-                'reseller_integration_id' => $pembelian->reseller_integration_id,
-            ]);
-
             return ['status' => 'skipped', 'reason' => 'callback_not_configured'];
         }
 

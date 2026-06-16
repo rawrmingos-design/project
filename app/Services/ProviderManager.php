@@ -61,8 +61,6 @@ class ProviderManager
 
         foreach ($this->providers as $providerName => $provider) {
             try {
-                Log::debug("Starting product sync for provider: {$providerName}");
-                
                 $products = $provider->getProducts();
                 $results[$providerName] = [
                     'success' => true,
@@ -70,9 +68,6 @@ class ProviderManager
                     'products' => $products
                 ];
 
-                Log::debug("Completed product sync for {$providerName}", [
-                    'products_count' => count($products)
-                ]);
             } catch (\Exception $e) {
                 Log::error("Failed to sync products for {$providerName}: " . $e->getMessage());
                 
@@ -102,13 +97,8 @@ class ProviderManager
         }
 
         try {
-            Log::debug("Starting product sync for provider: {$providerName}");
-            
             $products = $provider->getProducts();
-            
-            Log::debug("Completed product sync for {$providerName}", [
-                'products_count' => count($products)
-            ]);
+
 
             return [
                 'success' => true,
@@ -142,18 +132,8 @@ class ProviderManager
         }
 
         try {
-            Log::debug("Processing order through {$providerName}", [
-                'order_keys' => array_keys($orderData),
-                'order_id' => $orderData['order_id'] ?? null,
-                'product_id' => $orderData['product_id'] ?? null,
-            ]);
-            
             $result = $provider->processOrder($orderData);
-            
-            Log::debug("Order processed through {$providerName}", [
-                'success' => $result['success'] ?? false,
-                'transaction_id' => $result['transaction_id'] ?? null
-            ]);
+
 
             return $result;
         } catch (\Exception $e) {

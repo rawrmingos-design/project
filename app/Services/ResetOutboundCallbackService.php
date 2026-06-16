@@ -28,12 +28,6 @@ class ResetOutboundCallbackService
         $callbackUrl = trim((string) ($user?->reset_callback_url ?? ''));
 
         if (!$user || !$user->reset_callback_enabled || $callbackUrl === '') {
-            Log::info('Reset outbound callback skipped because user callback config is incomplete', [
-                'order_id' => $pembelian->order_id,
-                'invoice_version' => $pembelian->invoice_version,
-                'username' => $pembelian->username,
-            ]);
-
             return ['status' => 'skipped', 'reason' => 'callback_not_configured'];
         }
 
@@ -61,11 +55,6 @@ class ResetOutboundCallbackService
         ]);
 
         if ($delivery->status === 'delivered') {
-            Log::info('Reset outbound callback already delivered, skipping duplicate send', [
-                'order_id' => $pembelian->order_id,
-                'idempotency_key' => $delivery->idempotency_key,
-            ]);
-
             return ['status' => 'skipped', 'reason' => 'already_delivered'];
         }
 
@@ -124,12 +113,6 @@ class ResetOutboundCallbackService
                 $delivery->delivered_at = now();
                 $delivery->last_error = null;
                 $delivery->save();
-
-                Log::info('Reset outbound callback delivered', [
-                    'order_id' => $delivery->order_id,
-                    'idempotency_key' => $delivery->idempotency_key,
-                    'status_code' => $delivery->last_response_status,
-                ]);
 
                 return ['status' => 'delivered', 'status_code' => $delivery->last_response_status];
             }

@@ -16,21 +16,12 @@ class AffiliateService
     {
         // 1. Check if status is Success
         if (!in_array($pembelian->status, ['Success', 'Sukses'])) {
-            Log::debug('Affiliate commission skipped: order status is not successful', [
-                'order_id' => $pembelian->order_id,
-                'status' => $pembelian->status,
-            ]);
             return;
         }
 
         // 2. Check if user exists and has uplink
         $user = $pembelian->user;
         if (!$user || !$user->uplink) {
-            Log::debug('Affiliate commission skipped: downline has no uplink', [
-                'order_id' => $pembelian->order_id,
-                'downline_id' => $user?->id,
-                'downline_username' => $user?->username,
-            ]);
             return;
         }
 
@@ -56,11 +47,6 @@ class AffiliateService
         }
 
         if (! $this->isAffiliateActive($uplinkUser)) {
-            Log::info('Affiliate commission skipped: uplink is not active affiliate', [
-                'order_id' => $pembelian->order_id,
-                'uplink_id' => $uplinkUser->id,
-                'uplink_status' => (string) ($uplinkUser->affiliate_status ?? 'inactive'),
-            ]);
             return;
         }
 
@@ -70,22 +56,12 @@ class AffiliateService
         $profit = (int) round((float) $pembelian->profit);
         
         if ($profit <= 0) {
-            Log::debug('Affiliate commission skipped: order has no profit', [
-                'order_id' => $pembelian->order_id,
-                'profit' => $profit,
-            ]);
             return; // No profit, no commission
         }
 
         $commissionAmount = intval($profit * ($percent / 100));
 
         if ($commissionAmount <= 0) {
-            Log::debug('Affiliate commission skipped: calculated commission is zero', [
-                'order_id' => $pembelian->order_id,
-                'profit' => $profit,
-                'percent' => $percent,
-                'commission' => $commissionAmount,
-            ]);
             return;
         }
 
@@ -97,10 +73,6 @@ class AffiliateService
                     ->lockForUpdate()
                     ->exists();
                 if ($duplicate) {
-                    Log::info('Affiliate commission skipped: duplicate order commission attempt', [
-                        'order_id' => $pembelian->order_id,
-                        'uplink_id' => $uplinkUser->id,
-                    ]);
                     return;
                 }
 
@@ -126,11 +98,6 @@ class AffiliateService
                 }
 
                 if (! $this->isAffiliateActive($lockedUplink)) {
-                    Log::info('Affiliate commission skipped: uplink became inactive before payout', [
-                        'order_id' => $pembelian->order_id,
-                        'uplink_id' => $lockedUplink->id,
-                        'uplink_status' => (string) ($lockedUplink->affiliate_status ?? 'inactive'),
-                    ]);
                     return;
                 }
 
@@ -153,11 +120,6 @@ class AffiliateService
             }, 3);
         } catch (QueryException $exception) {
             if ($this->isDuplicateCommissionConstraintViolation($exception)) {
-                Log::info('Affiliate commission skipped after race: duplicate unique constraint hit', [
-                    'order_id' => $pembelian->order_id,
-                    'downline_id' => $user->id,
-                    'uplink_id' => $uplinkUser->id,
-                ]);
                 return;
             }
 

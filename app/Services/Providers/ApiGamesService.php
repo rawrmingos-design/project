@@ -86,11 +86,6 @@ class ApiGamesService
 
         $decoded = $response->json();
 
-        Log::debug('ApiGames account info request completed', [
-            'http_status' => $response->status(),
-            'provider_status' => is_array($decoded) ? ($decoded['status'] ?? null) : null,
-        ]);
-
         if (! is_array($decoded)) {
             return [
                 'result' => false,
@@ -243,12 +238,6 @@ class ApiGamesService
         }
 
         $decoded = $response->json();
-
-        Log::debug('ApiGames request completed', [
-            'path' => $path,
-            'http_status' => $response->status(),
-            'provider_status' => is_array($decoded) ? ($decoded['data']['status'] ?? $decoded['status'] ?? null) : null,
-        ]);
 
         if (! is_array($decoded)) {
             return [

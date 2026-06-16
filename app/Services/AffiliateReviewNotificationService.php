@@ -102,17 +102,6 @@ class AffiliateReviewNotificationService
             }
         }
 
-        Log::info('affiliate.review.notification.sent', [
-            'user_id' => $user->id,
-            'decision' => $decision,
-            'wa_enabled' => $waEnabled,
-            'wa_attempted' => $waEnabled && filled($user->no_wa),
-            'wa_success' => is_array($waResult) ? (bool) ($waResult['success'] ?? false) : null,
-            'email_enabled' => $emailEnabled,
-            'email_attempted' => $emailEnabled && filled($user->email),
-            'email_success' => is_bool($emailResult) ? $emailResult : null,
-        ]);
-
         return [
             'decision' => $decision,
             'wa' => [

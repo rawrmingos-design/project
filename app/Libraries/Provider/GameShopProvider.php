@@ -2,7 +2,6 @@
 
 namespace App\Libraries\Provider;
 
-use Illuminate\Support\Facades\Log;
 
 class GameShopProvider
 {
@@ -97,7 +96,6 @@ class GameShopProvider
         
         $chresult = curl_exec($ch);
         curl_close($ch);
-        Log::info('Response ' . "https://api.gameshop.zsdzw.com/api/v1" . $path . ' ' . json_encode($data) . ' response ' . $chresult);
         $json_result = json_decode($chresult, true);
         return $json_result;        
     }      

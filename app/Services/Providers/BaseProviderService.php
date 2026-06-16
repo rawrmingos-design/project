@@ -70,21 +70,10 @@ abstract class BaseProviderService
     protected function makeRequest(string $method, string $endpoint, array $data = []): Response
     {
         $url = $this->baseUrl . $endpoint;
-        
-        Log::debug("API Request to {$this->getProviderName()}", [
-            'method' => $method,
-            'url' => $url,
-            'data' => $data
-        ]);
 
         $response = Http::withHeaders($this->headers)
             ->timeout($this->timeout)
             ->{strtolower($method)}($url, $data);
-
-        Log::debug("API Response from {$this->getProviderName()}", [
-            'status' => $response->status(),
-            'response' => $response->json()
-        ]);
 
         return $response;
     }

@@ -5,7 +5,6 @@ namespace App\Http\Controllers\provider;
 use App\Http\Controllers\Controller;
 use App\Models\SettingWeb;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class VipResellerController extends Controller
 {
@@ -226,13 +225,6 @@ class VipResellerController extends Controller
         $response = Http::asForm()
             ->timeout(30)
             ->post($endpoint, $payload);
-
-        Log::debug('VipReseller request', [
-            'endpoint' => $endpoint,
-            'payload' => array_diff_key($payload, ['sign' => true, 'key' => true]),
-            'status' => $response->status(),
-            'body' => $response->body(),
-        ]);
 
         if (! $response->successful()) {
             return [

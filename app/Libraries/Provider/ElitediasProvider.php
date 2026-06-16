@@ -2,7 +2,6 @@
 
 namespace App\Libraries\Provider;
 
-use Illuminate\Support\Facades\Log;
 
 class ElitediasProvider
 {
@@ -99,7 +98,6 @@ class ElitediasProvider
         
         $chresult = curl_exec($ch);
         curl_close($ch);
-        Log::info('Response ' . "https://dev.api.elitedias.com" . $path . ' ' . json_encode($data) . ' response ' . $chresult);
         $json_result = json_decode($chresult, true);
         return $json_result;        
     }      
