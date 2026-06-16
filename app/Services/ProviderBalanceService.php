@@ -128,9 +128,12 @@ class ProviderBalanceService
             $config['merchant_id'] = $provider->api_username;
         }
 
-        if ($providerCode !== 'bangjeff' && ! empty($provider->api_key)) {
+        if (! empty($provider->api_key)) {
             $config['api_key'] = $provider->api_key;
-            $config['secret_key'] = $provider->api_key;
+
+            if ($providerCode !== 'bangjeff') {
+                $config['secret_key'] = $provider->api_key;
+            }
         }
 
         if (! empty($provider->api_sign)) {
