@@ -11,7 +11,6 @@ use App\Services\ResellerCallbackDeliveryService;
 use App\Services\ResetOutboundCallbackService;
 use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class PembelianObserver
 {
@@ -52,8 +51,6 @@ class PembelianObserver
         }
 
         if ($pembelian->wasChanged('status') && $this->transitionedToSuccess($pembelian)) {
-            Log::info("PembelianObserver: Order {$pembelian->order_id} marked as Success. Checking Tier Upgrade & Affiliate Commission.");
-
             $this->pointService->ensureRedeemedPointsForOrder($pembelian);
             
             $user = $pembelian->user;
@@ -82,8 +79,6 @@ class PembelianObserver
         }
 
         if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS) {
-            Log::info("PembelianObserver: Order {$pembelian->order_id} created as Success. Checking Tier Upgrade & Affiliate Commission.");
-
             $this->pointService->ensureRedeemedPointsForOrder($pembelian);
             
             $user = $pembelian->user;

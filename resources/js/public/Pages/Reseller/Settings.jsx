@@ -37,6 +37,7 @@ export default function Settings() {
     // --- 2FA State ---
     const [qrData, setQrData] = useState(null);
     const [tfaCode, setTfaCode] = useState('');
+    const [disablePassword, setDisablePassword] = useState('');
     const [tfaLoading, setTfaLoading] = useState(false);
     const [tfaError, setTfaError] = useState(null);
 
@@ -78,10 +79,12 @@ export default function Settings() {
         setTfaError(null);
         try {
             const res = await axios.post('/id/settings/2fa/disable', { 
-                current_password: passwordForm.data.current_password,
+                current_password: disablePassword,
                 code: tfaCode 
             });
             if (res.data.status === 'success') {
+                setDisablePassword('');
+                setTfaCode('');
                 window.location.reload();
             }
         } catch (error) {
@@ -220,8 +223,8 @@ export default function Settings() {
                                             type="password" 
                                             placeholder="Current Password"
                                             className="rh-input" 
-                                            value={passwordForm.data.current_password} 
-                                            onChange={e => passwordForm.setData('current_password', e.target.value)}
+                                            value={disablePassword} 
+                                            onChange={e => setDisablePassword(e.target.value)}
                                             required
                                         />
                                     </div>
@@ -236,7 +239,7 @@ export default function Settings() {
                                             required
                                         />
                                     </div>
-                                    <button type="submit" disabled={tfaLoading || !tfaCode || !passwordForm.data.current_password} className="rh-button rh-button--danger">
+                                    <button type="submit" disabled={tfaLoading || !tfaCode || !disablePassword} className="rh-button rh-button--danger">
                                         {tfaLoading ? 'Disabling...' : 'Disable 2FA'}
                                     </button>
                                 </form>

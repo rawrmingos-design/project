@@ -32,8 +32,6 @@ class UpdateProviderPrices implements ShouldQueue
     public function handle(ProviderManager $providerManager): void
     {
         try {
-            Log::info("Starting price update for provider: {$this->providerName}");
-
             $provider = $providerManager->getProvider($this->providerName);
             
             if (!$provider) {
@@ -49,7 +47,6 @@ class UpdateProviderPrices implements ShouldQueue
                 $this->updateAllProducts($provider);
             }
 
-            Log::info("Completed price update for provider: {$this->providerName}");
         } catch (\Exception $e) {
             Log::error("Price update failed for {$this->providerName}: " . $e->getMessage());
             throw $e;
@@ -70,8 +67,6 @@ class UpdateProviderPrices implements ShouldQueue
         $newPrice = $provider->getPrice($this->productId);
         
         if ($newPrice && $newPrice !== $product->harga) {
-            $oldPrice = $product->harga;
-            
             $product->update([
                 'harga' => $newPrice,
                 'harga_member' => $newPrice * 0.95, // 5% discount for members
@@ -79,8 +74,6 @@ class UpdateProviderPrices implements ShouldQueue
                 'harga_gold' => $newPrice * 0.92, // 8% discount for gold
                 'updated_at' => now(),
             ]);
-
-            Log::info("Price updated for product {$this->productId}: {$oldPrice} -> {$newPrice}");
         }
     }
 
@@ -109,7 +102,6 @@ class UpdateProviderPrices implements ShouldQueue
             }
         }
 
-        Log::info("Updated prices for {$updatedCount} products from {$this->providerName}");
     }
 
     /**

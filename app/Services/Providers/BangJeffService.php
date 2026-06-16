@@ -53,10 +53,6 @@ class BangJeffService extends BaseProviderService
 
             $settingsApiKey = SettingWeb::query()->value('apikey_bangjeff');
         } catch (\Throwable $e) {
-            Log::debug('BangJeff admin API key lookup skipped during bootstrap.', [
-                'exception' => $e::class,
-            ]);
-
             return null;
         }
 
@@ -483,13 +479,6 @@ class BangJeffService extends BaseProviderService
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ])->post($url, $payload);
-
-        Log::debug('BangJeff v4 request', [
-            'url' => $url,
-            'path' => '/' . $normalizedPath,
-            'status' => $response->status(),
-            'payload' => $payload,
-        ]);
 
         return $this->normalizeV4Response($response);
     }

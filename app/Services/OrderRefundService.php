@@ -42,12 +42,6 @@ class OrderRefundService
 
         // Guard 3: Skip if already refunded (idempotency pre-check, no lock needed yet).
         if ($pembelian->refunded_at !== null) {
-            Log::info('OrderRefundService: refund skipped — already refunded', [
-                'pembelian_id' => $pembelian->getKey(),
-                'order_id'     => $pembelian->order_id,
-                'refunded_at'  => $pembelian->refunded_at,
-            ]);
-
             return false;
         }
 
@@ -75,11 +69,6 @@ class OrderRefundService
 
             if (! $locked) {
                 // Another process already processed the refund — skip.
-                Log::info('OrderRefundService: row already locked/refunded by another process', [
-                    'pembelian_id' => $pembelian->getKey(),
-                    'order_id'     => $pembelian->order_id,
-                ]);
-
                 return;
             }
 

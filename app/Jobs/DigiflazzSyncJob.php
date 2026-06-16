@@ -28,8 +28,6 @@ class DigiflazzSyncJob implements ShouldQueue
      */
     public function handle(): void
     {
-        Log::info('DigiflazzSyncJob: Starting sync...');
-
         $digi = new DigiFlazzController();
         $response = $digi->harga(); // Fetch Pricelist
 
@@ -69,6 +67,5 @@ class DigiflazzSyncJob implements ShouldQueue
             }
         }
 
-        Log::info("DigiflazzSyncJob: Completed. Updated $count provider paths.");
     }
 }

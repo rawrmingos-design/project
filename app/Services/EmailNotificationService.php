@@ -27,11 +27,6 @@ class EmailNotificationService
             $settings = SettingWeb::query()->first();
 
             if ($settings && $settings->invoice_notify_via_email === false) {
-                Log::info('EmailNotificationService: Invoice email disabled by admin setting.', [
-                    'order_id' => $data['order_id'] ?? null,
-                    'email' => $email,
-                ]);
-
                 return false;
             }
 
@@ -69,7 +64,6 @@ class EmailNotificationService
             }
 
             Mail::to($email)->send(new TransactionMail($data, $subject, $content));
-            Log::info("Email sent successfully to {$email} for Order ID: " . ($data['order_id'] ?? 'Unknown'));
             return true;
         } catch (\Exception $e) {
             Log::error("EmailNotificationService Error: " . $e->getMessage());
@@ -105,12 +99,6 @@ class EmailNotificationService
 
             Mail::to($email)->send(new TransactionMail($data, $subject, $contentHtml));
 
-            Log::info('EmailNotificationService: Generic email sent.', [
-                'email' => $email,
-                'subject' => $subject,
-                'reference_id' => $context['reference_id'] ?? null,
-            ]);
-
             return true;
         } catch (\Exception $e) {
             Log::error('EmailNotificationService Generic Error: ' . $e->getMessage(), [
@@ -137,8 +125,6 @@ class EmailNotificationService
                 'status' => 'Pending',
                 'nickname' => 'Admin Test',
             ], 'Test Email Konfigurasi', '<p>Ini adalah email test dari halaman settings admin.</p>'));
-
-            Log::info("EmailNotificationService: Test email sent successfully to {$email}");
 
             return true;
         } catch (\Exception $e) {
