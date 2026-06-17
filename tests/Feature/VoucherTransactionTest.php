@@ -184,4 +184,66 @@ class VoucherTransactionTest extends TestCase
         $this->voucher->refresh();
         $this->assertEquals(10, (int) $this->voucher->stock);
     }
+
+    public function test_zero_max_potongan_means_unlimited_discount_cap()
+    {
+        $this->voucher->update([
+            'promo' => 10,
+            'max_potongan' => 0,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson('/id', [
+            'uid' => '12345',
+            'zone' => '1234',
+            'service' => $this->service->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '08123456789',
+            'voucher' => 'DISKON50',
+            'ktg_tipe' => 'game',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => true]);
+
+        // Harga 100.000. Diskon 10% = 10.000. max_potongan 0 berarti tanpa cap.
+        // Final bayar = 90.000.
+        $this->user->refresh();
+        $this->assertEquals(410000, (int) $this->user->balance);
+
+        $this->voucher->refresh();
+        $this->assertEquals(9, (int) $this->voucher->stock);
+
+        $this->assertDatabaseHas('pembelians', [
+            'user_id' => '12345',
+            'harga' => 90000,
+            'voucher' => 'DISKON50',
+        ]);
+    }
+
+    public function test_available_voucher_endpoint_returns_eligible_vouchers_without_consuming_stock()
+    {
+        Voucher::create([
+            'kode' => 'MIN_TINGGI',
+            'promo' => 80,
+            'stock' => 5,
+            'mintrx' => 200000,
+            'max_potongan' => 100000,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson('/available-voucher', [
+            'service' => $this->service->id,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'status' => true,
+            'base_price' => 100000,
+        ]);
+        $response->assertJsonPath('vouchers.0.kode', 'DISKON50');
+        $response->assertJsonPath('vouchers.0.discount_amount', 20000);
+        $response->assertJsonMissing(['kode' => 'MIN_TINGGI']);
+
+        $this->voucher->refresh();
+        $this->assertEquals(10, (int) $this->voucher->stock);
+    }
 }
