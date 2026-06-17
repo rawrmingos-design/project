@@ -213,6 +213,17 @@ function getUsedPointValue() {
     return pointInput ? parseInt(pointInput.value || 0) : 0;
 }
 
+function getVoucherValue() {
+    var visibleInputs = $('input[name="voucher"]:visible'),
+        value = visibleInputs.length ? visibleInputs.first().val() : $('input[name="voucher"]').first().val();
+
+    return value || "";
+}
+
+function setVoucherValue(value) {
+    $('input[name="voucher"]').val(value || "").trigger("input").trigger("change");
+}
+
 function parseRupiahValue(value) {
     if (null == value) return 0;
     var numeric = String(value).replace(/[^0-9]/g, "");
@@ -308,7 +319,7 @@ window.refreshOrderPrice = function (e) {
         var requestData = {
             _token: window.csrfToken,
             nominal: productId,
-            voucher: $("#voucher").val(),
+            voucher: getVoucherValue(),
             qty: $("#qty").val(),
             ktg_tipe: $("#ktg_tipe").val(),
             use_point: getUsedPointValue(),
@@ -391,7 +402,7 @@ $(".product-list").off("click").on("click", (function () {
         u = $("#qty").val(),
         m = $("#metode").val(),
         h = $("#nomor").val(),
-        p = $("#voucher").val(),
+        p = getVoucherValue(),
         g = getUsedPointValue(),
         k = $("#ktg_tipe").val();
     if ("joki" === k || "vilogml" === k) {
@@ -491,8 +502,149 @@ $(".product-list").off("click").on("click", (function () {
             });
         }
     }) : showToast("Silahkan lengkapi nomor WhatsApp") : showToast("Silahkan lengkapi semua data Informasi Pesanan")
-})), $("#btn-check").on("click", (function () {
-    var e = $("#voucher").val(),
+}));
+
+(function () {
+    var modal = document.getElementById("availableVoucherModal"),
+        modalBody = document.getElementById("availableVoucherModalBody");
+
+    function formatNumber(e) {
+        return "Rp " + (parseInt(e || 0, 10) || 0).toLocaleString("id-ID", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    }
+
+    function getVisibleVoucherInput() {
+        var visibleInputs = $('input[name="voucher"]:visible');
+        return visibleInputs.length ? visibleInputs.first() : $('input[name="voucher"]').first();
+    }
+
+    function openAvailableVoucherModal() {
+        if (!modal) return;
+        modal.classList.add("is-open");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeAvailableVoucherModal() {
+        if (!modal) return;
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+    }
+
+    function setModalState(message) {
+        if (!modalBody) return;
+        modalBody.innerHTML = '<div class="order-available-voucher-modal__state">' + message + '</div>';
+    }
+
+    function escapeHtml(value) {
+        return String(value || "").replace(/[&<>"']/g, function (char) {
+            return {
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#039;"
+            }[char];
+        });
+    }
+
+    function renderAvailableVouchers(vouchers) {
+        if (!modalBody) return;
+        if (!Array.isArray(vouchers) || !vouchers.length) {
+            setModalState("Belum ada promo yang cocok untuk nominal ini.");
+            return;
+        }
+
+        modalBody.innerHTML = vouchers.map(function (voucher) {
+            var code = escapeHtml(voucher.kode),
+                discount = formatNumber(voucher.discount_amount),
+                finalPrice = formatNumber(voucher.final_price),
+                promo = parseFloat(voucher.promo || 0),
+                mintrx = parseInt(voucher.mintrx || 0, 10),
+                maxPotongan = parseInt(voucher.max_potongan || 0, 10),
+                meta = [
+                    "Hemat " + discount,
+                    "Total jadi " + finalPrice
+                ];
+
+            if (mintrx > 0) meta.push("Min. transaksi " + formatNumber(mintrx));
+            if (maxPotongan > 0) meta.push("Maks. potongan " + formatNumber(maxPotongan));
+
+            return '<div class="order-available-voucher-card">' +
+                '<div>' +
+                '<div class="order-available-voucher-card__code">' + code + '<span class="order-available-voucher-card__badge">' + promo + '%</span></div>' +
+                '<div class="order-available-voucher-card__meta">' + meta.join(" • ") + '</div>' +
+                '</div>' +
+                '<button type="button" class="order-available-voucher-card__apply" data-voucher-code="' + code + '">Pakai</button>' +
+                '</div>';
+        }).join("");
+    }
+
+    $(document).on("click", ".js-available-voucher", function () {
+        var serviceId = $(".product-list.active").attr("product-id") || $("#nominal").val();
+
+        openAvailableVoucherModal();
+
+        if (!serviceId) {
+            setModalState("Pilih nominal terlebih dahulu untuk melihat promo yang tersedia.");
+            return;
+        }
+
+        if (!window.routes || !window.routes.availableVoucher) {
+            setModalState("Endpoint promo belum tersedia. Silakan coba lagi nanti.");
+            return;
+        }
+
+        setModalState("Mencari promo terbaik...");
+
+        $.ajax({
+            url: window.routes.availableVoucher,
+            dataType: "JSON",
+            type: "POST",
+            data: {
+                _token: window.csrfToken,
+                service: serviceId
+            },
+            success: function (response) {
+                renderAvailableVouchers(response.vouchers || []);
+            },
+            error: function () {
+                setModalState("Gagal memuat promo. Silakan coba beberapa saat lagi.");
+            }
+        });
+    });
+
+    $(document).on("click", "[data-available-voucher-close]", function () {
+        closeAvailableVoucherModal();
+    });
+
+    $(document).on("keydown", function (e) {
+        if ("Escape" === e.key) closeAvailableVoucherModal();
+    });
+
+    $(document).on("click", ".order-available-voucher-card__apply", function () {
+        var code = $(this).data("voucher-code");
+        if (!code) return;
+
+        setVoucherValue(code);
+        closeAvailableVoucherModal();
+        showToast("Voucher " + code + " dipakai", "success");
+
+        if ("function" == typeof window.refreshOrderPrice) {
+            window.lastPriceRefreshKey = null;
+            window.refreshOrderPrice({
+                immediate: !0,
+                force: !0
+            });
+        }
+    });
+})();
+
+$("#btn-check").on("click", (function () {
+    var e = getVoucherValue(),
         a = $("#nominal").val();
 
     function o() {

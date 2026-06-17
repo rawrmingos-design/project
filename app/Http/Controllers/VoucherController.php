@@ -66,9 +66,10 @@ class VoucherController extends Controller
         }
             
             $potongan = $service->harga * ($voucher->promo / 100);
+            $maxPotongan = (float) ($voucher->max_potongan ?? 0);
             
-            if($potongan > $voucher->max_potongan){
-                $potongan = $voucher->max_potongan;
+            if($maxPotongan > 0 && $potongan > $maxPotongan){
+                $potongan = $maxPotongan;
             }
             
             $service->harga = $service->harga - $potongan;
@@ -91,6 +92,64 @@ class VoucherController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Voucher ditemukan'
+        ]);
+    }
+
+    public function best(Request $request)
+    {
+        $request->validate([
+            'service' => 'required|integer|exists:layanans,id',
+        ]);
+
+        $role = Auth::check() ? Auth::user()->role : 'Guest';
+
+        $service = Layanan::where('id', $request->service)
+            ->select('harga_member', 'harga_platinum', 'harga_gold')
+            ->first();
+
+        $basePrice = match ($role) {
+            'Platinum' => (float) $service->harga_platinum,
+            'Gold', 'Admin' => (float) $service->harga_gold,
+            default => (float) $service->harga_member,
+        };
+
+        $vouchers = Voucher::query()
+            ->where('stock', '>', 0)
+            ->get()
+            ->map(function (Voucher $voucher) use ($basePrice) {
+                if ($voucher->mintrx && $basePrice < (float) $voucher->mintrx) {
+                    return null;
+                }
+
+                $discount = $basePrice * ((float) $voucher->promo / 100);
+                $maxDiscount = (float) $voucher->max_potongan;
+
+                if ($maxDiscount > 0 && $discount > $maxDiscount) {
+                    $discount = $maxDiscount;
+                }
+
+                $discount = max(0, (int) round($discount));
+                $finalPrice = max(0, (int) round($basePrice - $discount));
+
+                return [
+                    'kode' => $voucher->kode,
+                    'promo' => (float) $voucher->promo,
+                    'stock' => (int) $voucher->stock,
+                    'mintrx' => (int) ($voucher->mintrx ?? 0),
+                    'max_potongan' => (int) ($voucher->max_potongan ?? 0),
+                    'discount_amount' => $discount,
+                    'final_price' => $finalPrice,
+                ];
+            })
+            ->filter()
+            ->sortByDesc('discount_amount')
+            ->values();
+
+        return response()->json([
+            'status' => true,
+            'message' => $vouchers->isEmpty() ? 'Tidak ada promo yang tersedia' : 'Promo tersedia',
+            'base_price' => (int) round($basePrice),
+            'vouchers' => $vouchers,
         ]);
     }
     

@@ -161,6 +161,167 @@
         outline: none !important;
     }
 
+    .order-available-voucher {
+        width: 100%;
+        margin-top: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 193, 7, 0.35);
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.95), rgba(255, 109, 0, 0.95));
+        color: #111827;
+        padding: 10px 14px;
+        font-size: 12px;
+        font-weight: 800;
+        box-shadow: 0 10px 22px rgba(255, 109, 0, 0.22);
+        transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+    }
+
+    .order-available-voucher:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.03);
+        box-shadow: 0 14px 28px rgba(255, 109, 0, 0.28);
+    }
+
+    .order-available-voucher:disabled {
+        cursor: not-allowed;
+        opacity: 0.7;
+        transform: none;
+    }
+
+    .order-available-voucher-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 16px;
+        color: #f8fafc;
+    }
+
+    .order-available-voucher-modal.is-open {
+        display: flex;
+    }
+
+    .order-available-voucher-modal__backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(3px);
+    }
+
+    .order-available-voucher-modal__panel {
+        position: relative;
+        width: min(100%, 460px);
+        max-height: min(82vh, 620px);
+        overflow: hidden;
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, #292929 0%, #1f1f1f 100%);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55);
+    }
+
+    .order-available-voucher-modal__header {
+        position: relative;
+        padding: 18px 54px 14px 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        text-align: center;
+    }
+
+    .order-available-voucher-modal__title {
+        margin: 0;
+        color: #fff7ed;
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    .order-available-voucher-modal__close {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        border: 1px solid rgba(249, 115, 22, 0.65);
+        background: rgba(255, 255, 255, 0.05);
+        color: #f8fafc;
+        cursor: pointer;
+    }
+
+    .order-available-voucher-modal__body {
+        max-height: calc(min(82vh, 620px) - 68px);
+        overflow-y: auto;
+        padding: 16px;
+    }
+
+    .order-available-voucher-modal__state {
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-align: center;
+        color: rgba(248, 250, 252, 0.82);
+        border: 1px dashed rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .order-available-voucher-card {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 13px 14px;
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .order-available-voucher-card + .order-available-voucher-card {
+        margin-top: 10px;
+    }
+
+    .order-available-voucher-card__code {
+        color: #fff7ed;
+        font-size: 14px;
+        font-weight: 800;
+    }
+
+    .order-available-voucher-card__badge {
+        display: inline-flex;
+        margin-left: 6px;
+        border-radius: 999px;
+        background: rgba(249, 115, 22, 0.16);
+        color: #fdba74;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .order-available-voucher-card__meta {
+        margin-top: 5px;
+        color: rgba(248, 250, 252, 0.72);
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    .order-available-voucher-card__apply {
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(180deg, #fb923c 0%, #f97316 100%);
+        color: #fff7ed;
+        padding: 9px 15px;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
     .order-mobile-tabs {
         display: flex;
         gap: 6px;
@@ -1277,6 +1438,9 @@ document.addEventListener("DOMContentLoaded", function() {
                       </div>
                       <button type="button" id="btn-check" class="flex items-center justify-center rounded-md bg-primary-5400 py-2 px-4 text-xs font-semibold text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-75"> Gunakan </button>
                     </div>
+                    <button type="button" class="order-available-voucher js-available-voucher">
+                      <span>Pakai Promo Yang Tersedia</span>
+                    </button>
                     <div class="pt-2 text-xs text-red-500"></div>
 
 
@@ -2175,6 +2339,9 @@ document.addEventListener("DOMContentLoaded", function() {
                       </div>
                       <button type="button" id="btn-check" class="flex items-center justify-center rounded-md bg-primary-5400 py-2 px-4 text-xs font-semibold text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-75"> Gunakan </button>
                     </div>
+                    <button type="button" class="order-available-voucher js-available-voucher">
+                      <span>Pakai Promo Yang Tersedia</span>
+                    </button>
                     <div class="pt-2 text-xs text-red-500"></div>
 
 
@@ -3039,6 +3206,9 @@ document.addEventListener("DOMContentLoaded", function() {
                       </div>
                       <button type="button" id="btn-check" class="flex items-center justify-center rounded-md bg-primary-5400 py-2 px-4 text-xs font-semibold text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-75"> Gunakan </button>
                     </div>
+                    <button type="button" class="order-available-voucher js-available-voucher">
+                      <span>Pakai Promo Yang Tersedia</span>
+                    </button>
                     <div class="pt-2 text-xs text-red-500"></div>
 
 
@@ -3954,6 +4124,9 @@ document.addEventListener("DOMContentLoaded", function() {
                       </div>
                       <button type="button" id="btn-check" class="flex items-center justify-center rounded-md bg-primary-5400 py-2 px-4 text-xs font-semibold text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-75"> Gunakan </button>
                     </div>
+                    <button type="button" class="order-available-voucher js-available-voucher">
+                      <span>Pakai Promo Yang Tersedia</span>
+                    </button>
                     <div class="pt-2 text-xs text-red-500"></div>
 
                   </div>
@@ -4846,6 +5019,9 @@ document.addEventListener("DOMContentLoaded", function() {
                                     <div class="flex flex-col items-start"><input class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
                                             type="text" id="voucher" name="voucher" placeholder="Masukkan Kode Promo Anda" required/></div>
                                 </div><button type="button" id="btn-check" class="flex items-center justify-center rounded-md bg-primary-5400 py-2 px-4 text-xs font-semibold text-white hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-75"> Gunakan </button></div>
+                            <button type="button" class="order-available-voucher js-available-voucher">
+                                <span>Pakai Promo Yang Tersedia</span>
+                            </button>
                             <div
                                 class="pt-2 text-xs text-red-500"></div>
                     </div>
@@ -5126,6 +5302,18 @@ document.addEventListener("DOMContentLoaded", function() {
                 }
             });
         </script>
+        <div class="order-available-voucher-modal" id="availableVoucherModal" role="dialog" aria-modal="true" aria-labelledby="availableVoucherModalTitle" aria-hidden="true">
+            <div class="order-available-voucher-modal__backdrop" data-available-voucher-close></div>
+            <div class="order-available-voucher-modal__panel">
+                <div class="order-available-voucher-modal__header">
+                    <h2 class="order-available-voucher-modal__title" id="availableVoucherModalTitle">Promo yang tersedia</h2>
+                    <button type="button" class="order-available-voucher-modal__close" data-available-voucher-close aria-label="Tutup modal promo">×</button>
+                </div>
+                <div class="order-available-voucher-modal__body" id="availableVoucherModalBody">
+                    <div class="order-available-voucher-modal__state">Pilih nominal untuk melihat promo.</div>
+                </div>
+            </div>
+        </div>
         <script src="{{ asset('/assets/js/kb2aiuhdoiaujsd.js') }}"></script>
         <script src="{{ asset('/assets/js/kb2asidoaiwusave.js') }}"></script>
         <script>
@@ -5136,7 +5324,8 @@ document.addEventListener("DOMContentLoaded", function() {
                 confirmationUrl: "{{ route('ajax.confirmation') }}",
                 checkAccount: "{{ route('ajax.check-account') }}",
                 orderedUrl: "{{ route('ordered') }}",
-                checkVoucher: "{{ route('check.voucher') }}"
+                checkVoucher: "{{ route('check.voucher') }}",
+                availableVoucher: "{{ route('available.voucher') }}"
             };
             @auth
             window.userPointBalance = {{ Auth::user()->point_balance ?? 0 }};
@@ -5556,7 +5745,7 @@ function updatePrice(qty) {
             nominal: productId,
             qty: qty,
             ktg_tipe: $("#ktg_tipe").val(),
-            voucher: $("#voucher").val(),
+            voucher: typeof getVoucherValue === 'function' ? getVoucherValue() : ($('input[name="voucher"]:visible').first().val() || $('input[name="voucher"]').first().val()),
             use_point: parseInt(document.querySelector('.pw-input')?.value || 0),
             payment_method: $("input[name='paymentMethod']:checked").val()
         },
@@ -5609,7 +5798,7 @@ $(".product-list").click(function() {
             nominal: t,
             qty: $("#qty").val(),
             ktg_tipe: $("#ktg_tipe").val(),
-            voucher: $("#voucher").val(),
+            voucher: typeof getVoucherValue === 'function' ? getVoucherValue() : ($('input[name="voucher"]:visible').first().val() || $('input[name="voucher"]').first().val()),
             use_point: parseInt(document.querySelector('.pw-input')?.value || 0),
             payment_method: $("input[name='paymentMethod']:checked").val()
         },

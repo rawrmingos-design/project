@@ -235,13 +235,7 @@ class OrderController extends Controller
 
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-            if ($voucher && $voucher->stock > 0) {
-                $potongan = $data->harga * ($voucher->promo / 100);
-                if ($potongan > $voucher->max_potongan) {
-                    $potongan = $voucher->max_potongan;
-                }
-                $data->harga -= $potongan;
-            }
+            $data->harga -= $this->calculateVoucherDiscountAmount($data->harga, $voucher);
         }
 
         // OPTIMIZATION: Cache methods query for 60 minutes to reduce DB load
@@ -279,6 +273,22 @@ class OrderController extends Controller
         }
 
         return (int) round(($method->fix_fee ?? 0) + ($basePrice * (($method->fee_percent ?? 0) / 100)));
+    }
+
+    private function calculateVoucherDiscountAmount(float|int $basePrice, ?Voucher $voucher): int
+    {
+        if (!$voucher || (int) $voucher->stock <= 0) {
+            return 0;
+        }
+
+        $discount = (float) $basePrice * ((float) $voucher->promo / 100);
+        $maxDiscount = (float) ($voucher->max_potongan ?? 0);
+
+        if ($maxDiscount > 0 && $discount > $maxDiscount) {
+            $discount = $maxDiscount;
+        }
+
+        return max(0, (int) round($discount));
     }
 
     private function resolvePointUsage(int $amountBeforePoint, int $requestedPoints = 0): array
@@ -556,22 +566,7 @@ class OrderController extends Controller
         // voucher
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-
-            if (!$voucher) {
-                $dataLayanan->harga = $dataLayanan->harga;
-            } else {
-                if ($voucher->stock == 0) {
-                    $dataLayanan->harga = $dataLayanan->harga;
-                } else {
-                    $potongan = $dataLayanan->harga * ($voucher->promo / 100);
-                    if ($potongan > $voucher->max_potongan) {
-                        $potongan = $voucher->max_potongan;
-                    }
-
-                $dataLayanan->harga = $dataLayanan->harga - $potongan;
-            }
-        }
-
+            $dataLayanan->harga -= $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher);
         }
 
 
@@ -1066,16 +1061,14 @@ class OrderController extends Controller
                 'voucher_stock' => $voucher->stock ?? null,
             ]);
             if ($voucher && $voucher->stock > 0) {
-                $potongan = $dataLayanan->harga * ($voucher->promo / 100);
-                if ($potongan > $voucher->max_potongan) $potongan = $voucher->max_potongan;
-                
                 if ($voucher->mintrx && $dataLayanan->harga < $voucher->mintrx) {
                     return $this->orderErrorResponse(
                         'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
                         'VOUCHER_MIN_TRANSACTION'
                     );
                 }
-                $dataLayanan->harga = round($dataLayanan->harga - $potongan);
+
+                $dataLayanan->harga = round($dataLayanan->harga - $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher));
             }
         }
 
