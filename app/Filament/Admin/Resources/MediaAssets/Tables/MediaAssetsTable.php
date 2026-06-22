@@ -3,10 +3,12 @@
 namespace App\Filament\Admin\Resources\MediaAssets\Tables;
 
 use App\Models\MediaAsset;
+use App\Services\MediaAssetDeletionService;
 use App\Support\MediaAssetPicker;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -188,7 +190,38 @@ class MediaAssetsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    BulkAction::make('deletePermanently')
+                        ->label('Delete Permanently')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalHeading('Hapus file permanen?')
+                        ->modalDescription('File Manager akan menghapus record database dan file fisik dari disk server jika file berada di folder asset yang dikelola. Optimized image variants juga ikut dihapus. Jika asset masih dipakai produk/kategori/banner, tampilan terkait bisa broken. Action ini tidak bisa di-undo.')
+                        ->modalSubmitActionLabel('Ya, hapus permanen')
+                        ->action(function ($records, MediaAssetDeletionService $deletionService): void {
+                            $summary = [
+                                'records' => 0,
+                                'files_deleted' => 0,
+                                'files_skipped' => 0,
+                                'variants_deleted' => 0,
+                            ];
+
+                            foreach ($records as $record) {
+                                $result = $deletionService->delete($record);
+
+                                $summary['records']++;
+                                $summary['files_deleted'] += $result['file_deleted'] ? 1 : 0;
+                                $summary['files_skipped'] += $result['file_skipped'] ? 1 : 0;
+                                $summary['variants_deleted'] += count($result['variants_deleted'] ?? []);
+                            }
+
+                            Notification::make()
+                                ->title('File berhasil dihapus permanen')
+                                ->body("Records: {$summary['records']}, files deleted: {$summary['files_deleted']}, files skipped: {$summary['files_skipped']}, variants deleted: {$summary['variants_deleted']}")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->defaultSort('created_at', 'desc');

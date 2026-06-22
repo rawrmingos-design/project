@@ -133,6 +133,46 @@ class OptimizedImageService
         ];
     }
 
+    public function deleteVariants(?string $source, ?string $profile = null): array
+    {
+        $profiles = $profile ? [$this->normalizeProfile($profile)] : array_keys(self::PROFILES);
+        $deleted = [];
+        $skipped = [];
+
+        foreach ($profiles as $profileName) {
+            $analysis = $this->analyze($source, $profileName);
+
+            if ($analysis['optimizable'] ?? false) {
+                foreach ($this->variantCandidates($analysis) as $variant) {
+                    if (! is_file($variant['absolute'])) {
+                        continue;
+                    }
+
+                    if (File::delete($variant['absolute'])) {
+                        $deleted[] = $variant['relative'];
+                    } else {
+                        $skipped[] = $variant['relative'];
+                    }
+                }
+
+                continue;
+            }
+
+            foreach ($this->fallbackVariantCandidates($source, $profileName) as $variant) {
+                if (File::delete($variant['absolute'])) {
+                    $deleted[] = $variant['relative'];
+                } else {
+                    $skipped[] = $variant['relative'];
+                }
+            }
+        }
+
+        return [
+            'deleted' => array_values(array_unique($deleted)),
+            'skipped' => array_values(array_unique($skipped)),
+        ];
+    }
+
     public function analyze(?string $source, string $profile = 'thumbnail'): array
     {
         $relative = $this->normalizeRelativePath($source);
@@ -281,6 +321,32 @@ class OptimizedImageService
                     'absolute' => public_path($relative),
                 ];
             })
+            ->all();
+    }
+
+    private function fallbackVariantCandidates(?string $source, string $profile): array
+    {
+        $relative = $this->normalizeRelativePath($source);
+
+        if (! $relative) {
+            return [];
+        }
+
+        $profile = $this->normalizeProfile($profile);
+        $baseName = Str::slug(pathinfo($relative, PATHINFO_FILENAME)) ?: 'image';
+        $directory = public_path("assets/optimized/{$profile}");
+
+        if (! File::isDirectory($directory)) {
+            return [];
+        }
+
+        return collect(File::files($directory))
+            ->filter(fn ($file): bool => str_starts_with($file->getFilename(), $baseName . '-') && $file->getExtension() === 'webp')
+            ->map(fn ($file): array => [
+                'relative' => 'assets/optimized/' . $profile . '/' . $file->getFilename(),
+                'absolute' => $file->getPathname(),
+            ])
+            ->values()
             ->all();
     }
 
