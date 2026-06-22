@@ -127,7 +127,7 @@ class PublicSiteConfigService
                 'title' => $settings->judul_web,
                 'description' => $settings->deskripsi_web,
                 'keywords' => $settings->keywords,
-                'canonical' => url()->current(),
+                'canonical' => \App\Support\CanonicalUrl::normalize(url()->current()),
                 'image' => url($favicon['path']),
             ],
         ];

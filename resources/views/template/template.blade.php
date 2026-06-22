@@ -9,14 +9,17 @@
     <meta property="og:title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta property="og:type" content="website">
     <meta property="og:description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
-    <meta property="og:url" content="{{ url()->current() }}">
+    @php
+        $normalizedCanonicalUrl = \App\Support\CanonicalUrl::normalize($canonical_url ?? url()->current());
+    @endphp
+    <meta property="og:url" content="{{ $normalizedCanonicalUrl }}">
     <meta property="og:image" content="{{ isset($thumbnail) ? $thumbnail : ($config ? $config->logo_favicon : '') }}">
     <meta name="title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta name="keywords" content="{{ isset($keywords) ? $keywords : ($config ? $config->keywords : '') }}">
     <meta name="description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
     <meta name="author" content="{{ $config ? $config->judul_web : '' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="canonical" href="{{ isset($canonical_url) && filled($canonical_url) ? $canonical_url : url()->current() }}">
+    <link rel="canonical" href="{{ $normalizedCanonicalUrl }}">
     <meta name="google-site-verification" content="YuiRJz7bZ3rDmAJ_fpknZQlWn1p5yGJX_c9Dgfus7Ro" />
 
     

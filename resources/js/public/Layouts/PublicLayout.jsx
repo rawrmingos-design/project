@@ -10,7 +10,24 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
     const activeTheme = resolveTheme(theme?.key);
     const palette = activeTheme.tokens.colors || siteConfig.colors;
     const shouldRenderLiveSalesToast = featureFlags?.liveSalesEnabled;
-    const canonicalUrl = meta.canonical || (typeof window !== 'undefined' ? window.location.href : '');
+    const normalizeCanonicalUrl = (url) => {
+        if (typeof window === 'undefined') {
+            return url || '';
+        }
+
+        try {
+            const parsed = new URL(url || window.location.href, window.location.origin);
+            parsed.protocol = 'https:';
+            parsed.hostname = parsed.hostname.replace(/^www\./i, '');
+            parsed.search = '';
+            parsed.hash = '';
+
+            return parsed.toString();
+        } catch {
+            return window.location.href.replace(/^http:/i, 'https:').replace('://www.', '://').split(/[?#]/)[0];
+        }
+    };
+    const canonicalUrl = normalizeCanonicalUrl(meta.canonical);
     const schemaJson = useMemo(() => {
         if (!meta?.schemaMarkup) {
             return null;
