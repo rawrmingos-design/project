@@ -171,6 +171,55 @@
         </script>
     @endif
 
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        window.__trackedTransactions = window.__trackedTransactions || {};
+
+        window.pushDataLayerEvent = window.pushDataLayerEvent || function (eventName, payload, options) {
+            if (!eventName || !payload || !window.dataLayer) {
+                return false;
+            }
+
+            const settings = options || {};
+            const dedupeKey = settings.dedupeKey || null;
+
+            if (dedupeKey) {
+                if (window.__trackedTransactions[dedupeKey]) {
+                    return false;
+                }
+
+                try {
+                    if (window.sessionStorage && window.sessionStorage.getItem('gtm:' + dedupeKey) === '1') {
+                        window.__trackedTransactions[dedupeKey] = true;
+                        return false;
+                    }
+                } catch (error) {
+                    console.debug('Data layer dedupe sessionStorage unavailable:', error);
+                }
+            }
+
+            if (payload.ecommerce) {
+                window.dataLayer.push({ ecommerce: null });
+            }
+
+            window.dataLayer.push(Object.assign({ event: eventName }, payload));
+
+            if (dedupeKey) {
+                window.__trackedTransactions[dedupeKey] = true;
+
+                try {
+                    if (window.sessionStorage) {
+                        window.sessionStorage.setItem('gtm:' + dedupeKey, '1');
+                    }
+                } catch (error) {
+                    console.debug('Data layer dedupe sessionStorage write skipped:', error);
+                }
+            }
+
+            return true;
+        };
+    </script>
+
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 

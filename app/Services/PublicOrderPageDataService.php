@@ -9,6 +9,7 @@ use App\Models\Method;
 use App\Models\Paket;
 use App\Models\PaketLayanan;
 use App\Support\CustomInputDefaults;
+use App\Support\GtmDataLayerBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -58,6 +59,13 @@ class PublicOrderPageDataService
             $packages = $this->loadPackages($category->id, $role);
             $ratings = $this->loadRatings($category->id);
             $methods = $this->loadMethods();
+            $gtmBuilder = app(GtmDataLayerBuilder::class);
+            $gtmOrderItemCatalog = $this->buildGtmCatalogFromProducts($gtmBuilder, $products, $category);
+            $gtmViewItemPayload = null;
+
+            if ($gtmOrderItemCatalog !== []) {
+                $gtmViewItemPayload = $gtmBuilder->buildViewItemPayload(array_values($gtmOrderItemCatalog)[0]);
+            }
 
             return [
                 'category' => [
@@ -85,6 +93,11 @@ class PublicOrderPageDataService
                 'packages' => $packages,
                 'ratings' => $ratings,
                 'paymentMethods' => $methods,
+                'gtm' => [
+                    'viewItemPayload' => $gtmViewItemPayload,
+                    'itemCatalog' => $gtmOrderItemCatalog,
+                    'paymentMethods' => $this->buildGtmPaymentMethodCatalog($methods),
+                ],
             ];
         });
     }
@@ -97,9 +110,34 @@ class PublicOrderPageDataService
             return '<p>Deskripsi kategori belum tersedia.</p>';
         }
 
-        $decoded = html_entity_decode($raw, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $normalized = $this->normalizeCategoryDescriptionHtml($raw);
 
-        return HtmlSanitizer::cleanArticle($decoded);
+        return HtmlSanitizer::cleanArticle($normalized);
+    }
+
+    private function normalizeCategoryDescriptionHtml(string $description): string
+    {
+        $normalized = trim($description);
+
+        for ($attempt = 0; $attempt < 3; $attempt += 1) {
+            $decoded = html_entity_decode($normalized, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+            if ($decoded === $normalized) {
+                break;
+            }
+
+            $normalized = trim($decoded);
+        }
+
+        if (preg_match('/^<p>\s*(.*?)\s*<\/p>$/is', $normalized, $matches)) {
+            $innerHtml = trim($matches[1]);
+
+            if (preg_match('/<(p|div|ol|ul|li|h[1-6]|table|blockquote|pre|hr)\b/i', $innerHtml)) {
+                return $innerHtml;
+            }
+        }
+
+        return $normalized;
     }
 
     private function resolveOrderMode(string $type): string
@@ -247,6 +285,49 @@ class PublicOrderPageDataService
                 'maxAmount' => $method->max_pembelian !== null ? (float) $method->max_pembelian : null,
             ])
             ->values();
+    }
+
+    private function buildGtmCatalogFromProducts(GtmDataLayerBuilder $gtmBuilder, iterable $products, object $category): array
+    {
+        $catalog = [];
+
+        foreach ($products as $product) {
+            $item = $gtmBuilder->buildItem([
+                'item_id' => $product['id'] ?? null,
+                'item_name' => $product['name'] ?? ($category->nama ?? 'Produk'),
+                'item_category' => $category->nama ?? 'Produk',
+                'item_variant' => $category->tipe ?? null,
+                'price' => $product['price'] ?? 0,
+                'quantity' => 1,
+            ]);
+
+            if (! empty($item['item_id'])) {
+                $catalog[(string) $item['item_id']] = $item;
+            }
+        }
+
+        return $catalog;
+    }
+
+    private function buildGtmPaymentMethodCatalog(iterable $methods): array
+    {
+        $catalog = [];
+
+        foreach ($methods as $method) {
+            $code = trim((string) ($method['code'] ?? ''));
+
+            if ($code === '') {
+                continue;
+            }
+
+            $catalog[$code] = [
+                'code' => $code,
+                'name' => trim((string) ($method['name'] ?? $code)),
+                'provider' => trim((string) ($method['gateway'] ?? '')),
+            ];
+        }
+
+        return $catalog;
     }
 
     private function mapCustomInputs(object $category): array

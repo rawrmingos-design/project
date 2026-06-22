@@ -1,0 +1,108 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Kategori;
+use App\Models\Layanan;
+use App\Models\Method;
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
+use App\Models\SettingWeb;
+use App\Support\InvoiceRealtimeStatus;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class InvoicePageControllerRealtimePropsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    #[Test]
+    public function inertia_invoice_page_includes_realtime_channel_and_event_props(): void
+    {
+        config(['app.key' => 'base64:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=']);
+        $this->withoutVite();
+
+        $orderId = 'INV-INERTIA-REALTIME-001';
+        $this->seedBangjeffInvoiceData($orderId);
+
+        $this->get(route('pembelian', ['order' => $orderId]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Invoice')
+                ->where('invoice.orderId', $orderId)
+                ->where('invoice.realtime.channel', InvoiceRealtimeStatus::channelName($orderId))
+                ->where('invoice.realtime.event', '.InvoiceStatusUpdated')
+            );
+    }
+
+    private function seedBangjeffInvoiceData(string $orderId): void
+    {
+        SettingWeb::create([
+            'id' => 1,
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Demo storefront',
+            'keywords' => 'top up game',
+            'logo_header' => 'assets/logo/logo.webp',
+            'logo_footer' => 'assets/logo/footer.webp',
+            'logo_favicon' => 'assets/logo/favicon.webp',
+            'url_wa' => 'https://wa.me/6281234567890',
+            'url_ig' => 'https://instagram.com/testweb',
+            'url_tiktok' => 'https://tiktok.com/@testweb',
+            'url_youtube' => 'https://youtube.com/@testweb',
+            'url_fb' => 'https://facebook.com/testweb',
+            'topupindo_api' => 'demo-topupindo-key',
+            'paydisini_apikey' => 'demo-paydisini-key',
+            'order_prefik' => 'DMO',
+            'warna1' => '#0f172a',
+            'warna2' => '#ea580c',
+            'warna3' => '#f59e0b',
+            'warna4' => '#fb923c',
+            'public_theme' => 'bangjeff',
+        ]);
+
+        $category = Kategori::factory()->create([
+            'nama' => 'Mobile Legends',
+            'tipe' => 'game',
+            'thumbnail' => 'assets/category/mobile-legends.webp',
+        ]);
+
+        Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Mobile Legends 86 Diamond',
+            'harga' => 50000,
+        ]);
+
+        Method::create([
+            'code' => 'QRIS',
+            'name' => 'QRIS Test',
+            'payment' => 'tripay',
+            'keterangan' => 'QRIS test method',
+            'tipe' => 'qris',
+            'images' => 'qris.png',
+            'statuspayment' => 1,
+        ]);
+
+        Pembelian::factory()->create([
+            'order_id' => $orderId,
+            'user_id' => '12345678',
+            'zone' => '1234',
+            'nickname' => 'TestPlayer',
+            'layanan' => 'Mobile Legends 86 Diamond',
+            'harga' => 50000,
+            'status' => 'Pending',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        Pembayaran::create([
+            'order_id' => $orderId,
+            'harga' => '50000',
+            'no_pembayaran' => 'QRIS-' . $orderId,
+            'no_pembeli' => '08123456789',
+            'status' => 'Belum Lunas',
+            'metode' => 'QRIS',
+            'reference' => 'REF-' . $orderId,
+        ]);
+    }
+}

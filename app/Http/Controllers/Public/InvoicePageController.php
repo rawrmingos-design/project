@@ -9,6 +9,8 @@ use App\Models\Method;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Services\PublicSiteConfigService;
+use App\Support\GtmDataLayerBuilder;
+use App\Support\InvoiceRealtimeStatus;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -67,6 +69,8 @@ class InvoicePageController extends Controller
                 'pembelians.harga AS harga_layanan',
                 'pembelians.status AS status_pembelian',
                 'pembelians.created_at',
+                'pembelians.email_pembeli',
+                'pembayarans.no_pembeli',
                 'methods.name AS metode_name',
                 'methods.images AS metode_image'
             )
@@ -245,6 +249,39 @@ class InvoicePageController extends Controller
         }
         $fee = max(0, $total - $subtotal);
 
+        $gtmBuilder = app(GtmDataLayerBuilder::class);
+        $gtmInvoiceItem = $gtmBuilder->buildItem([
+            'item_id' => $layanan?->id ?: $data->id_pembelian,
+            'item_name' => $data->layanan ?: $productName,
+            'item_category' => $productName,
+            'item_variant' => $kategori?->tipe ?? null,
+            'price' => $total,
+            'quantity' => 1,
+        ]);
+        $gtmIdentityPayload = $gtmBuilder->buildCustomerIdentityPayload(
+            $data->email_pembeli ?? null,
+            $data->no_pembeli ?? null,
+            $data->user_id ?? null,
+            $data->zone ?? null,
+            $data->nickname ?? null,
+        );
+        $gtmInvoiceEvents = [
+            [
+                'name' => 'invoice_viewed',
+                'payload' => $gtmBuilder->buildInvoiceViewedPayload(
+                    (string) $data->id_pembelian,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => 'invoice_viewed:' . $data->id_pembelian,
+            ],
+        ];
+
         return Inertia::render('Public/Invoice', [
             'invoice' => [
                 'orderId' => (string) $data->id_pembelian,
@@ -297,6 +334,11 @@ class InvoicePageController extends Controller
                     'expiresAt' => $expiredAt->toIso8601String(),
                     'display' => $expiredAt->translatedFormat('d M Y H:i'),
                 ],
+                'realtime' => [
+                    'channel' => InvoiceRealtimeStatus::channelName((string) $data->id_pembelian),
+                    'event' => '.InvoiceStatusUpdated',
+                ],
+                'gtmEvents' => $gtmInvoiceEvents,
             ],
             'meta' => [
                 'title' => "Invoice {$data->id_pembelian} - {$settings->judul_web}",

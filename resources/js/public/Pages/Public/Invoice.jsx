@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SequentialLottiePlayer from '../../Components/SequentialLottiePlayer';
 import PublicLayout from '../../Layouts/PublicLayout';
 
@@ -204,6 +204,8 @@ export default function Invoice({ invoice, meta }) {
     const [isMethodLogoBroken, setIsMethodLogoBroken] = useState(false);
     const [isQrImageBroken, setIsQrImageBroken] = useState(false);
     const copyToastTimerRef = useRef(null);
+    const realtimeConnectedRef = useRef(false);
+    const realtimeFallbackTimerRef = useRef(null);
     const [countdown, setCountdown] = useState(() => {
         if ((invoice?.status?.payment?.code ?? 'unpaid') !== 'unpaid') {
             return invoice?.status?.payment?.code === 'paid' ? 'Pembayaran diterima' : 'Pembayaran kedaluwarsa';
@@ -236,6 +238,20 @@ export default function Invoice({ invoice, meta }) {
         && paymentStatus.code === 'unpaid'
         && !isCountdownExpired,
     );
+
+    useEffect(() => {
+        const events = Array.isArray(invoice?.gtmEvents) ? invoice.gtmEvents : [];
+
+        if (!events.length || typeof window === 'undefined' || typeof window.pushDataLayerEvent !== 'function') {
+            return;
+        }
+
+        events.forEach((event) => {
+            window.pushDataLayerEvent(event?.name, event?.payload, {
+                dedupeKey: event?.dedupe_key,
+            });
+        });
+    }, [invoice?.gtmEvents]);
 
     useEffect(() => {
         return () => {
@@ -335,6 +351,75 @@ export default function Invoice({ invoice, meta }) {
         };
     }, [introDurationMs]);
 
+    const applyInvoiceStatusUpdate = useCallback((rawPaymentStatus, rawOrderStatus) => {
+        const nextPaymentStatus = normalizePaymentStatus(rawPaymentStatus);
+        const nextOrderStatus = normalizeOrderStatus(rawOrderStatus);
+
+        setPaymentStatus((previous) => (
+            previous.code === nextPaymentStatus.code && previous.label === nextPaymentStatus.label
+                ? previous
+                : nextPaymentStatus
+        ));
+
+        setOrderStatus((previous) => (
+            previous.code === nextOrderStatus.code && previous.label === nextOrderStatus.label
+                ? previous
+                : nextOrderStatus
+        ));
+    }, []);
+
+    useEffect(() => {
+        const realtimeChannel = invoice?.realtime?.channel;
+        const realtimeEvent = invoice?.realtime?.event || '.InvoiceStatusUpdated';
+
+        realtimeConnectedRef.current = false;
+
+        if (realtimeFallbackTimerRef.current) {
+            window.clearTimeout(realtimeFallbackTimerRef.current);
+            realtimeFallbackTimerRef.current = null;
+        }
+
+        if (!realtimeChannel || typeof window === 'undefined' || !window.Echo) {
+            return undefined;
+        }
+
+        let isSubscribed = true;
+
+        try {
+            window.Echo.channel(realtimeChannel).listen(realtimeEvent, (event) => {
+                if (!isSubscribed) {
+                    return;
+                }
+
+                realtimeConnectedRef.current = true;
+
+                applyInvoiceStatusUpdate(
+                    event?.payment_status ?? event?.paymentStatus ?? event?.payment_status_code,
+                    event?.order_status ?? event?.orderStatus ?? event?.order_status_code,
+                );
+            });
+
+            realtimeFallbackTimerRef.current = window.setTimeout(() => {
+                realtimeFallbackTimerRef.current = null;
+            }, 3500);
+        } catch {
+            realtimeConnectedRef.current = false;
+        }
+
+        return () => {
+            isSubscribed = false;
+
+            if (realtimeFallbackTimerRef.current) {
+                window.clearTimeout(realtimeFallbackTimerRef.current);
+                realtimeFallbackTimerRef.current = null;
+            }
+
+            if (window.Echo) {
+                window.Echo.leave(realtimeChannel);
+            }
+        };
+    }, [applyInvoiceStatusUpdate, invoice?.realtime?.channel, invoice?.realtime?.event]);
+
     useEffect(() => {
         if (!invoice?.orderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
             return undefined;
@@ -343,6 +428,10 @@ export default function Invoice({ invoice, meta }) {
         let isActive = true;
 
         const pollStatus = async () => {
+            if (realtimeConnectedRef.current) {
+                return;
+            }
+
             try {
                 const response = await fetch(`/ajax/transaction-status/${encodeURIComponent(invoice.orderId)}`, {
                     headers: {
@@ -359,20 +448,7 @@ export default function Invoice({ invoice, meta }) {
                     return;
                 }
 
-                const nextPaymentStatus = normalizePaymentStatus(payload.status_pembayaran);
-                const nextOrderStatus = normalizeOrderStatus(payload.status_pembelian);
-
-                setPaymentStatus((previous) => (
-                    previous.code === nextPaymentStatus.code && previous.label === nextPaymentStatus.label
-                        ? previous
-                        : nextPaymentStatus
-                ));
-
-                setOrderStatus((previous) => (
-                    previous.code === nextOrderStatus.code && previous.label === nextOrderStatus.label
-                        ? previous
-                        : nextOrderStatus
-                ));
+                applyInvoiceStatusUpdate(payload.status_pembayaran, payload.status_pembelian);
             } catch {
                 // no-op: polling should fail silently for UX
             }
@@ -385,7 +461,7 @@ export default function Invoice({ invoice, meta }) {
             isActive = false;
             window.clearInterval(timer);
         };
-    }, [invoice?.orderId, orderStatus.code, paymentStatus.code]);
+    }, [applyInvoiceStatusUpdate, invoice?.orderId, orderStatus.code, paymentStatus.code]);
 
     const showCopyToast = (type, text) => {
         setCopyToast({ type, text });
