@@ -52,11 +52,14 @@ class RecentPurchasesController extends Controller
 
                 $thumbnail = $layanan?->kategori?->thumbnail;
 
+                $itemName = $this->decodeDisplayText((string) ($pembelian->layanan ?: 'Item'));
+                $buyerName = $this->decodeDisplayText(
+                    (string) ($pembelian->nickname ?: $pembelian->username ?: $pembelian->user_id ?: 'Seseorang')
+                );
+
                 return [
-                    'item' => (string) ($pembelian->layanan ?: 'Item'),
-                    'name' => $this->maskBuyerName(
-                        (string) ($pembelian->nickname ?: $pembelian->username ?: $pembelian->user_id ?: 'Seseorang')
-                    ),
+                    'item' => $itemName,
+                    'name' => $this->maskBuyerName($buyerName),
                     'image' => $thumbnail ? '/' . ltrim((string) $thumbnail, '/') : null,
                     'time_ago' => optional($pembelian->updated_at)->diffForHumans() ?: 'Baru saja',
                 ];
@@ -88,6 +91,11 @@ class RecentPurchasesController extends Controller
         return $query
             ->whereIn('layanan', $layananNames)
             ->get();
+    }
+
+    private function decodeDisplayText(string $value): string
+    {
+        return html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     private function maskBuyerName(string $name): string

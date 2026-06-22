@@ -2100,29 +2100,134 @@ textarea {
     position: fixed;
     right: 24px;
     bottom: 24px;
-    z-index: 30;
+    z-index: 55;
     display: flex;
     align-items: center;
     gap: 14px;
     width: min(360px, calc(100vw - 32px));
-    padding: 16px;
+    padding: 14px 42px 14px 14px;
     border-radius: 20px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.9));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: opacity 0.38s ease, transform 0.38s ease;
+    will-change: opacity, transform;
+}
+
+.live-sales-toast--hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(0, 28px, 0) scale(0.98);
+}
+
+.live-sales-toast--visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0) scale(1);
+}
+
+.live-sales-toast__media {
+    position: relative;
+    flex: 0 0 58px;
 }
 
 .live-sales-toast img {
-    width: 68px;
-    height: 68px;
+    display: block;
+    width: 58px;
+    height: 58px;
     border-radius: 16px;
     object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.live-sales-toast__check {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: inline-grid;
+    width: 20px;
+    height: 20px;
+    place-items: center;
+    border-radius: 999px;
+    background: #22c55e;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 900;
+    border: 2px solid rgba(15, 23, 42, 0.94);
+}
+
+.live-sales-toast__content {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
 }
 
 .live-sales-toast small,
 .live-sales-toast span {
     display: block;
-    color: #8fa3c5;
+    color: #9fb0cc;
+    font-size: 0.74rem;
+    line-height: 1.35;
+}
+
+.live-sales-toast strong {
+    display: block;
+    max-width: 210px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 0.9rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.live-sales-toast__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 1.15rem;
+    line-height: 1;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.live-sales-toast__close:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.public-app--bangjeff .live-sales-toast {
+    bottom: 28px;
+    background: linear-gradient(135deg, rgba(31, 31, 34, 0.96), rgba(58, 58, 62, 0.9));
+    border-color: rgba(250, 250, 249, 0.1);
+}
+
+@media (max-width: 640px) {
+    .live-sales-toast {
+        right: 16px;
+        bottom: 84px;
+        width: calc(100vw - 32px);
+    }
+
+    .public-app--bangjeff .live-sales-toast {
+        bottom: 92px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .live-sales-toast {
+        transition: opacity 0.18s ease;
+    }
 }
 
 .homepage-popup {
@@ -2438,6 +2543,24 @@ textarea {
 .rich-copy p,
 .rich-copy li {
     line-height: 1.7;
+}
+
+.rich-copy ul,
+.rich-copy ol {
+    margin: 0.65rem 0 0.85rem;
+    padding-left: 1.35rem;
+}
+
+.rich-copy ul {
+    list-style: disc;
+}
+
+.rich-copy ol {
+    list-style: decimal;
+}
+
+.rich-copy li+li {
+    margin-top: 0.35rem;
 }
 
 .order-notes {
@@ -3130,8 +3253,9 @@ textarea {
 }
 
 .public-app--bangjeff .form-grid--bangjeff-account {
-    max-width: 356px;
-    grid-template-columns: minmax(0, 1fr);
+    width: min(100%, 560px);
+    max-width: 560px;
+    grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
     gap: 12px;
 }
 
@@ -4711,6 +4835,16 @@ textarea {
     padding: 4px 2px 2px;
 }
 
+.rich-copy--bangjeff ul,
+.rich-copy--bangjeff ol {
+    margin: 6px 0 8px;
+    padding-left: 20px;
+}
+
+.rich-copy--bangjeff li+li {
+    margin-top: 3px;
+}
+
 .rich-copy--bangjeff> :first-child {
     margin-top: 0;
 }
@@ -6186,18 +6320,35 @@ textarea {
     gap: 8px;
 }
 
+.public-article-share__buttons a,
 .public-article-share__buttons button {
+    width: 38px;
+    height: 38px;
     border: 1px solid rgba(250, 250, 249, 0.14);
     background: rgba(39, 39, 42, 0.8);
     color: #fafaf9;
-    min-height: 32px;
-    padding: 0 12px;
+    padding: 0;
     border-radius: 999px;
-    font-size: 0.74rem;
+    font-size: 0.94rem;
     font-family: var(--font-bangjeff-sans);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
 }
 
+.public-article-share__buttons svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    fill: currentColor;
+    flex: 0 0 auto;
+}
+
+.public-article-share__buttons a:hover,
+.public-article-share__buttons a:focus-visible,
 .public-article-share__buttons button:hover,
 .public-article-share__buttons button:focus-visible {
     border-color: rgba(249, 115, 22, 0.54);
@@ -8612,7 +8763,9 @@ textarea {
     }
 
     .public-app--bangjeff .form-grid--bangjeff-account {
-        max-width: 332px;
+        width: 100%;
+        max-width: 100%;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .public-app--bangjeff .order-layout--bangjeff {

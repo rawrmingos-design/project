@@ -9,7 +9,7 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
     const { siteConfig, theme, featureFlags } = usePage().props;
     const activeTheme = resolveTheme(theme?.key);
     const palette = activeTheme.tokens.colors || siteConfig.colors;
-    const shouldRenderLiveSalesToast = featureFlags?.liveSalesEnabled && theme?.key !== 'bangjeff';
+    const shouldRenderLiveSalesToast = featureFlags?.liveSalesEnabled;
     const canonicalUrl = meta.canonical || (typeof window !== 'undefined' ? window.location.href : '');
     const schemaJson = useMemo(() => {
         if (!meta?.schemaMarkup) {
@@ -79,7 +79,7 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
                 <Navbar />
                 <main className={`public-main ${mainClassName}`.trim()}>{children}</main>
                 <Footer />
-                {shouldRenderLiveSalesToast ? <LiveSalesToast enabled /> : null}
+                {shouldRenderLiveSalesToast ? <LiveSalesToast enabled fallbackImage={siteConfig.favicon} /> : null}
             </div>
         </>
     );
