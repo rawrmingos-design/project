@@ -13,6 +13,7 @@ use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
+use App\Events\InvoiceStatusUpdated;
 
 class PaydisiniCallbackController extends Controller
 {
@@ -162,6 +163,7 @@ class PaydisiniCallbackController extends Controller
         }
 
         $pembelian->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED)]);
+        InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
         $waService = app(WhatsappNotificationService::class);
@@ -204,6 +206,7 @@ class PaydisiniCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
                 'nickname' => $pembelian->nickname,
@@ -236,6 +239,7 @@ class PaydisiniCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'
@@ -272,6 +276,7 @@ class PaydisiniCallbackController extends Controller
             'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
             'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
         ]);
+        InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
             'nickname' => $pembelian->nickname,

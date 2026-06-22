@@ -14,6 +14,7 @@ use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
+use App\Events\InvoiceStatusUpdated;
 
 class TokoPayCallbackController extends Controller
 {
@@ -177,6 +178,7 @@ class TokoPayCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
                 'nickname' => $pembelian->nickname,
@@ -209,6 +211,7 @@ class TokoPayCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'
@@ -245,6 +248,7 @@ class TokoPayCallbackController extends Controller
             'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
             'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
         ]);
+        InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
             'nickname' => $pembelian->nickname,

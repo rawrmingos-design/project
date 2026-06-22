@@ -65,10 +65,10 @@ class ResetDomainService
         );
     }
 
-    public function executeReset(Pembelian $pembelian, int|ProviderPath $candidate, ?int $requestedBy = null, ?string $reason = null): Pembelian
+    public function executeReset(Pembelian $pembelian, int|ProviderPath|null $candidate = null, ?int $requestedBy = null, ?string $reason = null): Pembelian
     {
         $pembelianId = (int) $pembelian->getKey();
-        $candidateId = $candidate instanceof ProviderPath ? (int) $candidate->getKey() : (int) $candidate;
+        $candidateId = $candidate instanceof ProviderPath ? (int) $candidate->getKey() : ($candidate !== null ? (int) $candidate : null);
 
         return DB::transaction(function () use ($pembelianId, $candidateId, $requestedBy, $reason): Pembelian {
             $lockedPembelian = Pembelian::query()
@@ -85,18 +85,30 @@ class ResetDomainService
             }
 
             $sourceLayanan = $this->resolveSourceLayanan($lockedPembelian);
-            $validatedCandidate = $this->validateProviderSwitch($lockedPembelian, $candidateId);
+            [$currentProviderCode, $currentProviderSku] = $this->resolveCurrentProviderContext($lockedPembelian, $sourceLayanan);
+            $validatedCandidate = $candidateId !== null
+                ? $this->validateProviderSwitch($lockedPembelian, $candidateId)
+                : null;
             $nextInvoiceVersion = $lockedPembelian->invoice_version + 1;
             $nextAttemptReference = $lockedPembelian->deriveDisplayInvoiceId($nextInvoiceVersion);
+            $nextProviderCode = $validatedCandidate
+                ? $this->normalizeProviderCode($validatedCandidate->provider_code)
+                : $currentProviderCode;
+            $nextProviderSku = $validatedCandidate
+                ? trim((string) $validatedCandidate->provider_sku)
+                : $currentProviderSku;
+            $nextProfit = $validatedCandidate
+                ? $this->calculateProfitFromModalPrice($lockedPembelian, $validatedCandidate)
+                : $lockedPembelian->profit;
 
             $lockedPembelian->fill([
                 'invoice_version' => $nextInvoiceVersion,
                 'reset_count' => max($lockedPembelian->reset_count, $lockedPembelian->invoice_version) + 1,
                 'display_order_id' => $nextAttemptReference,
                 'active_layanan_id' => $sourceLayanan->getKey(),
-                'active_provider_code' => $this->normalizeProviderCode($validatedCandidate->provider_code),
-                'active_provider_sku' => trim((string) $validatedCandidate->provider_sku),
-                'profit' => $this->calculateProfitFromModalPrice($lockedPembelian, $validatedCandidate),
+                'active_provider_code' => $nextProviderCode,
+                'active_provider_sku' => $nextProviderSku,
+                'profit' => $nextProfit,
                 'active_attempt_token' => null,
                 'active_attempt_reference' => $nextAttemptReference,
                 'reset_status' => 'requested',

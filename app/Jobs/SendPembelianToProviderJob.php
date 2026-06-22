@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Pembelian;
+use App\Events\InvoiceStatusUpdated;
 use App\Services\OrderProcessingService;
 use App\Support\PembelianStatus;
 use App\Support\ProviderDispatchTracker;
@@ -72,6 +73,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                         ),
                         'reset_status' => $pembelian->invoice_version > 0 ? 'failed' : $pembelian->reset_status,
                     ]);
+                    InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
                     ProviderDispatchTracker::clear($this->pembelianId);
                     return;
@@ -116,6 +118,7 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
                 ),
                 'reset_status' => $nextResetStatus,
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
             ProviderDispatchTracker::clear($this->pembelianId);
         } catch (\Throwable $exception) {
             Log::error('SendPembelianToProviderJob failed.', [

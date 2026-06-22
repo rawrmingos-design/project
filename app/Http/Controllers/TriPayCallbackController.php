@@ -10,6 +10,7 @@ use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
+use App\Events\InvoiceStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -236,6 +237,7 @@ class TriPayCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
@@ -269,6 +271,7 @@ class TriPayCallbackController extends Controller
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
+            InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'
@@ -305,6 +308,7 @@ class TriPayCallbackController extends Controller
             'provider_order_id' => $providerOrderId,
             'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
         ]);
+        InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
             'nickname' => $pembelian->nickname,
@@ -331,6 +335,7 @@ class TriPayCallbackController extends Controller
         $pembelian->update([
             'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED),
         ]);
+        InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
