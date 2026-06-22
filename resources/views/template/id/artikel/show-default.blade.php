@@ -3,178 +3,568 @@
 @section('custom_style')
 <style>
     :root {
-        /* Inject Custom Article Colors or Fallback to Theme Defaults */
-        --article-primary: {{ $article->primary_color ?? '#3b82f6' }}; 
-        --article-secondary: {{ $article->secondary_color ?? '#1e293b' }};
+        --article-primary: {{ $article->primary_color ?? '#f97316' }};
+        --article-secondary: {{ $article->secondary_color ?? '#18181b' }};
     }
-    
-    /* Override utility classes if custom color is present */
-    @if($article->primary_color)
-    .text-primary-600, .text-primary-400, .bg-primary-600 {
-        color: var(--article-primary) !important;
-    } 
-    .bg-primary-600 {
-        background-color: var(--article-primary) !important; 
-        color: white !important;
-    }
-    .prose h2, .prose h3, .prose a {
-        color: var(--article-primary) !important;
-        border-color: var(--article-primary) !important;
-    }
-    .prose a:hover {
-        color: white !important;
-        background-color: var(--article-primary);
-    }
-    @endif
 
-    .glass-card {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+    .public-article-page {
+        padding: 24px 0 40px;
+        min-height: 100vh;
     }
-    .ad-placeholder {
-        background-color: rgba(0, 0, 0, 0.2);
-        border: 2px dashed rgba(255, 255, 255, 0.1);
+
+    .public-article-page--show {
+        background:
+            radial-gradient(circle at 12% 8%, rgba(249, 115, 22, 0.12), transparent 28%),
+            radial-gradient(circle at 88% 12%, rgba(59, 130, 246, 0.12), transparent 30%),
+            linear-gradient(180deg, rgba(15, 23, 42, 0.28), rgba(9, 9, 11, 0));
+    }
+
+    .public-shell {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+    }
+
+    .public-article-show {
+        padding-top: 0;
+    }
+
+    .public-article-breadcrumb {
         display: flex;
         align-items: center;
+        gap: 7px;
+        margin-bottom: 12px;
+        color: rgba(250, 250, 249, 0.72);
+        font-size: 0.82rem;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-breadcrumb a {
+        color: inherit;
+        text-decoration: none;
+        transition: color 180ms ease;
+    }
+
+    .public-article-breadcrumb a:hover {
+        color: #fafaf9;
+    }
+
+    .public-article-breadcrumb strong {
+        color: #fafaf9;
+        max-width: 260px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .public-article-detail-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.86fr) minmax(320px, 0.94fr);
+        gap: 16px;
+        align-items: start;
+    }
+
+    .public-article-detail-main,
+    .public-article-detail-sidebar {
+        min-width: 0;
+    }
+
+    .public-article-detail-card {
+        border-radius: 22px;
+        border: 1px solid rgba(250, 250, 249, 0.08);
+        background: rgba(24, 24, 27, 0.86);
+        padding: 18px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+    }
+
+    .public-article-detail-card__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .public-article-detail-card__tags span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--article-primary);
+        color: #fff7ed;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-detail-card__tags span.is-promo {
+        background: #ca8a04;
+    }
+
+    .public-article-detail-card__header h1 {
+        margin: 0 0 10px;
+        color: #fafaf9;
+        font-size: clamp(1.75rem, 4vw, 2.8rem);
+        line-height: 1.2;
+        font-weight: 700;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-detail-card__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(250, 250, 249, 0.08);
+        color: rgba(250, 250, 249, 0.72);
+        font-size: 0.78rem;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-detail-card__meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+    }
+
+    .public-article-detail-card__meta i {
+        color: var(--article-primary);
+    }
+
+    .public-article-detail-card__cover {
+        margin: 14px 0;
+        border-radius: 16px;
+        overflow: hidden;
+        background: rgba(9, 9, 11, 0.5);
+    }
+
+    .public-article-detail-card__cover img,
+    .public-article-detail-card__cover picture {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    .public-article-detail-card__cover img {
+        object-fit: cover;
+    }
+
+    .public-article-content {
+        color: rgba(250, 250, 249, 0.86);
+        font-size: 0.95rem;
+        line-height: 1.72;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-content h2,
+    .public-article-content h3 {
+        color: #fafaf9;
+        margin-top: 22px;
+        margin-bottom: 10px;
+        line-height: 1.3;
+        font-weight: 700;
+    }
+
+    .public-article-content h2 {
+        font-size: 1.45rem;
+    }
+
+    .public-article-content h3 {
+        font-size: 1.18rem;
+    }
+
+    .public-article-content p {
+        margin: 0 0 12px;
+    }
+
+    .public-article-content ul,
+    .public-article-content ol {
+        padding-left: 20px;
+        margin: 0 0 12px;
+    }
+
+    .public-article-content li + li {
+        margin-top: 6px;
+    }
+
+    .public-article-content a {
+        color: var(--article-primary);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        text-decoration-color: rgba(249, 115, 22, 0.45);
+    }
+
+    .public-article-content blockquote {
+        margin: 18px 0;
+        padding: 14px 16px;
+        border-left: 4px solid var(--article-primary);
+        border-radius: 0 12px 12px 0;
+        background: rgba(250, 250, 249, 0.05);
+        color: rgba(250, 250, 249, 0.9);
+    }
+
+    .public-article-content img {
+        max-width: 100%;
+        border-radius: 14px;
+        margin: 20px 0;
+    }
+
+    .public-article-content table {
+        width: 100%;
+        display: block;
+        overflow-x: auto;
+        border-collapse: collapse;
+        margin: 18px 0;
+    }
+
+    .public-article-content th,
+    .public-article-content td {
+        border: 1px solid rgba(250, 250, 249, 0.1);
+        padding: 10px 12px;
+    }
+
+    .public-article-content code,
+    .public-article-content pre {
+        border-radius: 10px;
+        background: rgba(9, 9, 11, 0.72);
+    }
+
+    .public-article-share {
+        margin-top: 16px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(250, 250, 249, 0.08);
+    }
+
+    .public-article-share h3 {
+        margin: 0 0 10px;
+        color: #fafaf9;
+        font-size: 0.92rem;
+        font-family: var(--font-bangjeff-sans, inherit);
+    }
+
+    .public-article-share__buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .public-article-share__buttons a,
+    .public-article-share__buttons button {
+        width: 38px;
+        height: 38px;
+        border: 1px solid rgba(250, 250, 249, 0.14);
+        background: rgba(39, 39, 42, 0.8);
+        color: #fafaf9;
+        padding: 0;
+        border-radius: 999px;
+        font-size: 0.94rem;
+        font-family: var(--font-bangjeff-sans, inherit);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
         justify-content: center;
-        color: rgba(255, 255, 255, 0.3);
-        font-weight: 600;
-        letter-spacing: 0.1em;
+        text-decoration: none;
+        transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .public-article-share__buttons a:hover,
+    .public-article-share__buttons button:hover,
+    .public-article-share__buttons a:focus-visible,
+    .public-article-share__buttons button:focus-visible {
+        border-color: rgba(249, 115, 22, 0.54);
+        color: #fb923c;
+        transform: translateY(-1px);
+        outline: none;
+    }
+
+    .public-article-detail-sidebar {
+        align-self: stretch;
+    }
+
+    .public-article-related {
+        margin-top: 0;
+        position: sticky;
+        top: 112px;
+        max-height: calc(100vh - 132px);
+        overflow: hidden auto;
+        overscroll-behavior: contain;
+        padding: 14px;
+        border-radius: 22px;
+        border: 1px solid rgba(250, 250, 249, 0.08);
+        background: rgba(24, 24, 27, 0.72);
+        box-shadow: 0 22px 58px rgba(0, 0, 0, 0.22);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        scrollbar-width: thin;
+        scrollbar-color: rgba(249, 115, 22, 0.45) rgba(250, 250, 249, 0.08);
+    }
+
+    .public-article-related::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .public-article-related::-webkit-scrollbar-track {
+        background: rgba(250, 250, 249, 0.08);
+        border-radius: 999px;
+    }
+
+    .public-article-related::-webkit-scrollbar-thumb {
+        background: rgba(249, 115, 22, 0.45);
+        border-radius: 999px;
+    }
+
+    .public-article-related h2 {
+        margin: 0 0 12px;
+        color: #fafaf9;
+        font-family: var(--font-bangjeff-sans, inherit);
+        font-size: 1.15rem;
+        font-weight: 700;
+    }
+
+    .public-article-related__grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .public-article-related__item {
+        display: grid;
+        grid-template-columns: 128px minmax(0, 1fr);
+        align-items: stretch;
+        min-height: 108px;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(250, 250, 249, 0.08);
+        background: rgba(24, 24, 27, 0.82);
+        text-decoration: none;
+        transition: border-color 180ms ease, transform 180ms ease;
+    }
+
+    .public-article-related__item:hover,
+    .public-article-related__item:focus-visible {
+        border-color: rgba(249, 115, 22, 0.45);
+        transform: translateY(-2px);
+        outline: none;
+    }
+
+    .public-article-related__thumb {
+        width: 128px;
+        height: 100%;
         overflow: hidden;
     }
-    .prose h2 { font-size: 1.75rem; font-weight: 800; color: white; margin-top: 2.5rem; margin-bottom: 1.25rem; border-left: 4px solid var(--warna_1); padding-left: 1rem; }
-    .prose h3 { font-size: 1.4rem; font-weight: 700; color: white; margin-top: 2rem; margin-bottom: 1rem; }
-    .prose p { margin-bottom: 1.5rem; line-height: 1.8; font-size: 1.05rem; color: #cbd5e1; }
-    .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.5rem; color: #cbd5e1; }
-    .prose li { margin-bottom: 0.5rem; }
-    .prose a { color: var(--warna_2); text-decoration: none; border-bottom: 1px dashed var(--warna_2); transition: all 0.2s; }
-    .prose a:hover { color: var(--warna_1); border-bottom-style: solid; }
-    .prose blockquote { border-left: 4px solid var(--warna_3); background: rgba(255,255,255,0.05); padding: 1.5rem; font-style: italic; color: #e2e8f0; border-radius: 0 0.5rem 0.5rem 0; margin-bottom: 1.5rem; }
-    .prose img { border-radius: 1rem; margin: 2rem 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); width: 100%; }
+
+    .public-article-related__thumb img,
+    .public-article-related__thumb picture {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .public-article-related__thumb img {
+        object-fit: cover;
+    }
+
+    .public-article-related__item div:not(.public-article-related__thumb) {
+        padding: 10px 12px;
+        display: grid;
+        gap: 7px;
+        align-content: center;
+    }
+
+    .public-article-related__item strong {
+        color: #fafaf9;
+        font-family: var(--font-bangjeff-sans, inherit);
+        font-size: 0.92rem;
+        line-height: 1.35;
+        font-weight: 600;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+    }
+
+    .public-article-related__item span {
+        color: rgba(250, 250, 249, 0.64);
+        font-size: 0.76rem;
+    }
+
+    .public-article-related__empty {
+        border-radius: 14px;
+        border: 1px solid rgba(250, 250, 249, 0.08);
+        background: rgba(24, 24, 27, 0.62);
+        padding: 14px;
+        color: rgba(250, 250, 249, 0.68);
+        font-size: 0.82rem;
+    }
+
+    @media (max-width: 1024px) {
+        .public-article-detail-layout {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .public-article-related {
+            position: static;
+            margin-top: 12px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .public-article-page {
+            padding-top: 20px;
+        }
+
+        .public-shell {
+            width: min(100% - 24px, 1180px);
+        }
+
+        .public-article-detail-card {
+            border-radius: 18px;
+            padding: 14px;
+        }
+
+        .public-article-detail-card__meta {
+            gap: 8px 12px;
+        }
+
+        .public-article-related__item {
+            grid-template-columns: 104px minmax(0, 1fr);
+            min-height: 96px;
+        }
+
+        .public-article-related__thumb {
+            width: 104px;
+        }
+    }
 </style>
 @endsection
 
 @section('content')
 @include('../navbar')
 
-<div class="relative w-full min-h-screen pt-32 pb-20">
-    <div class="monitor:container relative mx-auto px-4 sm:px-6 lg:px-8">
-        
-        <!-- Breadcrumb -->
-        <nav class="flex mb-8 text-sm text-gray-400">
-            <a href="{{ url('/') }}" class="hover:text-white transition-colors">Home</a>
-            <span class="mx-2">/</span>
-            <a href="{{ route('artikel.index') }}" class="hover:text-white transition-colors">Artikel</a>
-            <span class="mx-2">/</span>
-            <span class="text-white truncate max-w-[200px]">{{ $article->title }}</span>
+@php
+    $articleUrl = route('artikel.show', ['slug' => $article->slug]);
+    $articleTitle = $article->title;
+    $articleShareText = trim($articleTitle . ' - ' . ($config->judul_web ?? config('app.name')));
+    $encodedArticleUrl = rawurlencode($articleUrl);
+    $encodedArticleTitle = rawurlencode($articleTitle);
+    $encodedArticleShareText = rawurlencode($articleShareText);
+@endphp
+
+<section class="public-article-page public-article-page--show">
+    <div class="public-shell public-article-show">
+        <nav class="public-article-breadcrumb" aria-label="Breadcrumb">
+            <a href="{{ url('/') }}">Home</a>
+            <span>/</span>
+            <a href="{{ route('artikel.index') }}">Artikel</a>
+            <span>/</span>
+            <strong>{{ $article->title }}</strong>
         </nav>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            <!-- Main Content (8 cols) -->
-            <div class="lg:col-span-8">
-                <article class="glass-card rounded-3xl p-6 md:p-10 mb-8">
-                    <header class="mb-8">
-                        <div class="flex flex-wrap gap-3 mb-6">
-                            <span class="px-3 py-1 text-xs font-bold text-white bg-primary-600 rounded-full">NEWS</span>
-                            @if(\Illuminate\Support\Str::contains(strtolower($article->keywords), 'promo'))
-                                <span class="px-3 py-1 text-xs font-bold text-white bg-yellow-600 rounded-full">PROMO</span>
+        <div class="public-article-detail-layout">
+            <div class="public-article-detail-main">
+                <article class="public-article-detail-card">
+                    <header class="public-article-detail-card__header">
+                        <div class="public-article-detail-card__tags">
+                            <span>News</span>
+                            @if(\Illuminate\Support\Str::contains(strtolower($article->keywords ?? ''), 'promo'))
+                                <span class="is-promo">Promo</span>
                             @endif
                         </div>
-                        <h1 class="text-3xl md:text-5xl font-black text-white mb-6 leading-tight">{{ $article->title }}</h1>
-                        
-                        <div class="flex items-center gap-6 text-sm text-gray-400 border-b border-white/10 pb-8">
-                            <div class="flex items-center gap-2">
-                                <i class="fa fa-calendar-o text-primary-400"></i>
-                                {{ $article->created_at->format('d F Y') }}
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="fa fa-eye text-primary-400"></i>
-                                {{ $article->views }} Views
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <i class="fa fa-user text-primary-400"></i>
-                                Admin
-                            </div>
+
+                        <h1>{{ $article->title }}</h1>
+
+                        <div class="public-article-detail-card__meta">
+                            <span><i class="fa fa-calendar-o" aria-hidden="true"></i>{{ $article->created_at->format('d F Y') }}</span>
+                            <span><i class="fa fa-eye" aria-hidden="true"></i>{{ $article->views }} Views</span>
+                            <span><i class="fa fa-user" aria-hidden="true"></i>Admin</span>
                         </div>
                     </header>
-                    
-                    <div class="aspect-video w-full overflow-hidden rounded-2xl mb-10 shadow-lg">
-                        <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 900px, 100vw" width="1200" height="675" loading="eager" fetchpriority="high" class="w-full h-full object-cover" />
+
+                    <div class="public-article-detail-card__cover">
+                        <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 900px, 100vw" width="1200" height="675" loading="eager" fetchpriority="high" />
                     </div>
 
-                    <!-- Ad Placeholder (In-Content) -->
-                    {{-- <div class="w-full h-24 rounded-xl ad-placeholder mb-10">
-                        <span>IKLAN TENGAH (FUTURE SLOT)</span>
-                    </div> --}}
-
-                    <div class="prose max-w-none text-gray-300">
+                    <div class="public-article-content">
                         @safeHtml($article->content)
-
                     </div>
 
-                    <!-- Share Section -->
-                    <div class="mt-12 pt-8 border-t border-white/10">
-                        <h4 class="text-white font-bold mb-4">Bagikan Artikel ini:</h4>
-                        <div class="flex gap-3">
-                            <a href="#" class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white hover:bg-blue-700 transition-colors">
-                                <i class="fa fa-facebook"></i>
+                    <footer class="public-article-share">
+                        <h3>Bagikan Artikel Ini</h3>
+                        <div class="public-article-share__buttons">
+                            <a href="https://www.facebook.com/sharer/sharer.php?u={{ $encodedArticleUrl }}&quote={{ $encodedArticleShareText }}" target="_blank" rel="noopener noreferrer" aria-label="Bagikan artikel ke Facebook" title="Facebook">
+                                <i class="fa fa-facebook" aria-hidden="true"></i>
                             </a>
-                            <a href="#" class="w-10 h-10 rounded-full bg-sky-500 flex items-center justify-center text-white hover:bg-sky-600 transition-colors">
-                                <i class="fa fa-twitter"></i>
+                            <a href="https://twitter.com/intent/tweet?url={{ $encodedArticleUrl }}&text={{ $encodedArticleShareText }}" target="_blank" rel="noopener noreferrer" aria-label="Bagikan artikel ke Twitter" title="Twitter/X">
+                                <i class="fa fa-twitter" aria-hidden="true"></i>
                             </a>
-                            <a href="#" class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white hover:bg-green-600 transition-colors">
-                                <i class="fa fa-whatsapp"></i>
+                            <a href="https://wa.me/?text={{ $encodedArticleShareText }}%20{{ $encodedArticleUrl }}" target="_blank" rel="noopener noreferrer" aria-label="Bagikan artikel ke WhatsApp" title="WhatsApp">
+                                <i class="fa fa-whatsapp" aria-hidden="true"></i>
                             </a>
-                            <a href="#" class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white hover:bg-gray-600 transition-colors">
-                                <i class="fa fa-link"></i>
+                            <a href="https://t.me/share/url?url={{ $encodedArticleUrl }}&text={{ $encodedArticleShareText }}" target="_blank" rel="noopener noreferrer" aria-label="Bagikan artikel ke Telegram" title="Telegram">
+                                <i class="fa fa-telegram" aria-hidden="true"></i>
                             </a>
+                            <button type="button" data-copy-article-link="{{ $articleUrl }}" aria-label="Salin link artikel" title="Copy Link">
+                                <i class="fa fa-link" aria-hidden="true"></i>
+                            </button>
                         </div>
-                    </div>
+                    </footer>
                 </article>
-
-                <!-- Comments Placeholder (Optional) -->
-                <!-- <div class="glass-card rounded-3xl p-8">
-                    <h3 class="text-xl font-bold text-white mb-4">Komentar</h3>
-                    <p class="text-gray-400">Fitur komentar akan segera hadir.</p>
-                </div> -->
             </div>
 
-            <!-- Sidebar (4 cols) -->
-            {{-- <div class="lg:col-span-4 space-y-8">
-                <!-- Ad Placeholder (Sidebar Top) -->
-                <div class="w-full aspect-square rounded-2xl ad-placeholder">
-                    <div class="text-center">
-                        <div class="text-2xl mb-2">📦</div>
-                        <span>IKLAN SIDEBAR</span>
-                    </div>
-                </div>
+            <aside class="public-article-detail-sidebar">
+                <div class="public-article-related">
+                    <h2>Baca Juga</h2>
 
-                <!-- Recent Articles Widget -->
-                <div class="glass-card rounded-2xl p-6 sticky top-32">
-                    <h3 class="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                        <i class="fa fa-bolt text-yellow-500"></i> Trending & Terbaru
-                    </h3>
-                    <div class="space-y-6">
-                        @foreach($recent_articles as $recent)
-                        <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="flex gap-4 group items-start">
-                            <div class="w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden relative">
-                                <x-optimized-image :src="$recent->thumbnail" profile="article" alt="{{ $recent->title }}" sizes="96px" width="96" height="96" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                            </div>
-                            <div>
-                                <h4 class="text-sm font-bold text-white group-hover:text-primary-400 leading-snug mb-2 line-clamp-2">
-                                    {{ $recent->title }}
-                                </h4>
-                                <span class="text-xs text-gray-500 block mb-1">{{ $recent->created_at->format('d M Y') }}</span>
-                            </div>
-                        </a>
-                        @endforeach
-                    </div>
+                    @if(isset($recent_articles) && $recent_articles->count())
+                        <div class="public-article-related__grid">
+                            @foreach($recent_articles as $recent)
+                                <a href="{{ route('artikel.show', ['slug' => $recent->slug]) }}" class="public-article-related__item">
+                                    <div class="public-article-related__thumb">
+                                        <x-optimized-image :src="$recent->thumbnail" profile="article" alt="{{ $recent->title }}" sizes="128px" width="128" height="108" />
+                                    </div>
+                                    <div>
+                                        <strong>{{ $recent->title }}</strong>
+                                        <span>{{ $recent->created_at->format('d M Y') }}</span>
+                                    </div>
+                                </a>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="public-article-related__empty">Belum ada artikel lain untuk ditampilkan.</div>
+                    @endif
                 </div>
-            </div> --}}
+            </aside>
         </div>
     </div>
-</div>
+</section>
 
+@include('../footer')
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-copy-article-link]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                const link = button.getAttribute('data-copy-article-link');
+                const originalText = button.innerHTML;
+
+                function markCopied() {
+                    button.innerHTML = '<i class="fa fa-check" aria-hidden="true"></i> Tersalin';
+                    setTimeout(function() {
+                        button.innerHTML = originalText;
+                    }, 1600);
+                }
+
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(link).then(markCopied).catch(function() {
+                        window.prompt('Salin link artikel:', link);
+                    });
+                    return;
+                }
+
+                window.prompt('Salin link artikel:', link);
+            });
+        });
+    });
+</script>
 @endsection
