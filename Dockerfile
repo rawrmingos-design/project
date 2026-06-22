@@ -85,7 +85,9 @@ RUN mkdir -p bootstrap/cache \
                public/assets/banner \
                public/assets/banner_game \
                public/assets/logo \
+               public/assets/seasonal \
                public/assets/media \
+               public/assets/optimized \
                public/articles/thumbnails \
     && chmod -R 775 bootstrap/cache storage public/assets public/articles
 

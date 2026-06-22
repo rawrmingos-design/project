@@ -18,7 +18,9 @@ services:
       - public_banner:/var/www/html/public/assets/banner
       - public_banner_game:/var/www/html/public/assets/banner_game
       - public_logo:/var/www/html/public/assets/logo
+      - public_seasonal:/var/www/html/public/assets/seasonal
       - public_media:/var/www/html/public/assets/media
+      - public_optimized:/var/www/html/public/assets/optimized
       - public_article_thumbnails:/var/www/html/public/articles/thumbnails
     environment:
       - DB_CONNECTION=mysql
@@ -106,7 +108,11 @@ volumes:
     driver: local
   public_logo:
     driver: local
+  public_seasonal:
+    driver: local
   public_media:
+    driver: local
+  public_optimized:
     driver: local
   public_article_thumbnails:
     driver: local
