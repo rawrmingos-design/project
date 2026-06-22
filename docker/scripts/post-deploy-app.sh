@@ -13,7 +13,9 @@ mkdir -p \
     public/assets/banner \
     public/assets/banner_game \
     public/assets/logo \
+    public/assets/seasonal \
     public/assets/media \
+    public/assets/optimized \
     public/articles/thumbnails
 
 php artisan storage:link || true
@@ -29,3 +31,5 @@ chown -R www-data:www-data "$APP_PATH" || true
 find "$APP_PATH" -type d -exec chmod 755 {} + || true
 find "$APP_PATH" -type f -exec chmod 644 {} + || true
 chmod -R 775 "$APP_PATH/storage" "$APP_PATH/bootstrap/cache" || true
+chmod -R 775 "$APP_PATH/public/assets" "$APP_PATH/public/articles" || true
+chown -R www-data:www-data "$APP_PATH/public/assets" "$APP_PATH/public/articles" || true
