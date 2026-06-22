@@ -10,10 +10,10 @@
         $title = trim((string) ($meta['title'] ?? $seoDefaults['title'] ?? $siteConfig['name'] ?? config('app.name')));
         $description = trim((string) ($meta['description'] ?? $seoDefaults['description'] ?? $siteConfig['description'] ?? ''));
         $keywords = trim((string) ($meta['keywords'] ?? $seoDefaults['keywords'] ?? $siteConfig['keywords'] ?? ''));
-        $canonical = trim((string) ($meta['canonical'] ?? $seoDefaults['canonical'] ?? url()->current()));
+        $canonical = \App\Support\CanonicalUrl::normalize($meta['canonical'] ?? $seoDefaults['canonical'] ?? url()->current());
         $ogTitle = trim((string) ($meta['ogTitle'] ?? $title));
         $ogDescription = trim((string) ($meta['ogDescription'] ?? $description));
-        $ogUrl = trim((string) ($meta['ogUrl'] ?? $canonical));
+        $ogUrl = \App\Support\CanonicalUrl::normalize($meta['ogUrl'] ?? $canonical);
         $robots = trim((string) ($meta['robots'] ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'));
         $themeColor = trim((string) ($siteConfig['colors']['accent'] ?? '#fb923c'));
 
