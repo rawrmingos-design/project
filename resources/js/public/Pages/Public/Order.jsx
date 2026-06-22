@@ -77,7 +77,7 @@ function extractOrderSubmitError(payload, response) {
         ORDER_RECORD_CREATE_FAILED: 'Order belum tersimpan sempurna. Coba ulangi sekali lagi.',
         ORDER_PROCESSING_FAILED: 'Order gagal diproses. Silakan coba lagi dalam beberapa saat.',
         POINT_REDEMPTION_FAILED: 'Poin tidak bisa dipakai saat ini. Silakan refresh lalu coba lagi.',
-        VOUCHER_STOCK_FAILED: 'Voucher sudah habis atau tidak valid. Silakan pilih promo lain.',
+        VOUCHER_STOCK_FAILED: 'Voucher sudah habis atau tidak valid. Promo sudah dihapus dari pesanan, silakan pilih promo lain.',
     };
 
     if (payload?.errors && typeof payload.errors === 'object') {
@@ -1288,7 +1288,7 @@ function BangjeffOrderPreviewModal({
     );
 }
 
-export default function Order({ meta, category, products, packages, paymentMethods, ratings }) {
+export default function Order({ meta, category, products, packages, paymentMethods, ratings, gtm }) {
     const { theme, authUser, siteConfig } = usePage().props;
     const [mobileOrderTab, setMobileOrderTab] = useState('transaction');
     const [selectedPackage, setSelectedPackage] = useState(0);
@@ -1366,6 +1366,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
         () => allCatalogItems.find((item) => item.id === selectedProductId) || null,
         [allCatalogItems, selectedProductId],
     );
+    const gtmItemCatalog = gtm?.itemCatalog || {};
+    const gtmPaymentMethods = gtm?.paymentMethods || {};
+    const gtmViewItemPayload = gtm?.viewItemPayload || null;
+    const selectedGtmItem = selectedProductId ? (gtmItemCatalog[String(selectedProductId)] || null) : null;
+    const selectedGtmPaymentMethod = selectedMethodCode ? (gtmPaymentMethods[String(selectedMethodCode)] || null) : null;
     const selectedMethod = paymentMethods.find((item) => item.code === selectedMethodCode) || null;
     const groupedMethods = useMemo(() => paymentMethods.reduce((acc, method) => {
         const key = method.group || 'lainnya';
@@ -2055,6 +2060,16 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [paymentStepInteracted, scrollToOrderPanel, selectedMethodCode]);
 
     useEffect(() => {
+        if (!gtmViewItemPayload || typeof window === 'undefined' || typeof window.pushDataLayerEvent !== 'function') {
+            return;
+        }
+
+        window.pushDataLayerEvent('view_item', gtmViewItemPayload, {
+            dedupeKey: `view_item:${category.slug}`,
+        });
+    }, [category.slug, gtmViewItemPayload]);
+
+    useEffect(() => {
         if (!selectedProductId) {
             setPricePreview(null);
             return;
@@ -2176,6 +2191,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
             harga: discountedPrice,
             selected_final_price: discountedPrice,
         }));
+    };
+
+    const resetStaleVoucherState = () => {
+        setVoucher('');
+        setAvailablePromos([]);
+        setShowAvailablePromoModal(false);
+        setPricePreview(null);
+        setVoucherActionLoading(null);
     };
 
     const handleApplyVoucher = async () => {
@@ -2447,6 +2470,27 @@ export default function Order({ meta, category, products, packages, paymentMetho
             if (response.ok && payloadResponse?.status === true && payloadResponse?.order_id) {
                 persistSavedAccountDraftOnSuccessfulOrder();
 
+                if (typeof window !== 'undefined' && typeof window.pushDataLayerEvent === 'function' && selectedGtmItem) {
+                    const checkoutValue = Number(pricePreview?.selected_final_price || pricePreview?.harga || selectedGtmItem.price || 0);
+                    const checkoutItem = {
+                        ...selectedGtmItem,
+                        price: checkoutValue,
+                        quantity: selectedPurchaseQuantity,
+                    };
+                    const paymentType = selectedGtmPaymentMethod?.name || selectedMethod?.name || selectedMethodCode || 'Tidak Diketahui';
+
+                    window.pushDataLayerEvent('begin_checkout', {
+                        payment_type: paymentType,
+                        ecommerce: {
+                            currency: 'IDR',
+                            value: checkoutValue,
+                            items: [checkoutItem],
+                        },
+                    }, {
+                        dedupeKey: `begin_checkout:${payloadResponse.order_id}`,
+                    });
+                }
+
                 try {
                     window.sessionStorage.setItem(ORDER_RESET_AFTER_INVOICE_KEY, JSON.stringify({
                         path: window.location.pathname,
@@ -2462,6 +2506,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
             const submitFailure = extractOrderSubmitError(payloadResponse, response);
             const messageType = submitFailure.errorCode === 'ORDER_DUPLICATE_REQUEST' ? 'info' : 'error';
+
+            if (submitFailure.errorCode === 'VOUCHER_STOCK_FAILED') {
+                resetStaleVoucherState();
+            }
+
             setOrderPreviewError(submitFailure.message);
             setMessage({ type: messageType, text: submitFailure.message });
         } catch (error) {
