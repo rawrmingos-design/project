@@ -488,12 +488,9 @@
             align-items: center;
             justify-content: center;
             padding: 1.25rem;
-            background:
-                radial-gradient(circle at 20% 10%, rgba(34, 197, 94, .2), transparent 32%),
-                radial-gradient(circle at 80% 90%, rgba(14, 165, 233, .18), transparent 30%),
-                rgba(15, 23, 42, .58);
-            backdrop-filter: blur(18px) saturate(120%);
-            -webkit-backdrop-filter: blur(18px) saturate(120%);
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -2746,6 +2743,29 @@
                 }
             }
 
+            let invoiceRatingModalScrollY = 0;
+
+            function lockInvoiceRatingModalScroll() {
+                invoiceRatingModalScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+                document.body.style.position = 'fixed';
+                document.body.style.top = `-${invoiceRatingModalScrollY}px`;
+                document.body.style.left = '0';
+                document.body.style.right = '0';
+                document.body.style.width = '100%';
+                document.body.style.overflow = 'hidden';
+            }
+
+            function unlockInvoiceRatingModalScroll() {
+                const restoreScrollY = invoiceRatingModalScrollY;
+                document.body.style.removeProperty('position');
+                document.body.style.removeProperty('top');
+                document.body.style.removeProperty('left');
+                document.body.style.removeProperty('right');
+                document.body.style.removeProperty('width');
+                document.body.style.removeProperty('overflow');
+                window.scrollTo(0, restoreScrollY);
+            }
+
             function showSuccessRatingModal() {
                 const ratingModal = document.getElementById('invoiceSuccessRatingModal');
 
@@ -2753,6 +2773,7 @@
                     return;
                 }
 
+                lockInvoiceRatingModalScroll();
                 ratingModal.classList.add('is-visible');
                 ratingModal.setAttribute('aria-hidden', 'false');
             }
@@ -2766,6 +2787,7 @@
 
                 ratingModal.classList.remove('is-visible');
                 ratingModal.setAttribute('aria-hidden', 'true');
+                unlockInvoiceRatingModalScroll();
             }
 
             window.hideInvoiceSuccessRatingModal = hideSuccessRatingModal;
