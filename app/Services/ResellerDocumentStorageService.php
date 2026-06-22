@@ -16,9 +16,7 @@ class ResellerDocumentStorageService
         $absolutePath = public_path($relativePath);
         $directory = dirname($absolutePath);
 
-        if (! File::isDirectory($directory)) {
-            File::ensureDirectoryExists($directory);
-        }
+        $this->ensureDirectoryExists($directory);
 
         $file->move($directory, basename($absolutePath));
 
@@ -42,6 +40,21 @@ class ResellerDocumentStorageService
 
         if (File::exists($absolutePath)) {
             File::delete($absolutePath);
+        }
+    }
+
+    private function ensureDirectoryExists(string $directory): void
+    {
+        if (File::isDirectory($directory)) {
+            return;
+        }
+
+        try {
+            File::makeDirectory($directory, 0755, true, true);
+        } catch (\Throwable $exception) {
+            if (! File::isDirectory($directory)) {
+                throw $exception;
+            }
         }
     }
 
