@@ -1270,10 +1270,27 @@ class OrderController extends Controller
             } else if ($dataMethod->payment == "tripay") {
                 $tripay = app(TriPayController::class);
                 $tripayRequestAmount = $this->resolveGatewayRequestAmount($amount, $dataMethod);
-                // FIX #10: Gunakan email user yang sebenarnya, bukan email palsu
-                $customerEmail = Auth::check() && Auth::user()->email
+                // TriPay requires a valid customer email. Do not rely on app/mail fallback as customer identity.
+                $customerEmail = Auth::check() && filter_var(Auth::user()->email, FILTER_VALIDATE_EMAIL)
                     ? Auth::user()->email
-                    : ($request->email ?? config('mail.from.address', 'noreply@' . parse_url(config('app.url'), PHP_URL_HOST)));
+                    : trim((string) $request->email);
+
+                if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+                    if ($pointsReserved && Auth::check()) {
+                        app(\App\Services\PointService::class)->refundPoints(
+                            Auth::user(),
+                            $usedPoints,
+                            $order_id,
+                            $dataLayanan->layanan
+                        );
+                    }
+
+                    return $this->orderErrorResponse(
+                        'Email pembeli wajib diisi dengan format yang valid untuk metode pembayaran ini.',
+                        'CUSTOMER_EMAIL_REQUIRED'
+                    );
+                }
+
                 $res = $tripay->request($order_id, $tripayRequestAmount, $request->payment_method, $customerEmail, $request->nomor);
 
                 if ($res['success']) {
@@ -1800,7 +1817,7 @@ class OrderController extends Controller
         $pembelian->used_points = $usedPoints;
         $pembelian->used_point_amount = $usedPointAmount;
         $pembelian->traffic_source = $request->session()->get('traffic_source', 'Direct');
-        $pembelian->email_pembeli = Auth::check() ? Auth::user()->email : ($request->email_pembeli ?? null);
+        $pembelian->email_pembeli = Auth::check() ? Auth::user()->email : ($request->email ?? $request->email_pembeli ?? null);
         $pembelian->save();
 
         $pembayaran = new Pembayaran();

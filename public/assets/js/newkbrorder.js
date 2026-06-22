@@ -188,15 +188,53 @@ function scrollToElement(e) {
 }
 
 function showToast(e, a = "error") {
-    var o = document.getElementById("react-notif"),
-        t = document.createElement("div");
+    var o = document.getElementById("react-notif");
+    if (!o) {
+        console.warn("Toast container #react-notif tidak ditemukan:", e);
+        return;
+    }
+
+    var t = document.createElement("div");
     t.className = "toast", "success" === a && t.classList.add("success");
     var n = document.createElement("div");
-    n.className = "toast-icon", n.innerHTML = "success" === a ? '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" width="16" color="rgba(34, 197, 94, 0.8)"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" width="16" color="rgba(244, 63, 94, 0.8)"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>';
-    var i = document.createElement("div");
-    i.className = "toast-message", i.textContent = e, t.appendChild(n), t.appendChild(i), o.appendChild(t), setTimeout((function () {
+    n.className = "toast-icon", n.innerHTML = "success" === a ? '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true" width="22" height="22"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true" width="22" height="22"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path></svg>';
+    var r = document.createElement("div"),
+        l = document.createElement("div"),
+        i = document.createElement("div");
+    r.className = "toast-content", l.className = "toast-title", l.textContent = "success" === a ? "Berhasil" : "Periksa Pesanan", i.className = "toast-message", i.textContent = e || "Terjadi kesalahan", r.appendChild(l), r.appendChild(i), t.appendChild(n), t.appendChild(r), o.appendChild(t), setTimeout((function () {
         t.remove()
-    }), 3e3)
+    }), 4e3)
+}
+
+function getAjaxErrorMessage(xhr, fallback) {
+    fallback = fallback || "Terjadi kesalahan. Silakan coba lagi.";
+    if (!xhr) return fallback;
+
+    var response = xhr.responseJSON;
+    if (!response && xhr.responseText) {
+        try {
+            response = JSON.parse(xhr.responseText);
+        } catch (error) {
+            response = null;
+        }
+    }
+
+    if (response) {
+        if (response.message) return response.message;
+        if (response.data && "string" == typeof response.data) return response.data;
+        if (response.error && "string" == typeof response.error) return response.error;
+        if (response.errors) {
+            for (var field in response.errors) {
+                if (Object.prototype.hasOwnProperty.call(response.errors, field)) {
+                    var messages = response.errors[field];
+                    if (Array.isArray(messages) && messages.length) return messages[0];
+                    if ("string" == typeof messages) return messages;
+                }
+            }
+        }
+    }
+
+    return 422 === xhr.status ? "Pastikan anda sudah mengisi semua data yang diperlukan." : fallback;
 } ! function (e, a) {
     const o = _0x5018,
         t = _0x3285();
@@ -218,6 +256,20 @@ function getVoucherValue() {
         value = visibleInputs.length ? visibleInputs.first().val() : $('input[name="voucher"]').first().val();
 
     return value || "";
+}
+
+function getOrderEmailValue() {
+    var visibleValue = $('input[name="email"]:visible').filter(function () {
+        return $.trim($(this).val()) !== "";
+    }).first().val();
+
+    return $.trim(visibleValue || $('input[name="email"]').filter(function () {
+        return $.trim($(this).val()) !== "";
+    }).first().val() || "");
+}
+
+function isValidOrderEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($.trim(value || ""));
 }
 
 function setVoucherValue(value) {
@@ -402,15 +454,20 @@ $(".product-list").off("click").on("click", (function () {
         u = $("#qty").val(),
         m = $("#metode").val(),
         h = $("#nomor").val(),
+        y = getOrderEmailValue(),
         p = getVoucherValue(),
         g = getUsedPointValue(),
         k = $("#ktg_tipe").val();
+    if (!d) return showToast("Mohon pilih item terlebih dahulu"), void scrollToElement("section-nominal");
+    if (!m) return showToast("Mohon pilih metode pembayaran terlebih dahulu"), void scrollToElement("section-payment-channel");
     if ("joki" === k || "vilogml" === k) {
         if (!(o && t && n && i)) return void showToast("Silahkan lengkapi semua data Informasi Joki / ML Vilog")
     } else if ("jokigendong" === k) {
         if (!(l && c && n && i)) return void showToast("Silahkan lengkapi semua data Informasi Joki Gendong")
-    } else if (!e && !a) return void showToast("Mohon isi UID atau Zone");
-    d && m && h ? h ? $.ajax({
+    } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
+    if ("SALDO" !== m && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
+    if (!h) return void showToast("Silahkan lengkapi nomor WhatsApp");
+    $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",
         type: "POST",
@@ -421,6 +478,7 @@ $(".product-list").off("click").on("click", (function () {
             service: d,
             payment_method: m,
             nomor: h,
+            email: y,
             email_joki: o,
             password_joki: t,
             loginvia_joki: n,
@@ -462,6 +520,7 @@ $(".product-list").off("click").on("click", (function () {
                             service: d,
                             payment_method: m,
                             nomor: h,
+                            email: y,
                             voucher: p,
                             email_joki: o,
                             password_joki: t,
@@ -479,29 +538,20 @@ $(".product-list").off("click").on("click", (function () {
                             $(".load").addClass("show")
                         },
                         success: function (e) {
-                            $(".load").removeClass("show"), e.status ? (showToast("Berhasil membuat pesanan!", "success"), window.location = `/id/invoices/${e.order_id}`) : showToast(e.data || e.message || "Terjadi kesalahan", "error")
+                            $(".load").removeClass("show"), e.status ? (showToast("Berhasil membuat pesanan!", "success"), window.location = `/id/invoices/${e.order_id}`) : showToast(e.data || e.message || "Gagal membuat pesanan. Silakan coba lagi.", "error")
                         },
                         error: function (e) {
-                            $(".load").removeClass("show"), console.log(e)
+                            $(".load").removeClass("show"), showToast(getAjaxErrorMessage(e, "Gagal membuat pesanan. Silakan coba lagi."), "error")
                         }
                     })
                 }
-            })) : Swal.fire({
-                title: "Oops...",
-                text: f.data || "User ID tidak ditemukan.",
-                icon: "error"
-            })
+            })) : showToast(f.data || f.message || "User ID tidak ditemukan.", "error")
         },
         error: function (e) {
             $(".load").removeClass("show");
-            let msg = (e.responseJSON && e.responseJSON.message) ? e.responseJSON.message : (422 === e.status ? "Pastikan anda sudah mengisi semua data yang diperlukan." : "Terjadi kesalahan. Silakan coba lagi. Pastikan User ID Benar");
-            Swal.fire({
-                title: "Oops...",
-                text: msg,
-                icon: "error"
-            });
+            showToast(getAjaxErrorMessage(e, "Terjadi kesalahan. Silakan coba lagi. Pastikan User ID Benar"), "error");
         }
-    }) : showToast("Silahkan lengkapi nomor WhatsApp") : showToast("Silahkan lengkapi semua data Informasi Pesanan")
+    })
 }));
 
 (function () {
