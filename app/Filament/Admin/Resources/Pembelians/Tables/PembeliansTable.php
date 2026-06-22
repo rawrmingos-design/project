@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use Filament\Notifications\Notification;
 use pxlrbt\FilamentExcel\Columns\Column;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 
 class PembeliansTable
@@ -71,20 +72,11 @@ class PembeliansTable
                     ->limit(30)
                     ->description(function ($record) {
                         $source = $record->traffic_source ?? 'Original';
-                        $key = strtolower($source);
-                        $icon = match ($key) {
-                            'facebook' => 'FB',
-                            'instagram' => 'IG',
-                            'tiktok' => 'TT',
-                            'youtube' => 'YT',
-                            'google' => 'GG',
-                            'whatsapp' => 'WA',
-                            'direct' => 'DR',
-                            default => 'OT',
-                        };
+                        $label = self::trafficSourceLabel($source);
+                        $icon = self::trafficSourceIconSvg($source);
 
                         return new \Illuminate\Support\HtmlString(
-                            "<span class='inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200'>{$icon} {$source}</span>"
+                            "<span class='inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200'>{$icon}<span>{$label}</span></span>"
                         );
                     }),
 
@@ -565,67 +557,29 @@ class PembeliansTable
                     ->color('gray'),
             ])
 
+            ->headerActions([
+                ExportAction::make('export_sales_report')
+                    ->label('Export Sales Report')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->exports([
+                        ExcelExport::make('sales_report')
+                            ->askForFilename()
+                            ->askForWriterType()
+                            ->withFilename(fn() => 'laporan-sales-' . now()->format('Y-m-d'))
+                            ->withColumns(self::salesReportExportColumns()),
+                    ]),
+            ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->label('Export Data (Laporan Sales)')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->exports([
-                            ExcelExport::make()
+                            ExcelExport::make('sales_report')
                                 ->askForFilename()
                                 ->askForWriterType()
                                 ->withFilename(fn() => 'laporan-sales-' . now()->format('Y-m-d'))
-                                ->withColumns([
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('order_id')
-                                        ->heading('INVOICE')
-                                        ->getStateUsing(fn($record) => $record->order_id),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('created_at')
-                                        ->heading('TANGGAL')
-                                        ->getStateUsing(fn($record) => $record->created_at?->format('d/m/Y H:i')),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('status')
-                                        ->heading('STATUS')
-                                        ->getStateUsing(fn($record) => $record->status),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('user.no_wa')
-                                        ->heading('WHATSAPP')
-                                        ->getStateUsing(fn($record) => $record->user?->no_wa),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('user.email')
-                                        ->heading('EMAIL')
-                                        ->getStateUsing(fn($record) => $record->user?->email),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('layanan')
-                                        ->heading('PRODUK')
-                                        ->getStateUsing(fn($record) => $record->layanan),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('harga')
-                                        ->heading('HARGA JUAL')
-                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
-                                        ->getStateUsing(fn($record) => $record->harga),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('profit')
-                                        ->heading('PROFIT')
-                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
-                                        ->getStateUsing(fn($record) => $record->profit),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('traffic_source')
-                                        ->heading('AD SOURCE')
-                                        ->getStateUsing(fn($record) => $record->traffic_source),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('zone')
-                                        ->heading('ZONE / SERVER')
-                                        ->getStateUsing(fn($record) => $record->zone),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('nickname')
-                                        ->heading('GAME NICKNAME')
-                                        ->getStateUsing(fn($record) => $record->nickname),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('provider_order_id')
-                                        ->heading('TRX ID PROVIDER')
-                                        ->getStateUsing(fn($record) => $record->provider_order_id),
-                                ]),
+                                ->withColumns(self::salesReportExportColumns()),
                         ]),
                     BulkAction::make('bulk_process')
                         ->label('Process Selected')
@@ -673,6 +627,94 @@ class PembeliansTable
             ->paginated([10, 25, 50, 100]);
     }
 
+    private static function salesReportExportColumns(): array
+    {
+        return [
+            Column::make('display_order_id')
+                ->heading('INVOICE')
+                ->getStateUsing(fn($record) => $record->display_order_id ?: $record->order_id),
+
+            Column::make('created_at')
+                ->heading('TANGGAL')
+                ->getStateUsing(fn($record) => $record->created_at?->format('d/m/Y H:i')),
+
+            Column::make('status')
+                ->heading('STATUS PROVIDER')
+                ->getStateUsing(fn($record) => $record->status_display_label ?? $record->status),
+
+            Column::make('pembayaran.status')
+                ->heading('STATUS PEMBAYARAN')
+                ->getStateUsing(fn($record) => $record->pembayaran?->status),
+
+            Column::make('pembayaran.metode')
+                ->heading('METODE PEMBAYARAN')
+                ->getStateUsing(fn($record) => $record->pembayaran?->metode),
+
+            Column::make('username')
+                ->heading('USERNAME')
+                ->getStateUsing(fn($record) => $record->username),
+
+            Column::make('whatsapp')
+                ->heading('WHATSAPP')
+                ->getStateUsing(fn($record) => $record->pembayaran?->no_pembeli ?? $record->user?->no_wa),
+
+            Column::make('email')
+                ->heading('EMAIL')
+                ->getStateUsing(fn($record) => $record->email_pembeli ?? $record->user?->email),
+
+            Column::make('layanan')
+                ->heading('PRODUK')
+                ->getStateUsing(fn($record) => $record->layanan),
+
+            Column::make('tipe_transaksi')
+                ->heading('TIPE TRANSAKSI')
+                ->getStateUsing(fn($record) => $record->tipe_transaksi),
+
+            Column::make('user_id')
+                ->heading('GAME ID')
+                ->getStateUsing(fn($record) => $record->user_id),
+
+            Column::make('zone')
+                ->heading('ZONE')
+                ->getStateUsing(fn($record) => $record->zone),
+
+            Column::make('nickname')
+                ->heading('NICKNAME')
+                ->getStateUsing(fn($record) => $record->nickname),
+
+            Column::make('harga')
+                ->heading('HARGA JUAL')
+                ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                ->getStateUsing(fn($record) => $record->harga),
+
+            Column::make('profit')
+                ->heading('PROFIT')
+                ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                ->getStateUsing(fn($record) => $record->profit),
+
+            Column::make('used_points')
+                ->heading('USED POINTS')
+                ->getStateUsing(fn($record) => $record->used_points),
+
+            Column::make('used_point_amount')
+                ->heading('USED POINT AMOUNT')
+                ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                ->getStateUsing(fn($record) => $record->used_point_amount),
+
+            Column::make('traffic_source')
+                ->heading('TRAFFIC SOURCE')
+                ->getStateUsing(fn($record) => $record->traffic_source),
+
+            Column::make('provider_order_id')
+                ->heading('PROVIDER TRX ID')
+                ->getStateUsing(fn($record) => $record->provider_order_id),
+
+            Column::make('sn')
+                ->heading('SN/KETERANGAN')
+                ->getStateUsing(fn($record) => $record->keterangan_sn ?: $record->voucher),
+        ];
+    }
+
     private static function appendBoundedLog(?string $existingLog, string $entry, int $limit = 1000): string
     {
         $existingLog = trim((string) $existingLog);
@@ -687,5 +729,40 @@ class PembeliansTable
         }
 
         return mb_substr($combined, -$limit);
+    }
+
+    private static function trafficSourceLabel(?string $source): string
+    {
+        $source = trim((string) ($source ?: 'Original'));
+
+        if ($source === '') {
+            return 'Original';
+        }
+
+        return match (strtolower($source)) {
+            'facebook' => 'Facebook',
+            'instagram' => 'Instagram',
+            'tiktok' => 'TikTok',
+            'youtube' => 'YouTube',
+            'google' => 'Google',
+            'whatsapp' => 'WhatsApp',
+            'direct' => 'Direct',
+            'original' => 'Original',
+            default => e($source),
+        };
+    }
+
+    private static function trafficSourceIconSvg(?string $source): string
+    {
+        return match (strtolower(trim((string) $source))) {
+            'facebook' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.68.23 2.68.23v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.27h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07Z"/></svg>',
+            'instagram' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="ig-source-gradient" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".35" stop-color="#FA7E1E"/><stop offset=".65" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#ig-source-gradient)"/><path fill="#fff" d="M12 7.1a4.9 4.9 0 1 0 0 9.8 4.9 4.9 0 0 0 0-9.8Zm0 8.08a3.18 3.18 0 1 1 0-6.36 3.18 3.18 0 0 1 0 6.36Zm6.25-8.28a1.14 1.14 0 1 1-2.28 0 1.14 1.14 0 0 1 2.28 0Z"/><path fill="#fff" d="M12 3.6c2.28 0 2.55.01 3.45.05.83.04 1.28.18 1.58.3.4.15.68.34.98.64.3.3.49.58.64.98.12.3.26.75.3 1.58.04.9.05 1.17.05 3.45s-.01 2.55-.05 3.45c-.04.83-.18 1.28-.3 1.58-.15.4-.34.68-.64.98-.3.3-.58.49-.98.64-.3.12-.75.26-1.58.3-.9.04-1.17.05-3.45.05s-2.55-.01-3.45-.05c-.83-.04-1.28-.18-1.58-.3a2.64 2.64 0 0 1-.98-.64 2.64 2.64 0 0 1-.64-.98c-.12-.3-.26-.75-.3-1.58C5.01 13.15 5 12.88 5 10.6s.01-2.55.05-3.45c.04-.83.18-1.28.3-1.58.15-.4.34-.68.64-.98.3-.3.58-.49.98-.64.3-.12.75-.26 1.58-.3.9-.04 1.17-.05 3.45-.05Zm0-1.54c-2.32 0-2.61.01-3.52.05-.91.04-1.53.19-2.07.4-.56.22-1.04.51-1.51.98-.47.47-.76.95-.98 1.51-.21.54-.36 1.16-.4 2.07-.04.91-.05 1.2-.05 3.52s.01 2.61.05 3.52c.04.91.19 1.53.4 2.07.22.56.51 1.04.98 1.51.47.47.95.76 1.51.98.54.21 1.16.36 2.07.4.91.04 1.2.05 3.52.05s2.61-.01 3.52-.05c.91-.04 1.53-.19 2.07-.4.56-.22 1.04-.51 1.51-.98.47-.47.76-.95.98-1.51.21-.54.36-1.16.4-2.07.04-.91.05-1.2.05-3.52s-.01-2.61-.05-3.52c-.04-.91-.19-1.53-.4-2.07a4.18 4.18 0 0 0-.98-1.51 4.18 4.18 0 0 0-1.51-.98c-.54-.21-1.16-.36-2.07-.4-.91-.04-1.2-.05-3.52-.05Z"/></svg>',
+            'tiktok' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#111827" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.3 0 .6.05.88.14V9.4a6.34 6.34 0 0 0-.88-.06A6.33 6.33 0 0 0 5 20.14a6.34 6.34 0 0 0 10.86-4.43V8.78a8.21 8.21 0 0 0 4.8 1.54V6.88c-.36 0-.72-.06-1.07-.19Z"/></svg>',
+            'youtube' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.13C19.55 3.56 12 3.56 12 3.56s-7.55 0-9.4.5A3 3 0 0 0 .5 6.2 31.2 31.2 0 0 0 0 12a31.2 31.2 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.13c1.85.5 9.4.5 9.4.5s7.55 0 9.4-.5a3 3 0 0 0 2.1-2.13A31.2 31.2 0 0 0 24 12a31.2 31.2 0 0 0-.5-5.8Z"/><path fill="#fff" d="M9.75 15.57V8.43L16 12l-6.25 3.57Z"/></svg>',
+            'google' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.54 5.54 0 0 1-2.4 3.64v2.98h3.89c2.27-2.09 3.53-5.17 3.53-8.86Z"/><path fill="#34A853" d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.89-2.98c-1.08.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.96H1.27v3.07A12 12 0 0 0 12 24Z"/><path fill="#FBBC05" d="M5.28 14.31a7.2 7.2 0 0 1 0-4.62V6.62H1.27a12 12 0 0 0 0 10.76l4.01-3.07Z"/><path fill="#EA4335" d="M12 4.73c1.76 0 3.35.61 4.6 1.8l3.44-3.44A11.55 11.55 0 0 0 12 0 12 12 0 0 0 1.27 6.62l4.01 3.07C6.23 6.84 8.88 4.73 12 4.73Z"/></svg>',
+            'whatsapp' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#25D366" d="M20.52 3.48A11.79 11.79 0 0 0 12.1 0C5.55 0 .23 5.32.23 11.86c0 2.09.55 4.13 1.58 5.93L.13 24l6.36-1.67a11.88 11.88 0 0 0 5.61 1.43h.01c6.54 0 11.86-5.32 11.86-11.86 0-3.17-1.23-6.15-3.45-8.42Z"/><path fill="#fff" d="M12.1 21.75h-.01a9.84 9.84 0 0 1-5.02-1.38l-.36-.22-3.77.99 1-3.67-.24-.38a9.82 9.82 0 0 1-1.51-5.23c0-5.45 4.44-9.89 9.91-9.89 2.65 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7.02c0 5.46-4.44 9.86-9.9 9.86Zm5.43-7.39c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35Z"/></svg>',
+            'direct' => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#64748B" d="M3.9 12a5 5 0 0 1 5-5h4v2h-4a3 3 0 1 0 0 6h4v2h-4a5 5 0 0 1-5-5Zm6.1 1h4v-2h-4v2Zm1-4h4a3 3 0 1 1 0 6h-4v2h4a5 5 0 1 0 0-10h-4v2Z"/></svg>',
+            default => '<svg style="width:12px;height:12px;display:inline-block;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#64748B" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.93 6h-2.95a15.7 15.7 0 0 0-1.38-3.01A8.04 8.04 0 0 1 18.93 8ZM12 4.04c.83 1.2 1.48 2.54 1.9 3.96h-3.8A13.7 13.7 0 0 1 12 4.04ZM4.26 14a8.4 8.4 0 0 1 0-4h3.33a16.8 16.8 0 0 0 0 4H4.26Zm.81 2h2.95c.34 1.07.8 2.08 1.38 3.01A8.04 8.04 0 0 1 5.07 16Zm2.95-8H5.07A8.04 8.04 0 0 1 9.4 4.99 15.7 15.7 0 0 0 8.02 8ZM12 19.96A13.7 13.7 0 0 1 10.1 16h3.8a13.7 13.7 0 0 1-1.9 3.96ZM14.33 14H9.67a14.7 14.7 0 0 1 0-4h4.66a14.7 14.7 0 0 1 0 4Zm.27 5.01A15.7 15.7 0 0 0 15.98 16h2.95a8.04 8.04 0 0 1-4.33 3.01ZM16.41 14a16.8 16.8 0 0 0 0-4h3.33a8.4 8.4 0 0 1 0 4h-3.33Z"/></svg>',
+        };
     }
 }

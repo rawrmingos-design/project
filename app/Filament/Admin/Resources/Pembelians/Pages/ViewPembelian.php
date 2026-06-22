@@ -220,22 +220,20 @@ class ViewPembelian extends ViewRecord
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->visible(fn (): bool => $this->record->isResetEligible())
-                ->disabled(fn (): bool => count($this->providerSelectOptions) === 0)
-                ->tooltip(fn (): ?string => count($this->providerSelectOptions) === 0
-                    ? 'Tambahkan provider path cadangan di Produk Management terlebih dahulu.'
-                    : null)
                 ->requiresConfirmation()
                 ->modalHeading('Reset Invoice')
                 ->modalDescription(fn (): string => count($this->providerSelectOptions) === 0
-                    ? 'Belum ada provider path cadangan yang valid. Tambahkan provider path cadangan di Produk Management, lalu kembali ke transaksi ini.'
-                    : 'Create the next reset attempt while keeping the canonical order ID stable.')
+                    ? 'Tidak ada provider cadangan aktif. Reset akan membuat attempt baru memakai provider aktif saat ini.'
+                    : 'Create the next reset attempt. You may retry the current provider or switch to a validated backup provider.')
                 ->form([
                     Placeholder::make('current_provider')
                         ->label('Current Provider')
                         ->content(fn (): string => $this->getCurrentProviderLabel()),
                     Placeholder::make('target_provider_summary')
                         ->label('Target Provider')
-                        ->content('Choose one validated provider candidate below.'),
+                        ->content(fn (): string => count($this->providerSelectOptions) === 0
+                            ? 'Retry current provider: ' . $this->getCurrentProviderLabel()
+                            : 'Leave provider empty to retry current provider, or choose a validated backup provider below.'),
                     Placeholder::make('next_invoice_reference')
                         ->label('Next Display Invoice')
                         ->content(fn (): string => $this->record->nextDisplayInvoiceId()),
@@ -244,17 +242,16 @@ class ViewPembelian extends ViewRecord
                         ->content(fn (): string => PembelianStatus::label($this->record->status)),
                     Placeholder::make('audit_impact')
                         ->label('Audit Impact')
-                        ->content('A reset records the new provider attempt, increments the display invoice suffix, and stores the optional admin reason for audit history.'),
+                        ->content('A reset records a new provider attempt, increments the display invoice suffix, and stores the optional admin reason for audit history.'),
                     Select::make('candidate_provider_id')
-                        ->label('New Provider')
+                        ->label('Provider Route')
                         ->options(fn (): array => $this->providerSelectOptions)
-                        ->required()
                         ->native(false)
                         ->searchable()
-                        ->disabled(fn (): bool => count($this->providerSelectOptions) === 0)
+                        ->placeholder('Retry current provider')
                         ->helperText(fn (): string => count($this->providerSelectOptions) === 0
-                            ? 'Belum ada provider path cadangan yang valid untuk layanan ini.'
-                            : 'Only validated backup provider paths for this layanan are listed.'),
+                            ? 'Tidak ada provider cadangan aktif. Kosongkan field ini untuk retry provider aktif saat ini.'
+                            : 'Optional. Kosongkan untuk retry provider aktif saat ini, atau pilih provider cadangan yang tervalidasi.'),
                     Textarea::make('reason')
                         ->label('Reason')
                         ->rows(3)
@@ -263,16 +260,20 @@ class ViewPembelian extends ViewRecord
                 ])
                 ->action(function (array $data, ResetDomainService $resetDomainService): void {
                     try {
+                        $candidateProviderId = filled($data['candidate_provider_id'] ?? null)
+                            ? (int) $data['candidate_provider_id']
+                            : null;
+
                         $this->record = $resetDomainService->executeReset(
                             $this->record,
-                            (int) $data['candidate_provider_id'],
+                            $candidateProviderId,
                             Auth::id(),
                             $data['reason'] ?? null,
                         );
 
                         Notification::make()
                             ->title('Invoice reset queued successfully')
-                            ->body('Display invoice aktif berubah ke ' . $this->record->display_order_id . ' dan siap dikirim ke provider baru.')
+                            ->body('Display invoice aktif berubah ke ' . $this->record->display_order_id . ' dan siap dikirim ke provider ' . $this->getCurrentProviderLabel() . '.')
                             ->success()
                             ->send();
                     } catch (DomainException $exception) {

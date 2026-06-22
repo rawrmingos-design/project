@@ -22,7 +22,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Filament\Notifications\Notification;
 use Illuminate\Support\HtmlString;
+use pxlrbt\FilamentExcel\Columns\Column;
 use pxlrbt\FilamentExcel\Exports\ExcelExport;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 
 class ResellerOrdersTable
@@ -336,51 +338,29 @@ class ResellerOrdersTable
                     ->icon('heroicon-m-ellipsis-vertical')
                     ->color('gray'),
             ])
+            ->headerActions([
+                ExportAction::make('export_reseller_sales_report')
+                    ->label('Export Reseller Sales')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->exports([
+                        ExcelExport::make('reseller_sales_report')
+                            ->askForFilename()
+                            ->askForWriterType()
+                            ->withFilename(fn() => 'reseller-orders-' . now()->format('Y-m-d'))
+                            ->withColumns(self::salesReportExportColumns()),
+                    ]),
+            ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make()
                         ->label('Export Data (Reseller Orders)')
                         ->icon('heroicon-o-arrow-down-tray')
                         ->exports([
-                            ExcelExport::make()
+                            ExcelExport::make('reseller_sales_report')
                                 ->askForFilename()
                                 ->askForWriterType()
                                 ->withFilename(fn() => 'reseller-orders-' . now()->format('Y-m-d'))
-                                ->withColumns([
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('order_id')
-                                        ->heading('INVOICE'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('resellerIntegration.user.name')
-                                        ->heading('RESELLER'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('is_sandbox')
-                                        ->heading('MODE')
-                                        ->formatStateUsing(fn($state) => $state ? 'Sandbox' : 'Live'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('created_at')
-                                        ->heading('TANGGAL')
-                                        ->formatStateUsing(fn($state) => $state?->format('d/m/Y H:i')),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('status')
-                                        ->heading('STATUS'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('layanan')
-                                        ->heading('PRODUK'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('user_id')
-                                        ->heading('GAME ACCOUNT'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('zone')
-                                        ->heading('ZONE'),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('harga')
-                                        ->heading('HARGA')
-                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.')),
-
-                                    \pxlrbt\FilamentExcel\Columns\Column::make('profit')
-                                        ->heading('PROFIT')
-                                        ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.')),
-                                ]),
+                                ->withColumns(self::salesReportExportColumns()),
                         ]),
                 ]),
             ])
@@ -390,6 +370,73 @@ class ResellerOrdersTable
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->paginated([10, 25, 50, 100]);
+    }
+
+    private static function salesReportExportColumns(): array
+    {
+        return [
+            Column::make('display_order_id')
+                ->heading('INVOICE')
+                ->getStateUsing(fn($record) => $record->display_order_id ?: $record->order_id),
+
+            Column::make('created_at')
+                ->heading('TANGGAL')
+                ->getStateUsing(fn($record) => $record->created_at?->format('d/m/Y H:i')),
+
+            Column::make('resellerIntegration.user.name')
+                ->heading('RESELLER NAME')
+                ->getStateUsing(fn($record) => $record->resellerIntegration?->user?->name),
+
+            Column::make('resellerIntegration.user.username')
+                ->heading('RESELLER USERNAME')
+                ->getStateUsing(fn($record) => $record->resellerIntegration?->user?->username),
+
+            Column::make('resellerIntegration.api_key_prefix')
+                ->heading('API KEY PREFIX')
+                ->getStateUsing(fn($record) => $record->resellerIntegration?->api_key_prefix),
+
+            Column::make('is_sandbox')
+                ->heading('MODE')
+                ->getStateUsing(fn($record) => $record->isSandboxOrder() ? 'Sandbox' : 'Live'),
+
+            Column::make('status')
+                ->heading('STATUS PROVIDER')
+                ->getStateUsing(fn($record) => $record->status_display_label ?? $record->status),
+
+            Column::make('layanan')
+                ->heading('PRODUK')
+                ->getStateUsing(fn($record) => $record->layanan),
+
+            Column::make('user_id')
+                ->heading('GAME ID')
+                ->getStateUsing(fn($record) => $record->user_id),
+
+            Column::make('zone')
+                ->heading('ZONE')
+                ->getStateUsing(fn($record) => $record->zone),
+
+            Column::make('nickname')
+                ->heading('NICKNAME')
+                ->getStateUsing(fn($record) => $record->nickname),
+
+            Column::make('harga')
+                ->heading('HARGA')
+                ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                ->getStateUsing(fn($record) => $record->harga),
+
+            Column::make('profit')
+                ->heading('PROFIT')
+                ->formatStateUsing(fn($state) => 'Rp ' . number_format((float) $state, 0, ',', '.'))
+                ->getStateUsing(fn($record) => $record->profit),
+
+            Column::make('provider_order_id')
+                ->heading('PROVIDER TRX ID')
+                ->getStateUsing(fn($record) => $record->provider_order_id),
+
+            Column::make('sn')
+                ->heading('SN/KETERANGAN')
+                ->getStateUsing(fn($record) => $record->keterangan_sn ?: $record->voucher),
+        ];
     }
 
     private static function appendBoundedLog(?string $existingLog, string $entry, int $limit = 1000): string
