@@ -1,6 +1,26 @@
 @extends('template.template')
 
 @section('custom_style')
+    @php
+        $broadcastConfig = config('broadcasting.connections.reverb');
+        $reverbKey = $broadcastConfig['key'] ?? null;
+        $reverbHost = $broadcastConfig['options']['host'] ?? null;
+        $reverbPort = $broadcastConfig['options']['port'] ?? 8080;
+        $reverbScheme = $broadcastConfig['options']['scheme'] ?? 'http';
+    @endphp
+    <script>
+        window.Laravel = Object.assign({}, window.Laravel || {}, {
+            reverb: {
+                key: @json($reverbKey),
+                host: @json($reverbHost),
+                port: @json((int) $reverbPort),
+                scheme: @json($reverbScheme),
+            },
+        });
+    </script>
+    @unless(app()->runningUnitTests())
+        @vite(['resources/js/realtime.js'])
+    @endunless
     <style>
         .fa-star,
         .fa-star-o {
@@ -458,6 +478,213 @@
             font-size: 1.02rem;
             line-height: 1.7;
             color: rgba(255, 255, 255, .9);
+        }
+
+        .invoice-success-rating-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            background:
+                radial-gradient(circle at 20% 10%, rgba(34, 197, 94, .2), transparent 32%),
+                radial-gradient(circle at 80% 90%, rgba(14, 165, 233, .18), transparent 30%),
+                rgba(15, 23, 42, .58);
+            backdrop-filter: blur(18px) saturate(120%);
+            -webkit-backdrop-filter: blur(18px) saturate(120%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity .35s ease, visibility .35s ease;
+        }
+
+        .invoice-success-rating-modal.is-visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .invoice-success-rating {
+            width: min(100%, 31rem);
+            padding: 1.25rem;
+            border-radius: 1.25rem;
+            background: linear-gradient(145deg, rgba(255, 255, 255, .94), rgba(240, 253, 250, .88));
+            border: 1px solid rgba(255, 255, 255, .72);
+            box-shadow: 0 28px 80px rgba(2, 6, 23, .34);
+            color: #0f172a;
+            text-align: left;
+            transform: translateY(18px) scale(.96);
+            transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+        }
+
+        .invoice-success-rating-modal.is-visible .invoice-success-rating {
+            transform: translateY(0) scale(1);
+        }
+
+        .invoice-success-rating__eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-bottom: .65rem;
+            padding: .35rem .6rem;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, .12);
+            color: #047857;
+            font-size: .72rem;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .invoice-success-rating__title {
+            margin: 0;
+            font-size: 1.35rem;
+            line-height: 1.18;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -.03em;
+        }
+
+        .invoice-success-rating__hint {
+            margin: .45rem 0 1rem;
+            font-size: .88rem;
+            line-height: 1.65;
+            color: #475569;
+        }
+
+        .invoice-success-rating__stars {
+            display: inline-flex;
+            gap: .32rem;
+            color: #f59e0b;
+            font-size: 1.55rem;
+            line-height: 1;
+        }
+
+        .invoice-success-rating__stars .fa {
+            cursor: pointer;
+            filter: drop-shadow(0 8px 16px rgba(245, 158, 11, .22));
+            transition: transform .18s ease, color .18s ease;
+        }
+
+        .invoice-success-rating__stars .fa:hover {
+            transform: translateY(-1px) scale(1.08);
+        }
+
+        .invoice-success-rating textarea {
+            width: 100%;
+            min-height: 6rem;
+            margin-top: 1rem;
+            border: 1px solid rgba(15, 23, 42, .1);
+            border-radius: 1rem;
+            padding: .85rem .95rem;
+            color: #0f172a;
+            background: rgba(255, 255, 255, .9);
+            font-size: .9rem;
+            line-height: 1.6;
+            outline: none;
+            box-shadow: inset 0 1px 0 rgba(15, 23, 42, .03);
+        }
+
+        .invoice-success-rating textarea:focus {
+            border-color: rgba(16, 185, 129, .5);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
+        }
+
+        .invoice-success-rating__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .7rem;
+            margin-top: 1rem;
+        }
+
+        .invoice-success-rating__submit,
+        .invoice-success-rating__close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            border-radius: 999px;
+            padding: .72rem 1.05rem;
+            font-size: .84rem;
+            font-weight: 900;
+            transition: transform .2s ease, background .2s ease, opacity .2s ease;
+        }
+
+        .invoice-success-rating__submit {
+            background: linear-gradient(135deg, #059669, #10b981);
+            color: #fff;
+            box-shadow: 0 14px 30px rgba(16, 185, 129, .28);
+        }
+
+        .invoice-success-rating__close {
+            background: rgba(15, 23, 42, .06);
+            color: #334155;
+            border: 1px solid rgba(15, 23, 42, .08);
+        }
+
+        .invoice-success-rating__submit:hover,
+        .invoice-success-rating__close:hover {
+            transform: translateY(-1px);
+        }
+
+        .invoice-rating-alert-popup {
+            border-radius: 1.35rem !important;
+            background:
+                radial-gradient(circle at 18% 12%, rgba(16, 185, 129, .18), transparent 34%),
+                linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(30, 58, 138, .9)) !important;
+            border: 1px solid rgba(148, 163, 184, .22) !important;
+            box-shadow: 0 28px 80px rgba(2, 6, 23, .45) !important;
+            color: #e2e8f0 !important;
+            backdrop-filter: blur(18px) saturate(125%);
+            -webkit-backdrop-filter: blur(18px) saturate(125%);
+        }
+
+        .invoice-rating-alert-title {
+            color: #f8fafc !important;
+            font-weight: 900 !important;
+            letter-spacing: -.03em !important;
+        }
+
+        .invoice-rating-alert-html,
+        .invoice-rating-alert-popup .swal2-html-container {
+            color: #cbd5e1 !important;
+            font-size: .94rem !important;
+            line-height: 1.65 !important;
+        }
+
+        .invoice-rating-alert-confirm {
+            border: 0 !important;
+            border-radius: 999px !important;
+            padding: .7rem 1.25rem !important;
+            background: linear-gradient(135deg, #059669, #10b981) !important;
+            color: #fff !important;
+            font-weight: 900 !important;
+            box-shadow: 0 14px 32px rgba(16, 185, 129, .32) !important;
+        }
+
+        .invoice-rating-alert-confirm:focus {
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, .22), 0 14px 32px rgba(16, 185, 129, .32) !important;
+        }
+
+        .invoice-rating-alert-popup .swal2-success-ring {
+            border-color: rgba(16, 185, 129, .34) !important;
+        }
+
+        .invoice-rating-alert-popup .swal2-success-line-tip,
+        .invoice-rating-alert-popup .swal2-success-line-long {
+            background-color: #10b981 !important;
+        }
+
+        .invoice-rating-alert-popup .swal2-icon.swal2-error {
+            border-color: #fb7185 !important;
+            color: #fb7185 !important;
+        }
+
+        .invoice-rating-alert-popup .swal2-icon.swal2-info {
+            border-color: #38bdf8 !important;
+            color: #38bdf8 !important;
         }
 
         .invoice-page-shell {
@@ -1791,6 +2018,11 @@
             $toastTitle = 'Pembayaran diterima';
             $toastMessage = 'Pembayaran berhasil diterima. Sistem sedang memproses pesanan kamu.';
         }
+
+        $hasExistingRating = DB::table('ratings')->where('rating_id', $data->id_pembelian)->exists();
+        $shouldShowSuccessRatingModal = ! $hasExistingRating
+            && in_array($paymentStatus, ['paid', 'lunas', 'success'], true)
+            && in_array($orderStatus, ['sukses', 'success'], true);
     @endphp
 
     <div id="invoiceEntryToast" class="invoice-toast print:hidden" data-tone="{{ $toastTone }}">
@@ -1814,7 +2046,7 @@
             <div class="invoice-toast__body">{{ $toastMessage }}</div>
         </span>
     </div>
-    <div id="invoiceIntroOverlay" class="invoice-intro-overlay is-visible print:hidden" data-state="{{ $introState }}" data-duration="{{ $introDuration }}">
+    <div id="invoiceIntroOverlay" class="invoice-intro-overlay is-visible print:hidden" data-state="{{ $introState }}" data-duration="{{ $introDuration }}" data-rating-modal="{{ $shouldShowSuccessRatingModal ? 'true' : 'false' }}">
         <div class="invoice-intro-card invoice-intro-card--glass">
             @if ($introUsesLottie)
                 <div class="invoice-intro-lottie-shell" aria-hidden="true">
@@ -1870,6 +2102,31 @@
             <p class="invoice-intro-subtitle">{{ $introSubtitle }}</p>
         </div>
     </div>
+
+    @if ($shouldShowSuccessRatingModal)
+        <div id="invoiceSuccessRatingModal" class="invoice-success-rating-modal print:hidden" aria-hidden="true">
+            <form id="invoiceSuccessRatingForm" class="invoice-success-rating" action="{{ route('rating.pembelian', ['order' => $data->id_pembelian]) }}" method="POST">
+                @csrf
+                <span class="invoice-success-rating__eyebrow">Transaksi Berhasil</span>
+                <h2 class="invoice-success-rating__title">Gimana pengalaman topup kamu?</h2>
+                <p class="invoice-success-rating__hint">Rating ini opsional. Kalau ingin mengirim ulasan, pilih bintang dan isi komentar terlebih dahulu.</p>
+                <div class="invoice-success-rating__stars star-rating" aria-label="Rating transaksi">
+                    <span class="fa fa-star-o" data-rating="1"></span>
+                    <span class="fa fa-star-o" data-rating="2"></span>
+                    <span class="fa fa-star-o" data-rating="3"></span>
+                    <span class="fa fa-star-o" data-rating="4"></span>
+                    <span class="fa fa-star-o" data-rating="5"></span>
+                    <input type="hidden" name="bintang" class="rating-value" value="0" />
+                </div>
+                <input type="hidden" name="kategori_nama" value="{{ $namas }}">
+                <textarea id="invoiceSuccessRatingComment" name="comment" required placeholder="Tulis review kamu di sini ..."></textarea>
+                <div class="invoice-success-rating__actions">
+                    <button id="invoiceSuccessRatingSubmit" class="invoice-success-rating__submit" type="submit">Kirim Ulasan</button>
+                    <button id="invoiceSuccessRatingClose" class="invoice-success-rating__close" type="button">Nanti saja</button>
+                </div>
+            </form>
+        </div>
+    @endif
 
     <div
         id="invoicePageShell"
@@ -2240,42 +2497,47 @@
                                     $data->status_pembelian == 'Success' ||
                                     $data->status_pembelian == 'Processing' ||
                                     $data->status_pembelian == 'Proses')
-                                <div class="pt-8 print:hidden">
-                                    <form id="myForm"
-                                        action="{{ route('rating.pembelian', ['order' => $data->id_pembelian]) }}"
-                                        method="POST">
-                                        @csrf
-                                        <div class="font-semibold">Tinggalkan ulasan untuk transaksi ini.</div>
-                                        <div class="flex items-center star-rating">
-                                            <span class="fa fa-star-o" data-rating="1"></span>
-                                            <span class="fa fa-star-o" data-rating="2"></span>
-                                            <span class="fa fa-star-o" data-rating="3"></span>
-                                            <span class="fa fa-star-o" data-rating="4"></span>
-                                            <span class="fa fa-star-o" data-rating="5"></span>
-                                            <input type="hidden" name="bintang" class="rating-value" value="0" />
+                                <div class="pt-8 print:hidden" id="invoiceInlineRatingBlock">
+                                    @if ($hasExistingRating)
+                                        <div class="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+                                            Review untuk transaksi ini sudah pernah dikirim. Terima kasih!
                                         </div>
-                                        <input type="hidden" name="kategori_nama" value="{{ $namas }}">
-                                        <div>
-                                            <label for="pesanTextArea"
-                                                class="flex items-center justify-between text-sm font-medium leading-6 text-white">
-                                                <div>Tambahkan ulasan Kamu</div>
-                                            </label>
-                                            <div class="my-2 flex flex-wrap gap-1">
-                                                <!-- Tambahkan elemen di sini jika diperlukan -->
+                                    @else
+                                        <form id="myForm"
+                                            action="{{ route('rating.pembelian', ['order' => $data->id_pembelian]) }}"
+                                            method="POST">
+                                            @csrf
+                                            <div class="font-semibold">Tinggalkan ulasan untuk transaksi ini.</div>
+                                            <div class="flex items-center star-rating">
+                                                <span class="fa fa-star-o" data-rating="1"></span>
+                                                <span class="fa fa-star-o" data-rating="2"></span>
+                                                <span class="fa fa-star-o" data-rating="3"></span>
+                                                <span class="fa fa-star-o" data-rating="4"></span>
+                                                <span class="fa fa-star-o" data-rating="5"></span>
+                                                <input type="hidden" name="bintang" class="rating-value" value="0" />
                                             </div>
-                                            <div class="mt-2">
-                                                <textarea rows="4" id="pesanTextArea" placeholder="Tulis review kamu disini ..."
-                                                    class="block w-full rounded-md border-0 text-black py-1.5 text-sm leading-6 shadow-sm  focus:ring-2 focus:ring-inset focus:ring-primary-500"
-                                                    name="comment"></textarea>
+                                            <input type="hidden" name="kategori_nama" value="{{ $namas }}">
+                                            <div>
+                                                <label for="pesanTextArea"
+                                                    class="flex items-center justify-between text-sm font-medium leading-6 text-white">
+                                                    <div>Tambahkan ulasan Kamu</div>
+                                                </label>
+                                                <div class="my-2 flex flex-wrap gap-1">
+                                                    <!-- Tambahkan elemen di sini jika diperlukan -->
+                                                </div>
+                                                <div class="mt-2">
+                                                    <textarea rows="4" id="pesanTextArea" placeholder="Tulis review kamu disini ..."
+                                                        class="block w-full rounded-md border-0 text-black py-1.5 text-sm leading-6 shadow-sm  focus:ring-2 focus:ring-inset focus:ring-primary-500"
+                                                        name="comment"></textarea>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div class="flex-shrink-0 mt-2">
-                                            <button id="melpa"
-                                                class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-text-color-foreground transition-colors duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75"
-                                                type="submit">Kirim</button>
-                                        </div>
-                                    </form>
-
+                                            <div class="flex-shrink-0 mt-2">
+                                                <button id="melpa"
+                                                    class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-text-color-foreground transition-colors duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75"
+                                                    type="submit">Kirim</button>
+                                            </div>
+                                        </form>
+                                    @endif
                                 </div>
                             @endif
                         </div>
@@ -2484,6 +2746,30 @@
                 }
             }
 
+            function showSuccessRatingModal() {
+                const ratingModal = document.getElementById('invoiceSuccessRatingModal');
+
+                if (!ratingModal) {
+                    return;
+                }
+
+                ratingModal.classList.add('is-visible');
+                ratingModal.setAttribute('aria-hidden', 'false');
+            }
+
+            function hideSuccessRatingModal() {
+                const ratingModal = document.getElementById('invoiceSuccessRatingModal');
+
+                if (!ratingModal) {
+                    return;
+                }
+
+                ratingModal.classList.remove('is-visible');
+                ratingModal.setAttribute('aria-hidden', 'true');
+            }
+
+            window.hideInvoiceSuccessRatingModal = hideSuccessRatingModal;
+
             function showPageShell() {
                 const pageShell = document.getElementById('invoicePageShell');
 
@@ -2522,6 +2808,7 @@
                     window.setTimeout(() => {
                         introOverlay.style.display = 'none';
                         showPageShell();
+                        showSuccessRatingModal();
                     }, INTRO_HIDE_DURATION_MS);
                     return;
                 }
@@ -2810,9 +3097,11 @@
         $(document).ready(function() {
             var $star_rating = $('.star-rating .fa');
 
-            var SetRatingStar = function() {
-                return $star_rating.each(function() {
-                    if (parseInt($star_rating.siblings('input.rating-value').val()) >= parseInt($(this)
+            var SetRatingStar = function($ratingGroup) {
+                const $stars = $ratingGroup ? $ratingGroup.find('.fa') : $star_rating;
+                return $stars.each(function() {
+                    const $group = $(this).closest('.star-rating');
+                    if (parseInt($group.find('input.rating-value').val()) >= parseInt($(this)
                             .data('rating'))) {
                         $(this).removeClass('fa-star-o').addClass('fa-star');
                     } else {
@@ -2822,13 +3111,15 @@
             };
 
             $star_rating.on('click', function() {
-                $star_rating.siblings('input.rating-value').val($(this).data('rating'));
-                SetRatingStar();
+                const $ratingGroup = $(this).closest('.star-rating');
+                $ratingGroup.find('input.rating-value').val($(this).data('rating'));
+                SetRatingStar($ratingGroup);
             });
 
             const myForm = document.getElementById('myForm');
             const buttonKirim = document.getElementById('melpa');
             const pesanTextArea = document.getElementById('pesanTextArea');
+            const successRatingForm = document.getElementById('invoiceSuccessRatingForm');
 
             if (pesanTextArea) {
                 pesanTextArea.value = "Proses topup nya cepat dan harga nya murah banget!";
@@ -2846,40 +3137,138 @@
                 });
             }
 
-            function handleSubmit(e) {
-                e.preventDefault();
-                if (!myForm || !buttonKirim) {
+            function markRatingSubmitted() {
+                document.querySelectorAll('#myForm, #invoiceSuccessRatingForm').forEach(function(form) {
+                    form.querySelectorAll('button, textarea, input').forEach(function(field) {
+                        field.disabled = true;
+                    });
+                });
+
+                const inlineBlock = document.getElementById('invoiceInlineRatingBlock');
+                if (inlineBlock) {
+                    inlineBlock.innerHTML = '<div class="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">Review untuk transaksi ini sudah terkirim. Terima kasih!</div>';
+                }
+            }
+
+            function submitRatingForm(form) {
+                if (!form) {
                     return;
                 }
-                const formData = new FormData(myForm);
-                fetch(myForm.action, {
+
+                const submitButton = form.querySelector('button[type="submit"]');
+                const originalButtonText = submitButton ? submitButton.textContent : '';
+                const formData = new FormData(form);
+
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Mengirim...';
+                }
+
+                fetch(form.action, {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
                 }).then(function(response) {
-                    if (response.ok) {
+                    return response.json().catch(function() {
+                        return { success: false, message: 'Gagal menyimpan testimoni' };
+                    }).then(function(payload) {
+                        return { ok: response.ok, payload: payload };
+                    });
+                }).then(function(result) {
+                    if (result.ok && result.payload.success) {
+                        markRatingSubmitted();
+
+                        if (typeof window.hideInvoiceSuccessRatingModal === 'function') {
+                            window.hideInvoiceSuccessRatingModal();
+                        }
+
                         Swal.fire({
                             icon: 'success',
-                            text: 'Terima kasih telah memberikan testimoni!',
-                        }).then(function() {
-                            buttonKirim.removeEventListener('click', handleSubmit);
-                            buttonKirim.disabled = true;
+                            title: 'Review terkirim',
+                            text: result.payload.message || 'Terima kasih, ulasan kamu sudah kami simpan.',
+                            confirmButtonText: 'Selesai',
+                            buttonsStyling: false,
+                            customClass: {
+                                popup: 'invoice-rating-alert-popup',
+                                title: 'invoice-rating-alert-title',
+                                htmlContainer: 'invoice-rating-alert-html',
+                                confirmButton: 'invoice-rating-alert-confirm'
+                            }
                         });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            text: 'Gagal menyimpan testimoni',
-                        });
+                        return;
                     }
-                }).catch(function(error) {
+
+                    if (result.payload.already_reviewed) {
+                        markRatingSubmitted();
+
+                        if (typeof window.hideInvoiceSuccessRatingModal === 'function') {
+                            window.hideInvoiceSuccessRatingModal();
+                        }
+                    }
+
+                    Swal.fire({
+                        icon: result.payload.already_reviewed ? 'info' : 'error',
+                        title: result.payload.already_reviewed ? 'Review sudah ada' : 'Review gagal dikirim',
+                        text: result.payload.message || 'Gagal menyimpan testimoni',
+                        confirmButtonText: 'Mengerti',
+                        buttonsStyling: false,
+                        customClass: {
+                            popup: 'invoice-rating-alert-popup',
+                            title: 'invoice-rating-alert-title',
+                            htmlContainer: 'invoice-rating-alert-html',
+                            confirmButton: 'invoice-rating-alert-confirm'
+                        }
+                    });
+
+                    if (submitButton && !result.payload.already_reviewed) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalButtonText;
+                    }
+                }).catch(function() {
                     Swal.fire({
                         icon: 'error',
-                        text: 'Gagal menyimpan testimoni',
+                        title: 'Koneksi bermasalah',
+                        text: 'Gagal menyimpan testimoni. Coba lagi sebentar ya.',
+                        confirmButtonText: 'Mengerti',
+                        buttonsStyling: false,
+                        customClass: {
+                            popup: 'invoice-rating-alert-popup',
+                            title: 'invoice-rating-alert-title',
+                            htmlContainer: 'invoice-rating-alert-html',
+                            confirmButton: 'invoice-rating-alert-confirm'
+                        }
                     });
+
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = originalButtonText;
+                    }
                 });
             }
 
-            if (myForm && buttonKirim) {
-                buttonKirim.addEventListener('click', handleSubmit);
+            function handleSubmit(e) {
+                e.preventDefault();
+                submitRatingForm(e.currentTarget);
+            }
+
+            const successRatingClose = document.getElementById('invoiceSuccessRatingClose');
+            if (successRatingClose) {
+                successRatingClose.addEventListener('click', function() {
+                    if (typeof window.hideInvoiceSuccessRatingModal === 'function') {
+                        window.hideInvoiceSuccessRatingModal();
+                    }
+                });
+            }
+
+            if (myForm) {
+                myForm.addEventListener('submit', handleSubmit);
+            }
+
+            if (successRatingForm) {
+                successRatingForm.addEventListener('submit', handleSubmit);
             }
         });
     </script>
@@ -2914,13 +3303,110 @@
     <script>
         (() => {
             const orderId = @json($data->id_pembelian);
+            const realtimeChannel = @json($invoiceRealtimeChannel ?? null);
             const url = @json(route('ajax.status', ':order')).replace(':order', orderId);
+            const paymentType = @json($metode_name ?? 'Tidak Diketahui');
+            const invoiceValue = @json((int) round((float) ($data->harga_pembayaran ?? 0)));
+            const invoiceItem = @json($gtmInvoiceItem ?? []);
             let currentStatusPembelian = @json($data->status_pembelian);
             let currentStatusPembayaran = @json($data->status_pembayaran);
             let pollingTimer = null;
+            let echoChannel = null;
             let pageIsUnloading = false;
+            let realtimeConnected = false;
             const paymentBadge = document.getElementById('badge-unpaid');
             const orderBadge = document.getElementById('invoiceStatusPembelian');
+
+            function normalizePaymentStatus(status) {
+                const normalized = String(status || '').toLowerCase().trim();
+
+                if (['paid', 'lunas', 'success', 'sukses'].includes(normalized)) {
+                    return 'paid';
+                }
+
+                if (['expired', 'kedaluwarsa'].includes(normalized)) {
+                    return 'expired';
+                }
+
+                if (['batal', 'cancelled', 'canceled', 'failed', 'gagal'].includes(normalized)) {
+                    return 'failed';
+                }
+
+                return 'unpaid';
+            }
+
+            function normalizeOrderStatus(status) {
+                const normalized = String(status || '').toLowerCase().trim();
+
+                if (['sukses', 'success', 'completed', 'complete'].includes(normalized)) {
+                    return 'success';
+                }
+
+                if (['proses', 'processing', 'process'].includes(normalized)) {
+                    return 'processing';
+                }
+
+                if (['gagal', 'failed', 'batal', 'cancelled', 'canceled'].includes(normalized)) {
+                    return 'failed';
+                }
+
+                return 'pending';
+            }
+
+            function buildOperationalPayload(paymentStatus, orderStatus) {
+                return {
+                    transaction_id: String(orderId),
+                    payment_type: paymentType || 'Tidak Diketahui',
+                    payment_status: paymentStatus,
+                    order_status: orderStatus,
+                    value: invoiceValue,
+                    currency: 'IDR',
+                    items: [invoiceItem],
+                };
+            }
+
+            function buildPurchasePayload(paymentStatus, orderStatus) {
+                const eventItem = Object.assign({}, invoiceItem, { price: invoiceValue });
+
+                return {
+                    transaction_id: String(orderId),
+                    payment_type: paymentType || 'Tidak Diketahui',
+                    payment_status: paymentStatus,
+                    order_status: orderStatus,
+                    transaction_status: 'success',
+                    ecommerce: {
+                        transaction_id: String(orderId),
+                        currency: 'IDR',
+                        value: invoiceValue,
+                        payment_type: paymentType || 'Tidak Diketahui',
+                        payment_status: paymentStatus,
+                        order_status: orderStatus,
+                        transaction_status: 'success',
+                        items: [eventItem],
+                    },
+                };
+            }
+
+            function pushLifecycleEvents(paymentStatus, orderStatus) {
+                if (typeof window.pushDataLayerEvent !== 'function') {
+                    return;
+                }
+
+                const paymentCode = normalizePaymentStatus(paymentStatus);
+                const orderCode = normalizeOrderStatus(orderStatus);
+
+                if (paymentCode === 'paid') {
+                    window.pushDataLayerEvent('payment_success', buildOperationalPayload(paymentStatus, orderStatus), {
+                        dedupeKey: 'payment_success:' + orderId,
+                    });
+                }
+
+                if (paymentCode === 'paid' && orderCode === 'success') {
+                    window.pushDataLayerEvent('purchase', buildPurchasePayload(paymentStatus, orderStatus), {
+                        dedupeKey: 'purchase:' + orderId,
+                    });
+                }
+            }
 
             function applyBadgeState(element, config) {
                 if (!element || !config) {
@@ -2943,39 +3429,65 @@
             }
 
             function mapOrderStatus(status) {
-                const normalized = String(status || '').toLowerCase().trim();
+                const normalized = normalizeOrderStatus(status);
 
                 if (normalized === 'pending') {
                     return { label: 'Pending', className: 'invoice-badge-warning' };
                 }
 
-                if (normalized === 'proses' || normalized === 'processing') {
+                if (normalized === 'processing') {
                     return { label: 'Process', className: 'invoice-badge-info' };
                 }
 
-                if (normalized === 'sukses' || normalized === 'success') {
+                if (normalized === 'success') {
                     return { label: 'Success', className: 'invoice-badge-success' };
                 }
 
-                if (normalized === 'batal' || normalized === 'gagal' || normalized === 'failed' || normalized === 'cancelled') {
-                    return { label: 'Cancelled', className: 'invoice-badge-danger' };
-                }
-
-                return null;
+                return { label: 'Cancelled', className: 'invoice-badge-danger' };
             }
 
             function mapPaymentStatus(status) {
-                const normalized = String(status || '').toLowerCase().trim();
+                const normalized = normalizePaymentStatus(status);
 
-                if (normalized === 'paid' || normalized === 'lunas') {
+                if (normalized === 'paid') {
                     return { label: 'Paid', className: 'invoice-badge-success' };
                 }
 
-                if (normalized === 'belum lunas' || normalized === 'unpaid') {
+                if (normalized === 'unpaid') {
                     return { label: 'Unpaid', className: 'invoice-badge-danger' };
                 }
 
+                if (normalized === 'failed') {
+                    return { label: 'Failed', className: 'invoice-badge-danger' };
+                }
+
                 return { label: 'Expired', className: 'invoice-badge-warning' };
+            }
+
+            function isFinalSuccess(paymentStatus, orderStatus) {
+                return normalizePaymentStatus(paymentStatus) === 'paid' && normalizeOrderStatus(orderStatus) === 'success';
+            }
+
+            function applyStatusUpdate(paymentStatus, orderStatus, options = {}) {
+                const previousFinalSuccess = isFinalSuccess(currentStatusPembayaran, currentStatusPembelian);
+                const nextPaymentStatus = paymentStatus || currentStatusPembayaran;
+                const nextOrderStatus = orderStatus || currentStatusPembelian;
+                const changed = nextPaymentStatus !== currentStatusPembayaran || nextOrderStatus !== currentStatusPembelian;
+                const nextFinalSuccess = isFinalSuccess(nextPaymentStatus, nextOrderStatus);
+
+                currentStatusPembayaran = nextPaymentStatus;
+                currentStatusPembelian = nextOrderStatus;
+
+                applyBadgeState(orderBadge, mapOrderStatus(currentStatusPembelian));
+                applyBadgeState(paymentBadge, mapPaymentStatus(currentStatusPembayaran));
+                pushLifecycleEvents(currentStatusPembayaran, currentStatusPembelian);
+
+                if (changed && (options.reload || (nextFinalSuccess && !previousFinalSuccess))) {
+                    pageIsUnloading = true;
+                    window.setTimeout(() => {
+                        window.location.reload();
+                    }, nextFinalSuccess ? 900 : 650);
+                }
             }
 
             async function pollTransactionStatus() {
@@ -3005,12 +3517,7 @@
                     }
 
                     if (data.status_pembelian !== currentStatusPembelian || data.status_pembayaran !== currentStatusPembayaran) {
-                        applyBadgeState(orderBadge, mapOrderStatus(data.status_pembelian));
-                        applyBadgeState(paymentBadge, mapPaymentStatus(data.status_pembayaran));
-                        pageIsUnloading = true;
-                        window.setTimeout(() => {
-                            window.location.reload();
-                        }, 650);
+                        applyStatusUpdate(data.status_pembayaran, data.status_pembelian, { reload: !realtimeConnected });
                     }
                 } catch (error) {
                     if (!pageIsUnloading) {
@@ -3019,12 +3526,57 @@
                 }
             }
 
-            pollingTimer = window.setInterval(pollTransactionStatus, 5000);
+            function startPollingFallback() {
+                if (pollingTimer) {
+                    return;
+                }
+
+                pollingTimer = window.setInterval(pollTransactionStatus, 5000);
+            }
+
+            function stopPollingFallback() {
+                if (!pollingTimer) {
+                    return;
+                }
+
+                window.clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+
+            function subscribeRealtime() {
+                if (!realtimeChannel || !window.Echo) {
+                    startPollingFallback();
+                    return;
+                }
+
+                try {
+                    echoChannel = window.Echo.channel(realtimeChannel)
+                        .listen('.InvoiceStatusUpdated', (event) => {
+                            realtimeConnected = true;
+                            stopPollingFallback();
+                            applyStatusUpdate(event.payment_status, event.order_status);
+                        });
+
+                    window.setTimeout(() => {
+                        if (!realtimeConnected) {
+                            startPollingFallback();
+                        }
+                    }, 3500);
+                } catch (error) {
+                    console.debug('Invoice realtime subscription skipped:', error);
+                    startPollingFallback();
+                }
+            }
+
+            pushLifecycleEvents(currentStatusPembayaran, currentStatusPembelian);
+            subscribeRealtime();
 
             window.addEventListener('beforeunload', () => {
                 pageIsUnloading = true;
-                if (pollingTimer) {
-                    window.clearInterval(pollingTimer);
+                stopPollingFallback();
+
+                if (echoChannel && window.Echo && realtimeChannel) {
+                    window.Echo.leave(realtimeChannel);
                 }
             });
 

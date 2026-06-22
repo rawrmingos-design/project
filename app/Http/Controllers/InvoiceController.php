@@ -11,6 +11,7 @@ use Illuminate\Support\Carbon;
 use App\Models\Layanan;
 use App\Models\Kategori;
 use App\Support\GtmDataLayerBuilder;
+use App\Support\InvoiceRealtimeStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -65,6 +66,8 @@ class InvoiceController extends Controller
                 'pembelians.created_at AS created_at',
                 'pembelians.status AS status_pembelian',
                 'pembayarans.reference',
+                'pembayarans.no_pembeli',
+                'pembelians.email_pembeli',
                 'pembelians.tipe_transaksi AS tipe_transaksi',
                 'methods.name AS metode_name'
             )
@@ -129,6 +132,14 @@ class InvoiceController extends Controller
         $normalizedOrderStatus = Str::lower(trim((string) ($data->status_pembelian ?? '')));
         $transactionId = (string) $data->id_pembelian;
         $invoiceValue = (int) round((float) ($data->harga_pembayaran ?? 0));
+        $gtmIdentityPayload = $gtmBuilder->buildCustomerIdentityPayload(
+            $data->email_pembeli ?? null,
+            $data->no_pembeli ?? null,
+            $data->user_id ?? null,
+            $data->zone ?? null,
+            $data->nickname ?? null,
+        );
+
         $gtmInvoiceEvents = [
             [
                 'name' => 'invoice_viewed',
@@ -139,6 +150,8 @@ class InvoiceController extends Controller
                     (string) ($data->status_pembelian ?? ''),
                     $invoiceValue,
                     $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
                 ),
                 'dedupe_key' => "invoice_viewed:{$transactionId}",
             ],
@@ -147,7 +160,14 @@ class InvoiceController extends Controller
         if (in_array($normalizedPaymentStatus, ['belum lunas', 'unpaid', 'pending'], true)) {
             $gtmInvoiceEvents[] = [
                 'name' => 'add_payment_info',
-                'payload' => $gtmBuilder->buildAddPaymentInfoPayload($transactionId, $methodName, $invoiceValue, $gtmInvoiceItem),
+                'payload' => $gtmBuilder->buildAddPaymentInfoPayload(
+                    $transactionId,
+                    $methodName,
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
                 'dedupe_key' => "add_payment_info:{$transactionId}",
             ];
             $gtmInvoiceEvents[] = [
@@ -159,6 +179,8 @@ class InvoiceController extends Controller
                     (string) ($data->status_pembelian ?? ''),
                     $invoiceValue,
                     $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
                 ),
                 'dedupe_key' => "payment_pending:{$transactionId}",
             ];
@@ -166,10 +188,36 @@ class InvoiceController extends Controller
 
         if (in_array($normalizedPaymentStatus, ['paid', 'lunas'], true)) {
             $gtmInvoiceEvents[] = [
-                'name' => 'purchase',
-                'payload' => $gtmBuilder->buildPurchasePayload($transactionId, $methodName, $invoiceValue, $gtmInvoiceItem),
-                'dedupe_key' => "purchase:{$transactionId}",
+                'name' => 'payment_success',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    $methodName,
+                    (string) ($data->status_pembayaran ?? ''),
+                    (string) ($data->status_pembelian ?? ''),
+                    $invoiceValue,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "payment_success:{$transactionId}",
             ];
+
+            if (in_array($normalizedOrderStatus, ['sukses', 'success'], true)) {
+                $gtmInvoiceEvents[] = [
+                    'name' => 'purchase',
+                    'payload' => $gtmBuilder->buildPurchasePayload(
+                        $transactionId,
+                        $methodName,
+                        $invoiceValue,
+                        $gtmInvoiceItem,
+                        'IDR',
+                        (string) ($data->status_pembayaran ?? ''),
+                        (string) ($data->status_pembelian ?? ''),
+                        $gtmIdentityPayload,
+                    ),
+                    'dedupe_key' => "purchase:{$transactionId}",
+                ];
+            }
         }
 
         if (in_array($normalizedPaymentStatus, ['expired'], true)) {
@@ -182,6 +230,8 @@ class InvoiceController extends Controller
                     (string) ($data->status_pembelian ?? ''),
                     $invoiceValue,
                     $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
                 ),
                 'dedupe_key' => "payment_expired:{$transactionId}",
             ];
@@ -197,6 +247,8 @@ class InvoiceController extends Controller
                     (string) ($data->status_pembelian ?? ''),
                     $invoiceValue,
                     $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
                 ),
                 'dedupe_key' => "order_processing:{$transactionId}",
             ];
@@ -212,6 +264,8 @@ class InvoiceController extends Controller
                     (string) ($data->status_pembelian ?? ''),
                     $invoiceValue,
                     $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
                 ),
                 'dedupe_key' => "order_failed:{$transactionId}",
             ];
@@ -228,22 +282,47 @@ class InvoiceController extends Controller
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'order_id' => $data->id_pembelian,
             'gtmInvoiceEvents' => $gtmInvoiceEvents,
+            'gtmInvoiceItem' => $gtmInvoiceItem,
+            'invoiceRealtimeChannel' => InvoiceRealtimeStatus::channelName($transactionId),
         ]);
-        
+
     }
-    
-    
+
+
    public function ratingCustomer(Request $request, $order_id) {
     $input = $request->all();
-    
+    $wantsJson = $request->expectsJson() || $request->ajax();
+
     $validator = Validator::make($input, [
-        'bintang' => 'required',
-        'comment' => 'required',
+        'bintang' => 'required|integer|min:1|max:5',
+        'comment' => 'required|string',
         'kategori_nama' => 'required',
     ]);
 
     if ($validator->fails()) {
+        if ($wantsJson) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pilih bintang dan isi komentar terlebih dahulu.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
         return redirect()->back()->withInput()->withErrors($validator);
+    }
+
+    $existingRating = DB::table('ratings')->where('rating_id', $order_id)->first();
+
+    if ($existingRating) {
+        if ($wantsJson) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Review untuk transaksi ini sudah pernah dikirim.',
+                'already_reviewed' => true,
+            ], 409);
+        }
+
+        return redirect()->back()->with('error', 'Review untuk transaksi ini sudah pernah dikirim.');
     }
 
     $bintang = $input['bintang'];
@@ -271,11 +350,33 @@ class InvoiceController extends Controller
 
             $rating = DB::table('ratings')->where('id', $ratingId)->first();
 
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Terima kasih telah memberikan testimoni!',
+                    'rating' => $rating,
+                ]);
+            }
+
             return redirect()->back()->with('success', 'Terima kasih telah memberikan testimoni!')->with('rating', $rating);
         } else {
+            if ($wantsJson) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data pembelian atau pembayaran tidak lengkap atau tidak ditemukan!',
+                ], 404);
+            }
+
             return redirect()->back()->withInput()->with('error', 'Data pembelian atau pembayaran tidak lengkap atau tidak ditemukan!');
         }
     } else {
+        if ($wantsJson) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori tidak ditemukan!',
+            ], 404);
+        }
+
         return redirect()->back()->withInput()->with('error', 'Kategori tidak ditemukan!');
     }
 }

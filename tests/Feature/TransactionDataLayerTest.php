@@ -128,13 +128,14 @@ class TransactionDataLayerTest extends TestCase
         $response->assertSee('invoice_viewed', false);
         $response->assertSee('add_payment_info', false);
         $response->assertSee('payment_pending', false);
-        $response->assertDontSee('purchase', false);
+        $response->assertDontSee('"name":"purchase"', false);
         $response->assertSee('"transaction_id":"INV-GTM-001"', false);
         $response->assertSee('"payment_type":"QRIS Tripay"', false);
         $response->assertSee('"value":27204', false);
         $response->assertSee('"item_name":"Membership Mingguan"', false);
         $response->assertSee('"item_category":"Free Fire"', false);
-        $response->assertDontSee('"email":"', false);
+        $response->assertDontSee('gtm@example.test', false);
+        $response->assertDontSee('08123456789', false);
         $response->assertDontSee('"email_pembeli":', false);
         $response->assertDontSee('"uid":', false);
     }
@@ -146,10 +147,11 @@ class TransactionDataLayerTest extends TestCase
             paymentMethodCode: 'QRIS',
             paymentMethodName: 'QRIS Tripay',
             amount: 27500,
+            orderStatus: 'Sukses',
         );
 
         $response->assertOk();
-        $response->assertSee('purchase', false);
+        $response->assertSee('"name":"purchase"', false);
         $response->assertSee('"transaction_id":"INV-GTM-001"', false);
         $response->assertSee('"value":27500', false);
         $response->assertSee('"payment_type":"QRIS Tripay"', false);
@@ -167,7 +169,7 @@ class TransactionDataLayerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('payment_expired', false);
-        $response->assertDontSee('purchase', false);
+        $response->assertDontSee('"name":"purchase"', false);
     }
 
     public function test_pending_duitku_invoice_does_not_render_purchase_event(): void
@@ -183,7 +185,7 @@ class TransactionDataLayerTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('add_payment_info', false);
-        $response->assertDontSee('purchase', false);
+        $response->assertDontSee('"name":"purchase"', false);
     }
 
     private function getInvoiceResponse(
@@ -193,6 +195,7 @@ class TransactionDataLayerTest extends TestCase
         int $amount,
         string $paymentReference = 'REF-INV-GTM-001',
         string $paymentNumber = '1234567890',
+        string $orderStatus = 'Pending',
     ) {
         $kategori = Kategori::create([
             'nama' => 'Free Fire',
@@ -245,7 +248,7 @@ class TransactionDataLayerTest extends TestCase
             'harga' => $amount,
             'profit' => 1000,
             'provider_order_id' => '',
-            'status' => 'Pending',
+            'status' => $orderStatus,
             'tipe_transaksi' => 'game',
             'email_pembeli' => 'gtm@example.test',
         ]);

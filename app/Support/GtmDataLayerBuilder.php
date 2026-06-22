@@ -96,8 +96,9 @@ class GtmDataLayerBuilder
         int|float $value,
         array $item,
         string $currency = 'IDR',
+        array $identity = [],
     ): array {
-        return [
+        return array_merge([
             'transaction_id' => $transactionId,
             'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
             'payment_status' => $paymentStatus,
@@ -105,15 +106,21 @@ class GtmDataLayerBuilder
             'value' => $this->normalizeMoney($value),
             'currency' => $currency,
             'items' => [$item],
-        ];
+        ], $identity);
     }
 
-    public function buildAddPaymentInfoPayload(string $transactionId, string $paymentType, int|float $value, array $item, string $currency = 'IDR'): array
-    {
+    public function buildAddPaymentInfoPayload(
+        string $transactionId,
+        string $paymentType,
+        int|float $value,
+        array $item,
+        string $currency = 'IDR',
+        array $identity = [],
+    ): array {
         $eventItem = $item;
         $eventItem['price'] = $this->normalizeMoney($value);
 
-        return [
+        return array_merge([
             'transaction_id' => $transactionId,
             'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
             'ecommerce' => [
@@ -122,25 +129,39 @@ class GtmDataLayerBuilder
                 'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
                 'items' => [$eventItem],
             ],
-        ];
+        ], $identity);
     }
 
-    public function buildPurchasePayload(string $transactionId, string $paymentType, int|float $value, array $item, string $currency = 'IDR'): array
-    {
+    public function buildPurchasePayload(
+        string $transactionId,
+        string $paymentType,
+        int|float $value,
+        array $item,
+        string $currency = 'IDR',
+        ?string $paymentStatus = null,
+        ?string $orderStatus = null,
+        array $identity = [],
+    ): array {
         $eventItem = $item;
         $eventItem['price'] = $this->normalizeMoney($value);
 
-        return [
+        return array_filter(array_merge([
             'transaction_id' => $transactionId,
             'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
+            'payment_status' => $paymentStatus,
+            'order_status' => $orderStatus,
+            'transaction_status' => $paymentStatus && $orderStatus ? 'success' : null,
             'ecommerce' => [
                 'transaction_id' => $transactionId,
                 'currency' => $currency,
                 'value' => $this->normalizeMoney($value),
                 'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
+                'payment_status' => $paymentStatus,
+                'order_status' => $orderStatus,
+                'transaction_status' => $paymentStatus && $orderStatus ? 'success' : null,
                 'items' => [$eventItem],
             ],
-        ];
+        ], $identity), static fn ($value): bool => $value !== null && $value !== '');
     }
 
     public function buildOperationalPayload(
@@ -151,8 +172,9 @@ class GtmDataLayerBuilder
         int|float $value,
         array $item,
         string $currency = 'IDR',
+        array $identity = [],
     ): array {
-        return [
+        return array_merge([
             'transaction_id' => $transactionId,
             'payment_type' => $this->sanitizeString($paymentType) ?? 'Tidak Diketahui',
             'payment_status' => $paymentStatus,
@@ -160,7 +182,78 @@ class GtmDataLayerBuilder
             'value' => $this->normalizeMoney($value),
             'currency' => $currency,
             'items' => [$item],
-        ];
+        ], $identity);
+    }
+
+    public function buildCustomerIdentityPayload(
+        mixed $email = null,
+        mixed $phone = null,
+        mixed $gameUserId = null,
+        mixed $gameZone = null,
+        mixed $gameNickname = null,
+    ): array {
+        $emailHash = $this->hashEmail($email);
+        $phoneHash = $this->hashPhone($phone);
+
+        $payload = array_filter([
+            'game_user_id' => $this->sanitizeString($gameUserId),
+            'game_zone' => $this->sanitizeString($gameZone),
+            'game_nickname' => $this->sanitizeString($gameNickname),
+            'customer_email_sha256' => $emailHash,
+            'customer_phone_sha256' => $phoneHash,
+        ], static fn ($value): bool => $value !== null && $value !== '');
+
+        $enhancedConversionData = array_filter([
+            'email' => $emailHash,
+            'phone_number' => $phoneHash,
+        ], static fn ($value): bool => $value !== null && $value !== '');
+
+        if ($enhancedConversionData !== []) {
+            $payload['enhanced_conversion_data'] = $enhancedConversionData;
+        }
+
+        return $payload;
+    }
+
+    private function hashEmail(mixed $value): ?string
+    {
+        $email = $this->sanitizeString($value);
+
+        if ($email === null || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        return hash('sha256', strtolower($email));
+    }
+
+    private function hashPhone(mixed $value): ?string
+    {
+        $phone = $this->normalizePhone($value);
+
+        return $phone === null ? null : hash('sha256', $phone);
+    }
+
+    private function normalizePhone(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value) ?: '';
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $digits = '62' . substr($digits, 1);
+        }
+
+        if (strlen($digits) < 8 || strlen($digits) > 15) {
+            return null;
+        }
+
+        return $digits;
     }
 
     private function sanitizeString(mixed $value): ?string
