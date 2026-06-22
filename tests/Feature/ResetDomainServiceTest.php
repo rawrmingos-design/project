@@ -60,6 +60,33 @@ class ResetDomainServiceTest extends TestCase
         $this->assertSame('Legacy fallback reset', $resetPembelian->reset_reason);
     }
 
+    public function test_it_executes_a_reset_with_current_provider_when_no_candidate_is_supplied(): void
+    {
+        $service = app(ResetDomainService::class);
+        $currentLayanan = $this->createLayanan('Weekly Pass', 'SKU-WP', 'digiflazz');
+        $pembelian = $this->createEligiblePembelian($currentLayanan, overrides: [
+            'order_id' => 'INV-RESET-SAME-PROVIDER-001',
+            'profit' => 1250,
+        ]);
+
+        $resetPembelian = $service->executeReset($pembelian, null, requestedBy: 77, reason: 'Retry current provider after paid failure');
+
+        $this->assertSame('INV-RESET-SAME-PROVIDER-001', $resetPembelian->order_id);
+        $this->assertSame('INV-RESET-SAME-PROVIDER-001', $resetPembelian->base_order_id);
+        $this->assertSame(1, $resetPembelian->invoice_version);
+        $this->assertSame(1, $resetPembelian->reset_count);
+        $this->assertSame('INV-RESET-SAME-PROVIDER-001_001', $resetPembelian->display_order_id);
+        $this->assertSame('INV-RESET-SAME-PROVIDER-001_001', $resetPembelian->active_attempt_reference);
+        $this->assertSame($currentLayanan->id, $resetPembelian->active_layanan_id);
+        $this->assertSame('digiflazz', $resetPembelian->active_provider_code);
+        $this->assertSame('SKU-WP', $resetPembelian->active_provider_sku);
+        $this->assertSame(1250, $resetPembelian->profit);
+        $this->assertNull($resetPembelian->active_attempt_token);
+        $this->assertSame('requested', $resetPembelian->reset_status);
+        $this->assertSame(77, $resetPembelian->reset_requested_by);
+        $this->assertSame('Retry current provider after paid failure', $resetPembelian->reset_reason);
+    }
+
     public function test_it_rejects_invalid_provider_switch_candidates_during_reset_execution(): void
     {
         $service = app(ResetDomainService::class);
