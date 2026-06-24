@@ -60,6 +60,7 @@ use App\Http\Controllers\SenangpayController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\SeoController;
+use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
@@ -84,6 +85,7 @@ use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/site.webmanifest', PwaManifestController::class)->name('pwa.manifest');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 Route::get('/sitemap-main.xml', [SeoController::class, 'sitemapMain'])->name('seo.sitemap.main');
 Route::get('/sitemap-categories.xml', [SeoController::class, 'sitemapCategories'])->name('seo.sitemap.categories');
@@ -170,9 +172,9 @@ if (is_string($publicHost) && $publicHost !== '') {
     Route::domain($publicHost)->group(function () {
         Route::redirect('/', '/id', 301);
     });
-} else {
-    Route::redirect('/', '/id', 301);
 }
+
+Route::redirect('/', '/id', 301);
 
 if ($adminHost !== '') {
     Route::domain($adminHost)->group(function () {
