@@ -23,7 +23,9 @@
         'inboundWhitelist' => 'a[href="' . \App\Filament\Admin\Resources\InboundSourcePolicies\InboundSourcePolicyResource::getUrl() . '"]',
         'affiliateRequests' => 'a[href="' . route('filament.admin.resources.affiliate-requests.index') . '"]',
         'affiliateHistories' => 'a[href="' . route('filament.admin.resources.affiliate-histories.index') . '"]',
-        'withdrawals' => 'a[href="' . route('filament.admin.resources.withdrawals.index') . '"]',
+        'withdrawals' => \Illuminate\Support\Facades\Route::has('filament.admin.resources.withdrawals.index')
+            ? 'a[href="' . route('filament.admin.resources.withdrawals.index') . '"]'
+            : null,
     ];
 
     $onboardingSteps = [
