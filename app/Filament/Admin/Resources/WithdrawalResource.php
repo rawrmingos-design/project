@@ -30,6 +30,8 @@ class WithdrawalResource extends Resource
     protected static ?string $pluralLabel = 'Withdrawals';
 
     protected static UnitEnum|string|null $navigationGroup = 'Affiliate System';
+
+    protected static bool $shouldRegisterNavigation = false;
     
     protected static ?string $slug = 'withdrawals';
 
