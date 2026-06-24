@@ -174,7 +174,6 @@ if (is_string($publicHost) && $publicHost !== '') {
     });
 }
 
-Route::redirect('/', '/id', 301);
 
 if ($adminHost !== '') {
     Route::domain($adminHost)->group(function () {
