@@ -25,10 +25,15 @@
     
     <!-- Favicon -->
     <link rel="shortcut icon" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon.webp') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/apple-touch-icon.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('assets/pwa/apple-touch-icon.png') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon-32x32.png') }}">
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon-16x16.png') }}">
-    <link rel="manifest" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/site.webmanifest') }}">
+    <link rel="manifest" href="{{ route('pwa.manifest') }}">
+    <meta name="application-name" content="{{ $config ? $config->judul_web : config('app.name') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="{{ $config ? $config->judul_web : config('app.name') }}">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- Livewire Styles -->
     @livewireStyles
@@ -587,6 +592,22 @@
 
     {{-- Livewire Scripts - Required for Livewire components to work --}}
     @livewireScripts
+
+    @include('template.id.partials.pwa-install-prompt')
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function (registration) {
+                        registration.update();
+                    })
+                    .catch(function (error) {
+                        console.debug('Service worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
 
      @stack('custom_script')
 
