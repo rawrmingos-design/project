@@ -1,4 +1,4 @@
-@extends('template.template')
+﻿@extends('template.template')
 
 @section('custom_style')
 
@@ -649,7 +649,7 @@
                                                 <span>{{ $rating->layanan }}</span>
                                                 <span>{{ $rating->created_at }}</span>
                                             </div>
-                                            <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                            <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                         </div>
                                     @endforeach
                                 </div>
@@ -1057,9 +1057,9 @@
                         </style>
                         <div id="paketList" x-data="{ selectedPaket: 'all', selectedProduct: '' }" class="p-4 sm:p-6">
 
-                            <h3 class="font-semibold mt-4">ðŸ“¦ Pilih Paket</h3>
+                            <h3 class="font-semibold mt-4">📦 Pilih Paket</h3>
                             <div class="scroll-container">
-                                <button @click="selectedPaket = 'all'" class="button-3d">ðŸŽ® Semua</button>
+                                <button @click="selectedPaket = 'all'" class="button-3d">🎮 Semua</button>
                                 @foreach($pakets as $paket)
                                     <button @click="selectedPaket = {{ $loop->index }}" class="button-3d">{{ $paket['nama'] }}</button>
                                 @endforeach
@@ -1110,7 +1110,7 @@
                                                                     <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                         <div class="popular-tag-content">
                                                                             <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                                Ã°Å¸â€Â¥PROMO</div>
+                                                                                💥PROMO</div>
                                                                         </div>
                                                                         <div class="popular-tag-overlay"></div>
                                                                     </div>
@@ -1187,7 +1187,7 @@
                                                                 <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                     <div class="popular-tag-content">
                                                                         <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                            Ã°Å¸â€Â¥PROMO</div>
+                                                                            💥PROMO</div>
                                                                     </div>
                                                                     <div class="popular-tag-overlay"></div>
                                                                 </div>
@@ -1977,7 +1977,7 @@
                                                     <span>{{ $rating->layanan }}</span>
                                                     <span>{{ $rating->created_at }}</span>
                                                 </div>
-                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -2259,9 +2259,9 @@
                         </style>
                         <div id="paketList" x-data="{ selectedPaket: 'all', selectedProduct: '' }" class="p-4 sm:p-6">
 
-                            <h3 class="font-semibold mt-4">ðŸ“¦ Pilih Paket</h3>
+                            <h3 class="font-semibold mt-4">📦 Pilih Paket</h3>
                             <div class="scroll-container">
-                                <button @click="selectedPaket = 'all'" class="button-3d">ðŸŽ® Semua</button>
+                                <button @click="selectedPaket = 'all'" class="button-3d">🎮 Semua</button>
                                 @foreach($pakets as $paket)
                                     <button @click="selectedPaket = {{ $loop->index }}" class="button-3d">{{ $paket['nama'] }}</button>
                                 @endforeach
@@ -2312,7 +2312,7 @@
                                                                     <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                         <div class="popular-tag-content">
                                                                             <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                                Ã°Å¸â€Â¥PROMO</div>
+                                                                                💥PROMO</div>
                                                                         </div>
                                                                         <div class="popular-tag-overlay"></div>
                                                                     </div>
@@ -2389,7 +2389,7 @@
                                                                 <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                     <div class="popular-tag-content">
                                                                         <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                            Ã°Å¸â€Â¥PROMO</div>
+                                                                            💥PROMO</div>
                                                                     </div>
                                                                     <div class="popular-tag-overlay"></div>
                                                                 </div>
@@ -3109,7 +3109,7 @@
                                                     <span>{{ $rating->layanan }}</span>
                                                     <span>{{ $rating->created_at }}</span>
                                                 </div>
-                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -3363,9 +3363,9 @@
                         </style>
                         <div id="paketList" x-data="{ selectedPaket: 'all', selectedProduct: '' }" class="p-4 sm:p-6">
 
-                            <h3 class="font-semibold mt-4">ðŸ“¦ Pilih Paket</h3>
+                            <h3 class="font-semibold mt-4">📦 Pilih Paket</h3>
                             <div class="scroll-container">
-                                <button @click="selectedPaket = 'all'" class="button-3d">ðŸŽ® Semua</button>
+                                <button @click="selectedPaket = 'all'" class="button-3d">🎮 Semua</button>
                                 @foreach($pakets as $paket)
                                     <button @click="selectedPaket = {{ $loop->index }}" class="button-3d">{{ $paket['nama'] }}</button>
                                 @endforeach
@@ -3416,7 +3416,7 @@
                                                                     <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                         <div class="popular-tag-content">
                                                                             <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                                Ã°Å¸â€Â¥PROMO</div>
+                                                                                💥PROMO</div>
                                                                         </div>
                                                                         <div class="popular-tag-overlay"></div>
                                                                     </div>
@@ -3493,7 +3493,7 @@
                                                                 <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                     <div class="popular-tag-content">
                                                                         <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                            Ã°Å¸â€Â¥PROMO</div>
+                                                                            💥PROMO</div>
                                                                     </div>
                                                                     <div class="popular-tag-overlay"></div>
                                                                 </div>
@@ -4243,7 +4243,7 @@
                                                     <span>{{ $rating->layanan }}</span>
                                                     <span>{{ $rating->created_at }}</span>
                                                 </div>
-                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -4528,9 +4528,9 @@
                         </style>
                         <div id="paketList" x-data="{ selectedPaket: 'all', selectedProduct: '' }" class="p-4 sm:p-6">
 
-                            <h3 class="font-semibold mt-4">ðŸ“¦ Pilih Paket</h3>
+                            <h3 class="font-semibold mt-4">📦 Pilih Paket</h3>
                             <div class="scroll-container">
-                                <button @click="selectedPaket = 'all'" class="button-3d">ðŸŽ® Semua</button>
+                                <button @click="selectedPaket = 'all'" class="button-3d">🎮 Semua</button>
                                 @foreach($pakets as $paket)
                                     <button @click="selectedPaket = {{ $loop->index }}" class="button-3d">{{ $paket['nama'] }}</button>
                                 @endforeach
@@ -4581,7 +4581,7 @@
                                                                     <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                         <div class="popular-tag-content">
                                                                             <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                                Ã°Å¸â€Â¥PROMO</div>
+                                                                                💥PROMO</div>
                                                                         </div>
                                                                         <div class="popular-tag-overlay"></div>
                                                                     </div>
@@ -4658,7 +4658,7 @@
                                                                 <div class="populaasdasdasdawrwr-t4124t3523ag-con42324124tainer3p423ath">
                                                                     <div class="popular-tag-content">
                                                                         <div class="rate asdasdwe_2353_Sdfsdccxxx_Xx3979b">
-                                                                            Ã°Å¸â€Â¥PROMO</div>
+                                                                            💥PROMO</div>
                                                                     </div>
                                                                     <div class="popular-tag-overlay"></div>
                                                                 </div>
@@ -5381,7 +5381,7 @@
                                                     <span>{{ $rating->layanan }}</span>
                                                     <span>{{ $rating->created_at }}</span>
                                                 </div>
-                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                                <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -5509,9 +5509,9 @@
                     </div>
                     <div id="paketList" x-data="{ selectedPaket: 'all', selectedProduct: '' }" class="p-4 sm:p-6">
 
-                        <h3 class="font-semibold mt-4">ðŸ“¦ Pilih Paket</h3>
+                        <h3 class="font-semibold mt-4">📦 Pilih Paket</h3>
                         <div class="scroll-container">
-                            <button @click="selectedPaket = 'all'" class="button-3d">ðŸŽ® Semua</button>
+                            <button @click="selectedPaket = 'all'" class="button-3d">🎮 Semua</button>
                             @foreach($pakets as $paket)
                                 <button @click="selectedPaket = {{ $loop->index }}" class="button-3d">{{ $paket['nama'] }}</button>
                             @endforeach
@@ -5789,7 +5789,7 @@
                                         </div>
                                         <div class="popular-tag-container">
                                             <div class="popular-tag-content">
-                                                <div class="rate">ðŸ”¥LEBIH SIMPLE</div>
+                                                <div class="rate">🔥LEBIH SIMPLE</div>
                                             </div>
                                             <div class="popular-tag-overlay"></div>
                                         </div>
@@ -5837,7 +5837,7 @@
                                         </div>
                                         <div class="popular-tag-container">
                                             <div class="popular-tag-content">
-                                                <div class="rate">âš¡LEBIH CEPAT</div>
+                                                <div class="rate">⚡LEBIH CEPAT</div>
                                             </div>
                                             <div class="popular-tag-overlay"></div>
                                         </div>
@@ -6440,7 +6440,7 @@
                                                 <span>{{ $rating->layanan }}</span>
                                                 <span>{{ $rating->created_at }}</span>
                                             </div>
-                                            <div class="text-murky-20 mt-1 space-y-6 text-xs italic">â€œ{{ $rating->comment }}â€</div>
+                                            <div class="text-murky-20 mt-1 space-y-6 text-xs italic">&#8220;{{ $rating->comment }}&#8221;</div>
                                         </div>
                                     @endforeach
                                 </div>
@@ -6515,7 +6515,7 @@
             <div class="order-available-voucher-modal__header">
                 <h2 class="order-available-voucher-modal__title" id="availableVoucherModalTitle">Promo yang tersedia</h2>
                 <button type="button" class="order-available-voucher-modal__close" data-available-voucher-close
-                    aria-label="Tutup modal promo">Ã—</button>
+                    aria-label="Tutup modal promo">&times;</button>
             </div>
             <div class="order-available-voucher-modal__body" id="availableVoucherModalBody">
                 <div class="order-available-voucher-modal__state">Pilih nominal untuk melihat promo.</div>
@@ -7039,3 +7039,4 @@
         @endif
     @endpush
 @endsection
+
