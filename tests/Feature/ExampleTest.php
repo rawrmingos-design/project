@@ -12,7 +12,7 @@ class ExampleTest extends TestCase
      */
     public function test_example()
     {
-        $response = $this->get('/');
+        $response = $this->get(rtrim((string) config('app.url'), '/') . '/');
 
         $response->assertStatus(301);
         $response->assertRedirect('/id');
