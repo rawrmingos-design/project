@@ -18,7 +18,7 @@ class ResellerDocumentStorageService
 
         $this->ensureDirectoryExists($directory);
 
-        File::put($absolutePath, File::get($file->getRealPath()));
+        $file->move($directory, basename($absolutePath));
 
         return str_replace('\\', '/', $relativePath);
     }
