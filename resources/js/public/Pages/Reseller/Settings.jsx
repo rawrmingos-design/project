@@ -1,11 +1,157 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import ResellerLayout from '../../Layouts/ResellerLayout';
 import { useForm, usePage } from '@inertiajs/react';
 import axios from 'axios';
 
 export default function Settings() {
     const { settingsPage, meta, csrf_token } = usePage().props;
-    const { profile, twoFactor, flash } = settingsPage;
+    const { profile, twoFactor, push, flash } = settingsPage;
+
+    const [pushSupported] = useState(() => Boolean(window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window));
+    const [pushStatus, setPushStatus] = useState(push.enabled ? 'Subscribed' : 'Not subscribed');
+    const [pushError, setPushError] = useState(null);
+    const [pushBusy, setPushBusy] = useState(false);
+    const [pushTestBusy, setPushTestBusy] = useState(false);
+    const [pushTestMessage, setPushTestMessage] = useState(null);
+
+    const notificationPermission = useMemo(() => {
+        if (typeof window === 'undefined' || !('Notification' in window)) {
+            return 'unsupported';
+        }
+
+        return Notification.permission;
+    }, []);
+
+    const toUint8Array = (base64String) => {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+
+        return outputArray;
+    };
+
+    const getExistingSubscription = async () => {
+        const registration = await navigator.serviceWorker.ready;
+        return registration.pushManager.getSubscription();
+    };
+
+    const syncPushStatus = async () => {
+        if (!pushSupported) {
+            setPushStatus('Push not supported on this browser/device');
+            return null;
+        }
+
+        const existingSubscription = await getExistingSubscription();
+        setPushStatus(existingSubscription ? 'Subscribed' : 'Not subscribed');
+
+        return existingSubscription;
+    };
+
+    const subscribePush = async () => {
+        if (!push.configured) {
+            setPushError('Konfigurasi VAPID web push belum lengkap di server.');
+            return;
+        }
+
+        if (!push.vapidPublicKey) {
+            setPushError('VAPID public key tidak tersedia.');
+            return;
+        }
+
+        setPushBusy(true);
+        setPushError(null);
+        setPushTestMessage(null);
+
+        try {
+            const permission = await Notification.requestPermission();
+
+            if (permission !== 'granted') {
+                setPushStatus(permission === 'denied' ? 'Permission denied' : 'Permission not granted');
+                setPushError('Izin notifikasi belum diberikan di browser ini.');
+                return;
+            }
+
+            const registration = await navigator.serviceWorker.ready;
+            let subscription = await registration.pushManager.getSubscription();
+
+            if (!subscription) {
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: toUint8Array(push.vapidPublicKey),
+                });
+            }
+
+            await axios.post('/id/reseller/push-subscriptions', {
+                subscription: subscription.toJSON(),
+            }, {
+                headers: {
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+            });
+
+            setPushStatus('Subscribed');
+        } catch (error) {
+            setPushError(error.response?.data?.message || 'Gagal mengaktifkan push notification.');
+        } finally {
+            setPushBusy(false);
+        }
+    };
+
+    const unsubscribePush = async () => {
+        setPushBusy(true);
+        setPushError(null);
+        setPushTestMessage(null);
+
+        try {
+            const existingSubscription = await getExistingSubscription();
+
+            if (!existingSubscription) {
+                setPushStatus('Not subscribed');
+                return;
+            }
+
+            await axios.delete('/id/reseller/push-subscriptions', {
+                headers: {
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+                data: {
+                    endpoint: existingSubscription.endpoint,
+                },
+            });
+
+            await existingSubscription.unsubscribe();
+            setPushStatus('Not subscribed');
+        } catch (error) {
+            setPushError(error.response?.data?.message || 'Gagal menonaktifkan push notification.');
+        } finally {
+            setPushBusy(false);
+        }
+    };
+
+    const sendTestPush = async () => {
+        setPushTestBusy(true);
+        setPushError(null);
+        setPushTestMessage(null);
+
+        try {
+            const response = await axios.post('/id/reseller/push-subscriptions/test', {}, {
+                headers: {
+                    'X-CSRF-TOKEN': csrf_token,
+                },
+            });
+
+            setPushTestMessage(response.data?.message || 'Test push berhasil dikirim.');
+        } catch (error) {
+            setPushError(error.response?.data?.message || 'Gagal mengirim test push.');
+        } finally {
+            setPushTestBusy(false);
+        }
+    };
 
     // --- Profile Update Form ---
     const profileForm = useForm({
@@ -282,6 +428,85 @@ export default function Settings() {
                                     )}
                                 </div>
                             )}
+                        </div>
+
+                        <div className="rh-card" id="reseller-push-card">
+                            <h3 style={{ marginBottom: '16px', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className="material-symbols-outlined" style={{ color: pushStatus === 'Subscribed' ? '#10b981' : '#60a5fa' }}>
+                                    notifications_active
+                                </span>
+                                Browser Push Notification
+                            </h3>
+
+                            <p style={{ color: 'var(--on-surface-variant)', fontSize: '14px', marginBottom: '20px' }}>
+                                Aktifkan notifikasi browser untuk device ini, lalu kirim test manual untuk memastikan web push reseller sudah bekerja.
+                            </p>
+
+                            <div style={{ display: 'grid', gap: '10px', marginBottom: '16px' }}>
+                                <div style={{ fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+                                    <strong style={{ color: '#fff' }}>Status:</strong> {pushStatus}
+                                </div>
+                                <div style={{ fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+                                    <strong style={{ color: '#fff' }}>Permission:</strong> {notificationPermission}
+                                </div>
+                                <div style={{ fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+                                    <strong style={{ color: '#fff' }}>Server config:</strong> {push.configured ? 'Ready' : 'Missing VAPID config'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: 'var(--on-surface-variant)' }}>
+                                    <strong style={{ color: '#fff' }}>Saved subscriptions:</strong> {push.subscriptionCount}
+                                </div>
+                            </div>
+
+                            {!pushSupported && (
+                                <div style={{ color: 'var(--error)', fontSize: '14px', marginBottom: '16px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
+                                    Browser atau konteks saat ini tidak mendukung Web Push. Pastikan menggunakan HTTPS / secure context.
+                                </div>
+                            )}
+
+                            {pushError && (
+                                <div style={{ color: 'var(--error)', fontSize: '14px', marginBottom: '16px', padding: '12px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
+                                    {pushError}
+                                </div>
+                            )}
+
+                            {pushTestMessage && (
+                                <div style={{ color: '#10b981', fontSize: '14px', marginBottom: '16px', padding: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px' }}>
+                                    {pushTestMessage}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <button
+                                    id="reseller-push-enable"
+                                    type="button"
+                                    onClick={subscribePush}
+                                    disabled={!pushSupported || pushBusy || !push.configured}
+                                    className="rh-button rh-button--primary"
+                                >
+                                    {pushBusy ? 'Processing...' : 'Aktifkan Push di Device Ini'}
+                                </button>
+
+                                <button
+                                    id="reseller-push-test"
+                                    type="button"
+                                    onClick={sendTestPush}
+                                    disabled={!pushSupported || pushTestBusy || pushBusy}
+                                    className="rh-button"
+                                    style={{ background: 'rgba(96, 165, 250, 0.14)', color: '#bfdbfe', border: '1px solid rgba(96, 165, 250, 0.28)' }}
+                                >
+                                    {pushTestBusy ? 'Sending Test...' : 'Kirim Notifikasi Test'}
+                                </button>
+
+                                <button
+                                    id="reseller-push-disable"
+                                    type="button"
+                                    onClick={unsubscribePush}
+                                    disabled={!pushSupported || pushBusy}
+                                    className="rh-button rh-button--danger"
+                                >
+                                    {pushBusy ? 'Processing...' : 'Nonaktifkan Push di Device Ini'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
