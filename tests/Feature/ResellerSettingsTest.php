@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\ResellerIntegration;
+use App\Models\ResellerPushSubscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -83,4 +84,43 @@ class ResellerSettingsTest extends TestCase
                 $page->where('settingsPage.twoFactor.enabled', true)
             );
     }
+
+    public function test_settings_page_exposes_push_status_and_vapid_public_key()
+    {
+        config([
+            'services.webpush.vapid.public_key' => 'BEl6VapidPublicKeyExample1234567890',
+            'services.webpush.vapid.private_key' => 'private-key',
+            'services.webpush.vapid.subject' => 'mailto:test@example.com',
+        ]);
+
+        $user = User::factory()->create([
+            'role' => 'Member',
+        ]);
+
+        ResellerIntegration::create([
+            'user_id' => $user->id,
+            'integration_code' => 'TEST-PUSH-SETTINGS',
+            'is_active' => true,
+        ]);
+
+        ResellerPushSubscription::create([
+            'user_id' => $user->id,
+            'endpoint' => 'https://example.com/push/settings',
+            'public_key' => 'public-key-value',
+            'auth_token' => 'auth-token-value',
+            'content_encoding' => 'aes128gcm',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/id/reseller/settings')
+            ->assertInertia(fn (Assert $page) =>
+                $page
+                    ->where('settingsPage.push.enabled', true)
+                    ->where('settingsPage.push.subscriptionCount', 1)
+                    ->where('settingsPage.push.vapidPublicKey', 'BEl6VapidPublicKeyExample1234567890')
+                    ->where('settingsPage.push.configured', true)
+                    ->where('settingsPage.push.settingsUrl', route('reseller.settings'))
+            );
+    }
 }
+

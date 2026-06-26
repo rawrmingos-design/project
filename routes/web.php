@@ -261,6 +261,13 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/notifications/unread-count', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
             Route::post('/notifications/read-all', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
             Route::post('/notifications/{id}/read', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAsRead'])->name('notifications.read');
+
+            // Native web push (reseller-only, manual test phase)
+            Route::post('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
+            Route::delete('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
+            Route::post('/push-subscriptions/test', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'sendTest'])
+                ->middleware('throttle:reseller-callback-test')
+                ->name('push-subscriptions.test');
         });
 
 

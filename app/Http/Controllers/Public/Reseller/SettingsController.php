@@ -25,6 +25,13 @@ class SettingsController extends Controller
                 'twoFactor' => [
                     'enabled' => filled($user->two_factor_secret),
                 ],
+                'push' => [
+                    'enabled' => $user->resellerPushSubscriptions()->exists(),
+                    'subscriptionCount' => $user->resellerPushSubscriptions()->count(),
+                    'vapidPublicKey' => app(\App\Services\ResellerWebPushService::class)->vapidPublicKey(),
+                    'configured' => app(\App\Services\ResellerWebPushService::class)->isConfigured(),
+                    'settingsUrl' => route('reseller.settings'),
+                ],
                 'flash' => [
                     'success' => session('success'),
                     'error' => session('error'),

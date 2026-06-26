@@ -97,6 +97,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         return $this->hasMany(ResellerCallbackDelivery::class);
     }
 
+    public function resellerPushSubscriptions()
+    {
+        return $this->hasMany(ResellerPushSubscription::class);
+    }
+
     /**
      * Reseller Application Relationships
      */
