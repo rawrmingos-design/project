@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- SEO Meta Tags -->
-    <meta name="theme-color" content="#575757">
+    <meta name="theme-color" content="{{ $config && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $config->warna1) ? $config->warna1 : '#575757' }}">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta property="og:title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta property="og:type" content="website">
     <meta property="og:description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
@@ -30,10 +34,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ asset($config ? $config->logo_favicon : 'assets/logo/favicon-16x16.png') }}">
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
     <meta name="application-name" content="{{ $config ? $config->judul_web : config('app.name') }}">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="{{ $config ? $config->judul_web : config('app.name') }}">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <!-- Livewire Styles -->
     @livewireStyles
@@ -590,6 +591,146 @@
     </script>
     <script src="{{ asset('/assets/js/oo324ddod2323sd2dd.js') }}"></script>
 
+    <style>
+        .pwa-connection-toast {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            top: 18px;
+            z-index: 9998;
+            display: none;
+            max-width: 520px;
+            margin: 0 auto;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 22px;
+            background: linear-gradient(145deg, rgba(12, 18, 32, .96), rgba(22, 28, 44, .92));
+            box-shadow: 0 24px 60px rgba(2, 6, 23, .34);
+            color: #f8fafc;
+            overflow: hidden;
+            backdrop-filter: blur(18px);
+        }
+
+        .pwa-connection-toast.is-visible {
+            display: block;
+            animation: pwaConnectionSlideDown .28s ease-out;
+        }
+
+        .pwa-connection-toast::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 0% 0%, rgba(245, 158, 11, .22), transparent 34%),
+                radial-gradient(circle at 100% 100%, rgba(96, 165, 250, .18), transparent 34%);
+            pointer-events: none;
+        }
+
+        .pwa-connection-toast__inner {
+            position: relative;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding: 16px 18px;
+        }
+
+        .pwa-connection-toast__badge {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .08);
+            color: #fff7ed;
+            font-size: 18px;
+            font-weight: 900;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .05);
+        }
+
+        .pwa-connection-toast__title {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 900;
+            line-height: 1.3;
+        }
+
+        .pwa-connection-toast__body {
+            margin: 6px 0 0;
+            color: rgba(226, 232, 240, .8);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .pwa-connection-toast__actions {
+            margin-top: 12px;
+            display: none;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pwa-connection-toast__actions.is-visible {
+            display: flex;
+        }
+
+        .pwa-connection-toast__button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 140px;
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 14px;
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .pwa-connection-toast__button--primary {
+            color: #0f172a;
+            background: linear-gradient(135deg, #fde68a, #f59e0b);
+            box-shadow: 0 14px 28px rgba(245, 158, 11, .22);
+        }
+
+        .pwa-connection-toast__button--ghost {
+            color: rgba(255, 255, 255, .82);
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .pwa-connection-toast--offline .pwa-connection-toast__badge {
+            background: rgba(245, 158, 11, .14);
+            color: #fde7b0;
+        }
+
+        .pwa-connection-toast--recovered .pwa-connection-toast__badge {
+            background: rgba(16, 185, 129, .14);
+            color: #bbf7d0;
+        }
+
+        .pwa-connection-toast--paused .pwa-connection-toast__badge {
+            background: rgba(96, 165, 250, .14);
+            color: #bfdbfe;
+        }
+
+        @keyframes pwaConnectionSlideDown {
+            from { opacity: 0; transform: translateY(-12px) scale(.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @media (max-width: 640px) {
+            .pwa-connection-toast {
+                left: 12px;
+                right: 12px;
+                top: 12px;
+            }
+
+            .pwa-connection-toast__button {
+                width: 100%;
+            }
+        }
+    </style>
+
     {{-- Livewire Scripts - Required for Livewire components to work --}}
     @livewireScripts
 
@@ -598,9 +739,292 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
+                let hasRefreshedForServiceWorkerUpdate = false;
+                let pwaUpdateNotice = null;
+                let connectivityToast = null;
+                let connectivityProbeTimer = null;
+                let recoveryRefreshTimer = null;
+                let offlineEpisodeActive = false;
+                let hasReloadedAfterRecovery = false;
+
+                function ensureConnectivityToast() {
+                    if (connectivityToast) {
+                        return connectivityToast;
+                    }
+
+                    connectivityToast = document.createElement('div');
+                    connectivityToast.id = 'pwa-connection-toast';
+                    connectivityToast.className = 'pwa-connection-toast';
+                    connectivityToast.setAttribute('aria-live', 'polite');
+                    connectivityToast.setAttribute('data-pwa-connection-toast', '');
+                    connectivityToast.innerHTML = `
+                        <div class="pwa-connection-toast__inner">
+                            <div class="pwa-connection-toast__badge" data-pwa-connection-badge>!</div>
+                            <div style="flex:1 1 auto;">
+                                <p class="pwa-connection-toast__title" data-pwa-connection-title>Koneksi internet terputus</p>
+                                <p class="pwa-connection-toast__body" data-pwa-connection-body>Halaman ini tetap terbuka, tapi transaksi dan status pesanan butuh koneksi aktif. Kami akan muat ulang halaman ini otomatis saat koneksi kembali.</p>
+                                <div class="pwa-connection-toast__actions" data-pwa-connection-actions>
+                                    <button type="button" class="pwa-connection-toast__button pwa-connection-toast__button--primary" data-pwa-connection-refresh>Refresh sekarang</button>
+                                    <button type="button" class="pwa-connection-toast__button pwa-connection-toast__button--ghost" data-pwa-connection-resume>Refresh nanti</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(connectivityToast);
+
+                    const refreshButton = connectivityToast.querySelector('[data-pwa-connection-refresh]');
+                    const resumeButton = connectivityToast.querySelector('[data-pwa-connection-resume]');
+
+                    if (refreshButton) {
+                        refreshButton.addEventListener('click', function () {
+                            window.location.reload();
+                        });
+                    }
+
+                    if (resumeButton) {
+                        resumeButton.addEventListener('click', function () {
+                            hideConnectivityToast();
+                        });
+                    }
+
+                    return connectivityToast;
+                }
+
+                function hasFocusedOrDirtyFormState() {
+                    const activeElement = document.activeElement;
+                    const focusProtected = activeElement && activeElement.closest
+                        ? activeElement.closest('input, textarea, select, [contenteditable="true"]')
+                        : null;
+
+                    if (focusProtected) {
+                        return true;
+                    }
+
+                    const fields = document.querySelectorAll('input, textarea, select');
+
+                    for (const field of fields) {
+                        if (field.disabled || field.readOnly) {
+                            continue;
+                        }
+
+                        const tagName = (field.tagName || '').toLowerCase();
+                        const type = (field.type || '').toLowerCase();
+
+                        if (tagName === 'select') {
+                            if (field.selectedIndex !== field.defaultSelectedIndex) {
+                                return true;
+                            }
+                            continue;
+                        }
+
+                        if (type === 'checkbox' || type === 'radio') {
+                            if (field.checked !== field.defaultChecked) {
+                                return true;
+                            }
+                            continue;
+                        }
+
+                        if ((field.value || '') !== (field.defaultValue || '')) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+
+                function showConnectivityToast(state) {
+                    const toast = ensureConnectivityToast();
+                    const badge = toast.querySelector('[data-pwa-connection-badge]');
+                    const title = toast.querySelector('[data-pwa-connection-title]');
+                    const body = toast.querySelector('[data-pwa-connection-body]');
+                    const actions = toast.querySelector('[data-pwa-connection-actions]');
+
+                    toast.classList.remove('pwa-connection-toast--offline', 'pwa-connection-toast--recovered', 'pwa-connection-toast--paused');
+                    if (actions) {
+                        actions.classList.remove('is-visible');
+                    }
+
+                    if (state === 'offline') {
+                        toast.classList.add('pwa-connection-toast--offline');
+                        if (badge) badge.textContent = '!';
+                        if (title) title.textContent = 'Koneksi internet terputus';
+                        if (body) body.textContent = 'Halaman ini tetap terbuka, tapi transaksi dan status pesanan butuh koneksi aktif. Kami akan muat ulang halaman ini otomatis saat koneksi kembali.';
+                    }
+
+                    if (state === 'recovered') {
+                        toast.classList.add('pwa-connection-toast--recovered');
+                        if (badge) badge.textContent = '✓';
+                        if (title) title.textContent = 'Koneksi kembali normal';
+                        if (body) body.textContent = 'Sedang memuat ulang halaman ini untuk mengambil data terbaru dari server...';
+                    }
+
+                    if (state === 'paused') {
+                        toast.classList.add('pwa-connection-toast--paused');
+                        if (badge) badge.textContent = '✎';
+                        if (title) title.textContent = 'Koneksi kembali, reload ditahan';
+                        if (body) body.textContent = 'Kami mendeteksi ada form yang sedang kamu isi atau belum tersimpan. Halaman tidak dimuat ulang otomatis supaya input kamu tetap aman.';
+                        if (actions) {
+                            actions.classList.add('is-visible');
+                        }
+                    }
+
+                    toast.classList.add('is-visible');
+                }
+
+                function hideConnectivityToast() {
+                    if (connectivityToast) {
+                        connectivityToast.classList.remove('is-visible');
+                    }
+                }
+
+                function stopConnectivityProbe() {
+                    if (connectivityProbeTimer) {
+                        window.clearTimeout(connectivityProbeTimer);
+                        connectivityProbeTimer = null;
+                    }
+                }
+
+                function scheduleRecoveryReload() {
+                    if (!offlineEpisodeActive || hasReloadedAfterRecovery) {
+                        return;
+                    }
+
+                    if (hasFocusedOrDirtyFormState()) {
+                        reconnectRefreshPaused = true;
+                        showConnectivityToast('paused');
+                        return;
+                    }
+
+                    reconnectRefreshPaused = false;
+                    hasReloadedAfterRecovery = true;
+                    showConnectivityToast('recovered');
+
+                    if (recoveryRefreshTimer) {
+                        window.clearTimeout(recoveryRefreshTimer);
+                    }
+
+                    recoveryRefreshTimer = window.setTimeout(function () {
+                        window.location.reload();
+                    }, 1400);
+                }
+
+                function probeConnectivity() {
+                    if (!offlineEpisodeActive) {
+                        return;
+                    }
+
+                    fetch(window.location.pathname + '?pwa_connectivity_probe=' + Date.now(), {
+                        method: 'HEAD',
+                        cache: 'no-store',
+                    })
+                        .then(function (response) {
+                            if (response && response.ok) {
+                                stopConnectivityProbe();
+                                scheduleRecoveryReload();
+                                return;
+                            }
+
+                            throw new Error('Connectivity probe failed');
+                        })
+                        .catch(function () {
+                            connectivityProbeTimer = window.setTimeout(probeConnectivity, 2500);
+                        });
+                }
+
+                function handleOfflineState() {
+                    if (offlineEpisodeActive) {
+                        return;
+                    }
+
+                    offlineEpisodeActive = true;
+                    hasReloadedAfterRecovery = false;
+                    showConnectivityToast('offline');
+                    stopConnectivityProbe();
+                    probeConnectivity();
+                }
+
+                function handleOnlineState() {
+                    if (!offlineEpisodeActive) {
+                        return;
+                    }
+
+                    stopConnectivityProbe();
+                    scheduleRecoveryReload();
+                }
+
+                window.addEventListener('offline', handleOfflineState);
+                window.addEventListener('online', handleOnlineState);
+
+                if (navigator.onLine === false) {
+                    handleOfflineState();
+                }
+
+                function showPwaUpdateNotice(registration) {
+                    if (!registration || !registration.waiting) {
+                        return;
+                    }
+
+                    if (!pwaUpdateNotice) {
+                        pwaUpdateNotice = document.createElement('div');
+                        pwaUpdateNotice.id = 'pwa-update-notice';
+                        pwaUpdateNotice.setAttribute('data-pwa-update-notice', '');
+                        pwaUpdateNotice.innerHTML = `
+                            <div style="position:fixed;right:16px;bottom:16px;z-index:9999;max-width:320px;padding:16px 18px;border-radius:16px;background:rgba(17,24,39,.96);box-shadow:0 20px 45px rgba(15,23,42,.35);color:#f8fafc;font-family:inherit;">
+                                <div style="font-size:15px;font-weight:700;line-height:1.4;">Update tersedia</div>
+                                <div style="margin-top:6px;font-size:13px;line-height:1.5;color:rgba(248,250,252,.78);">Versi terbaru aplikasi siap dipakai. Refresh untuk mengaktifkan update.</div>
+                                <button type="button" id="pwa-update-refresh" style="margin-top:12px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:10px 14px;background:#38bdf8;color:#082f49;font-size:13px;font-weight:700;cursor:pointer;">Refresh</button>
+                            </div>
+                        `;
+                        document.body.appendChild(pwaUpdateNotice);
+
+                        var refreshButton = document.getElementById('pwa-update-refresh');
+                        if (refreshButton) {
+                            refreshButton.addEventListener('click', function () {
+                                if (registration.waiting) {
+                                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            });
+                        }
+                    }
+                }
+
+                navigator.serviceWorker.addEventListener('controllerchange', function () {
+                    if (hasRefreshedForServiceWorkerUpdate) {
+                        return;
+                    }
+
+                    hasRefreshedForServiceWorkerUpdate = true;
+                    window.location.reload();
+                });
+
+                window.addEventListener('beforeunload', function () {
+                    stopConnectivityProbe();
+                    if (recoveryRefreshTimer) {
+                        window.clearTimeout(recoveryRefreshTimer);
+                    }
+                });
+
                 navigator.serviceWorker.register('/sw.js')
                     .then(function (registration) {
                         registration.update();
+
+                        if (registration.waiting) {
+                            showPwaUpdateNotice(registration);
+                        }
+
+                        registration.addEventListener('updatefound', function () {
+                            var newWorker = registration.installing;
+
+                            if (!newWorker) {
+                                return;
+                            }
+
+                            newWorker.addEventListener('statechange', function () {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    showPwaUpdateNotice(registration);
+                                }
+                            });
+                        });
                     })
                     .catch(function (error) {
                         console.debug('Service worker registration failed:', error);

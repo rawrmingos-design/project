@@ -21,15 +21,19 @@ class PwaManifestController extends Controller
         $maskableIconUrl = $this->absoluteUrl($appUrl, '/assets/pwa/icon-maskable-512.png');
 
         return response()->json([
+            'id' => '/id?source=pwa',
             'name' => $appName !== '' ? $appName : 'Game Top-Up',
             'short_name' => Str::limit($appName !== '' ? $appName : 'Game Top-Up', 12, ''),
             'description' => $description !== '' ? $description : 'Platform Top-Up Game Terpercaya',
+            'lang' => 'id-ID',
+            'dir' => 'ltr',
             'start_url' => '/id?source=pwa',
             'scope' => '/',
             'display' => 'standalone',
             'orientation' => 'portrait-primary',
             'theme_color' => $themeColor,
             'background_color' => $backgroundColor,
+            'categories' => ['shopping', 'games', 'entertainment'],
             'icons' => [
                 [
                     'src' => $icon192Url,
@@ -48,6 +52,47 @@ class PwaManifestController extends Controller
                     'sizes' => '512x512',
                     'type' => 'image/png',
                     'purpose' => 'maskable',
+                ],
+            ],
+            'shortcuts' => [
+                [
+                    'name' => 'Cari Transaksi',
+                    'short_name' => 'Transaksi',
+                    'description' => 'Lacak invoice dan cek status pesanan terbaru.',
+                    'url' => '/id/invoices',
+                    'icons' => [
+                        [
+                            'src' => $icon192Url,
+                            'sizes' => '192x192',
+                            'type' => 'image/png',
+                        ],
+                    ],
+                ],
+                [
+                    'name' => 'Daftar Harga',
+                    'short_name' => 'Harga',
+                    'description' => 'Buka price list terbaru untuk top up game.',
+                    'url' => '/id/price-list',
+                    'icons' => [
+                        [
+                            'src' => $icon192Url,
+                            'sizes' => '192x192',
+                            'type' => 'image/png',
+                        ],
+                    ],
+                ],
+                [
+                    'name' => 'Leaderboard',
+                    'short_name' => 'Rank',
+                    'description' => 'Lihat leaderboard dan aktivitas storefront terbaru.',
+                    'url' => '/id/leaderboard',
+                    'icons' => [
+                        [
+                            'src' => $icon192Url,
+                            'sizes' => '192x192',
+                            'type' => 'image/png',
+                        ],
+                    ],
                 ],
             ],
         ], 200, [
