@@ -3,6 +3,17 @@ const CACHE_PREFIX = 'storefront-pwa';
 const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
+const STATIC_CACHE_MAX_ENTRIES = 80;
+
+const PRECACHE_URLS = [
+    OFFLINE_URL,
+    '/assets/pwa/icon-192.png',
+    '/assets/css/pjojikhhoyutyrtd.css',
+    '/assets/css/barrsopaosocas.css',
+    '/assets/css/owihdagowdhqo.css',
+    '/assets/css/seasonal-themes.css',
+    '/assets/js/oo324ddod2323sd2dd.js',
+];
 
 const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|map|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)$/i;
 const NETWORK_ONLY_PREFIXES = [
@@ -35,9 +46,14 @@ const NETWORK_ONLY_PREFIXES = [
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(OFFLINE_CACHE)
-            .then((cache) => cache.addAll([OFFLINE_URL]))
-            .then(() => self.skipWaiting())
+        Promise.all([
+            caches.open(OFFLINE_CACHE)
+                .then((cache) => cache.addAll([OFFLINE_URL])),
+            caches.open(STATIC_CACHE)
+                .then((cache) => cache.addAll(
+                    PRECACHE_URLS.filter((url) => url !== OFFLINE_URL)
+                )),
+        ])
     );
 });
 
@@ -59,6 +75,51 @@ self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+
+    if (event.data && event.data.type === 'PING_CONNECTION_STATUS' && event.source) {
+        event.source.postMessage({
+            type: 'CONNECTION_STATUS',
+            online: true,
+        });
+    }
+});
+
+self.addEventListener('push', (event) => {
+    const payload = safelyParseJson(event.data);
+    const title = payload?.title || 'Notifikasi Reseller';
+    const options = {
+        body: payload?.body || 'Ada notifikasi baru untuk akun reseller Anda.',
+        icon: '/assets/pwa/icon-192.png',
+        badge: '/assets/pwa/icon-192.png',
+        tag: payload?.tag || 'reseller-push',
+        data: {
+            url: payload?.url || '/id/reseller/settings',
+        },
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+
+    const targetUrl = event.notification?.data?.url || '/id/reseller/settings';
+
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+            for (const client of clients) {
+                if (client.url === targetUrl && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(targetUrl);
+            }
+
+            return undefined;
+        })
+    );
 });
 
 self.addEventListener('fetch', (event) => {
@@ -94,12 +155,15 @@ function networkFirstNavigation(request) {
 }
 
 function staleWhileRevalidate(request) {
+    const cacheRequest = getNormalizedStaticCacheRequest(request);
+
     return caches.open(STATIC_CACHE).then((cache) => {
-        return cache.match(request).then((cachedResponse) => {
+        return cache.match(cacheRequest).then((cachedResponse) => {
             const fetchPromise = fetch(request)
                 .then((networkResponse) => {
                     if (networkResponse && networkResponse.ok) {
-                        cache.put(request, networkResponse.clone());
+                        cache.put(cacheRequest, networkResponse.clone());
+                        trimCache(cache, STATIC_CACHE_MAX_ENTRIES);
                     }
 
                     return networkResponse;
@@ -109,4 +173,34 @@ function staleWhileRevalidate(request) {
             return cachedResponse || fetchPromise;
         });
     });
+}
+
+function getNormalizedStaticCacheRequest(request) {
+    const url = new URL(request.url);
+    return new Request(`${url.origin}${url.pathname}`, {
+        method: 'GET',
+        headers: request.headers,
+    });
+}
+
+function trimCache(cache, maxEntries) {
+    cache.keys().then((keys) => {
+        if (keys.length <= maxEntries) {
+            return;
+        }
+
+        cache.delete(keys[0]).then(() => trimCache(cache, maxEntries));
+    });
+}
+
+function safelyParseJson(data) {
+    if (!data) {
+        return null;
+    }
+
+    try {
+        return data.json();
+    } catch (error) {
+        return null;
+    }
 }
