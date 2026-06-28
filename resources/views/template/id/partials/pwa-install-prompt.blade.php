@@ -183,6 +183,44 @@
                 return /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
             }
 
+            function isTablet() {
+                const userAgent = window.navigator.userAgent || '';
+
+                if (/iPad/.test(userAgent)) {
+                    return true;
+                }
+
+                if (/Android/.test(userAgent) && !/Mobile/.test(userAgent)) {
+                    return true;
+                }
+
+                if (/Tablet|PlayBook|Silk/i.test(userAgent)) {
+                    return true;
+                }
+
+                return false;
+            }
+
+            function isMobilePhone() {
+                if (window.navigator.userAgentData && typeof window.navigator.userAgentData.mobile === 'boolean') {
+                    return window.navigator.userAgentData.mobile;
+                }
+
+                const userAgent = window.navigator.userAgent || '';
+                return /Android.*Mobile|iPhone|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent);
+            }
+
+            function isMobileOrTabletDevice() {
+                if (isIos() || isTablet() || isMobilePhone()) {
+                    return true;
+                }
+
+                const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
+                const narrowViewport = window.innerWidth <= 1024;
+
+                return coarsePointer && narrowViewport;
+            }
+
             function supportsDeferredInstallPrompt() {
                 return !!deferredPrompt;
             }
@@ -216,7 +254,7 @@
             }
 
             function showCard() {
-                if (!card || isStandalone() || recentlyDismissed()) {
+                if (!card || isStandalone() || recentlyDismissed() || !isMobileOrTabletDevice()) {
                     return;
                 }
 
@@ -241,6 +279,11 @@
             }
 
             function showFallbackHint() {
+                if (!isMobileOrTabletDevice()) {
+                    hideCard();
+                    return;
+                }
+
                 if (!installHint) {
                     hideCard();
                     return;
@@ -263,6 +306,11 @@
 
             if (isStandalone()) {
                 track('pwa_launched', { pwa: { source: 'standalone_launch', display_mode: 'standalone' } });
+                return;
+            }
+
+            if (!isMobileOrTabletDevice()) {
+                hideCard();
                 return;
             }
 
