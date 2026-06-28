@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Pembelians\Tables;
 
 use App\Jobs\SendPembelianToProviderJob;
+use App\Support\PembelianNotificationHelper;
 use App\Support\PembelianStatus;
 use App\Support\ProviderDispatchTracker;
 use Filament\Tables\Table;
@@ -462,88 +463,60 @@ class PembeliansTable
                         ->label('Resend Notif')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('secondary')
-                        ->form([
-                            \Filament\Forms\Components\Select::make('channel')
-                                ->label('Send via')
-                                ->options([
-                                    'whatsapp' => 'WhatsApp Only',
-                                    'email' => 'Email Only',
-                                    'both' => 'Both (WhatsApp & Email)',
-                                ])
-                                ->default('both')
-                                ->required(),
-                        ])
-                        ->action(function ($record, array $data) {
-                            $channel = $data['channel'];
-                            $waService = new \App\Services\WhatsappNotificationService();
-                            $emailService = new \App\Services\EmailNotificationService();
+                        ->disabled(function ($record): bool {
+                            $targetWa = PembelianNotificationHelper::whatsappTarget($record);
+                            $targetEmail = PembelianNotificationHelper::emailTarget($record);
 
-                            // Prepare Data
-                            $status = strtolower($record->status);
-                            $slug = 'transaction_pending';
-                            $note = 'Pesanan sedang menunggu respon provider.';
+                            return $targetWa === null && $targetEmail === null;
+                        })
+                        ->tooltip(function ($record): ?string {
+                            $targetWa = PembelianNotificationHelper::whatsappTarget($record);
+                            $targetEmail = PembelianNotificationHelper::emailTarget($record);
 
-                            if (in_array($status, ['success', 'sukses'])) {
-                                $slug = 'transaction_success';
-                                $note = 'Terima kasih telah berbelanja.';
-                            } elseif (in_array($status, ['failed', 'gagal', 'batal', 'expired'])) {
-                                $slug = 'transaction_failed';
-                                $note = 'Mohon maaf, transaksi Anda gagal atau kadaluarsa.';
-                            }
-
-                            $notificationData = [
-                                'nickname' => $record->nickname ?? 'Pelanggan',
-                                'order_id' => $record->order_id,
-                                'product' => $record->layanan,
-                                'amount' => 'Rp ' . number_format($record->harga, 0, ',', '.'),
-                                'status' => $record->status,
-                                'sn' => $record->keterangan_sn ?: ($record->voucher ?: 'Sedang Diproses'),
-                                'note' => $note,
+                            return $targetWa === null && $targetEmail === null
+                                ? 'Order ini tidak memiliki nomor WhatsApp maupun email yang bisa dipakai untuk mengirim notifikasi.'
+                                : null;
+                        })
+                        ->fillForm(function ($record): array {
+                            return [
+                                'channel' => array_key_first(PembelianNotificationHelper::channelOptions($record)),
                             ];
+                        })
+                        ->form(function ($record): array {
+                            return [
+                                \Filament\Forms\Components\Placeholder::make('detected_whatsapp')
+                                    ->label('WhatsApp Target')
+                                    ->content(PembelianNotificationHelper::whatsappTarget($record) ?? 'Tidak tersedia'),
+                                \Filament\Forms\Components\Placeholder::make('detected_email')
+                                    ->label('Email Target')
+                                    ->content(PembelianNotificationHelper::emailTarget($record) ?? 'Tidak tersedia'),
+                                \Filament\Forms\Components\Placeholder::make('availability_note')
+                                    ->label('Availability')
+                                    ->content(PembelianNotificationHelper::availabilityMessage($record)),
+                                \Filament\Forms\Components\Select::make('channel')
+                                    ->label('Send via')
+                                    ->options(PembelianNotificationHelper::channelOptions($record))
+                                    ->default(array_key_first(PembelianNotificationHelper::channelOptions($record)))
+                                    ->native(false)
+                                    ->required()
+                                    ->helperText('Hanya channel yang memiliki target kontak valid yang ditampilkan.'),
+                            ];
+                        })
+                        ->action(function ($record, array $data) {
+                            $channel = (string) ($data['channel'] ?? '');
+                            $availableChannels = array_keys(PembelianNotificationHelper::channelOptions($record));
 
-                            $results = [];
+                            if (! in_array($channel, $availableChannels, true)) {
+                                Notification::make()
+                                    ->title('Channel tidak tersedia')
+                                    ->body('Pilih channel notifikasi yang memiliki target kontak valid untuk order ini.')
+                                    ->warning()
+                                    ->send();
 
-                            // Send WhatsApp
-                            if ($channel === 'whatsapp' || $channel === 'both') {
-                                if ($record->user && $record->user->no_wa) {
-                                    $waResult = $waService->sendNotification($record->user->no_wa, $slug, $notificationData);
-                                    $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
-                                } elseif ($record->no_hp) { // Fallback if guest has phone column (assuming no_hp exists or we use user relation)
-                                    // Standardize on user relation per previous table logic, but check if we store no_hp on pembelian?
-                                    // Table columns imply user->no_wa. Let's stick to user->no_wa for now as per table columns.
-                                    // But wait, guest orders might store phone in 'no_hp' or similar?
-                                    // Checking PembeliansTable columns: no phone column explicitly shown except user.no_wa
-                                    // Let's check Pembelian model or migration from earlier?
-                                    // Assuming user relation is reliable or Invoice has 'no_hp' field?
-                                    // Previous callbacks used $invoice->no_pembeli.
-                                    $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
-                                    if ($targetWa) {
-                                        $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
-                                        $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
-                                    } else {
-                                        $results[] = "WA: No Number";
-                                    }
-                                } else {
-                                    $targetWa = $record->no_pembeli ?? ($record->user->no_wa ?? null);
-                                    if ($targetWa) {
-                                        $waResult = $waService->sendNotification($targetWa, $slug, $notificationData);
-                                        $results[] = "WA: " . ($waResult['success'] ? 'Sent' : 'Failed');
-                                    } else {
-                                        $results[] = "WA: No Number";
-                                    }
-                                }
+                                return;
                             }
 
-                            // Send Email
-                            if ($channel === 'email' || $channel === 'both') {
-                                $targetEmail = $record->email_pembeli ?? ($record->user->email ?? null);
-                                if ($targetEmail) {
-                                    $emailResult = $emailService->sendTransactionEmail($targetEmail, $notificationData);
-                                    $results[] = "Email: " . ($emailResult ? 'Sent' : 'Failed');
-                                } else {
-                                    $results[] = "Email: No Address";
-                                }
-                            }
+                            $results = PembelianNotificationHelper::send($record, $channel);
 
                             Notification::make()
                                 ->title('Notification Processed')
