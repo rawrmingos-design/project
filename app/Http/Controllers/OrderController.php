@@ -17,7 +17,6 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\ApiCheckController;
-use App\Http\Controllers\PaydisiniController;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
 use App\Http\Controllers\DuitkuPaymentController;

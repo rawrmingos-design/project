@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Http\Controllers\provider\moogold\MoogoldController;
+use App\Http\Controllers\provider\MoogoldController;
 
 class CekStatusMoogold extends Command
 {

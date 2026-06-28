@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Provider;
+namespace App\Http\Controllers\provider;
 
 use App\Http\Controllers\provider\BangJeffController;
 use App\Http\Controllers\provider\MoogoldController;
 use App\Http\Controllers\provider\TopupediaController;
-use App\Http\Contrlllers\provider\VipResellerController;
+use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
