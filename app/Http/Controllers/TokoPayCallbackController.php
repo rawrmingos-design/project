@@ -22,11 +22,22 @@ class TokoPayCallbackController extends Controller
 
     public function __construct()
     {
+        $this->api = null;
+    }
+
+    protected function initializeApi(): void
+    {
+        if ($this->api) {
+            return;
+        }
+
         $this->api = \DB::table('setting_webs')->where('id', 1)->first();
     }
 
     public function handle(Request $request)
     {
+        $this->initializeApi();
+
         $json = $request->getContent();
         $data = json_decode($json, true);
 

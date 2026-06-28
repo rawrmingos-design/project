@@ -4,14 +4,12 @@ namespace App\Providers\Filament;
 
 use Filament\Http\Middleware\Authenticate;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
-use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\PanelProvider;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -23,20 +21,22 @@ class AdminPanelProvider extends PanelProvider
         $logoUrl = asset('/assets/logo/logo.webp');
         $faviconUrl = asset('/assets/logo/favicon.webp');
 
-        try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('setting_webs')) {
-                $setting = \App\Models\SettingWeb::first();
-                if ($setting) {
-                    if (!empty($setting->logo_header)) {
-                        $logoUrl = asset($setting->logo_header);
-                    }
-                    if (!empty($setting->logo_favicon)) {
-                        $faviconUrl = asset($setting->logo_favicon);
+        if (! app()->runningInConsole()) {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('setting_webs')) {
+                    $setting = \App\Models\SettingWeb::first();
+                    if ($setting) {
+                        if (! empty($setting->logo_header)) {
+                            $logoUrl = asset($setting->logo_header);
+                        }
+                        if (! empty($setting->logo_favicon)) {
+                            $faviconUrl = asset($setting->logo_favicon);
+                        }
                     }
                 }
+            } catch (\Exception $e) {
+                // Abaikan jika tabel tidak ada / database error saat proses build
             }
-        } catch (\Exception $e) {
-            // Abaikan jika tabel tidak ada / database error saat proses build
         }
 
         return $panel

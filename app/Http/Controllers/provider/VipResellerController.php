@@ -18,6 +18,8 @@ class VipResellerController extends Controller
     
     protected string $profileEndpoint = 'https://vip-reseller.co.id/api/profile';
 
+    protected bool $usesDatabaseConfig = false;
+
     public function __construct(array $config = [])
     {
         if (! empty($config)) {
@@ -27,6 +29,15 @@ class VipResellerController extends Controller
             $this->endpoint = (string) ($config['endpoint'] ?? $this->endpoint);
             $this->profileEndpoint = (string) ($config['profile_endpoint'] ?? $this->profileEndpoint);
 
+            return;
+        }
+
+        $this->usesDatabaseConfig = true;
+    }
+
+    protected function initializeApiConfig(): void
+    {
+        if (! $this->usesDatabaseConfig || ($this->apiId !== '' && $this->apiKey !== '' && $this->apiSign !== '')) {
             return;
         }
 
@@ -205,6 +216,15 @@ class VipResellerController extends Controller
 
     protected function request(array $payload): array
     {
+        $this->initializeApiConfig();
+
+        if ($this->apiId === '' || $this->apiKey === '') {
+            return [
+                'result' => false,
+                'message' => 'Konfigurasi VIP Reseller belum lengkap.',
+            ];
+        }
+
         return $this->requestToEndpoint($payload, $this->endpoint);
     }
 

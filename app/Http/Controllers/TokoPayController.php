@@ -17,12 +17,22 @@ class TokoPayController extends Controller
     public function __construct()
     {
         $this->apiUrl = 'https://api.tokopay.id';
+    }
+
+    private function initializeCredentials(): void
+    {
+        if ($this->merchantId && $this->secretKey) {
+            return;
+        }
+
         $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $this->merchantId = $api->tokopay_merchant_id;
-        $this->secretKey = $api->tokopay_secret_key;
+        $this->merchantId = $api->tokopay_merchant_id ?? null;
+        $this->secretKey = $api->tokopay_secret_key ?? null;
     }
     
     public function createAdvanceOrder($ref_id, $channel, $jumlah, $nickname, $phone_number, $service){
+        $this->initializeCredentials();
+
         $merchantid = $this->merchantId;
         $secretkey = $this->secretKey;
         
@@ -105,6 +115,8 @@ class TokoPayController extends Controller
     
      public function createOrder($nominal, $refId, $kodeChannel)
     {
+        $this->initializeCredentials();
+
         $mid = $this->merchantId;
         $secret = $this->secretKey;
         
@@ -129,6 +141,8 @@ class TokoPayController extends Controller
     
        public function akun()
     {
+        $this->initializeCredentials();
+
         $merchantId = $this->merchantId;
         $secretKey = $this->secretKey;
     
@@ -160,6 +174,8 @@ class TokoPayController extends Controller
     
     public function tarikSaldo(Request $request)
     {
+        $this->initializeCredentials();
+
         $merchantid = $this->merchantId;
         $secretkey = $this->secretKey;
         $nominal = $request->input('nominal');
