@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Berita;
-use App\Models\Seting;
 class HitungpointmwController extends Controller
 {
     public function create()
