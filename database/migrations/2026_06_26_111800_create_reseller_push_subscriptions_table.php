@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('reseller_push_subscriptions', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->text('endpoint');
+            $table->string('endpoint', 191);
             $table->text('public_key');
             $table->string('auth_token', 255);
             $table->string('content_encoding', 32)->nullable();
