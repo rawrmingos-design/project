@@ -11,16 +11,29 @@ use Http;
 class TopupediaController extends Controller
 {
     private $api;
+    private $url;
+    private bool $usesDatabaseConfig = false;
+
     public function __construct($config = [])
     {
         if (!empty($config)) {
             $this->api = $config['api_key'] ?? '';
             $this->url = $config['endpoint'] ?? 'https://api.topupedia.com';
         } else {
-            $api = \DB::table('setting_webs')->where('id', 1)->first();
-            $this->api = $api->topupindo_api ?? '';
+            $this->api = '';
             $this->url = 'https://api.topupedia.com';
+            $this->usesDatabaseConfig = true;
         }
+    }
+
+    private function initializeApiConfig(): void
+    {
+        if (! $this->usesDatabaseConfig || $this->api !== '') {
+            return;
+        }
+
+        $api = \DB::table('setting_webs')->where('id', 1)->first();
+        $this->api = $api->topupindo_api ?? '';
     }
     public function balance()
     {
@@ -75,6 +88,8 @@ class TopupediaController extends Controller
     
     public function go($url,$data = [])
     {
+        $this->initializeApiConfig();
+
         $data =  Http::withToken($this->api)->post($url,$data);
         
         $response = $data->json();

@@ -21,11 +21,23 @@ class PaydisiniCallbackController extends Controller
 
     public function __construct()
     {
-        $this->apiKey = \DB::table('setting_webs')->where('id', 1)->first()->paydisini_apikey;
+        $this->apiKey = null;
+    }
+
+    private function initializeApiKey(): void
+    {
+        if ($this->apiKey !== null) {
+            return;
+        }
+
+        $setting = \DB::table('setting_webs')->where('id', 1)->first();
+        $this->apiKey = $setting->paydisini_apikey ?? null;
     }
     
     public function callbackTransaction(Request $request)
     {
+        $this->initializeApiKey();
+
         $key = $request->input('key');
         $payId = (string) $request->input('pay_id', '');
         $uniqueCode = (string) $request->input('unique_code', '');

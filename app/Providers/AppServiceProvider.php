@@ -139,33 +139,33 @@ class AppServiceProvider extends ServiceProvider
             return "<?php echo \\App\\Helpers\\HtmlSanitizer::clean($expression); ?>";
         });
 
-        try {
-            $config = \DB::table('setting_webs')->where('id',1)->first();
+        $config = (object) $defaultConfig;
 
-            $config = (object) array_merge($defaultConfig, (array) $config);
+        if (! app()->runningInConsole()) {
+            try {
+                $dbConfig = \DB::table('setting_webs')->where('id', 1)->first();
 
-            if ($config) {
-                config([
-                    'mail.default' => $config->mail_mailer ?: env('MAIL_MAILER', 'smtp'),
-                    'mail.mailers.smtp.host' => $config->mail_host ?: env('MAIL_HOST', 'smtp.mailgun.org'),
-                    'mail.mailers.smtp.port' => $config->mail_port ?: env('MAIL_PORT', 587),
-                    'mail.mailers.smtp.encryption' => $config->mail_encryption ?: env('MAIL_ENCRYPTION', 'tls'),
-                    'mail.mailers.smtp.username' => $config->mail_username ?: env('MAIL_USERNAME'),
-                    'mail.mailers.smtp.password' => $config->mail_password ?: env('MAIL_PASSWORD'),
-                    'mail.from.address' => $config->mail_from_address ?: env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-                    'mail.from.name' => $config->mail_from_name ?: env('MAIL_FROM_NAME', 'Example'),
-                    'captcha.sitekey' => $config->captcha_site_key ?: env('NOCAPTCHA_SITEKEY'),
-                    'captcha.secret' => $config->captcha_secret ?: env('NOCAPTCHA_SECRET'),
-                ]);
+                if ($dbConfig) {
+                    $config = (object) array_merge($defaultConfig, (array) $dbConfig);
+
+                    config([
+                        'mail.default' => $config->mail_mailer ?: env('MAIL_MAILER', 'smtp'),
+                        'mail.mailers.smtp.host' => $config->mail_host ?: env('MAIL_HOST', 'smtp.mailgun.org'),
+                        'mail.mailers.smtp.port' => $config->mail_port ?: env('MAIL_PORT', 587),
+                        'mail.mailers.smtp.encryption' => $config->mail_encryption ?: env('MAIL_ENCRYPTION', 'tls'),
+                        'mail.mailers.smtp.username' => $config->mail_username ?: env('MAIL_USERNAME'),
+                        'mail.mailers.smtp.password' => $config->mail_password ?: env('MAIL_PASSWORD'),
+                        'mail.from.address' => $config->mail_from_address ?: env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+                        'mail.from.name' => $config->mail_from_name ?: env('MAIL_FROM_NAME', 'Example'),
+                        'captcha.sitekey' => $config->captcha_site_key ?: env('NOCAPTCHA_SITEKEY'),
+                        'captcha.secret' => $config->captcha_secret ?: env('NOCAPTCHA_SECRET'),
+                    ]);
+                }
+            } catch (\Exception $e) {
+                // Fallback to default config when database is unavailable.
             }
-            
-            View::share('config', $config);
-            
-        } catch (\Exception $e) {
-            // Fallback config if database is not available
-            $config = (object) $defaultConfig;
-            
-            View::share('config', $config);
         }
+
+        View::share('config', $config);
     }
 }

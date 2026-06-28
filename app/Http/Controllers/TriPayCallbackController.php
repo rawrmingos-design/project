@@ -14,6 +14,7 @@ use App\Events\InvoiceStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class TriPayCallbackController extends Controller
 {
@@ -21,11 +22,22 @@ class TriPayCallbackController extends Controller
 
     public function __construct()
     {
+        $this->api = null;
+    }
+
+    protected function initializeApi(): void
+    {
+        if ($this->api) {
+            return;
+        }
+
         $this->api = DB::table('setting_webs')->where('id', 1)->first();
     }
 
     public function handle(Request $request)
     {
+        $this->initializeApi();
+
         $callbackSignature = (string) $request->server('HTTP_X_CALLBACK_SIGNATURE');
         $json = $request->getContent();
         $signature = hash_hmac('sha256', $json, (string) optional($this->api)->tripay_private_key);

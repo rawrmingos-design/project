@@ -23,8 +23,18 @@ class DuitkuPaymentController extends Controller
 
     public function __construct()
     {
+        $this->api = null;
+        $this->duitkuConfig = null;
+    }
+
+    protected function initializeDuitkuConfig(): void
+    {
+        if ($this->duitkuConfig || $this->api) {
+            return;
+        }
+
         $this->api = DB::table('setting_webs')->where('id', 1)->first();
-        
+
         // Initialize Duitku Config
         if ($this->api && $this->api->duitku_merchant_key && $this->api->duitku_merchant_code) {
             $this->duitkuConfig = new Config(
@@ -49,6 +59,8 @@ class DuitkuPaymentController extends Controller
      */
     public function createInvoice(Pembelian $order, string $paymentMethodCode = null)
     {
+        $this->initializeDuitkuConfig();
+
         try {
             if (!$this->duitkuConfig) {
                 throw new \Exception('Duitku configuration not found');
@@ -163,6 +175,8 @@ class DuitkuPaymentController extends Controller
      */
     public function handleCallback(Request $request)
     {
+        $this->initializeDuitkuConfig();
+
         try {
             if (!$this->duitkuConfig) {
                 Log::error('Duitku: Configuration not found');
@@ -526,6 +540,8 @@ class DuitkuPaymentController extends Controller
      */
     public function checkStatus($merchantOrderId)
     {
+        $this->initializeDuitkuConfig();
+
         try {
             if (!$this->duitkuConfig) {
                 throw new \Exception('Duitku configuration not found');
@@ -556,6 +572,8 @@ class DuitkuPaymentController extends Controller
      */
     public function getPaymentMethods($amount)
     {
+        $this->initializeDuitkuConfig();
+
         try {
             if (!$this->duitkuConfig) {
                 throw new \Exception('Duitku configuration not found');
