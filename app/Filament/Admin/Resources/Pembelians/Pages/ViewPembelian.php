@@ -6,12 +6,12 @@ use App\Filament\Admin\Resources\Pembelians\PembelianResource;
 use App\Jobs\SendPembelianToProviderJob;
 use App\Models\ProviderPath;
 use App\Services\ResetDomainService;
+use App\Support\PembelianNotificationHelper;
 use App\Support\PembelianStatus;
 use App\Support\ProviderDispatchTracker;
 use DomainException;
 use Filament\Actions;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -215,6 +215,57 @@ class ViewPembelian extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('send_notification')
+                ->label('Send Notification')
+                ->icon('heroicon-o-paper-airplane')
+                ->color('secondary')
+                ->disabled(fn (): bool => empty(PembelianNotificationHelper::channelOptions($this->record)))
+                ->tooltip(fn (): ?string => empty(PembelianNotificationHelper::channelOptions($this->record))
+                    ? 'Order ini tidak memiliki nomor WhatsApp maupun email yang bisa dipakai untuk mengirim notifikasi.'
+                    : null)
+                ->fillForm(fn (): array => [
+                    'channel' => array_key_first(PembelianNotificationHelper::channelOptions($this->record)),
+                ])
+                ->form([
+                    TextEntry::make('detected_whatsapp')
+                        ->label('WhatsApp Target')
+                        ->state(fn (): string => PembelianNotificationHelper::whatsappTarget($this->record) ?? 'Tidak tersedia'),
+                    TextEntry::make('detected_email')
+                        ->label('Email Target')
+                        ->state(fn (): string => PembelianNotificationHelper::emailTarget($this->record) ?? 'Tidak tersedia'),
+                    TextEntry::make('availability_note')
+                        ->label('Availability')
+                        ->state(fn (): string => PembelianNotificationHelper::availabilityMessage($this->record)),
+                    Select::make('channel')
+                        ->label('Send via')
+                        ->options(fn (): array => PembelianNotificationHelper::channelOptions($this->record))
+                        ->default(fn (): ?string => array_key_first(PembelianNotificationHelper::channelOptions($this->record)))
+                        ->native(false)
+                        ->required()
+                        ->helperText('Hanya channel yang memiliki target kontak valid yang ditampilkan.'),
+                ])
+                ->action(function (array $data): void {
+                    $channel = (string) ($data['channel'] ?? '');
+                    $availableChannels = array_keys(PembelianNotificationHelper::channelOptions($this->record));
+
+                    if (! in_array($channel, $availableChannels, true)) {
+                        Notification::make()
+                            ->title('Channel tidak tersedia')
+                            ->body('Pilih channel notifikasi yang memiliki target kontak valid untuk order ini.')
+                            ->warning()
+                            ->send();
+
+                        return;
+                    }
+
+                    $results = PembelianNotificationHelper::send($this->record, $channel);
+
+                    Notification::make()
+                        ->title('Notification Processed')
+                        ->body(implode(', ', $results))
+                        ->success()
+                        ->send();
+                }),
             Actions\Action::make('reset_invoice')
                 ->label('Reset Invoice')
                 ->icon('heroicon-o-arrow-path')
@@ -226,23 +277,23 @@ class ViewPembelian extends ViewRecord
                     ? 'Tidak ada provider cadangan aktif. Reset akan membuat attempt baru memakai provider aktif saat ini.'
                     : 'Create the next reset attempt. You may retry the current provider or switch to a validated backup provider.')
                 ->form([
-                    Placeholder::make('current_provider')
+                    TextEntry::make('current_provider')
                         ->label('Current Provider')
-                        ->content(fn (): string => $this->getCurrentProviderLabel()),
-                    Placeholder::make('target_provider_summary')
+                        ->state(fn (): string => $this->getCurrentProviderLabel()),
+                    TextEntry::make('target_provider_summary')
                         ->label('Target Provider')
-                        ->content(fn (): string => count($this->providerSelectOptions) === 0
+                        ->state(fn (): string => count($this->providerSelectOptions) === 0
                             ? 'Retry current provider: ' . $this->getCurrentProviderLabel()
                             : 'Leave provider empty to retry current provider, or choose a validated backup provider below.'),
-                    Placeholder::make('next_invoice_reference')
+                    TextEntry::make('next_invoice_reference')
                         ->label('Next Display Invoice')
-                        ->content(fn (): string => $this->record->nextDisplayInvoiceId()),
-                    Placeholder::make('current_status')
+                        ->state(fn (): string => $this->record->nextDisplayInvoiceId()),
+                    TextEntry::make('current_status')
                         ->label('Current Status')
-                        ->content(fn (): string => PembelianStatus::label($this->record->status)),
-                    Placeholder::make('audit_impact')
+                        ->state(fn (): string => PembelianStatus::label($this->record->status)),
+                    TextEntry::make('audit_impact')
                         ->label('Audit Impact')
-                        ->content('A reset records a new provider attempt, increments the display invoice suffix, and stores the optional admin reason for audit history.'),
+                        ->state('A reset records a new provider attempt, increments the display invoice suffix, and stores the optional admin reason for audit history.'),
                     Select::make('candidate_provider_id')
                         ->label('Provider Route')
                         ->options(fn (): array => $this->providerSelectOptions)
@@ -303,12 +354,12 @@ class ViewPembelian extends ViewRecord
                     'zone' => $this->record->zone,
                 ])
                 ->form([
-                    Placeholder::make('current_provider')
+                    TextEntry::make('current_provider')
                         ->label('Current Provider')
-                        ->content(fn (): string => $this->getCurrentProviderLabel()),
-                    Placeholder::make('display_invoice')
+                        ->state(fn (): string => $this->getCurrentProviderLabel()),
+                    TextEntry::make('display_invoice')
                         ->label('Display Invoice')
-                        ->content(fn (): string => $this->record->display_order_id),
+                        ->state(fn (): string => $this->record->display_order_id),
                     Select::make('candidate_provider_id')
                         ->label('Provider')
                         ->options(fn (): array => $this->providerSelectOptions)
@@ -627,4 +678,6 @@ class ViewPembelian extends ViewRecord
             })
             ->implode(PHP_EOL);
     }
+
 }
+
