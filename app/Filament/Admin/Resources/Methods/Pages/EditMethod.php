@@ -18,15 +18,19 @@ class EditMethod extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->modalDescription('Menghapus metode pembayaran akan membuatnya tidak lagi tersedia di admin panel dan bisa memengaruhi opsi checkout yang tampil ke user.'),
         ];
     }
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
+        $currentMediaAssetId = MediaAssetPicker::resolveCurrentMediaAssetId($this->getRecord(), null, 'images');
+
         return [
             ...$data,
-            'images_media_asset_id' => MediaAssetPicker::resolveCurrentMediaAssetId($this->getRecord(), null, 'images'),
+            'images_media_asset_id' => $currentMediaAssetId,
+            'images_input_mode' => $currentMediaAssetId ? 'library' : 'upload',
         ];
     }
 

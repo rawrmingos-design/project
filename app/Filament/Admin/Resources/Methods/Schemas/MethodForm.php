@@ -27,13 +27,22 @@ class MethodForm
                         TextInput::make('name')
                             ->label('Nama Metode')
                             ->required()
-                            ->maxLength(55),
+                            ->maxLength(55)
+                            ->helperText('Wajib diisi. Nama ini akan tampil ke admin dan dapat dipakai di checkout.')
+                            ->validationMessages([
+                                'required' => 'Nama metode wajib diisi.',
+                            ]),
                             
                         TextInput::make('code')
                             ->label('Kode')
                             ->required()
                             ->maxLength(100)
-                            ->unique(ignoreRecord: true),
+                            ->unique(ignoreRecord: true)
+                            ->helperText('Wajib diisi. Gunakan kode unik agar method mudah dikenali sistem.')
+                            ->validationMessages([
+                                'required' => 'Kode metode wajib diisi.',
+                                'unique' => 'Kode metode sudah dipakai. Gunakan kode lain.',
+                            ]),
                             
                         Select::make('tipe')
                             ->label('Tipe')
@@ -45,7 +54,11 @@ class MethodForm
                                 'convenience-store' => 'Convenience Store',
                                 'SALDO' => 'Saldo',
                             ])
-                            ->required(),
+                            ->required()
+                            ->helperText('Wajib dipilih. Menentukan kategori tampilan metode pembayaran.')
+                            ->validationMessages([
+                                'required' => 'Tipe metode pembayaran wajib dipilih.',
+                            ]),
                             
                         Select::make('payment')
                             ->label('Payment Gateway')
@@ -56,7 +69,11 @@ class MethodForm
                                 'manual' => 'Manual',
                                 'duitku' => 'Duitku',
                             ])
-                            ->required(),
+                            ->required()
+                            ->helperText('Wajib dipilih. Menentukan gateway atau mode pembayaran yang dipakai.')
+                            ->validationMessages([
+                                'required' => 'Payment gateway wajib dipilih.',
+                            ]),
                     ])
                     ->columns(2),
                     
@@ -101,6 +118,7 @@ class MethodForm
                                 'upload' => 'Upload Baru',
                             ])
                             ->default('upload')
+                            ->helperText('Pilih sumber logo. Saat edit, logo saat ini akan tetap dipakai jika kamu tidak menggantinya. Jika memilih Media Library, pilih satu asset sebelum menyimpan.')
                             ->inline()
                             ->inlineLabel(false)
                             ->live()
@@ -108,6 +126,10 @@ class MethodForm
 
                         Hidden::make('images_media_asset_id')
                             ->dehydrated(true)
+                            ->required(fn (Get $get, ?Model $record) => $get('images_input_mode') === 'library' && ! $record)
+                            ->validationMessages([
+                                'required' => 'Pilih logo dari Media Library atau ubah sumber gambar ke Upload Baru.',
+                            ])
                             ->afterStateHydrated(function (Hidden $component, $state): void {
                                 if ($state && ! MediaAssetPicker::isUsable($state)) {
                                     $component->state(null);
@@ -123,6 +145,7 @@ class MethodForm
                                 null,
                                 'images',
                             ))
+                            ->helperText('Jika tetap memakai asset yang sekarang, tidak perlu memilih ulang. Pilih asset baru hanya jika ingin mengganti logo.')
                             ->hintActions([
                                 MediaAssetPicker::makeModalAction(
                                     'chooseMethodImageMediaAsset',
@@ -141,6 +164,7 @@ class MethodForm
                             ->label('Logo/Icon')
                             ->image()
                             ->validationMessages([
+                                'required' => 'Upload logo wajib dilakukan jika sumber gambar menggunakan Upload Baru.',
                                 'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
                             ])
                             ->disk('assets')
@@ -155,7 +179,7 @@ class MethodForm
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
                             ->uploadProgressIndicatorPosition('left')
-                            ->helperText('Upload baru akan disimpan ke path metode pembayaran. Kamu juga bisa pilih asset reusable dari Media Library.'),
+                            ->helperText('Saat edit, upload baru hanya diperlukan jika kamu memang ingin mengganti logo yang sekarang. Jika tidak, biarkan kosong.'),
 
                         Toggle::make('statuspayment')
                             ->label('Status Aktif')
@@ -163,8 +187,13 @@ class MethodForm
                             
                         Textarea::make('keterangan')
                             ->label('Keterangan')
+                            ->required()
                             ->rows(3)
-                            ->maxLength(250),
+                            ->maxLength(250)
+                            ->helperText('Wajib diisi. Isi penjelasan singkat agar admin lain paham kapan metode ini dipakai.')
+                            ->validationMessages([
+                                'required' => 'Keterangan metode pembayaran wajib diisi.',
+                            ]),
                     ])
                     ->columns(1),
             ]);

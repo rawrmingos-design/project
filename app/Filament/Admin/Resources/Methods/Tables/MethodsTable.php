@@ -9,7 +9,6 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
-use Filament\Tables\Columns\BooleanColumn;
 use Filament\Tables\Filters\SelectFilter;
 
 class MethodsTable
@@ -45,6 +44,7 @@ class MethodsTable
                         'warning' => 'qris',
                         'info' => 'virtual-account',
                         'secondary' => 'convenience-store',
+                        'danger' => 'SALDO',
                     ]),
                     
                 BadgeColumn::make('payment')
@@ -54,7 +54,14 @@ class MethodsTable
                         'success' => 'tokopay',
                         'warning' => 'paydisini',
                         'secondary' => 'manual',
+                        'danger' => 'duitku',
                     ]),
+                    
+                TextColumn::make('keterangan')
+                    ->label('Keterangan')
+                    ->limit(40)
+                    ->tooltip(fn ($record): ?string => filled($record->keterangan) ? (string) $record->keterangan : null)
+                    ->toggleable(),
                     
                 TextColumn::make('fee_percent')
                     ->label('Fee %')
@@ -76,12 +83,14 @@ class MethodsTable
                     ->money('IDR')
                     ->sortable(),
                     
-                BooleanColumn::make('statuspayment')
+                TextColumn::make('statuspayment')
                     ->label('Status')
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
-                    ->falseColor('danger'),
+                    ->badge()
+                    ->formatStateUsing(fn (?bool $state): string => $state ? 'Aktif' : 'Nonaktif')
+                    ->color(fn (?bool $state): string => $state ? 'success' : 'danger')
+                    ->tooltip(fn (?bool $state): string => $state
+                        ? 'Metode pembayaran aktif dan bisa ditampilkan sesuai flow checkout.'
+                        : 'Metode pembayaran sedang nonaktif dan tidak diprioritaskan untuk dipakai.'),
                     
                 TextColumn::make('created_at')
                     ->label('Dibuat')
@@ -97,6 +106,7 @@ class MethodsTable
                         'qris' => 'QRIS',
                         'virtual-account' => 'Virtual Account',
                         'convenience-store' => 'Convenience Store',
+                        'SALDO' => 'Saldo',
                     ]),
                     
                 SelectFilter::make('payment')
@@ -106,6 +116,7 @@ class MethodsTable
                         'tokopay' => 'Tokopay',
                         'paydisini' => 'Paydisini',
                         'manual' => 'Manual',
+                        'duitku' => 'Duitku',
                     ]),
                     
                 SelectFilter::make('statuspayment')
