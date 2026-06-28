@@ -19,6 +19,14 @@ class CreateMethod extends CreateRecord
             ? (int) $data['images_media_asset_id']
             : null;
 
+        if ($this->selectedMediaAssetId) {
+            $path = app(MediaAssetAssignmentService::class)->getRelativePathFromAsset($this->selectedMediaAssetId);
+
+            if ($path) {
+                $data['images'] = $path;
+            }
+        }
+
         unset($data['images_media_asset_id'], $data['images_input_mode']);
 
         return $data;
