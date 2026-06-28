@@ -1,4 +1,4 @@
-﻿@extends('template.template')
+@extends('template.template')
 
 @section('custom_style')
 
@@ -1735,11 +1735,11 @@
 
                             <div class="mt-4">
                                 <label for="email" class="block text-xs font-medium text-white pb-2">Email <span
-                                        class="text-xxs font-normal italic text-red-300">(Wajib untuk pembayaran)</span></label>
+                                        class="text-xxs font-normal italic text-red-300">(Opsional jika WhatsApp diisi)</span></label>
                                 <input type="email" id="email" autocomplete="email" name="email" placeholder="Contoh nama@email.com"
                                     class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                    value="" required />
-                                <span class="text-xxs italic">**Email diperlukan untuk notifikasi transaksi </span>
+                                    value="" />
+                                <span class="text-xxs italic">**Isi minimal salah satu: WhatsApp / Nomor HP atau Email </span>
                             </div>
 
                             <p class="flex items-center gap-2 rounded-md bg-primary-5400 px-4 py-2.5 text-xs/6">
@@ -1750,7 +1750,7 @@
                                     <path d="M12 16v-4"></path>
                                     <path d="M12 8h.01"></path>
                                 </svg>
-                                <span>Bukti transaksi akan kami kirim ke whatsapp yang kamu isi di atas.</span>
+                                <span>Bukti transaksi akan kami kirim ke WhatsApp atau email yang kamu isi di atas.</span>
                             </p>
                         </div>
 
@@ -2866,12 +2866,12 @@
 
                             <div class="mt-4">
                                 <label for="email-alt" class="block text-xs font-medium text-white pb-2">Email <span
-                                        class="text-xxs font-normal italic text-red-300">(Wajib untuk pembayaran)</span></label>
+                                        class="text-xxs font-normal italic text-red-300">(Opsional jika WhatsApp diisi)</span></label>
                                 <input type="email" id="email-alt" autocomplete="email" name="email"
                                     placeholder="Contoh nama@email.com"
                                     class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                    value="" required />
-                                <span class="text-xxs italic">**Email diperlukan untuk notifikasi transaksi</span>
+                                    value="" />
+                                <span class="text-xxs italic">**Isi minimal salah satu: WhatsApp / Nomor HP atau Email</span>
                             </div>
 
                             <p class="flex items-center gap-2 rounded-md bg-primary-5400 px-4 py-2.5 text-xs/6">
@@ -2882,7 +2882,7 @@
                                     <path d="M12 16v-4"></path>
                                     <path d="M12 8h.01"></path>
                                 </svg>
-                                <span>Bukti transaksi akan kami kirim ke whatsapp yang kamu isi di atas.</span>
+                                <span>Bukti transaksi akan kami kirim ke WhatsApp atau email yang kamu isi di atas.</span>
                             </p>
                         </div>
 
@@ -3996,12 +3996,12 @@
 
                             <div class="mt-4">
                                 <label for="email-alt-2" class="block text-xs font-medium text-white pb-2">Email <span
-                                        class="text-xxs font-normal italic text-red-300">(Wajib untuk pembayaran)</span></label>
+                                        class="text-xxs font-normal italic text-red-300">(Opsional jika WhatsApp diisi)</span></label>
                                 <input type="email" id="email-alt-2" autocomplete="email" name="email"
                                     placeholder="Contoh nama@email.com"
                                     class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                    value="" required />
-                                <span class="text-xxs italic">**Email diperlukan untuk notifikasi transaksi </span>
+                                    value="" />
+                                <span class="text-xxs italic">**Isi minimal salah satu: WhatsApp / Nomor HP atau Email </span>
                             </div>
 
                             <p class="flex items-center gap-2 rounded-md bg-card px-4 py-2.5 text-xs/6">
@@ -4012,7 +4012,7 @@
                                     <path d="M12 16v-4"></path>
                                     <path d="M12 8h.01"></path>
                                 </svg>
-                                <span>Bukti transaksi akan kami kirim ke whatsapp yang kamu isi di atas.</span>
+                                <span>Bukti transaksi akan kami kirim ke WhatsApp atau email yang kamu isi di atas.</span>
                             </p>
                         </div>
 
@@ -5138,12 +5138,12 @@
 
                             <div class="mt-4">
                                 <label for="email-alt-3" class="block text-xs font-medium text-white pb-2">Email <span
-                                        class="text-xxs font-normal italic text-red-300">(Wajib untuk pembayaran)</span></label>
+                                        class="text-xxs font-normal italic text-red-300">(Opsional jika WhatsApp diisi)</span></label>
                                 <input type="email" id="email-alt-3" autocomplete="email" name="email"
                                     placeholder="Contoh nama@email.com"
                                     class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                    value="" required />
-                                <span class="text-xxs italic">**Email diperlukan untuk notifikasi transaksi </span>
+                                    value="" />
+                                <span class="text-xxs italic">**Isi minimal salah satu: WhatsApp / Nomor HP atau Email </span>
                             </div>
 
                             <p class="flex items-center gap-2 rounded-md bg-primary-5400 px-4 py-2.5 text-xs/6">
@@ -5154,7 +5154,7 @@
                                     <path d="M12 16v-4"></path>
                                     <path d="M12 8h.01"></path>
                                 </svg>
-                                <span>Bukti transaksi akan kami kirim ke whatsapp yang kamu isi di atas.</span>
+                                <span>Bukti transaksi akan kami kirim ke WhatsApp atau email yang kamu isi di atas.</span>
                             </p>
                         </div>
 
@@ -6202,13 +6202,13 @@
                             value="" id="phoneNumberInput" /><span class="text-xxs italic">**Contoh : 0821xxxxxxxx</span>
                         <div class="mt-4">
                             <label for="email-alt-4" class="block text-xs font-medium text-white pb-2">Email <span
-                                    class="text-xxs font-normal italic text-red-300">(Wajib untuk pembayaran
-                                    )</span></label>
+                                    class="text-xxs font-normal italic text-red-300">(Opsional jika WhatsApp diisi)
+                                    </span></label>
                             <input type="email" id="email-alt-4" autocomplete="email" name="email"
                                 placeholder="Contoh nama@email.com"
                                 class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
-                                value="" required />
-                            <span class="text-xxs italic">**Email diperlukan untuk notifikasi transaksi</span>
+                                value="" />
+                            <span class="text-xxs italic">**Isi minimal salah satu: WhatsApp / Nomor HP atau Email</span>
                         </div>
                         <p class="flex items-center gap-2 rounded-md bg-primary-5400 px-4 py-3 text-xs/6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -6218,7 +6218,7 @@
                                 <path d="M12 16v-4"></path>
                                 <path d="M12 8h.01"></path>
                             </svg>
-                            <span>Bukti transaksi akan kami kirim ke whatsapp yang kamu isi di atas.</span>
+                            <span>Bukti transaksi akan kami kirim ke WhatsApp atau email yang kamu isi di atas.</span>
                         </p>
                     </div>
 

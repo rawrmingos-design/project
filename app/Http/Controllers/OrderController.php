@@ -464,6 +464,9 @@ class OrderController extends Controller
 
     private function validateOrderRequest(Request $request, bool $forConfirmation = false): void
     {
+        $normalizedPhone = $this->normalizeOrderContactPhone($request);
+        $request->merge(['nomor' => $normalizedPhone]);
+
         $rules = [
             'service' => 'required|integer|exists:layanans,id',
             'payment_method' => [
@@ -480,10 +483,10 @@ class OrderController extends Controller
                     }
                 },
             ],
-            'nomor' => ['required', 'regex:/^[0-9]{9,16}$/'],
+            'nomor' => ['nullable', 'regex:/^[0-9]{9,16}$/', 'required_without:email'],
             'voucher' => 'nullable|string|max:100',
             'ktg_tipe' => 'nullable|string|max:50',
-            'email' => 'nullable|email|max:255',
+            'email' => 'nullable|email|max:255|required_without:nomor',
             'idempotency_key' => 'nullable|string|max:120',
         ];
 
@@ -1193,7 +1196,9 @@ class OrderController extends Controller
 
                 // Send Success Message
                 $pesanSukses = "*Pembelian Sukses*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($dataLayanan->harga, 0, '.', ',') . "*\nStatus Pembelian: *Sukses*\nMetode Pembayaran: *SALDO*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
-                $this->msg($request->nomor, $pesanSukses);
+                if ($request->nomor) {
+                    $this->msg($request->nomor, $pesanSukses);
+                }
             } catch (\Exception $e) {
                 DB::rollBack();
                 Cache::forget($userKey);
@@ -1244,6 +1249,22 @@ class OrderController extends Controller
             $gatewayResult = ['status' => false, 'msg' => 'Metode pembayaran tidak tersedia'];
             
             if ($dataMethod->payment == "tokopay") {
+                if (!$request->nomor) {
+                    if ($pointsReserved && Auth::check()) {
+                        app(\App\Services\PointService::class)->refundPoints(
+                            Auth::user(),
+                            $usedPoints,
+                            $order_id,
+                            $dataLayanan->layanan
+                        );
+                    }
+
+                    return $this->orderErrorResponse(
+                        'Nomor WhatsApp wajib diisi untuk metode pembayaran ini.',
+                        'CUSTOMER_PHONE_REQUIRED'
+                    );
+                }
+
                 $tokopay = app(TokoPayController::class);
                 // Parameters: $ref_id, $channel, $jumlah, $nickname, $phone_number, $service
                 $res = $tokopay->createAdvanceOrder(
@@ -1267,6 +1288,22 @@ class OrderController extends Controller
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';
                 }
             } else if ($dataMethod->payment == "tripay") {
+                if (!$request->nomor) {
+                    if ($pointsReserved && Auth::check()) {
+                        app(\App\Services\PointService::class)->refundPoints(
+                            Auth::user(),
+                            $usedPoints,
+                            $order_id,
+                            $dataLayanan->layanan
+                        );
+                    }
+
+                    return $this->orderErrorResponse(
+                        'Nomor WhatsApp wajib diisi untuk metode pembayaran ini.',
+                        'CUSTOMER_PHONE_REQUIRED'
+                    );
+                }
+
                 $tripay = app(TriPayController::class);
                 $tripayRequestAmount = $this->resolveGatewayRequestAmount($amount, $dataMethod);
                 // TriPay requires a valid customer email. Do not rely on app/mail fallback as customer identity.
@@ -1396,7 +1433,9 @@ class OrderController extends Controller
 
             // Send Pending Message
             $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum $paymentExpiryLabel!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
-            $this->msg($request->nomor, $pesanPending);
+            if ($request->nomor) {
+                $this->msg($request->nomor, $pesanPending);
+            }
         }
 
             Cache::put($idempotencyResultKey, $order_id, now()->addSeconds(self::ORDER_IDEMPOTENCY_RESULT_SECONDS));
@@ -1787,6 +1826,7 @@ class OrderController extends Controller
     private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = [], array $providerContextOverride = []) {
         $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
         $providerContext = $this->resolveProviderContextForOrder($dataLayanan, $providerContextOverride);
+        $normalizedPhone = $this->normalizeOrderContactPhone($request);
         
         $pembelian = new Pembelian();
         $pembelian->username = $user_id; 
@@ -1823,7 +1863,7 @@ class OrderController extends Controller
         $pembayaran->order_id = $order_id;
         $pembayaran->harga = $amount;
         $pembayaran->no_pembayaran = $no_pembayaran;
-        $pembayaran->no_pembeli = $request->nomor;
+        $pembayaran->no_pembeli = $normalizedPhone !== '' ? $normalizedPhone : '-';
         $pembayaran->status = $status_pembayaran; // 'Belum Lunas' or 'Lunas'
         $pembayaran->metode = $request->payment_method;
         $pembayaran->reference = $reference;
@@ -1854,6 +1894,17 @@ class OrderController extends Controller
                 'updated_at' => now()
             ]);
         }
+    }
+
+    private function normalizeOrderContactPhone(Request $request): string
+    {
+        $nomor = trim((string) $request->input('nomor'));
+
+        if ($nomor !== '') {
+            return $nomor;
+        }
+
+        return trim((string) $request->input('whatsapp'));
     }
 
     private function resolveProviderContextForOrder($dataLayanan, array $override = []): array
