@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use App\Models\Berita;
-use App\Models\Seting;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
