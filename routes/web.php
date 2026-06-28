@@ -10,27 +10,21 @@ use App\Http\Controllers\LoginController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OrderController as AdminOrder;
 use App\Http\Controllers\Admin\Berita;
-use App\Http\Controllers\CariController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\KategoriController;
 use App\Http\Controllers\LayananController;
 use App\Http\Controllers\TokoPayCallbackController;
 use App\Http\Controllers\PaydisiniCallbackController;
 use App\Http\Controllers\DuitkuPaymentController;
-use App\Http\Controllers\digiFlazzController;
-use App\Http\Controllers\provider\VipResellerController;
-use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\DigiflazzCallbackController;
 use App\Http\Controllers\VipResellerCallbackController;
 use App\Http\Controllers\ApiGamesCallbackController;
-use App\Http\Controllers\RiwayatPembelian;
 use App\Http\Controllers\Admin\UserDepositController;
 use App\Http\Controllers\MemberController;
 // use App\Http\Controllers\Admin\WhatsappController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VoucherController;
-use App\Http\Controllers\DeviceInfoController;
 use App\Http\Controllers\PricelistController;
 use App\Http\Controllers\DsController;
 use App\Http\Controllers\MethodController;
@@ -43,28 +37,18 @@ use App\Http\Controllers\ratingCustomerController;
 use App\Http\Controllers\ratingAdminController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaketLayananController;
-use App\Http\Controllers\Admin\TabmenuController;
-use App\Http\Controllers\provider\BangJeffController;
-use App\Http\Controllers\provider\TopupediaController;
 use App\Http\Controllers\Admin\BangjeffdashboardController;
 use App\Http\Controllers\Admin\DigiflazzdashboardController;
 use App\Http\Controllers\Admin\TopupediadashboardController;
-use App\Http\Controllers\ApiCheckController;
-use App\Models\PaketLayanan;
 use App\Http\Controllers\TokoPayController;
-use App\Http\Controllers\TriPayController;
 use App\Http\Controllers\TriPayCallbackController;
-use App\Http\Controllers\provider\MoogoldController;
-use App\Http\Controllers\Ipay88Controller;
 use App\Http\Controllers\SenangpayController;
-use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
-use App\Http\Controllers\ArtikelController;
 use App\Http\Controllers\Public\HomeController as PublicHomeController;
 use App\Http\Controllers\Public\OrderPageController as PublicOrderPageController;
 use App\Http\Controllers\Public\InvoicePageController as PublicInvoicePageController;
@@ -341,12 +325,6 @@ Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, '
 Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])
     ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
     ->name('duitku.callback');
-Route::post('/ipay88/callback', [IPay88Controller::class, 'paymentResponse'])
-    ->middleware('inbound.whitelist:payment_gateway,ipay88,log_only')
-    ->name('ipay88.callback');
-Route::post('/ipay88/backend', [IPay88Controller::class, 'backendResponse'])
-    ->middleware('inbound.whitelist:payment_gateway,ipay88,log_only')
-    ->name('ipay88.backend');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard.legacy');
