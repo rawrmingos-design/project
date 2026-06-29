@@ -1843,7 +1843,7 @@
         $showPayButton = $data->status_pembayaran == 'Belum Lunas' && $isPaymentUrl && !$showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
         $showCopyPaymentNumber = !$isPaymentUrl && in_array($paymentCode, [
-            'ALFAMRT', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
+            'ALFAMART', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
             'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
             'DM', 'BV', 'IR', 'FT', 'BRIVA', 'DUITKU',
         ], true);
@@ -2487,6 +2487,10 @@
                                         type="button" onclick="downloadQRCode()">
                                         Unduh Kode QR / Screenshoot
                                     </button>
+                                @elseif ($showCopyPaymentNumber && $paymentCode === 'ALFAMART')
+                                    <p class="invoice-animate invoice-animate-delay-4 mt-4 max-w-md text-sm text-murky-200 print:text-slate-800">
+                                        Tunjukkan nomor pembayaran ke kasir Alfamart agar pesanan dapat diproses.
+                                    </p>
                                 @endif
                             @endif
                             @if (
