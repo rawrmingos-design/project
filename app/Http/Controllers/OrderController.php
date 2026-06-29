@@ -1279,7 +1279,14 @@ class OrderController extends Controller
                 if (isset($res['status']) && $res['status'] === 'Success') {
                     $gatewayResult = [
                         'status' => true,
-                        'no_pembayaran' => $res['data']['nomor_va'] ?? $res['data']['qr_link'] ?? $res['data']['checkout_url'] ?? $res['data']['pay_url'] ?? null,
+                        'no_pembayaran' => $res['data']['nomor_va']
+                            ?? $res['data']['pay_code']
+                            ?? $res['data']['payment_code']
+                            ?? $res['data']['kode_bayar']
+                            ?? $res['data']['qr_link']
+                            ?? $res['data']['checkout_url']
+                            ?? $res['data']['pay_url']
+                            ?? null,
                         'reference' => $res['data']['trx_id'] ?? null,
                         'amount' => $res['data']['total_bayar'] ?? $amount,
                         'expired_at' => $res['data']['expired_at'] ?? $res['data']['expired_ts'] ?? null,
