@@ -5,7 +5,6 @@ namespace App\Filament\Admin\Widgets;
 use Filament\Widgets\ChartWidget;
 use App\Models\Pembelian;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class RevenueChart extends ChartWidget
 {
@@ -29,73 +28,87 @@ class RevenueChart extends ChartWidget
     protected function getData(): array
     {
         $activeFilter = $this->filter;
-        
+
         $revenueData = [];
         $profitData = [];
         $labels = [];
 
         if ($activeFilter === 'year') {
-            // Last 12 Months
+            $bucketDates = [];
+
             for ($i = 11; $i >= 0; $i--) {
                 $date = Carbon::now()->subMonths($i);
-                $monthStart = $date->copy()->startOfMonth();
-                $monthEnd = $date->copy()->endOfMonth();
-                $label = $date->format('M Y');
-                
-                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
-                    ->whereBetween('created_at', [$monthStart, $monthEnd])
-                    ->select(
-                        DB::raw('SUM(harga) as total_revenue'),
-                        DB::raw('SUM(profit) as total_profit')
-                    )
-                    ->first();
-                    
-                $labels[] = $label;
-                $revenueData[] = $data->total_revenue ?? 0;
-                $profitData[] = $data->total_profit ?? 0;
+                $bucketDates[] = $date->copy()->startOfMonth();
+                $labels[] = $date->format('M Y');
             }
-        } elseif ($activeFilter === 'week') {
-             // Last 7 Days
-             for ($i = 6; $i >= 0; $i--) {
-                $date = Carbon::now()->subDays($i);
-                $dayStart = $date->copy()->startOfDay();
-                $dayEnd = $date->copy()->endOfDay();
-                $label = $date->format('d M');
-                
-                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
-                    ->whereBetween('created_at', [$dayStart, $dayEnd])
-                    ->select(
-                        DB::raw('SUM(harga) as total_revenue'),
-                        DB::raw('SUM(profit) as total_profit')
-                    )
-                    ->first();
-                    
-                $labels[] = $label;
-                $revenueData[] = $data->total_revenue ?? 0;
-                $profitData[] = $data->total_profit ?? 0;
-             }
+
+            $rangeStart = $bucketDates[0]->copy()->startOfMonth();
+            $rangeEnd = end($bucketDates)->copy()->endOfMonth();
+            $bucketMap = collect($bucketDates)->mapWithKeys(fn (Carbon $date): array => [
+                $date->format('Y-m') => [
+                    'revenue' => 0,
+                    'profit' => 0,
+                ],
+            ])->all();
+
+            $groupedResults = Pembelian::query()
+                ->whereIn('status', ['Success', 'Sukses'])
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as bucket_key")
+                ->selectRaw('COALESCE(SUM(harga), 0) as total_revenue')
+                ->selectRaw('COALESCE(SUM(profit), 0) as total_profit')
+                ->groupBy('bucket_key')
+                ->pluck('total_profit', 'bucket_key')
+                ->all();
+
+            $groupedRevenue = Pembelian::query()
+                ->whereIn('status', ['Success', 'Sukses'])
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as bucket_key")
+                ->selectRaw('COALESCE(SUM(harga), 0) as total_revenue')
+                ->groupBy('bucket_key')
+                ->pluck('total_revenue', 'bucket_key')
+                ->all();
+
+            foreach (array_keys($bucketMap) as $bucketKey) {
+                $revenueData[] = (float) ($groupedRevenue[$bucketKey] ?? 0);
+                $profitData[] = (float) ($groupedResults[$bucketKey] ?? 0);
+            }
         } else {
-            // Default: Month (Last 30 Days)
-            for ($i = 29; $i >= 0; $i--) {
+            $days = $activeFilter === 'week' ? 7 : 30;
+            $bucketDates = [];
+
+            for ($i = $days - 1; $i >= 0; $i--) {
                 $date = Carbon::now()->subDays($i);
-                $dayStart = $date->copy()->startOfDay();
-                $dayEnd = $date->copy()->endOfDay();
-                $label = $date->format('d M');
-                
-                $data = Pembelian::whereIn('status', ['Success', 'Sukses'])
-                    ->whereBetween('created_at', [$dayStart, $dayEnd])
-                    ->select(
-                        DB::raw('SUM(harga) as total_revenue'),
-                        DB::raw('SUM(profit) as total_profit')
-                    )
-                    ->first();
-                    
-                $labels[] = $label;
-                $revenueData[] = $data->total_revenue ?? 0;
-                $profitData[] = $data->total_profit ?? 0;
+                $bucketDates[] = $date->copy()->startOfDay();
+                $labels[] = $date->format('d M');
+            }
+
+            $rangeStart = $bucketDates[0]->copy()->startOfDay();
+            $rangeEnd = end($bucketDates)->copy()->endOfDay();
+            $bucketMap = collect($bucketDates)->mapWithKeys(fn (Carbon $date): array => [
+                $date->format('Y-m-d') => [
+                    'revenue' => 0,
+                    'profit' => 0,
+                ],
+            ])->all();
+
+            $groupedResults = Pembelian::query()
+                ->whereIn('status', ['Success', 'Sukses'])
+                ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                ->selectRaw('DATE(created_at) as bucket_key')
+                ->selectRaw('COALESCE(SUM(harga), 0) as total_revenue')
+                ->selectRaw('COALESCE(SUM(profit), 0) as total_profit')
+                ->groupBy('bucket_key')
+                ->get()
+                ->keyBy('bucket_key');
+
+            foreach (array_keys($bucketMap) as $bucketKey) {
+                $revenueData[] = (float) ($groupedResults[$bucketKey]->total_revenue ?? 0);
+                $profitData[] = (float) ($groupedResults[$bucketKey]->total_profit ?? 0);
             }
         }
-        
+
         return [
             'datasets' => [
                 [

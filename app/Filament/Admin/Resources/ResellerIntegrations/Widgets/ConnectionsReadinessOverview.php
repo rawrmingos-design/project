@@ -16,13 +16,20 @@ class ConnectionsReadinessOverview extends BaseWidget
     {
         $incoming = ResellerIntegrationResource::sharedIncomingSnapshot();
 
-        $activeConnections = ResellerIntegration::query()
-            ->with('callbackProfile')
+        $activeConnectionCount = ResellerIntegration::query()
             ->where('is_active', true)
-            ->get();
+            ->count();
 
-        $outgoingReady = $activeConnections
-            ->filter(fn (ResellerIntegration $integration): bool => $integration->outboundReadinessSummary()['state'] === 'ready')
+        $outgoingReady = ResellerIntegration::query()
+            ->where('is_active', true)
+            ->whereHas('callbackProfile', function ($query): void {
+                $query
+                    ->where('is_enabled', true)
+                    ->whereNotNull('callback_url')
+                    ->where('callback_url', '!=', '')
+                    ->whereNotNull('webhook_secret_encrypted')
+                    ->where('webhook_secret_encrypted', '!=', '');
+            })
             ->count();
 
         $recentFailures = ResellerCallbackDelivery::query()
@@ -31,15 +38,15 @@ class ConnectionsReadinessOverview extends BaseWidget
             ->count();
 
         return [
-            Stat::make('Active Connections', number_format($activeConnections->count()))
+            Stat::make('Active Connections', number_format($activeConnectionCount))
                 ->description('Partner live connections yang aktif')
                 ->descriptionIcon('heroicon-m-link')
-                ->color($activeConnections->isNotEmpty() ? 'success' : 'gray'),
+                ->color($activeConnectionCount > 0 ? 'success' : 'gray'),
             Stat::make('Incoming Rules', number_format($incoming['protected_rules']))
                 ->description(sprintf('%d active rules / %d allowed IPs', $incoming['active_rules'], $incoming['allowed_ips']))
                 ->descriptionIcon('heroicon-m-shield-check')
                 ->color($incoming['configured'] ? 'success' : 'warning'),
-            Stat::make('Outgoing Ready', sprintf('%d / %d', $outgoingReady, $activeConnections->count()))
+            Stat::make('Outgoing Ready', sprintf('%d / %d', $outgoingReady, $activeConnectionCount))
                 ->description('Connection dengan webhook live yang siap dipakai')
                 ->descriptionIcon('heroicon-m-paper-airplane')
                 ->color($outgoingReady > 0 ? 'success' : 'warning'),

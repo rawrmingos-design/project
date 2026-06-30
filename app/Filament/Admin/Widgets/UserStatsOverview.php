@@ -2,9 +2,12 @@
 
 namespace App\Filament\Admin\Widgets;
 
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
+use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use App\Models\User;
+use Illuminate\Support\Carbon;
 
 class UserStatsOverview extends StatsOverviewWidget
 {
@@ -19,29 +22,60 @@ class UserStatsOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        // 1. Transaction Stats (Total Pembelian)
-        $totalTransactions = \App\Models\Pembelian::count();
-        $transactionsLastMonth = \App\Models\Pembelian::whereMonth('created_at', now()->subMonth()->month)->count();
+        $todayStart = Carbon::today()->startOfDay();
+        $todayEnd = Carbon::today()->endOfDay();
+        $yesterdayStart = Carbon::yesterday()->startOfDay();
+        $yesterdayEnd = Carbon::yesterday()->endOfDay();
+        $lastMonthStart = now()->subMonthNoOverflow()->startOfMonth();
+        $lastMonthEnd = now()->subMonthNoOverflow()->endOfMonth();
+
+        $transactionAggregates = Pembelian::query()
+            ->selectRaw('COUNT(*) as total_transactions')
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as last_month_transactions', [
+                $lastMonthStart,
+                $lastMonthEnd,
+            ])
+            ->first();
+
+        $salesAggregates = Pembayaran::query()
+            ->where('status', 'Lunas')
+            ->selectRaw('COALESCE(SUM(harga), 0) as total_sales')
+            ->selectRaw('COALESCE(SUM(CASE WHEN created_at BETWEEN ? AND ? THEN harga ELSE 0 END), 0) as last_month_sales', [
+                $lastMonthStart,
+                $lastMonthEnd,
+            ])
+            ->first();
+
+        $userAggregates = User::query()
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as new_users_today', [
+                $todayStart,
+                $todayEnd,
+            ])
+            ->selectRaw('SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as new_users_yesterday', [
+                $yesterdayStart,
+                $yesterdayEnd,
+            ])
+            ->first();
+
+        $totalTransactions = (int) ($transactionAggregates->total_transactions ?? 0);
+        $transactionsLastMonth = (int) ($transactionAggregates->last_month_transactions ?? 0);
         $transactionGrowth = $transactionsLastMonth > 0 ? (($totalTransactions - $transactionsLastMonth) / $transactionsLastMonth) * 100 : 0;
-        
-        // 2. Sales Stats (Total Revenue from Solved Orders)
-        $totalSales = \App\Models\Pembayaran::where('status', 'Lunas')->sum('harga');
-        $salesLastMonth = \App\Models\Pembayaran::where('status', 'Lunas')
-                            ->whereMonth('created_at', now()->subMonth()->month)
-                            ->sum('harga');
+
+        $totalSales = (int) ($salesAggregates->total_sales ?? 0);
+        $salesLastMonth = (int) ($salesAggregates->last_month_sales ?? 0);
         $salesGrowth = $salesLastMonth > 0 ? (($totalSales - $salesLastMonth) / $salesLastMonth) * 100 : 0;
 
-        $newUsersToday = User::whereDate('created_at', today())->count();
-        $newUsersYesterday = User::whereDate('created_at', today()->subDay())->count();
+        $newUsersToday = (int) ($userAggregates->new_users_today ?? 0);
+        $newUsersYesterday = (int) ($userAggregates->new_users_yesterday ?? 0);
         $userGrowth = $newUsersYesterday > 0 ? (($newUsersToday - $newUsersYesterday) / $newUsersYesterday) * 100 : 0;
-       
+
         return [
             Stat::make('Transaction', number_format($totalTransactions))
                 ->description(number_format($transactionGrowth, 2) . '% from last month')
                 ->descriptionIcon($transactionGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($transactionGrowth >= 0 ? 'success' : 'danger')
-                ->chart([7, 2, 10, 3, 15, 4, 17]), 
-                
+                ->chart([7, 2, 10, 3, 15, 4, 17]),
+
             Stat::make('Sales', 'IDR ' . number_format($totalSales, 0, ',', '.'))
                 ->description(number_format($salesGrowth, 2) . '% from last month')
                 ->descriptionIcon($salesGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
@@ -53,7 +87,7 @@ class UserStatsOverview extends StatsOverviewWidget
                 ->descriptionIcon($userGrowth >= 0 ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down')
                 ->color($userGrowth >= 0 ? 'success' : 'danger')
                 ->chart([1, 0, 5, 2, 0, 1, 0])
-                ->columnSpan(2),    
+                ->columnSpan(2),
         ];
     }
 }

@@ -14,35 +14,61 @@ class UserGrowthChart extends ChartWidget
 
     protected function getData(): array
     {
+        $startMonth = Carbon::now()->startOfMonth()->subMonths(11);
+        $endMonth = Carbon::now()->endOfMonth();
+
         $months = [];
+        $monthKeys = [];
+
+        for ($cursor = $startMonth->copy(); $cursor->lte($endMonth); $cursor->addMonth()) {
+            $monthKeys[] = $cursor->format('Y-m');
+            $months[] = $cursor->format('M Y');
+        }
+
+        $monthlyNewUsers = User::query()
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month_key, COUNT(*) as aggregate_count")
+            ->whereBetween('created_at', [$startMonth, $endMonth])
+            ->groupBy('month_key')
+            ->pluck('aggregate_count', 'month_key')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+
+        $monthlyPremiumUsers = User::query()
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month_key, COUNT(*) as aggregate_count")
+            ->whereBetween('created_at', [$startMonth, $endMonth])
+            ->whereIn('role', ['Gold', 'Platinum'])
+            ->groupBy('month_key')
+            ->pluck('aggregate_count', 'month_key')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+
+        $totalUsersBaseline = User::query()
+            ->where('created_at', '<', $startMonth)
+            ->count();
+
+        $premiumUsersBaseline = User::query()
+            ->where('created_at', '<', $startMonth)
+            ->whereIn('role', ['Gold', 'Platinum'])
+            ->count();
+
         $totalUsers = [];
         $newUsers = [];
         $premiumUsers = [];
-        
-        // Generate last 12 months
-        for ($i = 11; $i >= 0; $i--) {
-            $date = Carbon::now()->subMonths($i);
-            $monthYear = $date->format('M Y');
-            $months[] = $monthYear;
-            
-            // Total users up to this month
-            $totalUsersCount = User::where('created_at', '<=', $date->endOfMonth())->count();
-            
-            // New users in this month
-            $newUsersCount = User::whereYear('created_at', $date->year)
-                ->whereMonth('created_at', $date->month)
-                ->count();
-                
-            // Premium users (Gold + Platinum) up to this month
-            $premiumUsersCount = User::where('created_at', '<=', $date->endOfMonth())
-                ->whereIn('role', ['Gold', 'Platinum'])
-                ->count();
-            
-            $totalUsers[] = $totalUsersCount;
-            $newUsers[] = $newUsersCount;
-            $premiumUsers[] = $premiumUsersCount;
+        $runningTotalUsers = (int) $totalUsersBaseline;
+        $runningPremiumUsers = (int) $premiumUsersBaseline;
+
+        foreach ($monthKeys as $monthKey) {
+            $monthNewUsers = $monthlyNewUsers[$monthKey] ?? 0;
+            $monthPremiumUsers = $monthlyPremiumUsers[$monthKey] ?? 0;
+
+            $runningTotalUsers += $monthNewUsers;
+            $runningPremiumUsers += $monthPremiumUsers;
+
+            $totalUsers[] = $runningTotalUsers;
+            $newUsers[] = $monthNewUsers;
+            $premiumUsers[] = $runningPremiumUsers;
         }
-        
+
         return [
             'datasets' => [
                 [

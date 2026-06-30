@@ -22,6 +22,9 @@ class ProductMetrics extends BaseWidget
             ->query(
                 Layanan::query()
                     ->withCount('pembelians')
+                    ->withSum([
+                        'pembelians as successful_sales_total' => fn (Builder $query) => $query->where('status', 'Success'),
+                    ], 'harga')
                     ->orderByDesc('pembelians_count')
                     ->limit(5)
             )
@@ -39,11 +42,9 @@ class ProductMetrics extends BaseWidget
                     ->label('Transaction')
                     ->alignCenter(),
                     
-                Tables\Columns\TextColumn::make('total_sales')
+                Tables\Columns\TextColumn::make('successful_sales_total')
                     ->label('Sales')
-                    ->getStateUsing(function (Layanan $record) {
-                        return 'IDR ' . number_format($record->pembelians->where('status', 'Success')->sum('harga'), 0, ',', '.');
-                    }),
+                    ->formatStateUsing(fn ($state) => 'IDR ' . number_format((int) ($state ?? 0), 0, ',', '.')),
             ])
             ->paginated(false);
     }

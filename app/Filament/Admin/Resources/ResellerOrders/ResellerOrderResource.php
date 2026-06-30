@@ -54,8 +54,8 @@ class ResellerOrderResource extends Resource
             ->with([
                 'pembayaran:id,order_id,status,no_pembeli,metode',
                 'user:id,username,name,email,no_wa',
-                'resellerIntegration',  // Load full integration
-                'resellerIntegration.user:id,username,name,email,no_wa',  // Load integration owner
+                'resellerIntegration:id,user_id,api_key_prefix',
+                'resellerIntegration.user:id,username,name,email,no_wa',
             ])
             ->orderByDesc('created_at')
             ->orderByDesc('id');

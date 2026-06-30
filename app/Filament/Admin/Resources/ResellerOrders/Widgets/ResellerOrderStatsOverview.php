@@ -40,7 +40,7 @@ class ResellerOrderStatsOverview extends Widget
             'cards' => [
                 [
                     'label' => 'Profit',
-                    'value' => $this->formatRupiah($this->sumProfit($this->profitPeriod, $this->profitStartDate, $this->profitEndDate)),
+                    'value' => $this->formatRupiah($this->aggregateValue('success_profit', $this->profitPeriod, $this->profitStartDate, $this->profitEndDate)),
                     'description' => 'Reseller order sukses',
                     'icon' => 'heroicon-m-banknotes',
                     'color' => 'success',
@@ -53,7 +53,7 @@ class ResellerOrderStatsOverview extends Widget
                 ],
                 [
                     'label' => 'Order Sukses',
-                    'value' => $this->formatNumber($this->countByStatus(PembelianStatus::successLabels(), $this->successPeriod, $this->successStartDate, $this->successEndDate)),
+                    'value' => $this->formatNumber($this->aggregateValue('success_count', $this->successPeriod, $this->successStartDate, $this->successEndDate)),
                     'description' => 'Status Success / Sukses',
                     'icon' => 'heroicon-m-check-circle',
                     'color' => 'success',
@@ -66,7 +66,7 @@ class ResellerOrderStatsOverview extends Widget
                 ],
                 [
                     'label' => 'Order Gagal',
-                    'value' => $this->formatNumber($failedCount = $this->countByStatus(PembelianStatus::failedLabels(), $this->failedPeriod, $this->failedStartDate, $this->failedEndDate)),
+                    'value' => $this->formatNumber($failedCount = $this->aggregateValue('failed_count', $this->failedPeriod, $this->failedStartDate, $this->failedEndDate)),
                     'description' => 'Failed / Gagal / Batal',
                     'icon' => 'heroicon-m-x-circle',
                     'color' => $failedCount > 0 ? 'danger' : 'gray',
@@ -79,7 +79,7 @@ class ResellerOrderStatsOverview extends Widget
                 ],
                 [
                     'label' => 'Order Pending',
-                    'value' => $this->formatNumber($pendingCount = $this->countByStatus(PembelianStatus::pendingLabels(), $this->pendingPeriod, $this->pendingStartDate, $this->pendingEndDate)),
+                    'value' => $this->formatNumber($pendingCount = $this->aggregateValue('pending_count', $this->pendingPeriod, $this->pendingStartDate, $this->pendingEndDate)),
                     'description' => 'Pending / Proses / Processing',
                     'icon' => 'heroicon-m-clock',
                     'color' => $pendingCount > 0 ? 'warning' : 'gray',
@@ -94,18 +94,44 @@ class ResellerOrderStatsOverview extends Widget
         ];
     }
 
-    private function sumProfit(string $period, ?string $startDate, ?string $endDate): int|float
+    private function aggregateValue(string $metric, string $period, ?string $startDate, ?string $endDate): int|float
     {
-        return (clone $this->baseQuery($period, $startDate, $endDate))
-            ->whereIn('status', PembelianStatus::successLabels())
-            ->sum('profit');
+        $aggregates = $this->aggregatesForContext($period, $startDate, $endDate);
+
+        return (float) ($aggregates[$metric] ?? 0);
     }
 
-    private function countByStatus(array $statuses, string $period, ?string $startDate, ?string $endDate): int
+    private function aggregatesForContext(string $period, ?string $startDate, ?string $endDate): array
     {
-        return (clone $this->baseQuery($period, $startDate, $endDate))
-            ->whereIn('status', $statuses)
-            ->count();
+        static $cache = [];
+
+        $cacheKey = implode('|', [
+            $period,
+            $startDate ?? '',
+            $endDate ?? '',
+        ]);
+
+        if (array_key_exists($cacheKey, $cache)) {
+            return $cache[$cacheKey];
+        }
+
+        $successStatuses = PembelianStatus::successLabels();
+        $failedStatuses = PembelianStatus::failedLabels();
+        $pendingStatuses = PembelianStatus::pendingLabels();
+
+        $aggregates = (clone $this->baseQuery($period, $startDate, $endDate))
+            ->selectRaw('COALESCE(SUM(CASE WHEN status IN (?, ?) THEN profit ELSE 0 END), 0) as success_profit', $successStatuses)
+            ->selectRaw('SUM(CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END) as success_count', $successStatuses)
+            ->selectRaw('SUM(CASE WHEN status IN (?, ?, ?) THEN 1 ELSE 0 END) as failed_count', $failedStatuses)
+            ->selectRaw('SUM(CASE WHEN status IN (?, ?, ?) THEN 1 ELSE 0 END) as pending_count', $pendingStatuses)
+            ->first();
+
+        return $cache[$cacheKey] = [
+            'success_profit' => (float) ($aggregates->success_profit ?? 0),
+            'success_count' => (int) ($aggregates->success_count ?? 0),
+            'failed_count' => (int) ($aggregates->failed_count ?? 0),
+            'pending_count' => (int) ($aggregates->pending_count ?? 0),
+        ];
     }
 
     private function baseQuery(string $period, ?string $startDate, ?string $endDate): Builder

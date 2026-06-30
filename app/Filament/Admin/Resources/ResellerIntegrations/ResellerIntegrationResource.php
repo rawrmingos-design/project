@@ -22,6 +22,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use UnitEnum;
 
@@ -51,16 +52,22 @@ class ResellerIntegrationResource extends Resource
             return $snapshot;
         }
 
-        $policies = InboundSourcePolicy::query()
+        $policyCountsQuery = InboundSourcePolicy::query()
             ->where('is_active', true)
             ->withCount([
                 'entries' => fn ($query) => $query->where('is_active', true),
-            ])
-            ->get();
+            ]);
 
-        $activeRules = $policies->count();
-        $protectedRules = $policies->filter(fn (InboundSourcePolicy $policy): bool => $policy->entries_count > 0)->count();
-        $allowedIps = (int) $policies->sum('entries_count');
+        $aggregates = DB::query()
+            ->fromSub($policyCountsQuery->toBase(), 'policy_counts')
+            ->selectRaw('COUNT(*) as active_rules')
+            ->selectRaw('SUM(CASE WHEN entries_count > 0 THEN 1 ELSE 0 END) as protected_rules')
+            ->selectRaw('COALESCE(SUM(entries_count), 0) as allowed_ips')
+            ->first();
+
+        $activeRules = (int) ($aggregates->active_rules ?? 0);
+        $protectedRules = (int) ($aggregates->protected_rules ?? 0);
+        $allowedIps = (int) ($aggregates->allowed_ips ?? 0);
 
         $snapshot = [
             'active_rules' => $activeRules,
@@ -89,7 +96,6 @@ class ResellerIntegrationResource extends Resource
                             ->label('Partner User')
                             ->relationship('user', 'username')
                             ->searchable()
-                            ->preload()
                             ->required(),
                         TextInput::make('integration_code')
                             ->label('Integration Code')
@@ -125,7 +131,15 @@ class ResellerIntegrationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'callbackProfile', 'latestCallbackDelivery']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with([
+                'user:id,username',
+                'callbackProfile:id,reseller_integration_id,is_enabled,callback_url,webhook_secret_encrypted',
+                'latestCallbackDelivery' => fn ($query) => $query->select([
+                    'reseller_callback_deliveries.id',
+                    'reseller_callback_deliveries.reseller_integration_id',
+                    'reseller_callback_deliveries.status',
+                ]),
+            ]))
             ->columns([
                 TextColumn::make('integration_code')
                     ->label('Integration Code')

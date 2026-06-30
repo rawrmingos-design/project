@@ -37,7 +37,10 @@ class ResellerApplicationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn(Builder $query) => $query->with(['user', 'reviewer']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with([
+                'user:id,username,email',
+                'reviewer:id,username',
+            ]))
             ->columns([
                 TextColumn::make('user.username')
                     ->label('Applicant')

@@ -49,7 +49,6 @@ class ResellerCallbackProfileResource extends Resource
                             ->label('Connection')
                             ->relationship('integration', 'integration_code')
                             ->searchable()
-                            ->preload()
                             ->required(),
                         Toggle::make('is_enabled')
                             ->label('Enabled')
