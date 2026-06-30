@@ -159,15 +159,14 @@ class ResellerOrdersTable
                 SelectFilter::make('reseller_integration_id')
                     ->label('Reseller')
                     ->options(function () {
-                        return \App\Models\ResellerIntegration::with('user')
-                            ->get()
-                            ->mapWithKeys(fn($integration) => [
-                                $integration->id => $integration->user->name ?? $integration->user->username ?? 'Unknown'
-                            ])
+                        return \App\Models\ResellerIntegration::query()
+                            ->leftJoin('users', 'users.id', '=', 'reseller_integrations.user_id')
+                            ->selectRaw("reseller_integrations.id, COALESCE(NULLIF(users.name, ''), users.username, reseller_integrations.integration_code) as reseller_label")
+                            ->orderBy('reseller_label')
+                            ->pluck('reseller_label', 'reseller_integrations.id')
                             ->toArray();
                     })
-                    ->searchable()
-                    ->preload(),
+                    ->searchable(),
 
                 SelectFilter::make('is_sandbox')
                     ->label('Order Mode')

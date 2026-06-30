@@ -39,7 +39,10 @@ class IntegrationLogs extends Page
             ->get();
 
         $outgoingDeliveries = ResellerCallbackDelivery::query()
-            ->with(['integration.user', 'pembelian'])
+            ->with([
+                'integration:id,integration_code',
+                'pembelian:id,order_id',
+            ])
             ->latest('id')
             ->limit(12)
             ->get();
@@ -52,6 +55,7 @@ class IntegrationLogs extends Page
             'connectionsUrl' => ResellerIntegrationResource::getUrl(),
             'incomingRulesUrl' => InboundSourcePolicyResource::getUrl(),
             'outgoingWebhooksUrl' => ResellerCallbackProfileResource::getUrl(),
+            'recentWindowSize' => 12,
         ];
     }
 

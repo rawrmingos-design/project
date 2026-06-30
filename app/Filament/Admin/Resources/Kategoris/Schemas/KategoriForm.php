@@ -91,7 +91,6 @@ class KategoriForm
                         ->label('Tab Kategori (Category Sequence)')
                         ->relationship('categoryType', 'name')
                         ->searchable()
-                        ->preload()
                         ->createOptionForm([
                             TextInput::make('name')
                                 ->required()

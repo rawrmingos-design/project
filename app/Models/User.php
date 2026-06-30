@@ -11,6 +11,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use App\Models\PublicPushSubscription;
 
 
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail, HasAppAuthentication
@@ -100,6 +101,11 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     public function resellerPushSubscriptions()
     {
         return $this->hasMany(ResellerPushSubscription::class);
+    }
+
+    public function publicPushSubscriptions()
+    {
+        return $this->hasMany(PublicPushSubscription::class);
     }
 
     /**

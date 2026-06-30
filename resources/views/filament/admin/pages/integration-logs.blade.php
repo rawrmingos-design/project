@@ -255,6 +255,7 @@
             <p class="integration-logs__subtitle">
                 Satu tempat untuk melihat callback yang masuk ke sistem kita dan webhook yang keluar ke partner.
                 Incoming berasal dari decision log whitelist, sedangkan outgoing berasal dari delivery log webhook live H2H.
+                Ringkasan di bawah ini mengikuti {{ $recentWindowSize }} record terbaru yang sedang ditampilkan, bukan seluruh histori log.
             </p>
             <div class="integration-logs__actions">
                 <a href="{{ $connectionsUrl }}" class="integration-logs__action">Open Connections</a>
@@ -266,7 +267,7 @@
         <div class="integration-logs__summary-grid">
             <section class="integration-logs__summary-card">
                 <h3 class="integration-logs__summary-title">Incoming Activity</h3>
-                <p class="integration-logs__summary-meta">Decision log terbaru dari middleware inbound whitelist.</p>
+                <p class="integration-logs__summary-meta">Ringkasan {{ $recentWindowSize }} decision log terbaru dari middleware inbound whitelist.</p>
                 <div class="integration-logs__summary-stats">
                     <div class="integration-logs__metric">
                         <span class="integration-logs__metric-label">Recent Events</span>
@@ -289,7 +290,7 @@
 
             <section class="integration-logs__summary-card">
                 <h3 class="integration-logs__summary-title">Outgoing Activity</h3>
-                <p class="integration-logs__summary-meta">Delivery log terbaru dari webhook outbound H2H live dan sandbox.</p>
+                <p class="integration-logs__summary-meta">Ringkasan {{ $recentWindowSize }} delivery log terbaru dari webhook outbound H2H live dan sandbox.</p>
                 <div class="integration-logs__summary-stats">
                     <div class="integration-logs__metric">
                         <span class="integration-logs__metric-label">Recent Deliveries</span>

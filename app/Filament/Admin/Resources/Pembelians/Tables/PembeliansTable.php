@@ -45,17 +45,7 @@ class PembeliansTable
 
                 TextColumn::make('nickname')
                     ->label('Game Account')
-                    ->getStateUsing(function ($record) {
-                        $userId = $record->user_id ?? '-';
-                        $zone = $record->zone;
-
-                        // Show user_id (zone) if zone exists, otherwise just user_id
-                        if ($zone && $zone !== 'N/A' && trim($zone) !== '') {
-                            return $userId . ' (' . $zone . ')';
-                        }
-
-                        return $userId;
-                    })
+                    ->getStateUsing(fn ($record) => self::gameAccountLabel($record))
                     ->description(fn($record) => $record->nickname ?? '-')
                     ->searchable(['user_id', 'nickname', 'zone'])
                     ->sortable(),
@@ -92,8 +82,8 @@ class PembeliansTable
                 TextColumn::make('dispatch_state')
                     ->label('Dispatch')
                     ->badge()
-                    ->getStateUsing(fn($record): string => ProviderDispatchTracker::label($record->getKey()))
-                    ->color(fn($record): string => ProviderDispatchTracker::badgeColor($record->getKey()))
+                    ->getStateUsing(fn($record): string => self::dispatchStateLabel($record))
+                    ->color(fn($record): string => self::dispatchStateBadgeColor($record))
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 BadgeColumn::make('pembayaran.status')
@@ -126,31 +116,8 @@ class PembeliansTable
 
                 TextColumn::make('used_points')
                     ->label('Poin Digunakan')
-                    ->getStateUsing(function ($record) {
-                        $usedPoints = (int) ($record->used_points ?? 0);
-
-                        if ($usedPoints <= 0) {
-                            return '-';
-                        }
-
-                        return number_format($usedPoints, 0, ',', '.') . ' poin';
-                    })
-                    ->description(function ($record) {
-                        $usedPoints = (int) ($record->used_points ?? 0);
-                        $usedPointAmount = (int) ($record->used_point_amount ?? 0);
-
-                        if ($usedPoints <= 0 || $usedPointAmount <= 0) {
-                            return null;
-                        }
-
-                        $hargaBayar = (int) ($record->harga ?? 0);
-                        $hargaSebelumPoin = $hargaBayar + $usedPointAmount;
-
-                        return 'Rp ' . number_format($usedPointAmount, 0, ',', '.') .
-                            ' (Rp ' . number_format($hargaSebelumPoin, 0, ',', '.') .
-                            ' - Rp ' . number_format($usedPointAmount, 0, ',', '.') .
-                            ' = Rp ' . number_format($hargaBayar, 0, ',', '.') . ')';
-                    })
+                    ->getStateUsing(fn ($record) => self::usedPointsLabel($record))
+                    ->description(fn ($record) => self::usedPointsDescription($record))
                     ->wrap()
                     ->toggleable(),
 
@@ -169,21 +136,7 @@ class PembeliansTable
                     ->sortable()
                     ->badge()
                     ->color('info')
-                    ->getStateUsing(function ($record) {
-                        static $methodCache = null;
-                        if ($methodCache === null) {
-                            $methodCache = \App\Models\Method::pluck('payment', 'code')->toArray();
-                        }
-
-                        $metode = optional($record->pembayaran)->metode;
-                        if (!$metode)
-                            return '-';
-                        if (strtoupper($metode) === 'SALDO')
-                            return 'SALDO';
-
-                        $provider = $methodCache[$metode] ?? null;
-                        return $provider ? $provider . '.' . strtolower($metode) : $metode;
-                    })
+                    ->getStateUsing(fn ($record) => self::paymentMethodLabel($record))
                     ->toggleable(),
 
                 TextColumn::make('profit')
@@ -702,6 +655,114 @@ class PembeliansTable
         }
 
         return mb_substr($combined, -$limit);
+    }
+
+    private static function dispatchTrackerState($record): ?array
+    {
+        static $stateCache = [];
+
+        $recordKey = (string) $record->getKey();
+
+        if (! array_key_exists($recordKey, $stateCache)) {
+            $stateCache[$recordKey] = ProviderDispatchTracker::getState($record->getKey());
+        }
+
+        return $stateCache[$recordKey];
+    }
+
+    private static function dispatchStateLabel($record): string
+    {
+        $state = self::dispatchTrackerState($record)['state'] ?? null;
+
+        return match ($state) {
+            'queued' => 'Queued',
+            'processing' => 'Processing',
+            default => 'Idle',
+        };
+    }
+
+    private static function dispatchStateBadgeColor($record): string
+    {
+        $state = self::dispatchTrackerState($record)['state'] ?? null;
+
+        return match ($state) {
+            'queued' => 'warning',
+            'processing' => 'info',
+            default => 'gray',
+        };
+    }
+
+    private static function gameAccountLabel($record): string
+    {
+        $userId = $record->user_id ?? '-';
+        $zone = trim((string) ($record->zone ?? ''));
+
+        if ($zone !== '' && $zone !== 'N/A') {
+            return $userId . ' (' . $zone . ')';
+        }
+
+        return $userId;
+    }
+
+    private static function usedPointsLabel($record): string
+    {
+        $usedPoints = (int) ($record->used_points ?? 0);
+
+        if ($usedPoints <= 0) {
+            return '-';
+        }
+
+        return number_format($usedPoints, 0, ',', '.') . ' poin';
+    }
+
+    private static function usedPointsDescription($record): ?string
+    {
+        $usedPoints = (int) ($record->used_points ?? 0);
+        $usedPointAmount = (int) ($record->used_point_amount ?? 0);
+
+        if ($usedPoints <= 0 || $usedPointAmount <= 0) {
+            return null;
+        }
+
+        $hargaBayar = (int) ($record->harga ?? 0);
+        $hargaSebelumPoin = $hargaBayar + $usedPointAmount;
+
+        return 'Rp ' . number_format($usedPointAmount, 0, ',', '.') .
+            ' (Rp ' . number_format($hargaSebelumPoin, 0, ',', '.') .
+            ' - Rp ' . number_format($usedPointAmount, 0, ',', '.') .
+            ' = Rp ' . number_format($hargaBayar, 0, ',', '.') . ')';
+    }
+
+    private static function cachedPaymentMethodMap(): array
+    {
+        static $methodCache = null;
+
+        if ($methodCache !== null) {
+            return $methodCache;
+        }
+
+        return $methodCache = \Illuminate\Support\Facades\Cache::remember('admin:pembelians:method-map', now()->addMinutes(15), function (): array {
+            return \App\Models\Method::query()
+                ->pluck('payment', 'code')
+                ->toArray();
+        });
+    }
+
+    private static function paymentMethodLabel($record): string
+    {
+        $metode = optional($record->pembayaran)->metode;
+
+        if (! $metode) {
+            return '-';
+        }
+
+        if (strtoupper($metode) === 'SALDO') {
+            return 'SALDO';
+        }
+
+        $provider = self::cachedPaymentMethodMap()[$metode] ?? null;
+
+        return $provider ? $provider . '.' . strtolower($metode) : $metode;
     }
 
     private static function trafficSourceLabel(?string $source): string

@@ -23,9 +23,20 @@ use App\Http\Controllers\DigiFlazzController;
 use App\Services\ProductPricingService;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Cache;
 
 class ProduksTable
 {
+    private static function getCachedKategoriOptions(): array
+    {
+        return Cache::remember('admin:produk:kategori-options', now()->addMinutes(15), function (): array {
+            return Kategori::query()
+                ->orderBy('nama')
+                ->pluck('nama', 'id')
+                ->toArray();
+        });
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -175,9 +186,8 @@ class ProduksTable
             ->filters([
                 SelectFilter::make('kategori_id')
                     ->label('Kategori')
-                    ->options(Kategori::pluck('nama', 'id'))
-                    ->searchable()
-                    ->preload(),
+                    ->options(fn (): array => static::getCachedKategoriOptions())
+                    ->searchable(),
 
                 SelectFilter::make('provider')
                     ->label('Provider')

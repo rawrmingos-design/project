@@ -15,16 +15,25 @@ class UserTierChart extends ChartWidget
 
     protected function getData(): array
     {
-        $adminCount = User::where('role', 'Admin')->count();
-        $platinumCount = User::where('role', 'Platinum')->count();
-        $goldCount = User::where('role', 'Gold')->count();
-        $memberCount = User::where('role', 'Member')->count();
-        
+        $roleCounts = User::query()
+            ->select('role')
+            ->selectRaw('COUNT(*) as aggregate_count')
+            ->whereIn('role', ['Admin', 'Platinum', 'Gold', 'Member'])
+            ->groupBy('role')
+            ->pluck('aggregate_count', 'role')
+            ->map(fn ($count) => (int) $count)
+            ->all();
+
         return [
             'datasets' => [
                 [
                     'label' => 'User Distribution',
-                    'data' => [$adminCount, $platinumCount, $goldCount, $memberCount],
+                    'data' => [
+                        $roleCounts['Admin'] ?? 0,
+                        $roleCounts['Platinum'] ?? 0,
+                        $roleCounts['Gold'] ?? 0,
+                        $roleCounts['Member'] ?? 0,
+                    ],
                     'backgroundColor' => [
                         'rgb(239, 68, 68)',   // Red for Admin
                         'rgb(59, 130, 246)',  // Blue for Platinum

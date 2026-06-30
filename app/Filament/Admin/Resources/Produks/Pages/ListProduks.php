@@ -21,6 +21,16 @@ class ListProduks extends ListRecords
 {
     protected static string $resource = ProdukResource::class;
 
+    private function getCachedKategoriOptions(): array
+    {
+        return Cache::remember('admin:produk:kategori-options', now()->addMinutes(15), function (): array {
+            return Kategori::query()
+                ->orderBy('nama')
+                ->pluck('nama', 'id')
+                ->toArray();
+        });
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -146,7 +156,7 @@ class ListProduks extends ListRecords
                         ->searchable(),
                     Select::make('kategori_id')
                         ->label('Kategori Lokal')
-                        ->options(Kategori::pluck('nama', 'id'))
+                        ->options(fn (): array => $this->getCachedKategoriOptions())
                         ->required()
                         ->searchable(),
                     Toggle::make('update_existing')
@@ -184,7 +194,7 @@ class ListProduks extends ListRecords
                 ->form([
                     Select::make('kategori_id')
                         ->label('Target Kategori')
-                        ->options(Kategori::pluck('nama', 'id'))
+                        ->options(fn (): array => $this->getCachedKategoriOptions())
                         ->required()
                         ->searchable(),
                     Toggle::make('update_existing')
@@ -262,7 +272,7 @@ class ListProduks extends ListRecords
                         ->placeholder('Semua provider'),
                     Select::make('kategori_id')
                         ->label('Kategori')
-                        ->options(Kategori::pluck('nama', 'id'))
+                        ->options(fn (): array => $this->getCachedKategoriOptions())
                         ->searchable()
                         ->placeholder('Semua kategori'),
                 ])

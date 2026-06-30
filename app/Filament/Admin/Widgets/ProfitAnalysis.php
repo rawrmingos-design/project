@@ -13,25 +13,20 @@ class ProfitAnalysis extends ChartWidget
 
     protected function getData(): array
     {
-        // Get member-tier markup data by provider
         $providers = ['digiflazz', 'apigames', 'vip', 'bangjeff', 'topupedia', 'manual'];
-        $profitData = [];
-        $avgProfitData = [];
-        $productCountData = [];
-        
-        foreach ($providers as $provider) {
-            $products = Produk::where('provider', $provider)
-                ->whereIn('status', ['available', 'active']);
-            
-            $totalProfit = $products->sum('profit_member') ?? 0;
-            $avgProfit = $products->avg('profit_member') ?? 0;
-            $productCount = $products->count();
-            
-            $profitData[] = $totalProfit;
-            $avgProfitData[] = round($avgProfit, 2);
-            $productCountData[] = $productCount;
-        }
-        
+
+        $profitByProvider = Produk::query()
+            ->selectRaw('provider, COALESCE(SUM(profit_member), 0) as total_profit_member')
+            ->whereIn('provider', $providers)
+            ->whereIn('status', ['available', 'active'])
+            ->groupBy('provider')
+            ->pluck('total_profit_member', 'provider');
+
+        $profitData = array_map(
+            static fn (string $provider): float => (float) ($profitByProvider[$provider] ?? 0),
+            $providers,
+        );
+
         return [
             'datasets' => [
                 [
