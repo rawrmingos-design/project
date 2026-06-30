@@ -295,6 +295,11 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
 });
 
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
+    Route::post('/id/push-subscriptions', [\App\Http\Controllers\Public\PushSubscriptionController::class, 'store'])
+        ->name('pwa.push-subscriptions.store');
+    Route::delete('/id/push-subscriptions', [\App\Http\Controllers\Public\PushSubscriptionController::class, 'destroy'])
+        ->name('pwa.push-subscriptions.destroy');
+
     Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class)
         ->missing(fn () => redirect('/id', 302));
     Route::post('/id/harga',                                                     [OrderController::class, 'price'])->name('ajax.price');

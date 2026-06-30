@@ -86,14 +86,14 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('push', (event) => {
     const payload = safelyParseJson(event.data);
-    const title = payload?.title || 'Notifikasi Reseller';
+    const title = payload?.title || 'Notifikasi Baru';
     const options = {
-        body: payload?.body || 'Ada notifikasi baru untuk akun reseller Anda.',
-        icon: '/assets/pwa/icon-192.png',
-        badge: '/assets/pwa/icon-192.png',
-        tag: payload?.tag || 'reseller-push',
+        body: payload?.body || 'Ada promo atau update baru untuk aplikasi top up Anda.',
+        icon: payload?.icon || '/assets/pwa/icon-192.png',
+        badge: payload?.badge || '/assets/pwa/icon-192.png',
+        tag: payload?.tag || 'public-pwa-push',
         data: {
-            url: payload?.url || '/id/reseller/settings',
+            url: payload?.url || '/id',
         },
     };
 
@@ -103,7 +103,7 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const targetUrl = event.notification?.data?.url || '/id/reseller/settings';
+    const targetUrl = event.notification?.data?.url || '/id';
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
