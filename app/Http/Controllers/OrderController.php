@@ -29,6 +29,7 @@ use App\Http\Controllers\Public\TransactionLookupPageController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use App\Services\PublicOrderPushNotificationService;
 use App\Support\GtmDataLayerBuilder;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
@@ -1419,6 +1420,8 @@ class OrderController extends Controller
                     'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
                     '', '', $ipAddress, $tipe, null, $usedPoints, $usedPointAmount, $gatewayResult
                 );
+
+                $this->sendOrderCreatedPushNotification($request, $order_id);
             } catch (\Exception $e) {
                 if ($pointsReserved && Auth::check()) {
                     app(\App\Services\PointService::class)->refundPoints(
@@ -1450,6 +1453,28 @@ class OrderController extends Controller
             return $this->orderSuccessResponse($request, $order_id);
         } finally {
             Cache::forget($idempotencyLockKey);
+        }
+    }
+
+    private function sendOrderCreatedPushNotification(Request $request, string $orderId): void
+    {
+        try {
+            $order = Pembelian::query()
+                ->where('order_id', $orderId)
+                ->with('user')
+                ->first();
+
+            if (! $order) {
+                return;
+            }
+
+            app(PublicOrderPushNotificationService::class)
+                ->notifyOrderCreated($order, $request->session()->getId());
+        } catch (\Throwable $exception) {
+            Log::warning('Order created push notification failed', [
+                'order_id' => $orderId,
+                'error' => $exception->getMessage(),
+            ]);
         }
     }
 
