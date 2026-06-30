@@ -230,6 +230,22 @@
         $seasonalBackgroundOpacityCss = number_format($seasonalBackgroundOpacity / 100, 2, '.', '');
     @endphp
 
+    @php
+        $pwaSplashName = trim((string) ($config->judul_web ?? config('app.name', 'Game Top-Up')));
+        $pwaSplashDescription = trim((string) ($config->deskripsi_web ?? 'Platform Top-Up Game Terpercaya'));
+        $pwaSplashLogoSource = trim((string) ($config->logo_favicon ?? '')) !== ''
+            ? (string) $config->logo_favicon
+            : (trim((string) ($config->logo_header ?? '')) !== '' ? (string) $config->logo_header : 'assets/logo/favicon.webp');
+        $pwaSplashLogo = filter_var($pwaSplashLogoSource, FILTER_VALIDATE_URL)
+            ? $pwaSplashLogoSource
+            : asset(ltrim($pwaSplashLogoSource, '/'));
+        $pwaSplashPrimary = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) ($config->warna1 ?? '')) ? $config->warna1 : '#575757';
+        $pwaSplashAccent = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) ($config->warna3 ?? '')) ? $config->warna3 : '#ffa54a';
+        $pwaSplashHighlight = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) ($config->warna4 ?? '')) ? $config->warna4 : '#111111';
+        $pwaSplashTagline = \Illuminate\Support\Str::limit($pwaSplashDescription !== '' ? $pwaSplashDescription : 'Platform Top-Up Game Terpercaya', 72, '...');
+        $publicWebPushVapidKey = trim((string) config('services.webpush.vapid.public_key'));
+    @endphp
+
     <!-- Stylesheets and Fonts -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -247,6 +263,9 @@
         --warna_3: <?= $config->warna3; ?>;
         --warna_4: <?= $config->warna4; ?>;
         --gradient-theme: linear-gradient(to top, var(--warna_2) 0%, var(--warna_1) 100%);
+        --pwa-splash-primary: {{ $pwaSplashPrimary }};
+        --pwa-splash-accent: {{ $pwaSplashAccent }};
+        --pwa-splash-highlight: {{ $pwaSplashHighlight }};
     } 
 
     .bg-weji { 
@@ -264,6 +283,154 @@
     font-weight: 400;
     color: var(--warna_1) !important;
 }
+
+    .pwa-splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+            radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--pwa-splash-accent) 22%, transparent), transparent 32%),
+            radial-gradient(circle at 82% 80%, color-mix(in srgb, var(--pwa-splash-primary) 18%, transparent), transparent 36%),
+            linear-gradient(180deg, rgba(10, 14, 24, 0.96), rgba(17, 24, 39, 0.98));
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 240ms ease;
+    }
+
+    .pwa-splash-screen.is-visible {
+        display: flex;
+        opacity: 1;
+    }
+
+    .pwa-splash-screen.is-hiding {
+        opacity: 0;
+    }
+
+    .pwa-splash-screen__panel {
+        position: relative;
+        width: min(100%, 360px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 28px;
+        padding: 28px 24px;
+        overflow: hidden;
+        background: linear-gradient(160deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(18px);
+        text-align: center;
+    }
+
+    .pwa-splash-screen__panel::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, color-mix(in srgb, var(--pwa-splash-accent) 18%, transparent), transparent 52%, color-mix(in srgb, var(--pwa-splash-primary) 14%, transparent));
+        pointer-events: none;
+    }
+
+    .pwa-splash-screen__brand {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .pwa-splash-screen__logo-wrap {
+        width: 84px;
+        height: 84px;
+        border-radius: 26px;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 18px 38px rgba(0, 0, 0, 0.26);
+    }
+
+    .pwa-splash-screen__logo {
+        width: 62px;
+        height: 62px;
+        object-fit: cover;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.94);
+    }
+
+    .pwa-splash-screen__eyebrow {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+    }
+
+    .pwa-splash-screen__title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 900;
+        line-height: 1.18;
+        color: #fff;
+    }
+
+    .pwa-splash-screen__body {
+        margin: 6px 0 0;
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 13px;
+        line-height: 1.55;
+    }
+
+    .pwa-splash-screen__loader {
+        position: relative;
+        margin-top: 22px;
+        height: 6px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .pwa-splash-screen__loader::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        transform: translateX(-100%);
+        background: linear-gradient(90deg, transparent, var(--pwa-splash-accent), var(--pwa-splash-primary), transparent);
+        animation: pwaSplashLoad 1.25s cubic-bezier(.22, 1, .36, 1) infinite;
+    }
+
+    .pwa-splash-screen__pulse {
+        position: absolute;
+        inset: auto 50% -64px auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 999px;
+        transform: translateX(50%);
+        background: radial-gradient(circle, color-mix(in srgb, var(--pwa-splash-accent) 22%, transparent), transparent 62%);
+        filter: blur(10px);
+        animation: pwaSplashPulse 1.8s ease-in-out infinite;
+        pointer-events: none;
+    }
+
+    @keyframes pwaSplashLoad {
+        0% { transform: translateX(-100%); opacity: .45; }
+        60% { opacity: 1; }
+        100% { transform: translateX(100%); opacity: .55; }
+    }
+
+    @keyframes pwaSplashPulse {
+        0%, 100% { transform: translateX(50%) scale(.92); opacity: .44; }
+        50% { transform: translateX(50%) scale(1.06); opacity: .82; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .pwa-splash-screen,
+        .pwa-splash-screen__loader::before,
+        .pwa-splash-screen__pulse {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
     </style>  
     <link rel="stylesheet" href="{{ asset('/assets/css/pjojikhhoyutyrtd.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}">
@@ -388,10 +555,28 @@
         class="bg-gradient-theme text-white antialiased"
         data-season-theme="{{ $activeSeasonalTheme }}"
         data-season-intensity="{{ $seasonalIntensity }}"
+        data-pwa-page-context="{{ request()->is('id/invoices*') ? 'invoice' : (request()->is('id/*') && ! request()->is(['id/invoices*', 'id/deposit*', 'id/dashboard*', 'id/settings*', 'id/reseller*', 'id/harga*', 'id/konfirmasi-data*']) ? 'order' : (request()->is('/') || request()->is('id') ? 'homepage' : 'generic')) }}"
         :class="{ 'overflow-hidden': isSearchModalOpen }"
         x-data="{ 'isSearchModalOpen': false }"
         x-on:keydown.escape="isSearchModalOpen=false"
     >
+
+    <div id="pwa-splash-screen" class="pwa-splash-screen" aria-hidden="true" data-pwa-splash>
+        <div class="pwa-splash-screen__panel">
+            <div class="pwa-splash-screen__brand">
+                <div class="pwa-splash-screen__logo-wrap">
+                    <img class="pwa-splash-screen__logo" src="{{ $pwaSplashLogo }}" alt="{{ $pwaSplashName }}" />
+                </div>
+                <div>
+                    <p class="pwa-splash-screen__eyebrow">PWA Ready</p>
+                    <h1 class="pwa-splash-screen__title">{{ $pwaSplashName !== '' ? $pwaSplashName : 'Game Top-Up' }}</h1>
+                    <p class="pwa-splash-screen__body">{{ $pwaSplashTagline }}</p>
+                </div>
+            </div>
+            <div class="pwa-splash-screen__loader" aria-hidden="true"></div>
+            <div class="pwa-splash-screen__pulse" aria-hidden="true"></div>
+        </div>
+    </div>
     
     @if(isset($config) && !empty($hasCustomGoogleTagManagerSnippet))
         <!-- Custom Google Tag Manager (noscript) -->
@@ -735,6 +920,7 @@
     @livewireScripts
 
     @include('template.id.partials.pwa-install-prompt')
+    @include('template.id.partials.pwa-push-prompt')
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -746,11 +932,78 @@
                 let recoveryRefreshTimer = null;
                 let offlineEpisodeActive = false;
                 let hasReloadedAfterRecovery = false;
+                let reconnectRefreshPaused = false;
+                const pwaPageContext = document.body?.dataset?.pwaPageContext || 'generic';
+
+                function connectivityCopy(state) {
+                    if (state === 'offline') {
+                        if (pwaPageContext === 'invoice') {
+                            return {
+                                title: 'Koneksi internet terputus',
+                                body: 'Halaman invoice tetap terbuka. Status transaksi dan detail pembayaran akan dimuat ulang otomatis saat koneksi kembali.',
+                            };
+                        }
+
+                        if (pwaPageContext === 'order') {
+                            return {
+                                title: 'Koneksi internet terputus',
+                                body: 'Halaman order tetap terbuka. Kami akan menahan reload otomatis bila ada form yang sedang kamu isi, lalu memuat ulang saat koneksi kembali dan input kamu aman.',
+                            };
+                        }
+
+                        return {
+                            title: 'Koneksi internet terputus',
+                            body: 'Halaman ini tetap terbuka, tapi transaksi dan status pesanan butuh koneksi aktif. Kami akan muat ulang halaman ini otomatis saat koneksi kembali.',
+                        };
+                    }
+
+                    if (state === 'recovered') {
+                        if (pwaPageContext === 'invoice') {
+                            return {
+                                title: 'Koneksi kembali normal',
+                                body: 'Sedang memuat ulang invoice untuk mengambil status transaksi terbaru dari server...',
+                            };
+                        }
+
+                        if (pwaPageContext === 'order') {
+                            return {
+                                title: 'Koneksi kembali normal',
+                                body: 'Sedang memuat ulang halaman order untuk sinkronisasi data terbaru sebelum kamu lanjut checkout...',
+                            };
+                        }
+
+                        return {
+                            title: 'Koneksi kembali normal',
+                            body: 'Sedang memuat ulang halaman ini untuk mengambil data terbaru dari server...',
+                        };
+                    }
+
+                    if (pwaPageContext === 'invoice') {
+                        return {
+                            title: 'Koneksi kembali, reload ditahan',
+                            body: 'Kami mendeteksi ada interaksi yang belum selesai. Invoice tidak dimuat ulang otomatis supaya tampilan yang sedang kamu cek tetap stabil.',
+                        };
+                    }
+
+                    if (pwaPageContext === 'order') {
+                        return {
+                            title: 'Koneksi kembali, reload ditahan',
+                            body: 'Kami mendeteksi ada form yang sedang kamu isi atau belum tersimpan. Halaman order tidak dimuat ulang otomatis supaya input kamu tetap aman.',
+                        };
+                    }
+
+                    return {
+                        title: 'Koneksi kembali, reload ditahan',
+                        body: 'Kami mendeteksi ada form yang sedang kamu isi atau belum tersimpan. Halaman tidak dimuat ulang otomatis supaya input kamu tetap aman.',
+                    };
+                }
 
                 function ensureConnectivityToast() {
                     if (connectivityToast) {
                         return connectivityToast;
                     }
+
+                    const offlineCopy = connectivityCopy('offline');
 
                     connectivityToast = document.createElement('div');
                     connectivityToast.id = 'pwa-connection-toast';
@@ -761,8 +1014,8 @@
                         <div class="pwa-connection-toast__inner">
                             <div class="pwa-connection-toast__badge" data-pwa-connection-badge>!</div>
                             <div style="flex:1 1 auto;">
-                                <p class="pwa-connection-toast__title" data-pwa-connection-title>Koneksi internet terputus</p>
-                                <p class="pwa-connection-toast__body" data-pwa-connection-body>Halaman ini tetap terbuka, tapi transaksi dan status pesanan butuh koneksi aktif. Kami akan muat ulang halaman ini otomatis saat koneksi kembali.</p>
+                                <p class="pwa-connection-toast__title" data-pwa-connection-title>${offlineCopy.title}</p>
+                                <p class="pwa-connection-toast__body" data-pwa-connection-body>${offlineCopy.body}</p>
                                 <div class="pwa-connection-toast__actions" data-pwa-connection-actions>
                                     <button type="button" class="pwa-connection-toast__button pwa-connection-toast__button--primary" data-pwa-connection-refresh>Refresh sekarang</button>
                                     <button type="button" class="pwa-connection-toast__button pwa-connection-toast__button--ghost" data-pwa-connection-resume>Refresh nanti</button>
@@ -838,6 +1091,7 @@
                     const title = toast.querySelector('[data-pwa-connection-title]');
                     const body = toast.querySelector('[data-pwa-connection-body]');
                     const actions = toast.querySelector('[data-pwa-connection-actions]');
+                    const copy = connectivityCopy(state);
 
                     toast.classList.remove('pwa-connection-toast--offline', 'pwa-connection-toast--recovered', 'pwa-connection-toast--paused');
                     if (actions) {
@@ -847,26 +1101,23 @@
                     if (state === 'offline') {
                         toast.classList.add('pwa-connection-toast--offline');
                         if (badge) badge.textContent = '!';
-                        if (title) title.textContent = 'Koneksi internet terputus';
-                        if (body) body.textContent = 'Halaman ini tetap terbuka, tapi transaksi dan status pesanan butuh koneksi aktif. Kami akan muat ulang halaman ini otomatis saat koneksi kembali.';
                     }
 
                     if (state === 'recovered') {
                         toast.classList.add('pwa-connection-toast--recovered');
                         if (badge) badge.textContent = '✓';
-                        if (title) title.textContent = 'Koneksi kembali normal';
-                        if (body) body.textContent = 'Sedang memuat ulang halaman ini untuk mengambil data terbaru dari server...';
                     }
 
                     if (state === 'paused') {
                         toast.classList.add('pwa-connection-toast--paused');
                         if (badge) badge.textContent = '✎';
-                        if (title) title.textContent = 'Koneksi kembali, reload ditahan';
-                        if (body) body.textContent = 'Kami mendeteksi ada form yang sedang kamu isi atau belum tersimpan. Halaman tidak dimuat ulang otomatis supaya input kamu tetap aman.';
                         if (actions) {
                             actions.classList.add('is-visible');
                         }
                     }
+
+                    if (title) title.textContent = copy.title;
+                    if (body) body.textContent = copy.body;
 
                     toast.classList.add('is-visible');
                 }
@@ -997,12 +1248,211 @@
                     window.location.reload();
                 });
 
+                let pwaSplashHideTimer = null;
+
+                function isStandaloneLaunch() {
+                    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                }
+
+                function showPwaSplash() {
+                    const splash = document.querySelector('[data-pwa-splash]');
+                    if (!splash || !isStandaloneLaunch()) {
+                        return;
+                    }
+
+                    splash.classList.add('is-visible');
+                    splash.setAttribute('aria-hidden', 'false');
+                }
+
+                function hidePwaSplash(force = false) {
+                    const splash = document.querySelector('[data-pwa-splash]');
+                    if (!splash) {
+                        return;
+                    }
+
+                    if (pwaSplashHideTimer) {
+                        window.clearTimeout(pwaSplashHideTimer);
+                    }
+
+                    if (force) {
+                        splash.classList.remove('is-visible', 'is-hiding');
+                        splash.setAttribute('aria-hidden', 'true');
+                        return;
+                    }
+
+                    splash.classList.add('is-hiding');
+
+                    pwaSplashHideTimer = window.setTimeout(function () {
+                        splash.classList.remove('is-visible', 'is-hiding');
+                        splash.setAttribute('aria-hidden', 'true');
+                    }, 240);
+                }
+
+                showPwaSplash();
+
+                if (document.readyState === 'complete') {
+                    window.setTimeout(function () {
+                        hidePwaSplash();
+                    }, 420);
+                } else {
+                    window.addEventListener('load', function () {
+                        window.setTimeout(function () {
+                            hidePwaSplash();
+                        }, 420);
+                    }, { once: true });
+                }
+
+                window.setTimeout(function () {
+                    hidePwaSplash(true);
+                }, 3200);
+
                 window.addEventListener('beforeunload', function () {
                     stopConnectivityProbe();
                     if (recoveryRefreshTimer) {
                         window.clearTimeout(recoveryRefreshTimer);
                     }
+                    if (pwaSplashHideTimer) {
+                        window.clearTimeout(pwaSplashHideTimer);
+                    }
                 });
+
+                function urlBase64ToUint8Array(base64String) {
+                    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+
+                    for (let index = 0; index < rawData.length; ++index) {
+                        outputArray[index] = rawData.charCodeAt(index);
+                    }
+
+                    return outputArray;
+                }
+
+                function shouldExposePushPrompt() {
+                    return pwaPageContext === 'homepage' || pwaPageContext === 'order';
+                }
+
+                function setupPublicPushPrompt(registration) {
+                    const card = document.querySelector('[data-pwa-push-card]');
+                    const button = document.querySelector('[data-pwa-push-enable]');
+                    const status = document.querySelector('[data-pwa-push-status]');
+                    const vapidPublicKey = @json($publicWebPushVapidKey);
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+                    if (!card || !button || !status) {
+                        return;
+                    }
+
+                    if (!shouldExposePushPrompt()) {
+                        card.hidden = true;
+                        return;
+                    }
+
+                    if (!vapidPublicKey || !('Notification' in window) || !('PushManager' in window) || !registration) {
+                        card.hidden = true;
+                        return;
+                    }
+
+                    function setStatus(message, tone = 'muted') {
+                        status.textContent = message;
+                        status.setAttribute('data-tone', tone);
+                    }
+
+                    function setCardVisible() {
+                        card.hidden = false;
+                    }
+
+                    function getDeviceLabel() {
+                        if (window.navigator.userAgentData?.platform) {
+                            return String(window.navigator.userAgentData.platform).slice(0, 120);
+                        }
+
+                        const platform = window.navigator.platform || window.navigator.userAgent || 'Unknown Device';
+                        return String(platform).slice(0, 120);
+                    }
+
+                    async function syncSubscription(subscription) {
+                        const response = await fetch(@json(route('pwa.push-subscriptions.store')), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                            },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({
+                                subscription: subscription.toJSON(),
+                                device_label: getDeviceLabel(),
+                                locale: window.navigator.language || 'id-ID',
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error('Gagal menyimpan push subscription.');
+                        }
+                    }
+
+                    async function refreshPromptState() {
+                        const currentSubscription = await registration.pushManager.getSubscription();
+
+                        if (Notification.permission === 'denied') {
+                            setCardVisible();
+                            button.disabled = true;
+                            setStatus('Izin notifikasi diblokir di browser ini. Aktifkan lagi dari pengaturan browser jika ingin menerima promo push.', 'warning');
+                            return;
+                        }
+
+                        if (currentSubscription) {
+                            setCardVisible();
+                            button.disabled = true;
+                            button.textContent = 'Notifikasi Aktif';
+                            setStatus('Device ini sudah subscribe push notification.', 'success');
+                            return;
+                        }
+
+                        setCardVisible();
+                        button.disabled = false;
+                        button.textContent = 'Aktifkan Notifikasi';
+                        setStatus('Aktifkan notifikasi agar promo dan update penting bisa langsung masuk ke device ini.', 'muted');
+                    }
+
+                    button.addEventListener('click', async function () {
+                        try {
+                            button.disabled = true;
+                            setStatus('Meminta izin notifikasi dari browser...', 'muted');
+
+                            const permission = await Notification.requestPermission();
+                            if (permission !== 'granted') {
+                                await refreshPromptState();
+                                return;
+                            }
+
+                            setStatus('Mendaftarkan device ke push notification...', 'muted');
+
+                            let subscription = await registration.pushManager.getSubscription();
+                            if (!subscription) {
+                                subscription = await registration.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+                                });
+                            }
+
+                            await syncSubscription(subscription);
+                            await refreshPromptState();
+                        } catch (error) {
+                            console.debug('Public push subscription failed:', error);
+                            button.disabled = false;
+                            setCardVisible();
+                            setStatus('Aktivasi notifikasi belum berhasil. Coba lagi setelah koneksi stabil.', 'danger');
+                        }
+                    });
+
+                    refreshPromptState().catch(function () {
+                        setCardVisible();
+                        setStatus('Status notifikasi belum bisa dibaca sekarang. Silakan coba lagi.', 'warning');
+                    });
+                }
 
                 navigator.serviceWorker.register('/sw.js')
                     .then(function (registration) {
@@ -1025,6 +1475,8 @@
                                 }
                             });
                         });
+
+                        setupPublicPushPrompt(registration);
                     })
                     .catch(function (error) {
                         console.debug('Service worker registration failed:', error);

@@ -1,5 +1,22 @@
 @php
-    $pwaPromptAllowed = request()->is('/') || request()->is('id');
+    $requestPath = request()->path();
+    $pwaPromptPage = match (true) {
+        request()->is('/'), request()->is('id') => 'homepage',
+        request()->is('id/*')
+            && ! request()->is([
+                'id/invoices*',
+                'id/deposit*',
+                'id/dashboard*',
+                'id/settings*',
+                'id/reseller*',
+                'id/harga*',
+                'id/konfirmasi-data*',
+            ])
+            && substr_count($requestPath, '/') === 1 => 'order',
+        default => null,
+    };
+
+    $pwaPromptAllowed = $pwaPromptPage !== null;
     $pwaPromptBlocked = request()->is([
         'admin*',
         'filament*',
@@ -229,7 +246,7 @@
                 if (typeof window.pushDataLayerEvent === 'function') {
                     window.pushDataLayerEvent(eventName, Object.assign({
                         pwa: {
-                            source: 'homepage_install_prompt',
+                            source: '{{ $pwaPromptPage === 'order' ? 'order_install_prompt' : 'homepage_install_prompt' }}',
                             display_mode: isStandalone() ? 'standalone' : 'browser'
                         }
                     }, payload || {}));
