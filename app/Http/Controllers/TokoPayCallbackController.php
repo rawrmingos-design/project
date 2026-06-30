@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
+use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
 
@@ -100,6 +101,7 @@ class TokoPayCallbackController extends Controller
             if ($dataDeposit) {
                 $this->processDeposit($dataDeposit, $invoice);
             } else {
+                $this->sendPaymentSuccessPushNotification($dataPembeli);
                 $this->processPembelian($dataPembeli, $invoice);
             }
         } catch (\Throwable $exception) {
@@ -144,6 +146,19 @@ class TokoPayCallbackController extends Controller
 
             return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
         });
+    }
+
+    private function sendPaymentSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyPaymentSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('TokoPay payment success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function processDeposit(Deposit $deposit, Pembayaran $invoice): void

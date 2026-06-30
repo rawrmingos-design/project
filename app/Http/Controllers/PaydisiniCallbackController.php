@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
+use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
 
@@ -133,10 +134,24 @@ class PaydisiniCallbackController extends Controller
         });
     }
 
+    private function sendPaymentSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyPaymentSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('Paydisini payment success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function handleSuccessCallback(string $uniqueCode, Pembayaran $transaction): void
     {
         $pembelian = Pembelian::query()->where('order_id', $uniqueCode)->first();
         if ($pembelian) {
+            $this->sendPaymentSuccessPushNotification($pembelian);
             $this->processPembelian($pembelian, $transaction);
             return;
         }
@@ -256,6 +271,10 @@ class PaydisiniCallbackController extends Controller
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'
                 : 'transaction_pending';
+
+            if (PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS) {
+                $this->sendOrderSuccessPushNotification($pembelian);
+            }
 
             $waService->sendNotification($transaction->no_pembeli, $notificationSlug, [
                 'nickname' => $pembelian->nickname,

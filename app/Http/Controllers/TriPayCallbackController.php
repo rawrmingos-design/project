@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
+use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
 use Illuminate\Http\Request;
@@ -115,6 +116,7 @@ class TriPayCallbackController extends Controller
                 if ($deposit) {
                     $this->processPaidDeposit($deposit);
                 } else {
+                    $this->sendPaymentSuccessPushNotification($pembelian);
                     $this->processPaidPembelian($pembelian, $invoice);
                 }
 
@@ -186,6 +188,19 @@ class TriPayCallbackController extends Controller
 
             return ['state' => 'claimed', 'invoice' => $invoice->fresh()];
         });
+    }
+
+    private function sendPaymentSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyPaymentSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('TriPay payment success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function processPaidDeposit(Deposit $deposit): void

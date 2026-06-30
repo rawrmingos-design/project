@@ -12,6 +12,7 @@ use App\Services\WhatsappNotificationService;
 use App\Services\EmailNotificationService;
 use App\Services\ProviderRoutingService;
 use App\Services\OrderProcessingService;
+use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use Duitku\Config;
 use Duitku\Pop;
@@ -315,6 +316,7 @@ class DuitkuPaymentController extends Controller
 
                     } else {
                         // === HANDLE PEMBELIAN (GAME TOPUP) ===
+                        $this->sendPaymentSuccessPushNotification($order);
 
                         // Notify Admin
                         $pesanAdmin = "*Pembayaran Berhasil via Duitku*\n\n" .
@@ -519,6 +521,32 @@ class DuitkuPaymentController extends Controller
         );
 
         return hash_equals($expectedSignature, $signature);
+    }
+
+    private function sendPaymentSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyPaymentSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('Duitku payment success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendOrderSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyOrderSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('Duitku order success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function runSafely(string $context, callable $callback, array $extra = []): void
