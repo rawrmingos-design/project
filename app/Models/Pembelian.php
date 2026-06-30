@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
+use App\Services\PublicOrderPushNotificationService;
 
 
 /**
@@ -111,6 +113,29 @@ class Pembelian extends Model
 
             if (blank($pembelian->attributes['active_attempt_reference'] ?? null)) {
                 $pembelian->attributes['active_attempt_reference'] = $displayInvoiceId;
+            }
+        });
+
+        static::updated(function (self $pembelian): void {
+            if (! $pembelian->wasChanged('status')) {
+                return;
+            }
+
+            $oldStatus = PembelianStatus::normalize($pembelian->getOriginal('status'));
+            $newStatus = PembelianStatus::normalize($pembelian->status);
+
+            if ($oldStatus === PembelianStatus::SUCCESS || $newStatus !== PembelianStatus::SUCCESS) {
+                return;
+            }
+
+            try {
+                app(PublicOrderPushNotificationService::class)
+                    ->notifyOrderSuccess($pembelian->loadMissing('user'));
+            } catch (\Throwable $exception) {
+                Log::warning('Order success push notification failed from Pembelian status transition', [
+                    'order_id' => $pembelian->order_id,
+                    'error' => $exception->getMessage(),
+                ]);
             }
         });
     }

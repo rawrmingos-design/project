@@ -244,6 +244,19 @@ class TriPayCallbackController extends Controller
         });
     }
 
+    private function sendOrderSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyOrderSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('TriPay order success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function processPaidPembelian(Pembelian $pembelian, Pembayaran $invoice): void
     {
         $orderProcessor = app(OrderProcessingService::class);
@@ -303,6 +316,10 @@ class TriPayCallbackController extends Controller
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'
                 : 'transaction_pending';
+
+            if (PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS) {
+                $this->sendOrderSuccessPushNotification($pembelian);
+            }
 
             $waService->sendNotification($invoice->no_pembeli, $notificationSlug, [
                 'nickname' => $pembelian->nickname,
