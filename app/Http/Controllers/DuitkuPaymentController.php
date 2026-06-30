@@ -400,6 +400,10 @@ class DuitkuPaymentController extends Controller
                                 ? 'transaction_success'
                                 : 'transaction_pending';
 
+                            if (PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS) {
+                                $this->sendOrderSuccessPushNotification($order);
+                            }
+
                             $this->runSafely('duitku_transaction_success_whatsapp', function () use ($waService, $payment, $order, $snValue, $providerStatus, $notificationSlug) {
                                 $waService->sendNotification($payment->no_pembeli, $notificationSlug, [
                                     'nickname' => $order->nickname,

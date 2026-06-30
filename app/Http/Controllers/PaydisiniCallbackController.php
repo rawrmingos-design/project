@@ -215,6 +215,19 @@ class PaydisiniCallbackController extends Controller
         }
     }
 
+    private function sendOrderSuccessPushNotification(Pembelian $pembelian): void
+    {
+        try {
+            app(PublicOrderPushNotificationService::class)
+                ->notifyOrderSuccess($pembelian->loadMissing('user'));
+        } catch (\Throwable $exception) {
+            Log::warning('Paydisini order success push notification failed', [
+                'order_id' => $pembelian->order_id,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function processPembelian(Pembelian $pembelian, Pembayaran $transaction): void
     {
         $orderProcessor = app(OrderProcessingService::class);
