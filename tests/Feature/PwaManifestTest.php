@@ -123,7 +123,7 @@ class PwaManifestTest extends TestCase
         $this->assertStringContainsString('`${url.origin}${url.pathname}`', $sw);
         $this->assertStringContainsString("self.addEventListener('push'", $sw);
         $this->assertStringContainsString("self.addEventListener('notificationclick'", $sw);
-        $this->assertStringContainsString("'/id/reseller/settings'", $sw);
+        $this->assertStringContainsString("'/id/reseller'", $sw);
         $this->assertStringContainsString('safelyParseJson', $sw);
         $this->assertStringContainsString("'PING_CONNECTION_STATUS'", $sw);
         $this->assertStringContainsString("'CONNECTION_STATUS'", $sw);
@@ -144,7 +144,7 @@ class PwaManifestTest extends TestCase
         $this->assertStringContainsString("'id/reseller*'", $partial);
         $this->assertStringContainsString('data-pwa-install-hint', $partial);
         $this->assertStringContainsString('pwa_install_manual_hint_shown', $partial);
-        $this->assertStringContainsString('Add to Home Screen', $partial);
+        $this->assertStringContainsString('Tambahkan ke Layar Utama', $partial);
     }
 
     public function test_pwa_static_assets_exist_in_public_directory(): void

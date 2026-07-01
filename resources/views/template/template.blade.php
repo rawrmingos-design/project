@@ -1333,6 +1333,19 @@
                     return pwaPageContext === 'homepage' || pwaPageContext === 'order';
                 }
 
+                function isIosLikeDevice() {
+                    const userAgent = window.navigator.userAgent || '';
+                    const platform = window.navigator.platform || '';
+                    const isClassicIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+                    const isModernIpad = platform === 'MacIntel' && (window.navigator.maxTouchPoints || 0) > 1;
+
+                    return isClassicIos || isModernIpad;
+                }
+
+                function isStandalonePwa() {
+                    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+                }
+
                 function setupPublicPushPrompt(registration) {
                     const card = document.querySelector('[data-pwa-push-card]');
                     const button = document.querySelector('[data-pwa-push-enable]');
@@ -1345,6 +1358,11 @@
                     }
 
                     if (!shouldExposePushPrompt()) {
+                        card.hidden = true;
+                        return;
+                    }
+
+                    if (isIosLikeDevice() && !isStandalonePwa()) {
                         card.hidden = true;
                         return;
                     }
