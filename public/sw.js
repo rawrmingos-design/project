@@ -103,18 +103,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
-    const targetUrl = event.notification?.data?.url || '/id';
+    const rawTargetUrl = event.notification?.data?.url || '/id';
+    const target = normalizeNotificationTarget(rawTargetUrl);
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
             for (const client of clients) {
-                if (client.url === targetUrl && 'focus' in client) {
+                if (client.url === target.href && 'focus' in client) {
                     return client.focus();
                 }
             }
 
             if (self.clients.openWindow) {
-                return self.clients.openWindow(targetUrl);
+                return self.clients.openWindow(target.href);
             }
 
             return undefined;
@@ -144,6 +145,20 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(staleWhileRevalidate(request));
     }
 });
+
+function normalizeNotificationTarget(rawTargetUrl) {
+    try {
+        const target = new URL(rawTargetUrl, self.location.origin);
+
+        if (target.origin !== self.location.origin) {
+            return new URL('/id', self.location.origin);
+        }
+
+        return target;
+    } catch (error) {
+        return new URL('/id', self.location.origin);
+    }
+}
 
 function shouldUseNetworkOnly(pathname) {
     return NETWORK_ONLY_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));

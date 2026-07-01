@@ -296,8 +296,10 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
 
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
     Route::post('/id/push-subscriptions', [\App\Http\Controllers\Public\PushSubscriptionController::class, 'store'])
+        ->middleware('throttle:20,1')
         ->name('pwa.push-subscriptions.store');
     Route::delete('/id/push-subscriptions', [\App\Http\Controllers\Public\PushSubscriptionController::class, 'destroy'])
+        ->middleware('throttle:20,1')
         ->name('pwa.push-subscriptions.destroy');
 
     Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class)

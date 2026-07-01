@@ -197,7 +197,11 @@
 
             function isIos() {
                 const userAgent = window.navigator.userAgent || '';
-                return /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+                const platform = window.navigator.platform || '';
+                const isClassicIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+                const isModernIpad = platform === 'MacIntel' && (window.navigator.maxTouchPoints || 0) > 1;
+
+                return isClassicIos || isModernIpad;
             }
 
             function isTablet() {
@@ -275,6 +279,10 @@
                     return;
                 }
 
+                if (isIos()) {
+                    showFallbackHint(false);
+                }
+
                 card.classList.add('is-visible');
 
                 if (!hasShownPromptEvent) {
@@ -295,7 +303,7 @@
                 }
             }
 
-            function showFallbackHint() {
+            function showFallbackHint(shouldShowCard = true) {
                 if (!isMobileOrTabletDevice()) {
                     hideCard();
                     return;
@@ -308,12 +316,14 @@
 
                 if (installInstruction) {
                     installInstruction.textContent = isIos()
-                        ? 'Share lalu Add to Home Screen'
+                        ? 'tap Share di Safari lalu pilih Tambahkan ke Layar Utama'
                         : 'Install App atau Tambahkan ke layar utama';
                 }
 
                 installHint.classList.add('is-visible');
-                showCard();
+                if (shouldShowCard) {
+                    showCard();
+                }
                 track('pwa_install_manual_hint_shown', {
                     pwa: {
                         source: isIos() ? 'ios_manual_install_hint' : 'unsupported_browser_install_hint'
@@ -329,6 +339,10 @@
             if (!isMobileOrTabletDevice()) {
                 hideCard();
                 return;
+            }
+
+            if (isIos() && installButton) {
+                installButton.textContent = 'Lihat Cara Install';
             }
 
             window.addEventListener('beforeinstallprompt', function (event) {
