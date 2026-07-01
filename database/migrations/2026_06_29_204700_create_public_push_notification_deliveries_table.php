@@ -14,7 +14,11 @@ return new class extends Migration
 
         Schema::create('public_push_notification_deliveries', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('public_push_subscription_id')->nullable()->constrained('public_push_subscriptions')->nullOnDelete();
+            $table->foreignId('public_push_subscription_id')->nullable();
+            $table->foreign('public_push_subscription_id', 'ppnd_subscription_fk')
+                ->references('id')
+                ->on('public_push_subscriptions')
+                ->nullOnDelete();
             $table->string('order_id', 120);
             $table->string('event', 80);
             $table->string('endpoint_hash', 64)->nullable();

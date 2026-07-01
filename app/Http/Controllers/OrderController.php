@@ -219,6 +219,14 @@ class OrderController extends Controller
                 ->first();
         }
 
+        if (! $data) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Layanan tidak ditemukan atau tidak tersedia.',
+                'error_code' => 'SERVICE_NOT_FOUND',
+            ], 404);
+        }
+
         if ($data->is_flash_sale == 1 && $data->expired_flash_sale >= date('Y-m-d H:i:s') && $data->stock_flash_sale > 0) {
             $data->harga = $data->harga_flash_sale;
         }
@@ -273,6 +281,58 @@ class OrderController extends Controller
         }
 
         return (int) round(($method->fix_fee ?? 0) + ($basePrice * (($method->fee_percent ?? 0) / 100)));
+    }
+
+    private function validatePaymentMethodAmount(int $amount, $method): ?string
+    {
+        if (!$method) {
+            return null;
+        }
+
+        $minimum = (int) ($method->min_pembelian ?? 0);
+        $maximum = (int) ($method->max_pembelian ?? 0);
+
+        if ($minimum > 0 && $amount < $minimum) {
+            return 'Minimal pembayaran untuk metode ini adalah Rp ' . number_format($minimum, 0, ',', '.');
+        }
+
+        if ($maximum > 0 && $amount > $maximum) {
+            return 'Maksimal pembayaran untuk metode ini adalah Rp ' . number_format($maximum, 0, ',', '.');
+        }
+
+        return null;
+    }
+
+    private function restoreCheckoutReservations(
+        bool $flashSaleReserved,
+        bool $voucherReserved,
+        bool $pointsReserved,
+        bool $orderCreated,
+        Request $request,
+        $dataLayanan,
+        int $usedPoints,
+        string $orderId
+    ): void {
+        if ($orderCreated) {
+            return;
+        }
+
+        if ($flashSaleReserved) {
+            Layanan::where('id', $request->service)->increment('stock_flash_sale');
+        }
+
+        if ($voucherReserved && filled($request->voucher)) {
+            Voucher::where('kode', $request->voucher)->increment('stock');
+        }
+
+        if ($pointsReserved && Auth::check()) {
+            app(\App\Services\PointService::class)->refundPoints(
+                Auth::user(),
+                $usedPoints,
+                $orderId,
+                $dataLayanan->layanan
+            );
+        }
     }
 
     private function calculateVoucherDiscountAmount(float|int $basePrice, ?Voucher $voucher): int
@@ -1017,17 +1077,24 @@ class OrderController extends Controller
             };
             
             $dataLayanan = Layanan::where('id', $request->service)
-                ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->where('status', 'available')
+                ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
             } else {
             $dataLayanan = Layanan::where('id', $request->service)
-                ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->where('status', 'available')
+                ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
                 ->first();
             }
 
         if (!$dataLayanan) {
-            return $this->orderErrorResponse('Layanan tidak ditemukan', 'SERVICE_NOT_FOUND');
+            return $this->orderErrorResponse('Layanan tidak ditemukan atau tidak tersedia.', 'SERVICE_UNAVAILABLE');
         }
+
+        $flashSaleReserved = false;
+        $voucherReserved = false;
+        $orderCreated = false;
+        $pointsReserved = false;
 
         // Flash Sale Logic — FIX #1: Atomic decrement untuk cegah race condition
         // Gunakan satu query UPDATE dengan kondisi WHERE stock > 0 supaya thread-safe
@@ -1042,6 +1109,7 @@ class OrderController extends Controller
                 ->decrement('stock_flash_sale');
 
             if ($decremented) {
+                $flashSaleReserved = true;
                 $dataLayanan->harga = $dataLayanan->harga_flash_sale;
             } else {
                 // Stok habis saat race condition — tolak order
@@ -1087,6 +1155,12 @@ class OrderController extends Controller
         $usedPoints = $pointUsage['used_points'];
         $usedPointAmount = $pointUsage['discount'];
         $dataLayanan->harga = max(1000, $amountBeforePoint - $usedPointAmount);
+        $methodLimitMessage = $this->validatePaymentMethodAmount((int) $dataLayanan->harga, $dataMethod);
+        if ($methodLimitMessage !== null) {
+            $this->restoreCheckoutReservations($flashSaleReserved, $voucherReserved, $pointsReserved, $orderCreated, $request, $dataLayanan, $usedPoints, $order_id ?? '');
+
+            return $this->orderErrorResponse($methodLimitMessage, 'PAYMENT_METHOD_AMOUNT_OUT_OF_RANGE');
+        }
 
         // Generate Order ID — FIX #5: Tambah timestamp lebih panjang + uniqueness guard
         $setting = DB::table('setting_webs')->where('id', 1)->first();
@@ -1097,7 +1171,6 @@ class OrderController extends Controller
             $order_id = $prefix . now()->format('ymdHis') . Str::upper(Str::random(6));
         }
 
-        $pointsReserved = false;
         if ($usedPoints > 0 && Auth::check()) {
             $reservedAmount = app(\App\Services\PointService::class)->redeemPoints(
                 Auth::user(),
@@ -1107,6 +1180,8 @@ class OrderController extends Controller
             );
 
             if ($reservedAmount <= 0) {
+                $this->restoreCheckoutReservations($flashSaleReserved, $voucherReserved, false, $orderCreated, $request, $dataLayanan, $usedPoints, $order_id);
+
                 return $this->orderErrorResponse('Poin tidak cukup atau gagal dipakai. Silakan refresh lalu coba lagi.', 'POINT_REDEMPTION_FAILED');
             }
 
@@ -1191,6 +1266,7 @@ class OrderController extends Controller
                         'provider_sku' => $providerResult['provider_sku'] ?? null,
                     ]
                 );
+                $orderCreated = true;
 
                 DB::commit();
                 Cache::forget($userKey);
@@ -1203,14 +1279,7 @@ class OrderController extends Controller
             } catch (\Exception $e) {
                 DB::rollBack();
                 Cache::forget($userKey);
-                if ($pointsReserved && Auth::check()) {
-                    app(\App\Services\PointService::class)->refundPoints(
-                        Auth::user(),
-                        $usedPoints,
-                        $order_id,
-                        $dataLayanan->layanan
-                    );
-                }
+                $this->restoreCheckoutReservations($flashSaleReserved, false, $pointsReserved, $orderCreated, $request, $dataLayanan, $usedPoints, $order_id);
                 Log::error('Order Store Exception', ['error' => $e->getMessage()]);
                 // Return clear error message to user
                 return $this->orderErrorResponse($e->getMessage(), 'ORDER_PROCESSING_FAILED');
@@ -1226,12 +1295,13 @@ class OrderController extends Controller
             // Gunakan lockForUpdate di dalam transaksi untuk cegah double-use
             if ($request->voucher) {
                 try {
-                    DB::transaction(function () use ($request) {
+                    DB::transaction(function () use ($request, &$voucherReserved) {
                         $voucherGw = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
                         if (!$voucherGw || $voucherGw->stock <= 0) {
                             throw new \Exception('Voucher tidak valid atau sudah habis');
                         }
                         $voucherGw->decrement('stock');
+                        $voucherReserved = true;
                     });
                 } catch (\Exception $e) {
                     if ($pointsReserved && Auth::check()) {
@@ -1390,14 +1460,8 @@ class OrderController extends Controller
                     'gateway_message' => $gatewayResult['msg'] ?? null,
                     'gateway_reference' => $gatewayResult['reference'] ?? null,
                 ]);
-                if ($pointsReserved && Auth::check()) {
-                    app(\App\Services\PointService::class)->refundPoints(
-                        Auth::user(),
-                        $usedPoints,
-                        $order_id,
-                        $dataLayanan->layanan
-                    );
-                }
+                $this->restoreCheckoutReservations($flashSaleReserved, $voucherReserved, $pointsReserved, $orderCreated, $request, $dataLayanan, $usedPoints, $order_id);
+
                 return $this->orderErrorResponse($gatewayResult['msg'] ?? 'Gagal memproses pembayaran', 'PAYMENT_GATEWAY_FAILED');
             }
 
@@ -1420,17 +1484,11 @@ class OrderController extends Controller
                     'Belum Lunas', $no_pembayaran, $reference, 'Pending', 
                     '', '', $ipAddress, $tipe, null, $usedPoints, $usedPointAmount, $gatewayResult
                 );
+                $orderCreated = true;
 
                 $this->sendOrderCreatedPushNotification($request, $order_id);
             } catch (\Exception $e) {
-                if ($pointsReserved && Auth::check()) {
-                    app(\App\Services\PointService::class)->refundPoints(
-                        Auth::user(),
-                        $usedPoints,
-                        $order_id,
-                        $dataLayanan->layanan
-                    );
-                }
+                $this->restoreCheckoutReservations($flashSaleReserved, $voucherReserved, $pointsReserved, $orderCreated, $request, $dataLayanan, $usedPoints, $order_id);
 
                 Log::error('Order Store Create Record Failed', ['error' => $e->getMessage(), 'order_id' => $order_id]);
                 return $this->orderErrorResponse($e->getMessage(), 'ORDER_RECORD_CREATE_FAILED');

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Pembelian;
 use App\Models\PublicPushNotificationDelivery;
 use App\Models\PublicPushSubscription;
+use App\Models\PushNotificationTemplate;
 use App\Models\User;
 use App\Services\PublicOrderPushNotificationService;
 use App\Services\PublicWebPushService;
@@ -226,6 +227,60 @@ class PublicOrderPushNotificationLifecycleTest extends TestCase
             ->where('event', PublicOrderPushNotificationService::EVENT_ORDER_SUCCESS)
             ->count());
     }
+
+    public function test_active_push_template_overrides_transactional_title_and_body(): void
+    {
+        $buyer = User::factory()->create();
+        $order = Pembelian::factory()->create([
+            'username' => $buyer->username,
+            'order_id' => 'INV-TEMPLATE-001',
+            'display_order_id' => 'INV-TEMPLATE-001-R1',
+            'layanan' => 'Mobile Legends Diamond',
+            'harga' => 15000,
+            'nickname' => 'Rafa',
+        ]);
+
+        $subscription = PublicPushSubscription::create([
+            'user_id' => $buyer->id,
+            'endpoint' => 'https://fcm.googleapis.com/fcm/send/template-subscription',
+            'endpoint_hash' => hash('sha256', 'https://fcm.googleapis.com/fcm/send/template-subscription'),
+            'public_key' => 'template-public-key',
+            'auth_token' => 'template-auth-token',
+            'subscribed_at' => now(),
+            'is_active' => true,
+        ]);
+
+        PushNotificationTemplate::create([
+            'slug' => PublicOrderPushNotificationService::EVENT_PAYMENT_SUCCESS,
+            'name' => 'Payment Success Custom',
+            'title' => 'Pembayaran {display_order_id} aman 🎮',
+            'body' => 'Halo {nickname}, {product} senilai {amount} sedang diproses.',
+            'details' => 'Template test',
+            'is_active' => true,
+        ]);
+
+        $mock = Mockery::mock(PublicWebPushService::class);
+        $mock->shouldReceive('sendToSubscription')
+            ->once()
+            ->with(Mockery::on(fn (PublicPushSubscription $target): bool => $target->is($subscription)), Mockery::on(function (array $payload): bool {
+                return $payload['title'] === 'Pembayaran INV-TEMPLATE-001-R1 aman 🎮'
+                    && $payload['body'] === 'Halo Rafa, Mobile Legends Diamond senilai Rp 15.000 sedang diproses.';
+            }))
+            ->andReturn([
+                'success' => true,
+                'message' => 'Push berhasil dikirim.',
+                'remove_subscription' => false,
+            ]);
+
+        $service = new PublicOrderPushNotificationService($mock);
+        $result = $service->notifyPaymentSuccess($order);
+
+        $this->assertSame(1, $result['sent']);
+        $this->assertDatabaseHas('public_push_notification_deliveries', [
+            'public_push_subscription_id' => $subscription->id,
+            'order_id' => 'INV-TEMPLATE-001',
+            'event' => PublicOrderPushNotificationService::EVENT_PAYMENT_SUCCESS,
+            'status' => 'sent',
+        ]);
+    }
 }
-
-
