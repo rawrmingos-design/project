@@ -76,6 +76,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'PAID',
             'total_amount' => 15000,
         ], JSON_UNESCAPED_SLASHES);
@@ -109,6 +110,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'PAID',
             'total_amount' => 12000,
         ], JSON_UNESCAPED_SLASHES);
@@ -141,6 +143,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'PAID',
             'total_amount' => 15000,
         ], JSON_UNESCAPED_SLASHES);
@@ -172,6 +175,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'EXPIRED',
             'total_amount' => 15000,
         ], JSON_UNESCAPED_SLASHES);
@@ -210,6 +214,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'PAID',
             'total_amount' => 30000,
         ], JSON_UNESCAPED_SLASHES);
@@ -249,6 +254,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'FAILED',
             'total_amount' => 30000,
         ], JSON_UNESCAPED_SLASHES);
@@ -291,6 +297,7 @@ class TriPayCallbackTest extends TestCase
 
         $payload = json_encode([
             'reference' => $invoice->reference,
+            'merchant_ref' => $invoice->order_id,
             'status' => 'PAID',
             'total_amount' => 12000,
         ], JSON_UNESCAPED_SLASHES);
@@ -345,7 +352,7 @@ class TriPayCallbackTest extends TestCase
             }
         });
 
-        $response = $this->postTripayPaidCallback($invoice->reference, 45000);
+        $response = $this->postTripayPaidCallback($invoice->reference, 45000, $invoice->order_id);
 
         $response->assertOk()->assertJsonPath('success', true);
 
@@ -389,7 +396,7 @@ class TriPayCallbackTest extends TestCase
             }
         });
 
-        $response = $this->postTripayPaidCallback($invoice->reference, 47000);
+        $response = $this->postTripayPaidCallback($invoice->reference, 47000, $invoice->order_id);
 
         $response->assertOk()->assertJsonPath('success', true);
 
@@ -426,7 +433,7 @@ class TriPayCallbackTest extends TestCase
             }
         });
 
-        $response = $this->postTripayPaidCallback($invoice->reference, 49000);
+        $response = $this->postTripayPaidCallback($invoice->reference, 49000, $invoice->order_id);
 
         $response
             ->assertOk()
@@ -474,11 +481,11 @@ class TriPayCallbackTest extends TestCase
         };
         $this->app->instance(OrderProcessingService::class, $processor);
 
-        $this->postTripayPaidCallback($invoice->reference, 51000)
+        $this->postTripayPaidCallback($invoice->reference, 51000, $invoice->order_id)
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $secondResponse = $this->postTripayPaidCallback($invoice->reference, 51000);
+        $secondResponse = $this->postTripayPaidCallback($invoice->reference, 51000, $invoice->order_id);
         $secondResponse
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -551,10 +558,11 @@ class TriPayCallbackTest extends TestCase
         ], $overrides));
     }
 
-    private function postTripayPaidCallback(string $reference, int $amount)
+    private function postTripayPaidCallback(string $reference, int $amount, ?string $merchantRef = null)
     {
         $payload = json_encode([
             'reference' => $reference,
+            'merchant_ref' => $merchantRef,
             'status' => 'PAID',
             'total_amount' => $amount,
         ], JSON_UNESCAPED_SLASHES);

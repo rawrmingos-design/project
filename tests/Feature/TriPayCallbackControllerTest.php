@@ -46,6 +46,7 @@ class TriPayCallbackControllerTest extends TestCase
 
         $payload = [
             'reference' => 'TRIPAY-REF-001',
+            'merchant_ref' => 'DEP-TRIPAY-001',
             'status' => 'PAID',
             'total_amount' => 25000,
         ];
@@ -112,6 +113,7 @@ class TriPayCallbackControllerTest extends TestCase
 
         $payload = [
             'reference' => 'TRIPAY-REF-002',
+            'merchant_ref' => 'INV-TRIPAY-ERR-001',
             'status' => 'PAID',
             'total_amount' => 12000,
         ];
