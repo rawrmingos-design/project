@@ -57,105 +57,105 @@ abstract class SettingsSectionPage extends Page implements HasForms
     {
         $sections = [
                 // Website Information
-                Section::make('Website Information')
-                    ->description('Basic information about your website')
+                Section::make('Informasi Website')
+                    ->description('Informasi dasar toko yang tampil ke pengunjung dan mesin pencari.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('judul_web')
-                            ->label('Website Title')
+                            ->label('Nama Website')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('Judul utama website yang tampil di browser'),
+                            ->helperText('Nama toko yang tampil di browser dan halaman publik.'),
                             
                         TextInput::make('order_prefik')
-                            ->label('Order Prefix')
-                            ->helperText('Prefix untuk ID Order (contoh: INV, ORD). Maksimal 10 karakter'),
+                            ->label('Prefix Order')
+                            ->helperText('Awalan invoice/order. Contoh: INV atau ORD.'),
 
                         Select::make('public_theme')
-                            ->label('Public Theme')
+                            ->label('Tema Storefront')
                             ->options(PublicThemeRegistry::options())
                             ->default(PublicThemeRegistry::DEFAULT)
                             ->native(false)
-                            ->helperText('Pilih storefront public yang aktif. Default memakai Blade legacy, sedangkan Bangjeff memakai storefront Inertia React. Admin Filament tidak terpengaruh.'),
+                            ->helperText('Pilih tampilan halaman publik yang aktif.'),
                             
                         Textarea::make('deskripsi_web')
-                            ->label('Website Description')
+                            ->label('Deskripsi Website')
                             ->rows(3)
                             ->required()
                             ->columnSpanFull()
-                            ->helperText('Deskripsi singkat website untuk SEO dan sharing link'),
+                            ->helperText('Deskripsi singkat untuk SEO dan preview saat link dibagikan.'),
                             
                         Textarea::make('keywords')
-                            ->label('SEO Keywords')
+                            ->label('Kata Kunci SEO')
                             ->rows(2)
-                            ->helperText('Kata kunci pencarian, pisahkan dengan koma (contoh: topup, game, murah)')
+                            ->helperText('Pisahkan dengan koma. Contoh: topup, game, murah.')
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('website-information')),
 
                 // Analytics & Tracking
-                Section::make('Analytics & Tracking')
-                    ->description('Google Analytics, Facebook Pixel, and Tag Manager')
+                Section::make('Pelacakan Konversi & Analitik')
+                    ->description('Integrasikan pelacakan performa, konversi, dan analitik toko Anda.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('google_analytics_id')
-                            ->label('Google Analytics 4 (GA4) ID')
+                            ->label('ID Google Analytics 4')
                             ->placeholder('G-XXXXXXXXXX')
-                            ->helperText('Measurement ID dari GA4'),
+                            ->helperText('Measurement ID dari GA4.'),
                         
                         TextInput::make('facebook_pixel_id')
-                            ->label('Facebook Pixel ID')
+                            ->label('ID Facebook Pixel')
                             ->placeholder('XXXXXXXXXXXXXXX')
-                            ->helperText('Pixel ID (Angka saja)'),
+                            ->helperText('Isi angka Pixel ID dari Meta.'),
 
                         TextInput::make('google_tag_manager_id')
-                            ->label('Google Tag Manager ID')
+                            ->label('ID Google Tag Manager')
                             ->placeholder('GTM-XXXXXXX')
-                            ->helperText('Container ID dari GTM standar. Akan diabaikan jika custom GTM snippet di bawah diisi.'),
+                            ->helperText('Container ID GTM. Diabaikan jika custom snippet diisi.'),
 
                         Textarea::make('gtm_custom_head_script')
-                            ->label('Custom GTM Head Script')
+                            ->label('Script GTM di Head')
                             ->rows(6)
                             ->columnSpanFull()
-                            ->helperText('Opsional. Tempel raw snippet GTM custom/proxy untuk area <head>. Jika diisi, snippet ini menggantikan GTM ID standar. Hanya gunakan script dari domain/vendor yang tepercaya.'),
+                            ->helperText('Opsional. Tempel snippet GTM untuk area <head>. Gunakan hanya script tepercaya.'),
 
                         Textarea::make('gtm_custom_body_noscript')
-                            ->label('Custom GTM Body Noscript')
+                            ->label('Noscript GTM di Body')
                             ->rows(4)
                             ->columnSpanFull()
-                            ->helperText('Opsional. Tempel raw noscript/iframe GTM custom untuk area <body>. Dipakai bersama Custom GTM Head Script sebagai override GTM standar.'),
+                            ->helperText('Opsional. Tempel noscript/iframe GTM untuk area <body>.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('analytics-tracking')),
 
-                Section::make('Homepage Popup')
-                    ->description('Kontrol popup pengumuman/promosi di halaman utama.')
+                Section::make('Popup Homepage')
+                    ->description('Tampilkan atau sembunyikan popup pengumuman di halaman utama.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('home_popup_enabled')
-                            ->label('Aktifkan Popup Homepage')
+                            ->label('Aktifkan Popup')
                             ->default(true)
-                            ->helperText('Jika nonaktif, popup pengumuman di homepage tidak akan ditampilkan ke pengunjung.'),
+                            ->helperText('Nonaktifkan jika tidak ingin menampilkan popup ke pengunjung.'),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('homepage-popup')),
 
                 Section::make('Live Sales Toast')
-                    ->description('Kontrol toast transaksi terbaru yang tampil bergantian di homepage.')
+                    ->description('Tampilkan atau sembunyikan notifikasi transaksi terbaru di homepage.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('live_sales_enabled')
-                            ->label('Aktifkan Live Sales Toast')
+                            ->label('Aktifkan Live Sales')
                             ->default(true)
-                            ->helperText('Jika nonaktif, toast "baru saja membeli" di homepage tidak akan ditampilkan ke pengunjung.'),
+                            ->helperText('Nonaktifkan jika tidak ingin menampilkan toast pembelian terbaru.'),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('live-sales')),
 
                 Section::make('SEO Crawling')
-                    ->description('Konfigurasi robots.txt dan sitemap.xml agar crawling bot mesin pencari tetap terkendali.')
+                    ->description('Atur robots.txt dan sitemap.xml untuk mesin pencari.')
                     ->headerActions([
                         $this->makeValidateSitemapXmlAction(),
                     ])
@@ -164,33 +164,33 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         Toggle::make('seo_robots_enabled')
                             ->label('Aktifkan robots.txt')
                             ->default(true)
-                            ->helperText('Jika nonaktif, robots.txt akan menginstruksikan semua bot untuk tidak crawl.'),
+                            ->helperText('Nonaktifkan jika ingin mencegah semua bot melakukan crawl.'),
 
                         Toggle::make('seo_sitemap_enabled')
                             ->label('Aktifkan sitemap.xml')
                             ->default(true)
                             ->live()
-                            ->helperText('Jika nonaktif, sitemap akan kosong.'),
+                            ->helperText('Sitemap membantu mesin pencari menemukan halaman website.'),
 
                         Select::make('seo_sitemap_mode')
                             ->label('Mode Sitemap')
                             ->options([
-                                'dynamic' => 'Dynamic (Disarankan)',
-                                'custom_upload' => 'Custom Upload (Media Manager)',
+                                'dynamic' => 'Otomatis (Disarankan)',
+                                'custom_upload' => 'Upload Manual (Media Manager)',
                             ])
                             ->default('dynamic')
                             ->native(false)
                             ->live()
                             ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled'))
-                            ->helperText('Dynamic cocok untuk website template multi-client. Custom upload dipakai jika client minta file XML khusus.'),
+                            ->helperText('Otomatis cocok untuk mayoritas toko. Upload manual hanya jika butuh file XML khusus.'),
 
                         Toggle::make('seo_sitemap_include_categories')
-                            ->label('Masukkan URL Kategori Aktif ke Sitemap')
+                            ->label('Masukkan Kategori ke Sitemap')
                             ->default(true)
                             ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled')),
 
                         Toggle::make('seo_sitemap_include_articles')
-                            ->label('Masukkan URL Artikel Aktif ke Sitemap')
+                            ->label('Masukkan Artikel ke Sitemap')
                             ->default(true)
                             ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled')),
 
@@ -201,7 +201,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->minValue(5)
                             ->maxValue(1440)
                             ->visible(fn (Get $get): bool => (bool) $get('seo_sitemap_enabled'))
-                            ->helperText('Disarankan 15-60 menit agar ringan namun tetap update.'),
+                            ->helperText('Disarankan 15-60 menit agar tetap ringan.'),
 
                         Hidden::make('seo_sitemap_index_asset_id')
                             ->dehydrated(true)
@@ -285,12 +285,12 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->columnSpanFull(),
 
                         Textarea::make('seo_robots_custom_lines')
-                            ->label('Custom Baris robots.txt')
+                            ->label('Baris Tambahan robots.txt')
                             ->rows(6)
                             ->live(debounce: 500)
                             ->columnSpanFull()
                             ->placeholder("User-agent: Googlebot-Image\nAllow: /payment\nDisallow: /private")
-                            ->helperText('Opsional. Satu aturan per baris, akan ditambahkan di bawah aturan default.'),
+                            ->helperText('Opsional. Satu aturan per baris, ditambahkan ke aturan default.'),
 
                         Placeholder::make('seo_robots_preview')
                             ->label('Preview robots.txt')
@@ -346,36 +346,36 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('seo')),
 
-                Section::make('Admin Login CAPTCHA')
-                    ->description('Konfigurasi Google reCAPTCHA untuk halaman login admin Filament. Bisa diaktifkan/nonaktifkan dan disediakan bypass darurat.')
+                Section::make('Keamanan Login Admin')
+                    ->description('Atur CAPTCHA untuk membantu melindungi halaman login admin.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('captcha_enabled')
-                            ->label('Aktifkan CAPTCHA di Login Admin')
+                            ->label('Aktifkan CAPTCHA')
                             ->default(true)
-                            ->helperText('Jika aktif, admin wajib verifikasi CAPTCHA saat login.'),
+                            ->helperText('Jika aktif, admin wajib melewati verifikasi CAPTCHA saat login.'),
 
                         Toggle::make('captcha_bypass')
                             ->label('Bypass CAPTCHA (Darurat)')
                             ->default(false)
-                            ->helperText('Jika aktif, CAPTCHA dilewati walaupun fitur CAPTCHA hidup. Gunakan hanya saat troubleshooting.'),
+                            ->helperText('Gunakan hanya saat troubleshooting login.'),
 
                         TextInput::make('captcha_site_key')
-                            ->label('CAPTCHA Site Key')
-                            ->helperText('Site key dari Google reCAPTCHA admin console untuk domain panel admin.')
+                            ->label('Site Key CAPTCHA')
+                            ->helperText('Site key dari Google reCAPTCHA admin console.')
                             ->columnSpan(1),
 
                         TextInput::make('captcha_secret')
-                            ->label('CAPTCHA Secret Key')
+                            ->label('Secret Key CAPTCHA')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key dari Google reCAPTCHA admin console. Simpan rahasia ini.')
+                            ->helperText('Secret key dari Google reCAPTCHA. Jangan bagikan nilai ini.')
                             ->columnSpan(1),
 
                         TextInput::make('google_client_id')
-                            ->label('Google OAuth Client ID (Public Login)')
+                            ->label('Google Client ID')
                             ->placeholder('xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com')
-                            ->helperText('Client ID untuk tombol login Google di halaman sign-in/sign-up user. Akan fallback ke ENV GOOGLE_CLIENT_ID jika kosong.')
+                            ->helperText('Dipakai untuk tombol login Google di halaman user.')
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
@@ -383,15 +383,15 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('admin-captcha')),
                     
                 // Branding
-                Section::make('Logo & Colors')
-                    ->description('Upload logos and set color theme')
+                Section::make('Logo & Warna')
+                    ->description('Atur logo dan warna utama storefront.')
                     ->columns([
                         'sm' => 2,
                         'lg' => 4,
                     ])
                     ->schema([
                         Radio::make('logo_header_input_mode')
-                            ->label('Sumber Header Logo')
+                            ->label('Sumber Logo Header')
                             ->options([
                                 'library' => 'Media Manager',
                                 'upload' => 'Upload Manual',
@@ -420,7 +420,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             }),
 
                         Placeholder::make('logo_header_media_asset_picker')
-                            ->label('Header Logo dari Media Manager')
+                            ->label('Logo Header dari Media Manager')
                             ->visible(fn (Get $get): bool => $get('logo_header_input_mode') === 'library')
                             ->hintActions([
                                 MediaAssetPicker::makeModalAction(
@@ -442,7 +442,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ]),
 
                         FileUpload::make('logo_header')
-                            ->label('Header Logo')
+                            ->label('Logo Header')
                             ->image()
                             ->disk('assets')
                             ->visibility('public')
@@ -455,7 +455,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ]),
 
                         Radio::make('logo_footer_input_mode')
-                            ->label('Sumber Footer Logo')
+                            ->label('Sumber Logo Footer')
                             ->options([
                                 'library' => 'Media Manager',
                                 'upload' => 'Upload Manual',
@@ -484,7 +484,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             }),
 
                         Placeholder::make('logo_footer_media_asset_picker')
-                            ->label('Footer Logo dari Media Manager')
+                            ->label('Logo Footer dari Media Manager')
                             ->visible(fn (Get $get): bool => $get('logo_footer_input_mode') === 'library')
                             ->hintActions([
                                 MediaAssetPicker::makeModalAction(
@@ -506,7 +506,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ]),
                             
                         FileUpload::make('logo_footer')
-                            ->label('Footer Logo')
+                            ->label('Logo Footer')
                             ->image()
                             ->disk('assets')
                             ->visibility('public')
@@ -577,34 +577,34 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->rules(['nullable', 'mimes:ico,png,svg,webp'])
                             ->maxSize(512)
                             ->visible(fn (Get $get): bool => $get('logo_favicon_input_mode') === 'upload')
-                            ->helperText('Format .ico/.png/.svg/.webp (16x16 atau 32x32 px)')
+                            ->helperText('Format .ico/.png/.svg/.webp, disarankan 32x32 px.')
                             ->columnSpan([
                                 'sm' => 2,
                                 'lg' => 2,
                             ]),
                             
                         ColorPicker::make('warna1')
-                            ->label('Primary Color')
+                            ->label('Warna Utama')
                             ->columnSpan(1),
                             
                         ColorPicker::make('warna2')
-                            ->label('Secondary Color')
+                            ->label('Warna Kedua')
                             ->columnSpan(1),
                             
                         ColorPicker::make('warna3')
-                            ->label('Accent Color')
+                            ->label('Warna Aksen')
                             ->columnSpan(1),
                             
                         ColorPicker::make('warna4')
-                            ->label('Background Color')
+                            ->label('Warna Background')
                             ->columnSpan(1),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('branding')),
 
-                Section::make('Seasonal Theme')
-                    ->description('Atur nuansa event musiman (contoh Ramadhan/Halloween) tanpa mengubah struktur halaman utama.')
+                Section::make('Tema Musiman')
+                    ->description('Atur tema event musiman tanpa mengubah struktur halaman utama.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('seasonal_enabled')
@@ -732,39 +732,39 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('seasonal-theme')),
                     
                 // Social Media
-                Section::make('Social Media Links')
-                    ->description('Add your social media profile URLs')
+                Section::make('Link Sosial Media')
+                    ->description('Link yang ditampilkan di storefront atau kontak toko.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('url_wa')
-                            ->label('WhatsApp URL')
+                            ->label('Link WhatsApp')
                             ->url()
                             ->prefix('https://')
-                            ->helperText('Link WhatsApp Business (wa.me/...)'),
+                            ->helperText('Contoh: wa.me/62812xxxx.'),
                             
                         TextInput::make('url_ig')
-                            ->label('Instagram URL')
+                            ->label('Link Instagram')
                             ->url()
                             ->prefix('https://')
-                            ->helperText('Link profil Instagram'),
+                            ->helperText('Link profil Instagram.'),
                             
                         TextInput::make('url_tiktok')
-                            ->label('TikTok URL')
+                            ->label('Link TikTok')
                             ->url()
                             ->prefix('https://')
-                            ->helperText('Link profil TikTok'),
+                            ->helperText('Link profil TikTok.'),
                             
                         TextInput::make('url_youtube')
-                            ->label('YouTube URL')
+                            ->label('Link YouTube')
                             ->url()
                             ->prefix('https://')
-                            ->helperText('Link channel YouTube'),
+                            ->helperText('Link channel YouTube.'),
                             
                         TextInput::make('url_fb')
-                            ->label('Facebook URL')
+                            ->label('Link Facebook')
                             ->url()
                             ->prefix('https://')
-                            ->helperText('Link halaman Facebook'),
+                            ->helperText('Link halaman Facebook.'),
                     ])
                     ->collapsible()
                     ->collapsed()
@@ -772,26 +772,26 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     
                 // Top-Up Providers
                 Section::make('TopUpIndo')
-                    ->description('Masukkan API key dari dashboard TopUpIndo. Biasanya tersedia di menu API, developer, atau integrasi.')
+                    ->description('Simpan API key TopUpIndo untuk order dan sinkron produk.')
                     ->schema([
                         TextInput::make('topupindo_api')
-                            ->label('TopUpIndo API Key')
+                            ->label('API Key TopUpIndo')
                             ->password()
                             ->revealable()
-                            ->helperText('Isi dengan API key rahasia dari TopUpIndo, bukan username atau email akun.'),
+                            ->helperText('Ambil dari dashboard TopUpIndo. Jangan isi username atau password login.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('topupindo')),
                     
                 Section::make('BangJeff')
-                    ->description('Masukkan API key dari dashboard BangJeff. Ini menjadi sumber utama untuk check balance, ambil produk/variant, dan order provider.')
+                    ->description('Simpan API key BangJeff untuk cek saldo, sinkron produk, dan order provider.')
                     ->schema([
                         TextInput::make('apikey_bangjeff')
-                            ->label('BangJeff API Key')
+                            ->label('API Key BangJeff')
                             ->password()
                             ->revealable()
-                            ->helperText('Untuk sandbox/live, simpan key BangJeff di sini. Jangan commit key ke .env/repository; env hanya fallback teknis bila admin setting kosong.'),
+                            ->helperText('Credential utama BangJeff diambil dari setting ini.'),
                     ])
                     ->collapsible()
                     ->collapsed()
@@ -811,37 +811,37 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('aoshi')),
                     
                 Section::make('Mobile Game Store')
-                    ->description('Masukkan API key Mobile Game Store dari dashboard merchant.')
+                    ->description('Simpan API key Mobile Game Store untuk koneksi provider.')
                     ->schema([
                         TextInput::make('api_mobilegamestore')
-                            ->label('Mobile Game Store API Key')
+                            ->label('API Key Mobile Game Store')
                             ->password()
                             ->revealable()
-                            ->helperText('Didapat dari menu API atau integrasi pada dashboard Mobile Game Store.'),
+                            ->helperText('Ambil dari dashboard Mobile Game Store.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('mobile-game-store')),
                     
                 Section::make('VIP Reseller')
-                    ->description('Isi kredensial VIP Reseller. API ID dan API Key biasanya tersedia di dashboard akun VIP Reseller.')
+                    ->description('Isi credential VIP Reseller untuk order, callback, dan cek saldo.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('vip_apiid')
-                            ->label('VIP API ID')
-                            ->helperText('ID merchant / API ID dari dashboard VIP Reseller.'),
+                            ->label('API ID VIP')
+                            ->helperText('API ID dari dashboard VIP Reseller.'),
                             
                         TextInput::make('vip_apikey')
-                            ->label('VIP API Key')
+                            ->label('API Key VIP')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key API VIP Reseller.'),
+                            ->helperText('API key dari dashboard VIP Reseller.'),
 
                         TextInput::make('vip_sign')
-                            ->label('VIP API Sign (Opsional)')
+                            ->label('API Sign VIP (Opsional)')
                             ->password()
                             ->revealable()
-                            ->helperText('Jika diisi, nilai ini akan dipakai sebagai sign request VIP. Jika kosong, sistem hitung otomatis md5(api_id + api_key).')
+                            ->helperText('Kosongkan jika ingin sistem menghitung sign otomatis.')
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
@@ -849,121 +849,122 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('vip-reseller')),
                     
                 // Payment Gateways
-                Section::make('Deposit Configuration')
-                    ->description('Select the active gateway for QRIS Deposits')
+                Section::make('Deposit QRIS')
+                    ->description('Pilih gateway utama untuk deposit saldo via QRIS.')
                     ->schema([
                         \Filament\Forms\Components\Select::make('deposit_jalur')
-                            ->label('Active Deposit Gateway (QRIS)')
+                            ->label('Gateway Deposit Aktif')
                             ->options([
                                 'duitku' => 'Duitku',
                                 'tripay' => 'TriPay',
                                 'tokopay' => 'TokoPay',
                             ])
                             ->default('duitku')
-                            ->required(),
+                            ->required()
+                            ->helperText('Gateway ini dipakai untuk deposit QRIS member.'),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('deposit-configuration')),
 
                 Section::make('PayDisini')
-                    ->description('Masukkan API key PayDisini dari dashboard merchant pada menu API atau integrasi.')
+                    ->description('Simpan API key PayDisini untuk membuat invoice dan cek status pembayaran.')
                     ->schema([
                         TextInput::make('paydisini_apikey')
-                            ->label('PayDisini API Key')
+                            ->label('API Key PayDisini')
                             ->password()
                             ->revealable()
-                            ->helperText('Kunci rahasia untuk membuat invoice dan cek status PayDisini.'),
+                            ->helperText('Ambil dari dashboard PayDisini.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('paydisini')),
                     
-                Section::make('Tripay')
-                    ->description('Isi seluruh kredensial TriPay dari dashboard akun TriPay. Biasanya ada di menu developer atau channel pembayaran.')
+                Section::make('TriPay')
+                    ->description('Isi credential TriPay untuk membuat transaksi dan memverifikasi callback.')
                     ->columns(3)
                     ->schema([
                         TextInput::make('tripay_api')
-                            ->label('API Key')
+                            ->label('API Key TriPay')
                             ->password()
                             ->revealable()
-                            ->helperText('API key TriPay.'),
+                            ->helperText('API key dari dashboard TriPay.'),
                             
                         TextInput::make('tripay_merchant_code')
-                            ->label('Merchant Code')
+                            ->label('Merchant Code TriPay')
                             ->helperText('Kode merchant dari dashboard TriPay.'),
                             
                         TextInput::make('tripay_private_key')
-                            ->label('Private Key')
+                            ->label('Private Key TriPay')
                             ->password()
                             ->revealable()
-                            ->helperText('Private key untuk membuat signature request TriPay.'),
+                            ->helperText('Private key untuk signature pembayaran.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('tripay')),
                     
                 Section::make('TokoPay')
-                    ->description('Masukkan Merchant ID dan Secret Key dari dashboard TokoPay.')
+                    ->description('Isi credential TokoPay untuk membuat transaksi dan cek status pembayaran.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('tokopay_merchant_id')
-                            ->label('Merchant ID')
-                            ->helperText('ID merchant dari dashboard TokoPay.'),
+                            ->label('Merchant ID TokoPay')
+                            ->helperText('Merchant ID dari dashboard TokoPay.'),
                             
                         TextInput::make('tokopay_secret_key')
-                            ->label('Secret Key')
+                            ->label('Secret Key TokoPay')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key/API key TokoPay.'),
+                            ->helperText('Secret key dari dashboard TokoPay.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('tokopay')),
                     
                 Section::make('Duitku')
-                    ->description('Configure Duitku payment gateway. Callback URL: '.config('app.url').'/wejizy/duitku/callback')
+                    ->description('Isi credential Duitku dan URL callback/return untuk pembayaran.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('duitku_merchant_code')
-                            ->label('Merchant Code')
-                            ->helperText('Merchant Code dari Duitku dashboard')
+                            ->label('Merchant Code Duitku')
+                            ->helperText('Merchant code dari dashboard Duitku.')
                             ->columnSpan(1),
                             
                         TextInput::make('duitku_merchant_key')
-                            ->label('Merchant Key (API Key)')
+                            ->label('Merchant Key Duitku')
                             ->password()
                             ->revealable()
-                            ->helperText('API Key untuk autentikasi')
+                            ->helperText('Merchant key/API key dari dashboard Duitku.')
                             ->columnSpan(1),
                             
                         TextInput::make('duitku_callback_url')
-                            ->label('Callback URL')
+                            ->label('URL Callback Duitku')
                             ->url()
                             ->default(config('app.url').'/wejizy/duitku/callback')
-                            ->helperText('URL untuk menerima notifikasi pembayaran dari Duitku')
+                            ->helperText('URL yang menerima notifikasi pembayaran dari Duitku.')
                             ->columnSpan(1),
                             
                         TextInput::make('duitku_return_url')
-                            ->label('Return URL')
+                            ->label('URL Return Duitku')
                             ->url()
                             ->default(config('app.url').'/id/invoices/')
-                            ->helperText('URL redirect setelah pembayaran selesai')
+                            ->helperText('Halaman tujuan user setelah pembayaran.')
                             ->columnSpan(1),
                             
                         \Filament\Forms\Components\Select::make('duitku_mode')
-                            ->label('Mode')
+                            ->label('Mode Duitku')
                             ->options([
-                                'sandbox' => 'Sandbox (Testing)',
-                                'production' => 'Production (Live)',
+                                'sandbox' => 'Sandbox / Testing',
+                                'production' => 'Production / Live',
                             ])
                             ->default('sandbox')
                             ->required()
-                            ->helperText('Pilih sandbox untuk testing, production untuk live')
+                            ->helperText('Gunakan Production hanya untuk transaksi live.')
                             ->columnSpan(1),
                             
                         Toggle::make('duitku_enabled')
-                            ->label('Enable Duitku Payment')
-                            ->helperText('Aktifkan untuk menggunakan Duitku sebagai payment gateway')
+                            ->label('Aktifkan Duitku')
+                            ->helperText('Jika aktif, Duitku dapat dipakai sebagai payment gateway.')
                             ->default(false)
                             ->columnSpan(1),
                     ])
@@ -972,44 +973,44 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('duitku')),
                     
                 Section::make('Digiflazz')
-                    ->description('Masukkan username dan API key buyer Digiflazz dari dashboard developer.')
+                    ->description('Isi credential buyer Digiflazz untuk order dan cek saldo.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('username_digi')
-                            ->label('Username')
-                            ->helperText('Username buyer Digiflazz, biasanya sama seperti username akun buyer.'),
+                            ->label('Username Buyer')
+                            ->helperText('Username akun buyer Digiflazz.'),
                             
                         TextInput::make('api_key_digi')
-                            ->label('API Key')
+                            ->label('API Key Digiflazz')
                             ->password()
                             ->revealable()
-                            ->helperText('API key buyer Digiflazz dari menu API.'),
+                            ->helperText('API key dari dashboard Digiflazz.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('digiflazz')),
                     
                 Section::make('API Games')
-                    ->description('Masukkan Merchant ID dan Secret Key dari dashboard API Games.')
+                    ->description('Isi Merchant ID dan Secret Key API Games untuk order dan cek saldo.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('apigames_merchant')
-                            ->label('Merchant ID')
+                            ->label('Merchant ID API Games')
                             ->helperText('Merchant ID dari dashboard API Games.'),
                             
                         TextInput::make('apigames_secret')
-                            ->label('Secret Key')
+                            ->label('Secret Key API Games')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key/API key API Games.'),
+                            ->helperText('Secret key dari dashboard API Games.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('api-games')),
                     
                 // WhatsApp Integration
-                Section::make('WhatsApp Configuration')
-                    ->description('Configure WhatsApp API integration')
+                Section::make('Konfigurasi WhatsApp')
+                    ->description('Atur provider dan akun WhatsApp untuk notifikasi otomatis.')
                     ->headerActions([
                         $this->makeSendTestWhatsappAction(),
                         $this->makeCheckWhatsappStatusAction(),
@@ -1017,187 +1018,188 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->columns(3)
                     ->schema([
                         Select::make('wa_provider')
-                            ->label('WhatsApp Provider')
+                            ->label('Provider WhatsApp')
                             ->options([
                                 'fonnte' => 'Fonnte',
                                 'easywa' => 'EasyWA',
                             ])
                             ->default('fonnte')
                             ->native(false)
-                            ->helperText('Pilih provider WhatsApp yang aktif. Fonnte untuk token/device Fonnte, EasyWA untuk integrasi API EasyWA.'),
+                            ->helperText('Pilih provider yang sedang dipakai.'),
 
                         TextInput::make('nomor_admin')
-                            ->label('Admin Phone Number')
+                            ->label('Nomor WhatsApp Admin')
                             ->tel()
                             ->prefix('+62')
-                            ->helperText('Nomor HP admin utama untuk notifikasi sistem (Format: 812...)'),
+                            ->helperText('Nomor utama admin untuk menerima notifikasi sistem.'),
                             
                         TextInput::make('wa_key')
-                            ->label('WhatsApp API Key')
+                            ->label('Token Fonnte')
                             ->password()
                             ->revealable()
-                            ->helperText('Dipakai untuk provider Fonnte. Ambil dari dashboard/token Fonnte.'),
+                            ->helperText('Isi jika provider yang dipakai adalah Fonnte.'),
                             
                         TextInput::make('wa_number')
-                            ->label('WhatsApp Number')
+                            ->label('Nomor Device Fonnte')
                             ->tel()
                             ->prefix('+62')
-                            ->helperText('Nomor device aktif untuk provider Fonnte.'),
+                            ->helperText('Nomor WhatsApp yang terhubung di Fonnte.'),
 
                         TextInput::make('easywa_email')
-                            ->label('EasyWA Email')
-                            ->helperText('Email akun EasyWA yang terdaftar di dashboard EasyWA.')
+                            ->label('Email EasyWA')
+                            ->helperText('Email akun EasyWA.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
 
                         TextInput::make('easywa_secret_key')
-                            ->label('EasyWA Secret Key')
+                            ->label('Secret Key EasyWA')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key EasyWA dari menu API.')
+                            ->helperText('Secret key dari dashboard EasyWA.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
 
                         Select::make('easywa_send_type')
-                            ->label('EasyWA Send Type')
+                            ->label('Mode Kirim EasyWA')
                             ->options([
-                                'sync' => 'Sync',
-                                'async' => 'Async',
+                                'sync' => 'Langsung',
+                                'async' => 'Antrian',
                             ])
                             ->default('sync')
                             ->native(false)
-                            ->helperText('Sync menunggu hasil langsung. Async cocok jika pengiriman ingin diantrikan dengan delay.')
+                            ->helperText('Pilih Langsung untuk kirim saat itu juga, atau Antrian jika memakai delay.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
 
                         TextInput::make('easywa_send_delay')
-                            ->label('EasyWA Delay (detik)')
+                            ->label('Delay Kirim (detik)')
                             ->numeric()
                             ->default(0)
-                            ->helperText('Delay hanya dipakai jika mode EasyWA = async.')
+                            ->helperText('Dipakai hanya saat mode EasyWA = Antrian.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa' && ($get('easywa_send_type') ?? 'sync') === 'async'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('whatsapp-configuration')),
 
-                Section::make('Mail Configuration')
-                    ->description('Konfigurasi SMTP/email yang akan dipakai sistem tanpa perlu edit file .env lagi. Nilai ini biasanya didapat dari dashboard provider email seperti Gmail App Password, Mailgun, Brevo, Zoho, Resend SMTP, atau mail server cPanel.')
+                Section::make('Konfigurasi Email')
+                    ->description('Atur SMTP yang dipakai sistem untuk mengirim email otomatis.')
                     ->headerActions([
                         $this->makeSendTestEmailAction(),
                     ])
                     ->columns(2)
                     ->schema([
                         Select::make('mail_mailer')
-                            ->label('Mailer')
+                            ->label('Mode Email')
                             ->options([
                                 'smtp' => 'SMTP',
-                                'log' => 'Log',
+                                'log' => 'Log / Testing',
                             ])
                             ->default('smtp')
                             ->native(false)
-                            ->helperText('Pilih SMTP untuk pengiriman email sungguhan. Gunakan Log hanya untuk testing lokal.'),
+                            ->helperText('Gunakan SMTP untuk email asli. Log hanya untuk testing.'),
 
                         TextInput::make('mail_host')
-                            ->label('SMTP Host')
+                            ->label('Host SMTP')
                             ->placeholder('smtp.gmail.com')
-                            ->helperText('Host server SMTP dari provider. Contoh: Gmail = smtp.gmail.com, Brevo = smtp-relay.brevo.com, Mailgun = smtp.mailgun.org.'),
+                            ->helperText('Alamat server SMTP dari provider email.'),
 
                         TextInput::make('mail_port')
-                            ->label('SMTP Port')
+                            ->label('Port SMTP')
                             ->numeric()
                             ->placeholder('587')
-                            ->helperText('Port SMTP dari provider. Umumnya 587 untuk TLS atau 465 untuk SSL.'),
+                            ->helperText('Umumnya 587 untuk TLS atau 465 untuk SSL.'),
 
                         TextInput::make('mail_encryption')
-                            ->label('Encryption')
+                            ->label('Enkripsi')
                             ->placeholder('tls / ssl')
-                            ->helperText('Jenis enkripsi koneksi SMTP. Nilai paling umum adalah tls.'),
+                            ->helperText('Biasanya tls. Ikuti instruksi provider email.'),
 
                         TextInput::make('mail_username')
-                            ->label('SMTP Username')
-                            ->helperText('Username/login SMTP dari provider. Biasanya email penuh atau username SMTP khusus yang diberikan provider.'),
+                            ->label('Username SMTP')
+                            ->helperText('Username dari provider email.'),
 
                         TextInput::make('mail_password')
-                            ->label('SMTP Password')
+                            ->label('Password SMTP')
                             ->password()
                             ->revealable()
-                            ->helperText('Password SMTP, API key SMTP, atau App Password. Untuk Gmail gunakan App Password, bukan password akun utama.'),
+                            ->helperText('Gunakan password SMTP atau app password, bukan password akun utama.'),
 
                         TextInput::make('mail_from_address')
-                            ->label('From Address')
+                            ->label('Email Pengirim')
                             ->email()
-                            ->helperText('Alamat pengirim yang tampil ke pembeli. Sebaiknya email valid dari domain/provider yang sama, contoh: no-reply@domainkamu.com.'),
+                            ->helperText('Alamat email yang tampil sebagai pengirim.'),
 
                         TextInput::make('mail_from_name')
-                            ->label('From Name')
-                            ->helperText('Nama pengirim yang terlihat di inbox pembeli, contoh: '. env('APP_NAME')),
+                            ->label('Nama Pengirim')
+                            ->helperText('Nama toko yang tampil di inbox pembeli.'),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('mail-configuration')),
 
-                Section::make('Invoice Delivery Channels')
-                    ->description('Atur channel notifikasi transaksi dan hasil review affiliate.')
+                Section::make('Channel Notifikasi')
+                    ->description('Pilih channel otomatis untuk invoice dan affiliate.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('invoice_notify_via_whatsapp')
-                            ->label('Kirim Invoice via WhatsApp')
+                            ->label('Invoice via WhatsApp')
                             ->default(true)
-                            ->helperText('Jika aktif, update transaksi/invoice akan dikirim ke WhatsApp pembeli.'),
+                            ->helperText('Kirim update transaksi ke WhatsApp pembeli.'),
 
                         Toggle::make('invoice_notify_via_email')
-                            ->label('Kirim Invoice via Email')
+                            ->label('Invoice via Email')
                             ->default(true)
-                            ->helperText('Jika aktif, update transaksi/invoice akan dikirim ke email pembeli.'),
+                            ->helperText('Kirim update transaksi ke email pembeli.'),
 
                         Toggle::make('affiliate_notify_via_whatsapp')
-                            ->label('Kirim Hasil Review Affiliate via WhatsApp')
+                            ->label('Affiliate via WhatsApp')
                             ->default(true)
-                            ->helperText('Jika aktif, user mendapat notifikasi WA saat pengajuan affiliate disetujui/ditolak.'),
+                            ->helperText('Kirim hasil review affiliate lewat WhatsApp.'),
 
                         Toggle::make('affiliate_notify_via_email')
-                            ->label('Kirim Hasil Review Affiliate via Email')
+                            ->label('Affiliate via Email')
                             ->default(true)
-                            ->helperText('Jika aktif, user mendapat notifikasi email saat pengajuan affiliate disetujui/ditolak.'),
+                            ->helperText('Kirim hasil review affiliate lewat email.'),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('invoice-delivery')),
                     
                 // Payment Accounts
-                Section::make('E-Wallet Accounts')
-                    ->description('Admin account numbers for manual payments')
+                Section::make('Nomor E-Wallet Manual')
+                    ->description('Nomor admin yang ditampilkan untuk pembayaran manual e-wallet.')
                     ->columns(2)
                     ->schema([
                         TextInput::make('ovo_admin')
-                            ->label('OVO Account 1')
+                            ->label('OVO 1')
                             ->tel(),
                             
                         TextInput::make('ovo1_admin')
-                            ->label('OVO Account 2')
+                            ->label('OVO 2')
                             ->tel(),
                             
                         TextInput::make('gopay_admin')
-                            ->label('GoPay Account 1')
+                            ->label('GoPay 1')
                             ->tel(),
                             
                         TextInput::make('gopay1_admin')
-                            ->label('GoPay Account 2')
+                            ->label('GoPay 2')
                             ->tel(),
                             
                         TextInput::make('dana_admin')
-                            ->label('DANA Account')
+                            ->label('DANA')
                             ->tel(),
                             
                         TextInput::make('shopeepay_admin')
-                            ->label('ShopeePay Account')
+                            ->label('ShopeePay')
                             ->tel(),
                     ])
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('ewallet-accounts')),
                     
-                Section::make('Bank Account')
+                Section::make('Rekening Bank Manual')
+                    ->description('Nomor rekening bank admin untuk pembayaran manual.')
                     ->schema([
                         TextInput::make('bca_admin')
-                            ->label('BCA Account Number')
+                            ->label('Nomor Rekening BCA')
                             ->numeric(),
                     ])
                     ->collapsible()

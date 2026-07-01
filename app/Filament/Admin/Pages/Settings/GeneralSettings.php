@@ -18,10 +18,10 @@ class GeneralSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'Website Information',
-            'Homepage Popup',
+            'Informasi Website',
+            'Popup Homepage',
             'Live Sales Toast',
-            'Admin Login CAPTCHA',
+            'Keamanan Login Admin',
         ];
     }
 

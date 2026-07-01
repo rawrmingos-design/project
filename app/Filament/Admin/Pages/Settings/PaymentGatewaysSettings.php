@@ -18,13 +18,13 @@ class PaymentGatewaysSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'Deposit Configuration',
+            'Deposit QRIS',
             'PayDisini',
-            'Tripay',
+            'TriPay',
             'TokoPay',
             'Duitku',
-            'E-Wallet Accounts',
-            'Bank Account',
+            'Nomor E-Wallet Manual',
+            'Rekening Bank Manual',
         ];
     }
 

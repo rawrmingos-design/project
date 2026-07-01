@@ -18,7 +18,7 @@ class SeoTrackingSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'Analytics & Tracking',
+            'Pelacakan Konversi & Analitik',
             'SEO Crawling',
         ];
     }
