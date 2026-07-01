@@ -6,6 +6,7 @@ use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Models\Provider;
+use App\Models\SettingWeb;
 use App\Services\Providers\BangJeffService;
 
 class ProviderBalanceService
@@ -120,32 +121,55 @@ class ProviderBalanceService
     private function resolveConfig(Provider $provider): array
     {
         $providerCode = strtolower((string) $provider->code);
-        $config = [];
+        $settings = SettingWeb::query()->first();
+        $config = match ($providerCode) {
+            'digiflazz' => [
+                'username' => $this->credential($settings?->username_digi),
+                'api_key' => $this->credential($settings?->api_key_digi),
+                'endpoint' => 'https://api.digiflazz.com',
+            ],
+            'bangjeff' => [
+                'api_key' => $this->credential($settings?->apikey_bangjeff),
+                'endpoint' => rtrim((string) config('providers.bangjeff.base_url', 'https://distribution-api.bangjeff.com'), '/'),
+                'region' => (string) config('providers.bangjeff.region', 'ID'),
+            ],
+            'vip', 'vip_reseller' => [
+                'api_id' => $this->credential($settings?->vip_apiid),
+                'api_key' => $this->credential($settings?->vip_apikey),
+                'api_sign' => $this->credential($settings?->vip_sign),
+                'endpoint' => 'https://vip-reseller.co.id/api/game-feature',
+            ],
+            'apigames' => [
+                'merchant_id' => $this->credential($settings?->apigames_merchant),
+                'secret_key' => $this->credential($settings?->apigames_secret),
+                'endpoint' => 'https://v1.apigames.id/v2',
+            ],
+            default => [],
+        };
 
-        if (! empty($provider->api_username)) {
-            $config['username'] = $provider->api_username;
-            $config['api_id'] = $provider->api_username;
-            $config['merchant_id'] = $provider->api_username;
+        if ($this->hasCredential($provider->api_endpoint)) {
+            $config['endpoint'] = (string) $provider->api_endpoint;
         }
 
-        if (! empty($provider->api_key)) {
-            if ($providerCode === 'bangjeff') {
-                $config['fallback_api_key'] = $provider->api_key;
-            } else {
-                $config['api_key'] = $provider->api_key;
-                $config['secret_key'] = $provider->api_key;
+        return array_filter($config, static fn ($value): bool => $value !== null && $value !== '');
+    }
+
+    private function credential(mixed ...$candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if ($this->hasCredential($candidate)) {
+                return trim((string) $candidate);
             }
         }
 
-        if (! empty($provider->api_sign)) {
-            $config['api_sign'] = $provider->api_sign;
-        }
+        return null;
+    }
 
-        if (! empty($provider->api_endpoint)) {
-            $config['endpoint'] = $provider->api_endpoint;
-        }
+    private function hasCredential(mixed $value): bool
+    {
+        $value = trim((string) ($value ?? ''));
 
-        return $config;
+        return $value !== '' && $value !== '-';
     }
 
     private function normalizeBalanceValue(mixed $rawBalance): ?float

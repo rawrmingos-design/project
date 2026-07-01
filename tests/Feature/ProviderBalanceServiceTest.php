@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Provider;
+use App\Models\SettingWeb;
 use App\Services\ProviderBalanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -24,11 +25,15 @@ class ProviderBalanceServiceTest extends TestCase
             ]),
         ]);
 
+        $this->createSettings([
+            'vip_apiid' => 'settings-apiid',
+            'vip_apikey' => 'settings-apikey',
+            'vip_sign' => 'settings-sign',
+        ]);
+
         $provider = Provider::create([
             'code' => 'vip_reseller',
             'name' => 'VIP Reseller',
-            'api_username' => 'apiid-123',
-            'api_key' => 'apikey-123',
             'is_active' => true,
             'balance' => 0,
         ]);
@@ -40,6 +45,8 @@ class ProviderBalanceServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame(200500.0, (float) $provider->balance);
         $this->assertNotNull($provider->last_check_at);
+        Http::assertSent(fn ($request): bool => $request->data()['key'] === 'settings-apikey'
+            && $request->data()['sign'] === 'settings-sign');
     }
 
     public function test_it_normalizes_vip_balance_string_format_before_save(): void
@@ -54,11 +61,14 @@ class ProviderBalanceServiceTest extends TestCase
             ]),
         ]);
 
+        $this->createSettings([
+            'vip_apiid' => 'settings-apiid',
+            'vip_apikey' => 'settings-apikey',
+        ]);
+
         $provider = Provider::create([
             'code' => 'vip',
             'name' => 'VIP',
-            'api_username' => 'apiid-123',
-            'api_key' => 'apikey-123',
             'is_active' => true,
             'balance' => 0,
         ]);
@@ -72,6 +82,13 @@ class ProviderBalanceServiceTest extends TestCase
 
     public function test_it_reads_bangjeff_v4_balance_value_field(): void
     {
+        $this->createSettings([
+            'apikey_bangjeff' => 'settings-bangjeff-key',
+        ]);
+        config()->set('providers.bangjeff.api_key', null);
+        config()->set('providers.bangjeff.use_sandbox_on_local', true);
+        config()->set('providers.bangjeff.sandbox_base_url', 'https://sandbox-api.bangjeff.com');
+
         Http::fake([
             'https://sandbox-api.bangjeff.com/api/v4/balance' => Http::response([
                 'rc' => '00',
@@ -88,7 +105,6 @@ class ProviderBalanceServiceTest extends TestCase
         $provider = Provider::create([
             'code' => 'bangjeff',
             'name' => 'BangJeff',
-            'api_key' => 'bj-api-key',
             'api_endpoint' => 'https://sandbox-api.bangjeff.com',
             'is_active' => true,
             'balance' => 0,
@@ -105,7 +121,7 @@ class ProviderBalanceServiceTest extends TestCase
     public function test_it_syncs_apigames_balance_and_updates_provider_record(): void
     {
         Http::fake([
-            'https://v1.apigames.id/merchant/demo-merchant*' => Http::response([
+            'https://v1.apigames.id/merchant/settings-merchant*' => Http::response([
                 'status' => 1,
                 'message' => 'Sukses !',
                 'data' => [
@@ -116,11 +132,14 @@ class ProviderBalanceServiceTest extends TestCase
             ]),
         ]);
 
+        $this->createSettings([
+            'apigames_merchant' => 'settings-merchant',
+            'apigames_secret' => 'settings-secret',
+        ]);
+
         $provider = Provider::create([
             'code' => 'apigames',
             'name' => 'ApiGames',
-            'api_username' => 'demo-merchant',
-            'api_key' => 'demo-secret',
             'api_endpoint' => 'https://v1.apigames.id/v2',
             'is_active' => true,
             'balance' => 0,
@@ -133,5 +152,103 @@ class ProviderBalanceServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertSame(245000.0, (float) $provider->balance);
         $this->assertNotNull($provider->last_check_at);
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), '/merchant/settings-merchant'));
+    }
+
+    public function test_it_syncs_digiflazz_balance_using_settings_credentials_over_provider_row(): void
+    {
+        $this->createSettings([
+            'username_digi' => 'settings-digi-user',
+            'api_key_digi' => 'settings-digi-key',
+        ]);
+
+        Http::fake([
+            'https://api.digiflazz.com/v1/cek-saldo' => Http::response([
+                'data' => [
+                    'deposit' => 321000,
+                ],
+            ]),
+        ]);
+
+        $provider = Provider::create([
+            'code' => 'digiflazz',
+            'name' => 'Digiflazz',
+            'is_active' => true,
+            'balance' => 0,
+        ]);
+
+        $result = app(ProviderBalanceService::class)->sync($provider);
+
+        $provider->refresh();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(321000.0, (float) $provider->balance);
+        Http::assertSent(function ($request): bool {
+            $data = $request->data();
+
+            return ($data['username'] ?? null) === 'settings-digi-user'
+                && ($data['cmd'] ?? null) === 'deposit'
+                && ($data['sign'] ?? null) === md5('settings-digi-user' . 'settings-digi-key' . 'depo');
+        });
+    }
+
+    private function createSettings(array $overrides = []): SettingWeb
+    {
+        return SettingWeb::create(array_merge([
+            'judul_web' => 'Test Store',
+            'deskripsi_web' => 'Test store description',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo/header.png',
+            'logo_footer' => 'assets/logo/footer.png',
+            'logo_favicon' => 'assets/logo/favicon.ico',
+            'url_wa' => 'https://wa.me/620000000000',
+            'url_ig' => 'https://instagram.com/test',
+            'url_tiktok' => 'https://tiktok.com/@test',
+            'url_youtube' => 'https://youtube.com/@test',
+            'url_fb' => 'https://facebook.com/test',
+            'warna1' => '#111111',
+            'warna2' => '#222222',
+            'warna3' => '#333333',
+            'warna4' => '#444444',
+            'topupindo_api' => 'test-topupindo-key',
+            'apikey_bangjeff' => 'test-bangjeff-key',
+            'apikey_aoshi' => 'test-aoshi-key',
+            'api_mobilegamestore' => 'test-mgs-key',
+            'paydisini_apikey' => 'test-paydisini-key',
+            'tripay_api' => 'test-tripay-api',
+            'tripay_merchant_code' => 'T0000',
+            'tripay_private_key' => 'test-tripay-private',
+            'duitku_merchant_code' => 'D0000',
+            'duitku_merchant_key' => 'test-duitku-key',
+            'duitku_callback_url' => 'https://example.test/callback',
+            'duitku_mode' => 'sandbox',
+            'deposit_jalur' => 'duitku',
+            'duitku_enabled' => 0,
+            'tokopay_merchant_id' => 'M0000',
+            'tokopay_secret_key' => 'test-tokopay-secret',
+            'username_digi' => 'test-digi-user',
+            'api_key_digi' => 'test-digi-key',
+            'apigames_merchant' => 'test-apigames-merchant',
+            'apigames_secret' => 'test-apigames-secret',
+            'vip_apiid' => 'test-vip-apiid',
+            'vip_apikey' => 'test-vip-apikey',
+            'nomor_admin' => '620000000000',
+            'wa_key' => 'test-wa-key',
+            'wa_number' => '620000000000',
+            'ovo_admin' => '0',
+            'ovo1_admin' => '0',
+            'gopay_admin' => '0',
+            'gopay1_admin' => '0',
+            'dana_admin' => '0',
+            'shopeepay_admin' => '0',
+            'bca_admin' => '0',
+            'order_prefik' => 'TS',
+            'commission_percent' => 20,
+            'profit_member' => 10,
+            'profit_platinum' => 10,
+            'profit_gold' => 10,
+            'trx_count_gold' => 50,
+            'trx_count_platinum' => 100,
+        ], $overrides));
     }
 }
