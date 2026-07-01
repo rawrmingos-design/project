@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Pembelian;
 use App\Models\PublicPushNotificationDelivery;
 use App\Models\PublicPushSubscription;
+use App\Models\PushNotificationTemplate;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 
 class PublicOrderPushNotificationService
 {
@@ -19,35 +21,29 @@ class PublicOrderPushNotificationService
 
     public function notifyOrderCreated(Pembelian $order, ?string $sessionId = null): array
     {
-        return $this->sendOnce($order, self::EVENT_ORDER_CREATED, [
+        return $this->sendOnce($order, self::EVENT_ORDER_CREATED, $this->payloadForEvent($order, self::EVENT_ORDER_CREATED, [
             'title' => 'Pesanan berhasil dibuat',
-            'body' => 'Segera lakukan pembayaran untuk invoice #' . $order->display_order_id . '.',
-            'url' => $this->invoiceUrl($order),
-            'icon' => asset('assets/pwa/icon-192.png'),
+            'body' => 'Segera lakukan pembayaran untuk invoice #{display_order_id}.',
             'tag' => 'order-created-' . $order->order_id,
-        ], $sessionId);
+        ]), $sessionId);
     }
 
     public function notifyPaymentSuccess(Pembelian $order, ?string $sessionId = null): array
     {
-        return $this->sendOnce($order, self::EVENT_PAYMENT_SUCCESS, [
+        return $this->sendOnce($order, self::EVENT_PAYMENT_SUCCESS, $this->payloadForEvent($order, self::EVENT_PAYMENT_SUCCESS, [
             'title' => 'Pembayaran berhasil',
-            'body' => 'Pembayaran invoice #' . $order->display_order_id . ' sudah diterima. Pesanan sedang diproses.',
-            'url' => $this->invoiceUrl($order),
-            'icon' => asset('assets/pwa/icon-192.png'),
+            'body' => 'Pembayaran invoice #{display_order_id} sudah diterima. Pesanan sedang diproses.',
             'tag' => 'payment-success-' . $order->order_id,
-        ], $sessionId);
+        ]), $sessionId);
     }
 
     public function notifyOrderSuccess(Pembelian $order, ?string $sessionId = null): array
     {
-        return $this->sendOnce($order, self::EVENT_ORDER_SUCCESS, [
+        return $this->sendOnce($order, self::EVENT_ORDER_SUCCESS, $this->payloadForEvent($order, self::EVENT_ORDER_SUCCESS, [
             'title' => 'Pesanan berhasil',
-            'body' => 'Pesanan #' . $order->display_order_id . ' berhasil diproses.',
-            'url' => $this->invoiceUrl($order),
-            'icon' => asset('assets/pwa/icon-192.png'),
+            'body' => 'Pesanan #{display_order_id} berhasil diproses.',
             'tag' => 'order-success-' . $order->order_id,
-        ], $sessionId);
+        ]), $sessionId);
     }
 
     public function sendOnce(Pembelian $order, string $event, array $payload, ?string $sessionId = null): array
@@ -61,25 +57,23 @@ class PublicOrderPushNotificationService
         ];
 
         foreach ($subscriptions as $subscription) {
-            $existing = PublicPushNotificationDelivery::query()
-                ->where('order_id', $order->order_id)
-                ->where('event', $event)
-                ->where('public_push_subscription_id', $subscription->id)
-                ->first();
+            try {
+                $delivery = PublicPushNotificationDelivery::create([
+                    'public_push_subscription_id' => $subscription->id,
+                    'order_id' => $order->order_id,
+                    'event' => $event,
+                    'endpoint_hash' => $subscription->endpoint_hash,
+                    'status' => 'pending',
+                    'payload' => $payload,
+                ]);
+            } catch (QueryException $exception) {
+                if ($exception->getCode() !== '23000') {
+                    throw $exception;
+                }
 
-            if ($existing) {
                 $results['skipped']++;
                 continue;
             }
-
-            $delivery = PublicPushNotificationDelivery::create([
-                'public_push_subscription_id' => $subscription->id,
-                'order_id' => $order->order_id,
-                'event' => $event,
-                'endpoint_hash' => $subscription->endpoint_hash,
-                'status' => 'pending',
-                'payload' => $payload,
-            ]);
 
             $result = $this->webPush->sendToSubscription($subscription, $payload);
 
@@ -148,6 +142,53 @@ class PublicOrderPushNotificationService
         });
 
         return $query->get();
+    }
+
+    private function payloadForEvent(Pembelian $order, string $event, array $defaults): array
+    {
+        $template = PushNotificationTemplate::query()
+            ->where('slug', $event)
+            ->where('is_active', true)
+            ->first();
+
+        $title = $template?->title ?: $defaults['title'];
+        $body = $template?->body ?: $defaults['body'];
+
+        return [
+            'title' => $this->limitPushText($this->renderTemplate($title, $order), 120),
+            'body' => $this->limitPushText($this->renderTemplate($body, $order), 500),
+            'url' => $this->invoiceUrl($order),
+            'icon' => asset('assets/pwa/icon-192.png'),
+            'tag' => $defaults['tag'],
+        ];
+    }
+
+    private function renderTemplate(string $template, Pembelian $order): string
+    {
+        $replacements = [
+            'order_id' => (string) $order->order_id,
+            'display_order_id' => (string) ($order->display_order_id ?: $order->order_id),
+            'product' => (string) ($order->layanan ?? ''),
+            'amount' => 'Rp ' . number_format((int) ($order->harga ?? 0), 0, ',', '.'),
+            'nickname' => (string) ($order->nickname ?? 'Pelanggan'),
+            'status' => (string) ($order->status ?? ''),
+            'sn' => (string) ($order->keterangan_sn ?? ''),
+        ];
+
+        foreach ($replacements as $key => $value) {
+            $template = str_replace('{' . $key . '}', $value, $template);
+        }
+
+        return $template;
+    }
+
+    private function limitPushText(string $value, int $maxLength): string
+    {
+        if (mb_strlen($value) <= $maxLength) {
+            return $value;
+        }
+
+        return rtrim(mb_substr($value, 0, $maxLength - 1)) . '…';
     }
 
     private function invoiceUrl(Pembelian $order): string
