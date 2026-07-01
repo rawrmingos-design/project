@@ -14,38 +14,38 @@ class UserForm
     {
         return $schema
             ->components([
-                Section::make('User Information')
+                Section::make('Informasi User')
                     ->columns(2)
                     ->schema([
                         TextInput::make('name')
-                            ->label('Full Name')
+                            ->label('Nama Lengkap')
                             ->required()
                             ->maxLength(255)
-                            ->helperText('Nama lengkap user'),
+                            ->helperText('Nama lengkap user/member.'),
                             
                         TextInput::make('username')
                             ->label('Username')
                             ->unique(ignoreRecord: true)
                             ->default('Anonim')
                             ->maxLength(255)
-                            ->helperText('Digunakan untuk login'),
+                            ->helperText('Dipakai untuk login atau identitas akun.'),
                             
                         TextInput::make('email')
-                            ->label('Email Address')
+                            ->label('Email')
                             ->email()
                             ->required()
                             ->unique(ignoreRecord: true)
                             ->maxLength(255),
                             
                         TextInput::make('no_wa')
-                            ->label('WhatsApp Number')
+                            ->label('No. WhatsApp')
                             ->tel()
                             ->placeholder('+62812345678')
                             ->maxLength(255)
-                            ->helperText('Format: +628...'),
+                            ->helperText('Gunakan format +628...'),
                             
                         Select::make('role')
-                            ->label('User Role')
+                            ->label('Role User')
                             ->options([
                                 'Admin' => 'Admin',
                                 'Member' => 'Member',
@@ -55,10 +55,10 @@ class UserForm
                             ->required()
                             ->default('Member')
                             ->native(false)
-                            ->helperText('Tingkatan level user'),
+                            ->helperText('Tingkatan akun user.'),
                             
                         TextInput::make('balance')
-                            ->label('Account Balance')
+                            ->label('Saldo Akun')
                             ->numeric()
                             ->prefix('Rp')
                             ->default(0)
@@ -66,7 +66,7 @@ class UserForm
                     ])
                     ->collapsible(),
                     
-                Section::make('Security')
+                Section::make('Keamanan Akun')
                     ->columns(2)
                     ->schema([
                         TextInput::make('password')
@@ -75,22 +75,22 @@ class UserForm
                             ->dehydrateStateUsing(fn ($state) => !empty($state) ? Hash::make($state) : null)
                             ->dehydrated(fn ($state) => !empty($state))
                             ->label('Password')
-                            ->helperText('Leave blank to keep current password'),
+                            ->helperText('Kosongkan jika tidak ingin mengubah password.'),
                             
                         TextInput::make('api_key')
                             ->label('API Key')
                             ->maxLength(255)
                             ->disabled()
                             ->dehydrated(false)
-                            ->helperText('Auto-generated for API access'),
+                            ->helperText('Dibuat otomatis untuk akses API.'),
                     ])
                     ->collapsible(),
                     
-                Section::make('Game Information (Optional)')
+                Section::make('Informasi Game (Opsional)')
                     ->columns(3)
                     ->schema([
                         TextInput::make('idgame')
-                            ->label('Game ID')
+                            ->label('ID Game')
                             ->maxLength(225),
                             
                         TextInput::make('servergame')
@@ -98,7 +98,7 @@ class UserForm
                             ->numeric(),
                             
                         TextInput::make('idgame2')
-                            ->label('Game ID 2')
+                            ->label('ID Game 2')
                             ->maxLength(2225),
                     ])
                     ->collapsed()

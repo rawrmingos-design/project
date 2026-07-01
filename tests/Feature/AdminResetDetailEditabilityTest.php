@@ -39,7 +39,7 @@ class AdminResetDetailEditabilityTest extends TestCase
         $pembelian = app(ResetDomainService::class)->executeReset($pembelian, $vip->id, $admin->id, 'Reset for manual detail edit');
 
         Livewire::test(ViewPembelian::class, ['record' => $pembelian->getRouteKey()])
-            ->assertSee('Current Provider')
+            ->assertSee('Provider Aktif')
             ->assertSee('Vip')
             ->assertSee('Reset Context')
             ->assertSee('Requested')
@@ -80,7 +80,7 @@ class AdminResetDetailEditabilityTest extends TestCase
         $this->actingAs($admin);
 
         Livewire::test(ViewPembelian::class, ['record' => $pembelian->getRouteKey()])
-            ->assertSee('Current Provider')
+            ->assertSee('Provider Aktif')
             ->assertSee('Provider context unavailable')
             ->assertSee('Reset Context')
             ->assertSee('Not reset')

@@ -25,7 +25,7 @@ class UsersTable
                     ->toggleable(isToggledHiddenByDefault: true),
                     
                 TextColumn::make('name')
-                    ->label('Full Name')
+                    ->label('Nama Lengkap')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
@@ -43,13 +43,13 @@ class UsersTable
                     ->icon('heroicon-o-envelope'),
                     
                 TextColumn::make('no_wa')
-                    ->label('WhatsApp')
+                    ->label('No. WhatsApp')
                     ->searchable()
                     ->icon('heroicon-o-phone')
                     ->toggleable(),
                     
                 TextColumn::make('balance')
-                    ->label('Balance')
+                    ->label('Saldo')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -57,7 +57,7 @@ class UsersTable
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
 
                 TextColumn::make('point_balance')
-                    ->label('Point Balance')
+                    ->label('Saldo Poin')
                     ->sortable()
                     ->alignEnd()
                     ->weight('bold')
@@ -81,20 +81,20 @@ class UsersTable
                     
 
                 TextColumn::make('created_at')
-                    ->label('Joined')
+                    ->label('Tanggal Daftar')
                     ->dateTime('d M Y')
                     ->sortable()
                     ->toggleable(),
                     
                 TextColumn::make('updated_at')
-                    ->label('Last Updated')
+                    ->label('Terakhir Update')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('role')
-                    ->label('User Role')
+                    ->label('Role User')
                     ->options([
                         'Admin' => 'Admin',
                         'Member' => 'Member',
@@ -104,27 +104,28 @@ class UsersTable
                     ->multiple(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->label('Edit'),
                 
                 Action::make('adjust_balance')
-                    ->label('Adjust Balance')
+                    ->label('Ubah Saldo')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('warning')
                     ->form([
                         TextInput::make('amount')
-                            ->label('Amount')
+                            ->label('Nominal')
                             ->numeric()
                             ->required()
                             ->prefix('Rp')
-                            ->helperText('Use negative value to deduct, positive to add'),
+                            ->helperText('Gunakan nilai negatif untuk mengurangi saldo, positif untuk menambah.'),
                     ])
                     ->action(function ($record, array $data) {
                         $newBalance = $record->balance + $data['amount'];
                         $record->update(['balance' => max(0, $newBalance)]);
                         
                         Notification::make()
-                            ->title('Balance Adjusted')
-                            ->body("New balance: Rp " . number_format($newBalance, 0, ',', '.'))
+                            ->title('Saldo berhasil diubah')
+                            ->body("Saldo baru: Rp " . number_format($newBalance, 0, ',', '.'))
                             ->success()
                             ->send();
                     })

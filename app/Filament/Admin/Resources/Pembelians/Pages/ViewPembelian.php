@@ -41,14 +41,14 @@ class ViewPembelian extends ViewRecord
     {
         return $schema
             ->components([
-                Section::make('Order Information')
+                Section::make('Informasi Order')
                     ->schema([
                         TextEntry::make('order_id')
                             ->label('Order ID')
                             ->copyable()
                             ->weight('bold'),
                         TextEntry::make('display_order_id')
-                            ->label('Display Invoice')
+                            ->label('Invoice Tampil')
                             ->copyable(),
                         TextEntry::make('status_display_label')
                             ->label('Status')
@@ -62,32 +62,81 @@ class ViewPembelian extends ViewRecord
                             ->label('Username')
                             ->default('Anonim'),
                         TextEntry::make('layanan')
-                            ->label('Product / Service')
+                            ->label('Produk / Layanan')
                             ->default('N/A')
                             ->columnSpanFull(),
                         TextEntry::make('harga')
-                            ->label('Amount')
+                            ->label('Nominal')
                             ->money('IDR')
                             ->weight('bold'),
                         TextEntry::make('current_provider')
-                            ->label('Current Provider')
+                            ->label('Provider Aktif')
                             ->state(fn (): string => $this->getCurrentProviderLabel()),
                     ])
                     ->columns(2),
 
-                Section::make('Game Details')
+                Section::make('Detail Game')
+                    ->description(fn (): string => $this->record->canEditResetRouting()
+                        ? 'Reset invoice sudah dibuat. Koreksi ID game atau zone di sini sebelum klik Send Callback.'
+                        : 'Detail akun game tujuan yang dikirim ke provider.')
+                    ->headerActions([
+                        Actions\Action::make('edit_game_details')
+                            ->label('Edit ID Game / Zone')
+                            ->icon('heroicon-o-pencil-square')
+                            ->color('info')
+                            ->visible(fn (): bool => $this->record->canEditResetRouting())
+                            ->modalHeading('Edit ID Game / Zone')
+                            ->modalDescription('Ubah data tujuan game untuk attempt reset ini sebelum order dikirim ulang ke provider.')
+                            ->fillForm(fn (): array => [
+                                'user_id' => $this->record->user_id,
+                                'zone' => $this->record->zone,
+                            ])
+                            ->form([
+                                TextInput::make('user_id')
+                                    ->label('ID Game')
+                                    ->helperText('ID akun game tujuan yang akan dikirim ke provider saat Send Callback.')
+                                    ->required()
+                                    ->maxLength(255),
+                                TextInput::make('zone')
+                                    ->label('Zone / Server ID')
+                                    ->helperText('Isi kalau game membutuhkan server/zone. Kosongkan kalau tidak perlu.')
+                                    ->maxLength(255),
+                            ])
+                            ->action(function (array $data, ResetDomainService $resetDomainService): void {
+                                try {
+                                    $this->record = $resetDomainService->updateResetDetails(
+                                        $this->record,
+                                        null,
+                                        $data['user_id'] ?? null,
+                                        $data['zone'] ?? null,
+                                    );
+
+                                    Notification::make()
+                                        ->title('ID Game / Zone berhasil diperbarui')
+                                        ->body('Data tujuan reset sudah diperbarui. Silakan klik Send Callback jika sudah siap dikirim ke provider.')
+                                        ->success()
+                                        ->send();
+                                } catch (DomainException $exception) {
+                                    Notification::make()
+                                        ->title('Gagal memperbarui ID Game / Zone')
+                                        ->body($exception->getMessage())
+                                        ->danger()
+                                        ->send();
+                                }
+                            }),
+                    ])
                     ->schema([
                         TextEntry::make('user_id')
-                            ->label('User ID')
+                            ->label('ID Game')
                             ->default('N/A'),
                         TextEntry::make('zone')
-                            ->label('Zone / Server')
+                            ->label('Zone / Server ID')
                             ->default('N/A'),
                         TextEntry::make('nickname')
-                            ->label('Game Nickname')
+                            ->label('Nickname Game')
                             ->default('N/A'),
                         TextEntry::make('tipe_transaksi')
-                            ->label('Transaction Type')
+                            ->label('Tipe Transaksi')
                             ->formatStateUsing(fn (?string $state): string => filled($state) ? Str::headline($state) : 'N/A')
                             ->badge(),
                     ])
@@ -188,24 +237,24 @@ class ViewPembelian extends ViewRecord
                     ])
                     ->columns(2),
 
-                Section::make('System Information')
+                Section::make('Informasi Sistem')
                     ->schema([
                         TextEntry::make('keterangan_sn')
-                            ->label('Keterangan / SN')
+                            ->label('SN / Keterangan')
                             ->state(fn (): string => $this->record->keterangan_sn ?: ($this->record->voucher ?: 'N/A'))
                             ->copyable()
                             ->columnSpanFull(),
                         TextEntry::make('log')
-                            ->label('System Log')
+                            ->label('Log Sistem')
                             ->default('N/A')
                             ->fontFamily('mono')
                             ->wrap()
                             ->columnSpanFull(),
                         TextEntry::make('created_at')
-                            ->label('Created At')
+                            ->label('Dibuat')
                             ->dateTime('d M Y H:i:s'),
                         TextEntry::make('updated_at')
-                            ->label('Last Updated')
+                            ->label('Terakhir Update')
                             ->dateTime('d M Y H:i:s'),
                     ])
                     ->columns(2),
@@ -274,40 +323,38 @@ class ViewPembelian extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('Reset Invoice')
                 ->modalDescription(fn (): string => count($this->providerSelectOptions) === 0
-                    ? 'Tidak ada provider cadangan aktif. Reset akan membuat attempt baru memakai provider aktif saat ini.'
-                    : 'Create the next reset attempt. You may retry the current provider or switch to a validated backup provider.')
+                    ? 'Buat percobaan ulang untuk order ini. Order akan dikirim ulang ke provider saat ini.'
+                    : 'Buat percobaan ulang untuk order ini. Provider baru opsional, kosongkan jika tetap memakai provider saat ini.')
                 ->form([
                     TextEntry::make('current_provider')
-                        ->label('Current Provider')
+                        ->label('Provider Saat Ini')
                         ->state(fn (): string => $this->getCurrentProviderLabel()),
                     TextEntry::make('target_provider_summary')
-                        ->label('Target Provider')
+                        ->label('Provider Tujuan')
                         ->state(fn (): string => count($this->providerSelectOptions) === 0
-                            ? 'Retry current provider: ' . $this->getCurrentProviderLabel()
-                            : 'Leave provider empty to retry current provider, or choose a validated backup provider below.'),
+                            ? 'Tetap memakai provider saat ini.'
+                            : 'Opsional. Pilih provider baru jika ingin pindah jalur.'),
                     TextEntry::make('next_invoice_reference')
-                        ->label('Next Display Invoice')
+                        ->label('Invoice Baru')
                         ->state(fn (): string => $this->record->nextDisplayInvoiceId()),
                     TextEntry::make('current_status')
-                        ->label('Current Status')
+                        ->label('Status Saat Ini')
                         ->state(fn (): string => PembelianStatus::label($this->record->status)),
-                    TextEntry::make('audit_impact')
-                        ->label('Audit Impact')
-                        ->state('A reset records a new provider attempt, increments the display invoice suffix, and stores the optional admin reason for audit history.'),
                     Select::make('candidate_provider_id')
-                        ->label('Provider Route')
+                        ->label('Provider Baru (Opsional)')
                         ->options(fn (): array => $this->providerSelectOptions)
                         ->native(false)
                         ->searchable()
-                        ->placeholder('Retry current provider')
+                        ->placeholder('Tetap pakai provider saat ini')
                         ->helperText(fn (): string => count($this->providerSelectOptions) === 0
-                            ? 'Tidak ada provider cadangan aktif. Kosongkan field ini untuk retry provider aktif saat ini.'
-                            : 'Optional. Kosongkan untuk retry provider aktif saat ini, atau pilih provider cadangan yang tervalidasi.'),
+                            ? 'Tidak ada provider cadangan aktif. Sistem akan memakai provider saat ini.'
+                            : 'Kosongkan jika ingin tetap memakai provider saat ini.'),
                     Textarea::make('reason')
-                        ->label('Reason')
+                        ->label('Catatan Admin (Opsional)')
                         ->rows(3)
                         ->maxLength(500)
-                        ->placeholder('Optional admin note for why this invoice is being reset.'),
+                        ->helperText('Catatan ini hanya untuk riwayat internal admin.')
+                        ->placeholder('Contoh: ID salah, provider gagal, atau diminta retry oleh client.'),
                 ])
                 ->action(function (array $data, ResetDomainService $resetDomainService): void {
                     try {

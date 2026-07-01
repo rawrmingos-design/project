@@ -644,14 +644,41 @@ class ProdukForm
         Cache::forget('filament.digiflazz.pricelist');
     }
 
+    protected static function resolveBangJeffProductCode(array $product): string
+    {
+        return trim((string) ($product['productCode'] ?? $product['product_code'] ?? $product['code'] ?? $product['id'] ?? ''));
+    }
+
+    protected static function resolveBangJeffVariantCode(array $variant): string
+    {
+        return trim((string) ($variant['variantCode'] ?? $variant['variant_code'] ?? $variant['sku_code'] ?? $variant['code'] ?? $variant['id'] ?? ''));
+    }
+
+    protected static function resolveBangJeffVariantName(array $variant): string
+    {
+        return trim((string) ($variant['variantName'] ?? $variant['variant_name'] ?? $variant['name'] ?? $variant['title'] ?? ''));
+    }
+
+    protected static function resolveBangJeffVariantPrice(array $variant): int
+    {
+        $price = $variant['price']['value'] ?? $variant['price_value'] ?? $variant['price'] ?? 0;
+
+        return is_numeric($price) ? (int) $price : 0;
+    }
+
+    protected static function resolveBangJeffVariantStatus(array $variant): string
+    {
+        return strtoupper(trim((string) ($variant['status'] ?? $variant['statusCode'] ?? 'INACTIVE')));
+    }
+
     protected static function getBangJeffProductCodeOptions(): array
     {
         $products = static::getBangJeffProducts();
         $options = [];
 
         foreach ($products as $product) {
-            $code = trim((string) ($product['code'] ?? ''));
-            $name = trim((string) ($product['name'] ?? ''));
+            $code = static::resolveBangJeffProductCode($product);
+            $name = trim((string) ($product['name'] ?? $product['productName'] ?? $product['title'] ?? ''));
 
             if ($code === '') {
                 continue;
@@ -735,7 +762,7 @@ class ProdukForm
         $options = [];
 
         foreach (static::getBangJeffVariants((string) $productCode) as $variant) {
-            $code = trim((string) ($variant['code'] ?? ''));
+            $code = static::resolveBangJeffVariantCode($variant);
 
             if ($code === '') {
                 continue;
@@ -762,32 +789,35 @@ class ProdukForm
         }
 
         foreach (static::getBangJeffVariants($productCode) as $variant) {
-            if (($variant['code'] ?? null) !== $variantCode) {
+            $resolvedVariantCode = static::resolveBangJeffVariantCode($variant);
+
+            if ($resolvedVariantCode !== $variantCode) {
                 continue;
             }
 
-            $price = (int) ($variant['price']['value'] ?? 0);
+            $price = static::resolveBangJeffVariantPrice($variant);
             $duration = (int) ($variant['duration'] ?? 0);
             $region = (string) ($variant['region'] ?? '');
-            $status = strtoupper((string) ($variant['status'] ?? 'INACTIVE'));
+            $status = static::resolveBangJeffVariantStatus($variant);
             $durationLabel = $duration > 0 ? "{$duration} menit" : 'instan';
             $regionLabel = $region !== '' ? $region : '-';
+            $variantName = static::resolveBangJeffVariantName($variant);
 
-            $set('layanan', $variant['name'] ?? '');
-            $set('provider_id', $variant['code'] ?? '');
+            $set('layanan', $variantName);
+            $set('provider_id', $resolvedVariantCode);
             $set('status', $status === 'ACTIVE' ? 'available' : 'inactive');
             $set('harga', $price);
             $set('catatan', "BangJeff productCode: {$productCode} | Region: {$regionLabel} | Durasi: {$durationLabel}");
 
             static::syncSuggestedProviderPath(
                 'bangjeff',
-                (string) ($variant['code'] ?? ''),
+                $resolvedVariantCode,
                 $price,
                 $status === 'ACTIVE' ? 'available' : 'inactive',
                 [
                     'source' => 'bangjeff_variant',
                     'product_code' => $productCode,
-                    'variant_name' => (string) ($variant['name'] ?? ''),
+                    'variant_name' => $variantName,
                     'region' => $region,
                     'duration' => $duration,
                     'summary' => "BangJeff productCode: {$productCode} | Region: {$regionLabel} | Durasi: {$durationLabel}",
@@ -1325,10 +1355,10 @@ class ProdukForm
 
     protected static function formatBangJeffVariantOptionLabel(array $variant): string
     {
-        $name = $variant['name'] ?? 'Unknown Variant';
-        $code = $variant['code'] ?? '-';
-        $status = strtoupper((string) ($variant['status'] ?? 'INACTIVE'));
-        $price = number_format((int) ($variant['price']['value'] ?? 0), 0, ',', '.');
+        $name = static::resolveBangJeffVariantName($variant) ?: 'Unknown Variant';
+        $code = static::resolveBangJeffVariantCode($variant) ?: '-';
+        $status = static::resolveBangJeffVariantStatus($variant);
+        $price = number_format(static::resolveBangJeffVariantPrice($variant), 0, ',', '.');
 
         return "{$name} ({$code}) - {$status} - Rp {$price}";
     }
