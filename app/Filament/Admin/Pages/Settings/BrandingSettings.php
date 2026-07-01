@@ -18,9 +18,9 @@ class BrandingSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'Logo & Colors',
-            'Seasonal Theme',
-            'Social Media Links',
+            'Logo & Warna',
+            'Tema Musiman',
+            'Link Sosial Media',
         ];
     }
 
