@@ -31,32 +31,48 @@ class EmailTemplateResource extends Resource
         return $schema
             ->schema([
                 Forms\Components\TextInput::make('name')
-                    ->label('Template Name')
+                    ->label('Nama Template')
+                    ->helperText('Nama ini hanya untuk admin, supaya mudah mengenali template.')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\TextInput::make('slug')
-                    ->label('Slug (System Identifier)')
+                Forms\Components\Select::make('slug')
+                    ->label('Trigger Email')
+                    ->options([
+                        'transaction_pending' => 'Saat transaksi menunggu pembayaran',
+                        'transaction_success' => 'Saat pesanan sukses',
+                        'transaction_failed' => 'Saat pesanan gagal / dibatalkan',
+                    ])
+                    ->helperText('Pilih kapan email otomatis ini dikirim oleh sistem.')
                     ->required()
-                    ->unique(ignoreRecord: true)
-                    ->maxLength(255)
-                    ->helperText('Slug ini digunakan untuk memanggil template (contoh: transaction_success)'),
+                    ->native(false)
+                    ->unique(ignoreRecord: true),
                 Forms\Components\TextInput::make('subject')
-                    ->label('Email Subject')
+                    ->label('Judul Email')
+                    ->helperText('Judul yang muncul di inbox pelanggan. Bisa memakai variabel seperti {order_id}.')
                     ->required()
-                    ->maxLength(255)
-                    ->helperText('Subject email, bisa menggunakan variabel (contoh: Pesanan #{order_id})'),
+                    ->maxLength(255),
                 Forms\Components\RichEditor::make('content')
-                    ->label('Email Body (HTML)')
+                    ->label('Isi Email')
+                    ->helperText('Tulis isi email yang dikirim ke pelanggan. Variabel bisa dipakai di judul dan isi email.')
                     ->required()
-                    ->columnSpanFull()
-                    ->helperText('Variabel yang tersedia: {nickname}, {order_id}, {amount}, {product}, {status}, {sn}, {note}'),
-                Forms\Components\Textarea::make('details')
-                    ->label('Variable Guide')
-                    ->columnSpanFull()
-                    ->rows(2)
-                    ->helperText('Deskripsi variabel yang tersedia untuk template ini.'),
+                    ->columnSpanFull(),
+                Forms\Components\Placeholder::make('variable_guide')
+                    ->label('Panduan Variabel')
+                    ->content(new \Illuminate\Support\HtmlString('
+                        <div style="line-height:1.65">
+                            <strong>Variabel yang bisa dipakai di Judul Email dan Isi Email:</strong><br>
+                            <code>{order_id}</code> = nomor invoice/order<br>
+                            <code>{nickname}</code> = nickname tujuan jika tersedia<br>
+                            <code>{product}</code> = nama produk yang dibeli<br>
+                            <code>{amount}</code> = nominal transaksi<br>
+                            <code>{status}</code> = status pesanan<br>
+                            <code>{sn}</code> = serial number/voucher jika tersedia<br>
+                            <code>{note}</code> = catatan atau alasan tambahan jika tersedia
+                        </div>
+                    '))
+                    ->columnSpanFull(),
                 Forms\Components\Toggle::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->default(true)
                     ->required(),
             ]);
@@ -67,18 +83,28 @@ class EmailTemplateResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('name')
+                    ->label('Nama Template')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('slug')
+                    ->label('Trigger Email')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'transaction_pending' => 'Menunggu pembayaran',
+                        'transaction_success' => 'Pesanan sukses',
+                        'transaction_failed' => 'Gagal / dibatalkan',
+                        default => $state ?? '-',
+                    })
                     ->searchable()
                     ->sortable()
                     ->color('gray'),
                 Tables\Columns\TextColumn::make('subject')
+                    ->label('Judul Email')
                     ->searchable()
-                    ->limit(30),
+                    ->limit(40),
                 Tables\Columns\ToggleColumn::make('is_active')
-                    ->label('Active'),
+                    ->label('Aktif'),
                 Tables\Columns\TextColumn::make('updated_at')
+                    ->label('Terakhir Diubah')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
