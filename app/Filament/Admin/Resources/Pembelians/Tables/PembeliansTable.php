@@ -44,7 +44,7 @@ class PembeliansTable
                     ->weight('bold'),
 
                 TextColumn::make('nickname')
-                    ->label('Game Account')
+                    ->label('Akun Game')
                     ->getStateUsing(fn ($record) => self::gameAccountLabel($record))
                     ->description(fn($record) => $record->nickname ?? '-')
                     ->searchable(['user_id', 'nickname', 'zone'])
@@ -57,7 +57,7 @@ class PembeliansTable
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('layanan')
-                    ->label('Product')
+                    ->label('Produk')
                     ->searchable()
                     ->sortable()
                     ->limit(30)
@@ -80,14 +80,14 @@ class PembeliansTable
                     ->sortable(),
 
                 TextColumn::make('dispatch_state')
-                    ->label('Dispatch')
+                    ->label('Status Pengiriman')
                     ->badge()
                     ->getStateUsing(fn($record): string => self::dispatchStateLabel($record))
                     ->color(fn($record): string => self::dispatchStateBadgeColor($record))
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 BadgeColumn::make('pembayaran.status')
-                    ->label('Status Pembelian')
+                    ->label('Status Pembayaran')
                     ->getStateUsing(function ($record) {
                         $paymentStatus = optional($record->pembayaran)->status;
 
@@ -103,13 +103,13 @@ class PembeliansTable
                     ]),
 
                 TextColumn::make('pembayaran.no_pembeli')
-                    ->label('Nomor Telp')
+                    ->label('No. WhatsApp')
                     ->searchable()
                     ->copyable()
                     ->default('-'),
 
                 TextColumn::make('keterangan_sn')
-                    ->label('Keterangan/SN')
+                    ->label('SN / Keterangan')
                     ->default('-')
                     ->wrap()
                     ->limit(50),
@@ -124,7 +124,7 @@ class PembeliansTable
 
 
                 TextColumn::make('harga')
-                    ->label('Amount')
+                    ->label('Nominal')
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd()
@@ -153,12 +153,12 @@ class PembeliansTable
                     ->default('N/A'),
 
                 TextColumn::make('tipe_transaksi')
-                    ->label('Type')
+                    ->label('Tipe')
                     ->badge()
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
-                    ->label('Order Date')
+                    ->label('Tanggal Order')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->toggleable(),
@@ -190,7 +190,7 @@ class PembeliansTable
                     }),
 
                 SelectFilter::make('tipe_transaksi')
-                    ->label('Transaction Type')
+                    ->label('Tipe Transaksi')
                     ->options([
                         'game' => 'Game',
                         'pulsa' => 'Pulsa',
@@ -202,9 +202,9 @@ class PembeliansTable
                 Filter::make('created_at')
                     ->form([
                         DatePicker::make('created_from')
-                            ->label('From Date'),
+                            ->label('Dari Tanggal'),
                         DatePicker::make('created_until')
-                            ->label('Until Date'),
+                            ->label('Sampai Tanggal'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -229,10 +229,10 @@ class PembeliansTable
                 Filter::make('amount_range')
                     ->form([
                         \Filament\Forms\Components\TextInput::make('amount_from')
-                            ->label('Min Amount')
+                            ->label('Nominal Minimum')
                             ->numeric(),
                         \Filament\Forms\Components\TextInput::make('amount_until')
-                            ->label('Max Amount')
+                            ->label('Nominal Maksimum')
                             ->numeric(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
@@ -250,7 +250,7 @@ class PembeliansTable
             ->recordActions([
                 ActionGroup::make([
                     ViewAction::make()
-                        ->label('View Detail'),
+                        ->label('Lihat Detail'),
 
                     Action::make('editStatus')
                         ->label('Ubah Status')
@@ -285,21 +285,21 @@ class PembeliansTable
                         ->modalSubmitActionLabel('Ya, Ubah Status'),
 
                     Action::make('process')
-                        ->label('Process')
+                        ->label('Proses')
                         ->icon('heroicon-o-play')
                         ->color('success')
                         ->visible(fn($record) => $record->hasStatus(PembelianStatus::PENDING))
                         ->action(function ($record) {
                             $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PROCESSING)]);
                             Notification::make()
-                                ->title('Order processed successfully')
+                                ->title('Order berhasil diproses')
                                 ->success()
                                 ->send();
                         })
                         ->requiresConfirmation(),
 
                     Action::make('cancel')
-                        ->label('Cancel')
+                        ->label('Batalkan')
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')
                         ->visible(fn($record) => $record->hasStatus([PembelianStatus::PENDING, PembelianStatus::PROCESSING]))
@@ -316,7 +316,8 @@ class PembeliansTable
 
                             $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED), 'log' => $logMsg]);
                             Notification::make()
-                                ->title('Order cancelled & refunded if applicable')
+                                ->title('Order dibatalkan')
+                                ->body('Saldo/poin dikembalikan jika memenuhi syarat.')
                                 ->success()
                                 ->send();
                         })
@@ -472,7 +473,7 @@ class PembeliansTable
                             $results = PembelianNotificationHelper::send($record, $channel);
 
                             Notification::make()
-                                ->title('Notification Processed')
+                                ->title('Notifikasi diproses')
                                 ->body(implode(', ', $results))
                                 ->success()
                                 ->send();

@@ -22,13 +22,13 @@ class PembelianResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'order_id';
 
-    protected static ?string $navigationLabel = 'Order Management';
+    protected static ?string $navigationLabel = 'Pembelian';
 
     protected static ?int $navigationSort = 1;
 
-    protected static ?string $modelLabel = 'Order';
+    protected static ?string $modelLabel = 'Pembelian';
 
-    protected static ?string $pluralModelLabel = 'Orders';
+    protected static ?string $pluralModelLabel = 'Pembelian';
 
     // Disable create and edit - read-only views only
     public static function canCreate(): bool

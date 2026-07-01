@@ -3,7 +3,6 @@
 namespace App\Filament\Admin\Resources\Providers\Pages;
 
 use App\Filament\Admin\Resources\Providers\ProviderResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ManageRecords;
 
 class ManageProviders extends ManageRecords
@@ -12,8 +11,6 @@ class ManageProviders extends ManageRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            CreateAction::make(),
-        ];
+        return [];
     }
 }

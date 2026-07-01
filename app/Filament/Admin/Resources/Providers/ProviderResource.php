@@ -8,10 +8,8 @@ use App\Jobs\SyncActiveProviderBalancesJob;
 use App\Models\Provider;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -26,7 +24,7 @@ class ProviderResource extends Resource
 {
     protected static ?string $model = Provider::class;
 
-    protected static ?string $navigationLabel = 'Check Provider Balance';
+    protected static ?string $navigationLabel = 'Saldo Provider';
 
     protected static UnitEnum|string|null $navigationGroup = 'Settings';
 
@@ -41,24 +39,12 @@ class ProviderResource extends Resource
         return $schema
             ->components([
                 TextInput::make('name')
+                    ->label('Nama Provider')
                     ->required()
                     ->maxLength(255),
-                TextInput::make('api_username')
-                    ->label('API Username / ID')
-                    ->helperText('Opsional: Override API Username / ID.')
-                    ->maxLength(255),
-                TextInput::make('api_key')
-                    ->label('API Key / Secret')
-                    ->password()
-                    ->revealable()
-                    ->helperText('Untuk BangJeff, gunakan Settings > BangJeff API Key sebagai sumber utama. Field ini hanya override provider lain.')
-                    ->maxLength(255),
-                TextInput::make('api_sign')
-                    ->label('API Sign (VIP)')
-                    ->password()
-                    ->revealable()
-                    ->helperText('Opsional untuk VIP Reseller. Jika diisi, akan dipakai sebagai sign request/callback override.')
-                    ->maxLength(255),
+                Placeholder::make('credential_source')
+                    ->label('Sumber Credential')
+                    ->content('Credential API provider diatur di Settings > Providers & API. Menu ini hanya untuk status provider dan cek saldo.'),
             ]);
     }
 
@@ -69,25 +55,25 @@ class ProviderResource extends Resource
             ->recordTitleAttribute('name')
             ->columns([
                 TextColumn::make('name')
-                    ->label('Service Provider')
+                    ->label('Provider')
                     ->searchable()
                     ->weight('bold')
                     ->description(fn(Provider $record) => $record->code),
 
                 ToggleColumn::make('is_active')
-                    ->label('Online / Offline')
+                    ->label('Aktif')
                     ->onColor('success')
                     ->offColor('danger'),
 
                 TextColumn::make('balance')
-                    ->label('Balance')
+                    ->label('Saldo')
                     ->money('IDR')
                     ->weight('bold')
                     ->color(fn($state) => $state < 100000 ? 'danger' : 'success')
                     ->sortable(),
 
                 TextColumn::make('last_check_at')
-                    ->label('Last Update')
+                    ->label('Terakhir Dicek')
                     ->dateTime()
                     ->since()
                     ->sortable(),
@@ -96,21 +82,22 @@ class ProviderResource extends Resource
                 //
             ])
             ->actions([
-                EditAction::make(),
+                EditAction::make()
+                    ->label('Edit'),
                 Action::make('check_balance')
-                    ->label('Check Balance')
+                    ->label('Cek Saldo')
                     ->icon('heroicon-o-arrow-path')
                     ->disabled(fn(Provider $record): bool => !in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true))
                     ->tooltip(fn(Provider $record): ?string => in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true)
                         ? null
-                        : 'Provider ini belum mendukung check balance otomatis.')
+                        : 'Provider ini belum mendukung cek saldo otomatis.')
                     ->action(function (Provider $record) {
                         $lock = Cache::lock('provider-balance-check:' . $record->id, 8);
 
                         if (!$lock->get()) {
                             \Filament\Notifications\Notification::make()
-                                ->title('Check sedang diproses')
-                                ->body('Permintaan check sebelumnya masih berjalan.')
+                                ->title('Cek saldo sedang diproses')
+                                ->body('Permintaan sebelumnya masih berjalan.')
                                 ->warning()
                                 ->send();
 
@@ -121,33 +108,29 @@ class ProviderResource extends Resource
                             CheckProviderBalanceJob::dispatch($record->id)->afterResponse();
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Check balance masuk antrean')
-                                ->body('Saldo akan ter-update otomatis dalam beberapa detik.')
+                                ->title('Cek saldo masuk antrean')
+                                ->body('Saldo akan diperbarui otomatis dalam beberapa detik.')
                                 ->success()
                                 ->send();
                         } finally {
                             $lock->release();
                         }
                     }),
-                DeleteAction::make(),
             ])
             ->toolbarActions([
                 Action::make('sync_active_balances')
-                    ->label('Sync Active Balances')
+                    ->label('Sync Saldo Provider Aktif')
                     ->icon('heroicon-o-bolt')
                     ->color('primary')
                     ->action(function (): void {
                         SyncActiveProviderBalancesJob::dispatch()->afterResponse();
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Sync aktif dimulai')
+                            ->title('Sync saldo dimulai')
                             ->body('Semua provider aktif sedang di-refresh via queue.')
                             ->success()
                             ->send();
                     }),
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 
