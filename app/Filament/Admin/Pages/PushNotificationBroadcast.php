@@ -37,13 +37,12 @@ class PushNotificationBroadcast extends Page implements HasForms
             'title' => '',
             'body' => '',
             'target_url' => url('/id'),
-            'icon_url' => asset('assets/pwa/icon-192.png'),
         ]);
     }
 
     public function getTitle(): string
     {
-        return 'Push Notification Broadcast';
+        return 'Kirim Notifikasi PWA';
     }
 
     public function form(Schema $schema): Schema
@@ -51,21 +50,23 @@ class PushNotificationBroadcast extends Page implements HasForms
         return $schema
             ->components([
                 TextInput::make('title')
-                    ->label('Notification Title')
+                    ->label('Judul Notifikasi')
+                    ->helperText('Contoh: Promo Diamond Hari Ini, Maintenance Server, atau Info Pesanan.')
+                    ->placeholder('Tulis judul singkat yang langsung dipahami user')
                     ->required()
                     ->maxLength(120),
                 Textarea::make('body')
-                    ->label('Notification Body')
+                    ->label('Isi Pesan')
+                    ->helperText('Jelaskan isi notifikasi dengan bahasa singkat dan jelas. Hindari pesan terlalu panjang.')
+                    ->placeholder('Contoh: Promo Mobile Legends diskon sampai malam ini. Klik untuk lihat detailnya.')
                     ->required()
                     ->rows(4)
                     ->maxLength(240),
                 TextInput::make('target_url')
-                    ->label('Target URL')
+                    ->label('Halaman Tujuan Saat Diklik')
+                    ->helperText('Saat user menekan notifikasi, mereka akan dibuka ke halaman ini. Contoh: halaman utama, halaman promo, atau invoice.')
+                    ->placeholder(url('/id'))
                     ->required()
-                    ->url()
-                    ->maxLength(255),
-                TextInput::make('icon_url')
-                    ->label('Icon URL')
                     ->url()
                     ->maxLength(255),
             ])
@@ -90,14 +91,14 @@ class PushNotificationBroadcast extends Page implements HasForms
             'title' => $state['title'],
             'body' => $state['body'],
             'url' => $state['target_url'],
-            'icon' => $state['icon_url'] ?: asset('assets/pwa/icon-192.png'),
+            'icon' => asset('assets/pwa/icon-192.png'),
             'badge' => asset('assets/pwa/icon-192.png'),
             'tag' => 'public-broadcast',
         ]);
 
         Notification::make()
-            ->title('Push broadcast selesai')
-            ->body('Berhasil: ' . $result['success_count'] . ' • Gagal: ' . $result['failed_count'] . ' • Total subscriber aktif: ' . $result['total'])
+            ->title('Notifikasi berhasil diproses')
+            ->body('Terkirim: ' . $result['success_count'] . ' â€¢ Gagal: ' . $result['failed_count'] . ' â€¢ Total device aktif: ' . $result['total'])
             ->success()
             ->send();
     }

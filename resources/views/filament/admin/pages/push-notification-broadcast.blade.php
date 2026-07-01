@@ -141,44 +141,44 @@
     <div class="push-broadcast">
         <section class="push-broadcast__hero">
             <div class="push-broadcast__hero-content">
-                <span class="push-broadcast__badge">PWA Broadcast</span>
-                <h2 class="push-broadcast__title">Send manual push notifications with intent.</h2>
+                <span class="push-broadcast__badge">Notifikasi PWA</span>
+                <h2 class="push-broadcast__title">Kirim notifikasi ke user yang sudah aktifkan PWA.</h2>
                 <p class="push-broadcast__subtitle">
-                    Kirim push notification manual ke semua subscriber PWA aktif. Gunakan halaman ini untuk pesan penting,
-                    promo terbatas, atau update operasional dengan title, body, dan target URL yang jelas.
+                    Gunakan halaman ini untuk mengirim info penting, promo, atau pengumuman ke pengguna yang sudah
+                    mengizinkan notifikasi dari aplikasi. Cukup isi judul, isi pesan, dan halaman tujuan.
                 </p>
             </div>
         </section>
 
         <div class="push-broadcast__grid">
             <section class="push-broadcast__card">
-                <h3 class="push-broadcast__card-title">Manual broadcast</h3>
-                <p class="push-broadcast__card-text">Pesan dikirim langsung ke subscriber aktif, jadi pastikan isi sudah final sebelum submit.</p>
+                <h3 class="push-broadcast__card-title">Siapa yang menerima?</h3>
+                <p class="push-broadcast__card-text">Hanya user yang sudah install/aktifkan PWA dan mengizinkan notifikasi di device mereka.</p>
             </section>
             <section class="push-broadcast__card">
-                <h3 class="push-broadcast__card-title">Clear message</h3>
-                <p class="push-broadcast__card-text">Gunakan title singkat dan body yang menjelaskan alasan user perlu membuka notifikasi.</p>
+                <h3 class="push-broadcast__card-title">Kapan dipakai?</h3>
+                <p class="push-broadcast__card-text">Pakai untuk promo penting, info maintenance, atau pengumuman yang memang perlu segera dibaca user.</p>
             </section>
             <section class="push-broadcast__card">
-                <h3 class="push-broadcast__card-title">Safe target URL</h3>
-                <p class="push-broadcast__card-text">Arahkan user ke halaman yang relevan seperti homepage, order page, atau invoice status.</p>
+                <h3 class="push-broadcast__card-title">Saat notifikasi diklik</h3>
+                <p class="push-broadcast__card-text">User akan diarahkan ke halaman tujuan yang kamu isi, misalnya homepage, halaman promo, atau invoice.</p>
             </section>
         </div>
 
         <form wire:submit="send" class="push-broadcast__form">
             <div class="push-broadcast__form-head">
-                <h3 class="push-broadcast__form-title">Broadcast Composer</h3>
-                <p class="push-broadcast__form-note">Isi payload notifikasi di bawah ini. Validasi dan proses pengiriman tetap mengikuti logic Filament page yang sudah ada.</p>
+                <h3 class="push-broadcast__form-title">Tulis Notifikasi</h3>
+                <p class="push-broadcast__form-note">Pastikan pesannya singkat, jelas, dan halaman tujuan sudah benar sebelum dikirim.</p>
             </div>
 
             {{ $this->form }}
 
             <div class="push-broadcast__actions">
                 <x-filament::button type="submit" color="primary" size="lg" icon="heroicon-m-paper-airplane">
-                    Send Push Notification
+                    Kirim Notifikasi Sekarang
                 </x-filament::button>
                 <span class="push-broadcast__safety">
-                    Pastikan tidak mengirim spam. Push notification sebaiknya relevan dan actionable.
+                    Jangan terlalu sering mengirim notifikasi agar user tidak terganggu dan tidak mematikan izin notifikasi.
                 </span>
             </div>
         </form>
