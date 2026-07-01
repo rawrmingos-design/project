@@ -57,6 +57,7 @@ class TriPayCallbackController extends Controller
         }
 
         $reference = trim((string) ($payload['reference'] ?? ''));
+        $merchantRef = trim((string) ($payload['merchant_ref'] ?? ''));
         $callbackStatus = strtoupper(trim((string) ($payload['status'] ?? '')));
         $callbackAmount = isset($payload['total_amount']) ? (int) $payload['total_amount'] : null;
 
@@ -73,7 +74,7 @@ class TriPayCallbackController extends Controller
             return response()->json(['success' => true, 'message' => 'ignored_unrecognized_status']);
         }
 
-        $claim = $this->claimInvoice($reference, $callbackStatus, $callbackAmount);
+        $claim = $this->claimInvoice($reference, $merchantRef, $callbackStatus, $callbackAmount);
         $invoice = $claim['invoice'];
 
         if (!$invoice) {
@@ -92,6 +93,16 @@ class TriPayCallbackController extends Controller
             ]);
 
             return response()->json(['success' => false, 'message' => 'invalid_amount'], 400);
+        }
+
+        if (($claim['state'] ?? null) === 'invalid_merchant_ref') {
+            Log::warning('Tripay callback: invalid merchant_ref', [
+                'reference' => $reference,
+                'merchant_ref' => $merchantRef !== '' ? $merchantRef : null,
+                'expected_order_id' => $invoice->order_id ?? null,
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'invalid_merchant_ref'], 400);
         }
 
         if (($claim['state'] ?? null) !== 'claimed') {
@@ -149,9 +160,9 @@ class TriPayCallbackController extends Controller
         }
     }
 
-    private function claimInvoice(string $reference, string $callbackStatus, ?int $callbackAmount): array
+    private function claimInvoice(string $reference, string $merchantRef, string $callbackStatus, ?int $callbackAmount): array
     {
-        return DB::transaction(function () use ($reference, $callbackStatus, $callbackAmount): array {
+        return DB::transaction(function () use ($reference, $merchantRef, $callbackStatus, $callbackAmount): array {
             $invoice = Pembayaran::query()
                 ->where('reference', $reference)
                 ->lockForUpdate()
@@ -159,6 +170,10 @@ class TriPayCallbackController extends Controller
 
             if (!$invoice) {
                 return ['state' => 'missing', 'invoice' => null];
+            }
+
+            if ($merchantRef === '' || !hash_equals((string) $invoice->order_id, $merchantRef)) {
+                return ['state' => 'invalid_merchant_ref', 'invoice' => $invoice];
             }
 
             if ($callbackStatus === 'PAID') {

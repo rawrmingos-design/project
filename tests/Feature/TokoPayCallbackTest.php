@@ -66,7 +66,7 @@ class TokoPayCallbackTest extends TestCase
             'status' => 'Belum Lunas',
         ]);
 
-        $refId = 'TOKO-PAID';
+        $refId = $invoice->order_id;
 
         $response = $this->postJson('/wejizy/tokopay/callback', [
             'status' => 'success',
@@ -94,7 +94,7 @@ class TokoPayCallbackTest extends TestCase
             'paid_at' => now()->subMinute(),
         ]);
 
-        $refId = 'TOKO-ALREADY';
+        $refId = $invoice->order_id;
 
         $response = $this->postJson('/wejizy/tokopay/callback', [
             'status' => 'success',
@@ -120,7 +120,7 @@ class TokoPayCallbackTest extends TestCase
             'status' => 'Belum Lunas',
         ]);
 
-        $refId = 'TOKO-NON-PAID';
+        $refId = $invoice->order_id;
 
         $response = $this->postJson('/wejizy/tokopay/callback', [
             'status' => 'failed',
@@ -153,7 +153,7 @@ class TokoPayCallbackTest extends TestCase
             'status' => 'Pending',
         ]);
 
-        $refId = 'TOKO-DEPOSIT-SUCCESS';
+        $refId = $invoice->order_id;
 
         $response = $this->postJson('/wejizy/tokopay/callback', [
             'status' => 'success',
@@ -187,7 +187,7 @@ class TokoPayCallbackTest extends TestCase
             'status' => 'Pending',
         ]);
 
-        $refId = 'TOKO-DEPOSIT-REPEAT';
+        $refId = $invoice->order_id;
         $payload = [
             'status' => 'success',
             'reff_id' => $refId,
@@ -239,7 +239,7 @@ class TokoPayCallbackTest extends TestCase
             }
         });
 
-        $response = $this->postTokoPaySuccessCallback($invoice->reference, 'TOKO-ORDER-009');
+        $response = $this->postTokoPaySuccessCallback($invoice->reference, $invoice->order_id);
 
         $response->assertOk()->assertJsonPath('status', true);
 
@@ -283,7 +283,7 @@ class TokoPayCallbackTest extends TestCase
             }
         });
 
-        $response = $this->postTokoPaySuccessCallback($invoice->reference, 'TOKO-ORDER-010');
+        $response = $this->postTokoPaySuccessCallback($invoice->reference, $invoice->order_id);
 
         $response->assertOk()->assertJsonPath('status', true);
 
@@ -330,11 +330,11 @@ class TokoPayCallbackTest extends TestCase
         };
         $this->app->instance(OrderProcessingService::class, $processor);
 
-        $this->postTokoPaySuccessCallback($invoice->reference, 'TOKO-ORDER-011')
+        $this->postTokoPaySuccessCallback($invoice->reference, $invoice->order_id)
             ->assertOk()
             ->assertJsonPath('status', true);
 
-        $secondResponse = $this->postTokoPaySuccessCallback($invoice->reference, 'TOKO-ORDER-011');
+        $secondResponse = $this->postTokoPaySuccessCallback($invoice->reference, $invoice->order_id);
         $secondResponse
             ->assertOk()
             ->assertJsonPath('status', true)
