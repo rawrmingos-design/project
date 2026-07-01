@@ -122,7 +122,6 @@ class BangJeffServiceCredentialsTest extends TestCase
         $provider = Provider::query()->create([
             'code' => 'bangjeff',
             'name' => 'BangJeff',
-            'api_key' => 'stale-provider-row-key',
             'balance' => 0,
             'is_active' => true,
         ]);
