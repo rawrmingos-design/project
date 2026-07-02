@@ -33,11 +33,11 @@ class InboundSourcePolicyResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $navigationLabel = 'Incoming Rules';
+    protected static ?string $navigationLabel = 'Whitelist IP Callback';
 
-    protected static ?string $modelLabel = 'Incoming Rule';
+    protected static ?string $modelLabel = 'Rule Whitelist';
 
-    protected static ?string $pluralModelLabel = 'Incoming Rules';
+    protected static ?string $pluralModelLabel = 'Whitelist IP Callback';
 
     protected static ?string $recordTitleAttribute = 'source_name';
 
@@ -45,41 +45,42 @@ class InboundSourcePolicyResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Incoming Rule')
-                    ->description('Atur source callback mana yang boleh masuk ke sistem kita. Gunakan mode log_only sebagai tahap observasi sebelum enforce di production.')
+                Section::make('Rule Whitelist Callback')
+                    ->description('Atur IP mana yang boleh mengakses callback supplier atau payment gateway. Gunakan mode Pantau Saja sebelum mengaktifkan blokir di production.')
                     ->schema([
                         Select::make('source_domain')
-                            ->label('Source Type')
+                            ->label('Jenis Callback')
                             ->options([
-                                'supplier_callback' => 'Supplier Callback',
+                                'supplier_callback' => 'Callback Supplier',
                                 'payment_gateway' => 'Payment Gateway',
                             ])
                             ->required()
                             ->native(false),
                         TextInput::make('source_name')
-                            ->label('Provider / Gateway')
+                            ->label('Nama Provider/Gateway')
                             ->placeholder('digiflazz, vip, tripay, duitku, bangjeff')
                             ->helperText('Gunakan nama provider atau gateway yang sama dengan route callback di aplikasi.')
                             ->required()
                             ->maxLength(255),
                         Select::make('mode')
-                            ->label('Mode')
+                            ->label('Mode Whitelist')
                             ->options([
-                                'disabled' => 'disabled',
-                                'log_only' => 'log_only',
-                                'enforce' => 'enforce',
+                                'disabled' => 'Nonaktif',
+                                'log_only' => 'Pantau Saja',
+                                'enforce' => 'Blokir Jika Tidak Cocok',
                             ])
                             ->default('log_only')
                             ->required()
                             ->native(false)
-                            ->helperText('log_only hanya mencatat. enforce mulai memblokir source IP yang tidak cocok.'),
+                            ->helperText('Pantau Saja hanya mencatat. Blokir Jika Tidak Cocok akan menolak IP yang tidak ada di daftar.'),
                         Toggle::make('is_active')
-                            ->label('Active')
+                            ->label('Aktif')
                             ->default(true),
                         TextInput::make('description')
-                            ->label('Short Label')
+                            ->label('Label Singkat')
                             ->maxLength(255),
                         Textarea::make('notes')
+                            ->label('Catatan')
                             ->rows(4)
                             ->columnSpanFull(),
                     ])
@@ -92,22 +93,29 @@ class InboundSourcePolicyResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('source_domain')
-                    ->label('Source Type')
+                    ->label('Jenis Callback')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'supplier_callback' => 'Supplier Callback',
+                        'supplier_callback' => 'Callback Supplier',
                         'payment_gateway' => 'Payment Gateway',
                         default => $state,
                     })
                     ->sortable()
                     ->searchable(),
                 TextColumn::make('source_name')
-                    ->label('Provider / Gateway')
+                    ->label('Nama Provider/Gateway')
                     ->searchable()
                     ->weight('bold')
                     ->sortable(),
                 TextColumn::make('mode')
+                    ->label('Mode Whitelist')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'disabled' => 'Nonaktif',
+                        'log_only' => 'Pantau Saja',
+                        'enforce' => 'Blokir Jika Tidak Cocok',
+                        default => $state,
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'enforce' => 'danger',
                         'log_only' => 'warning',
@@ -116,29 +124,31 @@ class InboundSourcePolicyResource extends Resource
                     ->sortable(),
                 IconColumn::make('is_active')
                     ->boolean()
-                    ->label('Active'),
+                    ->label('Aktif'),
                 TextColumn::make('entries_count')
-                    ->label('Allowed IPs')
+                    ->label('IP Diizinkan')
                     ->counts('entries'),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label('Update Terakhir')
                     ->since()
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('source_domain')
+                    ->label('Jenis Callback')
                     ->options([
-                        'supplier_callback' => 'Supplier Callback',
+                        'supplier_callback' => 'Callback Supplier',
                         'payment_gateway' => 'Payment Gateway',
                     ]),
                 SelectFilter::make('mode')
+                    ->label('Mode Whitelist')
                     ->options([
-                        'disabled' => 'disabled',
-                        'log_only' => 'log_only',
-                        'enforce' => 'enforce',
+                        'disabled' => 'Nonaktif',
+                        'log_only' => 'Pantau Saja',
+                        'enforce' => 'Blokir Jika Tidak Cocok',
                     ]),
                 TernaryFilter::make('is_active')
-                    ->label('Active'),
+                    ->label('Aktif'),
             ])
             ->defaultSort('source_domain')
             ->striped();
