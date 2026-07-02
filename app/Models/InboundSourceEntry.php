@@ -81,6 +81,11 @@ class InboundSourceEntry extends Model
         return null;
     }
 
+    public static function isValidValue(?string $value): bool
+    {
+        return static::detectValueType($value) !== null;
+    }
+
     private function flushPolicyCache(): void
     {
         $policy = $this->relationLoaded('policy')

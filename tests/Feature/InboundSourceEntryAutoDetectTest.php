@@ -19,6 +19,11 @@ class InboundSourceEntryAutoDetectTest extends TestCase
         $this->assertSame('cidr_ipv6', InboundSourceEntry::detectValueType('2001:db8::/32'));
         $this->assertNull(InboundSourceEntry::detectValueType('not-an-ip'));
         $this->assertNull(InboundSourceEntry::detectValueType('203.0.113.0/99'));
+
+        $this->assertTrue(InboundSourceEntry::isValidValue('203.0.113.10'));
+        $this->assertTrue(InboundSourceEntry::isValidValue('203.0.113.0/24'));
+        $this->assertFalse(InboundSourceEntry::isValidValue('not-an-ip'));
+        $this->assertFalse(InboundSourceEntry::isValidValue('203.0.113.0/99'));
     }
 
     public function test_it_persists_detected_value_type_on_save(): void

@@ -33,6 +33,13 @@ class EntriesRelationManager extends RelationManager
                     ->helperText('Masukkan IP tunggal atau range CIDR dari provider/gateway.')
                     ->live(onBlur: true)
                     ->afterStateUpdated(fn ($state, $set) => $set('value_type', InboundSourceEntry::detectValueType($state) ?? 'ipv4'))
+                    ->rules([
+                        fn () => function (string $attribute, $value, \Closure $fail): void {
+                            if (! InboundSourceEntry::isValidValue($value)) {
+                                $fail('Masukkan IP atau CIDR yang valid. Contoh: 203.0.113.10 atau 203.0.113.0/24.');
+                            }
+                        },
+                    ])
                     ->required()
                     ->maxLength(255),
                 Select::make('value_type')
