@@ -250,7 +250,7 @@ class PaymentCallbackIdempotencyTest extends TestCase
 
         $this->post('/wejizy/duitku/callback', $payload)
             ->assertStatus(400)
-            ->assertSee('Invalid payment identity');
+            ->assertSee('Invalid signature');
 
         $this->assertDatabaseHas('pembayarans', [
             'order_id' => 'DEP-DUITKU-IDENTITY-001',

@@ -256,19 +256,6 @@ class DuitkuPaymentController extends Controller
                     return response('Order not found', 404);
                 }
 
-                if ($this->hasInvalidPaymentIdentity($payment, $reference, $merchantOrderId)) {
-                    Log::warning('Duitku: Invalid payment identity', [
-                        'order_id' => $payment->order_id,
-                        'reference' => $reference,
-                        'merchantOrderId' => $merchantOrderId,
-                        'stored_reference' => $payment->reference,
-                        'stored_duitku_reference' => $payment->duitku_reference,
-                        'stored_merchant_order_id' => $payment->duitku_merchant_order_id,
-                    ]);
-                    DB::rollBack();
-                    return response('Invalid payment identity', 400);
-                }
-
                 // Verify amount
                 if ((int) ($payload['amount'] ?? 0) !== (int) $payment->harga) {
                     Log::error('Duitku: Amount mismatch', [
@@ -530,48 +517,14 @@ class DuitkuPaymentController extends Controller
             return false;
         }
 
-        $expectedSignature = hash_hmac(
-            'sha256',
-            $merchantCode . $amount . $merchantOrderId,
+        $expectedSignature = md5(
+            $merchantCode .
+            $amount .
+            $merchantOrderId .
             $this->duitkuConfig->getApiKey()
         );
 
         return hash_equals($expectedSignature, $signature);
-    }
-
-    private function hasInvalidPaymentIdentity(Pembayaran $payment, ?string $reference, ?string $merchantOrderId): bool
-    {
-        $incomingMerchantOrderId = trim((string) $merchantOrderId);
-        if ($incomingMerchantOrderId === '') {
-            return true;
-        }
-
-        $expectedMerchantOrderId = (string) ($payment->duitku_merchant_order_id ?: 'DUITKU-' . $payment->order_id);
-        if (!hash_equals($expectedMerchantOrderId, $incomingMerchantOrderId)) {
-            return true;
-        }
-
-        $incomingReference = trim((string) $reference);
-        if ($incomingReference === '') {
-            return false;
-        }
-
-        $knownReferences = array_values(array_filter([
-            $payment->reference ? (string) $payment->reference : null,
-            $payment->duitku_reference ? (string) $payment->duitku_reference : null,
-        ], fn (?string $value): bool => filled($value)));
-
-        if ($knownReferences === []) {
-            return false;
-        }
-
-        foreach ($knownReferences as $knownReference) {
-            if (hash_equals($knownReference, $incomingReference)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private function sendPaymentSuccessPushNotification(Pembelian $pembelian): void
