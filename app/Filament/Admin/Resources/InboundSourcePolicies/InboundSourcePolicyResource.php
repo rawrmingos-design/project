@@ -72,7 +72,7 @@ class InboundSourcePolicyResource extends Resource
                             ->default('log_only')
                             ->required()
                             ->native(false)
-                            ->helperText('Pantau Saja hanya mencatat. Blokir Jika Tidak Cocok akan menolak IP yang tidak ada di daftar.'),
+                            ->helperText('Pantau Saja hanya mencatat. Blokir Jika Tidak Cocok akan menolak IP yang tidak ada di daftar. Pastikan IP aktif sudah ditambahkan sebelum memakai mode blokir.'),
                         Toggle::make('is_active')
                             ->label('Aktif')
                             ->default(true),
@@ -128,6 +128,30 @@ class InboundSourcePolicyResource extends Resource
                 TextColumn::make('entries_count')
                     ->label('IP Diizinkan')
                     ->counts('entries'),
+                TextColumn::make('safety_status')
+                    ->label('Status Keamanan')
+                    ->badge()
+                    ->state(function (InboundSourcePolicy $record): string {
+                        if (! $record->is_active || $record->mode === 'disabled') {
+                            return 'Nonaktif';
+                        }
+
+                        if ($record->mode === 'log_only') {
+                            return 'Pantau';
+                        }
+
+                        $hasActiveIp = $record->entries()
+                            ->where('is_active', true)
+                            ->exists();
+
+                        return $hasActiveIp ? 'Aman' : 'Risiko: IP kosong';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Aman' => 'success',
+                        'Pantau' => 'warning',
+                        'Risiko: IP kosong' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('updated_at')
                     ->label('Update Terakhir')
                     ->since()
