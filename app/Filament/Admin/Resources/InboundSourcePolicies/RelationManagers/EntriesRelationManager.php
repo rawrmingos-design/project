@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\InboundSourcePolicies\RelationManagers;
 
+use App\Models\InboundSourceEntry;
 use Filament\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -30,6 +31,8 @@ class EntriesRelationManager extends RelationManager
                     ->label('IP / CIDR')
                     ->placeholder('203.0.113.10 atau 203.0.113.0/24')
                     ->helperText('Masukkan IP tunggal atau range CIDR dari provider/gateway.')
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn ($state, $set) => $set('value_type', InboundSourceEntry::detectValueType($state) ?? 'ipv4'))
                     ->required()
                     ->maxLength(255),
                 Select::make('value_type')
@@ -41,9 +44,10 @@ class EntriesRelationManager extends RelationManager
                         'cidr_ipv6' => 'CIDR IPv6',
                     ])
                     ->default('ipv4')
-                    ->required()
+                    ->disabled()
+                    ->dehydrated(false)
                     ->native(false)
-                    ->helperText('Pilih CIDR jika memakai format range seperti /24 atau /32.'),
+                    ->helperText('Otomatis terdeteksi dari format IP / CIDR.'),
                 TextInput::make('label')
                     ->label('Label')
                     ->placeholder('Contoh: IP utama TriPay')
