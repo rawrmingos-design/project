@@ -66,30 +66,8 @@ class TokoPayCallbackController extends Controller
             return Response::json(['status' => false, 'message' => 'reference tidak ditemukan'], 400);
         }
 
-        $incomingPaidAmount = $this->extractPaidAmount($data);
-        $claim = $this->claimPaidInvoice($reference, $incomingPaidAmount, $refId);
+        $claim = $this->claimPaidInvoice($reference);
         $invoice = $claim['invoice'];
-
-        if (($claim['state'] ?? null) === 'invalid_amount') {
-            Log::warning('TokoPay callback: invalid amount', [
-                'reference' => $reference,
-                'reff_id' => $refId,
-                'incoming_total_dibayar' => $incomingPaidAmount,
-                'expected_invoice_amount' => (int) ($invoice->harga ?? 0),
-            ]);
-
-            return Response::json(['status' => false, 'message' => 'invalid_amount'], 400);
-        }
-
-        if (($claim['state'] ?? null) === 'invalid_order_reference') {
-            Log::warning('TokoPay callback: invalid order reference', [
-                'reference' => $reference,
-                'reff_id' => $refId,
-                'expected_order_id' => $invoice->order_id ?? null,
-            ]);
-
-            return Response::json(['status' => false, 'message' => 'invalid_order_reference'], 400);
-        }
 
         if (!$invoice) {
             Log::debug('TokoPay callback: invoice not found', [
@@ -145,20 +123,9 @@ class TokoPayCallbackController extends Controller
         return Response::json(['status' => true]);
     }
 
-    private function extractPaidAmount(array $payload): ?int
+    private function claimPaidInvoice(string $reference): array
     {
-        $amount = data_get($payload, 'data.total_dibayar');
-
-        if ($amount === null || $amount === '') {
-            return null;
-        }
-
-        return (int) preg_replace('/[^0-9]/', '', (string) $amount);
-    }
-
-    private function claimPaidInvoice(string $reference, ?int $incomingPaidAmount, string $refId): array
-    {
-        return DB::transaction(function () use ($reference, $incomingPaidAmount, $refId): array {
+        return DB::transaction(function () use ($reference): array {
             $invoice = Pembayaran::query()
                 ->where('reference', $reference)
                 ->lockForUpdate()
@@ -166,14 +133,6 @@ class TokoPayCallbackController extends Controller
 
             if (!$invoice) {
                 return ['state' => 'missing', 'invoice' => null];
-            }
-
-            if ($incomingPaidAmount !== null && $incomingPaidAmount > 0 && $incomingPaidAmount !== (int) $invoice->harga) {
-                return ['state' => 'invalid_amount', 'invoice' => $invoice];
-            }
-
-            if ($refId !== '' && !hash_equals((string) $invoice->order_id, $refId)) {
-                return ['state' => 'invalid_order_reference', 'invoice' => $invoice];
             }
 
             if ($invoice->status !== 'Belum Lunas') {
