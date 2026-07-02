@@ -9,6 +9,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
@@ -103,6 +104,75 @@ class EntriesRelationManager extends RelationManager
             ->headerActions([
                 Actions\CreateAction::make()
                     ->label('Tambah IP'),
+                Actions\Action::make('bulk_add_ips')
+                    ->label('Tambah Banyak IP')
+                    ->icon('heroicon-o-document-plus')
+                    ->form([
+                        Textarea::make('values')
+                            ->label('Daftar IP / CIDR')
+                            ->placeholder("192.168.1.1|IP utama\n203.0.113.0/24|Range supplier\n2001:db8::/32|IPv6 callback")
+                            ->helperText('Format: IP/CIDR atau IP/CIDR|Label, satu per baris.')
+                            ->rows(8)
+                            ->required(),
+                    ])
+                    ->action(function (array $data): void {
+                        $entries = collect(preg_split('/\r\n|\r|\n/', (string) ($data['values'] ?? '')))
+                            ->map(fn (string $line): string => trim($line))
+                            ->filter()
+                            ->map(function (string $line): array {
+                                [$value, $label] = array_pad(explode('|', $line, 2), 2, null);
+
+                                return [
+                                    'value' => trim($value),
+                                    'label' => filled($label) ? trim((string) $label) : null,
+                                ];
+                            })
+                            ->unique('value')
+                            ->values();
+
+                        $invalidValues = $entries
+                            ->pluck('value')
+                            ->reject(fn (string $value): bool => InboundSourceEntry::isValidValue($value))
+                            ->values();
+
+                        if ($invalidValues->isNotEmpty()) {
+                            Notification::make()
+                                ->title('Ada IP/CIDR tidak valid')
+                                ->body('Periksa kembali: ' . $invalidValues->take(5)->implode(', '))
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $existingValues = $this->getOwnerRecord()
+                            ->entries()
+                            ->pluck('value')
+                            ->map(fn (string $value): string => trim($value))
+                            ->all();
+
+                        $created = 0;
+                        foreach ($entries as $entry) {
+                            if (in_array($entry['value'], $existingValues, true)) {
+                                continue;
+                            }
+
+                            $this->getOwnerRecord()->entries()->create([
+                                'value' => $entry['value'],
+                                'value_type' => InboundSourceEntry::detectValueType($entry['value']) ?? 'ipv4',
+                                'label' => $entry['label'],
+                                'is_active' => true,
+                            ]);
+
+                            $created++;
+                        }
+
+                        Notification::make()
+                            ->title('Daftar IP berhasil diproses')
+                            ->body($created > 0 ? "{$created} IP/CIDR baru ditambahkan." : 'Tidak ada IP/CIDR baru yang ditambahkan.')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->actions([
                 Actions\EditAction::make()
