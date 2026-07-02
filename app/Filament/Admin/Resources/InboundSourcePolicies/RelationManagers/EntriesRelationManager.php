@@ -20,19 +20,20 @@ class EntriesRelationManager extends RelationManager
 
     protected static ?string $recordTitleAttribute = 'value';
 
-    protected static ?string $title = 'Allowed Source IPs';
+    protected static ?string $title = 'Daftar IP Diizinkan';
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
                 TextInput::make('value')
-                    ->label('IP or CIDR')
-                    ->placeholder('203.0.113.10 or 203.0.113.0/24')
+                    ->label('IP / CIDR')
+                    ->placeholder('203.0.113.10 atau 203.0.113.0/24')
+                    ->helperText('Masukkan IP tunggal atau range CIDR dari provider/gateway.')
                     ->required()
                     ->maxLength(255),
                 Select::make('value_type')
-                    ->label('Value Type')
+                    ->label('Jenis IP')
                     ->options([
                         'ipv4' => 'IPv4',
                         'ipv6' => 'IPv6',
@@ -41,17 +42,20 @@ class EntriesRelationManager extends RelationManager
                     ])
                     ->default('ipv4')
                     ->required()
-                    ->native(false),
+                    ->native(false)
+                    ->helperText('Pilih CIDR jika memakai format range seperti /24 atau /32.'),
                 TextInput::make('label')
-                    ->label('Display Label')
+                    ->label('Label')
+                    ->placeholder('Contoh: IP utama TriPay')
                     ->maxLength(255),
                 Toggle::make('is_active')
-                    ->label('Active')
+                    ->label('Aktif')
                     ->default(true),
                 DateTimePicker::make('last_verified_at')
-                    ->label('Last Verified At')
+                    ->label('Terakhir Diverifikasi')
                     ->seconds(false),
                 Textarea::make('notes')
+                    ->label('Catatan')
                     ->rows(3)
                     ->columnSpanFull(),
             ]);
@@ -67,28 +71,33 @@ class EntriesRelationManager extends RelationManager
                     ->copyable()
                     ->weight('bold'),
                 TextColumn::make('value_type')
+                    ->label('Jenis IP')
                     ->badge(),
                 TextColumn::make('label')
+                    ->label('Label')
                     ->toggleable(),
                 IconColumn::make('is_active')
                     ->boolean()
-                    ->label('Active'),
+                    ->label('Aktif'),
                 TextColumn::make('last_verified_at')
-                    ->label('Verified')
+                    ->label('Terverifikasi')
                     ->dateTime('d M Y H:i')
                     ->sortable()
                     ->placeholder('-'),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label('Update')
                     ->since()
                     ->sortable(),
             ])
             ->headerActions([
-                Actions\CreateAction::make(),
+                Actions\CreateAction::make()
+                    ->label('Tambah IP'),
             ])
             ->actions([
-                Actions\EditAction::make(),
-                Actions\DeleteAction::make(),
+                Actions\EditAction::make()
+                    ->label('Edit'),
+                Actions\DeleteAction::make()
+                    ->label('Hapus'),
             ])
             ->bulkActions([
                 Actions\BulkActionGroup::make([
