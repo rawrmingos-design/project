@@ -30,11 +30,11 @@ class ResellerCallbackProfileResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
-    protected static ?string $navigationLabel = 'Outgoing Webhooks';
+    protected static ?string $navigationLabel = 'Webhook Keluar';
 
-    protected static ?string $modelLabel = 'Outgoing Webhook';
+    protected static ?string $modelLabel = 'Webhook Keluar';
 
-    protected static ?string $pluralModelLabel = 'Outgoing Webhooks';
+    protected static ?string $pluralModelLabel = 'Webhook Keluar';
 
     protected static ?string $recordTitleAttribute = 'callback_url';
 
@@ -42,36 +42,36 @@ class ResellerCallbackProfileResource extends Resource
     {
         return $schema
             ->components([
-                Section::make('Webhook Destination')
-                    ->description('Atur ke mana server kita mengirim callback status order live atau sandbox. Live harus pakai target publik, sedangkan sandbox boleh pakai URL lokal untuk testing.')
+                Section::make('Tujuan Webhook')
+                    ->description('Atur endpoint partner/reseller yang akan menerima callback status order dari sistem kita.')
                     ->schema([
                         Select::make('reseller_integration_id')
-                            ->label('Connection')
+                            ->label('Connection / Partner')
                             ->relationship('integration', 'integration_code')
                             ->searchable()
                             ->required(),
                         Toggle::make('is_enabled')
-                            ->label('Enabled')
+                            ->label('Aktif')
                             ->default(true),
                         TextInput::make('callback_url')
-                            ->label('Destination URL')
+                            ->label('URL Tujuan Callback')
                             ->required()
                             ->url()
                             ->maxLength(2048)
-                            ->helperText('Sandbox connection boleh memakai localhost/tunnel/dev host. Live connection tetap wajib HTTPS + host publik.'),
+                            ->helperText('Live wajib HTTPS dengan host publik. Sandbox boleh memakai localhost, tunnel, atau dev host untuk testing.'),
                         TextInput::make('webhook_secret')
-                            ->label('Webhook Secret')
+                            ->label('Secret Webhook')
                             ->password()
                             ->required(fn (string $operation): bool => $operation === 'create')
                             ->dehydrated(fn ($state): bool => filled($state))
-                            ->helperText('Kosongkan saat edit bila tidak ingin mengganti secret.'),
+                            ->helperText('Dipakai untuk signature outgoing callback. Kosongkan saat edit jika tidak ingin mengganti secret.'),
                     ])
                     ->columns(2),
-                Section::make('Advanced')
-                    ->description('Sebagian besar client tidak perlu mengubah bagian ini. Default yang ada biasanya sudah cukup.')
+                Section::make('Pengaturan Teknis')
+                    ->description('Opsional. Jangan ubah bagian ini kecuali partner membutuhkan format signature atau versi payload tertentu.')
                     ->schema([
                         Select::make('signing_algorithm')
-                            ->label('Signing Algorithm')
+                            ->label('Algoritma Signature')
                             ->options([
                                 'sha1' => 'sha1',
                                 'sha256' => 'sha256',
@@ -81,12 +81,12 @@ class ResellerCallbackProfileResource extends Resource
                             ->required()
                             ->native(false),
                         TextInput::make('signature_header')
-                            ->label('Signature Header')
+                            ->label('Header Signature')
                             ->default('X-Callback-Signature')
                             ->required()
                             ->maxLength(255),
                         TextInput::make('version')
-                            ->label('Version')
+                            ->label('Versi Payload')
                             ->numeric()
                             ->default(1)
                             ->minValue(1)
@@ -103,12 +103,12 @@ class ResellerCallbackProfileResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('integration.integration_code')
-                    ->label('Connection')
+                    ->label('Connection / Partner')
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
                 TextColumn::make('integration.user.username')
-                    ->label('Partner User')
+                    ->label('User Partner')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('integration.mode')
@@ -117,13 +117,13 @@ class ResellerCallbackProfileResource extends Resource
                     ->formatStateUsing(fn (?string $state): string => ucfirst((string) $state)),
                 IconColumn::make('is_enabled')
                     ->boolean()
-                    ->label('Active'),
+                    ->label('Aktif'),
                 TextColumn::make('callback_url')
-                    ->label('Destination URL')
+                    ->label('URL Tujuan Callback')
                     ->limit(40)
                     ->copyable(),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label('Update Terakhir')
                     ->since()
                     ->sortable(),
             ])
