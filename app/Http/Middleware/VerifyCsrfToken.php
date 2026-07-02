@@ -17,8 +17,19 @@ class VerifyCsrfToken extends \Illuminate\Foundation\Http\Middleware\VerifyCsrfT
         'callbackpl',
         'payload',
         'callback/*',
-        'wejizy/digi/payload', // Hapus "/" di depan agar lebih konsisten
-        'wejizy/digi/*',       // Gunakan wildcard untuk keamanan jika path berubah
+
+        // External provider/payment callbacks. These requests do not carry a
+        // browser CSRF token; security is handled by provider signatures,
+        // inbound IP whitelist rules, and idempotency checks.
+        'wejizy/digi/payload',
+        'wejizy/digi/*',
+        'wejizy/vip/callback',
+        'wejizy/apigames/callback',
+        'wejizy/tokopay/callback',
+        'wejizy/tripay/callback',
+        'wejizy/paydisini/callback',
+        'wejizy/duitku/callback',
+        'api/webhooks/*',
     ];
     
     /**
