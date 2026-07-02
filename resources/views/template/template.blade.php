@@ -35,6 +35,19 @@
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
     <meta name="application-name" content="{{ $config ? $config->judul_web : config('app.name') }}">
     <meta name="apple-mobile-web-app-title" content="{{ $config ? $config->judul_web : config('app.name') }}">
+    <script>
+        (function () {
+            try {
+                var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+                if (isStandalone) {
+                    document.documentElement.classList.add('pwa-standalone-loading');
+                }
+            } catch (error) {
+                document.documentElement.classList.remove('pwa-standalone-loading');
+            }
+        })();
+    </script>
     
     <!-- Livewire Styles -->
     @livewireStyles
@@ -301,7 +314,8 @@
         transition: opacity 240ms ease;
     }
 
-    .pwa-splash-screen.is-visible {
+    .pwa-splash-screen.is-visible,
+    .pwa-standalone-loading .pwa-splash-screen {
         display: flex;
         opacity: 1;
     }
@@ -357,28 +371,12 @@
         background: rgba(255, 255, 255, 0.94);
     }
 
-    .pwa-splash-screen__eyebrow {
-        margin: 0;
-        color: rgba(255, 255, 255, 0.62);
-        font-size: 11px;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-    }
-
     .pwa-splash-screen__title {
         margin: 0;
         font-size: 22px;
         font-weight: 900;
         line-height: 1.18;
         color: #fff;
-    }
-
-    .pwa-splash-screen__body {
-        margin: 6px 0 0;
-        color: rgba(255, 255, 255, 0.72);
-        font-size: 13px;
-        line-height: 1.55;
     }
 
     .pwa-splash-screen__loader {
@@ -568,9 +566,7 @@
                     <img class="pwa-splash-screen__logo" src="{{ $pwaSplashLogo }}" alt="{{ $pwaSplashName }}" />
                 </div>
                 <div>
-                    <p class="pwa-splash-screen__eyebrow">PWA Ready</p>
                     <h1 class="pwa-splash-screen__title">{{ $pwaSplashName !== '' ? $pwaSplashName : 'Game Top-Up' }}</h1>
-                    <p class="pwa-splash-screen__body">{{ $pwaSplashTagline }}</p>
                 </div>
             </div>
             <div class="pwa-splash-screen__loader" aria-hidden="true"></div>
@@ -1267,12 +1263,15 @@
                 function hidePwaSplash(force = false) {
                     const splash = document.querySelector('[data-pwa-splash]');
                     if (!splash) {
+                        document.documentElement.classList.remove('pwa-standalone-loading');
                         return;
                     }
 
                     if (pwaSplashHideTimer) {
                         window.clearTimeout(pwaSplashHideTimer);
                     }
+
+                    document.documentElement.classList.remove('pwa-standalone-loading');
 
                     if (force) {
                         splash.classList.remove('is-visible', 'is-hiding');
