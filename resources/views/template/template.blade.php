@@ -1348,11 +1348,13 @@
                 function setupPublicPushPrompt(registration) {
                     const card = document.querySelector('[data-pwa-push-card]');
                     const button = document.querySelector('[data-pwa-push-enable]');
+                    const dismissButton = document.querySelector('[data-pwa-push-dismiss]');
                     const status = document.querySelector('[data-pwa-push-status]');
                     const vapidPublicKey = @json($publicWebPushVapidKey);
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                    const dismissStorageKey = 'pwaPushPromptDismissedUntil';
 
-                    if (!card || !button || !status) {
+                    if (!card || !button || !dismissButton || !status) {
                         return;
                     }
 
@@ -1378,6 +1380,31 @@
 
                     function setCardVisible() {
                         card.hidden = false;
+                    }
+
+                    function hideCard() {
+                        card.hidden = true;
+                    }
+
+                    function dismissPrompt(days) {
+                        const dismissedUntil = Date.now() + (days * 24 * 60 * 60 * 1000);
+                        window.localStorage.setItem(dismissStorageKey, String(dismissedUntil));
+                        hideCard();
+                    }
+
+                    function isPromptDismissed() {
+                        const dismissedUntil = Number(window.localStorage.getItem(dismissStorageKey) || 0);
+
+                        if (!dismissedUntil) {
+                            return false;
+                        }
+
+                        if (Date.now() > dismissedUntil) {
+                            window.localStorage.removeItem(dismissStorageKey);
+                            return false;
+                        }
+
+                        return true;
                     }
 
                     function getDeviceLabel() {
@@ -1413,6 +1440,11 @@
                     async function refreshPromptState() {
                         const currentSubscription = await registration.pushManager.getSubscription();
 
+                        if (isPromptDismissed()) {
+                            hideCard();
+                            return;
+                        }
+
                         if (Notification.permission === 'denied') {
                             setCardVisible();
                             button.disabled = true;
@@ -1424,6 +1456,7 @@
                             setCardVisible();
                             button.disabled = true;
                             button.textContent = 'Notifikasi Aktif';
+                            dismissButton.textContent = 'Tutup';
                             setStatus('Device ini sudah subscribe push notification.', 'success');
                             return;
                         }
@@ -1431,6 +1464,7 @@
                         setCardVisible();
                         button.disabled = false;
                         button.textContent = 'Aktifkan Notifikasi';
+                        dismissButton.textContent = 'Nanti saja';
                         setStatus('Aktifkan notifikasi agar promo dan update penting bisa langsung masuk ke device ini.', 'muted');
                     }
 
@@ -1456,6 +1490,7 @@
                             }
 
                             await syncSubscription(subscription);
+                            window.localStorage.removeItem(dismissStorageKey);
                             await refreshPromptState();
                         } catch (error) {
                             console.debug('Public push subscription failed:', error);
@@ -1463,6 +1498,11 @@
                             setCardVisible();
                             setStatus('Aktivasi notifikasi belum berhasil. Coba lagi setelah koneksi stabil.', 'danger');
                         }
+                    });
+
+                    dismissButton.addEventListener('click', async function () {
+                        const currentSubscription = await registration.pushManager.getSubscription();
+                        dismissPrompt(currentSubscription ? 30 : 7);
                     });
 
                     refreshPromptState().catch(function () {
