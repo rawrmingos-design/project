@@ -75,11 +75,18 @@
         color: #fecaca;
     }
 
+    .pwa-push-card__actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 156px;
+    }
+
     .pwa-push-card__button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 156px;
+        width: 100%;
         padding: 11px 15px;
         border: 0;
         border-radius: 15px;
@@ -91,6 +98,13 @@
         font-size: 12px;
         font-weight: 900;
         transition: transform .18s ease, filter .18s ease, opacity .18s ease;
+    }
+
+    .pwa-push-card__button--ghost {
+        color: rgba(255, 255, 255, .82);
+        background: rgba(255, 255, 255, .08);
+        border: 1px solid rgba(255, 255, 255, .1);
+        box-shadow: none;
     }
 
     .pwa-push-card__button:hover:not(:disabled) {
@@ -119,6 +133,11 @@
             grid-template-columns: 1fr;
         }
 
+        .pwa-push-card__actions {
+            min-width: 0;
+            width: 100%;
+        }
+
         .pwa-push-card__button {
             width: 100%;
         }
@@ -137,9 +156,14 @@
             <h3 class="pwa-push-card__title">Aktifkan notifikasi promo & update</h3>
             <p class="pwa-push-card__body">Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device yang sudah install PWA.</p>
         </div>
-        <button type="button" class="pwa-push-card__button" data-pwa-push-enable>
-            Aktifkan Notifikasi
-        </button>
+        <div class="pwa-push-card__actions">
+            <button type="button" class="pwa-push-card__button" data-pwa-push-enable>
+                Aktifkan Notifikasi
+            </button>
+            <button type="button" class="pwa-push-card__button pwa-push-card__button--ghost" data-pwa-push-dismiss>
+                Nanti saja
+            </button>
+        </div>
         <p class="pwa-push-card__status" data-pwa-push-status aria-live="polite"></p>
     </div>
 </div>
