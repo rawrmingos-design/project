@@ -1361,7 +1361,7 @@
                         return;
                     }
 
-                    if (isIosLikeDevice() && !isStandalonePwa()) {
+                    if (!isStandalonePwa()) {
                         card.hidden = true;
                         return;
                     }
