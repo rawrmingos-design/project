@@ -4,36 +4,42 @@ namespace App\Filament\Admin\Resources;
 
 use App\Filament\Admin\Resources\PushNotificationTemplateResource\Pages;
 use App\Models\PushNotificationTemplate;
+use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms;
+use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
-use BackedEnum;
 
 class PushNotificationTemplateResource extends Resource
 {
     protected static ?string $model = PushNotificationTemplate::class;
 
-    protected static BackedEnum | string | null $navigationIcon = 'heroicon-o-bell-alert';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-bell-alert';
 
-    protected static UnitEnum | string | null $navigationGroup = 'Notification Management';
+    protected static string|UnitEnum|null $navigationGroup = 'Notification Management';
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->schema([
-                Forms\Components\TextInput::make('name')
+                TextInput::make('name')
                     ->label('Nama Template')
                     ->helperText('Nama ini hanya untuk admin, supaya mudah mengenali template.')
                     ->required()
                     ->maxLength(255),
-                Forms\Components\Select::make('slug')
+                Select::make('slug')
                     ->label('Trigger Saat Event')
                     ->options([
                         'order_created' => 'Saat order dibuat',
@@ -44,22 +50,22 @@ class PushNotificationTemplateResource extends Resource
                     ->required()
                     ->native(false)
                     ->unique(ignoreRecord: true),
-                Forms\Components\TextInput::make('title')
+                TextInput::make('title')
                     ->label('Judul Notifikasi')
                     ->helperText('Judul yang muncul di notifikasi user.')
                     ->required()
                     ->maxLength(255)
                     ->columnSpanFull(),
-                Forms\Components\Textarea::make('body')
+                Textarea::make('body')
                     ->label('Isi Pesan')
                     ->helperText('Isi pesan yang muncul di notifikasi. Kamu bisa memakai variabel seperti {product} atau {display_order_id}.')
                     ->required()
                     ->columnSpanFull()
                     ->rows(4)
                     ->maxLength(500),
-                Forms\Components\Placeholder::make('variable_guide')
+                Placeholder::make('variable_guide')
                     ->label('Panduan Variabel')
-                    ->content(new \Illuminate\Support\HtmlString('
+                    ->content(new HtmlString('
                         <div style="line-height:1.65">
                             <strong>Variabel yang bisa dipakai di Judul Notifikasi dan Isi Pesan:</strong><br>
                             <code>{order_id}</code> = ID order asli<br>
@@ -72,7 +78,7 @@ class PushNotificationTemplateResource extends Resource
                         </div>
                     '))
                     ->columnSpanFull(),
-                Forms\Components\Toggle::make('is_active')
+                Toggle::make('is_active')
                     ->label('Aktif')
                     ->default(true)
                     ->required(),
@@ -83,11 +89,11 @@ class PushNotificationTemplateResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
+                TextColumn::make('name')
                     ->label('Nama Template')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('slug')
+                TextColumn::make('slug')
                     ->label('Trigger Event')
                     ->formatStateUsing(fn (?string $state): string => match ($state) {
                         'order_created' => 'Saat order dibuat',
@@ -98,17 +104,17 @@ class PushNotificationTemplateResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->color('gray'),
-                Tables\Columns\TextColumn::make('title')
+                TextColumn::make('title')
                     ->label('Judul')
                     ->searchable()
                     ->limit(40),
-                Tables\Columns\TextColumn::make('body')
+                TextColumn::make('body')
                     ->label('Isi Pesan')
                     ->limit(60)
                     ->tooltip(fn ($record) => $record->body),
-                Tables\Columns\ToggleColumn::make('is_active')
+                ToggleColumn::make('is_active')
                     ->label('Aktif'),
-                Tables\Columns\TextColumn::make('updated_at')
+                TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
