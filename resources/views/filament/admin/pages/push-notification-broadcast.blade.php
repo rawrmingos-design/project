@@ -145,7 +145,7 @@
                 <h2 class="push-broadcast__title">Kirim notifikasi ke user yang sudah aktifkan PWA.</h2>
                 <p class="push-broadcast__subtitle">
                     Gunakan halaman ini untuk mengirim info penting, promo, atau pengumuman ke pengguna yang sudah
-                    mengizinkan notifikasi. Kamu bisa kirim sekarang atau menjadwalkan pengiriman melalui queue.
+                    mengizinkan notifikasi. Kamu bisa kirim sekarang atau menjadwalkan pengiriman untuk nanti.
                 </p>
             </div>
         </section>
@@ -161,7 +161,7 @@
             </section>
             <section class="push-broadcast__card">
                 <h3 class="push-broadcast__card-title">Anti spam</h3>
-                <p class="push-broadcast__card-text">Sistem membatasi maksimal 2 broadcast dalam rentang 2 jam agar user tidak terganggu.</p>
+                <p class="push-broadcast__card-text">Sistem membatasi maksimal 2 pengiriman dalam rentang 2 jam agar user tidak terganggu.</p>
             </section>
         </div>
 
@@ -178,7 +178,7 @@
                     Simpan Pengiriman
                 </x-filament::button>
                 <span class="push-broadcast__safety">
-                    Maksimal 2 notifikasi dalam 2 jam. Untuk jadwal, pastikan queue worker production aktif.
+                    Maksimal 2 notifikasi dalam 2 jam agar user tidak terganggu.
                 </span>
             </div>
         </form>

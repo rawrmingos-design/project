@@ -1367,7 +1367,7 @@
                         return;
                     }
 
-                    if (!vapidPublicKey || !('Notification' in window) || !('PushManager' in window) || !registration) {
+                    if (!vapidPublicKey || !('Notification' in window) || !('PushManager' in window) || !registration || !window.isSecureContext) {
                         card.hidden = true;
                         return;
                     }
@@ -1447,8 +1447,43 @@
                         });
 
                         if (!response.ok) {
-                            throw new Error('Gagal menyimpan push subscription.');
+                            const error = new Error('Gagal menyimpan push subscription.');
+                            error.status = response.status;
+                            throw error;
                         }
+                    }
+
+                    function pushActivationErrorMessage(error) {
+                        if (error?.status === 419) {
+                            return 'Sesi halaman sudah kedaluwarsa. Refresh halaman lalu coba lagi.';
+                        }
+
+                        if (error?.status === 422) {
+                            return 'Data notifikasi dari browser belum valid. Refresh halaman lalu coba lagi.';
+                        }
+
+                        if (error?.name === 'NotAllowedError') {
+                            return 'Izin notifikasi belum diberikan. Aktifkan izin notifikasi dari pengaturan browser.';
+                        }
+
+                        if (error?.name === 'InvalidAccessError') {
+                            return 'Konfigurasi notifikasi belum valid. Hubungi admin teknis.';
+                        }
+
+                        return 'Aktivasi notifikasi belum berhasil. Coba lagi beberapa saat lagi.';
+                    }
+
+                    async function maybeSyncExistingSubscription(subscription) {
+                        const syncStorageKey = 'pwaPushSubscriptionSyncedAt';
+                        const lastSyncedAt = Number(window.localStorage.getItem(syncStorageKey) || 0);
+                        const oneDay = 24 * 60 * 60 * 1000;
+
+                        if (Date.now() - lastSyncedAt < oneDay) {
+                            return;
+                        }
+
+                        await syncSubscription(subscription);
+                        window.localStorage.setItem(syncStorageKey, String(Date.now()));
                     }
 
                     async function refreshPromptState() {
@@ -1472,6 +1507,9 @@
                             button.textContent = 'Notifikasi Aktif';
                             dismissButton.textContent = 'Tutup';
                             setStatus('Device ini sudah subscribe push notification.', 'success');
+                            maybeSyncExistingSubscription(currentSubscription).catch(function (error) {
+                                console.debug('Public push subscription resync failed:', error);
+                            });
                             return;
                         }
 
@@ -1510,7 +1548,7 @@
                             console.debug('Public push subscription failed:', error);
                             button.disabled = false;
                             setCardVisible();
-                            setStatus('Aktivasi notifikasi belum berhasil. Coba lagi setelah koneksi stabil.', 'danger');
+                            setStatus(pushActivationErrorMessage(error), 'danger');
                         }
                     });
 

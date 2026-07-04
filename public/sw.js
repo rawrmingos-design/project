@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_PREFIX = 'storefront-pwa';
 const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
@@ -8,6 +8,7 @@ const STATIC_CACHE_MAX_ENTRIES = 80;
 const PRECACHE_URLS = [
     OFFLINE_URL,
     '/assets/pwa/icon-192.png',
+    '/assets/pwa/badge-72.png',
     '/assets/css/pjojikhhoyutyrtd.css',
     '/assets/css/barrsopaosocas.css',
     '/assets/css/owihdagowdhqo.css',
