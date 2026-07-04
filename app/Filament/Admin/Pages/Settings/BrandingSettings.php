@@ -33,6 +33,8 @@ class BrandingSettings extends SettingsSectionPage
             'logo_header',
             'logo_footer',
             'logo_favicon',
+            'pwa_icon_source',
+            'pwa_icon_generated_at',
             'warna1',
             'warna2',
             'warna3',

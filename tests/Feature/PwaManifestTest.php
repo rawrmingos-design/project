@@ -56,8 +56,16 @@ class PwaManifestTest extends TestCase
         $response->assertJsonPath('icons.0.type', 'image/png');
         $response->assertJsonPath('icons.1.src', 'https://egymarket.id/assets/pwa/icon-96.png');
         $response->assertJsonPath('icons.1.sizes', '96x96');
+        $response->assertJsonPath('icons.2.src', 'https://egymarket.id/assets/pwa/icon-128.png');
+        $response->assertJsonPath('icons.2.sizes', '128x128');
+        $response->assertJsonPath('icons.3.src', 'https://egymarket.id/assets/pwa/icon-144.png');
+        $response->assertJsonPath('icons.3.sizes', '144x144');
+        $response->assertJsonPath('icons.4.src', 'https://egymarket.id/assets/pwa/icon-152.png');
+        $response->assertJsonPath('icons.4.sizes', '152x152');
         $response->assertJsonPath('icons.5.src', 'https://egymarket.id/assets/pwa/icon-192.png');
         $response->assertJsonPath('icons.5.sizes', '192x192');
+        $response->assertJsonPath('icons.6.src', 'https://egymarket.id/assets/pwa/icon-384.png');
+        $response->assertJsonPath('icons.6.sizes', '384x384');
         $response->assertJsonPath('icons.7.src', 'https://egymarket.id/assets/pwa/icon-512.png');
         $response->assertJsonPath('icons.7.sizes', '512x512');
         $response->assertJsonPath('icons.8.src', 'https://egymarket.id/assets/pwa/icon-maskable-512.png');

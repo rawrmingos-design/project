@@ -39,5 +39,6 @@ class SettingWeb extends Model
         'seo_sitemap_index_asset_id' => 'integer',
         'seo_sitemap_main_asset_id' => 'integer',
         'seo_sitemap_categories_asset_id' => 'integer',
+        'pwa_icon_generated_at' => 'datetime',
     ];
 }
