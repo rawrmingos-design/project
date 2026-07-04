@@ -6,6 +6,7 @@ use App\Models\MediaAsset;
 use App\Models\SettingWeb;
 use App\Services\EmailNotificationService;
 use App\Services\OptimizedImageService;
+use App\Services\PwaIconGeneratorService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PublicThemeRegistry;
 use App\Support\MediaAssetPicker;
@@ -578,6 +579,20 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->maxSize(512)
                             ->visible(fn (Get $get): bool => $get('logo_favicon_input_mode') === 'upload')
                             ->helperText('Format .ico/.png/.svg/.webp, disarankan 32x32 px.')
+                            ->columnSpan([
+                                'sm' => 2,
+                                'lg' => 2,
+                            ]),
+
+                        FileUpload::make('pwa_icon_source')
+                            ->label('Icon PWA')
+                            ->image()
+                            ->disk('assets')
+                            ->visibility('public')
+                            ->directory('assets/pwa/source')
+                            ->rules(['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'dimensions:min_width=512,min_height=512'])
+                            ->maxSize(4096)
+                            ->helperText('Upload 1 gambar utama minimal 512x512. Sistem akan membuat ukuran icon aplikasi otomatis.')
                             ->columnSpan([
                                 'sm' => 2,
                                 'lg' => 2,
@@ -1488,8 +1503,10 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
         $this->applyMediaLibrarySelectionToData($data);
 
+        $previousPwaIconSource = (string) ($settings->pwa_icon_source ?? '');
+
         // Jangan timpa logo yang sudah ada dengan nilai kosong.
-        foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image'] as $logoField) {
+        foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image', 'pwa_icon_source'] as $logoField) {
             if (empty($data[$logoField]) && !empty($settings->{$logoField})) {
                 $data[$logoField] = $settings->{$logoField};
             }
@@ -1523,6 +1540,24 @@ abstract class SettingsSectionPage extends Page implements HasForms
         // Update all fields
         $settings->fill($data);
         $settings->save();
+
+        if ($this->shouldRegeneratePwaIcons($previousPwaIconSource, (string) ($settings->pwa_icon_source ?? ''))) {
+            try {
+                app(PwaIconGeneratorService::class)->generate((string) $settings->pwa_icon_source);
+                $settings->forceFill(['pwa_icon_generated_at' => now()])->save();
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                Notification::make()
+                    ->title('Icon PWA belum bisa dibuat')
+                    ->body('Cek kembali gambar yang diupload, lalu simpan ulang.')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+        }
+
         $this->optimizeManagedMediaFields($settings);
         \Illuminate\Support\Facades\Cache::forget('public:active-theme');
         \Illuminate\Support\Facades\Cache::forget('seo:sitemap:index:v3');
@@ -1534,6 +1569,11 @@ abstract class SettingsSectionPage extends Page implements HasForms
             ->body('Pengaturan website berhasil diperbarui.')
             ->success()
             ->send();
+    }
+
+    private function shouldRegeneratePwaIcons(string $previousSource, string $currentSource): bool
+    {
+        return $currentSource !== '' && $currentSource !== $previousSource;
     }
 
     private function filterStateByWhitelist(array $data): array
