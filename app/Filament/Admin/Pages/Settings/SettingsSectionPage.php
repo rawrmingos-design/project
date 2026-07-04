@@ -1543,7 +1543,10 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
         if ($this->shouldRegeneratePwaIcons($previousPwaIconSource, (string) ($settings->pwa_icon_source ?? ''))) {
             try {
-                app(PwaIconGeneratorService::class)->generate((string) $settings->pwa_icon_source);
+                app(PwaIconGeneratorService::class)->generate(
+                    (string) $settings->pwa_icon_source,
+                    $settings->warna1 ?: ($settings->warna4 ?: '#111111'),
+                );
                 $settings->forceFill(['pwa_icon_generated_at' => now()])->save();
             } catch (\Throwable $exception) {
                 report($exception);
