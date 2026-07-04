@@ -22,6 +22,7 @@ class CompleteApplicationTest extends TestCase
         parent::setUp();
 
         $this->disableCaptchaForTests();
+        config(['reseller_documents.public_directory' => 'assets/reseller-documents-testing/' . env('TEST_TOKEN', 'single')]);
     }
 
     protected function tearDown(): void
@@ -32,6 +33,12 @@ class CompleteApplicationTest extends TestCase
             if (File::isDirectory($directory)) {
                 File::deleteDirectory($directory);
             }
+        }
+
+        $parallelDirectory = public_path((string) config('reseller_documents.public_directory'));
+
+        if (File::isDirectory($parallelDirectory)) {
+            File::deleteDirectory($parallelDirectory);
         }
 
         parent::tearDown();

@@ -66,11 +66,16 @@ class ResellerDocumentStorageService
 
         return sprintf(
             '%s/%d/%s_%s.%s',
-            self::BASE_PUBLIC_DIRECTORY,
+            $this->basePublicDirectory(),
             $userId,
             $safeType,
             $random,
             $safeExtension !== '' ? $safeExtension : 'bin'
         );
+    }
+
+    private function basePublicDirectory(): string
+    {
+        return (string) config('reseller_documents.public_directory', self::BASE_PUBLIC_DIRECTORY);
     }
 }
