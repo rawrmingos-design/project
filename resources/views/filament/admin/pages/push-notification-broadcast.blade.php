@@ -145,7 +145,7 @@
                 <h2 class="push-broadcast__title">Kirim notifikasi ke user yang sudah aktifkan PWA.</h2>
                 <p class="push-broadcast__subtitle">
                     Gunakan halaman ini untuk mengirim info penting, promo, atau pengumuman ke pengguna yang sudah
-                    mengizinkan notifikasi dari aplikasi. Cukup isi judul, isi pesan, dan halaman tujuan.
+                    mengizinkan notifikasi. Kamu bisa kirim sekarang atau menjadwalkan pengiriman melalui queue.
                 </p>
             </div>
         </section>
@@ -153,32 +153,32 @@
         <div class="push-broadcast__grid">
             <section class="push-broadcast__card">
                 <h3 class="push-broadcast__card-title">Siapa yang menerima?</h3>
-                <p class="push-broadcast__card-text">Hanya user yang sudah install/aktifkan PWA dan mengizinkan notifikasi di device mereka.</p>
+                <p class="push-broadcast__card-text">User yang sudah mengizinkan notifikasi dari web atau PWA di device mereka.</p>
             </section>
             <section class="push-broadcast__card">
-                <h3 class="push-broadcast__card-title">Kapan dipakai?</h3>
-                <p class="push-broadcast__card-text">Pakai untuk promo penting, info maintenance, atau pengumuman yang memang perlu segera dibaca user.</p>
+                <h3 class="push-broadcast__card-title">Kapan dikirim?</h3>
+                <p class="push-broadcast__card-text">Pilih kirim sekarang untuk masuk antrian langsung, atau jadwalkan tanggal dan jam pengiriman.</p>
             </section>
             <section class="push-broadcast__card">
-                <h3 class="push-broadcast__card-title">Saat notifikasi diklik</h3>
-                <p class="push-broadcast__card-text">User akan diarahkan ke halaman tujuan yang kamu isi, misalnya homepage, halaman promo, atau invoice.</p>
+                <h3 class="push-broadcast__card-title">Anti spam</h3>
+                <p class="push-broadcast__card-text">Sistem membatasi maksimal 2 broadcast dalam rentang 2 jam agar user tidak terganggu.</p>
             </section>
         </div>
 
         <form wire:submit="send" class="push-broadcast__form">
             <div class="push-broadcast__form-head">
                 <h3 class="push-broadcast__form-title">Tulis Notifikasi</h3>
-                <p class="push-broadcast__form-note">Pastikan pesannya singkat, jelas, dan halaman tujuan sudah benar sebelum dikirim.</p>
+                <p class="push-broadcast__form-note">Pastikan pesan, halaman tujuan, dan waktu pengiriman sudah benar sebelum disimpan.</p>
             </div>
 
             {{ $this->form }}
 
             <div class="push-broadcast__actions">
                 <x-filament::button type="submit" color="primary" size="lg" icon="heroicon-m-paper-airplane">
-                    Kirim Notifikasi Sekarang
+                    Simpan Pengiriman
                 </x-filament::button>
                 <span class="push-broadcast__safety">
-                    Jangan terlalu sering mengirim notifikasi agar user tidak terganggu dan tidak mematikan izin notifikasi.
+                    Maksimal 2 notifikasi dalam 2 jam. Untuk jadwal, pastikan queue worker production aktif.
                 </span>
             </div>
         </form>

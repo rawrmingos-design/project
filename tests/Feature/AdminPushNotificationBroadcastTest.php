@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Filament\Admin\Pages\PushNotificationBroadcast;
+use App\Jobs\SendPublicPushBroadcastJob;
+use App\Models\PublicPushBroadcast;
 use App\Models\PublicPushSubscription;
 use App\Models\User;
 use App\Services\PublicWebPushService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Mockery;
 use Tests\TestCase;
@@ -16,13 +19,15 @@ class AdminPushNotificationBroadcastTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_trigger_push_broadcast_from_filament_page(): void
+    public function test_admin_can_queue_push_broadcast_from_filament_page(): void
     {
         config([
             'services.webpush.vapid.public_key' => 'BEl6VapidPublicKeyExample1234567890',
             'services.webpush.vapid.private_key' => 'private-key',
             'services.webpush.vapid.subject' => 'mailto:test@example.com',
         ]);
+
+        Queue::fake();
 
         $admin = User::factory()->create(['role' => 'Admin']);
         PublicPushSubscription::create([
@@ -36,19 +41,7 @@ class AdminPushNotificationBroadcastTest extends TestCase
 
         $mock = Mockery::mock(PublicWebPushService::class);
         $mock->shouldReceive('isConfigured')->once()->andReturn(true);
-        $mock->shouldReceive('broadcastToActiveSubscriptions')
-            ->once()
-            ->with(Mockery::on(function (array $payload): bool {
-                return $payload['title'] === 'Promo Baru'
-                    && $payload['body'] === 'Diskon top up malam ini.'
-                    && $payload['url'] === 'https://example.com/id';
-            }))
-            ->andReturn([
-                'success_count' => 1,
-                'failed_count' => 0,
-                'failed_messages' => [],
-                'total' => 1,
-            ]);
+        $mock->shouldNotReceive('broadcastToActiveSubscriptions');
         $this->app->instance(PublicWebPushService::class, $mock);
 
         Filament::setCurrentPanel(Filament::getPanel('admin'));
@@ -59,9 +52,20 @@ class AdminPushNotificationBroadcastTest extends TestCase
                 'title' => 'Promo Baru',
                 'body' => 'Diskon top up malam ini.',
                 'target_url' => 'https://example.com/id',
-                'icon_url' => 'https://example.com/icon.png',
+                'send_mode' => 'now',
+                'scheduled_at' => null,
             ])
             ->call('send')
             ->assertHasNoFormErrors();
+
+        $broadcast = PublicPushBroadcast::query()->first();
+
+        $this->assertNotNull($broadcast);
+        $this->assertSame('queued', $broadcast->status);
+        $this->assertSame('now', $broadcast->send_mode);
+        $this->assertSame('Promo Baru', $broadcast->title);
+        $this->assertSame('https://example.com/id', $broadcast->target_url);
+
+        Queue::assertPushed(SendPublicPushBroadcastJob::class, fn (SendPublicPushBroadcastJob $job): bool => $job->broadcastId === $broadcast->id);
     }
 }

@@ -152,9 +152,9 @@
 >
     <div class="pwa-push-card__content">
         <div>
-            <p class="pwa-push-card__eyebrow">PWA Notification</p>
-            <h3 class="pwa-push-card__title">Aktifkan notifikasi promo & update</h3>
-            <p class="pwa-push-card__body">Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device yang sudah install PWA.</p>
+            <p class="pwa-push-card__eyebrow" data-pwa-push-eyebrow>PWA Notification</p>
+            <h3 class="pwa-push-card__title" data-pwa-push-title>Aktifkan notifikasi promo & update</h3>
+            <p class="pwa-push-card__body" data-pwa-push-body>Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device yang sudah install PWA.</p>
         </div>
         <div class="pwa-push-card__actions">
             <button type="button" class="pwa-push-card__button" data-pwa-push-enable>
