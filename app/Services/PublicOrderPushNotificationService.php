@@ -159,6 +159,7 @@ class PublicOrderPushNotificationService
             'body' => $this->limitPushText($this->renderTemplate($body, $order), 500),
             'url' => $this->invoiceUrl($order),
             'icon' => asset('assets/pwa/icon-192.png'),
+            'badge' => asset('assets/pwa/badge-72.png'),
             'tag' => $defaults['tag'],
         ];
     }

@@ -90,7 +90,7 @@ self.addEventListener('push', (event) => {
     const options = {
         body: payload?.body || 'Ada promo atau update baru untuk aplikasi top up Anda.',
         icon: payload?.icon || '/assets/pwa/icon-192.png',
-        badge: payload?.badge || '/assets/pwa/icon-192.png',
+        badge: payload?.badge || '/assets/pwa/badge-72.png',
         tag: payload?.tag || 'public-pwa-push',
         data: {
             url: payload?.url || '/id',

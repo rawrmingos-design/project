@@ -1349,21 +1349,20 @@
                     const card = document.querySelector('[data-pwa-push-card]');
                     const button = document.querySelector('[data-pwa-push-enable]');
                     const dismissButton = document.querySelector('[data-pwa-push-dismiss]');
+                    const eyebrow = document.querySelector('[data-pwa-push-eyebrow]');
+                    const title = document.querySelector('[data-pwa-push-title]');
+                    const body = document.querySelector('[data-pwa-push-body]');
                     const status = document.querySelector('[data-pwa-push-status]');
                     const vapidPublicKey = @json($publicWebPushVapidKey);
                     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                     const dismissStorageKey = 'pwaPushPromptDismissedUntil';
+                    const isStandalone = isStandalonePwa();
 
-                    if (!card || !button || !dismissButton || !status) {
+                    if (!card || !button || !dismissButton || !eyebrow || !title || !body || !status) {
                         return;
                     }
 
                     if (!shouldExposePushPrompt()) {
-                        card.hidden = true;
-                        return;
-                    }
-
-                    if (!isStandalonePwa()) {
                         card.hidden = true;
                         return;
                     }
@@ -1373,10 +1372,25 @@
                         return;
                     }
 
+                    function setPromptCopy() {
+                        if (isStandalone) {
+                            eyebrow.textContent = 'PWA Notification';
+                            title.textContent = 'Aktifkan notifikasi promo & update';
+                            body.textContent = 'Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device yang sudah install PWA.';
+                            return;
+                        }
+
+                        eyebrow.textContent = 'Notification';
+                        title.textContent = 'Aktifkan notifikasi promo & update';
+                        body.textContent = 'Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device ini. Jika nanti install PWA, izin notifikasi tetap terhubung ke domain ini.';
+                    }
+
                     function setStatus(message, tone = 'muted') {
                         status.textContent = message;
                         status.setAttribute('data-tone', tone);
                     }
+
+                    setPromptCopy();
 
                     function setCardVisible() {
                         card.hidden = false;
