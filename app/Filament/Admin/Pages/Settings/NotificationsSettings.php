@@ -18,9 +18,9 @@ class NotificationsSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'WhatsApp Configuration',
-            'Mail Configuration',
-            'Invoice Delivery Channels',
+            'Konfigurasi WhatsApp',
+            'Konfigurasi Email',
+            'Channel Notifikasi',
         ];
     }
 
