@@ -51,13 +51,17 @@ class PwaManifestTest extends TestCase
         $response->assertJsonPath('categories.0', 'shopping');
         $response->assertJsonPath('categories.1', 'games');
         $response->assertJsonPath('categories.2', 'entertainment');
-        $response->assertJsonPath('icons.0.src', 'https://egymarket.id/assets/pwa/icon-192.png');
-        $response->assertJsonPath('icons.0.sizes', '192x192');
+        $response->assertJsonPath('icons.0.src', 'https://egymarket.id/assets/pwa/icon-72.png');
+        $response->assertJsonPath('icons.0.sizes', '72x72');
         $response->assertJsonPath('icons.0.type', 'image/png');
-        $response->assertJsonPath('icons.1.src', 'https://egymarket.id/assets/pwa/icon-512.png');
-        $response->assertJsonPath('icons.1.sizes', '512x512');
-        $response->assertJsonPath('icons.2.src', 'https://egymarket.id/assets/pwa/icon-maskable-512.png');
-        $response->assertJsonPath('icons.2.purpose', 'maskable');
+        $response->assertJsonPath('icons.1.src', 'https://egymarket.id/assets/pwa/icon-96.png');
+        $response->assertJsonPath('icons.1.sizes', '96x96');
+        $response->assertJsonPath('icons.5.src', 'https://egymarket.id/assets/pwa/icon-192.png');
+        $response->assertJsonPath('icons.5.sizes', '192x192');
+        $response->assertJsonPath('icons.7.src', 'https://egymarket.id/assets/pwa/icon-512.png');
+        $response->assertJsonPath('icons.7.sizes', '512x512');
+        $response->assertJsonPath('icons.8.src', 'https://egymarket.id/assets/pwa/icon-maskable-512.png');
+        $response->assertJsonPath('icons.8.purpose', 'maskable');
         $response->assertJsonPath('shortcuts.0.name', 'Cari Transaksi');
         $response->assertJsonPath('shortcuts.0.url', '/id/invoices');
         $response->assertJsonPath('shortcuts.1.name', 'Daftar Harga');
@@ -103,7 +107,7 @@ class PwaManifestTest extends TestCase
         $sw = file_get_contents(public_path('sw.js'));
 
         $this->assertIsString($sw);
-        $this->assertStringContainsString("const CACHE_VERSION = 'v1';", $sw);
+        $this->assertStringContainsString("const CACHE_VERSION = 'v2';", $sw);
         $this->assertStringContainsString("'/admin'", $sw);
         $this->assertStringContainsString("'/filament'", $sw);
         $this->assertStringContainsString("'/api'", $sw);
@@ -115,6 +119,7 @@ class PwaManifestTest extends TestCase
         $this->assertStringContainsString("event.data && event.data.type === 'SKIP_WAITING'", $sw);
         $this->assertStringNotContainsString('.then(() => self.skipWaiting())', $sw);
         $this->assertStringContainsString('PRECACHE_URLS', $sw);
+        $this->assertStringContainsString("'/assets/pwa/badge-72.png'", $sw);
         $this->assertStringContainsString("'/assets/css/pjojikhhoyutyrtd.css'", $sw);
         $this->assertStringContainsString("'/assets/js/oo324ddod2323sd2dd.js'", $sw);
         $this->assertStringContainsString('STATIC_CACHE_MAX_ENTRIES', $sw);

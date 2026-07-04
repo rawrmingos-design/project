@@ -16,9 +16,20 @@ class PwaManifestController extends Controller
         $description = trim((string) ($settings->deskripsi_web ?? 'Platform Top-Up Game Terpercaya'));
         $themeColor = $this->normalizeHexColor((string) ($settings->warna1 ?? '#575757'), '#575757');
         $backgroundColor = $this->normalizeHexColor((string) ($settings->warna4 ?? '#111111'), '#111111');
+        $iconSizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        $manifestIcons = array_map(fn (int $size): array => [
+            'src' => $this->absoluteUrl($appUrl, "/assets/pwa/icon-{$size}.png"),
+            'sizes' => "{$size}x{$size}",
+            'type' => 'image/png',
+            'purpose' => 'any',
+        ], $iconSizes);
+        $manifestIcons[] = [
+            'src' => $this->absoluteUrl($appUrl, '/assets/pwa/icon-maskable-512.png'),
+            'sizes' => '512x512',
+            'type' => 'image/png',
+            'purpose' => 'maskable',
+        ];
         $icon192Url = $this->absoluteUrl($appUrl, '/assets/pwa/icon-192.png');
-        $icon512Url = $this->absoluteUrl($appUrl, '/assets/pwa/icon-512.png');
-        $maskableIconUrl = $this->absoluteUrl($appUrl, '/assets/pwa/icon-maskable-512.png');
 
         return response()->json([
             'id' => '/id?source=pwa',
@@ -34,26 +45,7 @@ class PwaManifestController extends Controller
             'theme_color' => $themeColor,
             'background_color' => $backgroundColor,
             'categories' => ['shopping', 'games', 'entertainment'],
-            'icons' => [
-                [
-                    'src' => $icon192Url,
-                    'sizes' => '192x192',
-                    'type' => 'image/png',
-                    'purpose' => 'any',
-                ],
-                [
-                    'src' => $icon512Url,
-                    'sizes' => '512x512',
-                    'type' => 'image/png',
-                    'purpose' => 'any',
-                ],
-                [
-                    'src' => $maskableIconUrl,
-                    'sizes' => '512x512',
-                    'type' => 'image/png',
-                    'purpose' => 'maskable',
-                ],
-            ],
+            'icons' => $manifestIcons,
             'shortcuts' => [
                 [
                     'name' => 'Cari Transaksi',
