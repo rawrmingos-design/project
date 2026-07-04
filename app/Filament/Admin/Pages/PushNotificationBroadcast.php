@@ -89,7 +89,7 @@ class PushNotificationBroadcast extends Page implements HasForms
                     ->live(),
                 DateTimePicker::make('scheduled_at')
                     ->label('Tanggal & Jam Kirim')
-                    ->helperText('Minimal 5 menit dari sekarang. Queue worker harus aktif agar jadwal terkirim.')
+                    ->helperText('Minimal 5 menit dari sekarang agar jadwal pengiriman lebih aman diproses.')
                     ->seconds(false)
                     ->native(false)
                     ->visible(fn (Get $get): bool => $get('send_mode') === 'scheduled')
@@ -120,7 +120,7 @@ class PushNotificationBroadcast extends Page implements HasForms
         if (($state['send_mode'] ?? 'now') === 'scheduled' && $sendAt->lt(now()->addMinutes(5))) {
             Notification::make()
                 ->title('Jadwal terlalu dekat')
-                ->body('Pilih waktu minimal 5 menit dari sekarang agar queue punya waktu memproses jadwal.')
+                ->body('Pilih waktu minimal 5 menit dari sekarang agar jadwal pengiriman bisa diproses dengan aman.')
                 ->danger()
                 ->send();
 
@@ -163,7 +163,7 @@ class PushNotificationBroadcast extends Page implements HasForms
             ->title(($state['send_mode'] ?? 'now') === 'scheduled' ? 'Notifikasi dijadwalkan' : 'Notifikasi masuk antrian')
             ->body(($state['send_mode'] ?? 'now') === 'scheduled'
                 ? 'Akan dikirim pada ' . $sendAt->format('d M Y H:i') . '.'
-                : 'Broadcast akan diproses oleh queue worker.')
+                : 'Notifikasi akan diproses beberapa saat lagi.')
             ->success()
             ->send();
 
