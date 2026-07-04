@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services;
 
 use App\Services\PwaIconGeneratorService;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -51,7 +50,7 @@ class PwaIconGeneratorServiceTest extends TestCase
     {
         $source = $this->createSourceImage('assets/pwa/source-test/source.png', 640, 720);
 
-        $generated = $this->service->generate($source);
+        $generated = $this->service->generate($source, '#112233');
 
         foreach ($this->generatedFiles as $relativePath) {
             $this->assertArrayHasKey($relativePath, $generated);
@@ -65,6 +64,8 @@ class PwaIconGeneratorServiceTest extends TestCase
         $this->assertImageDimensions(public_path('assets/pwa/icon-maskable-512.png'), 512, 512);
         $this->assertImageDimensions(public_path('assets/pwa/apple-touch-icon.png'), 180, 180);
         $this->assertImageDimensions(public_path('assets/pwa/badge-72.png'), 72, 72);
+        $this->assertPngCornerIsSolid(public_path('assets/pwa/icon-192.png'), [17, 34, 51]);
+        $this->assertPngCornerIsSolid(public_path('assets/pwa/icon-maskable-512.png'), [17, 34, 51]);
     }
 
     public function test_invalid_source_does_not_replace_existing_icons(): void
@@ -84,10 +85,30 @@ class PwaIconGeneratorServiceTest extends TestCase
 
     private function createSourceImage(string $relativePath, int $width, int $height): string
     {
-        $file = UploadedFile::fake()->image('source.png', $width, $height);
         $absolutePath = public_path($relativePath);
         File::ensureDirectoryExists(dirname($absolutePath));
-        File::copy($file->getRealPath(), $absolutePath);
+
+        $image = imagecreatetruecolor($width, $height);
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+
+        $transparent = imagecolorallocatealpha($image, 0, 0, 0, 127);
+        imagefilledrectangle($image, 0, 0, $width, $height, $transparent);
+
+        $logoColor = imagecolorallocatealpha($image, 255, 170, 64, 0);
+        $paddingX = (int) ($width * 0.2);
+        $paddingY = (int) ($height * 0.2);
+        imagefilledellipse(
+            $image,
+            (int) ($width / 2),
+            (int) ($height / 2),
+            $width - ($paddingX * 2),
+            $height - ($paddingY * 2),
+            $logoColor,
+        );
+
+        imagepng($image, $absolutePath, 9);
+        imagedestroy($image);
 
         return $relativePath;
     }
@@ -99,6 +120,25 @@ class PwaIconGeneratorServiceTest extends TestCase
         $this->assertIsArray($size);
         $this->assertSame($width, $size[0]);
         $this->assertSame($height, $size[1]);
+    }
+
+    /** @param array{0:int,1:int,2:int} $expectedRgb */
+    private function assertPngCornerIsSolid(string $path, array $expectedRgb): void
+    {
+        $image = imagecreatefrompng($path);
+
+        $this->assertNotFalse($image);
+
+        $rgba = imagecolorat($image, 0, 0);
+        $alpha = ($rgba & 0x7F000000) >> 24;
+        $red = ($rgba >> 16) & 0xFF;
+        $green = ($rgba >> 8) & 0xFF;
+        $blue = $rgba & 0xFF;
+
+        imagedestroy($image);
+
+        $this->assertSame(0, $alpha);
+        $this->assertSame($expectedRgb, [$red, $green, $blue]);
     }
 
     private function backupCurrentIcons(): void

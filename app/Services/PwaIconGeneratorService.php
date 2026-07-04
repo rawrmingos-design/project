@@ -12,7 +12,7 @@ class PwaIconGeneratorService
     /**
      * @return array<string, string>
      */
-    public function generate(string $sourcePath): array
+    public function generate(string $sourcePath, ?string $backgroundColor = null): array
     {
         $absoluteSource = $this->absolutePublicPath($sourcePath);
 
@@ -21,22 +21,23 @@ class PwaIconGeneratorService
         }
 
         $source = $this->createImageFromPath($absoluteSource);
+        $backgroundColor = $this->normalizeHexColor($backgroundColor);
         $generated = [];
         $temporaryFiles = [];
 
         try {
             foreach (self::ICON_SIZES as $size) {
                 $target = "assets/pwa/icon-{$size}.png";
-                $temporaryFiles[$target] = $this->writeSquareIcon($source, $size, $this->temporaryPath($target));
+                $temporaryFiles[$target] = $this->writeSquareIcon($source, $size, $this->temporaryPath($target), $backgroundColor);
                 $generated[$target] = $target;
             }
 
             $maskableTarget = 'assets/pwa/icon-maskable-512.png';
-            $temporaryFiles[$maskableTarget] = $this->writeMaskableIcon($source, $this->temporaryPath($maskableTarget));
+            $temporaryFiles[$maskableTarget] = $this->writeMaskableIcon($source, $this->temporaryPath($maskableTarget), $backgroundColor);
             $generated[$maskableTarget] = $maskableTarget;
 
             $appleTarget = 'assets/pwa/apple-touch-icon.png';
-            $temporaryFiles[$appleTarget] = $this->writeSquareIcon($source, 180, $this->temporaryPath($appleTarget));
+            $temporaryFiles[$appleTarget] = $this->writeSquareIcon($source, 180, $this->temporaryPath($appleTarget), $backgroundColor);
             $generated[$appleTarget] = $appleTarget;
 
             $badgeTarget = 'assets/pwa/badge-72.png';
@@ -93,9 +94,9 @@ class PwaIconGeneratorService
     }
 
     /** @param resource $source */
-    private function writeSquareIcon($source, int $size, string $target): string
+    private function writeSquareIcon($source, int $size, string $target, string $backgroundColor): string
     {
-        $icon = $this->createTransparentCanvas($size, $size);
+        $icon = $this->createSolidCanvas($size, $size, $backgroundColor);
         $this->copyCenteredSquare($source, $icon, 0, 0, $size, $size);
         $this->writePng($icon, $target);
         imagedestroy($icon);
@@ -104,12 +105,12 @@ class PwaIconGeneratorService
     }
 
     /** @param resource $source */
-    private function writeMaskableIcon($source, string $target): string
+    private function writeMaskableIcon($source, string $target, string $backgroundColor): string
     {
         $size = 512;
         $padding = 52;
         $inner = $size - ($padding * 2);
-        $icon = $this->createTransparentCanvas($size, $size);
+        $icon = $this->createSolidCanvas($size, $size, $backgroundColor);
         $this->copyCenteredSquare($source, $icon, $padding, $padding, $inner, $inner);
         $this->writePng($icon, $target);
         imagedestroy($icon);
@@ -144,6 +145,20 @@ class PwaIconGeneratorService
         imagedestroy($badge);
 
         return $target;
+    }
+
+    /** @return resource */
+    private function createSolidCanvas(int $width, int $height, string $hexColor)
+    {
+        $canvas = imagecreatetruecolor($width, $height);
+        imagealphablending($canvas, true);
+        imagesavealpha($canvas, false);
+
+        [$red, $green, $blue] = $this->hexToRgb($hexColor);
+        $background = imagecolorallocate($canvas, $red, $green, $blue);
+        imagefilledrectangle($canvas, 0, 0, $width, $height, $background);
+
+        return $canvas;
     }
 
     /** @return resource */
@@ -194,6 +209,27 @@ class PwaIconGeneratorService
         }
 
         return public_path(ltrim($path, '/'));
+    }
+
+    private function normalizeHexColor(?string $hexColor): string
+    {
+        $hexColor = trim((string) $hexColor);
+
+        if (preg_match('/^#[0-9A-Fa-f]{6}$/', $hexColor) === 1) {
+            return $hexColor;
+        }
+
+        return '#111111';
+    }
+
+    /** @return array{0:int,1:int,2:int} */
+    private function hexToRgb(string $hexColor): array
+    {
+        return [
+            hexdec(substr($hexColor, 1, 2)),
+            hexdec(substr($hexColor, 3, 2)),
+            hexdec(substr($hexColor, 5, 2)),
+        ];
     }
 
     private function ensureDirectory(string $directory): void
