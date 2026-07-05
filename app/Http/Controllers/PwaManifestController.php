@@ -17,19 +17,20 @@ class PwaManifestController extends Controller
         $themeColor = $this->normalizeHexColor((string) ($settings->warna1 ?? '#575757'), '#575757');
         $backgroundColor = $this->normalizeHexColor((string) ($settings->warna4 ?? '#111111'), '#111111');
         $iconSizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        $iconVersion = $this->iconVersion($settings->pwa_icon_generated_at ?? null);
         $manifestIcons = array_map(fn (int $size): array => [
-            'src' => $this->absoluteUrl($appUrl, "/assets/pwa/icon-{$size}.png"),
+            'src' => $this->absoluteUrl($appUrl, $this->versionedIconPath("/assets/pwa/icon-{$size}.png", $iconVersion)),
             'sizes' => "{$size}x{$size}",
             'type' => 'image/png',
             'purpose' => 'any',
         ], $iconSizes);
         $manifestIcons[] = [
-            'src' => $this->absoluteUrl($appUrl, '/assets/pwa/icon-maskable-512.png'),
+            'src' => $this->absoluteUrl($appUrl, $this->versionedIconPath('/assets/pwa/icon-maskable-512.png', $iconVersion)),
             'sizes' => '512x512',
             'type' => 'image/png',
             'purpose' => 'maskable',
         ];
-        $icon192Url = $this->absoluteUrl($appUrl, '/assets/pwa/icon-192.png');
+        $icon192Url = $this->absoluteUrl($appUrl, $this->versionedIconPath('/assets/pwa/icon-192.png', $iconVersion));
 
         return response()->json([
             'id' => '/id?source=pwa',
@@ -98,6 +99,28 @@ class PwaManifestController extends Controller
         $color = trim($color);
 
         return preg_match('/^#[0-9A-Fa-f]{6}$/', $color) === 1 ? $color : $fallback;
+    }
+
+    private function iconVersion(mixed $generatedAt): ?string
+    {
+        if ($generatedAt instanceof \DateTimeInterface) {
+            return $generatedAt->format('YmdHis');
+        }
+
+        $generatedAt = trim((string) $generatedAt);
+
+        if ($generatedAt === '') {
+            return null;
+        }
+
+        $timestamp = strtotime($generatedAt);
+
+        return $timestamp !== false ? date('YmdHis', $timestamp) : md5($generatedAt);
+    }
+
+    private function versionedIconPath(string $path, ?string $version): string
+    {
+        return $version ? $path . '?v=' . rawurlencode($version) : $path;
     }
 
     private function absoluteUrl(string $appUrl, string $path): string
