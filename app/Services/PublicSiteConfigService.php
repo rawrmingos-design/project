@@ -128,7 +128,7 @@ class PublicSiteConfigService
                 'description' => $settings->deskripsi_web,
                 'keywords' => $settings->keywords,
                 'canonical' => \App\Support\CanonicalUrl::normalize(url()->current()),
-                'image' => url($favicon['path']),
+                'image' => $favicon['path'],
             ],
         ];
     }
@@ -258,14 +258,15 @@ class PublicSiteConfigService
     protected function resolveAsset(?string $path, string $fallback = '/assets/logo/favicon.webp'): array
     {
         $requested = trim((string) $path);
-        $normalized = $this->normalizeAssetPath($requested, $fallback);
         $usesFallback = $requested === '';
-        $isExternal = Str::startsWith($normalized, ['http://', 'https://']);
-        $exists = $isExternal ? null : file_exists(public_path(ltrim($normalized, '/')));
+        $resolver = app(PublicUploadUrlService::class);
+        $normalized = $this->normalizeAssetPath($requested, $fallback);
+        $resolvedUrl = $resolver->url($requested !== '' ? $requested : $fallback, config('uploads.disk', 'assets'), $fallback);
+        $exists = $resolver->exists($requested !== '' ? $requested : $fallback, config('uploads.disk', 'assets'));
 
         return [
             'requested' => $requested !== '' ? $requested : null,
-            'path' => $normalized,
+            'path' => $resolvedUrl ?? $normalized,
             'source' => $usesFallback ? 'fallback' : 'db',
             'usesFallback' => $usesFallback,
             'exists' => $exists,
