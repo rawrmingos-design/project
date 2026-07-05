@@ -13,6 +13,7 @@ use App\Models\MediaAsset;
 use App\Observers\PembelianObserver;
 use App\Observers\KategoriObserver;
 use App\Services\OptimizedImageService;
+use App\Services\PublicUploadUrlService;
 use App\Support\PublicThemeRegistry;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
@@ -165,6 +166,11 @@ class AppServiceProvider extends ServiceProvider
                 // Fallback to default config when database is unavailable.
             }
         }
+
+        $uploadUrl = app(PublicUploadUrlService::class);
+        $config->logo_header = $uploadUrl->url($config->logo_header ?? null);
+        $config->logo_footer = $uploadUrl->url($config->logo_footer ?? null);
+        $config->logo_favicon = $uploadUrl->url($config->logo_favicon ?? null);
 
         View::share('config', $config);
     }
