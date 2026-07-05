@@ -31,6 +31,7 @@ class PwaManifestTest extends TestCase
             'topupindo_api' => 'dummy-api',
             'paydisini_apikey' => 'dummy-paydisini',
             'order_prefik' => 'INV',
+            'pwa_icon_generated_at' => now()->setDate(2026, 7, 5)->setTime(10, 37, 47),
         ]);
 
         $response = $this->get('/site.webmanifest');
@@ -51,24 +52,24 @@ class PwaManifestTest extends TestCase
         $response->assertJsonPath('categories.0', 'shopping');
         $response->assertJsonPath('categories.1', 'games');
         $response->assertJsonPath('categories.2', 'entertainment');
-        $response->assertJsonPath('icons.0.src', 'https://egymarket.id/assets/pwa/icon-72.png');
+        $response->assertJsonPath('icons.0.src', 'https://egymarket.id/assets/pwa/icon-72.png?v=20260705103747');
         $response->assertJsonPath('icons.0.sizes', '72x72');
         $response->assertJsonPath('icons.0.type', 'image/png');
-        $response->assertJsonPath('icons.1.src', 'https://egymarket.id/assets/pwa/icon-96.png');
+        $response->assertJsonPath('icons.1.src', 'https://egymarket.id/assets/pwa/icon-96.png?v=20260705103747');
         $response->assertJsonPath('icons.1.sizes', '96x96');
-        $response->assertJsonPath('icons.2.src', 'https://egymarket.id/assets/pwa/icon-128.png');
+        $response->assertJsonPath('icons.2.src', 'https://egymarket.id/assets/pwa/icon-128.png?v=20260705103747');
         $response->assertJsonPath('icons.2.sizes', '128x128');
-        $response->assertJsonPath('icons.3.src', 'https://egymarket.id/assets/pwa/icon-144.png');
+        $response->assertJsonPath('icons.3.src', 'https://egymarket.id/assets/pwa/icon-144.png?v=20260705103747');
         $response->assertJsonPath('icons.3.sizes', '144x144');
-        $response->assertJsonPath('icons.4.src', 'https://egymarket.id/assets/pwa/icon-152.png');
+        $response->assertJsonPath('icons.4.src', 'https://egymarket.id/assets/pwa/icon-152.png?v=20260705103747');
         $response->assertJsonPath('icons.4.sizes', '152x152');
-        $response->assertJsonPath('icons.5.src', 'https://egymarket.id/assets/pwa/icon-192.png');
+        $response->assertJsonPath('icons.5.src', 'https://egymarket.id/assets/pwa/icon-192.png?v=20260705103747');
         $response->assertJsonPath('icons.5.sizes', '192x192');
-        $response->assertJsonPath('icons.6.src', 'https://egymarket.id/assets/pwa/icon-384.png');
+        $response->assertJsonPath('icons.6.src', 'https://egymarket.id/assets/pwa/icon-384.png?v=20260705103747');
         $response->assertJsonPath('icons.6.sizes', '384x384');
-        $response->assertJsonPath('icons.7.src', 'https://egymarket.id/assets/pwa/icon-512.png');
+        $response->assertJsonPath('icons.7.src', 'https://egymarket.id/assets/pwa/icon-512.png?v=20260705103747');
         $response->assertJsonPath('icons.7.sizes', '512x512');
-        $response->assertJsonPath('icons.8.src', 'https://egymarket.id/assets/pwa/icon-maskable-512.png');
+        $response->assertJsonPath('icons.8.src', 'https://egymarket.id/assets/pwa/icon-maskable-512.png?v=20260705103747');
         $response->assertJsonPath('icons.8.purpose', 'maskable');
         $response->assertJsonPath('shortcuts.0.name', 'Cari Transaksi');
         $response->assertJsonPath('shortcuts.0.url', '/id/invoices');
