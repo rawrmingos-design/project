@@ -38,7 +38,7 @@ class KategorisTable
 
                 ImageColumn::make('thumbnail')
                     ->label('Thumbnail')
-                    ->disk('assets')
+                    ->disk(config('uploads.disk', 'assets'))
                     ->visibility('public')
                     ->width(40)
                     ->height(40)

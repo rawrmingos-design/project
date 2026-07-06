@@ -19,7 +19,7 @@ class MethodsTable
             ->columns([
                 ImageColumn::make('images')
                     ->label('Logo')
-                    ->disk('assets')
+                    ->disk(config('uploads.disk', 'assets'))
                     ->getStateUsing(fn ($record): string => ltrim((string) ($record->getRawOriginal('images') ?: $record->images ?: ''), '/'))
                     ->circular()
                     ->size(40)

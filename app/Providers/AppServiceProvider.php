@@ -100,6 +100,10 @@ class AppServiceProvider extends ServiceProvider
             $model = $event->media->model;
 
             if ($model instanceof MediaAsset) {
+                if (config('uploads.disk', 'assets') !== 'assets') {
+                    return;
+                }
+
                 $path = $model->resolveRelativePath();
 
                 if ($path) {

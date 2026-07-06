@@ -94,7 +94,7 @@ class BeritaForm
                         FileUpload::make('path')
                             ->label('Image')
                             ->image()
-                            ->disk('assets')
+                            ->disk(config('uploads.disk', 'assets'))
                             ->directory('assets/banner')
                             ->visible(fn (Get $get) => $get('path_input_mode') === 'upload')
                             ->visibility('public')

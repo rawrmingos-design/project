@@ -70,12 +70,12 @@ class Kategori extends Model implements HasMedia
     {
         $this
             ->addMediaCollection('thumbnail')
-            ->useDisk('assets')
+            ->useDisk(config('uploads.disk', 'assets'))
             ->singleFile();
 
         $this
             ->addMediaCollection('banner')
-            ->useDisk('assets')
+            ->useDisk(config('uploads.disk', 'assets'))
             ->singleFile();
     }
 

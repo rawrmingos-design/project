@@ -19,7 +19,7 @@ class BeritasTable
             ->columns([
                 ImageColumn::make('path')
                     ->label('Image')
-                    ->disk('assets')
+                    ->disk(config('uploads.disk', 'assets'))
                     ->getStateUsing(function ($record) {
                         $path = (string) ($record->path ?? '');
 

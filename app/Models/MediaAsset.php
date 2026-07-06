@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\SyncsLegacyMediaPaths;
+use App\Services\PublicUploadUrlService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
@@ -27,7 +28,7 @@ class MediaAsset extends Model implements HasMedia
     {
         $this
             ->addMediaCollection('file')
-            ->useDisk('assets')
+            ->useDisk(config('uploads.disk', 'assets'))
             ->singleFile();
     }
 
@@ -36,7 +37,7 @@ class MediaAsset extends Model implements HasMedia
         $relativePath = $this->resolveRelativePath();
 
         if ($relativePath) {
-            return asset($relativePath);
+            return app(PublicUploadUrlService::class)->url($relativePath, config('uploads.disk', 'assets'));
         }
 
         return $this->getFirstMediaUrl('file') ?: null;
@@ -44,8 +45,12 @@ class MediaAsset extends Model implements HasMedia
 
     public function resolveRelativePath(): ?string
     {
-        if (! empty($this->path) && is_file(public_path(ltrim($this->path, '/')))) {
-            return $this->path;
+        if (! empty($this->path)) {
+            $normalizedPath = ltrim($this->path, '/');
+
+            if (is_file(public_path($normalizedPath)) || app(PublicUploadUrlService::class)->exists($normalizedPath, config('uploads.disk', 'assets'))) {
+                return $this->path;
+            }
         }
 
         if ($legacyPath = $this->resolveSourceLegacyPath()) {
@@ -54,8 +59,12 @@ class MediaAsset extends Model implements HasMedia
 
         $media = $this->getFirstMedia('file');
 
-        if ($media && is_file($media->getPath())) {
-            return '/' . ltrim($media->getPathRelativeToRoot(), '/');
+        if ($media) {
+            $mediaPath = '/' . ltrim($media->getPathRelativeToRoot(), '/');
+
+            if ($media->disk !== 'assets' || is_file($media->getPath())) {
+                return $mediaPath;
+            }
         }
 
         return null;
@@ -176,7 +185,7 @@ class MediaAsset extends Model implements HasMedia
             }
         }
 
-        if (is_file($sourceMedia->getPath())) {
+        if ($sourceMedia->disk !== 'assets' || is_file($sourceMedia->getPath())) {
             return '/' . ltrim($sourceMedia->getPathRelativeToRoot(), '/');
         }
 
