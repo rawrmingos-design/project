@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\MediaAsset;
+use App\Services\PublicUploadUrlService;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
@@ -393,12 +394,13 @@ HTML;
         if ($record instanceof HasMedia && filled($collection)) {
             $media = $record->getFirstMedia($collection);
 
-            if ($media && is_file($media->getPath())) {
+            if ($media && (($media->disk ?? 'assets') !== 'assets' || is_file($media->getPath()))) {
                 $relativePath = '/' . ltrim($media->getPathRelativeToRoot(), '/');
+                $url = app(PublicUploadUrlService::class)->url($relativePath, $media->disk ?: config('uploads.disk', 'assets'));
 
                 return [
                     'label' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
-                    'url' => asset(ltrim($relativePath, '/')),
+                    'url' => $url,
                     'alt' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
                     'source' => 'Upload Record',
                     'path' => $relativePath,
@@ -476,7 +478,7 @@ HTML;
             return $path;
         }
 
-        return asset(ltrim($path, '/'));
+        return app(PublicUploadUrlService::class)->url($path, config('uploads.disk', 'assets'));
     }
 
     protected static function buildPreviewCard(

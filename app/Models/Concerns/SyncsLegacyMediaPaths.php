@@ -37,7 +37,7 @@ trait SyncsLegacyMediaPaths
             $column => $legacyPath,
         ])->saveQuietly();
 
-        if ($legacyPath) {
+        if ($legacyPath && (($media?->disk ?? 'assets') === 'assets')) {
             $optimizer = app(\App\Services\OptimizedImageService::class);
 
             $optimizer->ensureVariants(
@@ -64,6 +64,10 @@ trait SyncsLegacyMediaPaths
         }
 
         $mediaPath = '/' . ltrim($media->getPathRelativeToRoot(), '/');
+
+        if (($media->disk ?? 'assets') !== 'assets') {
+            return $mediaPath;
+        }
 
         return is_file(public_path(ltrim($mediaPath, '/'))) ? $mediaPath : null;
     }
