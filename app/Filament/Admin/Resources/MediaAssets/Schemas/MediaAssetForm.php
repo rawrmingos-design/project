@@ -80,7 +80,7 @@ HTML);
                                 return new HtmlString(<<<HTML
 <div style="display:flex;flex-direction:column;gap:10px;">
     <div style="display:flex;align-items:center;gap:8px;font-weight:600;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(148,163,184,.14);">📄</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(148,163,184,.14);">ðŸ“„</span>
         <span>{$extension} file</span>
     </div>
     <span style="font-size:12px;color:#94a3b8;">{$mimeType} &bull; {$size}</span>
@@ -94,7 +94,7 @@ HTML);
                         SpatieMediaLibraryFileUpload::make('file')
                             ->label('File')
                             ->collection('file')
-                            ->disk('assets')
+                            ->disk(config('uploads.disk', 'assets'))
                             ->acceptedFileTypes([
                                 'image/jpeg',
                                 'image/png',

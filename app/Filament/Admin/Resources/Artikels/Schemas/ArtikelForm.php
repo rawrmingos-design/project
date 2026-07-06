@@ -97,7 +97,7 @@ class ArtikelForm
                         FileUpload::make('thumbnail')
                             ->label('Thumbnail')
                             ->image()
-                            ->disk('assets')
+                            ->disk(config('uploads.disk', 'assets'))
                             ->directory('articles/thumbnails')
                             ->visible(fn (Get $get) => $get('thumbnail_input_mode') === 'upload')
                             ->visibility('public')

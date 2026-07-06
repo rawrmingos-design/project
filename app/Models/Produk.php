@@ -85,7 +85,7 @@ class Produk extends Model implements HasMedia
     {
         $this
             ->addMediaCollection('product_logo')
-            ->useDisk('assets')
+            ->useDisk(config('uploads.disk', 'assets'))
             ->singleFile();
     }
 

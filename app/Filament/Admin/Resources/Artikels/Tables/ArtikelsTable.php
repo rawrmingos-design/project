@@ -18,7 +18,7 @@ class ArtikelsTable
             ->columns([
                 ImageColumn::make('thumbnail')
                     ->label('Thumbnail')
-                    ->disk('assets')
+                    ->disk(config('uploads.disk', 'assets'))
                     ->size(50)
                     ->square(),
                     

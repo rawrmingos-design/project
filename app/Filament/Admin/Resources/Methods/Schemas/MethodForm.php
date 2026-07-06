@@ -167,7 +167,7 @@ class MethodForm
                                 'required' => 'Upload logo wajib dilakukan jika sumber gambar menggunakan Upload Baru.',
                                 'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
                             ])
-                            ->disk('assets')
+                            ->disk(config('uploads.disk', 'assets'))
                             ->directory('assets/thumbnail')
                             ->visibility('public')
                             ->visible(fn (Get $get) => $get('images_input_mode') === 'upload')
