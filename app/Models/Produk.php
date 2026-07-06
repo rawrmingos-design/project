@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Concerns\SyncsLegacyMediaPaths;
+use App\Services\PublicUploadUrlService;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -107,12 +108,13 @@ class Produk extends Model implements HasMedia
 
         $media = $this->getFirstMedia('product_logo');
 
-        if ($media && is_file($media->getPath())) {
+        if ($media && (($media->disk ?? 'assets') !== 'assets' || is_file($media->getPath()))) {
             $relativePath = '/' . ltrim($media->getPathRelativeToRoot(), '/');
+            $url = app(PublicUploadUrlService::class)->url($relativePath, $media->disk ?: config('uploads.disk', 'assets'));
 
             return [
                 'label' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
-                'url' => asset(ltrim($relativePath, '/')),
+                'url' => $url,
                 'alt' => $media->name ?: pathinfo($media->file_name, PATHINFO_FILENAME),
                 'source' => 'Upload Record',
                 'path' => $relativePath,
@@ -128,7 +130,7 @@ class Produk extends Model implements HasMedia
         if ($pivotLogo) {
             return [
                 'label' => pathinfo($pivotLogo, PATHINFO_FILENAME),
-                'url' => asset(ltrim($pivotLogo, '/')),
+                'url' => app(PublicUploadUrlService::class)->url($pivotLogo, config('uploads.disk', 'assets')),
                 'alt' => pathinfo($pivotLogo, PATHINFO_FILENAME),
                 'source' => 'Path Paket Layanan',
                 'path' => $pivotLogo,
@@ -138,7 +140,7 @@ class Produk extends Model implements HasMedia
         if (! empty($this->product_logo)) {
             return [
                 'label' => pathinfo($this->product_logo, PATHINFO_FILENAME),
-                'url' => asset(ltrim($this->product_logo, '/')),
+                'url' => app(PublicUploadUrlService::class)->url($this->product_logo, config('uploads.disk', 'assets')),
                 'alt' => pathinfo($this->product_logo, PATHINFO_FILENAME),
                 'source' => 'Path Layanan',
                 'path' => $this->product_logo,
