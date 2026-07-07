@@ -365,6 +365,9 @@ class ProdukForm
                             ->imagePreviewHeight('150')
                             ->panelAspectRatio('1:1')
                             ->panelLayout('integrated')
+                            ->previewable(false)
+                            ->openable(false)
+                            ->downloadable(false)
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
                             ->helperText('Upload baru otomatis disimpan ke Media Library dan tetap sinkron ke kolom logo lama.'),
