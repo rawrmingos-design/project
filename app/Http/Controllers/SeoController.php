@@ -47,7 +47,7 @@ class SeoController extends Controller
 
         if ($settings['sitemap_enabled']) {
             $lines[] = '';
-            $lines[] = 'Sitemap: ' . url('/sitemap.xml');
+            $lines[] = 'Sitemap: ' . $this->publicUrl('/sitemap.xml');
         }
 
         return response(implode("\n", $lines) . "\n", 200)
@@ -59,7 +59,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:index:v3', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember('seo:sitemap:index:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled']) {
                 return $this->buildSitemapIndexXml([]);
             }
@@ -74,14 +74,14 @@ class SeoController extends Controller
 
             $entries = [
                 [
-                    'loc' => url('/sitemap-main.xml'),
+                    'loc' => $this->publicUrl('/sitemap-main.xml'),
                     'lastmod' => now()->toAtomString(),
                 ],
             ];
 
             if ($settings['sitemap_include_categories']) {
                 $entries[] = [
-                    'loc' => url('/sitemap-categories.xml'),
+                    'loc' => $this->publicUrl('/sitemap-categories.xml'),
                     'lastmod' => now()->toAtomString(),
                 ];
             }
@@ -97,7 +97,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:main:v3', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember('seo:sitemap:main:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled']) {
                 return $this->buildUrlSetXml([]);
             }
@@ -120,13 +120,13 @@ class SeoController extends Controller
                 ];
             };
 
-            $pushUrl(url('/id'), now(), 'hourly', '1.0');
-            $pushUrl(url('/id/price-list'), now(), 'daily', '0.8');
-            $pushUrl(url('/id/invoices'), now(), 'daily', '0.6');
-            $pushUrl(url('/id/reviews'), now(), 'weekly', '0.6');
-            $pushUrl(url('/id/terms-and-condition'), now(), 'monthly', '0.4');
-            $pushUrl(url('/id/privacy-policy'), now(), 'monthly', '0.4');
-            $pushUrl(url('/id/artikel'), now(), 'daily', '0.7');
+            $pushUrl($this->publicUrl('/id'), now(), 'hourly', '1.0');
+            $pushUrl($this->publicUrl('/id/price-list'), now(), 'daily', '0.8');
+            $pushUrl($this->publicUrl('/id/invoices'), now(), 'daily', '0.6');
+            $pushUrl($this->publicUrl('/id/reviews'), now(), 'weekly', '0.6');
+            $pushUrl($this->publicUrl('/id/terms-and-condition'), now(), 'monthly', '0.4');
+            $pushUrl($this->publicUrl('/id/privacy-policy'), now(), 'monthly', '0.4');
+            $pushUrl($this->publicUrl('/id/artikel'), now(), 'daily', '0.7');
 
             if ($settings['sitemap_include_articles']) {
                 Artikel::query()
@@ -135,7 +135,7 @@ class SeoController extends Controller
                     ->orderByDesc('updated_at')
                     ->get()
                     ->each(function (Artikel $artikel) use ($pushUrl): void {
-                        $pushUrl(url('/id/artikel/' . ltrim((string) $artikel->slug, '/')), $artikel->updated_at, 'weekly', '0.7');
+                        $pushUrl($this->publicUrl('/id/artikel/' . ltrim((string) $artikel->slug, '/')), $artikel->updated_at, 'weekly', '0.7');
                     });
             }
 
@@ -150,7 +150,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:categories:v3', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember('seo:sitemap:categories:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled'] || ! $settings['sitemap_include_categories']) {
                 return $this->buildUrlSetXml([]);
             }
@@ -172,7 +172,7 @@ class SeoController extends Controller
                 ->get()
                 ->each(function (Kategori $kategori) use (&$urls): void {
                     $urls[] = [
-                        'loc' => url('/id/' . ltrim((string) $kategori->kode, '/')),
+                        'loc' => $this->publicUrl('/id/' . ltrim((string) $kategori->kode, '/')),
                         'lastmod' => $kategori->updated_at?->toAtomString(),
                         'changefreq' => 'daily',
                         'priority' => '0.9',
@@ -189,6 +189,13 @@ class SeoController extends Controller
     {
         return response($xml, 200)
             ->header('Content-Type', 'application/xml; charset=UTF-8');
+    }
+
+    private function publicUrl(string $path): string
+    {
+        $baseUrl = rtrim((string) env('MAIN_DOMAIN_URL', config('app.url')), '/');
+
+        return $baseUrl . '/' . ltrim($path, '/');
     }
 
     private function buildSitemapIndexXml(array $entries): string
