@@ -66,7 +66,9 @@ use App\Http\Controllers\Public\DepositPageController as PublicDepositPageContro
 use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageController;
 use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
+use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
+use App\Http\Controllers\Tenant\SettingsController as TenantSettingsController;
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
@@ -156,6 +158,13 @@ $docsHost = preg_replace('/:\d+$/', '', $docsHost) ?? '';
 if (is_string($publicHost) && $publicHost !== '') {
     Route::domain($publicHost)->group(function () {
         Route::redirect('/', '/id', 301);
+        Route::middleware(['auth', 'check.role'])->group(function () {
+            Route::get('/dashboard', [DashboardController::class, 'create'])->name('dashboard.legacy');
+        });
+    });
+} else {
+    Route::middleware(['auth', 'check.role'])->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'create'])->name('dashboard.legacy');
     });
 }
 
@@ -175,6 +184,11 @@ if ($docsHost !== '') {
 
 Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->name('tenant.')->group(function () {
     Route::get('/', TenantHomeController::class)->name('home');
+    Route::middleware('auth')->group(function () {
+        Route::get('/dashboard', TenantDashboardController::class)->name('dashboard');
+        Route::get('/settings', [TenantSettingsController::class, 'edit'])->name('settings');
+        Route::post('/settings', [TenantSettingsController::class, 'update'])->name('settings.update');
+    });
     Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
         ->missing(fn () => redirect('/', 302))
         ->name('order');
@@ -347,7 +361,6 @@ Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleC
     ->name('duitku.callback');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
-    Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard.legacy');
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
     Route::get('/order-status/{order_id}/{status}',                              [AdminOrder::class, 'update']);
     Route::get('/process-order/{order_id}',                              [AdminOrder::class, 'reorder']);
