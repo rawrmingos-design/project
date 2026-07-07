@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Support\PembelianStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -42,7 +43,7 @@ use App\Services\PublicOrderPushNotificationService;
 class Pembelian extends Model
 
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $guarded = [];
 
