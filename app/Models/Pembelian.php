@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Support\PembelianStatus;
+use App\Tenancy\TenantCommissionService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,6 +58,8 @@ class Pembelian extends Model
 
     protected $casts = [
         'harga'                   => 'integer',
+        'profit'                  => 'integer',
+        'tenant_commission_credited_at' => 'datetime',
         'refund_amount'           => 'integer',
         'refunded_at'             => 'datetime',
         'email_pembeli'           => 'string',
@@ -127,6 +130,15 @@ class Pembelian extends Model
 
             if ($oldStatus === PembelianStatus::SUCCESS || $newStatus !== PembelianStatus::SUCCESS) {
                 return;
+            }
+
+            try {
+                app(TenantCommissionService::class)->creditIfEligible($pembelian);
+            } catch (\Throwable $exception) {
+                Log::warning('Tenant commission credit failed from Pembelian status transition', [
+                    'order_id' => $pembelian->order_id,
+                    'error' => $exception->getMessage(),
+                ]);
             }
 
             try {
