@@ -66,6 +66,7 @@ use App\Http\Controllers\Public\DepositPageController as PublicDepositPageContro
 use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageController;
 use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
+use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
@@ -171,6 +172,18 @@ if ($docsHost !== '') {
         Route::get('/', [\App\Http\Controllers\Public\DocsController::class, 'index'])->name('docs.index');
     });
 }
+
+Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->name('tenant.')->group(function () {
+    Route::get('/', TenantHomeController::class)->name('home');
+    Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
+        ->missing(fn () => redirect('/', 302))
+        ->name('order');
+    Route::post('/order/price', [OrderController::class, 'price'])->name('order.price');
+    Route::post('/order/checkout', [OrderController::class, 'store'])->name('order.checkout');
+    Route::post('/order/confirm', [OrderController::class, 'confirm'])->name('order.confirm');
+    Route::get('/invoices/{order}', PublicInvoicePageController::class)->name('invoice');
+    Route::get('/track/{order}', PublicInvoicePageController::class)->name('track');
+});
 
 Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
