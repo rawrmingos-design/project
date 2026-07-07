@@ -69,30 +69,36 @@ class MediaAssetForm
 
                                 if ($record->is_image_file) {
                                     return new HtmlString(<<<HTML
-<div style="display:flex;flex-direction:column;gap:10px;">
-    <img src="{$url}" alt="{$alt}" style="max-width:220px;max-height:220px;object-fit:cover;border-radius:14px;border:1px solid rgba(148,163,184,.2);" />
-    <span style="font-size:12px;color:#94a3b8;">{$path}</span>
-    <span style="font-size:12px;color:#94a3b8;">{$extension} &bull; {$size}</span>
+<div style="display:flex;align-items:flex-start;gap:14px;padding:12px;border:1px solid rgba(148,163,184,.25);border-radius:14px;background:rgba(15,23,42,.35);">
+    <img src="{$url}" alt="{$alt}" style="width:140px;height:140px;object-fit:cover;border-radius:14px;border:1px solid rgba(148,163,184,.25);" />
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+        <span style="font-size:12px;color:#94a3b8;">File aktif saat ini</span>
+        <span style="font-size:14px;color:#e2e8f0;font-weight:600;line-height:1.45;">{$alt}</span>
+        <span style="font-size:12px;color:#94a3b8;word-break:break-all;">{$path}</span>
+        <span style="font-size:12px;color:#94a3b8;">{$extension} &bull; {$size}</span>
+        <a href="{$url}" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:underline;">Buka file</a>
+    </div>
 </div>
 HTML);
                                 }
 
                                 return new HtmlString(<<<HTML
-<div style="display:flex;flex-direction:column;gap:10px;">
-    <div style="display:flex;align-items:center;gap:8px;font-weight:600;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(148,163,184,.14);">ðŸ“„</span>
-        <span>{$extension} file</span>
+<div style="display:flex;align-items:flex-start;gap:14px;padding:12px;border:1px solid rgba(148,163,184,.25);border-radius:14px;background:rgba(15,23,42,.35);">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:rgba(148,163,184,.14);">📄</span>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+        <span style="font-size:12px;color:#94a3b8;">File aktif saat ini</span>
+        <span style="font-size:14px;color:#e2e8f0;font-weight:600;line-height:1.45;">{$extension} file</span>
+        <span style="font-size:12px;color:#94a3b8;">{$mimeType} &bull; {$size}</span>
+        <span style="font-size:12px;color:#94a3b8;word-break:break-all;">{$path}</span>
+        <a href="{$url}" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:underline;">Buka / download file</a>
     </div>
-    <span style="font-size:12px;color:#94a3b8;">{$mimeType} &bull; {$size}</span>
-    <span style="font-size:12px;color:#94a3b8;">{$path}</span>
-    <a href="{$url}" target="_blank" style="font-size:12px;color:#60a5fa;text-decoration:underline;">Buka / download file</a>
 </div>
 HTML);
                             })
                             ->columnSpanFull(),
 
                         SpatieMediaLibraryFileUpload::make('file')
-                            ->label('File')
+                            ->label('Upload / Ganti File')
                             ->collection('file')
                             ->disk(config('uploads.disk', 'assets'))
                             ->acceptedFileTypes([
@@ -120,7 +126,7 @@ HTML);
                             ->removeUploadedFileButtonPosition('right')
                             ->uploadButtonPosition('left')
                             ->required(fn ($record): bool => blank($record?->file_url))
-                            ->helperText('Mendukung gambar, PDF, XML, TXT, ZIP, DOCX, XLSX (maks 10MB). Upload file baru hanya jika ingin mengganti file sebelumnya.')
+                            ->helperText('Preview file aktif ditampilkan di bagian "Preview File Saat Ini". Gunakan field ini hanya untuk upload file baru atau mengganti file yang sudah ada. Mendukung gambar, PDF, XML, TXT, ZIP, DOCX, XLSX (maks 10MB).')
                             ->columnSpanFull(),
                     ]),
             ]);
