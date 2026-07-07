@@ -16,13 +16,25 @@ trait BelongsToTenant
                 return;
             }
 
-            $tenantId = app(TenantContext::class)->id();
+            $tenant = app(TenantContext::class)->get();
+            $tenantId = $tenant?->id;
 
             if ($tenantId === null) {
                 return;
             }
 
-            $query->where($query->getModel()->getTable() . '.tenant_id', $tenantId);
+            $table = $query->getModel()->getTable();
+
+            if ($query->getModel() instanceof \App\Models\User && $tenant->owner_user_id) {
+                $query->where(function (Builder $inner) use ($table, $tenantId, $tenant): void {
+                    $inner->where($table . '.tenant_id', $tenantId)
+                        ->orWhere($table . '.id', $tenant->owner_user_id);
+                });
+
+                return;
+            }
+
+            $query->where($table . '.tenant_id', $tenantId);
         });
 
         static::creating(function ($model): void {

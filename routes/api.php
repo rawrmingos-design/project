@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\RecentPurchasesController;
 use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\PostmanExportController;
+use App\Http\Controllers\Api\SubscriptionWebhookController;
+use App\Http\Controllers\Api\TenantRegistrationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,6 +28,16 @@ use App\Http\Controllers\Api\PostmanExportController;
 | is assigned the "api" middleware group. Enjoy building your API!
 |
 */
+
+Route::get('/subdomain/check', [TenantRegistrationController::class, 'checkSubdomain'])
+    ->middleware('throttle:30,1')
+    ->name('api.tenant.subdomain.check');
+Route::post('/tenant/register', [TenantRegistrationController::class, 'register'])
+    ->middleware('throttle:10,1')
+    ->name('api.tenant.register');
+Route::post('/webhooks/subscription', SubscriptionWebhookController::class)
+    ->middleware('throttle:60,1')
+    ->name('api.webhooks.subscription');
 
 Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
     Route::post('/balance', [OrderApiController::class,'balance'])
