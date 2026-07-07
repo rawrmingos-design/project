@@ -76,13 +76,6 @@ class UserForm
                             ->dehydrated(fn ($state) => !empty($state))
                             ->label('Password')
                             ->helperText('Kosongkan jika tidak ingin mengubah password.'),
-                            
-                        TextInput::make('api_key')
-                            ->label('API Key')
-                            ->maxLength(255)
-                            ->disabled()
-                            ->dehydrated(false)
-                            ->helperText('Dibuat otomatis untuk akses API.'),
                     ])
                     ->collapsible(),
                     
