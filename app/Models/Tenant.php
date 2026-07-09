@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Tenant extends Model
 {
@@ -16,6 +17,11 @@ class Tenant extends Model
     public const STATUS_ACTIVE = 'active';
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_CANCELLED = 'cancelled';
+
+    public const DOMAIN_STATUS_PENDING = 'pending';
+    public const DOMAIN_STATUS_VERIFYING = 'verifying';
+    public const DOMAIN_STATUS_VERIFIED = 'verified';
+    public const DOMAIN_STATUS_FAILED = 'failed';
 
     public const RESERVED_SUBDOMAINS = [
         'admin',
@@ -37,6 +43,7 @@ class Tenant extends Model
         'theme' => 'array',
         'settings' => 'array',
         'trial_ends_at' => 'datetime',
+        'custom_domain_verified_at' => 'datetime',
     ];
 
     protected function marginConfig(): Attribute
@@ -88,8 +95,19 @@ class Tenant extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    public function subscriptionInvoices(): HasManyThrough
+    {
+        return $this->hasManyThrough(SubscriptionInvoice::class, Subscription::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    public function isDomainVerified(): bool
+    {
+        return $this->custom_domain_status === self::DOMAIN_STATUS_VERIFIED
+            && $this->custom_domain_verified_at !== null;
     }
 }
