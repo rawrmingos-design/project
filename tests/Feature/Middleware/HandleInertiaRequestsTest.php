@@ -2,8 +2,6 @@
 
 namespace Tests\Feature\Middleware;
 
-use App\Models\SettingWeb;
-use App\Models\User;
 use App\Services\PublicSiteConfigService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -90,5 +88,37 @@ class HandleInertiaRequestsTest extends TestCase
         } finally {
             \File::delete(public_path('assets/logo/r2-local-logo.png'));
         }
+    }
+
+    public function test_default_footer_copy_distinguishes_kemitraan_and_reseller_topup(): void
+    {
+        \DB::table('setting_webs')->insert([
+            'id'                   => 1,
+            'judul_web'            => 'TestSite',
+            'deskripsi_web'        => 'Test',
+            'keywords'             => 'test',
+            'url_wa'               => 'https://wa.me/6281234567890',
+            'url_ig'               => '',
+            'url_tiktok'           => '',
+            'url_youtube'          => '',
+            'url_fb'               => '',
+            'topupindo_api'        => '',
+            'warna1'               => '#000',
+            'warna2'               => '#000',
+            'warna3'               => '#000',
+            'warna4'               => '#000',
+            'paydisini_apikey'     => '',
+            'order_prefik'         => 'INV',
+            'created_at'           => now(),
+            'updated_at'           => now(),
+        ]);
+
+        $footerColumns = app(PublicSiteConfigService::class)->sharedProps()['siteConfig']['footerColumns'];
+        $partnershipColumn = collect($footerColumns)->firstWhere('title', 'Kemitraan');
+
+        $this->assertNotNull($partnershipColumn);
+        $this->assertContains(['label' => 'Gabung Kemitraan', 'href' => 'https://wa.me/6281234567890'], $partnershipColumn['items']);
+        $this->assertContains(['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'], $partnershipColumn['items']);
+        $this->assertContains(['label' => 'Dokumentasi API', 'href' => '/api-documentation'], $partnershipColumn['items']);
     }
 }
