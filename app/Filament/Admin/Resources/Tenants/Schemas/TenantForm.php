@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
 use App\Models\Tenant;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -65,6 +66,37 @@ class TenantForm
                                 Tenant::STATUS_SUSPENDED => 'Suspended',
                                 Tenant::STATUS_CANCELLED => 'Cancelled',
                             ]),
+                    ]),
+
+                Section::make('Domain Verification')
+                    ->columns(1)
+                    ->visible(fn ($record) => filled($record?->custom_domain))
+                    ->schema([
+                        TextInput::make('custom_domain_status')
+                            ->label('Status')
+                            ->disabled(),
+
+                        TextInput::make('custom_domain_verification_token')
+                            ->label('Verification Token')
+                            ->disabled()
+                            ->copyable(),
+
+                        Placeholder::make('dns_instructions')
+                            ->label('DNS Setup Instructions')
+                            ->content(fn ($record) => implode("\n", [
+                                'Add a TXT record to your domain with value: ' . ($record?->custom_domain_verification_token ?? ''),
+                                'Point your CNAME to: ' . parse_url(config('app.url'), PHP_URL_HOST),
+                            ])),
+
+                        TextInput::make('custom_domain_verified_at')
+                            ->label('Verified At')
+                            ->disabled()
+                            ->visible(fn ($record) => $record?->custom_domain_verified_at !== null),
+
+                        TextInput::make('custom_domain_last_error')
+                            ->label('Last Error')
+                            ->disabled()
+                            ->visible(fn ($record) => $record?->custom_domain_last_error !== null),
                     ]),
 
                 Section::make('Configuration')
