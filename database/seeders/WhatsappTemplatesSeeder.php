@@ -42,6 +42,36 @@ class WhatsappTemplatesSeeder extends Seeder
             'created_at' => '2026-02-07 11:54:59',
             'updated_at' => '2026-02-07 11:54:59'
         ],
+        [
+            'id' => 4,
+            'slug' => 'tenant_registration_invoice',
+            'name' => 'Invoice Reseller Topup Dibuat',
+            'details' => '_Variables: {owner_name}, {store_name}, {tier}, {amount}, {payment_url}, {due_date}_',
+            'content' => "🧾 *Invoice Reseller Topup Dibuat*\n\nHalo {owner_name}, invoice untuk *{store_name}* sudah dibuat.\nPaket: {tier}\nNominal: {amount}\nJatuh tempo: {due_date}\nBayar: {payment_url}",
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'id' => 5,
+            'slug' => 'tenant_activated',
+            'name' => 'Reseller Topup Aktif',
+            'details' => '_Variables: {owner_name}, {store_name}, {tenant_url}, {dashboard_url}_',
+            'content' => "✅ *Reseller Topup Aktif*\n\nHalo {owner_name}, website *{store_name}* sudah aktif.\n\nWebsite: {tenant_url}\nDashboard: {dashboard_url}",
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'id' => 6,
+            'slug' => 'tenant_invoice_expired',
+            'name' => 'Invoice Reseller Topup Expired',
+            'details' => '_Variables: {owner_name}, {store_name}, {support_url}_',
+            'content' => "⚠️ *Invoice Reseller Topup Expired*\n\nHalo {owner_name}, invoice untuk *{store_name}* sudah expired.\nHubungi support: {support_url}",
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
         ]);
     }
 }
