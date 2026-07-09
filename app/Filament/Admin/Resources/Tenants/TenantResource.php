@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Tenants;
 use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
+use App\Filament\Admin\Resources\Tenants\RelationManagers\SubscriptionInvoicesRelationManager;
 use App\Filament\Admin\Resources\Tenants\Schemas\TenantForm;
 use App\Filament\Admin\Resources\Tenants\Tables\TenantsTable;
 use App\Models\Tenant;
@@ -44,7 +45,9 @@ class TenantResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            SubscriptionInvoicesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
