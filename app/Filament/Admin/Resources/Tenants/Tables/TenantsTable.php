@@ -24,6 +24,16 @@ class TenantsTable
                 TextColumn::make('custom_domain')
                     ->searchable()
                     ->toggleable(),
+                TextColumn::make('custom_domain_status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'verified' => 'success',
+                        'pending' => 'warning',
+                        'failed' => 'danger',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('owner.email')
                     ->label('Owner')
                     ->searchable()
