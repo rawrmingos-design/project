@@ -23,13 +23,13 @@
                             <li>
                                 <a href="{{ !$config ? '' : $config->url_wa }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
                                    
-                                    <span>Daftar Reseller </span>
+                                    <span>Gabung Kemitraan </span>
                                 </a>
                             </li>
                             <li>
-                                <a href="https://wa.me/6285792464508" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
-                                   
-                                    <span>Web Top Up </span>
+                                <a href="/id/reseller-topup" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" style="outline: none;">
+
+                                    <span>Reseller Topup </span>
                                 </a>
                             </li>
                             <li>
@@ -47,7 +47,7 @@
                                 @endphp
                                 <a href="{{ $docsUrl }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
                                    
-                                    <span>Documentation APi </span>
+                                    <span>Dokumentasi API </span>
                                 </a>
                             </li>
                            
