@@ -40,15 +40,26 @@ class ResolveTenant
             return null;
         }
 
-        $tenant = Tenant::query()
+        // Check if any tenant has claimed this custom domain (regardless of verification status)
+        $customDomainTenant = Tenant::query()
             ->where('custom_domain', $host)
-            ->where('status', Tenant::STATUS_ACTIVE)
             ->first();
 
-        if ($tenant) {
-            return $tenant;
+        if ($customDomainTenant) {
+            // A tenant has claimed this domain. Only resolve if fully verified and active.
+            // If conditions are not met, return null — do NOT fall through to subdomain resolution.
+            if (
+                $customDomainTenant->status === Tenant::STATUS_ACTIVE
+                && $customDomainTenant->custom_domain_status === Tenant::DOMAIN_STATUS_VERIFIED
+                && $customDomainTenant->custom_domain_verified_at !== null
+            ) {
+                return $customDomainTenant;
+            }
+
+            return null;
         }
 
+        // No tenant has this host as a custom domain — try subdomain resolution
         $subdomain = $this->extractSubdomain($host);
 
         if ($subdomain === null) {
