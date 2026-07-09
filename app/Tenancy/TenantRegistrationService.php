@@ -19,6 +19,11 @@ class TenantRegistrationService
         'enterprise' => 0,
     ];
 
+    public const SELF_SERVICE_TIERS = [
+        'starter',
+        'business',
+    ];
+
     public function register(array $data): array
     {
         $subdomain = $this->normalizeSubdomain((string) ($data['subdomain'] ?? ''));
@@ -26,13 +31,17 @@ class TenantRegistrationService
 
         $this->validateSubdomain($subdomain);
 
-        if (! array_key_exists($tier, self::TIER_PRICES)) {
+        if (! in_array($tier, self::SELF_SERVICE_TIERS, true)) {
             throw ValidationException::withMessages([
-                'tier' => 'Paket tidak tersedia.',
+                'tier' => 'Paket tidak tersedia untuk pendaftaran mandiri.',
             ]);
         }
 
         return DB::transaction(function () use ($data, $subdomain, $tier): array {
+            $amount = self::TIER_PRICES[$tier];
+            $gatewayRef = 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
+            $gateway = $amount > 0 ? 'duitku' : 'manual';
+
             $owner = User::query()->create([
                 'name' => trim((string) $data['name']),
                 'username' => $this->uniqueUsername($subdomain),
@@ -64,25 +73,43 @@ class TenantRegistrationService
             $subscription = Subscription::query()->create([
                 'tenant_id' => $tenant->id,
                 'tier' => $tier,
-                'price' => self::TIER_PRICES[$tier],
+                'price' => $amount,
                 'status' => Subscription::STATUS_PENDING,
+                'gateway_ref' => $gatewayRef,
             ]);
 
             $invoice = SubscriptionInvoice::query()->create([
                 'subscription_id' => $subscription->id,
-                'amount' => self::TIER_PRICES[$tier],
+                'amount' => $amount,
                 'status' => SubscriptionInvoice::STATUS_PENDING,
-                'gateway' => 'manual',
-                'gateway_ref' => 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6)),
+                'gateway' => $gateway,
+                'gateway_ref' => $gatewayRef,
                 'due_date' => now()->addDay(),
                 'metadata' => [
                     'source' => 'tenant_self_registration',
                     'store_name' => $tenant->name,
                     'subdomain' => $subdomain,
+                    'currency' => 'IDR',
                 ],
             ]);
 
-            return compact('owner', 'tenant', 'subscription', 'invoice');
+            if ($gateway === 'duitku') {
+                $invoice = app(DuitkuSubscriptionPaymentService::class)->createAndStoreInvoice($invoice);
+            }
+
+            DB::afterCommit(function () use ($invoice) {
+                \App\Jobs\SendTenantNotificationJob::dispatch(
+                    $invoice->id,
+                    \App\Jobs\SendTenantNotificationJob::EVENT_REGISTRATION_INVOICE
+                );
+            });
+
+            return [
+                'owner' => $owner,
+                'tenant' => $tenant,
+                'subscription' => $subscription,
+                'invoice' => $invoice->fresh('subscription.tenant.owner'),
+            ];
         });
     }
 
