@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\DB;
 
 class TenantProvisioningService
 {
-    public function markInvoicePaid(SubscriptionInvoice $invoice, ?string $gatewayRef = null): SubscriptionInvoice
+    public function markInvoicePaid(SubscriptionInvoice $invoice, ?string $gatewayRef = null, array $metadataMerge = []): SubscriptionInvoice
     {
-        return DB::transaction(function () use ($invoice, $gatewayRef): SubscriptionInvoice {
+        return DB::transaction(function () use ($invoice, $gatewayRef, $metadataMerge): SubscriptionInvoice {
             $lockedInvoice = SubscriptionInvoice::query()
                 ->whereKey($invoice->id)
                 ->lockForUpdate()
@@ -27,11 +27,22 @@ class TenantProvisioningService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $invoiceMetadata = array_replace_recursive($lockedInvoice->metadata ?: [], $metadataMerge);
+            $shouldNotifyActivated = false;
+
             if ($lockedInvoice->status !== SubscriptionInvoice::STATUS_PAID) {
+                $invoiceMetadata['notifications']['activated_sent_at'] = now()->toIso8601String();
+                $shouldNotifyActivated = true;
+
                 $lockedInvoice->forceFill([
                     'status' => SubscriptionInvoice::STATUS_PAID,
                     'gateway_ref' => $gatewayRef ?: $lockedInvoice->gateway_ref,
                     'paid_at' => $lockedInvoice->paid_at ?: now(),
+                    'metadata' => $invoiceMetadata,
+                ])->save();
+            } elseif ($metadataMerge !== []) {
+                $lockedInvoice->forceFill([
+                    'metadata' => $invoiceMetadata,
                 ])->save();
             }
 
@@ -59,6 +70,53 @@ class TenantProvisioningService
                 $tenant->owner->forceFill([
                     'role' => 'Gold',
                 ])->save();
+            }
+
+            if ($shouldNotifyActivated) {
+                DB::afterCommit(function () use ($lockedInvoice) {
+                    \App\Jobs\SendTenantNotificationJob::dispatch(
+                        $lockedInvoice->id,
+                        \App\Jobs\SendTenantNotificationJob::EVENT_ACTIVATED
+                    );
+                });
+            }
+
+            return $lockedInvoice->fresh(['subscription.tenant.owner']);
+        });
+    }
+
+    public function markInvoiceExpired(SubscriptionInvoice $invoice, array $metadataMerge = []): SubscriptionInvoice
+    {
+        return DB::transaction(function () use ($invoice, $metadataMerge): SubscriptionInvoice {
+            $lockedInvoice = SubscriptionInvoice::query()
+                ->whereKey($invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $invoiceMetadata = array_replace_recursive($lockedInvoice->metadata ?: [], $metadataMerge);
+            $shouldNotifyExpired = false;
+
+            if ($lockedInvoice->status === SubscriptionInvoice::STATUS_PENDING) {
+                $invoiceMetadata['notifications']['expired_sent_at'] = now()->toIso8601String();
+                $shouldNotifyExpired = true;
+
+                $lockedInvoice->forceFill([
+                    'status' => SubscriptionInvoice::STATUS_EXPIRED,
+                    'metadata' => $invoiceMetadata,
+                ])->save();
+            } elseif ($metadataMerge !== []) {
+                $lockedInvoice->forceFill([
+                    'metadata' => $invoiceMetadata,
+                ])->save();
+            }
+
+            if ($shouldNotifyExpired) {
+                DB::afterCommit(function () use ($lockedInvoice) {
+                    \App\Jobs\SendTenantNotificationJob::dispatch(
+                        $lockedInvoice->id,
+                        \App\Jobs\SendTenantNotificationJob::EVENT_INVOICE_EXPIRED
+                    );
+                });
             }
 
             return $lockedInvoice->fresh(['subscription.tenant.owner']);
