@@ -16,6 +16,7 @@ use App\Http\Controllers\LayananController;
 use App\Http\Controllers\TokoPayCallbackController;
 use App\Http\Controllers\PaydisiniCallbackController;
 use App\Http\Controllers\DuitkuPaymentController;
+use App\Http\Controllers\Api\SubscriptionWebhookController;
 use App\Http\Controllers\DigiflazzCallbackController;
 use App\Http\Controllers\VipResellerCallbackController;
 use App\Http\Controllers\ApiGamesCallbackController;
@@ -68,6 +69,7 @@ use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffil
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
+use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
 use App\Http\Controllers\Tenant\SettingsController as TenantSettingsController;
 use App\Http\Controllers\GoogleAuthController;
 
@@ -208,6 +210,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     });
 
     Route::get('/',                                                              PublicHomeController::class)->name('home');
+    Route::get('/reseller-topup',                                                TenantRegistrationPageController::class)->name('tenant.register.page');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
         Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
@@ -359,6 +362,9 @@ Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, '
 Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])
     ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
     ->name('duitku.callback');
+Route::post('/wejizy/duitku/subscription/callback', [SubscriptionWebhookController::class, 'duitku'])
+    ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
+    ->name('duitku.subscription.callback');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
