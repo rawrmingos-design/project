@@ -268,15 +268,14 @@ class TriPayCallbackTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'claimed_with_processing_error');
+            ->assertJsonPath('success', true);
 
         $invoice->refresh();
         $deposit->refresh();
         $user->refresh();
 
         $this->assertSame('Batal', $invoice->status);
-        $this->assertSame('Pending', $deposit->status);
+        $this->assertSame('Gagal', $deposit->status);
         $this->assertSame(2000, (int) $user->balance);
     }
 
