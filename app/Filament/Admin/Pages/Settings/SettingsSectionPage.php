@@ -1151,7 +1151,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->extraAttributes($this->onboardingSectionAttributes('mail-configuration')),
 
                 Section::make('Channel Notifikasi')
-                    ->description('Pilih channel otomatis untuk invoice dan affiliate.')
+                    ->description('Pilih channel otomatis untuk invoice, affiliate, dan tenant Reseller Topup.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('invoice_notify_via_whatsapp')
@@ -1173,6 +1173,16 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->label('Affiliate via Email')
                             ->default(true)
                             ->helperText('Kirim hasil review affiliate lewat email.'),
+
+                        Toggle::make('tenant_notify_via_whatsapp')
+                            ->label('Tenant via WhatsApp')
+                            ->default(true)
+                            ->helperText('Kirim invoice dan aktivasi Reseller Topup lewat WhatsApp.'),
+
+                        Toggle::make('tenant_notify_via_email')
+                            ->label('Tenant via Email')
+                            ->default(true)
+                            ->helperText('Kirim invoice dan aktivasi Reseller Topup lewat email.'),
                     ])
                     ->collapsible()
                     ->extraAttributes($this->onboardingSectionAttributes('invoice-delivery')),
@@ -1394,6 +1404,12 @@ abstract class SettingsSectionPage extends Page implements HasForms
             : true;
         $data['affiliate_notify_via_email'] = array_key_exists('affiliate_notify_via_email', $data)
             ? (bool) $data['affiliate_notify_via_email']
+            : true;
+        $data['tenant_notify_via_whatsapp'] = array_key_exists('tenant_notify_via_whatsapp', $data)
+            ? (bool) $data['tenant_notify_via_whatsapp']
+            : true;
+        $data['tenant_notify_via_email'] = array_key_exists('tenant_notify_via_email', $data)
+            ? (bool) $data['tenant_notify_via_email']
             : true;
         $data['home_popup_enabled'] = array_key_exists('home_popup_enabled', $data)
             ? (bool) $data['home_popup_enabled']

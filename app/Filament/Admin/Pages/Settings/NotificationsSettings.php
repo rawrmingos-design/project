@@ -50,6 +50,8 @@ class NotificationsSettings extends SettingsSectionPage
             'invoice_notify_via_email',
             'affiliate_notify_via_whatsapp',
             'affiliate_notify_via_email',
+            'tenant_notify_via_whatsapp',
+            'tenant_notify_via_email',
         ];
     }
 }

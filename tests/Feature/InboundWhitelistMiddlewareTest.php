@@ -205,6 +205,7 @@ class InboundWhitelistMiddlewareTest extends TestCase
             ['uri' => 'wejizy/tripay/callback', 'method' => 'POST', 'middleware' => 'inbound.whitelist:payment_gateway,tripay,log_only'],
             ['uri' => 'wejizy/paydisini/callback', 'method' => 'POST', 'middleware' => 'inbound.whitelist:payment_gateway,paydisini,log_only'],
             ['uri' => 'wejizy/duitku/callback', 'method' => 'POST', 'middleware' => 'inbound.whitelist:payment_gateway,duitku,log_only'],
+            ['uri' => 'wejizy/duitku/subscription/callback', 'method' => 'POST', 'middleware' => 'inbound.whitelist:payment_gateway,duitku,log_only'],
             ['uri' => 'api/webhooks/digiflazz', 'method' => 'POST', 'middleware' => 'inbound.whitelist:supplier_callback,digiflazz,log_only'],
             ['uri' => 'api/webhooks/bangjeff', 'method' => 'POST', 'middleware' => 'inbound.whitelist:supplier_callback,bangjeff,log_only'],
             ['uri' => 'api/webhooks/topupedia', 'method' => 'POST', 'middleware' => 'inbound.whitelist:supplier_callback,topupedia,log_only'],

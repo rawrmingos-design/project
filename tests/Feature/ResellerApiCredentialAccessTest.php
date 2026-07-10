@@ -85,6 +85,54 @@ class ResellerApiCredentialAccessTest extends TestCase
             ->assertJsonPath('error_code', 'IP_NOT_WHITELISTED');
     }
 
+    public function test_reseller_api_denies_valid_token_when_ip_whitelist_is_empty(): void
+    {
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'demo-token-empty-ip'),
+            'mode' => 'live',
+            'is_active' => true,
+            'allowed_ips' => [],
+        ]);
+
+        $integration->user->update([
+            'username' => 'api.member.empty.ip',
+            'role' => 'Member',
+        ]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])
+            ->withHeaders([
+                'Authorization' => 'Bearer demo-token-empty-ip',
+            ])
+            ->postJson('/api/v1/status-order/INV-API-404')
+            ->assertStatus(403)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('error_code', 'IP_WHITELIST_EMPTY');
+    }
+
+    public function test_reseller_api_balance_requires_ip_whitelist_too(): void
+    {
+        $integration = ResellerIntegration::factory()->create([
+            'api_key_hash' => hash('sha256', 'demo-token-balance-ip'),
+            'mode' => 'live',
+            'is_active' => true,
+            'allowed_ips' => ['1.2.3.4'],
+        ]);
+
+        $integration->user->update([
+            'username' => 'api.member.balance.ip',
+            'role' => 'Member',
+        ]);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])
+            ->withHeaders([
+                'Authorization' => 'Bearer demo-token-balance-ip',
+            ])
+            ->postJson('/api/v1/balance')
+            ->assertStatus(403)
+            ->assertJsonPath('error', true)
+            ->assertJsonPath('error_code', 'IP_NOT_WHITELISTED');
+    }
+
     public function test_reseller_api_errors_are_token_based_not_legacy_ip_whitelist_based(): void
     {
         $response = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.99'])

@@ -15,6 +15,8 @@ use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\RecentPurchasesController;
 use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\PostmanExportController;
+use App\Http\Controllers\Api\SubscriptionWebhookController;
+use App\Http\Controllers\Api\TenantRegistrationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -27,13 +29,23 @@ use App\Http\Controllers\Api\PostmanExportController;
 |
 */
 
+Route::get('/subdomain/check', [TenantRegistrationController::class, 'checkSubdomain'])
+    ->middleware('throttle:30,1')
+    ->name('api.tenant.subdomain.check');
+Route::post('/tenant/register', [TenantRegistrationController::class, 'register'])
+    ->middleware('throttle:10,1')
+    ->name('api.tenant.register');
+Route::post('/webhooks/subscription', SubscriptionWebhookController::class)
+    ->middleware('throttle:60,1')
+    ->name('api.webhooks.subscription');
+
 Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
     Route::post('/balance', [OrderApiController::class,'balance'])
-        ->middleware(['throttle:reseller-api-balance', 'auth.api']);
+        ->middleware(['throttle:reseller-api-balance', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/category', [OrderApiController::class,'category'])
-        ->middleware(['throttle:reseller-api-category', 'auth.api']);
+        ->middleware(['throttle:reseller-api-category', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/variant', [OrderApiController::class,'listVariant'])
-        ->middleware(['throttle:reseller-api-variant', 'auth.api']);
+        ->middleware(['throttle:reseller-api-variant', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/order', [OrderApiController::class,'order'])
         ->middleware(['throttle:reseller-api-order', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/status-order/{invoice}', [OrderApiController::class,'statusOrder'])

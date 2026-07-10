@@ -6,7 +6,6 @@ use App\Models\SettingWeb;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Throwable;
 
 class PublicSiteConfigService
@@ -177,9 +176,9 @@ class PublicSiteConfigService
                 [
                     'title' => 'Partnership',
                     'items' => [
-                        ['label' => 'Reseller', 'href' => $socials['whatsapp']],
-                        ['label' => 'Web Creation', 'href' => $socials['whatsapp']],
-                        ['label' => 'Documentation API', 'href' => '/api-documentation'],
+                        ['label' => 'Join Partnership', 'href' => $socials['whatsapp']],
+                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'],
+                        ['label' => 'API Documentation', 'href' => '/api-documentation'],
                     ],
                 ],
                 [
@@ -205,9 +204,9 @@ class PublicSiteConfigService
                 [
                     'title' => 'Kemitraan',
                     'items' => [
-                        ['label' => 'Daftar Reseller', 'href' => $socials['whatsapp']],
-                        ['label' => 'Web Top Up', 'href' => $socials['whatsapp']],
-                        ['label' => 'Documentation API', 'href' => '/api-documentation'],
+                        ['label' => 'Gabung Kemitraan', 'href' => $socials['whatsapp']],
+                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'],
+                        ['label' => 'Dokumentasi API', 'href' => '/api-documentation'],
                     ],
                 ],
                 [

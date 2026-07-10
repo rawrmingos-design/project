@@ -29,6 +29,7 @@ class VerifyCsrfToken extends \Illuminate\Foundation\Http\Middleware\VerifyCsrfT
         'wejizy/tripay/callback',
         'wejizy/paydisini/callback',
         'wejizy/duitku/callback',
+        'wejizy/duitku/subscription/callback',
         'api/webhooks/*',
     ];
     
