@@ -29,5 +29,6 @@
         <server name="TELESCOPE_ENABLED" value="false"/>
         <server name="BROADCAST_DRIVER" value="log"/>
         <server name="BROADCAST_CONNECTION" value="log"/>
+        <env name="FILAMENT_ADMIN_DOMAIN" value=""/>
     </php>
 </phpunit>
