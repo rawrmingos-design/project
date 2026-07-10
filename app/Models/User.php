@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,7 +17,7 @@ use App\Models\PublicPushSubscription;
 
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail, HasAppAuthentication
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use BelongsToTenant, HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -25,6 +26,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
      */
     protected $fillable = [
         'name',
+        'tenant_id',
         'username',
         'password',
         'email',
@@ -72,6 +74,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'tenant_id' => 'integer',
         'balance' => 'integer',
         'point_balance' => 'integer',
         'affiliate_requested_at' => 'datetime',

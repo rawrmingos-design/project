@@ -45,6 +45,39 @@ class EmailTemplatesSeeder extends Seeder
             'created_at' => '2026-02-08 11:07:39',
             'updated_at' => '2026-02-08 11:07:39'
         ],
+        [
+            'id' => 4,
+            'slug' => 'tenant_registration_invoice',
+            'name' => 'Invoice Reseller Topup Dibuat',
+            'subject' => 'Invoice Reseller Topup kamu sudah dibuat',
+            'details' => '_Variables: {owner_name}, {store_name}, {tier}, {amount}, {payment_url}, {due_date}_',
+            'content' => '<p>Halo <strong>{owner_name}</strong>,</p><p>Invoice Reseller Topup untuk <strong>{store_name}</strong> sudah dibuat.</p><ul><li>Paket: {tier}</li><li>Nominal: {amount}</li><li>Jatuh tempo: {due_date}</li></ul><p>Bayar di sini: <a href="{payment_url}">{payment_url}</a></p>',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'id' => 5,
+            'slug' => 'tenant_activated',
+            'name' => 'Reseller Topup Aktif',
+            'subject' => 'Website Reseller Topup kamu sudah aktif',
+            'details' => '_Variables: {owner_name}, {store_name}, {tenant_url}, {dashboard_url}_',
+            'content' => '<p>Halo <strong>{owner_name}</strong>,</p><p>Website Reseller Topup <strong>{store_name}</strong> sudah aktif.</p><ul><li>Website: <a href="{tenant_url}">{tenant_url}</a></li><li>Dashboard: <a href="{dashboard_url}">{dashboard_url}</a></li></ul><p>Silakan login dan mulai atur toko kamu.</p>',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'id' => 6,
+            'slug' => 'tenant_invoice_expired',
+            'name' => 'Invoice Reseller Topup Expired',
+            'subject' => 'Invoice Reseller Topup kamu expired',
+            'details' => '_Variables: {owner_name}, {store_name}, {support_url}_',
+            'content' => '<p>Halo <strong>{owner_name}</strong>,</p><p>Invoice Reseller Topup untuk <strong>{store_name}</strong> sudah expired.</p><p>Hubungi support untuk membuat invoice baru: <a href="{support_url}">{support_url}</a></p>',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
         ]);
     }
 }

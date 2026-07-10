@@ -87,3 +87,12 @@ testsprite_tests\tmp\config.json
 # Runtime upload artifacts
 /public/images/
 /storage/app/bukti_withdraw/
+
+# Kiro specs & config
+.kiro
+
+# Local SQL dumps
+/storage/app/*.sql
+
+# HTMLPurifier cache
+/storage/app/purifier/

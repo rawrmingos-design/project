@@ -16,6 +16,7 @@ use App\Http\Controllers\LayananController;
 use App\Http\Controllers\TokoPayCallbackController;
 use App\Http\Controllers\PaydisiniCallbackController;
 use App\Http\Controllers\DuitkuPaymentController;
+use App\Http\Controllers\Api\SubscriptionWebhookController;
 use App\Http\Controllers\DigiflazzCallbackController;
 use App\Http\Controllers\VipResellerCallbackController;
 use App\Http\Controllers\ApiGamesCallbackController;
@@ -66,6 +67,10 @@ use App\Http\Controllers\Public\DepositPageController as PublicDepositPageContro
 use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageController;
 use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
+use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
+use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
+use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
+use App\Http\Controllers\Tenant\SettingsController as TenantSettingsController;
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
@@ -155,6 +160,13 @@ $docsHost = preg_replace('/:\d+$/', '', $docsHost) ?? '';
 if (is_string($publicHost) && $publicHost !== '') {
     Route::domain($publicHost)->group(function () {
         Route::redirect('/', '/id', 301);
+        Route::middleware(['auth', 'check.role'])->group(function () {
+            Route::get('/dashboard', [DashboardController::class, 'create'])->name('dashboard.legacy');
+        });
+    });
+} else {
+    Route::middleware(['auth', 'check.role'])->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'create'])->name('dashboard.legacy');
     });
 }
 
@@ -172,6 +184,23 @@ if ($docsHost !== '') {
     });
 }
 
+Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->name('tenant.')->group(function () {
+    Route::get('/', TenantHomeController::class)->name('home');
+    Route::middleware('auth')->group(function () {
+        Route::get('/dashboard', TenantDashboardController::class)->name('dashboard');
+        Route::get('/settings', [TenantSettingsController::class, 'edit'])->name('settings');
+        Route::post('/settings', [TenantSettingsController::class, 'update'])->name('settings.update');
+    });
+    Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
+        ->missing(fn () => redirect('/', 302))
+        ->name('order');
+    Route::post('/order/price', [OrderController::class, 'price'])->name('order.price');
+    Route::post('/order/checkout', [OrderController::class, 'store'])->name('order.checkout');
+    Route::post('/order/confirm', [OrderController::class, 'confirm'])->name('order.confirm');
+    Route::get('/invoices/{order}', PublicInvoicePageController::class)->name('invoice');
+    Route::get('/track/{order}', PublicInvoicePageController::class)->name('track');
+});
+
 Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
     // Artikel Routes (Inertia for bangjeff theme, blade fallback in controller for default theme)
@@ -181,6 +210,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     });
 
     Route::get('/',                                                              PublicHomeController::class)->name('home');
+    Route::get('/reseller-topup',                                                TenantRegistrationPageController::class)->name('tenant.register.page');
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
         Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
@@ -332,9 +362,11 @@ Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, '
 Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])
     ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
     ->name('duitku.callback');
+Route::post('/wejizy/duitku/subscription/callback', [SubscriptionWebhookController::class, 'duitku'])
+    ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
+    ->name('duitku.subscription.callback');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
-    Route::get('/dashboard',                                                     [DashboardController::class, 'create'])->name('dashboard.legacy');
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
     Route::get('/order-status/{order_id}/{status}',                              [AdminOrder::class, 'update']);
     Route::get('/process-order/{order_id}',                              [AdminOrder::class, 'reorder']);

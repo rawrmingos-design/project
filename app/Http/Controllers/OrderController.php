@@ -204,9 +204,40 @@ class OrderController extends Controller
         ]);
     }
 
+    private function hasTenantContext(): bool
+    {
+        return app()->bound(TenantContext::class) && app(TenantContext::class)->has();
+    }
+
+    private function tenantPriceQuantity(Request $request): int
+    {
+        if (! in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)) {
+            return 1;
+        }
+
+        return max(1, (int) $request->qty);
+    }
+
+    private function applyTenantPricing($layanan, Request $request): void
+    {
+        if (! $this->hasTenantContext() || ! $layanan instanceof Layanan) {
+            return;
+        }
+
+        app(TenantPricingService::class)->applyToLayanan(
+            $layanan,
+            app(TenantContext::class)->get(),
+            $this->tenantPriceQuantity($request),
+        );
+    }
+
     public function price(Request $request)
     {
-        if (Auth::check()) {
+        if ($this->hasTenantContext()) {
+            $data = Layanan::where('id', $request->nominal)
+                ->select('id', 'harga_gold', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                ->first();
+        } elseif (Auth::check()) {
             if (Auth::user()->role == "Member") {
                 $data = Layanan::where('id', $request->nominal)
                     ->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
@@ -247,6 +278,7 @@ class OrderController extends Controller
             $data->harga *= $qty;
         }
 
+        $this->applyTenantPricing($data, $request);
 
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
@@ -613,7 +645,9 @@ class OrderController extends Controller
         $produk = Kategori::where('id', $item->kategori_id)->first();
 
         // cek data
-        if (Auth::check()) {
+        if ($this->hasTenantContext()) {
+            $dataLayanan = Layanan::where('id', $request->service)->select('id', 'harga_gold', 'harga_gold AS harga', 'kategori_id', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
+        } elseif (Auth::check()) {
             if (Auth::user()->role == "Member") {
                 $dataLayanan = Layanan::where('id', $request->service)->select('harga_member AS harga', 'kategori_id', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')->first();
             } else if (Auth::user()->role == "Platinum") {
@@ -637,6 +671,8 @@ class OrderController extends Controller
 
             $dataLayanan->harga *= $qty;
         }
+        $this->applyTenantPricing($dataLayanan, $request);
+
         // voucher
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
@@ -1072,30 +1108,35 @@ class OrderController extends Controller
 
         try {
             // 2. Initial Setup
-            if (Auth::check()) {
-            $role = Auth::user()->role;
-            $column = match($role) {
-                'Member' => 'harga_member',
-                'Platinum' => 'harga_platinum',
-                'Gold', 'Admin' => 'harga_gold',
-                default => 'harga_member'
-            };
-            $profitCol = match($role) {
-                'Member' => 'profit_member',
-                'Platinum' => 'profit_platinum',
-                'Gold', 'Admin' => 'profit_gold',
-                default => 'profit_member'
-            };
-            
-            $dataLayanan = Layanan::where('id', $request->service)
-                ->where('status', 'available')
-                ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                ->first();
+            if ($this->hasTenantContext()) {
+                $dataLayanan = Layanan::where('id', $request->service)
+                    ->where('status', 'available')
+                    ->select('id', 'layanan', 'harga_gold', 'harga_gold AS harga', 'harga_gold AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_gold AS profit', 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                    ->first();
+            } elseif (Auth::check()) {
+                $role = Auth::user()->role;
+                $column = match($role) {
+                    'Member' => 'harga_member',
+                    'Platinum' => 'harga_platinum',
+                    'Gold', 'Admin' => 'harga_gold',
+                    default => 'harga_member'
+                };
+                $profitCol = match($role) {
+                    'Member' => 'profit_member',
+                    'Platinum' => 'profit_platinum',
+                    'Gold', 'Admin' => 'profit_gold',
+                    default => 'profit_member'
+                };
+
+                $dataLayanan = Layanan::where('id', $request->service)
+                    ->where('status', 'available')
+                    ->select('id', 'layanan', "$column AS harga", 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', "$profitCol AS profit", 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                    ->first();
             } else {
-            $dataLayanan = Layanan::where('id', $request->service)
-                ->where('status', 'available')
-                ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                ->first();
+                $dataLayanan = Layanan::where('id', $request->service)
+                    ->where('status', 'available')
+                    ->select('id', 'layanan', 'harga_member AS harga', 'harga AS modal_harga', 'kategori_id', 'provider_id', 'provider', 'profit_member AS profit', 'status', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
+                    ->first();
             }
 
         if (!$dataLayanan) {
@@ -1133,6 +1174,8 @@ class OrderController extends Controller
             $qty = $request->qty > 0 ? $request->qty : 1;
             $dataLayanan->harga *= $qty;
         }
+
+        $this->applyTenantPricing($dataLayanan, $request);
 
         // Voucher Logic (Calculation Only)
         if ($request->voucher) {
@@ -2081,6 +2124,11 @@ class OrderController extends Controller
     private function calculateOrderProfitAmount(int $amount, $dataLayanan, array $providerContext, array $gatewayMeta = [], $dataMethod = null): int
     {
         $normalizedAmount = max(0, $amount);
+
+        if ($this->hasTenantContext() && is_numeric($dataLayanan->tenant_profit ?? null)) {
+            return max(0, (int) round((float) $dataLayanan->tenant_profit));
+        }
+
         $gatewayFeeAmount = $this->resolveGatewayFeeForProfit($normalizedAmount, $gatewayMeta, $dataMethod);
         $netRevenue = max(0, $normalizedAmount - $gatewayFeeAmount);
 

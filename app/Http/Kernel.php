@@ -25,6 +25,7 @@ class Kernel extends HttpKernel
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
+            \App\Http\Middleware\ResolveTenant::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \App\Http\Middleware\AddExpirationDateToCookie::class,
@@ -67,5 +68,7 @@ class Kernel extends HttpKernel
         'reseller.ip.enforce' => \App\Http\Middleware\EnforceResellerIpWhitelist::class,
         'add.api.version'   => \App\Http\Middleware\AddApiVersionHeader::class,
         'auth.message'      => \App\Http\Middleware\RequireAuthWithMessage::class,
+        'tenant.resolve'    => \App\Http\Middleware\ResolveTenant::class,
+        'tenant.required'   => \App\Http\Middleware\RequireTenant::class,
     ];
 }

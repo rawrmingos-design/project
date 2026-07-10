@@ -11,6 +11,7 @@ use App\Models\Voucher;
 use App\Models\Pembelian;
 use App\Models\Pembayaran;
 use App\Models\User;
+use App\Services\Checkout\CheckoutOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -60,7 +61,7 @@ class OrderController extends Controller
 
         $methods = Cache::remember('payment_methods_price_calc', 3600, function () {
             return Method::select('code', 'name', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
-                ->where('status', 'available')
+                ->enabled()
                 ->get()
                 ->keyBy('code');
         });
@@ -194,47 +195,23 @@ class OrderController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, CheckoutOrderService $checkout)
     {
-        $user = Auth::guard('sanctum')->user();
-        $role = $user ? $user->role : 'Guest';
+        $result = $checkout->createFromApi($request, Auth::guard('sanctum')->user());
 
-        $item = Layanan::findOrFail($request->service);
-        $harga = match($role) {
-            'Member' => $item->harga_member,
-            'Platinum' => $item->harga_platinum,
-            'Gold', 'Admin' => $item->harga_gold,
-            default => $item->harga_member
-        };
-
-        $dataMethod = Method::where('code', $request->payment_method)->first();
-        if (!$dataMethod) return response()->json(['status' => false, 'message' => 'Metode pembayaran tidak valid'], 400);
-        
-        $fee = $dataMethod->fix_fee + ($harga * ($dataMethod->fee_percent / 100));
-        $total_harga = $harga + $fee;
-
-        $order_id = 'TRX' . now()->format('ymdHis') . Str::upper(Str::random(6));
-        $payment_url = route('invoice.show', $order_id); 123456789;
-        
-        return response()->json([
-            'status' => true,
-            'order_id' => $order_id,
-            'payment_url' => $payment_url,
-            'total_amount' => $total_harga
-        ]);
+        return response()->json($result);
     }
 
-    public function show($order_id)
+    public function show($order_id, CheckoutOrderService $checkout)
     {
-        $pembelian = Pembelian::where('order_id', $order_id)->firstOrFail();
-        $pembayaran = Pembayaran::where('order_id', $order_id)->first();
+        $pembelian = Pembelian::query()
+            ->where('order_id', $order_id)
+            ->with('pembayaran')
+            ->firstOrFail();
 
         return response()->json([
             'status' => true,
-            'order' => $pembelian,
-            'sn' => $pembelian->keterangan_sn,
-            'keteranganSn' => $pembelian->keterangan_sn,
-            'payment' => $pembayaran
+            'data' => $checkout->statusPayload($pembelian),
         ]);
     }
 }

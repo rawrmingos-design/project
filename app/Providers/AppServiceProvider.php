@@ -17,6 +17,9 @@ use App\Observers\TenantObserver;
 use App\Services\OptimizedImageService;
 use App\Services\PublicUploadUrlService;
 use App\Support\PublicThemeRegistry;
+use App\Tenancy\Contracts\DnsResolverInterface;
+use App\Tenancy\NativeDnsResolver;
+use App\Tenancy\TenantContext;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
 
@@ -29,7 +32,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        $this->app->singleton(TenantContext::class, fn () => new TenantContext());
+
+        $this->app->bind(
+            DnsResolverInterface::class,
+            NativeDnsResolver::class,
+        );
     }
 
     /**
