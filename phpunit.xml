@@ -19,6 +19,7 @@
     </coverage>
     <php>
         <server name="APP_ENV" value="testing"/>
+        <env name="APP_ENV" value="testing"/>
         <server name="BCRYPT_ROUNDS" value="4"/>
         <server name="CACHE_DRIVER" value="array"/>
         <server name="DB_CONNECTION" value="sqlite"/>
@@ -29,6 +30,8 @@
         <server name="TELESCOPE_ENABLED" value="false"/>
         <server name="BROADCAST_DRIVER" value="log"/>
         <server name="BROADCAST_CONNECTION" value="log"/>
+        <server name="HTTP_HOST" value="localhost"/>
+        <server name="SERVER_NAME" value="localhost"/>
         <env name="FILAMENT_ADMIN_DOMAIN" value=""/>
     </php>
 </phpunit>
