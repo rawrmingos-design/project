@@ -11,18 +11,17 @@ abstract class AdminTestCase extends BaseTestCase
     use CreatesApplication;
 
     /**
-     * Creates the application and sets admin domain BEFORE boot.
+     * Creates the application and ensures Filament admin routes work in tests.
      */
     public function createApplication(): Application
     {
-        // Set admin domain BEFORE application boots (critical for Filament route registration)
-        $adminDomain = $_ENV['FILAMENT_ADMIN_DOMAIN'] ?? 'admin.imhaf.online';
-        $_SERVER['HTTP_HOST'] = $adminDomain;
-        $_SERVER['SERVER_NAME'] = $adminDomain;
-
         $app = require __DIR__.'/../bootstrap/app.php';
 
         $app->make(Kernel::class)->bootstrap();
+        
+        // Override app.url AFTER bootstrap but BEFORE Filament panel boots
+        // This prevents Filament from using production domain in tests
+        $app['config']->set('app.url', 'http://localhost');
 
         return $app;
     }
