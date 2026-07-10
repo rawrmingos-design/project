@@ -9,8 +9,11 @@ use App\Filament\Admin\Resources\InboundSourcePolicies\Pages\ListInboundSourcePo
 use App\Filament\Admin\Resources\InboundSourcePolicies\RelationManagers\EntriesRelationManager;
 use App\Models\InboundSourceEntry;
 use App\Models\InboundSourcePolicy;
+use App\Services\BulkModeSwitchService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,11 +22,14 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 class InboundSourcePolicyResource extends Resource
@@ -246,6 +252,77 @@ class InboundSourcePolicyResource extends Resource
                     ]),
                 TernaryFilter::make('is_active')
                     ->label('Aktif'),
+            ])
+            ->bulkActions([
+                BulkAction::make('bulk_switch_mode')
+                    ->label('Ganti Mode')
+                    ->icon('heroicon-o-arrow-path')
+                    ->form([
+                        Select::make('target_mode')
+                            ->label('Mode Target')
+                            ->options([
+                                'disabled' => 'Nonaktif',
+                                'log_only' => 'Pantau Saja',
+                                'enforce' => 'Blokir Jika Tidak Cocok',
+                            ])
+                            ->required()
+                            ->native(false)
+                            ->live(),
+                        Placeholder::make('empty_policy_warning')
+                            ->label('')
+                            ->content(fn (): HtmlString => new HtmlString(
+                                '<div class="rounded-lg border border-danger-300 bg-danger-50 p-4 dark:border-danger-600 dark:bg-danger-950">'
+                                . '<p class="text-sm font-medium text-danger-800 dark:text-danger-200">'
+                                . '⚠️ Perhatian: Mengaktifkan mode Blokir pada policy tanpa IP aktif akan memblokir SEMUA trafik masuk untuk provider tersebut.'
+                                . '</p>'
+                                . '<p class="mt-1 text-xs text-danger-600 dark:text-danger-400">'
+                                . 'Centang kotak di bawah untuk mengonfirmasi bahwa Anda memahami risiko ini.'
+                                . '</p>'
+                                . '</div>'
+                            ))
+                            ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('target_mode') === 'enforce'),
+                        Checkbox::make('acknowledge_empty_risk')
+                            ->label('Saya memahami risiko memblokir semua trafik pada policy tanpa IP aktif')
+                            ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('target_mode') === 'enforce'),
+                    ])
+                    ->action(function (Collection $records, array $data, BulkAction $action): void {
+                        $service = app(BulkModeSwitchService::class);
+                        $operator = auth()->user()?->email ?? auth()->user()?->name ?? 'unknown';
+                        $targetMode = $data['target_mode'];
+                        $emptyPolicies = null;
+
+                        // Two-phase confirmation for enforce mode
+                        if ($targetMode === 'enforce') {
+                            $emptyPolicies = $service->findEmptyPolicies($records);
+
+                            if ($emptyPolicies->isNotEmpty() && empty($data['acknowledge_empty_risk'])) {
+                                $policyNames = $emptyPolicies->map(
+                                    fn (InboundSourcePolicy $policy) => "{$policy->source_domain} — {$policy->source_name}"
+                                )->implode(', ');
+
+                                Notification::make()
+                                    ->title('Policy tanpa IP aktif terdeteksi')
+                                    ->body("Policy berikut tidak memiliki IP aktif: {$policyNames}. Centang kotak konfirmasi untuk melanjutkan.")
+                                    ->danger()
+                                    ->persistent()
+                                    ->send();
+
+                                $action->halt();
+
+                                return;
+                            }
+                        }
+
+                        $updatedCount = $service->execute($records, $targetMode, $operator, $emptyPolicies);
+
+                        Notification::make()
+                            ->title('Mode berhasil diubah')
+                            ->body("{$updatedCount} policy diperbarui.")
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation()
+                    ->deselectRecordsAfterCompletion(),
             ])
             ->defaultSort('source_domain')
             ->striped();
