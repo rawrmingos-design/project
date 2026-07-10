@@ -36,6 +36,7 @@ use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
 use App\Support\CustomInputDefaults;
+use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantPricingService;
 use Illuminate\Support\Carbon;
@@ -170,6 +171,9 @@ class OrderController extends Controller
             return \App\Models\Method::all();
         });
 
+        // Dynamic payment display categories (from PaymentDisplayCategoryService)
+        $paymentCategories = app(PaymentDisplayCategoryService::class)->getCategoriesForOrderPage();
+
         $gtmBuilder = app(GtmDataLayerBuilder::class);
         $gtmOrderItemCatalog = $gtmBuilder->buildCatalog($layanan, $data);
         $gtmViewItemPayload = null;
@@ -193,6 +197,7 @@ class OrderController extends Controller
             'ratings' => $ratings,
             'flashsale' => $flashsale,
             'pay_method' => $pay_method,
+            'paymentCategories' => $paymentCategories,
             'gtmViewItemPayload' => $gtmViewItemPayload,
             'gtmOrderItemCatalog' => $gtmOrderItemCatalog,
             'gtmPaymentMethodCatalog' => $gtmPaymentMethodCatalog,
@@ -570,6 +575,10 @@ class OrderController extends Controller
                 function ($attribute, $value, $fail) {
                     $code = trim((string) $value);
                     if (Str::upper($code) === 'SALDO') {
+                        // Reject SALDO selection for unauthenticated users
+                        if (!Auth::check()) {
+                            $fail('SALDO hanya bisa digunakan setelah login.');
+                        }
                         return;
                     }
 
