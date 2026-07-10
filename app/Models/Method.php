@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -17,8 +19,29 @@ class Method extends Model
 
     protected static function booted(): void
     {
-        static::saved(fn (): bool => static::flushFrontendCaches());
-        static::deleted(fn (): bool => static::flushFrontendCaches());
+        $invalidateCategoryCache = static function (self $model): void {
+            $tenantId = $model->tenant_id
+                ?? (app()->bound(TenantContext::class) ? app(TenantContext::class)->id() : null);
+
+            if ($tenantId) {
+                Cache::forget("tenant_{$tenantId}:payment_display_categories");
+            }
+        };
+
+        static::saved(function (self $model) use ($invalidateCategoryCache): void {
+            static::flushFrontendCaches();
+            $invalidateCategoryCache($model);
+        });
+
+        static::deleted(function (self $model) use ($invalidateCategoryCache): void {
+            static::flushFrontendCaches();
+            $invalidateCategoryCache($model);
+        });
+    }
+
+    public function displayCategory(): BelongsTo
+    {
+        return $this->belongsTo(PaymentDisplayCategory::class, 'payment_display_category_id');
     }
 
     public function getTipeAttribute($value): mixed
