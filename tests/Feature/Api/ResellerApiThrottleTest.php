@@ -29,6 +29,7 @@ class ResellerApiThrottleTest extends TestCase
             'api_key_hash' => hash('sha256', 'token-throttle-balance'),
             'mode' => 'live',
             'is_active' => true,
+            'allowed_ips' => ['203.0.113.10'],
         ]);
 
         $ip = '203.0.113.10';
@@ -113,11 +114,13 @@ class ResellerApiThrottleTest extends TestCase
             'api_key_hash' => hash('sha256', 'token-throttle-shared-a'),
             'mode' => 'live',
             'is_active' => true,
+            'allowed_ips' => ['203.0.113.12'],
         ]);
         ResellerIntegration::factory()->create([
             'api_key_hash' => hash('sha256', 'token-throttle-shared-b'),
             'mode' => 'live',
             'is_active' => true,
+            'allowed_ips' => ['203.0.113.12'],
         ]);
 
         $ip = '203.0.113.12';
