@@ -10,8 +10,10 @@ use Illuminate\Support\Facades\Event;
 use App\Models\Pembelian;
 use App\Models\Kategori;
 use App\Models\MediaAsset;
+use App\Models\Tenant;
 use App\Observers\PembelianObserver;
 use App\Observers\KategoriObserver;
+use App\Observers\TenantObserver;
 use App\Services\OptimizedImageService;
 use App\Services\PublicUploadUrlService;
 use App\Support\PublicThemeRegistry;
@@ -103,6 +105,7 @@ class AppServiceProvider extends ServiceProvider
         
         Pembelian::observe(PembelianObserver::class);
         Kategori::observe(KategoriObserver::class);
+        Tenant::observe(TenantObserver::class);
 
         Event::listen(MediaHasBeenAddedEvent::class, function (MediaHasBeenAddedEvent $event): void {
             $model = $event->media->model;
