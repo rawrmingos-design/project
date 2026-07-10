@@ -9,9 +9,9 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class PaymentMethodResourceTest extends TestCase
+class PaymentMethodResourceTest extends AdminTestCase
 {
     use RefreshDatabase;
 

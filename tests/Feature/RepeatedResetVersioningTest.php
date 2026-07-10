@@ -11,9 +11,9 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class RepeatedResetVersioningTest extends TestCase
+class RepeatedResetVersioningTest extends AdminTestCase
 {
     use RefreshDatabase;
 

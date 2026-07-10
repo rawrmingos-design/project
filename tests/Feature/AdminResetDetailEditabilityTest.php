@@ -12,9 +12,9 @@ use App\Services\ResetDomainService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class AdminResetDetailEditabilityTest extends TestCase
+class AdminResetDetailEditabilityTest extends AdminTestCase
 {
     use RefreshDatabase;
 

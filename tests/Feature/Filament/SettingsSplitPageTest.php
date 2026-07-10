@@ -8,9 +8,9 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class SettingsSplitPageTest extends TestCase
+class SettingsSplitPageTest extends AdminTestCase
 {
     use RefreshDatabase;
 

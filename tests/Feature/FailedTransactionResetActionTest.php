@@ -11,9 +11,9 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class FailedTransactionResetActionTest extends TestCase
+class FailedTransactionResetActionTest extends AdminTestCase
 {
     use RefreshDatabase;
 

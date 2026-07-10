@@ -8,9 +8,9 @@ use App\Tenancy\Contracts\DnsResolverInterface;
 use App\Tenancy\TenantDomainService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-uses(TestCase::class, RefreshDatabase::class);
+uses(AdminTestCase::class, RefreshDatabase::class);
 
 /*
 |--------------------------------------------------------------------------

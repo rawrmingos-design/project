@@ -7,9 +7,9 @@ use App\Models\InboundSourcePolicy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class InboundSourcePolicyResourceTest extends TestCase
+class InboundSourcePolicyResourceTest extends AdminTestCase
 {
     use RefreshDatabase;
 

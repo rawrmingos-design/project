@@ -14,9 +14,9 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class SendCallbackQueueDispatchTest extends TestCase
+class SendCallbackQueueDispatchTest extends AdminTestCase
 {
     use RefreshDatabase;
 
