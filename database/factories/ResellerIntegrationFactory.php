@@ -18,7 +18,7 @@ class ResellerIntegrationFactory extends Factory
             'api_key_hash'     => hash('sha256', $rawKey),
             'api_key_hint'     => '...'.substr($rawKey, -6),
             'api_key_prefix'   => substr($rawKey, 0, 8),
-            'allowed_ips'      => [],
+            'allowed_ips'      => ['127.0.0.1'],
         ];
     }
 

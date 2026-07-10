@@ -24,8 +24,9 @@ class ResellerApiRegressionTest extends TestCase
         $integration = ResellerIntegration::factory()->create([
             'mode'      => 'live',
             'is_active' => true,
+            'allowed_ips' => ['127.0.0.1'],
         ]);
-        
+
         $integration->user->update([
             'name'    => 'Reseller Demo',
             'role'    => 'Gold',
