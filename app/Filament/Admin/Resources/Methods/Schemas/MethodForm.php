@@ -77,6 +77,36 @@ class MethodForm
                     ])
                     ->columns(2),
                     
+                Section::make('Kategori Tampilan')
+                    ->description('Tentukan kategori tampilan metode pembayaran di halaman order. Jika tidak dipilih saat membuat metode baru, sistem akan otomatis mencocokkan berdasarkan tipe.')
+                    ->schema([
+                        Select::make('payment_display_category_id')
+                            ->label('Kategori Tampilan')
+                            ->relationship('displayCategory', 'label')
+                            ->placeholder('— Tanpa Kategori —')
+                            ->nullable()
+                            ->searchable()
+                            ->preload()
+                            ->exists('payment_display_categories', 'id')
+                            ->helperText('Pilih kategori tampilan. Metode tanpa kategori tidak akan ditampilkan di halaman order.')
+                            ->validationMessages([
+                                'exists' => 'Kategori yang dipilih tidak ditemukan atau sudah dihapus.',
+                            ]),
+
+                        TextInput::make('sort_order_in_category')
+                            ->label('Urutan dalam Kategori')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(999)
+                            ->default(0)
+                            ->helperText('Angka 0–999. Metode diurutkan dari angka terkecil ke terbesar dalam kategorinya.')
+                            ->validationMessages([
+                                'min' => 'Urutan minimal adalah 0.',
+                                'max' => 'Urutan maksimal adalah 999.',
+                            ]),
+                    ])
+                    ->columns(2),
+
                 Section::make('Biaya & Limit')
                     ->schema([
                         TextInput::make('fee_percent')
