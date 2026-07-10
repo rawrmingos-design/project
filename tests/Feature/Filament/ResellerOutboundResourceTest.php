@@ -8,9 +8,9 @@ use App\Models\ResellerCallbackProfile;
 use App\Models\ResellerIntegration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class ResellerOutboundResourceTest extends TestCase
+class ResellerOutboundResourceTest extends AdminTestCase
 {
     use RefreshDatabase;
 

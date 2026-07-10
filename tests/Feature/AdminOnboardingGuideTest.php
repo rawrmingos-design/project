@@ -4,9 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class AdminOnboardingGuideTest extends TestCase
+class AdminOnboardingGuideTest extends AdminTestCase
 {
     use RefreshDatabase;
 

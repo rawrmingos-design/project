@@ -9,9 +9,9 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class ViewPembelianRetryHintTest extends TestCase
+class ViewPembelianRetryHintTest extends AdminTestCase
 {
     use RefreshDatabase;
 

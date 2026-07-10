@@ -6,9 +6,9 @@ use App\Models\InboundSourcePolicy;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-uses(TestCase::class, RefreshDatabase::class);
+uses(AdminTestCase::class, RefreshDatabase::class);
 
 /*
 |--------------------------------------------------------------------------

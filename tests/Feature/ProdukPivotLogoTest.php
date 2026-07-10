@@ -11,9 +11,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class ProdukPivotLogoTest extends TestCase
+class ProdukPivotLogoTest extends AdminTestCase
 {
     use RefreshDatabase;
 

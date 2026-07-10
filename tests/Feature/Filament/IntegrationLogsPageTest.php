@@ -11,9 +11,9 @@ use App\Models\ResellerCallbackProfile;
 use App\Models\ResellerIntegration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
+use Tests\AdminTestCase;
 
-class IntegrationLogsPageTest extends TestCase
+class IntegrationLogsPageTest extends AdminTestCase
 {
     use RefreshDatabase;
 
