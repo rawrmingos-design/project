@@ -39,11 +39,18 @@ class AdminPanelProvider extends PanelProvider
             }
         }
 
-        return $panel
+        $panel = $panel
             ->default()
             ->id('admin')
-            ->path('')
-            ->domain(env('FILAMENT_ADMIN_DOMAIN', 'admin.istanatopup.com'))
+            ->path('');
+
+        $adminDomain = env('FILAMENT_ADMIN_DOMAIN');
+        $isTest = ($_SERVER['APP_ENV'] ?? null) === 'testing' || ($_ENV['APP_ENV'] ?? null) === 'testing';
+        if (! empty($adminDomain) && ! $isTest) {
+            $panel = $panel->domain($adminDomain);
+        }
+
+        return $panel
             ->multiFactorAuthentication([
                 AppAuthentication::make()->codeWindow(15),
             ])
