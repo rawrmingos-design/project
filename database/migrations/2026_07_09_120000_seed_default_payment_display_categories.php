@@ -44,6 +44,10 @@ return new class extends Migration
 
         $tenants = Tenant::all();
 
+        // Seed global defaults (null tenant_id)
+        $this->seedCategoriesForTenant(null);
+        $this->assignMethodsForTenant(null);
+
         foreach ($tenants as $tenant) {
             $this->seedCategoriesForTenant($tenant);
             $this->assignMethodsForTenant($tenant);
@@ -57,12 +61,12 @@ return new class extends Migration
         // to avoid accidentally wiping manual admin assignments.
     }
 
-    private function seedCategoriesForTenant(Tenant $tenant): void
+    private function seedCategoriesForTenant(?Tenant $tenant): void
     {
         foreach (self::DEFAULTS as $label => [$displayStyle, $sortOrder]) {
             PaymentDisplayCategory::withoutGlobalScopes()->firstOrCreate(
                 [
-                    'tenant_id' => $tenant->id,
+                    'tenant_id' => $tenant?->id,
                     'label' => $label,
                 ],
                 [
@@ -74,16 +78,24 @@ return new class extends Migration
         }
     }
 
-    private function assignMethodsForTenant(Tenant $tenant): void
+    private function assignMethodsForTenant(?Tenant $tenant): void
     {
+        $methodsHaveTenantId = Schema::hasColumn('methods', 'tenant_id');
+
+        if ($tenant !== null && ! $methodsHaveTenantId) {
+            return;
+        }
+
         // Build a lookup of label → category ID for this tenant
         $categories = PaymentDisplayCategory::withoutGlobalScopes()
-            ->where('tenant_id', $tenant->id)
+            ->where('tenant_id', $tenant?->id)
             ->pluck('id', 'label');
 
         // Get all methods for this tenant that don't yet have a category assigned
         $methods = DB::table('methods')
-            ->where('tenant_id', $tenant->id)
+            ->when($methodsHaveTenantId, function ($query) use ($tenant): void {
+                $query->where('tenant_id', $tenant?->id);
+            })
             ->whereNull('payment_display_category_id')
             ->get(['id', 'tipe', 'name']);
 
@@ -97,7 +109,7 @@ return new class extends Migration
                     'method_name' => $method->name,
                     'tipe' => $method->tipe,
                     'normalized_tipe' => $normalizedTipe,
-                    'tenant_id' => $tenant->id,
+                    'tenant_id' => $tenant?->id,
                 ]);
 
                 continue;

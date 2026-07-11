@@ -23,7 +23,9 @@ class Method extends Model
             $tenantId = $model->tenant_id
                 ?? (app()->bound(TenantContext::class) ? app(TenantContext::class)->id() : null);
 
-            if ($tenantId) {
+            if ($tenantId === null) {
+                Cache::forget("main:payment_display_categories");
+            } else {
                 Cache::forget("tenant_{$tenantId}:payment_display_categories");
             }
         };

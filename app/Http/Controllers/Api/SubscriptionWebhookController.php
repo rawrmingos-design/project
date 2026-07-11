@@ -17,7 +17,14 @@ class SubscriptionWebhookController extends Controller
     {
         $token = (string) config('services.tenant_subscription.webhook_token', env('TENANT_SUBSCRIPTION_WEBHOOK_TOKEN', ''));
 
-        if ($token !== '' && ! hash_equals($token, (string) $request->bearerToken())) {
+        if ($token === '') {
+            return response()->json([
+                'status' => false,
+                'message' => 'Webhook token not configured.',
+            ], 401);
+        }
+
+        if (! hash_equals($token, (string) $request->bearerToken())) {
             return response()->json([
                 'status' => false,
                 'message' => 'Unauthorized webhook.',

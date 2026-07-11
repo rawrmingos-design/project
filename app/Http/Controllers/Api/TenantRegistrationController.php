@@ -13,11 +13,11 @@ class TenantRegistrationController extends Controller
 {
     public function checkSubdomain(Request $request, TenantRegistrationService $registrationService): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => ['required', 'string', 'max:63'],
         ]);
 
-        $normalized = $registrationService->normalizeSubdomain((string) $request->query('name'));
+        $normalized = $registrationService->normalizeSubdomain((string) $validated['name']);
 
         return response()->json([
             'available' => $registrationService->isSubdomainAvailable($normalized),

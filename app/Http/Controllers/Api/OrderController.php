@@ -26,9 +26,15 @@ class OrderController extends Controller
         $user = Auth::guard('sanctum')->user();
         $role = $user ? $user->role : 'Guest';
 
-        $layanan = Layanan::where('id', $request->nominal)->first();
+        $layanan = Layanan::where('id', $request->nominal)
+            ->where('status', 'available')
+            ->first();
         if (!$layanan) {
-            return response()->json(['status' => false, 'message' => 'Layanan tidak ditemukan'], 404);
+            return response()->json([
+                'status' => false,
+                'message' => 'Layanan tidak ditemukan atau tidak tersedia.',
+                'error_code' => 'SERVICE_NOT_FOUND',
+            ], 404);
         }
 
         $harga = match($role) {
@@ -202,10 +208,11 @@ class OrderController extends Controller
         return response()->json($result);
     }
 
-    public function show($order_id, CheckoutOrderService $checkout)
+    public function show($order_id, CheckoutOrderService $checkout, \App\Tenancy\TenantContext $context)
     {
         $pembelian = Pembelian::query()
             ->where('order_id', $order_id)
+            ->where('tenant_id', $context->id())
             ->with('pembayaran')
             ->firstOrFail();
 

@@ -71,6 +71,7 @@ testsprite_tests\tmp\config.json
 /test_*.txt
 /asd.txt
 /testsprite_prd.md
+/plan-*.md
 /.stitch/
 
 # Generated local database artifacts

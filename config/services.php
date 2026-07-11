@@ -38,6 +38,10 @@ return [
         'measurement_id' => env('GA4_MEASUREMENT_ID'),
     ],
 
+    'tenant_subscription' => [
+        'webhook_token' => env('TENANT_SUBSCRIPTION_WEBHOOK_TOKEN', ''),
+    ],
+
     'webpush' => [
         'vapid' => [
             'subject' => env('WEBPUSH_VAPID_SUBJECT'),
