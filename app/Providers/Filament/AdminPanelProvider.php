@@ -39,13 +39,14 @@ class AdminPanelProvider extends PanelProvider
             }
         }
 
+        $isTest = app()->environment('testing') || ($_SERVER['APP_ENV'] ?? null) === 'testing' || ($_ENV['APP_ENV'] ?? null) === 'testing';
+
         $panel = $panel
             ->default()
             ->id('admin')
-            ->path('');
+            ->path($isTest ? 'admin' : '');
 
         $adminDomain = env('FILAMENT_ADMIN_DOMAIN');
-        $isTest = ($_SERVER['APP_ENV'] ?? null) === 'testing' || ($_ENV['APP_ENV'] ?? null) === 'testing';
         if (! empty($adminDomain) && ! $isTest) {
             $panel = $panel->domain($adminDomain);
         }
