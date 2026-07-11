@@ -19,11 +19,9 @@ class AdminReviewTest extends TestCase
     {
         $admin = User::factory()->create(['role' => 'Admin']);
 
-        $response = $this->actingAs($admin)->get('/admin');
-
-        // Filament redirects to a specific admin page, follow and verify success
-        $response->assertRedirect();
-        $this->followingRedirects()->actingAs($admin)->get('/admin')->assertSuccessful();
+        $this->actingAs($admin)
+            ->get('/admin')
+            ->assertSuccessful();
     }
 
     /**
@@ -33,10 +31,9 @@ class AdminReviewTest extends TestCase
     {
         $member = User::factory()->create(['role' => 'Member']);
 
-        $response = $this->actingAs($member)->get('/admin');
-
-        // Non-admin gets redirected (not 403), verify they can't access after following
-        $response->assertRedirect();
+        $this->actingAs($member)
+            ->get('/admin')
+            ->assertForbidden();
     }
 
     /**
@@ -44,10 +41,8 @@ class AdminReviewTest extends TestCase
      */
     public function test_guest_cannot_access_admin_panel(): void
     {
-        $response = $this->get('/admin');
-
-        // Guest gets redirected to public home, not /admin/login
-        $response->assertRedirect('/id');
+        $this->get('/admin')
+            ->assertRedirect(route('filament.admin.auth.login'));
     }
 
     /**
