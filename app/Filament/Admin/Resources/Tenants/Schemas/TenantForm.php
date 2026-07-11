@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
 use App\Models\Tenant;
+use App\Tenancy\TenantDomainService;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -46,7 +47,26 @@ class TenantForm
                         TextInput::make('custom_domain')
                             ->nullable()
                             ->maxLength(255)
-                            ->unique(ignoreRecord: true),
+                            ->unique(ignoreRecord: true)
+                            ->rules([
+                                fn (?Tenant $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
+                                    if (blank($value)) {
+                                        return;
+                                    }
+
+                                    $service = app(TenantDomainService::class);
+                                    $normalized = $service->normalizeDomain((string) $value);
+
+                                    if ($normalized === '') {
+                                        $fail('Custom domain is invalid.');
+                                        return;
+                                    }
+
+                                    foreach ($service->filterDomain($normalized, $record?->id) as $error) {
+                                        $fail($error);
+                                    }
+                                },
+                            ]),
 
                         Select::make('tier')
                             ->required()

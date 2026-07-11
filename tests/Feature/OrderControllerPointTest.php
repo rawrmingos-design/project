@@ -131,6 +131,23 @@ class OrderControllerPointTest extends TestCase
     }
 
     /** @test */
+    public function price_endpoint_rejects_unavailable_service()
+    {
+        $this->layanan->update(['status' => 'unavailable']);
+
+        $response = $this->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+        ]);
+
+        $response->assertStatus(404)
+            ->assertJson([
+                'status' => false,
+                'message' => 'Layanan tidak ditemukan atau tidak tersedia.',
+                'error_code' => 'SERVICE_NOT_FOUND',
+            ]);
+    }
+
+    /** @test */
     public function ordered_endpoint_deducts_point_balance_and_reduces_price_for_balance_payment()
     {
         // Mock Provider Routing to simulate successful checkout without hitting external API

@@ -526,16 +526,18 @@ class CheckoutOrderService
 
     private function idempotencyKey(Request $request, ?User $user): string
     {
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id() ?? 'main';
         $key = trim((string) $request->headers->get('X-Idempotency-Key', ''));
 
         if ($key === '') {
             $key = hash('sha256', json_encode([
+                'tenant_id' => $tenantId,
                 'user_id' => $user?->id,
                 'ip' => $request->ip(),
                 'payload' => $request->only(['service', 'payment_method', 'nomor', 'uid', 'zone', 'voucher']),
             ], JSON_UNESCAPED_SLASHES));
         }
 
-        return 'api_v2_checkout:' . sha1($key);
+        return "api_v2_checkout:{$tenantId}:" . sha1($key);
     }
 }

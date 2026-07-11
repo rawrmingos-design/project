@@ -51,7 +51,8 @@ class OrderController extends Controller
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "order_page:{$kategori->kode}:{$role}";
+        $tenantId = app(\App\Tenancy\TenantContext::class)->id() ?? 'main';
+        $cacheKey = "order_page:{$tenantId}:{$kategori->kode}:{$role}";
         $ttl = 300; // 5 minutes
 
         // Cache the entire data preparation for the view
@@ -233,29 +234,24 @@ class OrderController extends Controller
 
     public function price(Request $request)
     {
+        $query = Layanan::where('id', $request->nominal)
+            ->where('status', 'available');
+
         if ($this->hasTenantContext()) {
-            $data = Layanan::where('id', $request->nominal)
-                ->select('id', 'harga_gold', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                ->first();
+            $query->select('id', 'harga_gold', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
         } elseif (Auth::check()) {
             if (Auth::user()->role == "Member") {
-                $data = Layanan::where('id', $request->nominal)
-                    ->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                    ->first();
+                $query->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             } elseif (Auth::user()->role == "Platinum") {
-                $data = Layanan::where('id', $request->nominal)
-                    ->select('harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                    ->first();
+                $query->select('harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             } elseif (Auth::user()->role == "Gold" || Auth::user()->role == "Admin") {
-                $data = Layanan::where('id', $request->nominal)
-                    ->select('harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                    ->first();
+                $query->select('harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             }
         } else {
-            $data = Layanan::where('id', $request->nominal)
-                ->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale')
-                ->first();
+            $query->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
         }
+
+        $data = $query->first();
 
         if (! $data) {
             return response()->json([

@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class PaymentDisplayCategoryService
 {
@@ -22,18 +23,29 @@ class PaymentDisplayCategoryService
     {
         $tenantId = $this->resolveTenantId();
 
-        if ($tenantId === null) {
-            return collect();
-        }
+        $cacheKey = $tenantId === null
+            ? "main:payment_display_categories"
+            : "tenant_{$tenantId}:payment_display_categories";
 
-        $cacheKey = "tenant_{$tenantId}:payment_display_categories";
-
-        return Cache::remember($cacheKey, 300, function () {
-            $categories = PaymentDisplayCategory::query()
+        return Cache::remember($cacheKey, 300, function () use ($tenantId) {
+            $categories = PaymentDisplayCategory::withoutGlobalScopes()
+                ->when($tenantId !== null, function ($query) use ($tenantId) {
+                    $query->where('tenant_id', $tenantId);
+                }, function ($query) {
+                    $query->whereNull('tenant_id');
+                })
                 ->visible()
                 ->ordered()
-                ->with(['methods' => function ($query) {
-                    $query->where('statuspayment', true)
+                ->with(['methods' => function ($query) use ($tenantId) {
+                    $query->withoutGlobalScopes()
+                        ->when(Schema::hasColumn('methods', 'tenant_id'), function ($q) use ($tenantId) {
+                            $q->when($tenantId !== null, function ($tenantQuery) use ($tenantId) {
+                                $tenantQuery->where('tenant_id', $tenantId);
+                            }, function ($tenantQuery) {
+                                $tenantQuery->whereNull('tenant_id');
+                            });
+                        })
+                        ->where('statuspayment', true)
                         ->orderBy('sort_order_in_category', 'asc')
                         ->orderBy('name', 'asc');
                 }])
@@ -61,6 +73,7 @@ class PaymentDisplayCategoryService
         $tenantId = $this->resolveTenantId();
 
         if ($tenantId === null) {
+            Cache::forget("main:payment_display_categories");
             return;
         }
 
@@ -82,10 +95,6 @@ class PaymentDisplayCategoryService
     {
         $tenantId = $this->resolveTenantId();
 
-        if ($tenantId === null) {
-            return null;
-        }
-
         $label = $this->mapTipeToLabel($normalizedTipe);
 
         if ($label === null) {
@@ -93,6 +102,11 @@ class PaymentDisplayCategoryService
         }
 
         return PaymentDisplayCategory::query()
+            ->when($tenantId !== null, function ($query) use ($tenantId) {
+                $query->where('tenant_id', $tenantId);
+            }, function ($query) {
+                $query->whereNull('tenant_id');
+            })
             ->where('label', $label)
             ->first();
     }

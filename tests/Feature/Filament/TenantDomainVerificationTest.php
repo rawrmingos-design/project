@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Resources\Tenants\Pages\CreateTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\EditTenant;
 use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Models\Tenant;
@@ -188,4 +189,24 @@ test('TenantsTable shows custom_domain_status badge column', function () {
     Livewire::test(ListTenants::class)
         ->assertCanRenderTableColumn('custom_domain_status')
         ->assertTableColumnExists('custom_domain_status');
+});
+
+test('Tenant form rejects reserved custom domains', function () {
+    createAuthenticatedAdmin();
+
+    config(['app.url' => 'https://istanatopup.test']);
+    putenv('FILAMENT_ADMIN_DOMAIN=admin.istanatopup.test');
+
+    Livewire::test(CreateTenant::class)
+        ->fillForm([
+            'name' => 'Reserved Domain Store',
+            'subdomain' => 'reserved-domain-store',
+            'custom_domain' => 'admin.istanatopup.test',
+            'tier' => 'starter',
+            'status' => Tenant::STATUS_ACTIVE,
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['custom_domain']);
+
+    expect(Tenant::query()->where('custom_domain', 'admin.istanatopup.test')->exists())->toBeFalse();
 });

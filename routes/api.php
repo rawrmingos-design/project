@@ -124,7 +124,7 @@ Route::get('/articles/{slug}', [ArticleController::class, 'show']);
 Route::get('/recent-purchases', [RecentPurchasesController::class, 'index']);
 Route::get('/content/{slug}', [ContentController::class, 'show']);
 // ── ORDER FLOW (HEADLESS) ──────────────────────────────
-Route::prefix('v2')->group(function () {
+Route::prefix('v2')->middleware('tenant.resolve')->group(function () {
     Route::post('/order/price', [OrderController::class, 'price']);
     Route::post('/order/confirm', [OrderController::class, 'confirm']);
     Route::post('/order/store', [OrderController::class, 'store']);

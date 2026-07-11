@@ -32,7 +32,9 @@ class PaymentDisplayCategory extends Model
         $invalidateCache = static function (self $model): void {
             $tenantId = $model->tenant_id;
 
-            if ($tenantId) {
+            if ($tenantId === null) {
+                Cache::forget("main:payment_display_categories");
+            } else {
                 Cache::forget("tenant_{$tenantId}:payment_display_categories");
             }
         };
