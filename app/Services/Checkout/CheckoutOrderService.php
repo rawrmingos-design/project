@@ -2,9 +2,9 @@
 
 namespace App\Services\Checkout;
 
-use App\Http\Controllers\DuitkuPaymentController;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
+use App\Services\Payments\DuitkuInvoiceService;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
@@ -381,7 +381,7 @@ class CheckoutOrderService
         $tempOrder->profit = 0;
         $tempOrder->status = 'Pending';
 
-        $result = app(DuitkuPaymentController::class)->createInvoice($tempOrder, (string) $method->code);
+        $result = app(DuitkuInvoiceService::class)->createForPembelian($tempOrder, (string) $method->code);
 
         if (! ($result['success'] ?? false)) {
             throw ValidationException::withMessages([
@@ -391,9 +391,9 @@ class CheckoutOrderService
 
         return [
             'reference' => $result['reference'] ?? null,
-            'no_pembayaran' => $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? null,
+            'no_pembayaran' => $result['payment_value'] ?? $result['no_pembayaran'] ?? $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? null,
             'amount' => $result['amount'] ?? $amount,
-            'merchant_order_id' => $result['merchantOrderId'] ?? ('DUITKU-' . $orderId),
+            'merchant_order_id' => $result['merchant_order_id'] ?? $result['merchantOrderId'] ?? ('DUITKU-' . $orderId),
             'expired_at' => $result['expired_at'] ?? null,
         ];
     }

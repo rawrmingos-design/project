@@ -39,11 +39,13 @@ class PaymentDisplayCategoryService
                 ->with(['methods' => function ($query) use ($tenantId) {
                     $query->withoutGlobalScopes()
                         ->when(Schema::hasColumn('methods', 'tenant_id'), function ($q) use ($tenantId) {
-                            $q->when($tenantId !== null, function ($tenantQuery) use ($tenantId) {
-                                $tenantQuery->where('tenant_id', $tenantId);
-                            }, function ($tenantQuery) {
-                                $tenantQuery->whereNull('tenant_id');
-                            });
+                            if ($tenantId !== null) {
+                                $q->where(function ($tenantQuery) use ($tenantId) {
+                                    $tenantQuery->where('tenant_id', $tenantId)->orWhereNull('tenant_id');
+                                });
+                            } else {
+                                $q->whereNull('tenant_id');
+                            }
                         })
                         ->where('statuspayment', true)
                         ->orderBy('sort_order_in_category', 'asc')

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Pembelian;
@@ -12,6 +11,7 @@ use App\Services\WhatsappNotificationService;
 use App\Services\EmailNotificationService;
 use App\Services\ProviderRoutingService;
 use App\Services\OrderProcessingService;
+use App\Services\Payments\DuitkuInvoiceService;
 use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use Duitku\Config;
@@ -52,125 +52,22 @@ class DuitkuPaymentController extends Controller
     }
 
     /**
-     * Create Duitku payment invoice using Direct Mode
-     * 
+     * Create Duitku payment invoice.
+     *
+     * Compatibility wrapper for legacy callers; invoice creation lives in DuitkuInvoiceService.
+     *
      * @param Pembelian $order
-     * @param string $paymentMethodCode Duitku payment method code from frontend
+     * @param string|null $paymentMethodCode Duitku payment method code from frontend
      * @return array
      */
-    public function createInvoice(Pembelian $order, string $paymentMethodCode = null)
+    public function createInvoice(Pembelian $order, ?string $paymentMethodCode = null)
     {
-        $this->initializeDuitkuConfig();
-
-        try {
-            if (!$this->duitkuConfig) {
-                throw new \Exception('Duitku configuration not found');
-            }
-
-            // If no payment method code provided, use default (will show selection page)
-            if (!$paymentMethodCode) {
-                $paymentMethodCode = ''; // Empty = user chooses at Duitku page
-            }
-
-            // Generate unique merchant order ID
-            $merchantOrderId = 'DUITKU-' . $order->order_id;
-
-            // Get customer phone number
-            $phoneNumber = '081234567890'; // Default
-            if ($order->user && $order->user->phone) {
-                $phoneNumber = $order->user->phone;
-            }
-
-            // Prepare payment parameters for Direct Mode
-            $params = [
-                'paymentAmount' => (int) $order->harga,
-                'merchantOrderId' => $merchantOrderId,
-                'productDetails' => $order->layanan,
-                'email' => $order->email_pembeli ?? 'customer@example.com',
-                'phoneNumber' => $phoneNumber,
-                'customerVaName' => $order->nickname ?? 'Customer',
-                'paymentMethod' => $paymentMethodCode, // CRITICAL: Direct mode requires this
-                
-                // URLs
-                'callbackUrl' => $this->api->duitku_callback_url ?? route('duitku.callback'),
-                'returnUrl' => $this->api->duitku_return_url ?? env('APP_URL') . '/id/invoices/' . $order->order_id,
-                
-                'expiryPeriod' => 60, // 60 minutes
-                
-                // Customer details (required by Duitku)
-                'customerDetail' => [
-                    'firstName' => explode(' ', $order->nickname ?? 'Customer')[0],
-                    'lastName' => explode(' ', $order->nickname ?? 'Customer')[1] ?? '',
-                    'email' => $order->email_pembeli ?? 'customer@example.com',
-                    'phoneNumber' => $phoneNumber,
-                ],
-                
-                // Item details (required by Duitku)
-                'itemDetails' => [
-                    [
-                        'name' => $order->layanan,
-                        'price' => (int) $order->harga,
-                        'quantity' => 1
-                    ]
-                ],
-            ];
-
-            // Create invoice via Duitku API (Direct mode if paymentMethod specified)
-            $response = Pop::createInvoice($params, $this->duitkuConfig);
-            $result = json_decode($response, true);
-
-            Log::debug('Duitku API Response', [
-                'statusCode' => $result['statusCode'] ?? null,
-                'statusMessage' => $result['statusMessage'] ?? null,
-                'reference' => $result['reference'] ?? null,
-                'merchantOrderId' => $merchantOrderId,
-            ]);
-
-            if (isset($result['statusCode']) && $result['statusCode'] == '00') {
-                Log::debug('Duitku invoice created successfully', [
-                    'order_id' => $order->order_id,
-                    'reference' => $result['reference'],
-                    'paymentMethod' => $paymentMethodCode
-                ]);
-
-                // Return payment details
-                return [
-                    'success' => true,
-                    'reference' => $result['reference'],
-                    'paymentUrl' => $result['paymentUrl'] ?? null,
-                    'vaNumber' => $result['vaNumber'] ?? null,
-                    'qrString' => $result['qrString'] ?? null,
-                    'amount' => $result['amount'] ?? $order->harga,
-                    'merchantOrderId' => $merchantOrderId,
-                    'expired_at' => Carbon::now()->addMinutes((int) ($params['expiryPeriod'] ?? 60))->toIso8601String(),
-                ];
-            }
-
-            // Log error response
-            Log::error('Duitku API returned error', [
-                'statusCode' => $result['statusCode'] ?? 'unknown',
-                'statusMessage' => $result['statusMessage'] ?? 'No message',
-                'result' => $result
-            ]);
-
-            throw new \Exception($result['statusMessage'] ?? 'Failed to create invoice');
-
-        } catch (\Exception $e) {
-            Log::error('Duitku createInvoice failed', [
-                'order_id' => $order->order_id ?? 'unknown',
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
+        return app(DuitkuInvoiceService::class)->createForPembelian($order, $paymentMethodCode);
     }
 
     /**
      * Handle Duitku callback
-     * 
+     *
      * @param Request $request
      * @return Response
      */
