@@ -130,23 +130,29 @@ class InvoicePageController extends Controller
         $methodNameLower = Str::lower(trim((string) $methodName));
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
-        $isQrImage = str_starts_with($paymentValue, 'data:image/')
-            || preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1;
         $isQrMethod = in_array($paymentCode, [
             'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
-        ], true);
-        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ! $isDuitkuGateway && $paymentValue !== '';
+        ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
+        $isQrImage = str_starts_with($paymentValue, 'data:image/')
+            || preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
+            || ($isQrMethod && ! $isPaymentUrl && $paymentValue !== '');
+        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ! $isPaymentUrl && $paymentValue !== '';
         $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
-        $resolvedQrImageUrl = $isQrImage ? $paymentValue : $dynamicQrSource;
+        $resolvedQrImageUrl = $isQrImage
+            && ! str_starts_with($paymentValue, '00020101')
+            && ! $isPaymentUrl
+            && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
+                ? $paymentValue
+                : $dynamicQrSource;
         $showPayButton = $paymentStatusRaw === 'Belum Lunas' && $isPaymentUrl && ! $showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
-        $showCopyPaymentNumber = ! $isPaymentUrl && (
+        $showCopyPaymentNumber = ! $isPaymentUrl && ! $showQrImage && (
             Str::startsWith($paymentCode, 'MANUAL') ||
             in_array($paymentCode, [
-                'ALFAMRT', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
+                'ALFAMRT', 'ALFAMART', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
                 'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
                 'DM', 'BV', 'IR', 'FT', 'BRIVA', 'DUITKU',
-            ], true)
+            ], true) || ($isDuitkuGateway && ctype_digit(str_replace(['-', ' '], '', $paymentValue)))
         );
 
         $heroTitle = 'Harap lengkapi pembayaran.';

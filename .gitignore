@@ -97,3 +97,4 @@ testsprite_tests\tmp\config.json
 
 # HTMLPurifier cache
 /storage/app/purifier/
+/bruno

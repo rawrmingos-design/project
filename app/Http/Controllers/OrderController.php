@@ -19,7 +19,7 @@ use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\ApiCheckController;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
-use App\Http\Controllers\DuitkuPaymentController;
+use App\Services\Payments\DuitkuInvoiceService;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\BangJeffController;
@@ -1482,19 +1482,17 @@ class OrderController extends Controller
                 $tempOrder->profit = $dataLayanan->profit ?? 0; // Required field
                 $tempOrder->status = 'Pending'; // Will be updated after payment
 
-                $duitku = app(DuitkuPaymentController::class);
-                // Pass payment_method from request (Duitku method code: VC, BC, I1, etc)
+                // Pass payment_method from request (Duitku method code: SP, BC, I1, etc)
                 $duitkuMethodCode = $request->payment_method ?? ''; // Empty = user chooses at Duitku page
-                $res = $duitku->createInvoice($tempOrder, $duitkuMethodCode);
-                
+                $res = app(DuitkuInvoiceService::class)->createForPembelian($tempOrder, $duitkuMethodCode);
+
                 if ($res['success']) {
                     $gatewayResult = [
                         'status' => true,
-                        // Priority: VA number > QR string > Payment URL > Reference
-                        'no_pembayaran' => $res['vaNumber'] ?? $res['qrString'] ?? $res['paymentUrl'] ?? $res['reference'],
+                        'no_pembayaran' => $res['payment_value'] ?? $res['no_pembayaran'] ?? $res['vaNumber'] ?? $res['qrString'] ?? $res['paymentUrl'] ?? $res['reference'],
                         'reference' => $res['reference'],
-                        'amount' => $amount,
-                        'merchant_order_id' => $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
+                        'amount' => $res['amount'] ?? $amount,
+                        'merchant_order_id' => $res['merchant_order_id'] ?? $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
                         'expired_at' => $res['expired_at'] ?? null,
                     ];
                 } else {
