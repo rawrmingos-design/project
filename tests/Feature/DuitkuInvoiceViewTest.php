@@ -142,7 +142,8 @@ class DuitkuInvoiceViewTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Buka Link Pembayaran');
-        $response->assertSee('"showQrImage":true', false);
+        $response->assertSee('id="qrisPaymentImage"', false);
+        $response->assertSee('Unduh Kode QR / Screenshoot');
         $response->assertSee('00020101021126560012ID.CO.DANA');
     }
 
@@ -209,7 +210,8 @@ class DuitkuInvoiceViewTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Buka Link Pembayaran');
-        $response->assertSee('"showCopyPaymentNumber":true', false);
+        $response->assertDontSee('id="qrisPaymentImage"', false);
+        $response->assertSee('No Pembayaran');
         $response->assertSee('8888000012345678');
     }
 }
