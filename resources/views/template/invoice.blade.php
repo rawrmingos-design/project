@@ -1830,7 +1830,7 @@
             'QRIS2',
             'QRIS2_OFFLINE',
             'QRIS2_RECURRING',
-        ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'])));
+        ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
 
         $isQrImage = (
             str_starts_with($paymentValue, 'data:image/') ||
