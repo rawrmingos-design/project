@@ -14,6 +14,11 @@ class OrderControllerStatusTest extends TestCase
 
     public function test_api_v2_order_status_enforces_tenant_isolation(): void
     {
+        config([
+            'app.url' => 'https://istanatopup.test',
+            'tenancy.disabled' => false,
+        ]);
+
         $tenantOwner1 = User::factory()->create(['role' => 'Gold']);
         $tenant1 = Tenant::create([
             'name' => 'Store A',
@@ -24,7 +29,7 @@ class OrderControllerStatusTest extends TestCase
         ]);
 
         $tenantOwner2 = User::factory()->create(['role' => 'Gold']);
-        $tenant2 = Tenant::create([
+        Tenant::create([
             'name' => 'Store B',
             'subdomain' => 'store-b',
             'status' => Tenant::STATUS_ACTIVE,
@@ -48,7 +53,6 @@ class OrderControllerStatusTest extends TestCase
         ]);
 
         // Request from main site -> fails
-        config(['app.url' => 'https://istanatopup.test']);
         $this->getJson("https://istanatopup.test/api/v2/order/status/{$orderId}")
              ->assertStatus(404);
 

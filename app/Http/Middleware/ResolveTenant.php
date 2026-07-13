@@ -16,6 +16,14 @@ class ResolveTenant
         $context = app(TenantContext::class);
 
         try {
+            if ((bool) config('tenancy.disabled', true)) {
+                $host = $this->normalizeHost($request->getHost());
+
+                abort_if($host !== '' && ! $this->shouldBypassHost($host), 404);
+
+                return $next($request);
+            }
+
             $tenant = $this->resolveTenant($request);
 
             if ($tenant) {

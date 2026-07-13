@@ -118,6 +118,7 @@ class PublicSiteConfigService
             'featureFlags' => [
                 'homePopupEnabled' => (bool) ($settings->home_popup_enabled ?? true),
                 'liveSalesEnabled' => (bool) ($settings->live_sales_enabled ?? true),
+                'saasTenancyEnabled' => ! (bool) config('tenancy.disabled', true),
                 'trackingEnabled' => filled($settings->google_tag_manager_id)
                     || filled($settings->gtm_custom_head_script)
                     || filled($settings->google_analytics_id),
@@ -171,13 +172,15 @@ class PublicSiteConfigService
 
     protected function buildFooterColumns(string $theme, array $socials): array
     {
+        $tenancyEnabled = ! (bool) config('tenancy.disabled', true);
+
         $columns = $theme === 'bangjeff'
             ? [
                 [
                     'title' => 'Partnership',
                     'items' => [
                         ['label' => 'Join Partnership', 'href' => $socials['whatsapp']],
-                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'],
+                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
                         ['label' => 'API Documentation', 'href' => '/api-documentation'],
                     ],
                 ],
@@ -205,7 +208,7 @@ class PublicSiteConfigService
                     'title' => 'Kemitraan',
                     'items' => [
                         ['label' => 'Gabung Kemitraan', 'href' => $socials['whatsapp']],
-                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'],
+                        ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
                         ['label' => 'Dokumentasi API', 'href' => '/api-documentation'],
                     ],
                 ],
@@ -240,7 +243,12 @@ class PublicSiteConfigService
         return collect($columns)
             ->map(function (array $column) {
                 $items = collect($column['items'] ?? [])
-                    ->filter(fn (array $item) => filled($item['href'] ?? null) && ($item['href'] ?? null) !== '#')
+                    ->filter(fn (array $item) => ($item['enabled'] ?? true) && filled($item['href'] ?? null) && ($item['href'] ?? null) !== '#')
+                    ->map(function (array $item) {
+                        unset($item['enabled']);
+
+                        return $item;
+                    })
                     ->values()
                     ->all();
 

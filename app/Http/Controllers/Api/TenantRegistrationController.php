@@ -13,6 +13,8 @@ class TenantRegistrationController extends Controller
 {
     public function checkSubdomain(Request $request, TenantRegistrationService $registrationService): JsonResponse
     {
+        abort_if((bool) config('tenancy.disabled', true), 404);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:63'],
         ]);
@@ -27,6 +29,8 @@ class TenantRegistrationController extends Controller
 
     public function register(Request $request, TenantRegistrationService $registrationService): JsonResponse
     {
+        abort_if((bool) config('tenancy.disabled', true), 404);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],

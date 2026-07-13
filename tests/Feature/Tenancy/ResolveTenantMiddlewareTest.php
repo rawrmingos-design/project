@@ -14,6 +14,13 @@ class ResolveTenantMiddlewareTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['tenancy.disabled' => false]);
+    }
+
     protected function tearDown(): void
     {
         app(TenantContext::class)->clear();

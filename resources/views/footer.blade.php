@@ -26,12 +26,14 @@
                                     <span>Gabung Kemitraan </span>
                                 </a>
                             </li>
-                            <li>
-                                <a href="/id/reseller-topup" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" style="outline: none;">
+                            @unless ((bool) config('tenancy.disabled', true))
+                                <li>
+                                    <a href="/id/reseller-topup" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" style="outline: none;">
 
-                                    <span>Reseller Topup </span>
-                                </a>
-                            </li>
+                                        <span>Reseller Topup </span>
+                                    </a>
+                                </li>
+                            @endunless
                             <li>
                                 @php
                                     $docsUrl = '#';

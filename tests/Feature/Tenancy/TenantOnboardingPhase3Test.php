@@ -17,6 +17,13 @@ class TenantOnboardingPhase3Test extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['tenancy.disabled' => false]);
+    }
+
     public function test_reseller_registration_page_renders_self_service_form(): void
     {
         config(['app.url' => 'https://topupengine.test']);

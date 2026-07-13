@@ -8,12 +8,21 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class TenantOrderPageCacheIsolationTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'app.url' => 'https://istanatopup.test',
+            'tenancy.disabled' => false,
+        ]);
+    }
 
     protected function tearDown(): void
     {
@@ -44,7 +53,7 @@ class TenantOrderPageCacheIsolationTest extends TestCase
         ]);
 
         $category = Kategori::factory()->create(['kode' => 'mobile-legends', 'nama' => 'Mobile Legends']);
-        $service = Layanan::factory()->create([
+        Layanan::factory()->create([
             'kategori_id' => $category->id,
             'harga_member' => 10000,
             'harga_gold' => 10000,
