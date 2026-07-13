@@ -19,7 +19,7 @@ class ResolveTenant
             if ((bool) config('tenancy.disabled', true)) {
                 $host = $this->normalizeHost($request->getHost());
 
-                abort_if($host !== '' && ! $this->shouldBypassHost($host), 404);
+                abort_if($this->isTenantHost($host), 404);
 
                 return $next($request);
             }
@@ -87,10 +87,31 @@ class ResolveTenant
         }
 
         return in_array($host, array_filter([
-            $this->normalizeHost((string) parse_url((string) config('app.url'), PHP_URL_HOST)),
+            ...$this->publicHosts(),
             $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', '')),
             $this->normalizeHost((string) env('DOCS_DOMAIN', '')),
         ]), true);
+    }
+
+    protected function isTenantHost(string $host): bool
+    {
+        if ($host === '' || $this->shouldBypassHost($host)) {
+            return false;
+        }
+
+        return Tenant::query()->where('custom_domain', $host)->exists()
+            || $this->extractSubdomain($host) !== null;
+    }
+
+    protected function publicHosts(): array
+    {
+        $publicHost = $this->normalizeHost((string) parse_url((string) config('app.url'), PHP_URL_HOST));
+
+        if ($publicHost === '') {
+            return [];
+        }
+
+        return [$publicHost, 'www.' . $publicHost];
     }
 
     protected function extractSubdomain(string $host): ?string
