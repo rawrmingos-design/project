@@ -9,17 +9,42 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Tabs\Tab;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Http\Controllers\DigiFlazzController;
 use App\Services\ProductPricingService;
 use App\Services\Providers\BangJeffService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ListProduks extends ListRecords
 {
     protected static string $resource = ProdukResource::class;
+
+    public function getTabs(): array
+    {
+        $tabs = [
+            'all' => Tab::make('Semua'),
+        ];
+
+        Kategori::query()
+            ->select(['id', 'nama'])
+            ->where('tipe', 'game')
+            ->where('status', 'active')
+            ->whereHas('products')
+            ->orderBy('nama')
+            ->get()
+            ->each(function (Kategori $kategori) use (&$tabs): void {
+                $tabs["kategori-{$kategori->id}"] = Tab::make($kategori->nama)
+                    ->modifyQueryUsing(
+                        fn (Builder $query): Builder => $query->where('kategori_id', (string) $kategori->id)
+                    );
+            });
+
+        return $tabs;
+    }
 
     private function getCachedKategoriOptions(): array
     {
