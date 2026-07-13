@@ -214,4 +214,88 @@ class DuitkuInvoiceViewTest extends TestCase
         $response->assertSee('No Pembayaran');
         $response->assertSee('8888000012345678');
     }
+
+    public function test_paid_invoice_hides_payment_number(): void
+    {
+        $this->createInvoiceWithPaymentStatus('INV-DUITKU-PAID-001', 'Lunas', 'PAYMENT-SECRET-PAID-001');
+
+        $response = $this->get('/id/invoices/INV-DUITKU-PAID-001');
+
+        $response->assertOk();
+        $response->assertSee('Paid');
+        $response->assertDontSee('No Pembayaran');
+        $response->assertDontSee('PAYMENT-SECRET-PAID-001');
+    }
+
+    public function test_expired_invoice_hides_payment_number(): void
+    {
+        $this->createInvoiceWithPaymentStatus('INV-DUITKU-EXPIRED-001', 'Expired', 'PAYMENT-SECRET-EXPIRED-001');
+
+        $response = $this->get('/id/invoices/INV-DUITKU-EXPIRED-001');
+
+        $response->assertOk();
+        $response->assertSee('Expired');
+        $response->assertDontSee('No Pembayaran');
+        $response->assertDontSee('PAYMENT-SECRET-EXPIRED-001');
+    }
+
+    private function createInvoiceWithPaymentStatus(string $orderId, string $paymentStatus, string $paymentNumber): void
+    {
+        $settings = SettingWeb::updateOrCreate(['id' => 4], [
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'url_wa' => '081234567890',
+            'url_ig' => 'test',
+            'url_tiktok' => 'test',
+            'url_youtube' => 'test',
+            'url_fb' => 'test',
+            'topupindo_api' => 'test',
+            'warna1' => '#000000',
+            'warna2' => '#000000',
+            'warna3' => '#000000',
+            'warna4' => '#000000',
+            'order_prefik' => 'TRX',
+            'paydisini_apikey' => 'test',
+            'tripay_api' => 'test',
+            'tripay_merchant_code' => 'test',
+            'tripay_private_key' => 'test',
+            'vip_apiid' => 'test',
+            'vip_apikey' => 'test',
+            'duitku_mode' => 'sandbox',
+        ]);
+
+        view()->share('config', (object) array_merge([
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+        ], $settings->getAttributes()));
+
+        Pembelian::create([
+            'order_id' => $orderId,
+            'username' => 'duitku-user',
+            'user_id' => '12345678',
+            'zone' => '2001',
+            'nickname' => 'Duitku User',
+            'layanan' => 'Membership Mingguan',
+            'harga' => 15000,
+            'profit' => 1000,
+            'provider_order_id' => '',
+            'status' => $paymentStatus === 'Lunas' ? 'Success' : 'Pending',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        Pembayaran::create([
+            'order_id' => $orderId,
+            'harga' => 15000,
+            'no_pembayaran' => $paymentNumber,
+            'no_pembeli' => '08123456789',
+            'status' => $paymentStatus,
+            'metode' => 'DUITKU',
+            'reference' => "DUITKU-{$orderId}",
+        ]);
+    }
 }
