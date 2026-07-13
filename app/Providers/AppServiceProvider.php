@@ -6,6 +6,8 @@ use Illuminate\Support\ServiceProvider;
 use View;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
+use Livewire\Livewire;
 
 use App\Models\Pembelian;
 use App\Models\Kategori;
@@ -38,6 +40,43 @@ class AppServiceProvider extends ServiceProvider
             DnsResolverInterface::class,
             NativeDnsResolver::class,
         );
+
+        $this->app->booting(function (): void {
+            $this->registerLivewireUpdateRoutes();
+        });
+    }
+
+    private function registerLivewireUpdateRoutes(): void
+    {
+        Livewire::setUpdateRoute(function ($handle) {
+            $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+
+            if ($adminDomain !== '') {
+                Route::domain($adminDomain)
+                    ->middleware('web')
+                    ->post('/livewire/update', $handle)
+                    ->name('filament.livewire.update');
+            }
+
+            return Route::post('/livewire/update', $handle)
+                ->middleware('web')
+                ->name('default.livewire.update');
+        });
+    }
+
+    private function normalizeHost(string $host): string
+    {
+        $host = trim($host);
+
+        if ($host === '') {
+            return '';
+        }
+
+        if (str_contains($host, '://')) {
+            $host = (string) (parse_url($host, PHP_URL_HOST) ?? '');
+        }
+
+        return preg_replace('/:\d+$/', '', $host) ?? '';
     }
 
     /**
