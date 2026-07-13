@@ -1810,9 +1810,11 @@
 
     @php
         $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
-        $paymentValue = (string) ($data->no_pembayaran ?? '');
+        $rawPaymentValue = (string) ($data->no_pembayaran ?? '');
         $paymentStatus = Str::lower(trim((string) ($data->status_pembayaran ?? '')));
         $orderStatus = Str::lower(trim((string) ($data->status_pembelian ?? '')));
+        $isPaymentPending = in_array($paymentStatus, ['belum lunas', 'unpaid', 'pending'], true);
+        $paymentValue = $isPaymentPending ? $rawPaymentValue : '';
         $methodNameLower = \Illuminate\Support\Str::lower(trim((string) ($metode_name ?? '')));
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || \Illuminate\Support\Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
@@ -1838,17 +1840,17 @@
             ($isQrMethod && !$isPaymentUrl && $paymentValue !== '')
         );
 
-        $showQrImage = $data->status_pembayaran == 'Belum Lunas' &&
+        $showQrImage = $isPaymentPending &&
             $isQrMethod &&
             !$isPaymentUrl &&
             $paymentValue !== '';
 
         $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
         $resolvedQrImageUrl = $isQrImage && !str_starts_with($paymentValue, '00020101') && !filter_var($paymentValue, FILTER_VALIDATE_URL) && !$isPaymentUrl && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1 ? $paymentValue : $dynamicQrSource;
-        $showPayButton = $data->status_pembayaran == 'Belum Lunas' && $isPaymentUrl && !$showQrImage;
+        $showPayButton = $isPaymentPending && $isPaymentUrl && !$showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
 
-        $showCopyPaymentNumber = !$isPaymentUrl && !$showQrImage && (
+        $showCopyPaymentNumber = $isPaymentPending && !$isPaymentUrl && !$showQrImage && (
             in_array($paymentCode, [
                 'ALFAMART', 'INDOMARET', 'PERMATAVAA', 'BNCVA', 'BSIVA', 'DANAMONVA', 'CIMBVA', 'PERMATAVA',
                 'MANDIRIVA', 'BNIVA', 'BCAVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1',
@@ -2472,7 +2474,7 @@
                                         </a>
                                     @endif
                                 @elseif($showPayButton)
-                                    <a class="invoice-animate invoice-animate-delay-3" target="_blank" href="{{ $data->no_pembayaran }}"><button
+                                    <a class="invoice-animate invoice-animate-delay-3" target="_blank" href="{{ $paymentValue }}"><button
                                             class="invoice-pay-button mt-8 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto"
                                             type="button"><span>{{ $payButtonLabel }}</span><svg
                                                 xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -3039,7 +3041,7 @@
     <script>
         function downloadQRCode() {
             var qrImage = document.getElementById("qrisPaymentImage");
-            var qrCodeUrl = qrImage && qrImage.src ? qrImage.src : "{{ $data->no_pembayaran }}";
+            var qrCodeUrl = qrImage && qrImage.src ? qrImage.src : @json($paymentValue);
 
             var downloadLink = document.createElement("a");
             downloadLink.href = qrCodeUrl;
