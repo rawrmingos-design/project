@@ -14,6 +14,13 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config(['tenancy.disabled' => false]);
+    }
+
     public function test_api_v2_joki_checkout_does_not_require_uid_and_persists_joki_details(): void
     {
         $category = Kategori::factory()->create([

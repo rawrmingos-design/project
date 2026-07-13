@@ -92,6 +92,8 @@ class HandleInertiaRequestsTest extends TestCase
 
     public function test_default_footer_copy_distinguishes_kemitraan_and_reseller_topup(): void
     {
+        config(['tenancy.disabled' => false]);
+
         \DB::table('setting_webs')->insert([
             'id'                   => 1,
             'judul_web'            => 'TestSite',

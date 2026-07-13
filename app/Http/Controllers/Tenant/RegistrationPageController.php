@@ -11,6 +11,8 @@ class RegistrationPageController extends Controller
 {
     public function __invoke(Request $request): View
     {
+        abort_if((bool) config('tenancy.disabled', true), 404);
+
         $baseHost = parse_url((string) config('app.url'), PHP_URL_HOST) ?: $request->getHost();
 
         return view('tenant.register', [

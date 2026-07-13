@@ -23,7 +23,10 @@ uses(TestCase::class, RefreshDatabase::class);
 */
 
 beforeEach(function () {
-    config(['app.url' => 'https://platform.test']);
+    config([
+        'app.url' => 'https://platform.test',
+        'tenancy.disabled' => false,
+    ]);
 });
 
 afterEach(function () {
