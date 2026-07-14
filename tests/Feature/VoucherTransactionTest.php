@@ -164,6 +164,54 @@ class VoucherTransactionTest extends TestCase
         $response->assertJson(['status' => false]);
     }
 
+    public function test_expired_voucher_cannot_be_used_for_order()
+    {
+        $this->voucher->update(['expired_at' => now()->subMinute()]);
+
+        $response = $this->actingAs($this->user)->postJson('/id', [
+            'uid' => '12345',
+            'zone' => '1234',
+            'service' => $this->service->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '08123456789',
+            'voucher' => 'DISKON50',
+            'ktg_tipe' => 'game',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'status' => false,
+            'error_code' => 'VOUCHER_INVALID',
+        ]);
+
+        $this->voucher->refresh();
+        $this->assertEquals(10, (int) $this->voucher->stock);
+        $this->assertDatabaseMissing('pembelians', [
+            'voucher' => 'DISKON50',
+        ]);
+    }
+
+    public function test_future_expiry_voucher_still_works()
+    {
+        $this->voucher->update(['expired_at' => now()->addDay()]);
+
+        $response = $this->actingAs($this->user)->postJson('/id', [
+            'uid' => '12345',
+            'zone' => '1234',
+            'service' => $this->service->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '08123456789',
+            'voucher' => 'DISKON50',
+            'ktg_tipe' => 'game',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => true]);
+
+        $this->voucher->refresh();
+        $this->assertEquals(9, (int) $this->voucher->stock);
+    }
+
     public function test_insufficient_user_balance_does_not_consume_voucher()
     {
         $this->user->update(['balance' => 1000]);
@@ -220,6 +268,22 @@ class VoucherTransactionTest extends TestCase
         ]);
     }
 
+    public function test_check_voucher_rejects_expired_voucher()
+    {
+        $this->voucher->update(['expired_at' => now()->subMinute()]);
+
+        $response = $this->actingAs($this->user)->postJson('/check-voucher', [
+            'voucher' => 'DISKON50',
+            'service' => $this->service->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'status' => false,
+            'message' => 'Voucher sudah kadaluarsa',
+        ]);
+    }
+
     public function test_available_voucher_endpoint_returns_eligible_vouchers_without_consuming_stock()
     {
         Voucher::create([
@@ -228,6 +292,15 @@ class VoucherTransactionTest extends TestCase
             'stock' => 5,
             'mintrx' => 200000,
             'max_potongan' => 100000,
+        ]);
+
+        Voucher::create([
+            'kode' => 'EXPIRED80',
+            'promo' => 80,
+            'stock' => 5,
+            'mintrx' => 0,
+            'max_potongan' => 100000,
+            'expired_at' => now()->subMinute(),
         ]);
 
         $response = $this->actingAs($this->user)->postJson('/available-voucher', [
@@ -242,6 +315,7 @@ class VoucherTransactionTest extends TestCase
         $response->assertJsonPath('vouchers.0.kode', 'DISKON50');
         $response->assertJsonPath('vouchers.0.discount_amount', 20000);
         $response->assertJsonMissing(['kode' => 'MIN_TINGGI']);
+        $response->assertJsonMissing(['kode' => 'EXPIRED80']);
 
         $this->voucher->refresh();
         $this->assertEquals(10, (int) $this->voucher->stock);

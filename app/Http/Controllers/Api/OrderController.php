@@ -56,7 +56,7 @@ class OrderController extends Controller
         $potongan = 0;
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-            if ($voucher && $voucher->stock > 0) {
+            if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 if ($potongan > $voucher->max_potongan) {
                     $potongan = $voucher->max_potongan;
@@ -100,6 +100,7 @@ class OrderController extends Controller
         $voucher = Voucher::where('kode', $request->voucher)->first();
         if (!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan']);
         if ($voucher->stock <= 0) return response()->json(['status' => false, 'message' => 'Voucher sudah habis']);
+        if ($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa']);
 
         $user = Auth::guard('sanctum')->user();
         $role = $user ? $user->role : 'Guest';
@@ -161,7 +162,7 @@ class OrderController extends Controller
 
         if ($request->voucher) {
             $voucher = Voucher::where('kode', $request->voucher)->first();
-            if ($voucher && $voucher->stock > 0) {
+            if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 $harga -= min($potongan, $voucher->max_potongan);
             }

@@ -61,7 +61,15 @@ class VouchersTable
                     ->money('IDR')
                     ->sortable()
                     ->alignEnd(),
-                    
+
+                TextColumn::make('expired_at')
+                    ->label('Expired')
+                    ->dateTime('d M Y H:i')
+                    ->sortable()
+                    ->placeholder('No expiry')
+                    ->color(fn ($state) => $state !== null && $state->isPast() ? 'danger' : null)
+                    ->toggleable(),
+
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime('d M Y')
@@ -82,6 +90,18 @@ class VouchersTable
                 Filter::make('out_of_stock')
                     ->label('Out of Stock')
                     ->query(fn (Builder $query): Builder => $query->where('stock', 0)),
+
+                Filter::make('expired')
+                    ->label('Expired')
+                    ->query(fn (Builder $query): Builder => $query->whereNotNull('expired_at')->where('expired_at', '<', now())),
+
+                Filter::make('active')
+                    ->label('Active')
+                    ->query(fn (Builder $query): Builder => $query
+                        ->where('stock', '>', 0)
+                        ->where(fn (Builder $query): Builder => $query
+                            ->whereNull('expired_at')
+                            ->orWhere('expired_at', '>=', now()))),
             ])
             ->recordActions([
                 EditAction::make(),
