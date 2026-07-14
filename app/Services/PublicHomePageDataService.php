@@ -238,10 +238,9 @@ class PublicHomePageDataService
 
     private function paymentMethods()
     {
-        return Method::query()
-            ->select(['id', 'name', 'code', 'tipe', 'images'])
-            ->get()
-            ->map(fn ($method) => [
+        $methods = app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
+
+        return collect($methods)->map(fn ($method) => [
                 'id' => $method->id,
                 'name' => $method->name,
                 'code' => $method->code,

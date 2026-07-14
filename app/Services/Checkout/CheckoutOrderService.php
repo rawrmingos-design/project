@@ -49,10 +49,7 @@ class CheckoutOrderService
             }
 
             $category = Kategori::query()->findOrFail($service->kategori_id);
-            $method = Method::query()
-                ->enabled()
-                ->where('code', (string) $request->input('payment_method'))
-                ->first();
+            $method = app(\App\Services\PaymentMethodCatalogService::class)->findVisibleByCode((string) $request->input('payment_method'));
 
             if (! $method) {
                 throw ValidationException::withMessages([

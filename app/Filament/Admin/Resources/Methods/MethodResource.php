@@ -28,6 +28,32 @@ class MethodResource extends Resource
     
     protected static ?int $navigationSort = 1;
 
+    public static function canCreate(): bool
+    {
+        return \App\Support\PaymentCatalogAccess::isMaster();
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return \App\Support\PaymentCatalogAccess::isMaster();
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return \App\Support\PaymentCatalogAccess::isMaster();
+    }
+
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery()->withoutGlobalScopes();
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('methods', 'tenant_id')) {
+            $query->whereNull('tenant_id');
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return MethodForm::configure($schema);
