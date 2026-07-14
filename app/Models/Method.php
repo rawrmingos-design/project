@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -44,6 +45,11 @@ class Method extends Model
     public function displayCategory(): BelongsTo
     {
         return $this->belongsTo(PaymentDisplayCategory::class, 'payment_display_category_id');
+    }
+
+    public function tenantSettings(): HasMany
+    {
+        return $this->hasMany(TenantPaymentMethodSetting::class, 'method_id');
     }
 
     public function getTipeAttribute($value): mixed

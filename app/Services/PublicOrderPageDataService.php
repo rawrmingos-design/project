@@ -269,10 +269,9 @@ class PublicOrderPageDataService
 
     private function loadMethods()
     {
-        return Method::query()
-            ->select(['id', 'name', 'code', 'tipe', 'payment', 'images', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian'])
-            ->get()
-            ->map(fn ($method) => [
+        $methods = app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
+
+        return collect($methods)->map(fn ($method) => [
                 'id' => $method->id,
                 'name' => $method->name,
                 'code' => $method->code,

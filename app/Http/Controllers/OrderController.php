@@ -168,8 +168,8 @@ class OrderController extends Controller
         $schema_markup = $data->schema_markup;
 
         // Payment methods are cached separately in global cache or view composer usually, but here we can cache it short term
-        $pay_method = Cache::remember('payment_methods_all', 300, function() {
-            return \App\Models\Method::all();
+        $pay_method = Cache::remember('payment_methods_all_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), 300, function() {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
         });
 
         // Dynamic payment display categories (from PaymentDisplayCategoryService)
@@ -282,10 +282,8 @@ class OrderController extends Controller
         }
 
         // OPTIMIZATION: Cache methods query for 60 minutes to reduce DB load
-        $methods = \Illuminate\Support\Facades\Cache::remember('payment_methods_price_calc', 60 * 60, function () {
-            return Method::select('code', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
-                ->get()
-                ->keyBy('code');
+        $methods = \Illuminate\Support\Facades\Cache::remember('payment_methods_price_calc_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), 60 * 60, function () {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods()->keyBy('code');
         });
 
         $selectedMethod = null;
@@ -578,8 +576,8 @@ class OrderController extends Controller
                         return;
                     }
 
-                    if (!Method::query()->where('code', $code)->exists()) {
-                        $fail('The selected payment method is invalid.');
+                    if (!app(\App\Services\PaymentMethodCatalogService::class)->findVisibleByCode($code)) {
+                        $fail('The selected payment method is invalid or unavailable.');
                     }
                 },
             ],

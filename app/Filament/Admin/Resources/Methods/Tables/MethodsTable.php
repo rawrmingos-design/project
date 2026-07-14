@@ -5,7 +5,10 @@ namespace App\Filament\Admin\Resources\Methods\Tables;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
+use App\Support\PaymentCatalogAccess;
+use App\Models\TenantPaymentMethodSetting;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
@@ -84,14 +87,48 @@ class MethodsTable
                     ->sortable(),
                     
                 TextColumn::make('statuspayment')
-                    ->label('Status')
+                    ->label(PaymentCatalogAccess::isMaster() ? 'Global Status' : 'Storefront')
                     ->badge()
-                    ->formatStateUsing(fn (?bool $state): string => $state ? 'Aktif' : 'Nonaktif')
-                    ->color(fn (?bool $state): string => $state ? 'success' : 'danger')
-                    ->tooltip(fn (?bool $state): string => $state
-                        ? 'Metode pembayaran aktif dan bisa ditampilkan sesuai flow checkout.'
-                        : 'Metode pembayaran sedang nonaktif dan tidak diprioritaskan untuk dipakai.'),
-                    
+                    ->formatStateUsing(function (?bool $state) {
+                        return $state ? 'Aktif' : 'Nonaktif';
+                    })
+                    ->color(function (?bool $state) {
+                        return $state ? 'success' : 'danger';
+                    })
+                    ->tooltip(function (?bool $state) {
+                        return $state
+                            ? 'Metode pembayaran aktif secara global.'
+                            : 'Metode pembayaran nonaktif secara global.';
+                    })
+                    ->visible(PaymentCatalogAccess::isMaster()),
+
+                ToggleColumn::make('storefront_visible')
+                    ->label('Storefront Status')
+                    ->visible(! PaymentCatalogAccess::isMaster())
+                    ->getStateUsing(function ($record) {
+                        if (! $record->statuspayment) {
+                            return false;
+                        }
+
+                        $setting = TenantPaymentMethodSetting::query()
+                            ->where('tenant_id', PaymentCatalogAccess::currentTenantId())
+                            ->where('method_id', $record->id)
+                            ->first();
+
+                        return $setting ? $setting->is_visible : true;
+                    })
+                    ->updateStateUsing(function ($record, $state) {
+                        TenantPaymentMethodSetting::query()->updateOrCreate(
+                            [
+                                'tenant_id' => PaymentCatalogAccess::currentTenantId(),
+                                'method_id' => $record->id,
+                            ],
+                            ['is_visible' => $state]
+                        );
+                    })
+                    ->disabled(fn ($record) => ! $record->statuspayment)
+                    ->tooltip(fn ($record) => ! $record->statuspayment ? 'Metode dinonaktifkan oleh master admin.' : 'Toggle tampilan metode ini di storefront Anda.'),
+
                 TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y')
@@ -127,13 +164,14 @@ class MethodsTable
                     ]),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(PaymentCatalogAccess::isMaster()),
             ])
-            ->toolbarActions([
+            ->toolbarActions(PaymentCatalogAccess::isMaster() ? [
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
-            ])
+            ] : [])
             ->defaultSort('created_at', 'desc');
     }
 }

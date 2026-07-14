@@ -65,11 +65,8 @@ class OrderController extends Controller
             }
         }
 
-        $methods = Cache::remember('payment_methods_price_calc', 3600, function () {
-            return Method::select('code', 'name', 'fee_percent', 'fix_fee', 'min_pembelian', 'max_pembelian')
-                ->enabled()
-                ->get()
-                ->keyBy('code');
+        $methods = Cache::remember('payment_methods_price_calc_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), 3600, function () {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods()->keyBy('code');
         });
 
         $pointInfo = null;
@@ -181,7 +178,7 @@ class OrderController extends Controller
             }
         }
 
-        $dataMethod = Method::where('code', $request->payment_method)->first();
+        $dataMethod = app(\App\Services\PaymentMethodCatalogService::class)->findVisibleByCode((string) $request->payment_method);
         if ($dataMethod) {
             $fee = $dataMethod->fix_fee + ($harga * ($dataMethod->fee_percent / 100));
             $harga += $fee;

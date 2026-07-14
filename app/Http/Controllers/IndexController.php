@@ -125,8 +125,8 @@ class IndexController extends Controller
 
         $banner = $this->sanitizeHomepageBanners($banner, $popup);
 
-        $pay_method = Cache::remember('payment_methods', $ttl, function () {
-            return \App\Models\Method::all();
+        $pay_method = Cache::remember('payment_methods_home_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), $ttl, function () {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
         });
 
         // Flashsale, CategoryTypes, and Articles are now handled by Livewire components

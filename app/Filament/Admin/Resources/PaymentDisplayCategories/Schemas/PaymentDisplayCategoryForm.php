@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Resources\PaymentDisplayCategories\Schemas;
 
-use App\Tenancy\TenantContext;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -25,16 +24,8 @@ class PaymentDisplayCategoryForm
                             ->maxLength(100)
                             ->rules([
                                 fn (?Model $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
-                                    $tenantId = app()->bound(TenantContext::class)
-                                        ? app(TenantContext::class)->id()
-                                        : null;
-
-                                    if ($tenantId === null) {
-                                        return;
-                                    }
-
                                     $rule = Rule::unique('payment_display_categories', 'label')
-                                        ->where('tenant_id', $tenantId);
+                                        ->whereNull('tenant_id');
 
                                     if ($record) {
                                         $rule->ignore($record->getKey());
@@ -46,7 +37,7 @@ class PaymentDisplayCategoryForm
                                     );
 
                                     if ($validator->fails()) {
-                                        $fail('Label already exists for this store.');
+                                        $fail('Label already exists in the global catalog.');
                                     }
                                 },
                             ])

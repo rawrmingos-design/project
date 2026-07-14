@@ -46,8 +46,8 @@ class PricelistController extends Controller
             return Berita::where('tipe', 'logofooter')->latest()->first();
         });
 
-        $pay_method = Cache::remember('payment_methods_all', $ttl, function () {
-            return \App\Models\Method::all();
+        $pay_method = Cache::remember('payment_methods_all_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), $ttl, function () {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
         });
 
         return view('template.pricelist', [

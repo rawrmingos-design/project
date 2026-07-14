@@ -44,6 +44,16 @@ class PaymentDisplayCategory extends Model
         static::deleted($invalidateCache);
     }
 
+    public function tenantSettings(): HasMany
+    {
+        return $this->hasMany(TenantPaymentDisplayCategorySetting::class, 'payment_display_category_id');
+    }
+
+    public function scopeCanonical(Builder $query): Builder
+    {
+        return $query->withoutGlobalScopes()->whereNull('tenant_id');
+    }
+
     // Relationships
 
     public function methods(): HasMany

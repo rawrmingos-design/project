@@ -26,8 +26,8 @@ class PricelistController extends Controller
             return Kategori::all();
         });
 
-        $payment_methods = Cache::remember('payment_methods_all_api', $ttl, function () {
-            return Method::all();
+        $payment_methods = Cache::remember('payment_methods_all_api_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), $ttl, function () {
+            return app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
         });
 
         return response()->json([

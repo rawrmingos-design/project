@@ -15,6 +15,10 @@ class MethodController extends Controller
 
     public function store(Request $request)
     {
+        if (! \App\Support\PaymentCatalogAccess::isMaster()) {
+            abort(403, 'Akses ditolak: Hanya Master Admin yang dapat menambahkan metode pembayaran.');
+        }
+
         $request->validate([
             'name' => 'required',
             'images' => 'required|file|mimes:jpg,png,webp',
@@ -49,6 +53,10 @@ class MethodController extends Controller
 
     public function delete($id)
     {
+        if (! \App\Support\PaymentCatalogAccess::isMaster()) {
+            abort(403, 'Akses ditolak: Hanya Master Admin yang dapat menghapus metode pembayaran.');
+        }
+
         try {
             $data = method::where('id', $id)->select('images')->first();
             unlink(public_path($data->images));
@@ -62,6 +70,10 @@ class MethodController extends Controller
 
     public function detail($id)
     {
+        if (! \App\Support\PaymentCatalogAccess::isMaster()) {
+            abort(403, 'Akses ditolak: Hanya Master Admin yang dapat mengedit metode pembayaran.');
+        }
+
         $data = Method::where('id', $id)->first();
         if (!$data) {
             return back()->withErrors('Metode pembayaran tidak ditemukan');
@@ -158,6 +170,10 @@ class MethodController extends Controller
 
     public function patch(Request $request, $id)
     {
+        if (! \App\Support\PaymentCatalogAccess::isMaster()) {
+            abort(403, 'Akses ditolak: Hanya Master Admin yang dapat mengedit metode pembayaran.');
+        }
+
         if ($request->file('images')) {
             $file = $request->file('images');
             $folder = 'assets/thumbnail';
@@ -185,8 +201,22 @@ class MethodController extends Controller
     public function toggleStatus($id)
     {
         $payMethod = method::findOrFail($id);
-        $payMethod->statuspayment = !$payMethod->statuspayment;
-        $payMethod->save();
+
+        if (\App\Support\PaymentCatalogAccess::isMaster()) {
+            $payMethod->statuspayment = !$payMethod->statuspayment;
+            $payMethod->save();
+        } else {
+            $setting = \App\Models\TenantPaymentMethodSetting::query()->firstOrCreate(
+                [
+                    'tenant_id' => \App\Support\PaymentCatalogAccess::currentTenantId(),
+                    'method_id' => $payMethod->id,
+                ],
+                ['is_visible' => true]
+            );
+
+            $setting->is_visible = !$setting->is_visible;
+            $setting->save();
+        }
 
         return redirect()->back()->with('success', 'Status metode pembayaran berhasil diperbarui.');
     }

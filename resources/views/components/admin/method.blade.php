@@ -37,6 +37,7 @@
     @endif
 
     <div class="row">
+        @if(\App\Support\PaymentCatalogAccess::isMaster())
         <div class="col-lg-12">
             <div class="card">
                 <div class="card-header">
@@ -177,6 +178,7 @@
                 </div>
             </div>
         </div>
+        @endif
         <div class="col-lg-12">
             <div class="card">
                 <div class="card-header">
@@ -241,6 +243,7 @@
                                                 style="border-radius: 10px;">
                                         </td>
                                         <td>
+                                            @if(\App\Support\PaymentCatalogAccess::isMaster())
                                             <div class="dropdown d-inline-block">
                                                 <button class="btn btn-soft-secondary btn-sm" type="button"
                                                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -250,7 +253,7 @@
                                                     <!-- Edit Action -->
                                                     <li>
                                                         <a href="javascript:void(0);" class="dropdown-item"
-                                                            onclick="modal('{{ $datas->nama }}', '{{ route('method.detail', [$datas->id]) }}')">
+                                                            onclick="modal('{{ $datas->name }}', '{{ route('method.detail', [$datas->id]) }}')">
                                                             <i class="ri-pencil-fill align-bottom me-2 text-muted"></i>
                                                             Edit
                                                         </a>
@@ -265,6 +268,7 @@
                                                     </li>
                                                 </ul>
                                             </div>
+                                            @endif
                                         </td>
                                         {{-- <td>
                                             <a href="javascript:;"
