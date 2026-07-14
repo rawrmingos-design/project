@@ -31,24 +31,51 @@ class DigiflazzSyncJob implements ShouldQueue
         $digi = new DigiFlazzController();
         $response = $digi->harga(); // Fetch Pricelist
 
-        if (!isset($response['data']) || !is_array($response['data'])) {
-            Log::error('DigiflazzSyncJob: Failed to fetch pricelist or invalid response format.', ['response' => $response]);
+        if (! is_array($response)) {
+            Log::warning('DigiflazzSyncJob: invalid pricelist response.', [
+                'response_type' => get_debug_type($response),
+            ]);
+
+            return;
+        }
+
+        $products = $response['data'] ?? null;
+
+        if (! is_array($products) || ! array_is_list($products)) {
+            Log::warning('DigiflazzSyncJob: pricelist response did not contain a product list.', [
+                'status' => is_array($products) ? ($products['status'] ?? null) : null,
+                'message' => is_array($products) ? ($products['message'] ?? null) : null,
+                'data_type' => get_debug_type($products),
+            ]);
+
             return;
         }
 
         $count = 0;
-        foreach ($response['data'] as $item) {
-            $sku = $item['buyer_sku_code'];
-            $price = $item['price'];
-            
-            // Map Digiflazz status to our system status
-            // Assuming Digiflazz returns: true (available) / false (unavailable)? 
-            // Or 'buyer_product_status': true/false, 'seller_product_status': true/false
-            
-            $isAvailable = $item['buyer_product_status'] && $item['seller_product_status'];
-            $status = $isAvailable ? 'available' : 'maintenance'; // Default to maintenance if not available
-            
-            if ($item['stock'] == 0 && $item['unlimited_stock'] == false) {
+        $skippedInvalid = 0;
+
+        foreach ($products as $item) {
+            if (! is_array($item)) {
+                $skippedInvalid++;
+                continue;
+            }
+
+            $sku = trim((string) ($item['buyer_sku_code'] ?? ''));
+            $price = $item['price'] ?? null;
+
+            if ($sku === '' || ! is_numeric($price)) {
+                $skippedInvalid++;
+                continue;
+            }
+
+            // Map Digiflazz status to our system status.
+            $isAvailable = (bool) ($item['buyer_product_status'] ?? false)
+                && (bool) ($item['seller_product_status'] ?? false);
+            $status = $isAvailable ? 'available' : 'maintenance';
+            $stock = $item['stock'] ?? null;
+            $unlimitedStock = (bool) ($item['unlimited_stock'] ?? true);
+
+            if (is_numeric($stock) && (int) $stock <= 0 && ! $unlimitedStock) {
                  $status = 'empty';
             }
 
@@ -65,6 +92,13 @@ class DigiflazzSyncJob implements ShouldQueue
                 ]);
                 $count++;
             }
+        }
+
+        if ($skippedInvalid > 0) {
+            Log::warning('DigiflazzSyncJob: skipped invalid pricelist entries.', [
+                'skipped_invalid' => $skippedInvalid,
+                'updated' => $count,
+            ]);
         }
 
     }
