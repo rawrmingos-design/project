@@ -33,6 +33,11 @@ class TenantResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! (bool) config('tenancy.disabled', true);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return TenantForm::configure($schema);

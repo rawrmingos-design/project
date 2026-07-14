@@ -6,7 +6,6 @@ use App\Filament\Admin\Resources\Tenants\Pages\ListTenants;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\Contracts\DnsResolverInterface;
-use App\Tenancy\TenantDomainService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\AdminTestCase;
@@ -189,6 +188,16 @@ test('TenantsTable shows custom_domain_status badge column', function () {
     Livewire::test(ListTenants::class)
         ->assertCanRenderTableColumn('custom_domain_status')
         ->assertTableColumnExists('custom_domain_status');
+});
+
+test('tenant resource navigation follows tenancy kill switch', function () {
+    config(['tenancy.disabled' => true]);
+
+    expect(\App\Filament\Admin\Resources\Tenants\TenantResource::shouldRegisterNavigation())->toBeFalse();
+
+    config(['tenancy.disabled' => false]);
+
+    expect(\App\Filament\Admin\Resources\Tenants\TenantResource::shouldRegisterNavigation())->toBeTrue();
 });
 
 test('Tenant form rejects reserved custom domains', function () {
