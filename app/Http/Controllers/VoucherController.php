@@ -20,15 +20,17 @@ class VoucherController extends Controller
             'kode' => 'required|unique:vouchers,kode',
             'promo' => 'required|numeric|min:0|max:100',
             'stock' => 'required|numeric|min:0',
-            'max_potongan' => 'required|numeric|min:0'
+            'max_potongan' => 'required|numeric|min:0',
+            'expired_at' => 'nullable|date',
         ]);
-        
+
         $voucher = new Voucher();
         $voucher->kode = $request->kode;
         $voucher->promo = $request->promo;
         $voucher->stock = $request->stock;
         $voucher->mintrx = $request->mintrx;
         $voucher->max_potongan = $request->max_potongan;
+        $voucher->expired_at = $request->expired_at ?: null;
         $voucher->save();
         
         return back()->with('success', 'Berhasil menambahkan voucher');
@@ -50,8 +52,9 @@ class VoucherController extends Controller
         $voucher = Voucher::where('kode', $request->voucher)->first();
         
         if(!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan'], 404);
-        if($voucher->stock == 0) return response()->json(['status' => false, 'message' => 'Voucher sudah tidak valid'], 404);
-        
+        if($voucher->stock <= 0) return response()->json(['status' => false, 'message' => 'Voucher sudah tidak valid'], 404);
+        if($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa'], 422);
+
         if(isset($request->service)){
             if(Auth::check()){
                 if(Auth::user()->role == "Member"){
@@ -115,6 +118,9 @@ class VoucherController extends Controller
 
         $vouchers = Voucher::query()
             ->where('stock', '>', 0)
+            ->where(fn ($query) => $query
+                ->whereNull('expired_at')
+                ->orWhere('expired_at', '>=', now()))
             ->get()
             ->map(function (Voucher $voucher) use ($basePrice) {
                 if ($voucher->mintrx && $basePrice < (float) $voucher->mintrx) {
@@ -156,7 +162,8 @@ class VoucherController extends Controller
     public function show($id)
     {
         $data = Voucher::where('id', $id)->first();
-        
+        $expiredAt = $data->expired_at?->format('Y-m-d\\TH:i') ?? '';
+
         $send = "
                 <form action='".route("voucher.detail.update", [$id])."' method='POST'>
                     <input type='hidden' name='_token' value='".csrf_token()."'>
@@ -189,7 +196,13 @@ class VoucherController extends Controller
                         <div class='col-lg-10'>
                             <input type='number' class='form-control' value='".$data->max_potongan. "' name='max_potongan'>
                         </div>
-                    </div>                    
+                    </div>
+                    <div class='mb-3 row'>
+                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Expired</label>
+                        <div class='col-lg-10'>
+                            <input type='datetime-local' class='form-control' value='".$expiredAt. "' name='expired_at'>
+                        </div>
+                    </div>
                     <div class='modal-footer'>
                         <button type='button' class='btn btn-danger' data-bs-dismiss='modal'>Close</button>
                         <button type='submit' class='btn btn-primary'>Simpan</button>
@@ -206,15 +219,17 @@ class VoucherController extends Controller
             'kode'  => 'required',
             'promo' => 'required|numeric|min:0|max:100',
             'stock' => 'required|numeric|min:0',
-            'max_potongan' => 'required|numeric|min:0'
+            'max_potongan' => 'required|numeric|min:0',
+            'expired_at' => 'nullable|date',
         ]);
-        
+
         Voucher::where('id', $id)->update([
             'kode' => $request->kode,
             'promo' => $request->promo,
             'stock' => $request->stock,
             'mintrx' => $request->mintrx,
-            'max_potongan' => $request->max_potongan
+            'max_potongan' => $request->max_potongan,
+            'expired_at' => $request->expired_at ?: null,
         ]);
         
         return back()->with('success', 'Berhasil update kode promo');

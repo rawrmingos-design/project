@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Vouchers\Schemas;
 
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
@@ -35,7 +36,7 @@ class VoucherForm
                     ->collapsible(),
                     
                 Section::make('Voucher Settings')
-                    ->columns(3)
+                    ->columns(2)
                     ->schema([
                         TextInput::make('stock')
                             ->label('Available Stock')
@@ -44,7 +45,7 @@ class VoucherForm
                             ->default(100)
                             ->minValue(0)
                             ->helperText('Number of times this voucher can be used'),
-                            
+
                         TextInput::make('mintrx')
                             ->label('Minimum Transaction')
                             ->required()
@@ -53,7 +54,7 @@ class VoucherForm
                             ->default(10000)
                             ->minValue(0)
                             ->helperText('Minimum transaction amount to use this voucher'),
-                            
+
                         TextInput::make('max_potongan')
                             ->label('Maximum Discount')
                             ->required()
@@ -62,6 +63,12 @@ class VoucherForm
                             ->default(50000)
                             ->minValue(0)
                             ->helperText('Maximum discount amount (cap)'),
+
+                        DateTimePicker::make('expired_at')
+                            ->label('Expired At')
+                            ->seconds(false)
+                            ->native(false)
+                            ->helperText('Leave empty if this voucher does not expire'),
                     ])
                     ->collapsible(),
             ]);

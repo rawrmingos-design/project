@@ -372,7 +372,7 @@ class OrderController extends Controller
 
     private function calculateVoucherDiscountAmount(float|int $basePrice, ?Voucher $voucher): int
     {
-        if (!$voucher || (int) $voucher->stock <= 0) {
+        if (!$voucher || ! $voucher->isUsable()) {
             return 0;
         }
 
@@ -1181,16 +1181,25 @@ class OrderController extends Controller
                 'voucher_id' => $voucher->id ?? null,
                 'voucher_stock' => $voucher->stock ?? null,
             ]);
-            if ($voucher && $voucher->stock > 0) {
-                if ($voucher->mintrx && $dataLayanan->harga < $voucher->mintrx) {
-                    return $this->orderErrorResponse(
-                        'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
-                        'VOUCHER_MIN_TRANSACTION'
-                    );
-                }
+            if (! $voucher || ! $voucher->isUsable()) {
+                $this->restoreCheckoutReservations($flashSaleReserved, false, false, false, $request, $dataLayanan, 0, '');
 
-                $dataLayanan->harga = round($dataLayanan->harga - $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher));
+                return $this->orderErrorResponse(
+                    'Voucher tidak valid atau sudah kadaluarsa',
+                    'VOUCHER_INVALID'
+                );
             }
+
+            if ($voucher->mintrx && $dataLayanan->harga < $voucher->mintrx) {
+                $this->restoreCheckoutReservations($flashSaleReserved, false, false, false, $request, $dataLayanan, 0, '');
+
+                return $this->orderErrorResponse(
+                    'Minimal transaksi untuk voucher ini adalah Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
+                    'VOUCHER_MIN_TRANSACTION'
+                );
+            }
+
+            $dataLayanan->harga = round($dataLayanan->harga - $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher));
         }
 
         $dataMethod = $this->resolveSelectedMethod((string) $request->payment_method);
@@ -1271,7 +1280,7 @@ class OrderController extends Controller
                 // Voucher Stock Decrement
                 if ($request->voucher) {
                     $voucher = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
-                    if (!$voucher || $voucher->stock <= 0) throw new \Exception('Voucher habis');
+                    if (!$voucher || ! $voucher->isUsable()) throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                     $voucher->decrement('stock');
                 }
 
@@ -1347,8 +1356,8 @@ class OrderController extends Controller
                 try {
                     DB::transaction(function () use ($request, &$voucherReserved) {
                         $voucherGw = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
-                        if (!$voucherGw || $voucherGw->stock <= 0) {
-                            throw new \Exception('Voucher tidak valid atau sudah habis');
+                        if (!$voucherGw || ! $voucherGw->isUsable()) {
+                            throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                         }
                         $voucherGw->decrement('stock');
                         $voucherReserved = true;

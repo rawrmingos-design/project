@@ -118,6 +118,16 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="row mb-3">
+                            <div class="col-lg-3">
+                                <label for="expiredAt" class="form-label">Expired</label>
+                            </div>
+                            <div class="col-lg-9">
+                                <input type="datetime-local" class="form-control" id="expiredAt"
+                                    value="{{ old('expired_at') }}" name="expired_at">
+                                <div class="form-text">Leave empty if this voucher does not expire.</div>
+                            </div>
+                        </div>
 
                         <div class="text-end">
                             <button type="submit"
@@ -153,6 +163,7 @@
                                     <th>Min Transaction</th>
                                     <th>Max Cuts</th>
                                     <th>Stock</th>
+                                    <th>Expired</th>
                                     <th>Date</th>
                                     <th>Action</th>
                                 </tr>
@@ -166,6 +177,7 @@
                                         <td>{{ $data->mintrx }}</td>
                                         <td>{{ $data->max_potongan }}</td>
                                         <td>{{ $data->stock }}</td>
+                                        <td>{{ $data->expired_at ? $data->expired_at->format('d M Y H:i') : '-' }}</td>
                                         <td>{{ $data->created_at }}</td>
                                         {{-- <td>
                                             <a href="javascript:;"

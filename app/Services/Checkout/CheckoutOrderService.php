@@ -70,9 +70,9 @@ class CheckoutOrderService
             $voucherCode = trim((string) $request->input('voucher', ''));
             if ($voucherCode !== '') {
                 $voucher = Voucher::query()->where('kode', $voucherCode)->lockForUpdate()->first();
-                if (! $voucher || $voucher->stock <= 0) {
+                if (! $voucher || ! $voucher->isUsable()) {
                     throw ValidationException::withMessages([
-                        'voucher' => 'Voucher tidak valid atau sudah habis.',
+                        'voucher' => 'Voucher tidak valid atau sudah kadaluarsa.',
                     ]);
                 }
 
