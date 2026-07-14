@@ -95,7 +95,7 @@ class SettingsSplitPageTest extends AdminTestCase
                 'judul_web' => 'New Website',
                 'order_prefik' => 'INV',
                 'public_theme' => 'bangjeff',
-                'deskripsi_web' => 'Deskripsi website baru',
+                'deskripsi_web' => '<p>Deskripsi website baru</p>',
                 'keywords' => 'topup,game,cheap',
                 'home_popup_enabled' => false,
                 'live_sales_enabled' => false,
@@ -110,7 +110,7 @@ class SettingsSplitPageTest extends AdminTestCase
         $settings->refresh();
 
         $this->assertSame('New Website', $settings->judul_web);
-        $this->assertSame('Deskripsi website baru', $settings->deskripsi_web);
+        $this->assertSame('<p>Deskripsi website baru</p>', $settings->deskripsi_web);
         $this->assertSame('bangjeff', $settings->public_theme);
         $this->assertFalse((bool) $settings->home_popup_enabled);
         $this->assertFalse((bool) $settings->live_sales_enabled);
@@ -159,7 +159,7 @@ class SettingsSplitPageTest extends AdminTestCase
                 'judul_web' => 'New Website',
                 'order_prefik' => 'INV',
                 'public_theme' => 'bangjeff',
-                'deskripsi_web' => 'Deskripsi website baru',
+                'deskripsi_web' => '<p>Deskripsi website baru</p>',
                 'keywords' => 'topup,game,cheap',
                 'home_popup_enabled' => false,
                 'live_sales_enabled' => false,
