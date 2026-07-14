@@ -8,13 +8,13 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
-use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Actions\Action;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Tables\Table;
+use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\TextColumn;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use UnitEnum;
 class AffiliateRequestResource extends Resource
 {
@@ -29,11 +29,6 @@ class AffiliateRequestResource extends Resource
     protected static UnitEnum|string|null $navigationGroup = 'Affiliate System';
     
     protected static ?string $slug = 'affiliate-requests';
-
-    public static function getEloquentQuery(): Builder
-    {
-        return parent::getEloquentQuery()->where('affiliate_status', 'pending');
-    }
 
     public static function form(\Filament\Schemas\Schema $schema): \Filament\Schemas\Schema
     {
@@ -90,11 +85,12 @@ class AffiliateRequestResource extends Resource
                             ->rows(3)
                             ->maxLength(600),
                     ])
+                    ->visible(fn (User $record): bool => $record->normalizedAffiliateStatus() === 'pending')
                     ->action(function (array $data, User $record) {
                         $record->affiliate_status = 'active';
                         // Generate referral code if not exists
                         if (!$record->referral_code) {
-                            $record->referral_code = 'REF-' . strtoupper(\Str::random(6));
+                            $record->referral_code = 'REF-' . strtoupper(Str::random(6));
                         }
                         static::recordAffiliateReview($record, 'approved', $data['review_note'] ?? null);
                         $record->save();
@@ -111,6 +107,7 @@ class AffiliateRequestResource extends Resource
                             ->rows(3)
                             ->maxLength(600),
                     ])
+                    ->visible(fn (User $record): bool => $record->normalizedAffiliateStatus() === 'pending')
                     ->action(function (array $data, User $record) {
                         $record->affiliate_status = 'rejected';
                         static::recordAffiliateReview($record, 'rejected', $data['review_note'] ?? null);
@@ -152,8 +149,8 @@ class AffiliateRequestResource extends Resource
             'decision' => $decision,
             'note' => blank($note) ? null : trim((string) $note),
             'reviewed_at' => now()->toIso8601String(),
-            'reviewed_by_id' => auth()->id(),
-            'reviewed_by_username' => auth()->user()?->username,
+            'reviewed_by_id' => Auth::id(),
+            'reviewed_by_username' => Auth::user()?->username,
         ];
 
         $history[] = $review;
