@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\HtmlSanitizer;
 use App\Services\PublicSiteConfigService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ class PwaManifestController extends Controller
         $settings = $siteConfigService->getSettings();
         $appUrl = rtrim((string) config('app.url'), '/');
         $appName = trim((string) ($settings->judul_web ?? config('app.name', 'Game Top-Up')));
-        $description = trim((string) ($settings->deskripsi_web ?? 'Platform Top-Up Game Terpercaya'));
+        $description = HtmlSanitizer::toPlainText($settings->deskripsi_web ?? 'Platform Top-Up Game Terpercaya', 180);
         $themeColor = $this->normalizeHexColor((string) ($settings->warna1 ?? '#575757'), '#575757');
         $backgroundColor = $this->normalizeHexColor((string) ($settings->warna4 ?? '#111111'), '#111111');
         $iconSizes = [72, 96, 128, 144, 152, 192, 384, 512];

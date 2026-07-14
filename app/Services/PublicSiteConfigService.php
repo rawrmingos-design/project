@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\HtmlSanitizer;
 use App\Models\SettingWeb;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Support\Facades\Auth;
@@ -70,11 +71,14 @@ class PublicSiteConfigService
         $logoHeader = $this->resolveAsset($settings->logo_header, '/assets/logo/favicon.webp');
         $logoFooter = $this->resolveAsset($settings->logo_footer, '/assets/logo/favicon.webp');
         $favicon = $this->resolveAsset($settings->logo_favicon, '/assets/logo/favicon.webp');
+        $plainDescription = HtmlSanitizer::toPlainText($settings->deskripsi_web, 180);
+        $footerDescriptionHtml = HtmlSanitizer::clean($settings->deskripsi_web);
 
         return [
             'siteConfig' => [
                 'name' => $settings->judul_web,
-                'description' => $settings->deskripsi_web,
+                'description' => $plainDescription,
+                'footerDescriptionHtml' => $footerDescriptionHtml,
                 'keywords' => $settings->keywords,
                 'logoHeader' => $logoHeader['path'],
                 'logoFooter' => $logoFooter['path'],
@@ -125,7 +129,7 @@ class PublicSiteConfigService
             ],
             'seoDefaults' => [
                 'title' => $settings->judul_web,
-                'description' => $settings->deskripsi_web,
+                'description' => $plainDescription,
                 'keywords' => $settings->keywords,
                 'canonical' => \App\Support\CanonicalUrl::normalize(url()->current()),
                 'image' => $favicon['path'],
