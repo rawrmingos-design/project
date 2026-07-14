@@ -23,6 +23,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Schemas\Schema;
@@ -79,12 +80,16 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->native(false)
                             ->helperText('Pilih tampilan halaman publik yang aktif.'),
                             
-                        Textarea::make('deskripsi_web')
+                        RichEditor::make('deskripsi_web')
                             ->label('Deskripsi Website')
-                            ->rows(3)
+                            ->toolbarButtons([
+                                'bold', 'italic', 'underline', 'strike', 'link',
+                                'bulletList', 'orderedList', 'h2', 'h3',
+                                'blockquote', 'undo', 'redo',
+                            ])
                             ->required()
                             ->columnSpanFull()
-                            ->helperText('Deskripsi singkat untuk SEO dan preview saat link dibagikan.'),
+                            ->helperText('Konten rich text untuk footer SEO. Meta description dan preview link otomatis memakai versi teks biasa.'),
                             
                         Textarea::make('keywords')
                             ->label('Kata Kunci SEO')

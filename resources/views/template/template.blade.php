@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- SEO Meta Tags -->
+    @php
+        $resolvedMetaDescription = \App\Helpers\HtmlSanitizer::toPlainText(isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : ''), 180);
+    @endphp
     <meta name="theme-color" content="{{ $config && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $config->warna1) ? $config->warna1 : '#575757' }}">
     <meta name="format-detection" content="telephone=no">
     <meta name="mobile-web-app-capable" content="yes">
@@ -12,7 +15,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta property="og:title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta property="og:type" content="website">
-    <meta property="og:description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
+    <meta property="og:description" content="{{ $resolvedMetaDescription }}">
     @php
         $normalizedCanonicalUrl = \App\Support\CanonicalUrl::normalize($canonical_url ?? url()->current());
     @endphp
@@ -20,7 +23,7 @@
     <meta property="og:image" content="{{ isset($thumbnail) ? $thumbnail : ($config ? $config->logo_favicon : '') }}">
     <meta name="title" content="{{ isset($title) ? $title : ($config ? $config->judul_web : '') }}">
     <meta name="keywords" content="{{ isset($keywords) ? $keywords : ($config ? $config->keywords : '') }}">
-    <meta name="description" content="{{ isset($meta_description) ? $meta_description : ($config ? $config->deskripsi_web : '') }}">
+    <meta name="description" content="{{ $resolvedMetaDescription }}">
     <meta name="author" content="{{ $config ? $config->judul_web : '' }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="canonical" href="{{ $normalizedCanonicalUrl }}">
@@ -245,7 +248,7 @@
 
     @php
         $pwaSplashName = trim((string) ($config->judul_web ?? config('app.name', 'Game Top-Up')));
-        $pwaSplashDescription = trim((string) ($config->deskripsi_web ?? 'Platform Top-Up Game Terpercaya'));
+        $pwaSplashDescription = \App\Helpers\HtmlSanitizer::toPlainText($config->deskripsi_web ?? 'Platform Top-Up Game Terpercaya', 120);
         $pwaSplashLogoSource = trim((string) ($config->logo_favicon ?? '')) !== ''
             ? (string) $config->logo_favicon
             : (trim((string) ($config->logo_header ?? '')) !== '' ? (string) $config->logo_header : 'assets/logo/favicon.webp');

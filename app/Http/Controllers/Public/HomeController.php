@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Public;
 
+use App\Helpers\HtmlSanitizer;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\IndexController as LegacyHomeController;
 use App\Services\PublicHomePageDataService;
@@ -29,7 +30,7 @@ class HomeController extends Controller
         return Inertia::render('Public/Home', array_merge($data, [
             'meta' => [
                 'title' => $settings->judul_web,
-                'description' => $settings->deskripsi_web,
+                'description' => HtmlSanitizer::toPlainText($settings->deskripsi_web, 180),
                 'keywords' => $settings->keywords,
                 'canonical' => url('/id'),
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),

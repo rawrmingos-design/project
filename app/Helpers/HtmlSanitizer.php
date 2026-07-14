@@ -20,6 +20,11 @@ class HtmlSanitizer
         return is_array($profile) ? $profile : null;
     }
 
+    private static function removeUnsafeBlocks(string $html): string
+    {
+        return preg_replace('/<(script|style)\b[^>]*>.*?<\/\1>/isu', ' ', $html) ?? $html;
+    }
+
     /**
      * Sanitasi HTML rich-text (untuk deskripsi game, artikel, deskripsi_field).
      * Menggunakan profile 'default' dari config/purifier.php.
@@ -30,6 +35,7 @@ class HtmlSanitizer
             return '';
         }
 
+        $html = self::removeUnsafeBlocks((string) $html);
         $defaultProfile = self::resolveProfile('default');
 
         return $defaultProfile
@@ -54,6 +60,33 @@ class HtmlSanitizer
         return $articleProfile
             ? Purifier::clean($html, $articleProfile)
             : Purifier::clean($html);
+    }
+
+    /**
+     * Ubah rich HTML menjadi teks biasa yang aman untuk meta tag, manifest, dan preview.
+     */
+    public static function toPlainText(?string $html, ?int $limit = null): string
+    {
+        $html = (string) $html;
+
+        if (trim($html) === '') {
+            return '';
+        }
+
+        $cleanHtml = self::clean($html);
+        $text = preg_replace('/<[^>]+>/u', ' ', $cleanHtml) ?? strip_tags($cleanHtml);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        $text = trim($text);
+
+        if ($limit !== null && $limit > 0 && mb_strlen($text) > $limit) {
+            $suffix = $limit > 3 ? '...' : '';
+            $length = max(1, $limit - mb_strlen($suffix));
+
+            return rtrim(mb_substr($text, 0, $length)) . $suffix;
+        }
+
+        return $text;
     }
 
     /**
