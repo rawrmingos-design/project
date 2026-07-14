@@ -1,5 +1,56 @@
-import React, { useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
+
+function FooterSeoDescription({ html }) {
+    const contentRef = useRef(null);
+    const [expanded, setExpanded] = useState(false);
+    const [collapsible, setCollapsible] = useState(false);
+    const collapsedHeight = 132;
+
+    useLayoutEffect(() => {
+        const content = contentRef.current;
+
+        if (!content) {
+            return undefined;
+        }
+
+        const updateCollapsible = () => {
+            setCollapsible(content.scrollHeight > collapsedHeight);
+        };
+
+        setExpanded(false);
+        updateCollapsible();
+
+        window.addEventListener('resize', updateCollapsible);
+        window.setTimeout(updateCollapsible, 250);
+
+        return () => window.removeEventListener('resize', updateCollapsible);
+    }, [html]);
+
+    if (!html) {
+        return null;
+    }
+
+    return (
+        <section className={`public-footer__seo ${collapsible ? 'is-collapsible' : ''} ${expanded ? 'is-expanded' : ''}`.trim()}>
+            <div
+                ref={contentRef}
+                className="public-footer__seo-content"
+                dangerouslySetInnerHTML={{ __html: html }}
+            />
+            {collapsible ? (
+                <button
+                    type="button"
+                    className="public-footer__seo-toggle"
+                    aria-expanded={expanded}
+                    onClick={() => setExpanded((value) => !value)}
+                >
+                    {expanded ? 'Tutup' : 'Baca selengkapnya'}
+                </button>
+            ) : null}
+        </section>
+    );
+}
 
 export default function Footer() {
     const { siteConfig, theme } = usePage().props;
@@ -107,30 +158,26 @@ export default function Footer() {
 
             <footer className="public-footer public-footer--storefront">
                 <div className="public-footer__inner public-footer__inner--storefront">
+                    <FooterSeoDescription html={siteConfig.footerDescriptionHtml} />
+
                     <div className={`public-footer__layout ${isBangjeff ? 'public-footer__layout--bangjeff' : ''}`}>
-                        <div className={`public-footer__intro ${isBangjeff ? 'public-footer__intro--bangjeff' : ''}`}>
-                            {isBangjeff ? (
-                                <>
-                                    <div className="public-footer__brand-block">
-                                        <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
-                                        <p>{siteConfig.description}</p>
+                        {isBangjeff ? (
+                            <div className="public-footer__intro public-footer__intro--bangjeff">
+                                <div className="public-footer__brand-block">
+                                    <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
+                                </div>
+
+                                {socialLinks.length ? (
+                                    <div className="public-footer__social-row" aria-label="Social links">
+                                        {socialLinks.map((item) => (
+                                            <a key={item.key} href={item.href} target="_blank" rel="noreferrer" className={`public-footer__social-link public-footer__social-link--${item.key}`} aria-label={item.label}>
+                                                {item.icon}
+                                            </a>
+                                        ))}
                                     </div>
-
-                                    {socialLinks.length ? (
-                                        <div className="public-footer__social-row" aria-label="Social links">
-                                            {socialLinks.map((item) => (
-                                                <a key={item.key} href={item.href} target="_blank" rel="noreferrer" className={`public-footer__social-link public-footer__social-link--${item.key}`} aria-label={item.label}>
-                                                    {item.icon}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    ) : null}
-
-                                </>
-                            ) : (
-                                <p>{siteConfig.description}</p>
-                            )}
-                        </div>
+                                ) : null}
+                            </div>
+                        ) : null}
 
                         <div className={`public-footer__grid ${isBangjeff ? 'public-footer__grid--bangjeff' : ''}`}>
                             {footerColumns.map((column) => (
