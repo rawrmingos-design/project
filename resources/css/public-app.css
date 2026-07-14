@@ -1811,6 +1811,124 @@ textarea {
     padding-bottom: 18px;
 }
 
+.public-footer__seo {
+    width: min(calc(100% - 56px), 1040px);
+    margin: 0 auto 24px;
+    text-align: left;
+}
+
+.public-footer__seo-content {
+    position: relative;
+    max-height: none;
+    overflow: visible;
+    color: #dfe9fb;
+    font-size: 0.875rem;
+    line-height: 1.8;
+}
+
+.public-footer__seo.is-collapsible .public-footer__seo-content {
+    max-height: 8.25rem;
+    overflow: hidden;
+    transition: max-height 0.24s ease;
+}
+
+.public-footer__seo.is-expanded .public-footer__seo-content {
+    max-height: none;
+    overflow: visible;
+}
+
+.public-footer__seo.is-collapsible:not(.is-expanded) .public-footer__seo-content::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 3.5rem;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(40, 40, 42, 0), #28282a);
+}
+
+.public-footer__seo-content p {
+    margin: 0 0 0.75rem;
+}
+
+.public-footer__seo-content h2,
+.public-footer__seo-content h3 {
+    margin: 1rem 0 0.5rem;
+    color: #fff;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.public-footer__seo-content h2 {
+    font-size: 1rem;
+}
+
+.public-footer__seo-content h3 {
+    font-size: 0.95rem;
+}
+
+.public-footer__seo-content ul,
+.public-footer__seo-content ol {
+    margin: 0.5rem 0 0.75rem;
+    padding-left: 1.25rem;
+}
+
+.public-footer__seo-content ul {
+    list-style: disc;
+}
+
+.public-footer__seo-content ol {
+    list-style: decimal;
+}
+
+.public-footer__seo-content li+li {
+    margin-top: 0.25rem;
+}
+
+.public-footer__seo-content a {
+    color: var(--public-color-accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.public-footer__seo-toggle {
+    display: flex;
+    margin: 0.85rem auto 0;
+    border: 0;
+    background: transparent;
+    color: var(--public-color-accent);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.public-footer__seo-toggle:hover,
+.public-footer__seo-toggle:focus-visible {
+    color: #fff;
+    outline: none;
+}
+
+.public-app--bangjeff .public-footer__seo {
+    width: min(100%, 1248px);
+    margin-bottom: 44px;
+}
+
+.public-app--bangjeff .public-footer__seo-content {
+    color: rgba(250, 250, 249, 0.88);
+    font-family: var(--font-bangjeff-meta);
+}
+
+.public-app--bangjeff .public-footer__seo-content a,
+.public-app--bangjeff .public-footer__seo-toggle {
+    color: #fb923c;
+}
+
+.public-app--bangjeff .public-footer__seo.is-collapsible:not(.is-expanded) .public-footer__seo-content::after {
+    background: linear-gradient(to bottom, rgba(40, 40, 42, 0), #28282a);
+}
+
 .public-app--bangjeff .public-footer--storefront {
     margin-top: 0;
 }

@@ -1,6 +1,22 @@
 <style>
  .bg-primary-400 { background-color: var(--warna_2); } /* sebelumnya var(--warna_3) */
- .rounded-\[9999px\], .rounded-full { border-radius: 9999px; } .w-1\/4 { width: 25%; } .h-1 { height: .25rem; } .bg-murky-9000 { --tw-bg-opacity: 1; background-color: #28282A; } .hover\:animate-bounce:hover { animation: bounce 1s; } .to-secondary { --tw-gradient-to: #3f3f3f; } .from-70\% { --tw-gradient-from-position: 70%; } .from-transparent { --tw-gradient-from: transparent var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); } .bg-gradient-to-b { position: relative; background-image: linear-gradient(to bottom, var(--tw-gradient-stops)); } .bg-gradient-to-b::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; filter: blur(0px); z-index: 1; } .mt-12 { margin-top: 3rem; } .overlay-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; color: white; font-size: 2rem; } .text-followus-foreground { color: #fffdfd; } .text-xl { font-size: 1.25rem; line-height: 1.75rem; } .bg-followus-background { background-color: #737373; } .rounded-full { border-radius: 9999px; } .justify-center { justify-content: center; } .items-center { align-items: center; } .w-11 { width: 2.75rem; } .h-11 { height: 2.75rem; } .mb-mp { margin-bottom: 4rem; } 
+ .rounded-\[9999px\], .rounded-full { border-radius: 9999px; } .w-1\/4 { width: 25%; } .h-1 { height: .25rem; } .bg-murky-9000 { --tw-bg-opacity: 1; background-color: #28282A; } .hover\:animate-bounce:hover { animation: bounce 1s; } .to-secondary { --tw-gradient-to: #3f3f3f; } .from-70\% { --tw-gradient-from-position: 70%; } .from-transparent { --tw-gradient-from: transparent var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); } .bg-gradient-to-b { position: relative; background-image: linear-gradient(to bottom, var(--tw-gradient-stops)); } .bg-gradient-to-b::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; filter: blur(0px); z-index: 1; } .mt-12 { margin-top: 3rem; } .overlay-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2; color: white; font-size: 2rem; } .text-followus-foreground { color: #fffdfd; } .text-xl { font-size: 1.25rem; line-height: 1.75rem; } .bg-followus-background { background-color: #737373; } .rounded-full { border-radius: 9999px; } .justify-center { justify-content: center; } .items-center { align-items: center; } .w-11 { width: 2.75rem; } .h-11 { height: 2.75rem; } .mb-mp { margin-bottom: 4rem; }
+ .footer-seo-rich { width: min(100%, 64rem); margin: 0 auto; padding-top: 1rem; text-align: left; }
+ .footer-seo-rich__content { position: relative; max-height: none; overflow: visible; color: #dfe9fb; font-size: .875rem; line-height: 1.8; }
+ .footer-seo-rich.is-collapsible .footer-seo-rich__content { max-height: 8.25rem; overflow: hidden; transition: max-height .24s ease; }
+ .footer-seo-rich.is-expanded .footer-seo-rich__content { max-height: none; overflow: visible; }
+ .footer-seo-rich.is-collapsible:not(.is-expanded) .footer-seo-rich__content::after { content: ''; position: absolute; right: 0; bottom: 0; left: 0; height: 3.5rem; pointer-events: none; background: linear-gradient(to bottom, rgba(40, 40, 42, 0), #28282A); }
+ .footer-seo-rich__content p { margin: 0 0 .75rem; }
+ .footer-seo-rich__content h2, .footer-seo-rich__content h3 { margin: 1rem 0 .5rem; color: #fff; font-weight: 700; line-height: 1.35; }
+ .footer-seo-rich__content h2 { font-size: 1rem; }
+ .footer-seo-rich__content h3 { font-size: .95rem; }
+ .footer-seo-rich__content ul, .footer-seo-rich__content ol { margin: .5rem 0 .75rem; padding-left: 1.25rem; }
+ .footer-seo-rich__content ul { list-style: disc; }
+ .footer-seo-rich__content ol { list-style: decimal; }
+ .footer-seo-rich__content li + li { margin-top: .25rem; }
+ .footer-seo-rich__content a { color: var(--warna_3); text-decoration: underline; text-underline-offset: 3px; }
+ .footer-seo-rich__toggle { display: flex; margin: .85rem auto 0; border: 0; background: transparent; color: var(--warna_3); cursor: pointer; font-size: .82rem; font-weight: 700; line-height: 1.4; }
+ .footer-seo-rich__toggle:hover { color: #fff; }
 
         </style>
         <div class="mt-12 bg-gradient-to-b from-transparent from-70% to-secondary"><div class="overlay-content"></div><img src="{{ asset($config ? $config->logo_footer : '') }}" alt="{{ $config->judul_web }}" width="100" loading="lazy" decoding="async" fetchpriority="low" style="width: 100%; height: auto;" class="object-cover object-bottom"></div>
@@ -8,9 +24,19 @@
     
     <h2 id="footer-heading" class="sr-only">Footer</h2>
     <div class="container pb-8">
-     <div class="pt-4 text-center">
-        <p class="text-center text-sm leading-6">{{ !$config ? '' : $config->deskripsi_web }}</p>
-    </div>
+        @php
+            $footerDescription = trim((string) ($config->deskripsi_web ?? ''));
+        @endphp
+        @if($footerDescription !== '')
+            <section class="footer-seo-rich" data-footer-seo>
+                <div class="footer-seo-rich__content" data-footer-seo-content>
+                    @safeHtml($footerDescription)
+                </div>
+                <button class="footer-seo-rich__toggle" type="button" data-footer-seo-toggle hidden aria-expanded="false">
+                    Baca selengkapnya
+                </button>
+            </section>
+        @endif
         <div class="xl:grid xl:grid-cols-2 xl:gap-8">
             <div class="mt-16 grid grid-cols-2 gap-8 xl:col-span-2">
                 <div class="md:grid md:grid-cols-2 md:gap-8">
@@ -100,7 +126,51 @@
             <p class="text-xs leading-5 text-text-color">{{ $config->judul_web }}.</p></div>
     </div>
 </footer>
- 
+
+<script>
+    (function () {
+        var collapsedHeight = 132;
+        var blocks = document.querySelectorAll('[data-footer-seo]');
+
+        blocks.forEach(function (block) {
+            var content = block.querySelector('[data-footer-seo-content]');
+            var toggle = block.querySelector('[data-footer-seo-toggle]');
+
+            if (!content || !toggle) {
+                return;
+            }
+
+            var updateToggle = function () {
+                var shouldCollapse = content.scrollHeight > collapsedHeight;
+
+                block.classList.toggle('is-collapsible', shouldCollapse);
+                toggle.hidden = !shouldCollapse;
+
+                if (!shouldCollapse) {
+                    block.classList.remove('is-expanded');
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.textContent = 'Baca selengkapnya';
+                }
+            };
+
+            var scheduleUpdate = function () {
+                window.requestAnimationFrame(updateToggle);
+            };
+
+            toggle.addEventListener('click', function () {
+                var expanded = block.classList.toggle('is-expanded');
+                toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                toggle.textContent = expanded ? 'Tutup' : 'Baca selengkapnya';
+            });
+
+            scheduleUpdate();
+            window.addEventListener('load', scheduleUpdate);
+            window.addEventListener('resize', scheduleUpdate);
+            window.setTimeout(scheduleUpdate, 250);
+        });
+    })();
+</script>
+
   <a
     href="{{ !$config ? '' : $config->url_wa }}"
     class="fixed bottom-0 left-4 z-50 inline-flex items-center space-x-2.5 rounded-t-lg bg-primary-500 pt-3 pb-2 pl-3 pr-3 uppercase text-white ring-4 ring-orange-200/20 duration-300 ease-in-out hover:bg-primary-600 hover:animate-bounce md:pr-5"
