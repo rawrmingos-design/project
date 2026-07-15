@@ -80,13 +80,23 @@ test('Property 11: calling provisionDefaultsForTenant N times produces same cate
 })->repeat(20);
 
 test('Property 11: repeated provisioning does not modify existing method-to-category associations', function () {
-    // Provision defaults first
-    $this->service->provisionDefaultsForTenant($this->tenant);
-
-    // Create methods and assign them to categories
-    $categories = PaymentDisplayCategory::withoutGlobalScopes()
-        ->where('tenant_id', $this->tenant->id)
-        ->get();
+    // Canonical catalog categories are global (tenant_id = null). Tenant provisioning is no-op.
+    $categories = collect([
+        PaymentDisplayCategory::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'label' => 'QRIS_' . uniqid(),
+            'display_style' => 'flat',
+            'sort_order' => 1,
+            'is_visible' => true,
+        ]),
+        PaymentDisplayCategory::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'label' => 'E-Wallet_' . uniqid(),
+            'display_style' => 'accordion',
+            'sort_order' => 2,
+            'is_visible' => true,
+        ]),
+    ]);
 
     $numMethods = rand(2, 5);
     $methods = [];
@@ -137,8 +147,9 @@ test('Property 11: repeated provisioning does not modify existing method-to-cate
     );
 })->repeat(20);
 
-test('Property 11: provisioning with pre-existing subset of categories does not create duplicates', function () {
-    // Create a random subset of default categories manually before provisioning
+test('Property 11: provisioning with pre-existing tenant categories does not create additional duplicates', function () {
+    // Legacy tenant category rows may exist from older data. New provisioning is a no-op
+    // because tenants now use the canonical global catalog plus visibility overrides.
     $allDefaults = [
         ['label' => 'SALDO', 'display_style' => 'flat', 'sort_order' => 1],
         ['label' => 'QRIS', 'display_style' => 'flat', 'sort_order' => 2],
@@ -147,12 +158,11 @@ test('Property 11: provisioning with pre-existing subset of categories does not 
         ['label' => 'Convenience Store', 'display_style' => 'accordion', 'sort_order' => 5],
     ];
 
-    // Pre-create a random subset (1 to 4 categories)
     $subsetSize = rand(1, 4);
     $subset = collect($allDefaults)->random($subsetSize)->all();
 
     foreach ($subset as $default) {
-        PaymentDisplayCategory::create([
+        PaymentDisplayCategory::withoutGlobalScopes()->create([
             'label' => $default['label'],
             'display_style' => $default['display_style'],
             'sort_order' => $default['sort_order'],
@@ -165,38 +175,23 @@ test('Property 11: provisioning with pre-existing subset of categories does not 
         ->where('tenant_id', $this->tenant->id)
         ->count();
 
-    // Now call provisioning — should only fill missing categories, not duplicate existing ones
     $this->service->provisionDefaultsForTenant($this->tenant);
 
     $countAfterProvisioning = PaymentDisplayCategory::withoutGlobalScopes()
         ->where('tenant_id', $this->tenant->id)
         ->count();
 
-    // Should have exactly 5 total (all defaults)
-    expect($countAfterProvisioning)->toBe(5,
-        "Expected exactly 5 default categories after provisioning, got {$countAfterProvisioning}"
+    expect($countAfterProvisioning)->toBe($countBeforeProvisioning,
+        "Provisioning should not create tenant category rows under canonical catalog mode"
     );
 
-    // Verify no label duplicates exist
-    $labelCounts = PaymentDisplayCategory::withoutGlobalScopes()
-        ->where('tenant_id', $this->tenant->id)
-        ->selectRaw('label, COUNT(*) as cnt')
-        ->groupBy('label')
-        ->pluck('cnt', 'label')
-        ->toArray();
-
-    foreach ($labelCounts as $label => $count) {
-        expect($count)->toBe(1, "Duplicate found for label '{$label}': count = {$count}");
-    }
-
-    // Call provisioning again — count should remain 5
     $this->service->provisionDefaultsForTenant($this->tenant);
 
     $countAfterSecond = PaymentDisplayCategory::withoutGlobalScopes()
         ->where('tenant_id', $this->tenant->id)
         ->count();
 
-    expect($countAfterSecond)->toBe(5,
-        "Expected 5 categories after second provisioning, got {$countAfterSecond}"
+    expect($countAfterSecond)->toBe($countBeforeProvisioning,
+        "Repeated provisioning should remain no-op for tenant categories"
     );
 })->repeat(20);

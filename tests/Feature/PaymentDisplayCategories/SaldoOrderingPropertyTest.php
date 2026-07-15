@@ -49,8 +49,9 @@ test('Property 16: SALDO-containing category is always first regardless of sort_
     $context = app(TenantContext::class);
     $context->set($tenant);
 
-    // Clean pre-provisioned categories
+    // Clean pre-provisioned tenant categories, then clear context while creating canonical catalog rows.
     PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    $context->clear();
 
     Cache::flush();
 
@@ -61,7 +62,7 @@ test('Property 16: SALDO-containing category is always first regardless of sort_
     $categories = [];
     for ($i = 0; $i < $numCategories - 1; $i++) {
         $categories[] = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Category_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 10),
@@ -71,7 +72,7 @@ test('Property 16: SALDO-containing category is always first regardless of sort_
 
     // Create SALDO category with a HIGH sort_order (500-999) so it should NOT normally be first
     $saldoCategory = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => 'SALDO_' . uniqid(),
         'display_style' => 'flat',
         'sort_order' => rand(500, 999),
@@ -106,6 +107,7 @@ test('Property 16: SALDO-containing category is always first regardless of sort_
         'statuspayment' => true,
     ]);
 
+    $context->set($tenant);
     $service = app(PaymentDisplayCategoryService::class);
     $result = $service->getCategoriesForOrderPage();
 
@@ -142,14 +144,15 @@ test('Property 16: SALDO category first even with maximum sort_order difference'
     $context = app(TenantContext::class);
     $context->set($tenant);
 
-    // Clean pre-provisioned categories
+    // Clean pre-provisioned tenant categories, then clear context while creating canonical catalog rows.
     PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    $context->clear();
 
     Cache::flush();
 
     // Create SALDO category with max sort_order
     $saldoCategory = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => 'SALDO_max_' . uniqid(),
         'display_style' => 'flat',
         'sort_order' => 999,
@@ -160,7 +163,7 @@ test('Property 16: SALDO category first even with maximum sort_order difference'
     $numOthers = rand(1, 4);
     for ($i = 0; $i < $numOthers; $i++) {
         $otherCategory = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Other_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => 0,
@@ -194,6 +197,7 @@ test('Property 16: SALDO category first even with maximum sort_order difference'
         'statuspayment' => true,
     ]);
 
+    $context->set($tenant);
     $service = app(PaymentDisplayCategoryService::class);
     $result = $service->getCategoriesForOrderPage();
 
