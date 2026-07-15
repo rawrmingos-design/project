@@ -14,8 +14,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,21 +37,10 @@ test('Property 13: cached result matches fresh DB query in content and ordering'
      * the cached service result is identical in content and ordering
      * to a fresh database query applying the same logic.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Cache Equiv Tenant ' . uniqid(),
-        'subdomain' => 'cache-eq-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -64,7 +51,7 @@ test('Property 13: cached result matches fresh DB query in content and ordering'
     $createdCategories = [];
     for ($i = 0; $i < $numCategories; $i++) {
         $createdCategories[] = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => 'Category_' . $i . '_' . uniqid(),
             'display_style' => $displayStyles[array_rand($displayStyles)],
             'sort_order' => rand(0, 100),
@@ -105,7 +92,7 @@ test('Property 13: cached result matches fresh DB query in content and ordering'
 
     // Now perform a fresh database query with the exact same logic
     $freshResult = PaymentDisplayCategory::withoutGlobalScopes()
-        ->where('tenant_id', $tenant->id)
+        ->whereNull('tenant_id')
         ->where('is_visible', true)
         ->orderBy('sort_order', 'asc')
         ->orderBy('created_at', 'asc')
@@ -170,27 +157,16 @@ test('Property 13: cached result remains equivalent after cache warm', function 
      * After warming the cache via warmCache(), the result from getCategoriesForOrderPage()
      * still matches a fresh database query.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Cache Warm Tenant ' . uniqid(),
-        'subdomain' => 'cache-warm-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
     // Create a visible category with some enabled methods
     $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => 'Test Category ' . uniqid(),
         'display_style' => collect(['flat', 'accordion'])->random(),
         'sort_order' => rand(0, 50),
@@ -230,7 +206,7 @@ test('Property 13: cached result remains equivalent after cache warm', function 
 
     // Fresh DB query
     $freshResult = PaymentDisplayCategory::withoutGlobalScopes()
-        ->where('tenant_id', $tenant->id)
+        ->whereNull('tenant_id')
         ->where('is_visible', true)
         ->orderBy('sort_order', 'asc')
         ->orderBy('created_at', 'asc')

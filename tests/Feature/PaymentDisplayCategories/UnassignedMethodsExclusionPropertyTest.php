@@ -12,8 +12,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,21 +35,10 @@ test('Property 5: methods with null payment_display_category_id never appear in 
      * getCategoriesForOrderPage() never includes a method with null FK
      * in any category's methods collection.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Unassigned Exclusion Tenant ' . uniqid(),
-        'subdomain' => 'unassigned-excl-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -60,7 +47,7 @@ test('Property 5: methods with null payment_display_category_id never appear in 
     $categories = [];
     for ($i = 0; $i < $numCategories; $i++) {
         $categories[] = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Category_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
@@ -151,21 +138,10 @@ test('Property 5: when all methods are unassigned, no categories are returned', 
      * getCategoriesForOrderPage() returns an empty collection since no category
      * has any methods to display.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'All Unassigned Tenant ' . uniqid(),
-        'subdomain' => 'all-unassigned-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -173,7 +149,7 @@ test('Property 5: when all methods are unassigned, no categories are returned', 
     $numCategories = rand(1, 4);
     for ($i = 0; $i < $numCategories; $i++) {
         PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "EmptyCategory_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
