@@ -12,8 +12,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,28 +34,17 @@ test('Property 8: flat display_style renders without collapsible wrapper', funct
      * For any PaymentDisplayCategory with display_style "flat", the rendered output
      * uses the flat partial with visible methods (no accordion/collapsible structure).
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Flat Style Tenant ' . uniqid(),
-        'subdomain' => 'flat-style-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
     // Create a flat category with a random label
     $label = 'Flat_' . uniqid();
     $flatCategory = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => $label,
         'display_style' => 'flat',
         'sort_order' => rand(0, 999),
@@ -114,28 +101,17 @@ test('Property 8: accordion display_style renders with collapsible section and l
      * For any PaymentDisplayCategory with display_style "accordion", the rendered output
      * uses the accordion partial with a collapsible section and the category label as the header.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Accordion Style Tenant ' . uniqid(),
-        'subdomain' => 'accordion-style-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
     // Create an accordion category with a random label
     $label = 'Accordion_' . uniqid();
     $accordionCategory = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => $label,
         'display_style' => 'accordion',
         'sort_order' => rand(0, 999),
@@ -196,21 +172,10 @@ test('Property 8: mixed display styles render correctly in same page', function 
      * flat categories render without collapsible wrappers and accordion categories
      * render with collapsible sections, each with the correct label as header.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Mixed Style Tenant ' . uniqid(),
-        'subdomain' => 'mixed-style-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -228,7 +193,7 @@ test('Property 8: mixed display styles render correctly in same page', function 
         $label = 'FlatMixed_' . $i . '_' . uniqid();
         $flatLabels[] = $label;
         $cat = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => $label,
             'display_style' => 'flat',
             'sort_order' => rand(0, 999),
@@ -256,7 +221,7 @@ test('Property 8: mixed display styles render correctly in same page', function 
         $label = 'AccordionMixed_' . $j . '_' . uniqid();
         $accordionLabels[] = $label;
         $cat = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => $label,
             'display_style' => 'accordion',
             'sort_order' => rand(0, 999),

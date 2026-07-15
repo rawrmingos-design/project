@@ -11,8 +11,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -35,21 +33,10 @@ test('Property 9: hidden categories (is_visible=false) are excluded from getCate
      * For any random mix of visible and hidden categories, getCategoriesForOrderPage()
      * never returns a category where is_visible = false.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Hidden Categories Tenant ' . uniqid(),
-        'subdomain' => 'hidden-cat-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -63,7 +50,7 @@ test('Property 9: hidden categories (is_visible=false) are excluded from getCate
     // Create visible categories with at least one enabled method each
     for ($i = 0; $i < $numVisible; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Visible_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
@@ -88,7 +75,7 @@ test('Property 9: hidden categories (is_visible=false) are excluded from getCate
     // Create hidden categories with enabled methods (should still be excluded)
     for ($i = 0; $i < $numHidden; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Hidden_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
@@ -145,21 +132,10 @@ test('Property 9: categories with zero enabled methods are excluded from getCate
      * (either no methods at all, or all methods have statuspayment=false),
      * getCategoriesForOrderPage() should exclude that category.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Zero Methods Tenant ' . uniqid(),
-        'subdomain' => 'zero-methods-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -169,7 +145,7 @@ test('Property 9: categories with zero enabled methods are excluded from getCate
 
     for ($i = 0; $i < $numWithMethods; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "WithMethods_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
@@ -197,7 +173,7 @@ test('Property 9: categories with zero enabled methods are excluded from getCate
 
     for ($i = 0; $i < $numEmpty; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "EmptyCat_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),
@@ -213,7 +189,7 @@ test('Property 9: categories with zero enabled methods are excluded from getCate
 
     for ($i = 0; $i < $numDisabledOnly; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "DisabledOnly_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 100),

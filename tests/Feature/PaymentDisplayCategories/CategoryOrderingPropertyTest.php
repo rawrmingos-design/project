@@ -11,8 +11,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,21 +34,10 @@ test('Property 7: non-SALDO categories are ordered by sort_order asc then create
      * creation timestamps, the service returns them ordered by sort_order ascending,
      * with created_at ascending as tiebreaker.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Category Ordering Tenant ' . uniqid(),
-        'subdomain' => 'cat-ordering-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -60,7 +47,7 @@ test('Property 7: non-SALDO categories are ordered by sort_order asc then create
 
     for ($i = 0; $i < $numCategories; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Category_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => rand(0, 50),
@@ -125,21 +112,10 @@ test('Property 7: categories with identical sort_order are ordered by created_at
      * When multiple categories share the same sort_order value, they must be
      * ordered by their created_at timestamp in ascending order as a tiebreaker.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Category Tiebreak Tenant ' . uniqid(),
-        'subdomain' => 'cat-tiebreak-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
@@ -152,7 +128,7 @@ test('Property 7: categories with identical sort_order are ordered by created_at
 
     for ($i = 0; $i < $numCategories; $i++) {
         $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-            'tenant_id' => $tenant->id,
+            'tenant_id' => null,
             'label' => "Tiebreak_{$i}_" . uniqid(),
             'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
             'sort_order' => $commonSortOrder,

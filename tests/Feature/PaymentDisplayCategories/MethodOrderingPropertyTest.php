@@ -12,8 +12,6 @@
 
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,27 +35,16 @@ test('Property 6: methods within a category are sorted by sort_order_in_category
      * the service returns them ordered by sort_order_in_category ascending, with ties
      * broken by name in alphabetical order.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Method Ordering Tenant ' . uniqid(),
-        'subdomain' => 'method-ordering-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
     // Create a visible category
     $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => 'Test Category ' . uniqid(),
         'display_style' => ['flat', 'accordion'][array_rand(['flat', 'accordion'])],
         'sort_order' => rand(0, 100),
@@ -131,27 +118,16 @@ test('Property 6: methods with identical sort_order_in_category are ordered by n
      * When multiple methods share the same sort_order_in_category value,
      * they must be ordered by their name in alphabetical order as a tiebreaker.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
-
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Tie Breaking Tenant ' . uniqid(),
-        'subdomain' => 'tie-break-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
+    app(TenantContext::class)->clear();
 
     // Clean pre-provisioned categories
-    PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->delete();
+    PaymentDisplayCategory::withoutGlobalScopes()->whereNull('tenant_id')->delete();
 
     Cache::flush();
 
     // Create a visible category
     $category = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenant->id,
+        'tenant_id' => null,
         'label' => 'Tiebreak Category ' . uniqid(),
         'display_style' => 'flat',
         'sort_order' => 1,

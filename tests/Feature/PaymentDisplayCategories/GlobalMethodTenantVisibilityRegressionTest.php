@@ -20,6 +20,7 @@
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
 use App\Models\Tenant;
+use App\Models\TenantPaymentDisplayCategorySetting;
 use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
@@ -51,10 +52,10 @@ test('global methods (tenant_id = null) are visible when tenant context is activ
         'status' => Tenant::STATUS_ACTIVE,
     ]);
 
-    // Update the seeded category to avoid unique constraint, or fetch it
+    // Canonical category with a global method
     $categoryA = PaymentDisplayCategory::withoutGlobalScopes()
         ->firstOrCreate(
-            ['tenant_id' => $tenantA->id, 'label' => 'QRIS'],
+            ['tenant_id' => null, 'label' => 'QRIS'],
             ['display_style' => 'flat', 'sort_order' => 1, 'is_visible' => true]
         );
 
@@ -102,7 +103,7 @@ test('global methods coexist with tenant-specific methods in the same category',
 
     $category = PaymentDisplayCategory::withoutGlobalScopes()
         ->firstOrCreate(
-            ['tenant_id' => $tenant->id, 'label' => 'E-Wallet'],
+            ['tenant_id' => null, 'label' => 'E-Wallet'],
             ['display_style' => 'accordion', 'sort_order' => 2, 'is_visible' => true]
         );
 
@@ -170,10 +171,10 @@ test('global methods are not included for another tenant in the same category', 
         'status' => Tenant::STATUS_ACTIVE,
     ]);
 
-    // Category for Tenant A
+    // Canonical category A
     $categoryA = PaymentDisplayCategory::withoutGlobalScopes()
         ->firstOrCreate(
-            ['tenant_id' => $tenantA->id, 'label' => 'QRIS-A'],
+            ['tenant_id' => null, 'label' => 'QRIS-A'],
             ['display_style' => 'flat', 'sort_order' => 1, 'is_visible' => true]
         );
 
@@ -193,10 +194,10 @@ test('global methods are not included for another tenant in the same category', 
         $globalMethodA->update(['tenant_id' => null]);
     }
 
-    // Category for Tenant B with its own method
+    // Canonical category B
     $categoryB = PaymentDisplayCategory::withoutGlobalScopes()
         ->firstOrCreate(
-            ['tenant_id' => $tenantB->id, 'label' => 'QRIS-B'],
+            ['tenant_id' => null, 'label' => 'QRIS-B'],
             ['display_style' => 'flat', 'sort_order' => 1, 'is_visible' => true]
         );
 
@@ -217,15 +218,26 @@ test('global methods are not included for another tenant in the same category', 
 
     $service = app(PaymentDisplayCategoryService::class);
 
-    // Tenant A sees its global method
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantA->id,
+        'payment_display_category_id' => $categoryB->id,
+        'is_visible' => false,
+    ]);
+
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantB->id,
+        'payment_display_category_id' => $categoryA->id,
+        'is_visible' => false,
+    ]);
+
+    // Tenant A sees category A
     app(TenantContext::class)->set($tenantA);
     $resultA = $service->getCategoriesForOrderPage();
     $codesA = $resultA->flatMap(fn ($cat) => $cat->methods->pluck('code'))->toArray();
     expect($codesA)->toContain($globalMethodA->code);
+    expect($codesA)->not->toContain($methodB->code);
 
-    // Tenant B does NOT see Tenant A's method (even though it is global)
-    // because it is linked to Tenant A's category which Tenant B can't see
-    Cache::flush();
+    // Tenant B sees category B
     app(TenantContext::class)->set($tenantB);
     $resultB = $service->getCategoriesForOrderPage();
     $codesB = $resultB->flatMap(fn ($cat) => $cat->methods->pluck('code'))->toArray();

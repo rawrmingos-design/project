@@ -13,6 +13,7 @@
 use App\Models\Method;
 use App\Models\PaymentDisplayCategory;
 use App\Models\Tenant;
+use App\Models\TenantPaymentDisplayCategorySetting;
 use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
@@ -85,12 +86,12 @@ test('Property 15: retrieving cached data for tenant A never returns tenant B da
         'status' => Tenant::STATUS_ACTIVE,
     ]);
 
-    // Create distinct categories for each tenant with random labels
+    // Create distinct canonical categories with random labels
     $labelA = 'TenantA-Category-' . uniqid();
     $labelB = 'TenantB-Category-' . uniqid();
 
     $categoryA = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenantA->id,
+        'tenant_id' => null,
         'label' => $labelA,
         'display_style' => 'flat',
         'sort_order' => 1,
@@ -98,11 +99,23 @@ test('Property 15: retrieving cached data for tenant A never returns tenant B da
     ]);
 
     $categoryB = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenantB->id,
+        'tenant_id' => null,
         'label' => $labelB,
         'display_style' => 'accordion',
         'sort_order' => 1,
         'is_visible' => true,
+    ]);
+
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantA->id,
+        'payment_display_category_id' => $categoryB->id,
+        'is_visible' => false,
+    ]);
+
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantB->id,
+        'payment_display_category_id' => $categoryA->id,
+        'is_visible' => false,
     ]);
 
     // Create a method for each category so they appear in results
@@ -136,10 +149,10 @@ test('Property 15: retrieving cached data for tenant A never returns tenant B da
     app(TenantContext::class)->set($tenantA);
     $resultA = $service->getCategoriesForOrderPage();
 
-    // Verify tenant A only sees its own categories
+    // Verify tenant A only sees its own effective categories
     expect($resultA)->not->toBeEmpty();
-    $resultA->each(function (PaymentDisplayCategory $cat) use ($tenantA) {
-        expect($cat->tenant_id)->toBe($tenantA->id);
+    $resultA->each(function (PaymentDisplayCategory $cat) {
+        expect($cat->tenant_id)->toBeNull();
     });
     expect($resultA->pluck('label')->toArray())->toContain($labelA);
     expect($resultA->pluck('label')->toArray())->not->toContain($labelB);
@@ -148,10 +161,10 @@ test('Property 15: retrieving cached data for tenant A never returns tenant B da
     app(TenantContext::class)->set($tenantB);
     $resultB = $service->getCategoriesForOrderPage();
 
-    // Verify tenant B only sees its own categories
+    // Verify tenant B only sees its own effective categories
     expect($resultB)->not->toBeEmpty();
-    $resultB->each(function (PaymentDisplayCategory $cat) use ($tenantB) {
-        expect($cat->tenant_id)->toBe($tenantB->id);
+    $resultB->each(function (PaymentDisplayCategory $cat) {
+        expect($cat->tenant_id)->toBeNull();
     });
     expect($resultB->pluck('label')->toArray())->toContain($labelB);
     expect($resultB->pluck('label')->toArray())->not->toContain($labelA);
@@ -189,9 +202,9 @@ test('Property 15: cache stores separate data per tenant even with same category
 
     $sharedLabel = 'Shared-' . uniqid();
 
-    // Both tenants have a category with the same label
+    // Both tenant caches include different canonical categories with the same label
     $catA = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenantA->id,
+        'tenant_id' => null,
         'label' => $sharedLabel,
         'display_style' => 'flat',
         'sort_order' => 1,
@@ -199,11 +212,23 @@ test('Property 15: cache stores separate data per tenant even with same category
     ]);
 
     $catB = PaymentDisplayCategory::withoutGlobalScopes()->create([
-        'tenant_id' => $tenantB->id,
+        'tenant_id' => null,
         'label' => $sharedLabel,
         'display_style' => 'accordion',
         'sort_order' => 2,
         'is_visible' => true,
+    ]);
+
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantA->id,
+        'payment_display_category_id' => $catB->id,
+        'is_visible' => false,
+    ]);
+
+    TenantPaymentDisplayCategorySetting::query()->create([
+        'tenant_id' => $tenantB->id,
+        'payment_display_category_id' => $catA->id,
+        'is_visible' => false,
     ]);
 
     // Create methods for both
@@ -244,9 +269,9 @@ test('Property 15: cache stores separate data per tenant even with same category
     // Despite same labels, the category IDs are different
     expect($resultA->pluck('id')->toArray())->not->toBe($resultB->pluck('id')->toArray());
 
-    // Each result has the correct tenant_id
-    $resultA->each(fn ($cat) => expect($cat->tenant_id)->toBe($tenantA->id));
-    $resultB->each(fn ($cat) => expect($cat->tenant_id)->toBe($tenantB->id));
+    // Each result is from the canonical catalog, isolated by tenant overrides
+    $resultA->each(fn ($cat) => expect($cat->tenant_id)->toBeNull());
+    $resultB->each(fn ($cat) => expect($cat->tenant_id)->toBeNull());
 
     // Verify cache keys are different
     $keyA = "tenant_{$tenantA->id}:payment_display_categories";

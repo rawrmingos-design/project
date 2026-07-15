@@ -8,15 +8,17 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
-test('creating a tenant provisions default payment display categories', function () {
+test('creating a tenant uses shared canonical payment display categories', function () {
     $tenant = Tenant::create([
         'name' => 'Observer Test Tenant',
         'subdomain' => 'observer-test-' . uniqid(),
         'status' => Tenant::STATUS_ACTIVE,
     ]);
 
-    $categories = PaymentDisplayCategory::where('tenant_id', $tenant->id)
-        ->orderBy('sort_order')
+    expect(PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count())->toBe(0);
+
+    $categories = PaymentDisplayCategory::canonical()
+        ->ordered()
         ->get();
 
     expect($categories)->toHaveCount(5);
@@ -50,10 +52,10 @@ test('provisioning is idempotent - calling it again does not duplicate categorie
         'status' => Tenant::STATUS_ACTIVE,
     ]);
 
-    // Observer already provisioned defaults; call again manually
+    $before = PaymentDisplayCategory::canonical()->count();
+
     app(PaymentDisplayCategoryService::class)->provisionDefaultsForTenant($tenant);
 
-    $count = PaymentDisplayCategory::where('tenant_id', $tenant->id)->count();
-
-    expect($count)->toBe(5);
+    expect(PaymentDisplayCategory::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count())->toBe(0);
+    expect(PaymentDisplayCategory::canonical()->count())->toBe($before);
 });

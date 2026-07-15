@@ -12,9 +12,6 @@
  */
 
 use App\Models\Method;
-use App\Models\PaymentDisplayCategory;
-use App\Models\Tenant;
-use App\Models\User;
 use App\Services\PaymentDisplayCategoryService;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,22 +34,9 @@ test('Property 10: normalizeTipe produces correct keys mapping to expected categ
      * For any known tipe value variant, normalizeTipe() produces the correct normalized key,
      * and that key maps to the expected default PaymentDisplayCategory label.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
+    app(TenantContext::class)->clear();
 
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Tipe Norm Tenant ' . uniqid(),
-        'subdomain' => 'tipe-norm-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
-
-    // Provision default categories for the tenant
     $service = app(PaymentDisplayCategoryService::class);
-    $service->provisionDefaultsForTenant($tenant);
 
     // Define the complete mapping: input tipe variants → normalized key → expected category label
     $tipeToNormalizedMapping = [
@@ -111,22 +95,10 @@ test('Property 10: auto-assignment assigns new method to matching category based
      * (as implemented in CreateMethod) assigns it to the correct PaymentDisplayCategory
      * based on its normalized tipe value.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
+    app(TenantContext::class)->clear();
 
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Auto Assign Tenant ' . uniqid(),
-        'subdomain' => 'auto-assign-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
-
-    // Provision default categories for the tenant
+    // Default canonical categories are already seeded.
     $service = app(PaymentDisplayCategoryService::class);
-    $service->provisionDefaultsForTenant($tenant);
 
     // Tipe variants that should auto-assign to a known category
     $tipeVariants = [
@@ -188,22 +160,9 @@ test('Property 10: unmatched tipe returns null from mapTipeToCategory', function
      * When a Method has a tipe that does not match any known category,
      * mapTipeToCategory returns null and no auto-assignment occurs.
      */
-    $owner = User::factory()->create(['role' => 'Gold']);
+    app(TenantContext::class)->clear();
 
-    $tenant = Tenant::query()->create([
-        'owner_user_id' => $owner->id,
-        'name' => 'Unmatched Tipe Tenant ' . uniqid(),
-        'subdomain' => 'unmatched-' . uniqid(),
-        'tier' => 'starter',
-        'status' => Tenant::STATUS_ACTIVE,
-    ]);
-
-    $context = app(TenantContext::class);
-    $context->set($tenant);
-
-    // Provision default categories for the tenant
     $service = app(PaymentDisplayCategoryService::class);
-    $service->provisionDefaultsForTenant($tenant);
 
     // Generate random unknown tipe values that should NOT match any category
     $unknownTipes = [
