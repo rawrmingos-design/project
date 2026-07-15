@@ -1,32 +1,27 @@
-{{-- Flat display style: renders category label and methods without collapsible wrapper --}}
+{{-- Flat display style: renders category label and methods as an always-open section --}}
 {{-- Receives: $category (PaymentDisplayCategory), $methods (Collection of Method) --}}
 
 @if($methods->isNotEmpty())
-    {{-- Category header --}}
-    <div class="flex items-center gap-2 px-1 pb-2">
-        @if($category->icon)
-            <i class="{{ $category->icon }} text-murky-700 text-base"></i>
-        @endif
-        <span class="text-sm font-semibold text-murky-700">{{ $category->label }}</span>
-    </div>
+    <div class="flex w-full transform flex-col justify-between overflow-hidden rounded-xl bg-murky-600 text-left text-sm font-medium text-white duration-300 focus:outline-none">
+        <div class="flex w-full justify-between px-4 py-2">
+            <span class="transform text-base font-medium leading-7 duration-300">
+                <div class="flex items-center gap-2">
+                    @if($category->icon)
+                        <i class="{{ $category->icon }}"></i>
+                    @endif
+                    {{ $category->label }}
+                </div>
+            </span>
+        </div>
 
-    {{-- Method items rendered directly (no collapsible wrapper) --}}
-    @foreach($methods as $p)
-        <div x-bind:class="{ 'bg-white bj-shadow': paymentSelected === '{{ $p->code }}', 'bg-murky-200': paymentSelected !== '{{ $p->code }}' }"
-            class="relative flex cursor-pointer method-list rounded-xl border border-transparent bg-murky-200 p-4 shadow-sm outline-none md:p-4 hover:ring-2 hover:ring-primary-500 hover:ring-offset-2 hover:ring-offset-murky-800 duration-300 ease-in-out"
-            role="radio" aria-checked="false" method-id="{{ $p->code }}" name="paymentMethod"
-            @click="paymentSelected = '{{ $p->code }}'">
-            <div class="flex items-center gap-2 max-w-xs">
-                <input type="radio" id="method_{{ $p->id }}" name="paymentMethod" value="{{ $p->code }}"
-                    class="peer hidden" />
-                <label for="method_{{ $p->id }}"></label>
-                <x-optimized-image :src="$p->image_url" profile="payment_logo" :alt="$p->name" sizes="55px"
-                    width="55" height="40" />
-                <div>
-                    <span class="block font-bjcredits text-xs font-semibold text-murky-800 sm:text-sm">{{ $p->name }}</span>
-                    <p class="block text-xxs text-murky-800 sm:text-xs hargapembayaran" id="{{ $p->code }}">Rp 0</p>
+        <div class="px-4 pt-2 pb-4 text-sm text-murky-300">
+            <div role="radiogroup" aria-labelledby="label-category-{{ $category->id }}">
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-2 xl:grid-cols-3" role="none">
+                    @foreach($methods as $p)
+                        @include('template.partials.payment-method-item', ['method' => $p])
+                    @endforeach
                 </div>
             </div>
         </div>
-    @endforeach
+    </div>
 @endif
