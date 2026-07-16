@@ -8,7 +8,7 @@ use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
-class RegularOrderStatsOverview extends Widget
+class PembelianStatusStatsOverview extends Widget
 {
     protected static bool $isLazy = false;
 
@@ -16,38 +16,72 @@ class RegularOrderStatsOverview extends Widget
 
     protected string $view = 'filament.admin.widgets.order-stats-overview';
 
-    public string $profitPeriod = 'today';
-    public ?string $profitStartDate = null;
-    public ?string $profitEndDate = null;
+    public string $orderStatus = PembelianStatus::PENDING;
+    public string $orderPeriod = 'today';
+    public ?string $orderStartDate = null;
+    public ?string $orderEndDate = null;
 
     protected function getViewData(): array
     {
+        $status = $this->activeStatus();
+        $count = $this->countForStatus($status, $this->orderPeriod, $this->orderStartDate, $this->orderEndDate);
+
         return [
-            'heading' => 'Widget Profit',
+            'heading' => 'Status Pembelian',
             'periodOptions' => $this->periodOptions(),
             'cards' => [
                 [
-                    'label' => 'Profit',
-                    'value' => $this->formatRupiah($this->profitValue($this->profitPeriod, $this->profitStartDate, $this->profitEndDate)),
-                    'description' => 'Regular order sukses',
-                    'icon' => 'heroicon-m-banknotes',
-                    'color' => 'success',
-                    'periodProperty' => 'profitPeriod',
-                    'period' => $this->profitPeriod,
-                    'startDateProperty' => 'profitStartDate',
-                    'endDateProperty' => 'profitEndDate',
-                    'startDate' => $this->profitStartDate,
-                    'endDate' => $this->profitEndDate,
+                    'label' => 'Pembelian',
+                    'value' => $this->formatNumber($count),
+                    'description' => 'Provider/supplier: ' . ($this->statusOptions()[$status] ?? 'Pending'),
+                    'icon' => PembelianStatus::icon($status),
+                    'color' => PembelianStatus::badgeColor($status),
+                    'statusProperty' => 'orderStatus',
+                    'status' => $status,
+                    'statusOptions' => $this->statusOptions(),
+                    'periodProperty' => 'orderPeriod',
+                    'period' => $this->orderPeriod,
+                    'startDateProperty' => 'orderStartDate',
+                    'endDateProperty' => 'orderEndDate',
+                    'startDate' => $this->orderStartDate,
+                    'endDate' => $this->orderEndDate,
                 ],
             ],
         ];
     }
 
-    private function profitValue(string $period, ?string $startDate, ?string $endDate): int|float
+    private function activeStatus(): string
     {
-        return (float) (clone $this->baseQuery($period, $startDate, $endDate))
-            ->whereIn('status', PembelianStatus::successLabels())
-            ->sum('profit');
+        return array_key_exists($this->orderStatus, $this->statusOptions())
+            ? $this->orderStatus
+            : PembelianStatus::PENDING;
+    }
+
+    private function countForStatus(string $status, string $period, ?string $startDate, ?string $endDate): int
+    {
+        return (int) $this->baseQuery($period, $startDate, $endDate)
+            ->whereIn('status', $this->statusLabels($status))
+            ->count();
+    }
+
+    private function statusLabels(string $status): array
+    {
+        return match ($status) {
+            PembelianStatus::SUCCESS => PembelianStatus::successLabels(),
+            PembelianStatus::FAILED => PembelianStatus::failedLabels(),
+            PembelianStatus::EXPIRED => PembelianStatus::expiredLabels(),
+            default => PembelianStatus::pendingLabels(),
+        };
+    }
+
+    private function statusOptions(): array
+    {
+        return [
+            PembelianStatus::PENDING => 'Pending',
+            PembelianStatus::FAILED => 'Gagal',
+            PembelianStatus::EXPIRED => 'Expired',
+            PembelianStatus::SUCCESS => 'Sukses',
+        ];
     }
 
     private function baseQuery(string $period, ?string $startDate, ?string $endDate): Builder
@@ -104,8 +138,8 @@ class RegularOrderStatsOverview extends Widget
         ];
     }
 
-    private function formatRupiah(int|float|string|null $amount): string
+    private function formatNumber(int|float $number): string
     {
-        return 'Rp ' . number_format((float) ($amount ?? 0), 0, ',', '.');
+        return number_format((float) $number, 0, ',', '.');
     }
 }

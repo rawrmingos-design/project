@@ -275,7 +275,7 @@ class Pembelian extends Model
 
     public function hasFinalizedPaymentStatus(): bool
     {
-        return in_array(optional($this->pembayaran)->status, ['Refunded', 'Batal', 'Canceled', 'Cancelled'], true);
+        return in_array(optional($this->pembayaran)->status, ['Refunded', 'Batal', 'Canceled', 'Cancelled', 'Expired'], true);
     }
 
     public function normalizedResetStatus(): string

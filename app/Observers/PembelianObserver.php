@@ -191,6 +191,7 @@ class PembelianObserver
             PembelianStatus::SUCCESS => 'completed',
             PembelianStatus::FAILED => 'failed',
             PembelianStatus::CANCELLED,
+            PembelianStatus::EXPIRED,
             PembelianStatus::REFUNDED => 'cancelled',
             PembelianStatus::PENDING,
             PembelianStatus::PROCESSING => 'processing',

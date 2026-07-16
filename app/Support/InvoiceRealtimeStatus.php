@@ -82,6 +82,7 @@ class InvoiceRealtimeStatus
         return match ($normalized) {
             'sukses', 'success', 'completed', 'complete' => 'success',
             'proses', 'processing', 'process' => 'processing',
+            'expired', 'kedaluwarsa' => 'expired',
             'gagal', 'failed', 'batal', 'cancelled', 'canceled' => 'failed',
             default => 'pending',
         };

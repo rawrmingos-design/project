@@ -15,7 +15,6 @@ use App\Events\InvoiceStatusUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
 
 class TriPayCallbackController extends Controller
 {
@@ -376,9 +375,15 @@ class TriPayCallbackController extends Controller
 
     private function processFailedPembelian(Pembelian $pembelian, Pembayaran $invoice, string $callbackStatus): void
     {
-        $pembelian->update([
-            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED),
-        ]);
+        if ($callbackStatus === 'EXPIRED') {
+            $invoice->syncExpiredPembelianStatus();
+            $pembelian->refresh();
+        } else {
+            $pembelian->update([
+                'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED),
+            ]);
+        }
+
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
@@ -398,7 +403,7 @@ class TriPayCallbackController extends Controller
                 'order_id' => $pembelian->order_id,
                 'product' => $pembelian->layanan,
                 'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                'status' => PembelianStatus::apiStatusCode(PembelianStatus::FAILED),
+                'status' => PembelianStatus::apiStatusCode($callbackStatus === 'EXPIRED' ? PembelianStatus::EXPIRED : PembelianStatus::FAILED),
                 'nickname' => $pembelian->nickname,
                 'note' => 'Mohon maaf, transaksi Anda gagal atau kadaluarsa. Invoice ini akan digunakan untuk verifikasi transaksi.',
             ]);

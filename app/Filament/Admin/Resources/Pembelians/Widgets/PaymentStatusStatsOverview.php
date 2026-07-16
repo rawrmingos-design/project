@@ -3,12 +3,12 @@
 namespace App\Filament\Admin\Resources\Pembelians\Widgets;
 
 use App\Models\Pembelian;
-use App\Support\PembelianStatus;
+use App\Support\PaymentStatus;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
-class RegularOrderStatsOverview extends Widget
+class PaymentStatusStatsOverview extends Widget
 {
     protected static bool $isLazy = false;
 
@@ -16,38 +16,53 @@ class RegularOrderStatsOverview extends Widget
 
     protected string $view = 'filament.admin.widgets.order-stats-overview';
 
-    public string $profitPeriod = 'today';
-    public ?string $profitStartDate = null;
-    public ?string $profitEndDate = null;
+    public string $paymentStatus = PaymentStatus::PENDING;
+    public string $paymentPeriod = 'today';
+    public ?string $paymentStartDate = null;
+    public ?string $paymentEndDate = null;
 
     protected function getViewData(): array
     {
+        $status = $this->activeStatus();
+        $count = $this->countForStatus($status, $this->paymentPeriod, $this->paymentStartDate, $this->paymentEndDate);
+
         return [
-            'heading' => 'Widget Profit',
+            'heading' => 'Status Pembayaran',
             'periodOptions' => $this->periodOptions(),
             'cards' => [
                 [
-                    'label' => 'Profit',
-                    'value' => $this->formatRupiah($this->profitValue($this->profitPeriod, $this->profitStartDate, $this->profitEndDate)),
-                    'description' => 'Regular order sukses',
-                    'icon' => 'heroicon-m-banknotes',
-                    'color' => 'success',
-                    'periodProperty' => 'profitPeriod',
-                    'period' => $this->profitPeriod,
-                    'startDateProperty' => 'profitStartDate',
-                    'endDateProperty' => 'profitEndDate',
-                    'startDate' => $this->profitStartDate,
-                    'endDate' => $this->profitEndDate,
+                    'label' => 'Pembayaran',
+                    'value' => $this->formatNumber($count),
+                    'description' => 'Payment gateway: ' . (PaymentStatus::switchOptions()[$status] ?? 'Pending'),
+                    'icon' => PaymentStatus::icon($status),
+                    'color' => PaymentStatus::badgeColor($status),
+                    'statusProperty' => 'paymentStatus',
+                    'status' => $status,
+                    'statusOptions' => PaymentStatus::switchOptions(),
+                    'periodProperty' => 'paymentPeriod',
+                    'period' => $this->paymentPeriod,
+                    'startDateProperty' => 'paymentStartDate',
+                    'endDateProperty' => 'paymentEndDate',
+                    'startDate' => $this->paymentStartDate,
+                    'endDate' => $this->paymentEndDate,
                 ],
             ],
         ];
     }
 
-    private function profitValue(string $period, ?string $startDate, ?string $endDate): int|float
+    private function activeStatus(): string
     {
-        return (float) (clone $this->baseQuery($period, $startDate, $endDate))
-            ->whereIn('status', PembelianStatus::successLabels())
-            ->sum('profit');
+        return array_key_exists($this->paymentStatus, PaymentStatus::switchOptions())
+            ? $this->paymentStatus
+            : PaymentStatus::PENDING;
+    }
+
+    private function countForStatus(string $status, string $period, ?string $startDate, ?string $endDate): int
+    {
+        return (int) PaymentStatus::applyPembelianQuery(
+            $this->baseQuery($period, $startDate, $endDate),
+            [$status],
+        )->count();
     }
 
     private function baseQuery(string $period, ?string $startDate, ?string $endDate): Builder
@@ -104,8 +119,8 @@ class RegularOrderStatsOverview extends Widget
         ];
     }
 
-    private function formatRupiah(int|float|string|null $amount): string
+    private function formatNumber(int|float $number): string
     {
-        return 'Rp ' . number_format((float) ($amount ?? 0), 0, ',', '.');
+        return number_format((float) $number, 0, ',', '.');
     }
 }

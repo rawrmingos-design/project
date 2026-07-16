@@ -9,6 +9,7 @@ final class PembelianStatus
     public const PROCESSING = 'processing';
     public const FAILED = 'failed';
     public const CANCELLED = 'cancelled';
+    public const EXPIRED = 'expired';
     public const REFUNDED = 'refunded';
     public const UNKNOWN = 'unknown';
 
@@ -18,6 +19,7 @@ final class PembelianStatus
         self::PROCESSING => ['Processing', 'Proses', 'Process'],
         self::FAILED => ['Failed', 'Gagal', 'Error'],
         self::CANCELLED => ['Batal', 'Cancelled', 'Canceled'],
+        self::EXPIRED => ['Expired', 'expired'],
         self::REFUNDED => ['Refunded'],
     ];
 
@@ -27,6 +29,7 @@ final class PembelianStatus
         self::PROCESSING => 'Processing',
         self::FAILED => 'Failed',
         self::CANCELLED => 'Cancelled',
+        self::EXPIRED => 'Expired',
         self::REFUNDED => 'Refunded',
         self::UNKNOWN => 'Unknown',
     ];
@@ -37,6 +40,7 @@ final class PembelianStatus
         self::PROCESSING => 'info',
         self::FAILED => 'danger',
         self::CANCELLED => 'danger',
+        self::EXPIRED => 'danger',
         self::REFUNDED => 'gray',
         self::UNKNOWN => 'secondary',
     ];
@@ -47,6 +51,7 @@ final class PembelianStatus
         self::PROCESSING => 'heroicon-o-arrow-path',
         self::FAILED => 'heroicon-o-x-circle',
         self::CANCELLED => 'heroicon-o-x-circle',
+        self::EXPIRED => 'heroicon-o-x-circle',
         self::REFUNDED => 'heroicon-o-arrow-uturn-left',
         self::UNKNOWN => 'heroicon-o-question-mark-circle',
     ];
@@ -57,6 +62,7 @@ final class PembelianStatus
         self::PROCESSING => 'Processing',
         self::FAILED => 'Gagal',
         self::CANCELLED => 'Batal',
+        self::EXPIRED => 'Expired',
         self::REFUNDED => 'Refunded',
         self::UNKNOWN => 'Pending',
     ];
@@ -93,6 +99,7 @@ final class PembelianStatus
             self::PROCESSING => self::label(self::PROCESSING),
             self::FAILED => self::label(self::FAILED),
             self::CANCELLED => self::label(self::CANCELLED),
+            self::EXPIRED => self::label(self::EXPIRED),
             self::REFUNDED => self::label(self::REFUNDED),
         ];
     }
@@ -125,6 +132,7 @@ final class PembelianStatus
             self::PROCESSING => 'Processing',
             self::FAILED => 'Failed',
             self::CANCELLED => 'Canceled',
+            self::EXPIRED => 'Expired',
             self::REFUNDED => 'Refunded',
             default => 'Pending',
         };
@@ -132,7 +140,7 @@ final class PembelianStatus
 
     public static function isFinal(?string $status): bool
     {
-        return in_array(self::normalize($status), [self::SUCCESS, self::FAILED, self::CANCELLED, self::REFUNDED], true);
+        return in_array(self::normalize($status), [self::SUCCESS, self::FAILED, self::CANCELLED, self::EXPIRED, self::REFUNDED], true);
     }
 
     public static function shouldIgnoreTransition(?string $currentStatus, ?string $incomingStatus): bool
@@ -148,7 +156,7 @@ final class PembelianStatus
             return true;
         }
 
-        if (in_array($current, [self::FAILED, self::CANCELLED, self::REFUNDED], true)) {
+        if (in_array($current, [self::FAILED, self::CANCELLED, self::EXPIRED, self::REFUNDED], true)) {
             return true;
         }
 
@@ -165,6 +173,7 @@ final class PembelianStatus
             'Failed'     => 'Failed',
             'Gagal'      => 'Gagal',
             'Batal'      => 'Batal',
+            'Expired'    => 'Expired',
             'Refunded'   => 'Refunded',
         ];
     }
@@ -187,5 +196,10 @@ final class PembelianStatus
     public static function successLabels(): array
     {
         return ['Sukses', 'Success'];
+    }
+
+    public static function expiredLabels(): array
+    {
+        return ['Expired', 'expired'];
     }
 }

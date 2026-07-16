@@ -42,6 +42,14 @@ class PembelianStatusAliasTest extends TestCase
         $this->assertContains('Cancelled', $aliases, "'Cancelled' must be a CANCELLED alias");
     }
 
+    public function test_expired_aliases_cover_all_known_db_values(): void
+    {
+        $aliases = PembelianStatus::aliasesFor(PembelianStatus::EXPIRED);
+
+        $this->assertContains('Expired', $aliases, "'Expired' must be an EXPIRED alias");
+        $this->assertContains('expired', $aliases, "'expired' must be an EXPIRED alias");
+    }
+
     public function test_pending_aliases_cover_pending(): void
     {
         $aliases = PembelianStatus::aliasesFor(PembelianStatus::PENDING);
@@ -90,6 +98,16 @@ class PembelianStatusAliasTest extends TestCase
         $this->assertEquals(PembelianStatus::CANCELLED, PembelianStatus::normalize($label));
     }
 
+    public function test_preferred_database_label_roundtrip_expired(): void
+    {
+        $label = PembelianStatus::preferredDatabaseLabel(PembelianStatus::EXPIRED);
+
+        $this->assertEquals('Expired', $label,
+            'Preferred DB label for EXPIRED should be Expired');
+
+        $this->assertEquals(PembelianStatus::EXPIRED, PembelianStatus::normalize($label));
+    }
+
     // ── Tests: normalize() handles all known variants ─────────────────────────
 
     /** @dataProvider knownStatusVariantsProvider */
@@ -120,6 +138,9 @@ class PembelianStatusAliasTest extends TestCase
             'Batal'     => ['Batal',    PembelianStatus::CANCELLED],
             'Cancelled' => ['Cancelled', PembelianStatus::CANCELLED],
             'Canceled'  => ['Canceled', PembelianStatus::CANCELLED],
+
+            // EXPIRED
+            'Expired'   => ['Expired',   PembelianStatus::EXPIRED],
 
             // PENDING
             'Pending'   => ['Pending',  PembelianStatus::PENDING],
@@ -165,6 +186,17 @@ class PembelianStatusAliasTest extends TestCase
                 PembelianStatus::FAILED,
                 PembelianStatus::normalize($alias),
                 "Alias '{$alias}' should normalize to FAILED"
+            );
+        }
+    }
+
+    public function test_all_expired_aliases_normalize_back_to_expired(): void
+    {
+        foreach (PembelianStatus::aliasesFor(PembelianStatus::EXPIRED) as $alias) {
+            $this->assertEquals(
+                PembelianStatus::EXPIRED,
+                PembelianStatus::normalize($alias),
+                "Alias '{$alias}' should normalize to EXPIRED"
             );
         }
     }
