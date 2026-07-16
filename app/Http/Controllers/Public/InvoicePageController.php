@@ -378,6 +378,7 @@ class InvoicePageController extends Controller
         return match (true) {
             in_array($normalized, ['sukses', 'success'], true) => ['code' => 'success', 'label' => 'Success'],
             in_array($normalized, ['proses', 'processing'], true) => ['code' => 'processing', 'label' => 'Processing'],
+            in_array($normalized, ['expired', 'kedaluwarsa'], true) => ['code' => 'expired', 'label' => 'Expired'],
             in_array($normalized, ['gagal', 'batal', 'failed', 'cancelled'], true) => ['code' => 'failed', 'label' => 'Failed'],
             default => ['code' => 'pending', 'label' => 'Pending'],
         };

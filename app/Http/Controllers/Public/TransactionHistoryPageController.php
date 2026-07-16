@@ -82,6 +82,7 @@ class TransactionHistoryPageController extends Controller
             PembelianStatus::FAILED,
             PembelianStatus::CANCELLED,
             PembelianStatus::REFUNDED => ['label' => 'Gagal', 'tone' => 'failed'],
+            PembelianStatus::EXPIRED => ['label' => 'Expired', 'tone' => 'failed'],
             default => ['label' => 'Menunggu', 'tone' => 'pending'],
         };
     }

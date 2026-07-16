@@ -99,12 +99,18 @@ class PaydisiniCallbackTest extends TestCase
         $this->assertNotNull($invoice->paid_at);
     }
 
-    public function test_canceled_callback_marks_unpaid_invoice_as_expired(): void
+    public function test_canceled_callback_marks_unpaid_invoice_and_pembelian_as_expired(): void
     {
+        $user = $this->createUser(username: 'order-paydisini-expired');
         $invoice = $this->createInvoice([
             'order_id' => 'INV-PAYDISINI-CANCELED',
             'status' => 'Belum Lunas',
         ]);
+        $pembelian = $this->createPembelian($user, [
+            'order_id' => $invoice->order_id,
+            'status' => 'Pending',
+        ]);
+        $this->bindNotificationStubs();
 
         $response = $this->postJson('/wejizy/paydisini/callback', [
             'key' => 'paydisini-test-key',
@@ -120,7 +126,10 @@ class PaydisiniCallbackTest extends TestCase
             ->assertJsonMissingPath('message');
 
         $invoice->refresh();
+        $pembelian->refresh();
+
         $this->assertSame('Expired', $invoice->status);
+        $this->assertSame('Expired', $pembelian->status);
     }
 
     public function test_already_processed_invoice_returns_idempotent_ack(): void
@@ -236,6 +245,13 @@ class PaydisiniCallbackTest extends TestCase
         $this->app->instance(OrderProcessingService::class, new class {
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
+                $trackedOrderId = (string) data_get($pembelian, 'order_id');
+                $normalizedDispatchMode = strtolower($dispatchMode);
+
+                if ($trackedOrderId === '__noop__' && $normalizedDispatchMode === '__noop__') {
+                    return [];
+                }
+
                 return [
                     'success' => true,
                     'order_status' => 'Success',
@@ -279,6 +295,13 @@ class PaydisiniCallbackTest extends TestCase
         $this->app->instance(OrderProcessingService::class, new class {
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
+                $trackedOrderId = (string) data_get($pembelian, 'order_id');
+                $normalizedDispatchMode = strtolower($dispatchMode);
+
+                if ($trackedOrderId === '__noop__' && $normalizedDispatchMode === '__noop__') {
+                    return [];
+                }
+
                 return [
                     'success' => false,
                     'order_status' => 'Failed',
@@ -324,6 +347,8 @@ class PaydisiniCallbackTest extends TestCase
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
                 $this->calls++;
+                unset($pembelian, $dispatchMode);
+
                 return [
                     'success' => true,
                     'order_status' => 'Success',
@@ -428,6 +453,8 @@ class PaydisiniCallbackTest extends TestCase
         $this->app->instance(WhatsappNotificationService::class, new class {
             public function sendNotification(string $target, string $templateSlug, array $data = []): array
             {
+                unset($target, $templateSlug, $data);
+
                 return ['success' => true, 'message' => 'stubbed'];
             }
         });
@@ -435,6 +462,8 @@ class PaydisiniCallbackTest extends TestCase
         $this->app->instance(EmailNotificationService::class, new class {
             public function sendTransactionEmail($email, $data): bool
             {
+                unset($email, $data);
+
                 return true;
             }
         });

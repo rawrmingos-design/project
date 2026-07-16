@@ -165,13 +165,19 @@ class TriPayCallbackTest extends TestCase
         $this->assertSame('Lunas', $invoice->status);
     }
 
-    public function test_expired_callback_marks_unpaid_invoice_as_expired(): void
+    public function test_expired_callback_marks_unpaid_invoice_and_pembelian_as_expired(): void
     {
+        $user = $this->createUser(username: 'order-tripay-expired');
         $invoice = $this->createInvoice([
             'order_id' => 'INV-TRIPAY-EXPIRED',
             'reference' => 'REF-TRIPAY-EXPIRED',
             'status' => 'Belum Lunas',
         ]);
+        $pembelian = $this->createPembelian($user, [
+            'order_id' => $invoice->order_id,
+            'status' => 'Pending',
+        ]);
+        $this->bindNotificationStubs();
 
         $payload = json_encode([
             'reference' => $invoice->reference,
@@ -190,11 +196,13 @@ class TriPayCallbackTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'ignored_order_not_found');
+            ->assertJsonPath('success', true);
 
         $invoice->refresh();
+        $pembelian->refresh();
+
         $this->assertSame('Expired', $invoice->status);
+        $this->assertSame('Expired', $pembelian->status);
     }
 
     public function test_paid_callback_marks_pending_deposit_success_and_increments_balance(): void
@@ -341,6 +349,13 @@ class TriPayCallbackTest extends TestCase
         $this->app->instance(OrderProcessingService::class, new class {
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
+                $trackedOrderId = (string) data_get($pembelian, 'order_id');
+                $normalizedDispatchMode = strtolower($dispatchMode);
+
+                if ($trackedOrderId === '__noop__' && $normalizedDispatchMode === '__noop__') {
+                    return [];
+                }
+
                 return [
                     'success' => true,
                     'order_status' => 'Success',
@@ -385,6 +400,13 @@ class TriPayCallbackTest extends TestCase
         $this->app->instance(OrderProcessingService::class, new class {
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
+                $trackedOrderId = (string) data_get($pembelian, 'order_id');
+                $normalizedDispatchMode = strtolower($dispatchMode);
+
+                if ($trackedOrderId === '__noop__' && $normalizedDispatchMode === '__noop__') {
+                    return [];
+                }
+
                 return [
                     'success' => false,
                     'order_status' => 'Failed',
@@ -428,6 +450,8 @@ class TriPayCallbackTest extends TestCase
         $this->app->instance(OrderProcessingService::class, new class {
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
+                unset($pembelian, $dispatchMode);
+
                 throw new \RuntimeException('processor boom');
             }
         });
@@ -469,6 +493,8 @@ class TriPayCallbackTest extends TestCase
             public function process($pembelian, string $dispatchMode = 'auto'): array
             {
                 $this->calls++;
+                unset($pembelian, $dispatchMode);
+
                 return [
                     'success' => true,
                     'order_status' => 'Success',
@@ -578,6 +604,8 @@ class TriPayCallbackTest extends TestCase
         $this->app->instance(WhatsappNotificationService::class, new class {
             public function sendNotification(string $target, string $templateSlug, array $data = []): array
             {
+                unset($target, $templateSlug, $data);
+
                 return ['success' => true, 'message' => 'stubbed'];
             }
         });
@@ -585,6 +613,8 @@ class TriPayCallbackTest extends TestCase
         $this->app->instance(EmailNotificationService::class, new class {
             public function sendTransactionEmail($email, $data): bool
             {
+                unset($email, $data);
+
                 return true;
             }
         });

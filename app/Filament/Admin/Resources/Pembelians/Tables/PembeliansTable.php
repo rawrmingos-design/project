@@ -4,10 +4,10 @@ namespace App\Filament\Admin\Resources\Pembelians\Tables;
 
 use App\Jobs\SendPembelianToProviderJob;
 use App\Support\PembelianNotificationHelper;
+use App\Support\PaymentStatus;
 use App\Support\PembelianStatus;
 use App\Support\ProviderDispatchTracker;
 use Filament\Tables\Table;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
@@ -86,21 +86,12 @@ class PembeliansTable
                     ->color(fn($record): string => self::dispatchStateBadgeColor($record))
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                BadgeColumn::make('pembayaran.status')
+                TextColumn::make('pembayaran.status')
                     ->label('Status Pembayaran')
-                    ->getStateUsing(function ($record) {
-                        $paymentStatus = optional($record->pembayaran)->status;
-
-                        return $paymentStatus === 'Lunas' ? 'Success' : 'Pending';
-                    })
-                    ->colors([
-                        'success' => 'Success',
-                        'warning' => 'Pending',
-                    ])
-                    ->icons([
-                        'heroicon-o-check-circle' => 'Success',
-                        'heroicon-o-clock' => 'Pending',
-                    ]),
+                    ->badge()
+                    ->getStateUsing(fn ($record): string => PaymentStatus::label(optional($record->pembayaran)->status))
+                    ->color(fn ($record): string => PaymentStatus::badgeColor(optional($record->pembayaran)->status))
+                    ->icon(fn ($record): string => PaymentStatus::icon(optional($record->pembayaran)->status)),
 
                 TextColumn::make('pembayaran.no_pembeli')
                     ->label('No. WhatsApp')
@@ -165,7 +156,7 @@ class PembeliansTable
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->label('Status')
+                    ->label('Status Provider')
                     ->options(PembelianStatus::filterOptions())
                     ->multiple()
                     ->query(function (Builder $query, array $data): Builder {
@@ -188,6 +179,12 @@ class PembeliansTable
 
                         return $query->whereIn('status', $rawStatuses);
                     }),
+
+                SelectFilter::make('payment_status')
+                    ->label('Status Pembayaran')
+                    ->options(self::paymentStatusOptions())
+                    ->multiple()
+                    ->query(fn (Builder $query, array $data): Builder => self::applyPaymentStatusFilter($query, $data)),
 
                 SelectFilter::make('tipe_transaksi')
                     ->label('Tipe Transaksi')
@@ -764,6 +761,16 @@ class PembeliansTable
         $provider = self::cachedPaymentMethodMap()[$metode] ?? null;
 
         return $provider ? $provider . '.' . strtolower($metode) : $metode;
+    }
+
+    private static function paymentStatusOptions(): array
+    {
+        return PaymentStatus::options();
+    }
+
+    private static function applyPaymentStatusFilter(Builder $query, array $data): Builder
+    {
+        return PaymentStatus::applyPembelianQuery($query, (array) ($data['values'] ?? []));
     }
 
     private static function trafficSourceLabel(?string $source): string

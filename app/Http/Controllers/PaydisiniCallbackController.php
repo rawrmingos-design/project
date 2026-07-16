@@ -31,7 +31,7 @@ class PaydisiniCallbackController extends Controller
             return;
         }
 
-        $setting = \DB::table('setting_webs')->where('id', 1)->first();
+        $setting = DB::table('setting_webs')->where('id', 1)->first();
         $this->apiKey = $setting->paydisini_apikey ?? null;
     }
     
@@ -189,7 +189,8 @@ class PaydisiniCallbackController extends Controller
             return;
         }
 
-        $pembelian->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED)]);
+        $transaction->syncExpiredPembelianStatus();
+        $pembelian->refresh();
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
@@ -208,7 +209,7 @@ class PaydisiniCallbackController extends Controller
                 'order_id' => $pembelian->order_id,
                 'product' => $pembelian->layanan,
                 'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                'status' => PembelianStatus::apiStatusCode(PembelianStatus::FAILED),
+                'status' => PembelianStatus::apiStatusCode(PembelianStatus::EXPIRED),
                 'nickname' => $pembelian->nickname,
                 'note' => 'Pembayaran dibatalkan atau kadaluarsa.',
             ]);

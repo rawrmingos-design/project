@@ -34,7 +34,8 @@ class DashboardPageController extends Controller
         $successAliases = PembelianStatus::aliasesFor(PembelianStatus::SUCCESS);
         $failedAliases = array_merge(
             PembelianStatus::aliasesFor(PembelianStatus::FAILED),
-            PembelianStatus::aliasesFor(PembelianStatus::CANCELLED)
+            PembelianStatus::aliasesFor(PembelianStatus::CANCELLED),
+            PembelianStatus::aliasesFor(PembelianStatus::EXPIRED)
         );
 
         $buildStats = static function (Collection $transactions) use (
@@ -99,6 +100,7 @@ class DashboardPageController extends Controller
                     PembelianStatus::PROCESSING => ['label' => 'Diproses', 'tone' => 'processing'],
                     PembelianStatus::FAILED,
                     PembelianStatus::CANCELLED => ['label' => 'Gagal', 'tone' => 'failed'],
+                    PembelianStatus::EXPIRED => ['label' => 'Expired', 'tone' => 'failed'],
                     PembelianStatus::REFUNDED => ['label' => 'Refunded', 'tone' => 'failed'],
                     default => ['label' => 'Pending', 'tone' => 'pending'],
                 };
@@ -119,9 +121,7 @@ class DashboardPageController extends Controller
 
         $phone = $user->no_hp ?? $user->no_wa ?? $user->wa ?? '---';
         $affiliateStatus = (string) ($user->affiliate_status ?? '');
-        $isAffiliateActive = method_exists($user, 'isAffiliateActive')
-            ? (bool) $user->isAffiliateActive()
-            : strtolower(trim($affiliateStatus)) === 'active';
+        $isAffiliateActive = strtolower(trim($affiliateStatus)) === 'active';
         $canShowAffiliate = ! in_array(strtolower($affiliateStatus), ['', 'inactive'], true);
         $displayName = (string) ($user->name ?? $user->username ?? 'Member');
         $avatarFallback = 'https://ui-avatars.com/api/?color=FFFFFF&background=50a7ff&name=' . urlencode($displayName);
