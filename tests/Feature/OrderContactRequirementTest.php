@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\TokoPayController;
+use App\Http\Controllers\TriPayController;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
@@ -11,6 +13,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class OrderContactRequirementTest extends TestCase
@@ -124,7 +127,7 @@ class OrderContactRequirementTest extends TestCase
         ]);
     }
 
-    /** @test */
+    #[Test]
     public function ordered_endpoint_accepts_phone_only_via_whatsapp_field()
     {
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload([
@@ -142,7 +145,7 @@ class OrderContactRequirementTest extends TestCase
         $this->assertSame('081234567890', $payment->no_pembeli);
     }
 
-    /** @test */
+    #[Test]
     public function ordered_endpoint_accepts_email_only_and_stores_safe_phone_fallback()
     {
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload([
@@ -161,7 +164,7 @@ class OrderContactRequirementTest extends TestCase
         $this->assertSame('-', $payment->no_pembeli);
     }
 
-    /** @test */
+    #[Test]
     public function ordered_endpoint_accepts_both_phone_and_email()
     {
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload([
@@ -179,7 +182,7 @@ class OrderContactRequirementTest extends TestCase
         $this->assertSame('081234567890', $payment->no_pembeli);
     }
 
-    /** @test */
+    #[Test]
     public function ordered_endpoint_rejects_when_phone_and_email_are_both_missing()
     {
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload());
@@ -188,34 +191,70 @@ class OrderContactRequirementTest extends TestCase
             ->assertJsonValidationErrors(['nomor', 'email']);
     }
 
-    /** @test */
-    public function ordered_endpoint_rejects_email_only_for_tripay_gateway()
+    #[Test]
+    public function ordered_endpoint_accepts_email_only_for_tripay_gateway()
     {
+        $this->app->instance(TriPayController::class, new class extends TriPayController {
+            public function request($idOrder, $jumlah, $method, $dataUser, $nohp)
+            {
+                return [
+                    'success' => true,
+                    'amount' => $jumlah,
+                    'no_pembayaran' => 'PAY-' . $idOrder,
+                    'reference' => 'REF-' . $idOrder,
+                    'expired_at' => now()->addDay()->toIso8601String(),
+                ];
+            }
+        });
+
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload([
             'payment_method' => 'QRIS',
             'email' => 'buyer@example.test',
         ]));
 
         $response->assertStatus(200)
-            ->assertJson([
-                'status' => false,
-                'error_code' => 'CUSTOMER_PHONE_REQUIRED',
-            ]);
+            ->assertJson(['status' => true]);
+
+        $order = Pembelian::query()->latest()->first();
+        $this->assertNotNull($order);
+
+        $payment = Pembayaran::query()->where('order_id', $order->order_id)->first();
+        $this->assertNotNull($payment);
+        $this->assertSame('-', $payment->no_pembeli);
     }
 
-    /** @test */
-    public function ordered_endpoint_rejects_email_only_for_tokopay_gateway()
+    #[Test]
+    public function ordered_endpoint_accepts_email_only_for_tokopay_gateway()
     {
+        $this->app->instance(TokoPayController::class, new class extends TokoPayController {
+            public function createAdvanceOrder($ref_id, $channel, $jumlah, $nickname, $phone_number, $service)
+            {
+                return [
+                    'status' => 'Success',
+                    'data' => [
+                        'pay_code' => 'PAY-' . $ref_id,
+                        'trx_id' => 'TP-' . $ref_id,
+                        'total_bayar' => $jumlah,
+                        'expired_at' => now()->addHours(3)->toIso8601String(),
+                    ],
+                ];
+            }
+        });
+
         $response = $this->actingAs($this->user)->postJson(route('ordered'), $this->basePayload([
             'payment_method' => 'TOKOVA',
             'email' => 'buyer@example.test',
         ]));
 
         $response->assertStatus(200)
-            ->assertJson([
-                'status' => false,
-                'error_code' => 'CUSTOMER_PHONE_REQUIRED',
-            ]);
+            ->assertJson(['status' => true]);
+
+        $order = Pembelian::query()->latest()->first();
+        $this->assertNotNull($order);
+
+        $payment = Pembayaran::query()->where('order_id', $order->order_id)->first();
+        $this->assertNotNull($payment);
+        $this->assertSame('-', $payment->no_pembeli);
     }
 
     private function basePayload(array $overrides = []): array

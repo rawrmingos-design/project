@@ -123,10 +123,20 @@ class OrderController extends Controller
 
     public function confirm(Request $request)
     {
+        $normalizedPhone = trim((string) $request->input('nomor'));
+
+        if ($normalizedPhone === '' && $request->filled('whatsapp')) {
+            $normalizedPhone = trim((string) $request->input('whatsapp'));
+        }
+
+        $request->merge(['nomor' => $normalizedPhone !== '' ? $normalizedPhone : null]);
+
         $rules = [
             'service' => 'required|numeric',
             'payment_method' => 'required',
-            'nomor' => 'required|numeric',
+            'nomor' => 'nullable|regex:/^[0-9]{9,16}$/|required_without:email',
+            'whatsapp' => 'nullable|regex:/^[0-9]{9,16}$/',
+            'email' => 'nullable|email|max:255|required_without:nomor',
         ];
 
         if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {

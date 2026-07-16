@@ -268,6 +268,16 @@ function getOrderEmailValue() {
     }).first().val() || "");
 }
 
+function getOrderPhoneValue() {
+    var visibleValue = $('input[name="whatsapp"]:visible, input[name="nomor"]:visible').filter(function () {
+        return $.trim($(this).val()) !== "";
+    }).first().val();
+
+    return $.trim(visibleValue || $('input[name="whatsapp"], input[name="nomor"]').filter(function () {
+        return $.trim($(this).val()) !== "";
+    }).first().val() || "");
+}
+
 function isValidOrderEmail(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($.trim(value || ""));
 }
@@ -453,7 +463,7 @@ $(".product-list").off("click").on("click", (function () {
         d = $("#nominal").val(),
         u = $("#qty").val(),
         m = $("#metode").val(),
-        h = $("#nomor").val(),
+        h = getOrderPhoneValue(),
         y = getOrderEmailValue(),
         p = getVoucherValue(),
         g = getUsedPointValue(),
@@ -465,8 +475,8 @@ $(".product-list").off("click").on("click", (function () {
     } else if ("jokigendong" === k) {
         if (!(l && c && n && i)) return void showToast("Silahkan lengkapi semua data Informasi Joki Gendong")
     } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
-    if ("SALDO" !== m && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
-    if (!h) return void showToast("Silahkan lengkapi nomor WhatsApp");
+    if (!h && !y) return void showToast("Silahkan isi nomor WhatsApp atau email terlebih dahulu");
+    if (y && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
     $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",

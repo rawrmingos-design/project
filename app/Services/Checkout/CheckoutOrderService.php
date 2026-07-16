@@ -141,7 +141,7 @@ class CheckoutOrderService
             $order->traffic_source = 'api_v2';
             $order->voucher = $voucherCode !== '' ? $voucherCode : null;
             $order->tipe_transaksi = $orderType;
-            $order->email_pembeli = $user?->email ?: ($request->input('email') ?: null);
+            $order->email_pembeli = $this->orderEmail($request, $user);
             $order->ip_address = $request->ip();
             $order->active_layanan_id = $service->id;
             $order->active_provider_code = strtolower((string) $service->provider);
@@ -154,7 +154,7 @@ class CheckoutOrderService
             $payment->order_id = $orderId;
             $payment->harga = $totalAmount;
             $payment->no_pembayaran = $paymentCode;
-            $payment->no_pembeli = (string) $request->input('nomor');
+            $payment->no_pembeli = $this->orderPhone($request) ?: '-';
             $payment->status = 'Belum Lunas';
             $payment->metode = (string) $method->code;
             $payment->reference = $paymentReference;
@@ -219,6 +219,11 @@ class CheckoutOrderService
 
     private function validateApiPayload(Request $request): void
     {
+        $normalizedPhone = $this->orderPhone($request);
+        $request->merge([
+            'nomor' => $normalizedPhone !== '' ? $normalizedPhone : null,
+        ]);
+
         $orderType = $this->orderType((string) $request->input('ktg_tipe', 'game'));
         $isJokiGendong = $orderType === 'jokigendong';
         $isJokiMode = in_array($orderType, ['joki', 'vilogml'], true);
@@ -226,10 +231,11 @@ class CheckoutOrderService
         $rules = [
             'service' => ['required', 'integer'],
             'payment_method' => ['required', 'string', 'max:64'],
-            'nomor' => ['required', 'regex:/^[0-9]{9,16}$/'],
+            'nomor' => ['nullable', 'regex:/^[0-9]{9,16}$/', 'required_without:email'],
+            'whatsapp' => ['nullable', 'regex:/^[0-9]{9,16}$/'],
             'zone' => ['nullable', 'string', 'max:50'],
             'nickname' => ['nullable', 'string', 'max:100'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', 'required_without:nomor'],
             'voucher' => ['nullable', 'string', 'max:64'],
             'ktg_tipe' => ['nullable', 'string', 'max:50'],
             'qty' => ['nullable', 'integer', 'min:1', 'max:999'],
@@ -257,6 +263,53 @@ class CheckoutOrderService
         }
 
         $request->validate($rules);
+    }
+
+    private function orderPhone(Request $request): string
+    {
+        $candidates = [
+            trim((string) $request->input('nomor')),
+            trim((string) $request->input('whatsapp')),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($candidate !== '' && preg_match('/^[0-9]{9,16}$/', $candidate)) {
+                return $candidate;
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    private function orderEmail(Request $request, ?User $user = null): ?string
+    {
+        $email = trim((string) ($user?->email ?? ''));
+
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $email;
+        }
+
+        $email = trim((string) $request->input('email'));
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+    }
+
+    private function gatewayEmail(Request $request, ?User $user = null): string
+    {
+        return $this->orderEmail($request, $user) ?: 'customer@example.com';
+    }
+
+    private function gatewayPhone(Request $request): string
+    {
+        $phone = $this->orderPhone($request);
+
+        return $phone !== '' ? $phone : '08000000000';
     }
 
     private function buildResult(Pembelian $order, bool $idempotent = false): array
@@ -372,7 +425,7 @@ class CheckoutOrderService
         $tempOrder->user_id = $isJoki ? '-' : (string) $request->input('uid');
         $tempOrder->zone = $isJoki ? '-' : (string) $request->input('zone', '');
         $tempOrder->nickname = (string) ($request->input('nickname') ?: $request->input('nickname_joki') ?: 'Customer');
-        $tempOrder->email_pembeli = $user?->email ?: ($request->input('email') ?: 'customer@example.com');
+        $tempOrder->email_pembeli = $this->gatewayEmail($request, $user);
         $tempOrder->username = $user?->username ?? 'guest';
         $tempOrder->harga = $amount;
         $tempOrder->profit = 0;
@@ -397,20 +450,12 @@ class CheckoutOrderService
 
     private function requestTripayInvoice(Method $method, string $orderId, int $amount, Request $request, ?User $user): array
     {
-        $customerEmail = $user?->email ?: trim((string) $request->input('email'));
-
-        if (! filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
-            throw ValidationException::withMessages([
-                'email' => 'Email pembeli wajib diisi dengan format valid untuk metode pembayaran ini.',
-            ]);
-        }
-
         $result = app(TriPayController::class)->request(
             $orderId,
             $amount,
             (string) $method->code,
-            $customerEmail,
-            (string) $request->input('nomor')
+            $this->gatewayEmail($request, $user),
+            $this->gatewayPhone($request)
         );
 
         if (! ($result['success'] ?? false)) {
@@ -434,7 +479,7 @@ class CheckoutOrderService
             (string) $method->code,
             $amount,
             (string) ($request->input('nickname') ?: 'Customer'),
-            (string) $request->input('nomor'),
+            $this->gatewayPhone($request),
             (string) $service->layanan
         );
 
@@ -531,7 +576,7 @@ class CheckoutOrderService
                 'tenant_id' => $tenantId,
                 'user_id' => $user?->id,
                 'ip' => $request->ip(),
-                'payload' => $request->only(['service', 'payment_method', 'nomor', 'uid', 'zone', 'voucher']),
+                'payload' => $request->only(['service', 'payment_method', 'nomor', 'email', 'uid', 'zone', 'voucher']),
             ], JSON_UNESCAPED_SLASHES));
         }
 
