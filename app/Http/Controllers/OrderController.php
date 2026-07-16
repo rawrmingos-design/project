@@ -8,7 +8,6 @@ use App\Models\Layanan;
 use App\Models\Pembayaran;
 use App\Models\Voucher;
 use App\Models\Pembelian;
-use App\Models\Rating;
 use App\Models\Paket;
 use App\Models\PaketLayanan;
 use App\Models\User;
@@ -559,7 +558,7 @@ class OrderController extends Controller
     private function validateOrderRequest(Request $request, bool $forConfirmation = false): void
     {
         $normalizedPhone = $this->normalizeOrderContactPhone($request);
-        $request->merge(['nomor' => $normalizedPhone]);
+        $request->merge(['nomor' => $normalizedPhone !== '' ? $normalizedPhone : null]);
 
         $rules = [
             'service' => 'required|integer|exists:layanans,id',
@@ -567,6 +566,8 @@ class OrderController extends Controller
                 'required',
                 'string',
                 function ($attribute, $value, $fail) {
+                    unset($attribute);
+
                     $code = trim((string) $value);
                     if (Str::upper($code) === 'SALDO') {
                         // Reject SALDO selection for unauthenticated users
@@ -1377,30 +1378,15 @@ class OrderController extends Controller
             $gatewayResult = ['status' => false, 'msg' => 'Metode pembayaran tidak tersedia'];
             
             if ($dataMethod->payment == "tokopay") {
-                if (!$request->nomor) {
-                    if ($pointsReserved && Auth::check()) {
-                        app(\App\Services\PointService::class)->refundPoints(
-                            Auth::user(),
-                            $usedPoints,
-                            $order_id,
-                            $dataLayanan->layanan
-                        );
-                    }
-
-                    return $this->orderErrorResponse(
-                        'Nomor WhatsApp wajib diisi untuk metode pembayaran ini.',
-                        'CUSTOMER_PHONE_REQUIRED'
-                    );
-                }
-
                 $tokopay = app(TokoPayController::class);
+                $customerPhone = $this->gatewayCustomerPhone($request);
                 // Parameters: $ref_id, $channel, $jumlah, $nickname, $phone_number, $service
                 $res = $tokopay->createAdvanceOrder(
-                    $order_id, 
-                    $request->payment_method, 
-                    $amount, 
-                    $request->nickname ?? 'Guest', 
-                    $request->nomor, 
+                    $order_id,
+                    $request->payment_method,
+                    $amount,
+                    $request->nickname ?? 'Guest',
+                    $customerPhone,
                     $dataLayanan->layanan
                 );
                 
@@ -1423,46 +1409,12 @@ class OrderController extends Controller
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';
                 }
             } else if ($dataMethod->payment == "tripay") {
-                if (!$request->nomor) {
-                    if ($pointsReserved && Auth::check()) {
-                        app(\App\Services\PointService::class)->refundPoints(
-                            Auth::user(),
-                            $usedPoints,
-                            $order_id,
-                            $dataLayanan->layanan
-                        );
-                    }
-
-                    return $this->orderErrorResponse(
-                        'Nomor WhatsApp wajib diisi untuk metode pembayaran ini.',
-                        'CUSTOMER_PHONE_REQUIRED'
-                    );
-                }
-
                 $tripay = app(TriPayController::class);
                 $tripayRequestAmount = $this->resolveGatewayRequestAmount($amount, $dataMethod);
-                // TriPay requires a valid customer email. Do not rely on app/mail fallback as customer identity.
-                $customerEmail = Auth::check() && filter_var(Auth::user()->email, FILTER_VALIDATE_EMAIL)
-                    ? Auth::user()->email
-                    : trim((string) $request->email);
+                $customerEmail = $this->gatewayCustomerEmail($request);
+                $customerPhone = $this->gatewayCustomerPhone($request);
 
-                if (!filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
-                    if ($pointsReserved && Auth::check()) {
-                        app(\App\Services\PointService::class)->refundPoints(
-                            Auth::user(),
-                            $usedPoints,
-                            $order_id,
-                            $dataLayanan->layanan
-                        );
-                    }
-
-                    return $this->orderErrorResponse(
-                        'Email pembeli wajib diisi dengan format yang valid untuk metode pembayaran ini.',
-                        'CUSTOMER_EMAIL_REQUIRED'
-                    );
-                }
-
-                $res = $tripay->request($order_id, $tripayRequestAmount, $request->payment_method, $customerEmail, $request->nomor);
+                $res = $tripay->request($order_id, $tripayRequestAmount, $request->payment_method, $customerEmail, $customerPhone);
 
                 if ($res['success']) {
                     $gatewayResult = [
@@ -1484,7 +1436,7 @@ class OrderController extends Controller
                 $tempOrder->zone = $request->zone ?? '';
                 $tempOrder->nickname = $request->nickname ?? 'Customer';
                 $tempOrder->email_pembeli = $request->email ?? '';
-                $tempOrder->username = auth()->user()->username ?? 'guest';
+                $tempOrder->username = Auth::check() ? Auth::user()->username : 'guest';
                 $tempOrder->harga = $amount;
                 $tempOrder->profit = $dataLayanan->profit ?? 0; // Required field
                 $tempOrder->status = 'Pending'; // Will be updated after payment
@@ -1623,7 +1575,7 @@ class OrderController extends Controller
 
             $response = curl_exec($curl);
             $error = curl_error($curl);
-            curl_close($curl);
+            unset($curl);
 
             if ($error) {
                 Log::error('WhatsApp API (Fonnte) - Curl Error', ['error' => $error]);
@@ -1651,7 +1603,6 @@ class OrderController extends Controller
             }
             $qty = $request->qty ? intval($request->qty) : 1;
             $paymentMethod = $request->payment_method;
-            $promo = $request->promo ?? null;
 
             // Hitung harga dasar
             $basePrice = $layanan->harga * $qty;
@@ -2043,13 +1994,42 @@ class OrderController extends Controller
 
     private function normalizeOrderContactPhone(Request $request): string
     {
-        $nomor = trim((string) $request->input('nomor'));
+        $candidates = [
+            trim((string) $request->input('nomor')),
+            trim((string) $request->input('whatsapp')),
+        ];
 
-        if ($nomor !== '') {
-            return $nomor;
+        foreach ($candidates as $candidate) {
+            if ($candidate !== '' && preg_match('/^[0-9]{9,16}$/', $candidate)) {
+                return $candidate;
+            }
         }
 
-        return trim((string) $request->input('whatsapp'));
+        foreach ($candidates as $candidate) {
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        return '';
+    }
+
+    private function gatewayCustomerPhone(Request $request): string
+    {
+        $phone = $this->normalizeOrderContactPhone($request);
+
+        return $phone !== '' ? $phone : '08000000000';
+    }
+
+    private function gatewayCustomerEmail(Request $request): string
+    {
+        $email = Auth::check() ? trim((string) Auth::user()->email) : '';
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email = trim((string) $request->email);
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : 'customer@example.com';
     }
 
     private function resolveProviderContextForOrder($dataLayanan, array $override = []): array

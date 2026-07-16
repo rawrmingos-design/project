@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,6 +92,116 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
             'qty' => 2,
             'status_joki' => 'Pending',
         ]);
+    }
+
+    public function test_api_v2_checkout_accepts_email_only_contact(): void
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-100',
+            'harga_member' => 10000,
+            'profit_member' => 1000,
+        ]);
+
+        Method::query()->create([
+            'name' => 'Manual Transfer',
+            'code' => 'MANUAL',
+            'payment' => 'manual',
+            'tipe' => 'manual',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer desc',
+            'statuspayment' => 1,
+        ]);
+
+        $response = $this->postJson('/api/v2/order/store', [
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'email' => 'buyer@example.test',
+            'uid' => '123456',
+            'zone' => '1234',
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', true);
+
+        $order = Pembelian::query()->where('order_id', $response->json('order_id'))->firstOrFail();
+        $payment = Pembayaran::query()->where('order_id', $order->order_id)->firstOrFail();
+
+        $this->assertSame('buyer@example.test', $order->email_pembeli);
+        $this->assertSame('-', $payment->no_pembeli);
+    }
+
+    public function test_api_v2_checkout_accepts_whatsapp_alias_contact(): void
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-100',
+            'harga_member' => 10000,
+            'profit_member' => 1000,
+        ]);
+
+        Method::query()->create([
+            'name' => 'Manual Transfer',
+            'code' => 'MANUAL',
+            'payment' => 'manual',
+            'tipe' => 'manual',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer desc',
+            'statuspayment' => 1,
+        ]);
+
+        $response = $this->postJson('/api/v2/order/store', [
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'whatsapp' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+        ]);
+
+        $response->assertOk()->assertJsonPath('status', true);
+
+        $order = Pembelian::query()->where('order_id', $response->json('order_id'))->firstOrFail();
+        $payment = Pembayaran::query()->where('order_id', $order->order_id)->firstOrFail();
+
+        $this->assertNull($order->email_pembeli);
+        $this->assertSame('081234567890', $payment->no_pembeli);
+    }
+
+    public function test_api_v2_checkout_rejects_missing_contact(): void
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-100',
+            'harga_member' => 10000,
+        ]);
+
+        Method::query()->create([
+            'name' => 'Manual Transfer',
+            'code' => 'MANUAL',
+            'payment' => 'manual',
+            'tipe' => 'manual',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer desc',
+            'statuspayment' => 1,
+        ]);
+
+        $response = $this->postJson('/api/v2/order/store', [
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'uid' => '123456',
+            'zone' => '1234',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['nomor', 'email']);
     }
 
     public function test_api_v2_checkout_idempotency_enforces_tenant_isolation(): void

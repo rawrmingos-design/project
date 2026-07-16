@@ -2324,8 +2324,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
             return 'Pilih metode pembayaran terlebih dahulu.';
         }
 
-        if (!String(email || '').trim() || !String(phone || '').trim()) {
-            return 'Lengkapi detail kontak (email dan nomor WhatsApp).';
+        const contactEmail = String(email || '').trim();
+        const contactPhone = String(phone || '').trim();
+
+        if (!contactEmail && !contactPhone) {
+            return 'Isi minimal salah satu: email atau nomor WhatsApp.';
         }
 
         if (isComplexOrder) {
@@ -2830,6 +2833,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                 </label>
 
                                 <label className="field">
+                                    <span>Email</span>
+                                    <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="example@gmail.com" />
+                                </label>
+
+                                <label className="field">
                                     <span>Nomor WhatsApp</span>
                                     <input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="08xxxxxxxxxx" />
                                 </label>
@@ -3096,7 +3104,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                             <path d="M12 16v-4" />
                             <path d="M12 8h.01" />
                         </svg>
-                        <span>Bukti transaksi akan dikirim ke email di atas</span>
+                        <span>Isi minimal salah satu: email atau nomor WhatsApp.</span>
                     </p>
                 </div>
             </BangjeffOrderPanel>
