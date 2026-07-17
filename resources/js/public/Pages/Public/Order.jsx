@@ -165,9 +165,8 @@ function formatMethodGroup(group) {
         lainnya: 'Lainnya',
     };
 
-    return labels[normalizedGroup] || String(group || 'Lainnya')
-        .replace(/[_-]+/g, ' ')
-        .replace(/\b\w/g, (char) => char.toUpperCase());
+    // Use original casing if it doesn't match standard keys — this allows custom category labels to be displayed as-is
+    return labels[normalizedGroup] || String(group || 'Lainnya');
 }
 
 function getPaymentPreviewLogos(methods = [], limit = 12) {
@@ -1373,7 +1372,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const selectedGtmPaymentMethod = selectedMethodCode ? (gtmPaymentMethods[String(selectedMethodCode)] || null) : null;
     const selectedMethod = paymentMethods.find((item) => item.code === selectedMethodCode) || null;
     const groupedMethods = useMemo(() => paymentMethods.reduce((acc, method) => {
-        const key = method.group || 'lainnya';
+        const key = method.groupLabel || method.group || 'lainnya';
         if (!acc[key]) acc[key] = [];
         acc[key].push(method);
         return acc;

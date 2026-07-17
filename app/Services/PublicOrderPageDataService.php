@@ -271,17 +271,20 @@ class PublicOrderPageDataService
     {
         $methods = app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
 
-        return collect($methods)->map(fn ($method) => [
-                'id' => $method->id,
-                'name' => $method->name,
-                'code' => $method->code,
-                'group' => $method->tipe,
-                'gateway' => $method->payment,
-                'image' => $method->images ? '/' . ltrim((string) $method->images, '/') : null,
+        return collect($methods)->map(fn (\App\Models\Method $method) => [
+                'id'         => $method->id,
+                'name'       => $method->name,
+                'code'       => $method->code,
+                // group: prefer category code (stable slug), fall back to tipe for backward compat
+                'group'      => $method->displayCategory?->code ?? $method->tipe,
+                // groupLabel: human-readable from category label
+                'groupLabel' => $method->displayCategory?->label ?? $method->tipe,
+                'gateway'    => $method->payment,
+                'image'      => $method->images ? '/' . ltrim((string) $method->images, '/') : null,
                 'feePercent' => (float) ($method->fee_percent ?? 0),
-                'fixFee' => (float) ($method->fix_fee ?? 0),
-                'minAmount' => $method->min_pembelian !== null ? (float) $method->min_pembelian : null,
-                'maxAmount' => $method->max_pembelian !== null ? (float) $method->max_pembelian : null,
+                'fixFee'     => (float) ($method->fix_fee ?? 0),
+                'minAmount'  => $method->min_pembelian !== null ? (float) $method->min_pembelian : null,
+                'maxAmount'  => $method->max_pembelian !== null ? (float) $method->max_pembelian : null,
             ])
             ->values();
     }

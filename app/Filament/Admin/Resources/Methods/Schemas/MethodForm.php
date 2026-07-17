@@ -2,18 +2,19 @@
 
 namespace App\Filament\Admin\Resources\Methods\Schemas;
 
+use App\Models\PaymentDisplayCategory;
 use App\Support\MediaAssetPicker;
-use Filament\Schemas\Schema;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 
 class MethodForm
@@ -32,7 +33,7 @@ class MethodForm
                             ->validationMessages([
                                 'required' => 'Nama metode wajib diisi.',
                             ]),
-                            
+
                         TextInput::make('code')
                             ->label('Kode')
                             ->required()
@@ -41,33 +42,17 @@ class MethodForm
                             ->helperText('Wajib diisi. Gunakan kode unik agar method mudah dikenali sistem.')
                             ->validationMessages([
                                 'required' => 'Kode metode wajib diisi.',
-                                'unique' => 'Kode metode sudah dipakai. Gunakan kode lain.',
+                                'unique'   => 'Kode metode sudah dipakai. Gunakan kode lain.',
                             ]),
-                            
-                        Select::make('tipe')
-                            ->label('Tipe')
-                            ->options([
-                                'bank' => 'Bank Transfer',
-                                'e-walet' => 'E-Wallet',
-                                'qris' => 'QRIS',
-                                'virtual-account' => 'Virtual Account',
-                                'convenience-store' => 'Convenience Store',
-                                'SALDO' => 'Saldo',
-                            ])
-                            ->required()
-                            ->helperText('Wajib dipilih. Menentukan kategori tampilan metode pembayaran.')
-                            ->validationMessages([
-                                'required' => 'Tipe metode pembayaran wajib dipilih.',
-                            ]),
-                            
+
                         Select::make('payment')
                             ->label('Payment Gateway')
                             ->options([
-                                'tripay' => 'Tripay',
-                                'tokopay' => 'Tokopay',
+                                'tripay'    => 'Tripay',
+                                'tokopay'   => 'Tokopay',
                                 'paydisini' => 'Paydisini',
-                                'manual' => 'Manual',
-                                'duitku' => 'Duitku',
+                                'manual'    => 'Manual',
+                                'duitku'    => 'Duitku',
                             ])
                             ->required()
                             ->helperText('Wajib dipilih. Menentukan gateway atau mode pembayaran yang dipakai.')
@@ -76,21 +61,45 @@ class MethodForm
                             ]),
                     ])
                     ->columns(2),
-                    
+
                 Section::make('Kategori Tampilan')
-                    ->description('Tentukan kategori tampilan metode pembayaran di halaman order. Jika tidak dipilih saat membuat metode baru, sistem akan otomatis mencocokkan berdasarkan tipe.')
+                    ->description('Pilih kategori tampilan. Tipe metode akan otomatis disesuaikan dari code kategori yang dipilih.')
                     ->schema([
                         Select::make('payment_display_category_id')
                             ->label('Kategori Tampilan')
                             ->relationship('displayCategory', 'label')
+                            ->getOptionLabelFromRecordUsing(fn (PaymentDisplayCategory $record): string => "{$record->label} ({$record->code})")
                             ->placeholder('— Tanpa Kategori —')
                             ->nullable()
                             ->searchable()
                             ->preload()
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set): void {
+                                if (! $state) {
+                                    return;
+                                }
+
+                                $category = PaymentDisplayCategory::find((int) $state);
+
+                                if (! $category) {
+                                    return;
+                                }
+
+                                $set('tipe', $category->code);
+                            })
                             ->exists('payment_display_categories', 'id')
-                            ->helperText('Pilih kategori tampilan. Metode tanpa kategori tidak akan ditampilkan di halaman order.')
+                            ->helperText('Pilih kategori tampilan. Tipe akan otomatis terisi dari code kategori.')
                             ->validationMessages([
                                 'exists' => 'Kategori yang dipilih tidak ditemukan atau sudah dihapus.',
+                            ]),
+
+                        TextInput::make('tipe')
+                            ->label('Tipe')
+                            ->maxLength(225)
+                            ->required()
+                            ->helperText('Terisi otomatis saat kategori dipilih. Boleh diedit manual jika perlu (contoh: qris, e-walet, virtual-account, saldo).')
+                            ->validationMessages([
+                                'required' => 'Tipe metode pembayaran wajib diisi.',
                             ]),
 
                         TextInput::make('sort_order_in_category')
@@ -115,26 +124,26 @@ class MethodForm
                             ->step(0.01)
                             ->suffix('%')
                             ->default(0),
-                            
+
                         TextInput::make('fix_fee')
                             ->label('Fix Fee')
                             ->numeric()
                             ->step(0.01)
                             ->prefix('Rp')
                             ->default(0),
-                            
+
                         TextInput::make('min_pembelian')
                             ->label('Minimum Pembelian')
                             ->numeric()
                             ->prefix('Rp'),
-                            
+
                         TextInput::make('max_pembelian')
                             ->label('Maximum Pembelian')
                             ->numeric()
                             ->prefix('Rp'),
                     ])
                     ->columns(2),
-                    
+
                 Section::make('Media & Status')
                     ->schema([
                         Placeholder::make('images_current_preview')
@@ -145,7 +154,7 @@ class MethodForm
                             ->label('Sumber Gambar')
                             ->options([
                                 'library' => 'Media Library',
-                                'upload' => 'Upload Baru',
+                                'upload'  => 'Upload Baru',
                             ])
                             ->default('upload')
                             ->helperText('Pilih sumber logo. Saat edit, logo saat ini akan tetap dipakai jika kamu tidak menggantinya. Jika memilih Media Library, pilih satu asset sebelum menyimpan.')
@@ -194,7 +203,7 @@ class MethodForm
                             ->label('Logo/Icon')
                             ->image()
                             ->validationMessages([
-                                'required' => 'Upload logo wajib dilakukan jika sumber gambar menggunakan Upload Baru.',
+                                'required'  => 'Upload logo wajib dilakukan jika sumber gambar menggunakan Upload Baru.',
                                 'mimetypes' => 'Format file harus JPG, PNG, atau WEBP.',
                             ])
                             ->disk(config('uploads.disk', 'assets'))
@@ -214,7 +223,7 @@ class MethodForm
                         Toggle::make('statuspayment')
                             ->label('Status Aktif')
                             ->default(true),
-                            
+
                         Textarea::make('keterangan')
                             ->label('Keterangan')
                             ->required()

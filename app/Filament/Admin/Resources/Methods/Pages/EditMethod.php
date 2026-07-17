@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Methods\Pages;
 
 use App\Filament\Admin\Resources\Methods\MethodResource;
+use App\Models\PaymentDisplayCategory;
 use App\Services\MediaAssetAssignmentService;
 use App\Services\OptimizedImageService;
 use App\Support\MediaAssetPicker;
@@ -41,6 +42,15 @@ class EditMethod extends EditRecord
             : null;
 
         unset($data['images_media_asset_id'], $data['images_input_mode']);
+
+        // Sync tipe from selected display category's code when category is set.
+        if (! empty($data['payment_display_category_id'])) {
+            $category = PaymentDisplayCategory::find((int) $data['payment_display_category_id']);
+
+            if ($category && filled($category->code)) {
+                $data['tipe'] = $category->code;
+            }
+        }
 
         return $data;
     }

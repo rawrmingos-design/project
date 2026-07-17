@@ -2,17 +2,18 @@
 
 namespace App\Filament\Admin\Resources\Methods\Tables;
 
+use App\Models\PaymentDisplayCategory;
+use App\Models\TenantPaymentMethodSetting;
+use App\Support\PaymentCatalogAccess;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Tables\Columns\ToggleColumn;
-use Filament\Tables\Table;
-use App\Support\PaymentCatalogAccess;
-use App\Models\TenantPaymentMethodSetting;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Columns\ImageColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 
 class MethodsTable
 {
@@ -27,65 +28,72 @@ class MethodsTable
                     ->circular()
                     ->size(40)
                     ->defaultImageUrl(asset('assets/logo/favicon.webp')),
-                    
+
                 TextColumn::make('name')
                     ->label('Nama Metode')
                     ->searchable()
                     ->sortable(),
-                    
+
                 TextColumn::make('code')
                     ->label('Kode')
                     ->searchable()
                     ->sortable()
                     ->copyable(),
-                    
+
+                TextColumn::make('displayCategory.label')
+                    ->label('Kategori Tampilan')
+                    ->badge()
+                    ->placeholder('—')
+                    ->sortable(),
+
                 BadgeColumn::make('tipe')
                     ->label('Tipe')
                     ->colors([
-                        'primary' => 'bank',
-                        'success' => 'e-walet',
-                        'warning' => 'qris',
-                        'info' => 'virtual-account',
+                        'primary'   => 'bank',
+                        'success'   => 'e-walet',
+                        'warning'   => 'qris',
+                        'info'      => 'virtual-account',
                         'secondary' => 'convenience-store',
-                        'danger' => 'SALDO',
-                    ]),
-                    
+                        'danger'    => 'SALDO',
+                    ])
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 BadgeColumn::make('payment')
                     ->label('Gateway')
                     ->colors([
-                        'primary' => 'tripay',
-                        'success' => 'tokopay',
-                        'warning' => 'paydisini',
+                        'primary'   => 'tripay',
+                        'success'   => 'tokopay',
+                        'warning'   => 'paydisini',
                         'secondary' => 'manual',
-                        'danger' => 'duitku',
+                        'danger'    => 'duitku',
                     ]),
-                    
+
                 TextColumn::make('keterangan')
                     ->label('Keterangan')
                     ->limit(40)
                     ->tooltip(fn ($record): ?string => filled($record->keterangan) ? (string) $record->keterangan : null)
                     ->toggleable(),
-                    
+
                 TextColumn::make('fee_percent')
                     ->label('Fee %')
                     ->suffix('%')
                     ->sortable(),
-                    
+
                 TextColumn::make('fix_fee')
                     ->label('Fix Fee')
                     ->money('IDR')
                     ->sortable(),
-                    
+
                 TextColumn::make('min_pembelian')
                     ->label('Min')
                     ->money('IDR')
                     ->sortable(),
-                    
+
                 TextColumn::make('max_pembelian')
                     ->label('Max')
                     ->money('IDR')
                     ->sortable(),
-                    
+
                 TextColumn::make('statuspayment')
                     ->label(PaymentCatalogAccess::isMaster() ? 'Global Status' : 'Storefront')
                     ->badge()
@@ -135,27 +143,26 @@ class MethodsTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('tipe')
-                    ->label('Tipe')
-                    ->options([
-                        'bank' => 'Bank Transfer',
-                        'e-walet' => 'E-Wallet',
-                        'qris' => 'QRIS',
-                        'virtual-account' => 'Virtual Account',
-                        'convenience-store' => 'Convenience Store',
-                        'SALDO' => 'Saldo',
-                    ]),
-                    
+                SelectFilter::make('payment_display_category_id')
+                    ->label('Kategori Tampilan')
+                    ->options(
+                        PaymentDisplayCategory::canonical()
+                            ->ordered()
+                            ->get()
+                            ->pluck('label', 'id')
+                    )
+                    ->placeholder('Semua Kategori'),
+
                 SelectFilter::make('payment')
                     ->label('Gateway')
                     ->options([
-                        'tripay' => 'Tripay',
-                        'tokopay' => 'Tokopay',
+                        'tripay'    => 'Tripay',
+                        'tokopay'   => 'Tokopay',
                         'paydisini' => 'Paydisini',
-                        'manual' => 'Manual',
-                        'duitku' => 'Duitku',
+                        'manual'    => 'Manual',
+                        'duitku'    => 'Duitku',
                     ]),
-                    
+
                 SelectFilter::make('statuspayment')
                     ->label('Status')
                     ->options([
