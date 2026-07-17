@@ -17,6 +17,9 @@ class ApiCheckControllerTest extends TestCase
     {
         parent::setUp();
 
+        // Pastikan migration tereksekusi pada sqlite memory
+        $this->artisan('migrate');
+
         Cache::flush();
         Http::preventStrayRequests();
     }
@@ -235,7 +238,139 @@ class ApiCheckControllerTest extends TestCase
         $this->assertSame('Cached Nick', $first['data']['username']);
         $this->assertSame('Cached Nick', $second['data']['username']);
 
+        // Hanya 1 request ke API — request ke-2 dikembalikan dari cache (DB atau short-term Cache)
         Http::assertSentCount(1);
+    }
+
+    public function test_db_cache_is_hit_before_any_external_api(): void
+    {
+        // Seed DB cache dengan hasil verifikasi sebelumnya
+        \App\Models\VerifiedGameAccount::create([
+            'game'     => 'mobilelegend',
+            'user_id'  => '555666',
+            'zone_id'  => '9999',
+            'nickname' => 'DB Cached Nick',
+            'source'   => 'primary',
+        ]);
+
+        // Tidak ada Http::fake() — jika ada request ke API, test akan throw error
+        Http::preventStrayRequests();
+
+        $result = app(ApiCheckController::class)->check('555666', '9999', 'Mobile Legends');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('DB Cached Nick', $result['data']['username']);
+
+        // Tidak ada request ke API sama sekali
+        Http::assertNothingSent();
+    }
+
+    public function test_successful_result_is_saved_to_db_cache(): void
+    {
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status'   => true,
+                'nickname' => 'Saved To DB Nick',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('111222', '3333', 'Mobile Legends');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Saved To DB Nick', $result['data']['username']);
+
+        // Pastikan disimpan ke tabel DB
+        $this->assertDatabaseHas('verified_game_accounts', [
+            'game'     => 'mobilelegend',
+            'user_id'  => '111222',
+            'zone_id'  => '3333',
+            'nickname' => 'Saved To DB Nick',
+            'source'   => 'primary',
+        ]);
+    }
+
+    public function test_digiflazz_fallback_is_skipped_when_no_sku_configured(): void
+    {
+        // Mobile Legends tidak ada DIGIFLAZZ_INQUIRY_SKUS (null), jadi Digiflazz tidak dipanggil
+        $this->seedApiGamesSettings();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status'  => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status'  => false,
+                'message' => 'User not found',
+            ]),
+            'https://v1.apigames.id/merchant/demo-merchant/cek-username/mobilelegend*' => Http::response([
+                'status'  => 1,
+                'message' => 'Data Not Found',
+                'data'    => ['is_valid' => false, 'username' => ''],
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
+
+        $this->assertSame(404, $result['status']['code']);
+
+        // Digiflazz tidak dipanggil karena SKU null
+        Http::assertNotSent(fn ($req) => str_contains($req->url(), 'api.digiflazz.com'));
+        Http::assertSentCount(3);
+    }
+
+    public function test_digiflazz_fallback_returns_customer_name_on_success(): void
+    {
+        $this->seedDigiflazzSettings();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status'  => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status'  => false,
+                'message' => 'User not found',
+            ]),
+            // Digiflazz inquiry response — status Sukses + customer_name
+            'https://api.digiflazz.com/v1/transaction' => Http::response([
+                'data' => [
+                    'status'        => 'Sukses',
+                    'customer_name' => 'Valorant Nick From Digiflazz',
+                    'message'       => 'Transaksi Sukses',
+                ],
+            ]),
+        ]);
+
+        // Kita test dengan game yang tidak support ApiGames tapi ada di Digiflazz,
+        // menggunakan reflection untuk override konstanta
+        $controller = new class extends ApiCheckController {
+            // Override konstanta melalui subclass untuk testing
+            private const DIGIFLAZZ_INQUIRY_SKUS = [
+                'valorant' => 'VLR_TEST_SKU',
+            ];
+        };
+
+        $result = $controller->check('VALORANT_UID', null, 'Valorant');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Valorant Nick From Digiflazz', $result['data']['username']);
+        Http::assertSent(fn ($req) => str_contains($req->url(), 'api.digiflazz.com'));
+    }
+
+    private function seedDigiflazzSettings(): void
+    {
+        DB::table('setting_webs')->insert([
+            'id' => 1,
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Description',
+            'keywords' => 'test keywords',
+            'url_wa' => 'https://wa.me/1234567',
+            'username_digi' => 'demo_digi_user',
+            'api_key_digi' => 'demo_digi_key',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     private function seedApiGamesSettings(?string $merchant = 'demo-merchant', ?string $secret = 'demo-secret'): void

@@ -904,7 +904,7 @@
                             @php
                                 $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
                                 $paymentValue = (string) ($data->no_pembayaran ?? '');
-                                $methodTypeLower = \Illuminate\Support\Str::lower(\App\Models\Method::normalizeTipe((string) ($data->metode_tipe ?? '')));
+                                $methodTypeLower = blank($data->metode_tipe ?? '') ? '' : \Illuminate\Support\Str::lower(\App\Models\Method::normalizeTipe((string) ($data->metode_tipe ?? '')));
 
                                 $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
                                     "QRIS", "QRISC", "QRIS2", "QRISOP", "SP", "SQ"
