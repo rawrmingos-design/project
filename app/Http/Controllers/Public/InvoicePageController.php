@@ -72,6 +72,7 @@ class InvoicePageController extends Controller
                 'pembelians.email_pembeli',
                 'pembayarans.no_pembeli',
                 'methods.name AS metode_name',
+                'methods.tipe AS metode_tipe',
                 'methods.images AS metode_image'
             )
             ->orderByDesc('pembayarans.id')
@@ -89,10 +90,11 @@ class InvoicePageController extends Controller
         $thumbnail = $this->normalizeAssetPath($kategori?->thumbnail ?: 'assets/logo/favicon.webp');
 
         $methodCode = trim((string) ($data->metode_pembayaran ?? ''));
+        $methodType = trim((string) ($data->metode_tipe ?? ''));
         $methodName = $data->metode_name;
         if (blank($methodName) && $methodCode !== '') {
             $matchedMethod = Method::query()
-                ->get(['code', 'name'])
+                ->get(['code', 'name', 'tipe'])
                 ->first(function (Method $method) use ($methodCode) {
                     $rawCode = trim((string) ($method->getRawOriginal('code') ?? $method->code));
                     $rawName = trim((string) ($method->getRawOriginal('name') ?? $method->name));
@@ -102,6 +104,9 @@ class InvoicePageController extends Controller
                 });
 
             $methodName = $matchedMethod?->name;
+            if (blank($methodType)) {
+                $methodType = trim((string) ($matchedMethod?->tipe ?? ''));
+            }
         }
 
         if (blank($methodName)) {
@@ -128,9 +133,12 @@ class InvoicePageController extends Controller
         $paymentStatus = Str::lower(trim($paymentStatusRaw));
         $orderStatus = Str::lower(trim($orderStatusRaw));
         $methodNameLower = Str::lower(trim((string) $methodName));
+        $methodTypeLower = Str::lower(Method::normalizeTipe($methodType));
+
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
-        $isQrMethod = in_array($paymentCode, [
+
+        $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
             'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
         ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
         $isQrImage = str_starts_with($paymentValue, 'data:image/')

@@ -1816,10 +1816,12 @@
         $isPaymentPending = in_array($paymentStatus, ['belum lunas', 'unpaid', 'pending'], true);
         $paymentValue = $isPaymentPending ? $rawPaymentValue : '';
         $methodNameLower = \Illuminate\Support\Str::lower(trim((string) ($metode_name ?? '')));
+        $methodTypeLower = \Illuminate\Support\Str::lower(\App\Models\Method::normalizeTipe((string) ($data->metode_tipe ?? '')));
+
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || \Illuminate\Support\Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
 
-        $isQrMethod = in_array($paymentCode, [
+        $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
             'QRIS',
             '11',
             '17',

@@ -901,7 +901,17 @@
                                 </div>
                             </div>
 
-                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" || Str::upper($data->metode_pembayaran) == "SQ")
+                            @php
+                                $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
+                                $paymentValue = (string) ($data->no_pembayaran ?? '');
+                                $methodTypeLower = \Illuminate\Support\Str::lower(\App\Models\Method::normalizeTipe((string) ($data->metode_tipe ?? '')));
+
+                                $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
+                                    "QRIS", "QRISC", "QRIS2", "QRISOP", "SP", "SQ"
+                                ], true);
+                            @endphp
+
+                            @if($isQrMethod)
                             <div class="deposit-qr-panel relative flex flex-col items-center justify-center">
                                 <h3 class="deposit-qr-panel__title">Scan QRIS / Lanjut Bayar</h3>
                                 <div id="qris-payment" class="w-full flex justify-center">
@@ -926,7 +936,7 @@
                                 </div>
                             </div>
                             @endif
-                            
+
                             @if(Str::upper($data->metode_pembayaran) == "SHOPEEPAY" || Str::upper($data->metode_pembayaran) == "OVOPUSH" || Str::upper($data->metode_pembayaran) == "DANA" || Str::upper($data->metode_pembayaran) == "LINKAJA" || Str::upper($data->metode_pembayaran) == "11" || Str::upper($data->metode_pembayaran) == "17" || Str::upper($data->metode_pembayaran) == "23")
                             <a href="{{$data->no_pembayaran}}" target="_blank">
                                 <button class="mt-6 inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400 disabled:cursor-not-allowed disabled:opacity-75 w-full space-x-2 pr-3 sm:w-auto" type="button">
@@ -940,7 +950,7 @@
                         </div>
 
                         <div class="deposit-warning-box print:hidden">
-                            @if(Str::upper($data->metode_pembayaran) == "QRIS" || Str::upper($data->metode_pembayaran) == "QRISC" || Str::upper($data->metode_pembayaran) == "QRIS2" || Str::upper($data->metode_pembayaran) == "QRISOP" || Str::upper($data->metode_pembayaran) == "SP" )
+                            @if($isQrMethod)
                             <div class="text-yellow-800">
                                 <p>Gunakan <strong>Ewallet </strong>atau <strong>aplikasi mobile banking</strong> yang tersedia scan QRIS</p>
                             </div>
