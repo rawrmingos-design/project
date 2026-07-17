@@ -240,11 +240,12 @@ class PublicHomePageDataService
     {
         $methods = app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
 
-        return collect($methods)->map(fn ($method) => [
+        return collect($methods)->map(fn (\App\Models\Method $method) => [
                 'id' => $method->id,
                 'name' => $method->name,
                 'code' => $method->code,
-                'type' => $method->tipe,
+                'type' => $method->displayCategory?->code ?? $method->tipe,
+                'typeLabel' => $method->displayCategory?->label ?? $method->tipe,
                 'image' => $method->images ? '/' . ltrim((string) $method->images, '/') : null,
             ])
             ->values();

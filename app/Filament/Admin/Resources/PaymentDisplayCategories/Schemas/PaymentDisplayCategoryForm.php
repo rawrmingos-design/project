@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\PaymentDisplayCategories\Schemas;
 
+use App\Models\PaymentDisplayCategory;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -22,6 +23,10 @@ class PaymentDisplayCategoryForm
                             ->label('Label')
                             ->required()
                             ->maxLength(100)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($set, ?string $state): void {
+                                $set('code', PaymentDisplayCategory::normalizeCode(null, $state));
+                            })
                             ->rules([
                                 fn (?Model $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                     $rule = Rule::unique('payment_display_categories', 'label')
@@ -45,6 +50,41 @@ class PaymentDisplayCategoryForm
                             ->validationMessages([
                                 'required' => 'Label wajib diisi.',
                                 'max' => 'Label maksimal 100 karakter.',
+                            ]),
+
+                        TextInput::make('code')
+                            ->label('Code')
+                            ->required()
+                            ->maxLength(100)
+                            ->live(onBlur: true)
+                            ->afterStateUpdated(function ($set, ?string $state): void {
+                                $set('code', PaymentDisplayCategory::normalizeCode($state));
+                            })
+                            ->dehydrateStateUsing(fn (?string $state): string => PaymentDisplayCategory::normalizeCode($state))
+                            ->rules([
+                                fn (?Model $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
+                                    $code = PaymentDisplayCategory::normalizeCode($value);
+                                    $rule = Rule::unique('payment_display_categories', 'code')
+                                        ->whereNull('tenant_id');
+
+                                    if ($record) {
+                                        $rule->ignore($record->getKey());
+                                    }
+
+                                    $validator = validator(
+                                        [$attribute => $code],
+                                        [$attribute => $rule],
+                                    );
+
+                                    if ($validator->fails()) {
+                                        $fail('Code already exists in the global catalog.');
+                                    }
+                                },
+                            ])
+                            ->helperText('Kode stabil untuk sync ke tipe method. Contoh: qris, e-walet, virtual-account.')
+                            ->validationMessages([
+                                'required' => 'Code wajib diisi.',
+                                'max' => 'Code maksimal 100 karakter.',
                             ]),
 
                         Select::make('display_style')

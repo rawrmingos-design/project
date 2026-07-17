@@ -99,6 +99,16 @@ class PaymentDisplayCategoryService
 
     public function mapTipeToCategory(string $normalizedTipe): ?PaymentDisplayCategory
     {
+        $normalizedTipe = Method::normalizeTipe($normalizedTipe);
+
+        $category = PaymentDisplayCategory::canonical()
+            ->where('code', $normalizedTipe)
+            ->first();
+
+        if ($category) {
+            return $category;
+        }
+
         $label = $this->mapTipeToLabel($normalizedTipe);
 
         if ($label === null) {
@@ -114,11 +124,14 @@ class PaymentDisplayCategoryService
      * Deprecated: Provisioning should no longer create duplicate catalog rows.
      * Kept as no-op to prevent exceptions from legacy callers (like TenantObserver).
      * If explicit overrides are needed, provision TenantPaymentDisplayCategorySetting instead.
+     *
+     * @param Tenant $tenant Intentionally unused — no-op preserved for backward compatibility.
      */
-    public function provisionDefaultsForTenant(Tenant $tenant): void
+    public function provisionDefaultsForTenant(Tenant $tenant): void // @phpstan-ignore-line
     {
         // No-op: Canonical catalog is shared.
         // Overrides default to true, so no DB rows are needed at provision time.
+        unset($tenant);
     }
 
     private function mapTipeToLabel(string $normalizedTipe): ?string
@@ -126,6 +139,7 @@ class PaymentDisplayCategoryService
         return match ($normalizedTipe) {
             'saldo' => 'SALDO',
             'qris' => 'QRIS',
+            'bank' => 'Bank Transfer',
             'e-walet' => 'E-Wallet',
             'virtual-account' => 'Virtual Account',
             'convenience-store' => 'Convenience Store',

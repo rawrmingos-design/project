@@ -4,9 +4,9 @@ namespace App\Filament\Admin\Resources\Methods\Pages;
 
 use App\Filament\Admin\Resources\Methods\MethodResource;
 use App\Models\Method;
+use App\Models\PaymentDisplayCategory;
 use App\Services\MediaAssetAssignmentService;
 use App\Services\OptimizedImageService;
-use App\Services\PaymentDisplayCategoryService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -36,11 +36,27 @@ class CreateMethod extends CreateRecord
 
         unset($data['images_media_asset_id'], $data['images_input_mode']);
 
-        // Auto-assign category when none is explicitly selected
-        if (empty($data['payment_display_category_id']) && ! empty($data['tipe'])) {
+        // Sync tipe from the selected display category's code (primary approach).
+        // If no category is selected, attempt auto-assignment by matching tipe to canonical category.
+        if (! empty($data['payment_display_category_id'])) {
+            $category = PaymentDisplayCategory::find((int) $data['payment_display_category_id']);
+
+            if ($category && filled($category->code)) {
+                $data['tipe'] = $category->code;
+                $this->autoAssignedCategory = $category->label;
+            }
+        } elseif (! empty($data['tipe'])) {
+            // No category selected — try to auto-assign by tipe code match.
             $normalizedTipe = Method::normalizeTipe($data['tipe']);
-            $service = app(PaymentDisplayCategoryService::class);
-            $category = $service->mapTipeToCategory($normalizedTipe);
+            $category = PaymentDisplayCategory::canonical()
+                ->where('code', $normalizedTipe)
+                ->first();
+
+            if (! $category) {
+                $category = PaymentDisplayCategory::canonical()
+                    ->where('label', $this->mapTipeToLabel($normalizedTipe))
+                    ->first();
+            }
 
             if ($category) {
                 $data['payment_display_category_id'] = $category->id;
@@ -98,8 +114,8 @@ class CreateMethod extends CreateRecord
     {
         if ($this->autoAssignedCategory) {
             Notification::make()
-                ->title('Kategori otomatis ditetapkan')
-                ->body("Metode pembayaran ini otomatis masuk ke kategori \"{$this->autoAssignedCategory}\" berdasarkan tipe-nya.")
+                ->title('Kategori ditetapkan')
+                ->body("Metode pembayaran ini masuk ke kategori \"{$this->autoAssignedCategory}\".")
                 ->success()
                 ->send();
         } elseif ($this->noMatchingCategory) {
@@ -109,5 +125,18 @@ class CreateMethod extends CreateRecord
                 ->warning()
                 ->send();
         }
+    }
+
+    private function mapTipeToLabel(string $normalizedTipe): ?string
+    {
+        return match ($normalizedTipe) {
+            'saldo'             => 'SALDO',
+            'qris'              => 'QRIS',
+            'bank'              => 'Bank Transfer',
+            'e-walet'           => 'E-Wallet',
+            'virtual-account'   => 'Virtual Account',
+            'convenience-store' => 'Convenience Store',
+            default             => null,
+        };
     }
 }
