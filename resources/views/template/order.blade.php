@@ -4870,6 +4870,88 @@
     </script>
     <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
 
+    <!-- ===== AUTOSAVE ACCOUNT DATA SCRIPT ===== -->
+    <script>
+        (function() {
+            const categorySlug = "{{ $kategori->kode }}";
+            const storageKey = 'order:account:draft:' + categorySlug;
+
+            function saveAccountDraft() {
+                try {
+                    const uidInput = document.getElementById('user_id');
+                    const zoneInput = document.getElementById('zone');
+                    const nicknameJoki = document.getElementById('nickname_joki');
+                    const emailJoki = document.getElementById('email_joki');
+
+                    const uid = uidInput ? uidInput.value.trim() : '';
+                    const zone = zoneInput ? zoneInput.value.trim() : '';
+                    let nickname = nicknameJoki ? nicknameJoki.value.trim() : '';
+                    if (!nickname && emailJoki) nickname = emailJoki.value.trim();
+
+                    if (!uid && !nickname) return;
+
+                    const data = {
+                        uid: uid,
+                        zone: zone,
+                        nickname: nickname,
+                        updatedAt: Date.now()
+                    };
+
+                    localStorage.setItem(storageKey, JSON.stringify(data));
+                } catch (e) {
+                    // Ignore quota errors or private browsing
+                }
+            }
+
+            function loadAccountDraft() {
+                try {
+                    const saved = localStorage.getItem(storageKey);
+                    if (!saved) return;
+
+                    const data = JSON.parse(saved);
+                    if (!data || (!data.uid && !data.nickname)) return;
+
+                    const uidInput = document.getElementById('user_id');
+                    const zoneInput = document.getElementById('zone');
+                    const nicknameJoki = document.getElementById('nickname_joki');
+
+                    if (uidInput && data.uid && !uidInput.value) {
+                        uidInput.value = data.uid;
+                    }
+
+                    if (zoneInput && data.zone && !zoneInput.value) {
+                        zoneInput.value = data.zone;
+                    }
+
+                    if (nicknameJoki && data.nickname && !nicknameJoki.value) {
+                        nicknameJoki.value = data.nickname;
+                    }
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function() {
+                loadAccountDraft();
+
+                // Save on any interaction that usually indicates moving to the next step
+                const orderForm = document.querySelector('form');
+                if (orderForm) {
+                    orderForm.addEventListener('submit', saveAccountDraft);
+                }
+
+                // Add focusout listeners to save early
+                const inputs = ['user_id', 'zone', 'nickname_joki', 'email_joki'];
+                inputs.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.addEventListener('focusout', saveAccountDraft);
+                    }
+                });
+            });
+        })();
+    </script>
+
     <!-- ===== POINT WIDGET SCRIPT ===== -->
     <script>
         (function () {
