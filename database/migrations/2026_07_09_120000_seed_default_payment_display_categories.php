@@ -42,16 +42,11 @@ return new class extends Migration
             return;
         }
 
-        $tenants = Tenant::all();
-
-        // Seed global defaults (null tenant_id)
+        // Seed canonical defaults (null tenant_id). Tenant-specific visibility is handled
+        // through override tables, so duplicating catalog rows per tenant would hide
+        // categories from the public storefront.
         $this->seedCategoriesForTenant(null);
         $this->assignMethodsForTenant(null);
-
-        foreach ($tenants as $tenant) {
-            $this->seedCategoriesForTenant($tenant);
-            $this->assignMethodsForTenant($tenant);
-        }
     }
 
     public function down(): void
