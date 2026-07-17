@@ -94,14 +94,9 @@ class InvoicePageController extends Controller
         $methodName = $data->metode_name;
         if (blank($methodName) && $methodCode !== '') {
             $matchedMethod = Method::query()
-                ->get(['code', 'name', 'tipe'])
-                ->first(function (Method $method) use ($methodCode) {
-                    $rawCode = trim((string) ($method->getRawOriginal('code') ?? $method->code));
-                    $rawName = trim((string) ($method->getRawOriginal('name') ?? $method->name));
-
-                    return strcasecmp($rawCode, $methodCode) === 0
-                        || strcasecmp($rawName, $methodCode) === 0;
-                });
+                ->whereRaw('UPPER(code) = ?', [strtoupper($methodCode)])
+                ->orWhereRaw('UPPER(name) = ?', [strtoupper($methodCode)])
+                ->first(['code', 'name', 'tipe']);
 
             $methodName = $matchedMethod?->name;
             if (blank($methodType)) {
@@ -133,7 +128,7 @@ class InvoicePageController extends Controller
         $paymentStatus = Str::lower(trim($paymentStatusRaw));
         $orderStatus = Str::lower(trim($orderStatusRaw));
         $methodNameLower = Str::lower(trim((string) $methodName));
-        $methodTypeLower = Str::lower(Method::normalizeTipe($methodType));
+        $methodTypeLower = blank($methodType) ? '' : Str::lower(Method::normalizeTipe($methodType));
 
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
