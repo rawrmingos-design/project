@@ -25,9 +25,22 @@ class InvoiceDepositController extends Controller
 
         $payment->syncExpiredStatus();
 
-        $data = Deposit::where('pembayarans.order_id', $order)->join('pembayarans', 'deposits.order_id', 'pembayarans.order_id')
+        $dataQuery = Deposit::where('pembayarans.order_id', $order)->join('pembayarans', 'deposits.order_id', 'pembayarans.order_id');
+
+        if (\Illuminate\Support\Facades\DB::connection()->getDriverName() === 'sqlite') {
+            $dataQuery->leftJoin('methods', 'pembayarans.metode', '=', 'methods.code');
+        } else {
+            $dataQuery->leftJoin(
+                'methods',
+                \Illuminate\Support\Facades\DB::raw('pembayarans.metode COLLATE utf8mb4_unicode_ci'),
+                '=',
+                \Illuminate\Support\Facades\DB::raw('methods.code COLLATE utf8mb4_unicode_ci')
+            );
+        }
+
+        $data = $dataQuery
                 ->select('pembayarans.status AS status_pembayaran', 'pembayarans.metode AS metode_pembayaran', 'pembayarans.no_pembayaran', 'pembayarans.reference', 'pembayarans.expired_at', 'deposits.order_id AS id_pembelian', 'deposits.created_at AS created_at', 'deposits.updated_at AS updated_at',
-                        'pembayarans.harga AS harga_pembayaran', 'pembayarans.reference', 'pembayarans.status AS status_pembayaran')
+                        'pembayarans.harga AS harga_pembayaran', 'pembayarans.reference', 'pembayarans.status AS status_pembayaran', 'methods.tipe AS metode_tipe')
                 ->orderByDesc('pembayarans.id')
                 ->first();
         
