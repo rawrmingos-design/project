@@ -161,7 +161,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', null, 'Valorant');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('User not found', $result['status']['message']);
+        $this->assertSame('No Digiflazz inquiry SKU configured for game: valorant.', $result['status']['message']);
 
         Http::assertSentCount(2);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
@@ -183,7 +183,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('ApiGames credentials are not configured.', $result['status']['message']);
+        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
 
         Http::assertSentCount(2);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
@@ -216,7 +216,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('Data Not Found', $result['status']['message']);
+        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
 
         Http::assertSentCount(3);
     }
@@ -242,11 +242,28 @@ class ApiCheckControllerTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    private function createVerifiedTableIfMissing(): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('verified_game_accounts')) {
+            \Illuminate\Support\Facades\Schema::create('verified_game_accounts', function (\Illuminate\Database\Schema\Blueprint $table) {
+                $table->id();
+                $table->string('game');
+                $table->string('user_id');
+                $table->string('zone_id')->nullable();
+                $table->string('nickname');
+                $table->string('source')->nullable();
+                $table->timestamps();
+            });
+        }
+    }
+
     public function test_db_cache_is_hit_before_any_external_api(): void
     {
+        $this->createVerifiedTableIfMissing();
+
         // Seed DB cache dengan hasil verifikasi sebelumnya
         \App\Models\VerifiedGameAccount::create([
-            'game'     => 'mobilelegend',
+            'game'     => 'mobile_legends',
             'user_id'  => '555666',
             'zone_id'  => '9999',
             'nickname' => 'DB Cached Nick',
@@ -267,6 +284,8 @@ class ApiCheckControllerTest extends TestCase
 
     public function test_successful_result_is_saved_to_db_cache(): void
     {
+        $this->createVerifiedTableIfMissing();
+
         Http::fake([
             'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
                 'status'   => true,
@@ -281,7 +300,7 @@ class ApiCheckControllerTest extends TestCase
 
         // Pastikan disimpan ke tabel DB
         $this->assertDatabaseHas('verified_game_accounts', [
-            'game'     => 'mobilelegend',
+            'game'     => 'mobile_legends',
             'user_id'  => '111222',
             'zone_id'  => '3333',
             'nickname' => 'Saved To DB Nick',
@@ -346,7 +365,7 @@ class ApiCheckControllerTest extends TestCase
         // menggunakan reflection untuk override konstanta
         $controller = new class extends ApiCheckController {
             // Override konstanta melalui subclass untuk testing
-            private const DIGIFLAZZ_INQUIRY_SKUS = [
+            protected const DIGIFLAZZ_INQUIRY_SKUS = [
                 'valorant' => 'VLR_TEST_SKU',
             ];
         };
@@ -360,86 +379,19 @@ class ApiCheckControllerTest extends TestCase
 
     private function seedDigiflazzSettings(): void
     {
-        DB::table('setting_webs')->insert([
-            'id' => 1,
-            'judul_web' => 'Test Web',
-            'deskripsi_web' => 'Test Description',
-            'keywords' => 'test keywords',
-            'url_wa' => 'https://wa.me/1234567',
+        $this->seed(\Database\Seeders\SettingWebsSeeder::class);
+        DB::table('setting_webs')->where('id', 1)->update([
             'username_digi' => 'demo_digi_user',
             'api_key_digi' => 'demo_digi_key',
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
     }
 
     private function seedApiGamesSettings(?string $merchant = 'demo-merchant', ?string $secret = 'demo-secret'): void
     {
-        DB::table('setting_webs')->insert([
-            'id' => 1,
-            'judul_web' => 'Test Web',
-            'deskripsi_web' => 'Test Description',
-            'keywords' => 'test',
-            'logo_header' => null,
-            'logo_footer' => null,
-            'logo_favicon' => null,
-            'url_wa' => 'https://wa.me/6280000000000',
-            'url_ig' => 'https://example.com/ig',
-            'url_tiktok' => 'https://example.com/tiktok',
-            'url_youtube' => 'https://example.com/youtube',
-            'url_fb' => 'https://example.com/facebook',
-            'topupindo_api' => '',
-            'apikey_bangjeff' => null,
-            'apikey_aoshi' => null,
-            'api_mobilegamestore' => null,
-            'warna1' => '#111111',
-            'warna2' => '#222222',
-            'warna3' => '#333333',
-            'warna4' => '#444444',
-            'paydisini_apikey' => '',
-            'tripay_api' => null,
-            'tripay_merchant_code' => null,
-            'tripay_private_key' => null,
-            'duitku_merchant_code' => null,
-            'duitku_merchant_key' => null,
-            'duitku_callback_url' => null,
-            'duitku_return_url' => null,
-            'duitku_mode' => 'sandbox',
-            'deposit_jalur' => 'duitku',
-            'duitku_enabled' => 0,
-            'tokopay_merchant_id' => null,
-            'tokopay_secret_key' => null,
-            'username_digi' => null,
-            'api_key_digi' => null,
+        $this->seed(\Database\Seeders\SettingWebsSeeder::class);
+        DB::table('setting_webs')->where('id', 1)->update([
             'apigames_secret' => $secret,
             'apigames_merchant' => $merchant,
-            'vip_apiid' => null,
-            'vip_apikey' => null,
-            'nomor_admin' => null,
-            'wa_key' => null,
-            'wa_number' => null,
-            'ovo_admin' => null,
-            'ovo1_admin' => null,
-            'gopay_admin' => null,
-            'gopay1_admin' => null,
-            'dana_admin' => null,
-            'shopeepay_admin' => null,
-            'bca_admin' => null,
-            'order_prefik' => 'INV',
-            'commission_percent' => 20,
-            'point_per_nominal' => 1,
-            'point_value' => 100,
-            'max_point_usage_percent' => 50,
-            'profit_member' => 0,
-            'profit_platinum' => 0,
-            'profit_gold' => 0,
-            'trx_count_gold' => 50,
-            'trx_count_platinum' => 100,
-            'google_analytics_id' => null,
-            'facebook_pixel_id' => null,
-            'google_tag_manager_id' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
     }
 }

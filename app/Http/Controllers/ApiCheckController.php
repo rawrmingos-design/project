@@ -56,7 +56,7 @@ class ApiCheckController extends Controller
      * Configure this in config/digiflazz_inquiry.php or directly here.
      * Leave null to skip fallback for that game.
      */
-    private const DIGIFLAZZ_INQUIRY_SKUS = [
+    protected const DIGIFLAZZ_INQUIRY_SKUS = [
         'mobilelegend' => null, // e.g. 'CML5' if Digiflazz provides MLBB inquiry SKU
         'freefire'     => null, // e.g. 'CFF1'
         'pubgm'        => null, // e.g. 'CPUBG1'
@@ -255,7 +255,7 @@ class ApiCheckController extends Controller
      */
     private function connectDigiflazz(string $parsedGame, string $userId, ?string $zoneId = null): array
     {
-        $sku = self::DIGIFLAZZ_INQUIRY_SKUS[$parsedGame] ?? null;
+        $sku = static::DIGIFLAZZ_INQUIRY_SKUS[$parsedGame] ?? null;
 
         if ($sku === null) {
             return $this->failedResult("No Digiflazz inquiry SKU configured for game: {$parsedGame}.");
