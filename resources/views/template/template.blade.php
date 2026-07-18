@@ -569,7 +569,7 @@
                     <img class="pwa-splash-screen__logo" src="{{ $pwaSplashLogo }}" alt="{{ $pwaSplashName }}" />
                 </div>
                 <div>
-                    <h1 class="pwa-splash-screen__title">{{ $pwaSplashName !== '' ? $pwaSplashName : 'Game Top-Up' }}</h1>
+                    <p class="pwa-splash-screen__title">{{ $pwaSplashName !== '' ? $pwaSplashName : 'Game Top-Up' }}</p>
                 </div>
             </div>
             <div class="pwa-splash-screen__loader" aria-hidden="true"></div>
