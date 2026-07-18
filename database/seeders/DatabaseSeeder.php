@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,35 +20,41 @@ class DatabaseSeeder extends Seeder
         $this->command->info('=====================================');
         $this->command->newLine();
 
-        // Urutan penting: foreign key dependencies
-        $this->call([
-            // Core config
-            SettingWebsSeeder::class,
-            UsersSeeder::class,
+        Schema::disableForeignKeyConstraints();
 
-            // Kategori & Layanan
-            CategoryTypesSeeder::class,
-            KategorisSeeder::class,
-            CustomInputsSeeder::class,
-            ProvidersSeeder::class,
-            ProviderPathsSeeder::class,
-            LayanansSeeder::class,
+        try {
+            // Urutan penting: foreign key dependencies
+            $this->call([
+                // Core config
+                SettingWebsSeeder::class,
+                UsersSeeder::class,
 
-            // Paket
-            PaketsSeeder::class,
-            PaketLayanansSeeder::class,
+                // Kategori & Layanan
+                CategoryTypesSeeder::class,
+                KategorisSeeder::class,
+                CustomInputsSeeder::class,
+                ProvidersSeeder::class,
+                LayanansSeeder::class,
+                ProviderPathsSeeder::class,
 
-            // Payment
-            MethodsSeeder::class,
+                // Paket
+                PaketsSeeder::class,
+                PaketLayanansSeeder::class,
 
-            // Content
-            BeritasSeeder::class,
-            EmailTemplatesSeeder::class,
-            WhatsappTemplatesSeeder::class,
+                // Payment
+                MethodsSeeder::class,
 
-            // Misc
-            VouchersSeeder::class,
-        ]);
+                // Content
+                BeritasSeeder::class,
+                EmailTemplatesSeeder::class,
+                WhatsappTemplatesSeeder::class,
+
+                // Misc
+                VouchersSeeder::class,
+            ]);
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
 
         $this->command->newLine();
         $this->command->info('=====================================');

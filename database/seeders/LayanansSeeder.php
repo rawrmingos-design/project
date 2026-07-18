@@ -8614,7 +8614,7 @@ class LayanansSeeder extends Seeder
         ],
         [
             'id' => 368,
-            'kategori_id' => '--Pilih Kategori--',
+            'kategori_id' => '2',
             'layanan' => 'Level Up Pass Free Fire',
             'provider_id' => 'FFLUP',
             'harga' => 13103,
