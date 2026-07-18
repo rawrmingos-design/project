@@ -260,14 +260,33 @@
         $pwaSplashHighlight = preg_match('/^#[0-9A-Fa-f]{6}$/', (string) ($config->warna4 ?? '')) ? $config->warna4 : '#111111';
         $pwaSplashTagline = \Illuminate\Support\Str::limit($pwaSplashDescription !== '' ? $pwaSplashDescription : 'Platform Top-Up Game Terpercaya', 72, '...');
         $publicWebPushVapidKey = trim((string) config('services.webpush.vapid.public_key'));
+        $requestPath = request()->path();
+        $isHomepageRoute = request()->is('/') || request()->is('id');
+        $isLegacyOrderRoute = request()->is('id/*')
+            && ! request()->is(['id/invoices*', 'id/deposit*', 'id/dashboard*', 'id/settings*', 'id/reseller*', 'id/harga*', 'id/konfirmasi-data*', 'id/artikel*'])
+            && substr_count($requestPath, '/') === 1;
+        $isInvoiceRoute = request()->is('id/invoices*');
+        $isDepositInvoiceRoute = request()->routeIs('deposit.invoice');
+        $isHistoryRoute = request()->routeIs(['reload', 'riwayat']);
+        $needsSearchUi = $isHomepageRoute || $isLegacyOrderRoute;
+        $needsJquery = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
+        $needsSweetAlert = $isInvoiceRoute;
+        $needsToastrStyles = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
+        $needsPlaceholderLoadingStyles = false;
+        $needsLegacyPublicBundle = $needsJquery;
+        $shouldRenderPublicPwaPrompts = $isHomepageRoute || $isLegacyOrderRoute;
     @endphp
 
     <!-- Stylesheets and Fonts -->
     <link rel="stylesheet" href="{{ asset('assets/vendor/font-awesome/css/font-awesome.min.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
-    <link rel="stylesheet" href="https://unpkg.com/placeholder-loading/dist/css/placeholder-loading.min.css">
+    @if($needsToastrStyles)
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
+    @endif
+    @if($needsPlaceholderLoadingStyles)
+        <link rel="stylesheet" href="https://unpkg.com/placeholder-loading/dist/css/placeholder-loading.min.css">
+    @endif
    
      <style> 
            
@@ -556,10 +575,12 @@
         class="bg-gradient-theme text-white antialiased"
         data-season-theme="{{ $activeSeasonalTheme }}"
         data-season-intensity="{{ $seasonalIntensity }}"
-        data-pwa-page-context="{{ request()->is('id/invoices*') ? 'invoice' : (request()->is('id/*') && ! request()->is(['id/invoices*', 'id/deposit*', 'id/dashboard*', 'id/settings*', 'id/reseller*', 'id/harga*', 'id/konfirmasi-data*']) ? 'order' : (request()->is('/') || request()->is('id') ? 'homepage' : 'generic')) }}"
-        :class="{ 'overflow-hidden': isSearchModalOpen }"
-        x-data="{ 'isSearchModalOpen': false }"
-        x-on:keydown.escape="isSearchModalOpen=false"
+        data-pwa-page-context="{{ $isInvoiceRoute ? 'invoice' : ($isLegacyOrderRoute ? 'order' : ($isHomepageRoute ? 'homepage' : 'generic')) }}"
+        @if($needsSearchUi)
+            :class="{ 'overflow-hidden': isSearchModalOpen }"
+            x-data="{ 'isSearchModalOpen': false }"
+            x-on:keydown.escape="isSearchModalOpen=false"
+        @endif
     >
 
     <div id="pwa-splash-screen" class="pwa-splash-screen" aria-hidden="true" data-pwa-splash>
@@ -593,21 +614,23 @@
             style="--season-custom-image: url('{{ $seasonalBackgroundImageUrl }}'); --season-custom-opacity: {{ $seasonalBackgroundOpacityCss }};"
         @endif
     ></div>
-    <div class="relative z-50" role="dialog" tabindex="-1" x-show="isSearchModalOpen" x-on:click.away="isSearchModalOpen = false" x-cloak x-transition>
-        <div class="fixed inset-0 z-50 overflow-hidden p-4 py-20 sm:py-20 sm:px-6 md:p-20">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity opacity-100" x-show="isSearchModalOpen" x-cloak x-on:click="isSearchModalOpen=false"></div>
-            <div class="mx-auto max-w-2xl transform divide-y divide-gray-500 divide-opacity-10 overflow-hidden rounded-md bg-murky-700 bg-opacity-80 shadow-2xl ring-1 ring-black ring-opacity-5 backdrop-blur backdrop-filter transition-all opacity-100 scale-100"
-                id="dialog-panel-:r4g:" data-state="open">
-                <div class="relative"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-white text-opacity-40"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"></path></svg>
-                    <form><input class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-white focus:ring-0 sm:text-sm" placeholder="Cari Game, item, Voucher" id="searchProds" role="combobox" type="text" name="q" aria-expanded="false" aria-autocomplete="list"
-                            value="" aria-controls="combobox-options-:r4i:" tabindex="0"></form>
+    @if($needsSearchUi)
+        <div class="relative z-50" role="dialog" tabindex="-1" x-show="isSearchModalOpen" x-on:click.away="isSearchModalOpen = false" x-cloak x-transition>
+            <div class="fixed inset-0 z-50 overflow-hidden p-4 py-20 sm:py-20 sm:px-6 md:p-20">
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity opacity-100" x-show="isSearchModalOpen" x-cloak x-on:click="isSearchModalOpen=false"></div>
+                <div class="mx-auto max-w-2xl transform divide-y divide-gray-500 divide-opacity-10 overflow-hidden rounded-md bg-murky-700 bg-opacity-80 shadow-2xl ring-1 ring-black ring-opacity-5 backdrop-blur backdrop-filter transition-all opacity-100 scale-100"
+                    id="dialog-panel-:r4g:" data-state="open">
+                    <div class="relative"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-white text-opacity-40"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clip-rule="evenodd"></path></svg>
+                        <form><input class="h-12 w-full border-0 bg-transparent pl-11 pr-4 text-white focus:ring-0 sm:text-sm" placeholder="Cari Game, item, Voucher" id="searchProds" role="combobox" type="text" name="q" aria-expanded="false" aria-autocomplete="list"
+                                value="" aria-controls="combobox-options-:r4i:" tabindex="0"></form>
+                    </div>
+                    <ul class="resultsearch max-h-80 scroll-py-2 divide-y divide-gray-500 divide-opacity-10 overflow-y-auto">
+                        <div class="flex flex-col gap-2 items-center justify-center py-5" id="lottie-container"><span class="text-base text-center opacity-70 py-4">Belum Ada Produk Yang Dicari</span></div>
+                    </ul>
                 </div>
-                <ul class="resultsearch max-h-80 scroll-py-2 divide-y divide-gray-500 divide-opacity-10 overflow-y-auto">
-                    <div class="flex flex-col gap-2 items-center justify-center py-5" id="lottie-container"><span class="text-base text-center opacity-70 py-4">Belum Ada Produk Yang Dicari</span></div>
-                </ul>
             </div>
         </div>
-    </div>
+    @endif
     <main class="relative" style="z-index:1;">
         <div id="app">
         @yield('content')
@@ -617,9 +640,13 @@
 
   </main>
 
-    
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
-    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    @if($needsJquery)
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    @endif
+    @if($needsSweetAlert)
+        <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @endif
     <script>
         // Prefer local lottie-player build when available, fallback to CDN.
         (function () {
@@ -665,15 +692,18 @@
     {{-- Alpine.js already included by Livewire, no need to load separately --}}
     {{-- <script src="//cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
     {{-- <script src="//cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer nonce="YOUR_GENERATED_NONCE"></script> --}}
-    <script>
-        $.ajaxSetup({
-            headers: {
-                "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content")
-            }
-        });
-    </script>
-    <script>
-        (function () {
+    @if($needsJquery)
+        <script>
+            $.ajaxSetup({
+                headers: {
+                    "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content")
+                }
+            });
+        </script>
+    @endif
+    @if($needsSearchUi)
+        <script>
+            (function () {
             var endpoint = "{{ url('/id/cari/index') }}";
             var csrfMeta = document.querySelector('meta[name="csrf-token"]');
             var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
@@ -772,8 +802,11 @@
                 });
             });
         })();
-    </script>
-    <script src="{{ asset('/assets/js/oo324ddod2323sd2dd.js') }}"></script>
+        </script>
+    @endif
+    @if($needsLegacyPublicBundle)
+        <script src="{{ asset('/assets/js/oo324ddod2323sd2dd.js') }}"></script>
+    @endif
 
     <style>
         .pwa-connection-toast {
@@ -918,8 +951,10 @@
     {{-- Livewire Scripts - Required for Livewire components to work --}}
     @livewireScripts
 
-    @include('template.id.partials.pwa-install-prompt')
-    @include('template.id.partials.pwa-push-prompt')
+    @if($shouldRenderPublicPwaPrompts)
+        @include('template.id.partials.pwa-install-prompt')
+        @include('template.id.partials.pwa-push-prompt')
+    @endif
 
     <script>
         if ('serviceWorker' in navigator) {

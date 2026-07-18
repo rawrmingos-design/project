@@ -6,8 +6,6 @@ use App\Helpers\HtmlSanitizer;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
-use App\Models\Paket;
-use App\Models\PaketLayanan;
 use App\Support\CustomInputDefaults;
 use App\Support\GtmDataLayerBuilder;
 use Illuminate\Support\Carbon;
@@ -179,63 +177,55 @@ class PublicOrderPageDataService
 
     private function loadPackages(int $categoryId, string $role)
     {
-        $packages = [];
+        $priceColumn = $this->priceColumnForRole($role);
 
-        foreach (Paket::all() as $paket) {
-            $layananIds = $paket->layanan->pluck('id')->toArray();
-            $layananData = Layanan::whereIn('id', $layananIds)
-                ->where('kategori_id', $categoryId)
-                ->where(function ($query) use ($role) {
-                    if ($role === 'Member') {
-                        $query->where('harga_member', '>', 0);
-                    } elseif ($role === 'Platinum') {
-                        $query->where('harga_platinum', '>', 0);
-                    } elseif (in_array($role, ['Gold', 'Admin'], true)) {
-                        $query->where('harga_gold', '>', 0);
-                    } else {
-                        $query->where('harga_member', '>', 0);
-                    }
-                })
-                ->get();
+        return DB::table('pakets')
+            ->join('paket_layanans', 'paket_layanans.paket_id', '=', 'pakets.id')
+            ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
+            ->where('layanans.kategori_id', $categoryId)
+            ->where("layanans.{$priceColumn}", '>', 0)
+            ->select([
+                'pakets.id AS paket_id',
+                'pakets.nama AS paket_nama',
+                'layanans.id',
+                'layanans.layanan',
+                "layanans.{$priceColumn} AS harga",
+                'layanans.is_flash_sale',
+                'layanans.harga_flash_sale',
+                'layanans.expired_flash_sale',
+                'paket_layanans.product_logo',
+            ])
+            ->orderBy('pakets.id')
+            ->orderBy('harga')
+            ->get()
+            ->groupBy('paket_id')
+            ->map(function ($items) {
+                $first = $items->first();
 
-            $items = [];
-            foreach ($layananData as $layanan) {
-                $paketLayanan = PaketLayanan::query()
-                    ->where('paket_id', $paket->id)
-                    ->where('layanan_id', $layanan->id)
-                    ->first();
-
-                if (! $paketLayanan) {
-                    continue;
-                }
-
-                $price = match ($role) {
-                    'Member' => $layanan->harga_member,
-                    'Platinum' => $layanan->harga_platinum,
-                    'Gold', 'Admin' => $layanan->harga_gold,
-                    default => $layanan->harga_member,
-                };
-
-                $items[] = [
-                    'id' => $layanan->id,
-                    'name' => $layanan->layanan,
-                    'price' => (int) $price,
-                    'productLogo' => $paketLayanan->product_logo ? '/' . ltrim((string) $paketLayanan->product_logo, '/') : null,
-                    'isFlashSale' => (bool) $layanan->is_flash_sale,
-                    'flashPrice' => (int) ($layanan->harga_flash_sale ?? 0),
-                    'flashExpiresAt' => $layanan->expired_flash_sale ? Carbon::parse($layanan->expired_flash_sale)->toIso8601String() : null,
+                return [
+                    'name' => $first->paket_nama,
+                    'items' => $items->map(fn ($layanan) => [
+                        'id' => $layanan->id,
+                        'name' => $layanan->layanan,
+                        'price' => (int) $layanan->harga,
+                        'productLogo' => $layanan->product_logo ? '/' . ltrim((string) $layanan->product_logo, '/') : null,
+                        'isFlashSale' => (bool) $layanan->is_flash_sale,
+                        'flashPrice' => (int) ($layanan->harga_flash_sale ?? 0),
+                        'flashExpiresAt' => $layanan->expired_flash_sale ? Carbon::parse($layanan->expired_flash_sale)->toIso8601String() : null,
+                    ])->values()->all(),
                 ];
-            }
+            })
+            ->values()
+            ->all();
+    }
 
-            if ($items !== []) {
-                $packages[] = [
-                    'name' => $paket->nama,
-                    'items' => collect($items)->sortBy('price')->values()->all(),
-                ];
-            }
-        }
-
-        return $packages;
+    private function priceColumnForRole(string $role): string
+    {
+        return match ($role) {
+            'Platinum' => 'harga_platinum',
+            'Gold', 'Admin' => 'harga_gold',
+            default => 'harga_member',
+        };
     }
 
     private function loadRatings(int $categoryId)
