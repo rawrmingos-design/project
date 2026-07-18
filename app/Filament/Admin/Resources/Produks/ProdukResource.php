@@ -44,6 +44,11 @@ class ProdukResource extends Resource
         return ProduksTable::configure($table);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['kategori']);
+    }
+
     public static function getRelations(): array
     {
         return [

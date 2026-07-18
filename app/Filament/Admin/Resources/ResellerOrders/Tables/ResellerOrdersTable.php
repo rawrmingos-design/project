@@ -158,14 +158,8 @@ class ResellerOrdersTable
             ->filters([
                 SelectFilter::make('reseller_integration_id')
                     ->label('Reseller')
-                    ->options(function () {
-                        return \App\Models\ResellerIntegration::query()
-                            ->leftJoin('users', 'users.id', '=', 'reseller_integrations.user_id')
-                            ->selectRaw("reseller_integrations.id, COALESCE(NULLIF(users.name, ''), users.username, reseller_integrations.integration_code) as reseller_label")
-                            ->orderBy('reseller_label')
-                            ->pluck('reseller_label', 'reseller_integrations.id')
-                            ->toArray();
-                    })
+                    ->relationship('resellerIntegration', 'integration_code', fn (Builder $query) => $query->join('users', 'users.id', '=', 'reseller_integrations.user_id')->selectRaw("reseller_integrations.id, reseller_integrations.integration_code, COALESCE(NULLIF(users.name, ''), users.username, reseller_integrations.integration_code) as reseller_label")->orderBy('reseller_label'))
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->reseller_label ?? $record->integration_code)
                     ->searchable(),
 
                 SelectFilter::make('is_sandbox')
@@ -364,6 +358,7 @@ class ResellerOrdersTable
                 ]),
             ])
             ->searchDebounce('800ms')
+            ->deferLoading()
             ->persistSearchInSession()
             ->defaultPaginationPageOption(25)
             ->defaultSort('created_at', 'desc')

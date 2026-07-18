@@ -39,6 +39,13 @@ class KategoriResource extends Resource
         return KategorisTable::configure($table);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['categoryType'])
+            ->orderByDesc('id');
+    }
+
     public static function getRelations(): array
     {
         return [
