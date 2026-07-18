@@ -11,6 +11,8 @@ class Paket extends Model
     protected $guarded = ['id'];
     public function layanan()
     {
-        return $this->belongsToMany(Layanan::class, 'paket_layanans',  'paket_id','layanan_id');
+        return $this->belongsToMany(Layanan::class, 'paket_layanans',  'paket_id','layanan_id')
+            ->withPivot('product_logo')
+            ->withTimestamps();
     }
 }
