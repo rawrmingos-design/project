@@ -213,7 +213,7 @@ class DepositsTable
                 ]),
             ])
             ->defaultSort('created_at', 'desc')
-            ->deferLoading()
+            ->deferLoading(! app()->runningUnitTests())
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }
