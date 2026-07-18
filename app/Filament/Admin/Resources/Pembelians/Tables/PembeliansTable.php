@@ -544,7 +544,7 @@ class PembeliansTable
                 ]),
             ])
             ->searchDebounce('800ms')
-            ->deferLoading()
+            ->deferLoading(! app()->runningUnitTests())
             ->persistSearchInSession()
             ->defaultPaginationPageOption(25)
             ->defaultSort('created_at', 'desc')
