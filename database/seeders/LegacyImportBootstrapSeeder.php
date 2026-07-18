@@ -30,9 +30,6 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'code' => 'digiflazz',
                 'name' => 'DIGIFLAZZ',
-                'api_username' => null,
-                'api_key' => null,
-                'api_sign' => null,
                 'api_endpoint' => 'https://api.digiflazz.com',
                 'balance' => 0,
                 'is_active' => true,
@@ -41,9 +38,6 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'code' => 'bangjeff',
                 'name' => 'BANGJEFF',
-                'api_username' => null,
-                'api_key' => null,
-                'api_sign' => null,
                 'api_endpoint' => 'https://distribution-api.bangjeff.com/api/v4',
                 'balance' => 0,
                 'is_active' => true,
@@ -52,9 +46,6 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'code' => 'vip',
                 'name' => 'VIP RESELLER',
-                'api_username' => null,
-                'api_key' => null,
-                'api_sign' => null,
                 'api_endpoint' => 'https://vip-reseller.co.id/api',
                 'balance' => 0,
                 'is_active' => true,
@@ -63,9 +54,6 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'code' => 'apigames',
                 'name' => 'APIGAMES',
-                'api_username' => null,
-                'api_key' => null,
-                'api_sign' => null,
                 'api_endpoint' => 'https://v1.apigames.id',
                 'balance' => 0,
                 'is_active' => true,
@@ -74,9 +62,6 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'code' => 'manual',
                 'name' => 'MANUAL',
-                'api_username' => null,
-                'api_key' => null,
-                'api_sign' => null,
                 'api_endpoint' => null,
                 'balance' => 0,
                 'is_active' => true,

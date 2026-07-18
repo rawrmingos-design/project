@@ -6,7 +6,6 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
@@ -26,7 +25,6 @@ class UserSeeder extends Seeder
             'no_wa' => '081234567890',
             'balance' => 1000000,
             'role' => 'Admin',
-            'api_key' => Str::random(32),
         ]);
         $this->command->info('✓ Admin user created');
         
@@ -52,7 +50,6 @@ class UserSeeder extends Seeder
             User::create(array_merge($userData, [
                 'password' => Hash::make('password'),
                 'role' => 'Platinum',
-                'api_key' => Str::random(32),
             ]));
         }
         $this->command->info('✓ 2 Platinum users created');
@@ -86,7 +83,6 @@ class UserSeeder extends Seeder
             User::create(array_merge($userData, [
                 'password' => Hash::make('password'),
                 'role' => 'Gold',
-                'api_key' => Str::random(32),
             ]));
         }
         $this->command->info('✓ 3 Gold users created');
@@ -107,7 +103,6 @@ class UserSeeder extends Seeder
                 'no_wa' => '08123456789' . ($index + 6),
                 'balance' => rand(50, 200) * 1000, // Random balance between 50k-200k
                 'role' => 'Member',
-                'api_key' => Str::random(32),
             ]);
         }
         $this->command->info('✓ 10 Member users created');
