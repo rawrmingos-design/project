@@ -22,8 +22,14 @@ class DigiFlazzController extends Controller
         } else {
             // Fallback to DB if no config provided (Backward Compatibility)
             $api = DB::table('setting_webs')->where('id', 1)->first();
-            $this->username = trim($api->username_digi);
-            $this->apiKey = trim($api->api_key_digi);
+            if ($api) {
+                $this->username = trim($api->username_digi);
+                $this->apiKey = trim($api->api_key_digi);
+            } else {
+                // Default values when no settings found (e.g., in tests)
+                $this->username = '';
+                $this->apiKey = '';
+            }
             $this->endpoint = 'https://api.digiflazz.com';
         }
     }
