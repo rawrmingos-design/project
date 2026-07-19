@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
+use App\Models\PaymentDisplayCategory;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
@@ -32,6 +33,10 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/Invoice')
                 ->where('invoice.orderId', $orderId)
+                ->where('invoice.payment.methodCategory.label', 'QRIS')
+                ->where('invoice.payment.methodCategory.icon', 'fa-solid fa-qrcode')
+                ->where('invoice.payment.methodCategory.code', 'qris')
+                ->where('invoice.payment.hint', 'Gunakan e-wallet atau aplikasi mobile banking untuk melakukan scan QR pembayaran.')
                 ->where('invoice.realtime.channel', InvoiceRealtimeStatus::channelName($orderId))
                 ->where('invoice.realtime.event', '.InvoiceStatusUpdated')
             );
@@ -74,12 +79,22 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             'harga' => 50000,
         ]);
 
+        $paymentCategory = PaymentDisplayCategory::create([
+            'code' => 'qris',
+            'label' => 'QRIS',
+            'display_style' => 'flat',
+            'sort_order' => 1,
+            'is_visible' => true,
+            'icon' => 'fa-solid fa-qrcode',
+        ]);
+
         Method::create([
             'code' => 'QRIS',
             'name' => 'QRIS Test',
             'payment' => 'tripay',
             'keterangan' => 'QRIS test method',
             'tipe' => 'qris',
+            'payment_display_category_id' => $paymentCategory->id,
             'images' => 'qris.png',
             'statuspayment' => 1,
         ]);

@@ -11681,6 +11681,36 @@ textarea {
     font-weight: 600;
 }
 
+.invoice-meta-card__method-with-category {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.invoice-meta-card__method-with-category .invoice-meta-card__method {
+    margin-top: 0;
+}
+
+.invoice-method-category-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(250, 204, 21, 0.26);
+    background: rgba(250, 204, 21, 0.12);
+    padding: 3px 9px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    color: rgba(254, 240, 138, 0.95);
+    font-weight: 600;
+}
+
+.invoice-method-category-badge i {
+    font-size: 0.75rem;
+}
+
 .invoice-meta-card__method-logo {
     margin-top: 12px;
     max-height: 46px;
@@ -11847,6 +11877,65 @@ textarea {
     font-size: 0.78rem;
     font-weight: 700;
     cursor: pointer;
+}
+
+.invoice-qr__container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.invoice-qr__download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.invoice-qr__download-btn:hover {
+    background: rgba(59, 130, 246, 0.25);
+    color: #bfdbfe;
+    transform: translateY(-1px);
+}
+
+.invoice-qr__download-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.invoice-payment-hint {
+    margin-top: 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    border-radius: 12px;
+}
+
+.invoice-payment-hint__icon {
+    width: 20px;
+    height: 20px;
+    color: #fde047;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.invoice-payment-hint p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: rgba(254, 240, 138, 0.9);
 }
 
 .invoice-pay-button {

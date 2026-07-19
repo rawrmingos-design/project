@@ -489,6 +489,26 @@ export default function Invoice({ invoice, meta }) {
         }
     };
 
+    const downloadQrCode = async () => {
+        const qrUrl = invoice?.payment?.qrImageUrl;
+        if (!qrUrl) return;
+
+        try {
+            const response = await fetch(qrUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `qr-payment-${invoice.orderId || 'invoice'}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            showCopyToast('error', 'Gagal mengunduh kode QR.');
+        }
+    };
+
     const introTone = useMemo(() => {
         if (introState === 'success') {
             return 'paid';
@@ -795,7 +815,17 @@ export default function Invoice({ invoice, meta }) {
                         <div className={`invoice-card invoice-meta-card invoice-animate invoice-animate-delay-3 ${isInvoiceAnimated ? 'is-visible' : ''}`}>
                             <div className="invoice-meta-card__top">
                                 <p className="invoice-meta-card__label">Metode Pembayaran</p>
-                                <p className="invoice-meta-card__method">{invoice?.payment?.methodName}</p>
+                                <div className="invoice-meta-card__method-with-category">
+                                    {invoice?.payment?.methodCategory?.label && (
+                                        <span className="invoice-method-category-badge">
+                                            {invoice.payment.methodCategory.icon && (
+                                                <i className={`${invoice.payment.methodCategory.icon}`}></i>
+                                            )}
+                                            {invoice.payment.methodCategory.label}
+                                        </span>
+                                    )}
+                                    <p className="invoice-meta-card__method">{invoice?.payment?.methodName}</p>
+                                </div>
                             </div>
 
                             {invoice?.payment?.methodImage && !isMethodLogoBroken ? (
@@ -880,12 +910,25 @@ export default function Invoice({ invoice, meta }) {
                             {showLiveQrImage ? (
                                 <div className="invoice-qr">
                                     {!isQrImageBroken ? (
-                                        <img
-                                            src={invoice.payment.qrImageUrl}
-                                            alt="QR Pembayaran"
-                                            className="invoice-qr__image"
-                                            onError={() => setIsQrImageBroken(true)}
-                                        />
+                                        <div className="invoice-qr__container">
+                                            <img
+                                                src={invoice.payment.qrImageUrl}
+                                                alt="QR Pembayaran"
+                                                className="invoice-qr__image"
+                                                onError={() => setIsQrImageBroken(true)}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="invoice-qr__download-btn"
+                                                onClick={downloadQrCode}
+                                                aria-label="Unduh Kode QR"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-3 3m0 0l-3-3m3 3V4" />
+                                                </svg>
+                                                <span>Unduh Kode QR</span>
+                                            </button>
+                                        </div>
                                     ) : (
                                         <div className="invoice-qr__fallback">
                                             <p>QR pembayaran tidak dapat dimuat.</p>
@@ -919,6 +962,15 @@ export default function Invoice({ invoice, meta }) {
                                 <button type="button" className="invoice-pay-button is-disabled" disabled>
                                     <span>Pembayaran kedaluwarsa</span>
                                 </button>
+                            ) : null}
+
+                            {invoice?.payment?.hint && paymentStatus.code === 'unpaid' ? (
+                                <div className="invoice-payment-hint">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="invoice-payment-hint__icon">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p>{invoice.payment.hint}</p>
+                                </div>
                             ) : null}
                         </div>
                     </div>

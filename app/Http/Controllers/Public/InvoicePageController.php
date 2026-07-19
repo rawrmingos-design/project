@@ -54,6 +54,13 @@ class InvoicePageController extends Controller
             );
         }
 
+        $dataQuery->leftJoin(
+            'payment_display_categories',
+            'methods.payment_display_category_id',
+            '=',
+            'payment_display_categories.id'
+        );
+
         $data = $dataQuery
             ->select(
                 'pembayarans.status AS status_pembayaran',
@@ -73,7 +80,12 @@ class InvoicePageController extends Controller
                 'pembayarans.no_pembeli',
                 'methods.name AS metode_name',
                 'methods.tipe AS metode_tipe',
-                'methods.images AS metode_image'
+                'methods.images AS metode_image',
+                'methods.payment_display_category_id',
+                'payment_display_categories.id AS metode_category_id',
+                'payment_display_categories.label AS metode_category_label',
+                'payment_display_categories.icon AS metode_category_icon',
+                'payment_display_categories.code AS metode_category_code'
             )
             ->orderByDesc('pembayarans.id')
             ->first();
@@ -120,6 +132,11 @@ class InvoicePageController extends Controller
         if ($methodImage === '') {
             $methodImage = null;
         }
+
+        $methodCategoryId = (int) ($data->metode_category_id ?? 0);
+        $methodCategoryLabel = (string) ($data->metode_category_label ?? '');
+        $methodCategoryIcon = (string) ($data->metode_category_icon ?? '');
+        $methodCategoryCode = (string) ($data->metode_category_code ?? '');
 
         $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
         $paymentValue = (string) ($data->no_pembayaran ?? '');
@@ -306,6 +323,12 @@ class InvoicePageController extends Controller
                     'methodName' => (string) $methodName,
                     'methodCode' => (string) $methodCode,
                     'methodImage' => $methodImage,
+                    'methodCategory' => [
+                        'id' => $methodCategoryId,
+                        'label' => $methodCategoryLabel,
+                        'icon' => $methodCategoryIcon,
+                        'code' => $methodCategoryCode,
+                    ],
                     'paymentNumber' => (string) $paymentValue,
                     'paymentUrl' => $isPaymentUrl ? $paymentValue : null,
                     'showCopyPaymentNumber' => (bool) $showCopyPaymentNumber,
@@ -313,6 +336,7 @@ class InvoicePageController extends Controller
                     'showQrImage' => (bool) $showQrImage,
                     'qrImageUrl' => $showQrImage ? $resolvedQrImageUrl : null,
                     'payButtonLabel' => $payButtonLabel,
+                    'hint' => $this->resolvePaymentHint($paymentCode, $isQrMethod),
                 ],
                 'amount' => [
                     'subtotal' => $subtotal,
@@ -385,6 +409,27 @@ class InvoicePageController extends Controller
             in_array($normalized, ['gagal', 'batal', 'failed', 'cancelled'], true) => ['code' => 'failed', 'label' => 'Failed'],
             default => ['code' => 'pending', 'label' => 'Pending'],
         };
+    }
+
+    private function resolvePaymentHint(string $paymentCode, bool $isQrMethod): string
+    {
+        if ($isQrMethod) {
+            return 'Gunakan e-wallet atau aplikasi mobile banking untuk melakukan scan QR pembayaran.';
+        }
+
+        if (in_array($paymentCode, ['BRIVA', 'BCAVA', 'BNIVA', 'MANDIRIVA', 'PERMATAVA', 'CIMBVA', 'DANAMONVA', 'BSIVA', 'BC', 'M2', 'VA', 'I1', 'B1', 'BT', 'A1', 'NC', 'BR', 'S1'], true)) {
+            return 'Gunakan aplikasi mobile banking, ATM, atau internet banking untuk menyelesaikan pembayaran virtual account.';
+        }
+
+        if ($paymentCode === 'INDOMARET') {
+            return 'Tunjukkan nomor pembayaran ke kasir Indomaret agar pesanan dapat diproses.';
+        }
+
+        if (in_array($paymentCode, ['ALFAMART', 'ALFAMRT'], true)) {
+            return 'Tunjukkan nomor pembayaran ke kasir Alfamart agar pesanan dapat diproses.';
+        }
+
+        return 'Gunakan metode pembayaran yang dipilih untuk menyelesaikan transaksi.';
     }
 
     private function normalizeAssetPath(?string $path, string $fallback = '/assets/logo/favicon.webp'): string
