@@ -907,7 +907,7 @@
                                 $methodTypeLower = blank($data->metode_tipe ?? '') ? '' : \Illuminate\Support\Str::lower(\App\Models\Method::normalizeTipe((string) ($data->metode_tipe ?? '')));
 
                                 $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
-                                    "QRIS", "QRISC", "QRIS2", "QRISOP", "SP", "SQ"
+                                    "QRIS", "QRISC", "QRIS2", "QRISOP", "SP", "NQ", "LQ", "GQ", "SQ"
                                 ], true);
                             @endphp
 

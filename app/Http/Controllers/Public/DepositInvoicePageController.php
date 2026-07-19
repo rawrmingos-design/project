@@ -62,7 +62,7 @@ class DepositInvoicePageController extends Controller
         $isPaymentUrl = filter_var($paymentNumber, FILTER_VALIDATE_URL) !== false;
         $isDuitkuUrl = str_contains(strtolower($paymentNumber), 'duitku');
         $isQrPaymentMethod = in_array($paymentCode, [
-            'QRIS', 'QRISC', 'QRIS2', 'QRISOP', 'SP', 'SQ', 'QRISREALTIME',
+            'QRIS', 'QRISC', 'QRIS2', 'QRISOP', 'SP', 'NQ', 'LQ', 'GQ', 'SQ', 'QRISREALTIME',
         ], true);
         $isEwalletDeepLink = in_array($paymentCode, [
             'SHOPEEPAY', 'OVOPUSH', 'DANA', 'LINKAJA', '11', '17', '23',
@@ -310,7 +310,7 @@ class DepositInvoicePageController extends Controller
 
     private function resolvePaymentHint(string $paymentCode): string
     {
-        if (in_array($paymentCode, ['QRIS', 'QRISC', 'QRIS2', 'QRISOP', 'SP', 'SQ', 'QRISREALTIME'], true)) {
+        if (in_array($paymentCode, ['QRIS', 'QRISC', 'QRIS2', 'QRISOP', 'SP', 'NQ', 'LQ', 'GQ', 'SQ', 'QRISREALTIME'], true)) {
             return 'Gunakan e-wallet atau mobile banking untuk melakukan scan QR pembayaran.';
         }
 
