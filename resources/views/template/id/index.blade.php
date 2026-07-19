@@ -424,6 +424,28 @@
 
 @endpush
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize hero Swiper slider
+    const heroSwiper = document.querySelector('.hero-swiper');
+    if (heroSwiper) {
+        new Swiper('.hero-swiper', {
+            loop: true,
+            autoplay: {
+                delay: 5000,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: '.swiper-pagination',
+                clickable: true,
+            },
+            speed: 800,
+            effect: 'slide',
+        });
+    }
+});
+</script>
+
 
 
 
