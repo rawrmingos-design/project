@@ -21,15 +21,19 @@ class InvoiceController extends Controller
     private function applyMethodsJoin($query)
     {
         if (DB::connection()->getDriverName() === 'sqlite') {
-            return $query->leftJoin('methods', 'pembayarans.metode', '=', 'methods.code');
+            return $query
+                ->leftJoin('methods', 'pembayarans.metode', '=', 'methods.code')
+                ->leftJoin('payment_display_categories', 'methods.payment_display_category_id', '=', 'payment_display_categories.id');
         }
 
-        return $query->leftJoin(
-            'methods',
-            DB::raw('pembayarans.metode COLLATE utf8mb4_unicode_ci'),
-            '=',
-            DB::raw('methods.code COLLATE utf8mb4_unicode_ci')
-        );
+        return $query
+            ->leftJoin(
+                'methods',
+                DB::raw('pembayarans.metode COLLATE utf8mb4_unicode_ci'),
+                '=',
+                DB::raw('methods.code COLLATE utf8mb4_unicode_ci')
+            )
+            ->leftJoin('payment_display_categories', 'methods.payment_display_category_id', '=', 'payment_display_categories.id');
     }
 
    public function create($order)
@@ -69,7 +73,12 @@ class InvoiceController extends Controller
                 'pembayarans.no_pembeli',
                 'pembelians.email_pembeli',
                 'pembelians.tipe_transaksi AS tipe_transaksi',
-                'methods.name AS metode_name'
+                'methods.name AS metode_name',
+                'methods.payment_display_category_id',
+                'payment_display_categories.id AS metode_category_id',
+                'payment_display_categories.label AS metode_category_label',
+                'payment_display_categories.icon AS metode_category_icon',
+                'payment_display_categories.code AS metode_category_code'
             )
             ->orderByDesc('pembayarans.id')
             ->first();
@@ -278,6 +287,9 @@ class InvoiceController extends Controller
             'namas' => $nama,
             'thumbnails' => $thumbnail,
             'metode_name' => $methodName,
+            'metode_category_label' => (string) ($data->metode_category_label ?? ''),
+            'metode_category_icon' => (string) ($data->metode_category_icon ?? ''),
+            'metode_category_code' => (string) ($data->metode_category_code ?? ''),
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'order_id' => $data->id_pembelian,

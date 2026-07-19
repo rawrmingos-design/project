@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\Method;
+use App\Models\PaymentDisplayCategory;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
@@ -145,6 +147,93 @@ class DuitkuInvoiceViewTest extends TestCase
         $response->assertSee('id="qrisPaymentImage"', false);
         $response->assertSee('Unduh Kode QR / Screenshoot');
         $response->assertSee('00020101021126560012ID.CO.DANA');
+    }
+
+    public function test_blade_invoice_displays_payment_category_badge(): void
+    {
+        $settings = SettingWeb::updateOrCreate(['id' => 7], [
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'url_wa' => '081234567890',
+            'url_ig' => 'test',
+            'url_tiktok' => 'test',
+            'url_youtube' => 'test',
+            'url_fb' => 'test',
+            'topupindo_api' => 'test',
+            'warna1' => '#000000',
+            'warna2' => '#000000',
+            'warna3' => '#000000',
+            'warna4' => '#000000',
+            'order_prefik' => 'TRX',
+            'paydisini_apikey' => 'test',
+            'tripay_api' => 'test',
+            'tripay_merchant_code' => 'test',
+            'tripay_private_key' => 'test',
+            'vip_apiid' => 'test',
+            'vip_apikey' => 'test',
+            'duitku_mode' => 'sandbox',
+        ]);
+
+        view()->share('config', (object) array_merge([
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+        ], $settings->getAttributes()));
+
+        $paymentCategory = PaymentDisplayCategory::create([
+            'code' => 'qris',
+            'label' => 'QRIS',
+            'display_style' => 'flat',
+            'sort_order' => 1,
+            'is_visible' => true,
+            'icon' => 'fa-solid fa-qrcode',
+        ]);
+
+        Method::create([
+            'code' => 'QRIS',
+            'name' => 'QRIS Test',
+            'payment' => 'tripay',
+            'keterangan' => 'QRIS test method',
+            'tipe' => 'qris',
+            'payment_display_category_id' => $paymentCategory->id,
+            'images' => 'qris.png',
+            'statuspayment' => 1,
+        ]);
+
+        Pembelian::create([
+            'order_id' => 'INV-BLADE-CATEGORY-001',
+            'username' => 'category-user',
+            'user_id' => '12345678',
+            'zone' => '2001',
+            'nickname' => 'Category User',
+            'layanan' => 'Membership Mingguan',
+            'harga' => 15000,
+            'profit' => 1000,
+            'provider_order_id' => '',
+            'status' => 'Pending',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        Pembayaran::create([
+            'order_id' => 'INV-BLADE-CATEGORY-001',
+            'harga' => 15000,
+            'no_pembayaran' => '00020101021126560012ID.CO.QRIS.WWW011893600915306634704021422709210967000303UMI51440014ID.CO.QRIS.WWW0215ID10230231534060303UMI5204581453033605405150005802ID5910KOTA TANG6009TANGERANG61071514321623801121020211116051515306634704071300908819037463045E67',
+            'no_pembeli' => '08123456789',
+            'status' => 'Belum Lunas',
+            'metode' => 'QRIS',
+            'reference' => 'QRIS-INV-BLADE-CATEGORY-001',
+        ]);
+
+        $response = $this->get('/id/invoices/INV-BLADE-CATEGORY-001');
+
+        $response->assertOk();
+        $response->assertSee('invoice-method-category-badge', false);
+        $response->assertSee('QRIS');
+        $response->assertSee('QRIS Test');
     }
 
     public function test_unpaid_duitku_va_shows_inline_number(): void
@@ -404,7 +493,7 @@ class DuitkuInvoiceViewTest extends TestCase
 
         $qrString = '00020101021126560012ID.CO.DIRECT.WWW011893600915306634704021422709210967000303UMI51440014ID.CO.QRIS.WWW0215ID10230231534060303UMI5204581453033605405150005802ID5910KOTA TANG6009TANGERANG61071514321623801121020211116051515306634704071300908819037463045E67';
 
-        foreach (['LQ' => 'LinkAja', 'GQ' => 'GudangVoucher', 'SQ' => 'ShopeePay'] as $code => $name) {
+        foreach (['LQ', 'GQ', 'SQ'] as $code) {
             $orderId = "INV-{$code}-001";
 
             Pembelian::create([

@@ -968,6 +968,31 @@
             letter-spacing: .02em;
         }
 
+        .invoice-method-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: .45rem;
+        }
+
+        .invoice-method-category-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .35rem .7rem;
+            border-radius: 999px;
+            border: 1px solid rgba(250, 204, 21, .26);
+            background: rgba(250, 204, 21, .12);
+            color: rgba(254, 240, 138, .95);
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .02em;
+        }
+
+        .invoice-method-category-badge i {
+            font-size: .75rem;
+        }
+
         .invoice-copy-button {
             border-radius: .85rem;
             background: rgba(255, 255, 255, .045);
@@ -2335,10 +2360,23 @@
                                     <div class="invoice-payment-heading">
                                         <dt class="text-lg font-medium text-white print:text-sm print:text-slate-800">Metode
                                             Pembayaran</dt>
-                                        <span class="invoice-method-pill">{{ $metode_name }}</span>
+                                        <div class="invoice-method-badges">
+                                            @if ($metode_category_label)
+                                                <span class="invoice-method-category-badge">
+                                                    @if ($metode_category_icon)
+                                                        <i class="{{ $metode_category_icon }}"></i>
+                                                    @endif
+                                                    {{ $metode_category_label }}
+                                                </span>
+                                            @endif
+                                            <span class="invoice-method-pill">{{ $metode_name }}</span>
+                                        </div>
                                     </div>
                                     <dd class="text-murky-200">
-                                        <div class="flex items-start space-x-4 print:text-slate-800">
+                                        <div class="flex flex-col items-start gap-1 print:text-slate-800">
+                                            @if ($metode_category_label)
+                                                <div class="text-xs font-semibold uppercase tracking-wide text-yellow-200 print:text-slate-600">{{ $metode_category_label }}</div>
+                                            @endif
                                             <div class="text-sm text-white">{{ $metode_name }}</div>
                                         </div>
                                         @if ($showCopyPaymentNumber)
@@ -2585,9 +2623,14 @@
                                         <dt class="font-medium text-white">Jumlah</dt>
                                         <dd class="text-murky-200 print:text-slate-800">1x</dd>
                                     </div>
-                                    <div class="flex justify-between">
+                                    <div class="flex justify-between gap-4">
                                         <dt class="font-medium text-white">Metode Pembayaran</dt>
-                                        <dd class="text-murky-200 print:text-slate-800">{{ $metode_name }}</dd>
+                                        <dd class="flex flex-col items-end text-right text-murky-200 print:text-slate-800">
+                                            @if ($metode_category_label)
+                                                <span class="text-xs font-semibold uppercase tracking-wide text-yellow-200 print:text-slate-600">{{ $metode_category_label }}</span>
+                                            @endif
+                                            <span>{{ $metode_name }}</span>
+                                        </dd>
                                     </div>
                                     <div class="flex justify-between">
                                         <dt class="font-medium text-white">No Invoice</dt>
