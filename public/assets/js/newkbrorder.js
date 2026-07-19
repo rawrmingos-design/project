@@ -506,7 +506,7 @@ $(".product-list").off("click").on("click", (function () {
             $(".load").addClass("show")
         },
         success: function (f) {
-            $(".load").removeClass("show"), f.status ? Swal.fire({
+            $(".load").removeClass("show"), f.status ? (typeof Swal !== 'undefined' ? Swal.fire({
                 html: `${f.data}`,
                 showCancelButton: !0,
                 confirmButtonText: "Pesan Sekarang",
@@ -555,7 +555,7 @@ $(".product-list").off("click").on("click", (function () {
                         }
                     })
                 }
-            })) : showToast(f.data || f.message || "User ID tidak ditemukan.", "error")
+            })) : showToast("Alert system not loaded. Please try again.", "error")) : showToast(f.data || f.message || "User ID tidak ditemukan.", "error")
         },
         error: function (e) {
             $(".load").removeClass("show");
