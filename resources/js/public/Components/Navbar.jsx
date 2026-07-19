@@ -225,6 +225,19 @@ export default function Navbar() {
     };
 
     useEffect(() => {
+        const handleNavigationStart = () => {
+            setMenuOpen(false);
+            setMobileSearchOpen(false);
+        };
+
+        router.on('navigate', handleNavigationStart);
+
+        return () => {
+            router.off('navigate', handleNavigationStart);
+        };
+    }, []);
+
+    useEffect(() => {
         if (!menuOpen) {
             return undefined;
         }
