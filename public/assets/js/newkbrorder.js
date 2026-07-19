@@ -506,18 +506,27 @@ $(".product-list").off("click").on("click", (function () {
             $(".load").addClass("show")
         },
         success: function (f) {
-            $(".load").removeClass("show"), f.status ? (typeof Swal !== 'undefined' ? Swal.fire({
-                html: `${f.data}`,
-                showCancelButton: !0,
-                confirmButtonText: "Pesan Sekarang",
-                cancelButtonText: "Batalkan",
-                customClass: {
-                    htmlContainer: "swal-text"
-                }
-            }).then((f => {
-                if (f.isConfirmed) {
-                    trackBeginCheckoutEvent();
-                    var v = $("#nick").text();
+            $(".load").removeClass("show");
+
+            // Check if Swal library is loaded
+            if (typeof Swal === 'undefined') {
+                showToast("Alert system not loaded. Please refresh the page.", "error");
+                return;
+            }
+
+            if (f.status) {
+                Swal.fire({
+                    html: `${f.data}`,
+                    showCancelButton: !0,
+                    confirmButtonText: "Pesan Sekarang",
+                    cancelButtonText: "Batalkan",
+                    customClass: {
+                        htmlContainer: "swal-text"
+                    }
+                }).then((f => {
+                    if (f.isConfirmed) {
+                        trackBeginCheckoutEvent();
+                        var v = $("#nick").text();
                     $.ajax({
                         url: window.routes.orderedUrl,
                         dataType: "JSON",
@@ -555,7 +564,10 @@ $(".product-list").off("click").on("click", (function () {
                         }
                     })
                 }
-            })) : showToast("Alert system not loaded. Please try again.", "error")) : showToast(f.data || f.message || "User ID tidak ditemukan.", "error")
+            }));
+            } else {
+                showToast(f.data || f.message || "User ID tidak ditemukan.", "error");
+            }
         },
         error: function (e) {
             $(".load").removeClass("show");
