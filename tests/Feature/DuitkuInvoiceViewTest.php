@@ -298,4 +298,145 @@ class DuitkuInvoiceViewTest extends TestCase
             'reference' => "DUITKU-{$orderId}",
         ]);
     }
+
+    public function test_duitku_direct_mode_nq_renders_qr_without_metode_tipe(): void
+    {
+        $settings = SettingWeb::updateOrCreate(['id' => 5], [
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'url_wa' => '081234567890',
+            'url_ig' => 'test',
+            'url_tiktok' => 'test',
+            'url_youtube' => 'test',
+            'url_fb' => 'test',
+            'topupindo_api' => 'test',
+            'warna1' => '#000000',
+            'warna2' => '#000000',
+            'warna3' => '#000000',
+            'warna4' => '#000000',
+            'order_prefik' => 'TRX',
+            'paydisini_apikey' => 'test',
+            'tripay_api' => 'test',
+            'tripay_merchant_code' => 'test',
+            'tripay_private_key' => 'test',
+            'vip_apiid' => 'test',
+            'vip_apikey' => 'test',
+            'duitku_mode' => 'sandbox',
+        ]);
+
+        view()->share('config', (object) array_merge([
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+        ], $settings->getAttributes()));
+
+        Pembelian::create([
+            'order_id' => 'INV-NQ-001',
+            'username' => 'direct-user',
+            'user_id' => '12345678',
+            'zone' => '2001',
+            'nickname' => 'Direct User',
+            'layanan' => 'Membership Mingguan',
+            'harga' => 15000,
+            'profit' => 1000,
+            'provider_order_id' => '',
+            'status' => 'Pending',
+            'tipe_transaksi' => 'game',
+        ]);
+
+        // NQ (Nobu Direct Mode) with QR string and no metode_tipe
+        Pembayaran::create([
+            'order_id' => 'INV-NQ-001',
+            'harga' => 15000,
+            'no_pembayaran' => '00020101021126560012ID.CO.NOBU.WWW011893600915306634704021422709210967000303UMI51440014ID.CO.QRIS.WWW0215ID10230231534060303UMI5204581453033605405150005802ID5910KOTA TANG6009TANGERANG61071514321623801121020211116051515306634704071300908819037463045E67',
+            'no_pembeli' => '08123456789',
+            'status' => 'Belum Lunas',
+            'metode' => 'NQ',
+            'reference' => 'NQ-INV-NQ-001',
+        ]);
+
+        $response = $this->get('/id/invoices/INV-NQ-001');
+
+        $response->assertOk();
+        $response->assertSee('id="qrisPaymentImage"', false);
+        $response->assertSee('Unduh Kode QR / Screenshoot');
+        $response->assertDontSee('Buka Link Pembayaran');
+    }
+
+    public function test_duitku_direct_mode_codes_render_qr(): void
+    {
+        $settings = SettingWeb::updateOrCreate(['id' => 6], [
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+            'url_wa' => '081234567890',
+            'url_ig' => 'test',
+            'url_tiktok' => 'test',
+            'url_youtube' => 'test',
+            'url_fb' => 'test',
+            'topupindo_api' => 'test',
+            'warna1' => '#000000',
+            'warna2' => '#000000',
+            'warna3' => '#000000',
+            'warna4' => '#000000',
+            'order_prefik' => 'TRX',
+            'paydisini_apikey' => 'test',
+            'tripay_api' => 'test',
+            'tripay_merchant_code' => 'test',
+            'tripay_private_key' => 'test',
+            'vip_apiid' => 'test',
+            'vip_apikey' => 'test',
+            'duitku_mode' => 'sandbox',
+        ]);
+
+        view()->share('config', (object) array_merge([
+            'logo_header' => 'assets/logo-header.png',
+            'logo_footer' => 'assets/logo-footer.png',
+            'logo_favicon' => 'assets/favicon.ico',
+        ], $settings->getAttributes()));
+
+        $qrString = '00020101021126560012ID.CO.DIRECT.WWW011893600915306634704021422709210967000303UMI51440014ID.CO.QRIS.WWW0215ID10230231534060303UMI5204581453033605405150005802ID5910KOTA TANG6009TANGERANG61071514321623801121020211116051515306634704071300908819037463045E67';
+
+        foreach (['LQ' => 'LinkAja', 'GQ' => 'GudangVoucher', 'SQ' => 'ShopeePay'] as $code => $name) {
+            $orderId = "INV-{$code}-001";
+
+            Pembelian::create([
+                'order_id' => $orderId,
+                'username' => 'direct-user',
+                'user_id' => '12345678',
+                'zone' => '2001',
+                'nickname' => 'Direct User',
+                'layanan' => 'Membership Mingguan',
+                'harga' => 15000,
+                'profit' => 1000,
+                'provider_order_id' => '',
+                'status' => 'Pending',
+                'tipe_transaksi' => 'game',
+            ]);
+
+            Pembayaran::create([
+                'order_id' => $orderId,
+                'harga' => 15000,
+                'no_pembayaran' => $qrString,
+                'no_pembeli' => '08123456789',
+                'status' => 'Belum Lunas',
+                'metode' => $code,
+                'reference' => "{$code}-{$orderId}",
+            ]);
+
+            $response = $this->get("/id/invoices/{$orderId}");
+
+            $response->assertOk();
+            $response->assertSee('id="qrisPaymentImage"', false);
+            $response->assertDontSee('Buka Link Pembayaran');
+        }
+    }
 }
+

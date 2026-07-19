@@ -134,7 +134,7 @@ class InvoicePageController extends Controller
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
 
         $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
-            'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
+            'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'NQ', 'LQ', 'GQ', 'SQ', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
         ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
         $isQrImage = str_starts_with($paymentValue, 'data:image/')
             || preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
