@@ -24,6 +24,7 @@ class Layanan extends Model
         'profit_platinum' => 'integer',
         'profit_gold' => 'integer',
         'is_flash_sale' => 'boolean',
+        'check_id_enabled' => 'boolean',
         'stock_flash_sale' => 'integer',
         'expired_flash_sale' => 'datetime',
     ];

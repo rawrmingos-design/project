@@ -377,6 +377,46 @@ class ApiCheckControllerTest extends TestCase
         Http::assertSent(fn ($req) => str_contains($req->url(), 'api.digiflazz.com'));
     }
 
+    public function test_digiflazz_fallback_uses_layanan_inquiry_sku(): void
+    {
+        $this->seedDigiflazzSettings();
+
+        $layanan = \App\Models\Layanan::factory()->create([
+            'check_id_enabled' => true,
+            'check_id_provider' => 'digiflazz',
+            'check_id_provider_sku' => 'DYNAMIC_INQUIRY_SKU',
+        ]);
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://api.digiflazz.com/v1/transaction' => Http::response([
+                'data' => [
+                    'status' => 'Sukses',
+                    'customer_name' => 'Dynamic SKU Nick',
+                    'message' => 'Transaksi Sukses',
+                ],
+            ]),
+        ]);
+
+        $result = (new ApiCheckController($layanan))->check('DYNAMIC_UID', null, 'Valorant');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Dynamic SKU Nick', $result['data']['username']);
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.digiflazz.com/v1/transaction'
+                && $request['buyer_sku_code'] === 'DYNAMIC_INQUIRY_SKU'
+                && $request['customer_no'] === 'DYNAMIC_UID';
+        });
+    }
+
     private function seedDigiflazzSettings(): void
     {
         $this->seed(\Database\Seeders\SettingWebsSeeder::class);

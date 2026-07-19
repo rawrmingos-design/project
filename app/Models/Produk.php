@@ -22,6 +22,7 @@ class Produk extends Model implements HasMedia
     
     protected $casts = [
         'is_flash_sale' => 'boolean',
+        'check_id_enabled' => 'boolean',
         'expired_flash_sale' => 'datetime',
         'harga' => 'integer',
         'harga_member' => 'integer',

@@ -767,7 +767,8 @@ $(document).ready(function () {
                         _token: window.csrfToken,
                         uid: uid,
                         zone: zone,
-                        kategori_kode: kategoriKode
+                        kategori_kode: kategoriKode,
+                        service: $(".product-list.active").attr("product-id") || $("#nominal").val() || ""
                     },
                     success: function (response) {
                         if (response.skip_check || (response.status && response.status.code === 204)) {

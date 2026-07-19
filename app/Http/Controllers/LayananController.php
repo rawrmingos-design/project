@@ -10,6 +10,19 @@ use Illuminate\Support\Str;
 
 class LayananController extends Controller
 {
+    private function normalizeCheckIdInquiryPayload(Request $request): array
+    {
+        $enabled = $request->boolean('check_id_enabled');
+        $provider = strtolower(trim((string) $request->input('check_id_provider', 'digiflazz')));
+        $sku = trim((string) $request->input('check_id_provider_sku', ''));
+
+        return [
+            'check_id_enabled' => $enabled,
+            'check_id_provider' => $enabled && $provider === 'digiflazz' ? 'digiflazz' : null,
+            'check_id_provider_sku' => $enabled && $provider === 'digiflazz' && $sku !== '' ? $sku : null,
+        ];
+    }
+
     public function create()
     {
         $datas = Layanan::join('kategoris', 'layanans.kategori_id', 'kategoris.id')->orderBy('layanans.created_at', 'desc')
@@ -61,6 +74,17 @@ class LayananController extends Controller
             $request->harga_gold,
         );
         $layanan->provider = $request->provider;
+        $layanan->catatan = '';
+        $layanan->fill($this->normalizeCheckIdInquiryPayload($request));
+        $layanan->check_id_enabled = $request->boolean('check_id_enabled');
+        $layanan->check_id_provider = $request->boolean('check_id_enabled') ? 'digiflazz' : null;
+        $layanan->check_id_provider_sku = $request->boolean('check_id_enabled') ? trim((string) $request->input('check_id_provider_sku', '')) : null;
+        if (! $request->boolean('check_id_enabled') || $layanan->check_id_provider_sku === '') {
+            $layanan->check_id_enabled = false;
+            $layanan->check_id_provider = null;
+            $layanan->check_id_provider_sku = null;
+        }
+
         $layanan->catatan = '';
         $layanan->status = 'available';
         $layanan->product_logo = ($request->file('product_logo') ? '/assets/product_logo/'.$filename : '');
@@ -128,7 +152,30 @@ class LayananController extends Controller
                         <div class='col-lg-10'>
                             <input type='text' class='form-control' value='" . $data->provider_id . "' name='provider_id'>
                         </div>
-                    </div>  
+                    </div>
+                    <div class='mb-3 row'>
+                        <label class='col-lg-2 col-form-label'>Check ID?</label>
+                        <div class='col-lg-10'>
+                            <div class='form-check form-switch'>
+                                <input class='form-check-input' type='checkbox' role='switch' name='check_id_enabled' value='1' " . ($data->check_id_enabled ? 'checked' : '') . ">
+                                <label class='form-check-label'>Aktifkan SKU inquiry Digiflazz</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class='mb-3 row'>
+                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Check ID Provider</label>
+                        <div class='col-lg-10'>
+                            <select class='form-select' name='check_id_provider'>
+                                <option value='digiflazz' " . ($data->check_id_provider == 'digiflazz' ? 'selected' : '') . ">Digiflazz</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class='mb-3 row'>
+                        <label class='col-lg-2 col-form-label' for='example-fileinput'>Check ID SKU</label>
+                        <div class='col-lg-10'>
+                            <input type='text' class='form-control' value='" . e($data->check_id_provider_sku ?? '') . "' name='check_id_provider_sku'>
+                        </div>
+                    </div>
                     <div class='mb-3 row'>
                         <label class='col-lg-2 col-form-label' for='example-fileinput'>Harga Modal</label>
                         <div class='col-lg-10'>
@@ -239,6 +286,14 @@ class LayananController extends Controller
             'banner_flash_sale' => (!$request->file('banner_flash_sale') ? $cek->banner_flash_sale : '/assets/banner_flash_sale/'.$filenamefs),
             'product_logo' =>  (!$request->file('product_logo') ? $cek->product_logo : '/assets/product_logo/'.$filename)
         ];
+
+        $payload = array_merge($payload, $this->normalizeCheckIdInquiryPayload($request));
+
+        if (! $payload['check_id_enabled']) {
+            $payload['check_id_provider'] = null;
+            $payload['check_id_provider_sku'] = null;
+        }
+
 
         $draft = new Layanan($cek->toArray());
         $pricing->applyDirectTierPrices(

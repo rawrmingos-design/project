@@ -542,6 +542,58 @@ class ProdukForm
                     ->collapsible(),
                     
 
+                Section::make('Check ID / Inquiry')
+                    ->columns(2)
+                    ->columnSpan(3)
+                    ->description('Atur SKU khusus untuk cek ID/nickname. SKU ini tidak dipakai untuk fulfillment order.')
+                    ->schema([
+                        Toggle::make('check_id_enabled')
+                            ->label('Aktifkan Check ID Provider')
+                            ->live()
+                            ->default(false)
+                            ->helperText('Jika aktif, sistem memakai SKU inquiry ini saat validasi ID game untuk produk ini.')
+                            ->afterStateUpdated(function (bool $state, Set $set): void {
+                                if ($state) {
+                                    $set('check_id_provider', 'digiflazz');
+
+                                    return;
+                                }
+
+                                $set('check_id_provider', null);
+                                $set('check_id_provider_sku', null);
+                            }),
+
+                        Select::make('check_id_provider')
+                            ->label('Provider Check ID')
+                            ->options([
+                                'digiflazz' => 'Digiflazz',
+                            ])
+                            ->default('digiflazz')
+                            ->visible(fn (Get $get) => (bool) $get('check_id_enabled'))
+                            ->required(fn (Get $get) => (bool) $get('check_id_enabled'))
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                if ($state !== 'digiflazz') {
+                                    $set('check_id_provider_sku', null);
+                                }
+                            }),
+
+                        Select::make('check_id_provider_sku')
+                            ->label('SKU Inquiry Digiflazz')
+                            ->helperText('SKU ini dipakai hanya untuk cek ID/nickname, bukan untuk order fulfillment.')
+                            ->searchable()
+                            ->visible(fn (Get $get) => (bool) $get('check_id_enabled') && $get('check_id_provider') === 'digiflazz')
+                            ->required(fn (Get $get) => (bool) $get('check_id_enabled') && $get('check_id_provider') === 'digiflazz')
+                            ->getSearchResultsUsing(fn (string $search, Get $get): array => static::getDigiflazzProductSearchResults(
+                                $search,
+                                $get('digiflazz_category_filter'),
+                                $get('digiflazz_brand_filter'),
+                            ))
+                            ->getOptionLabelUsing(fn ($value): ?string => static::getDigiflazzProductOptionLabel($value))
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
+
                 Section::make('Multi-Provider Sources')
                     ->columns(1)
                     ->columnSpan(3)
