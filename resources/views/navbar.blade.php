@@ -34,7 +34,7 @@
         -webkit-backdrop-filter: blur(6px); 
     }
     .hover\:bg-murky-700:hover {
-        background-color:var(--warna_3); 
+        background-color:var(--warna_3);
     }
 
     .navbar-link,
@@ -52,6 +52,20 @@
         color: #fff !important;
     }
 </style>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('drawerMenu', () => ({
+        open: false,
+        usedKeyboard: false,
+        init() {
+            // Initialize drawer - starts closed
+            this.open = false;
+            this.usedKeyboard = false;
+        }
+    }));
+});
+</script>
 <header class="sticky z-40 w-full flex-none backdrop-blur duration-500 ease-in-out print:hidden top-0 mt-0" style="z-index:50">
 
 <div class="container flex h-16 items-center justify-between gap-4">
