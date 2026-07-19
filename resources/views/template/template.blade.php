@@ -647,6 +647,10 @@
     @if($needsSweetAlert)
         <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     @endif
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
         // Prefer local lottie-player build when available, fallback to CDN.
         (function () {
