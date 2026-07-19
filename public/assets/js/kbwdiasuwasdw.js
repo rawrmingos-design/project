@@ -42,54 +42,75 @@
         })
     });
     
-    document.getElementById('scrollLeft').addEventListener('click', function() {
-        document.querySelector('.tabs-container').scrollBy({
-            left: -100,
-            behavior: 'smooth'
-        });
-    });
+    // Scroll buttons - only on home page
+    const scrollLeft = document.getElementById('scrollLeft');
+    const scrollRight = document.getElementById('scrollRight');
+    const tabsContainer = document.querySelector('.tabs-container');
 
-    document.getElementById('scrollRight').addEventListener('click', function() {
-        document.querySelector('.tabs-container').scrollBy({
-            left: 100,
-            behavior: 'smooth'
+    if (scrollLeft && tabsContainer) {
+        scrollLeft.addEventListener('click', function() {
+            tabsContainer.scrollBy({
+                left: -100,
+                behavior: 'smooth'
+            });
         });
-    });
-    
-    
-    //loading hero
-        document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("hero").classList.remove("hidden");
-    document.getElementById("heroo").classList.add("swiper-wrapper");
-});
-    document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("fs").classList.remove("hidden");
-    document.getElementById("heroo").classList.add("patih");
-});
+    }
 
-//tampilkan lainnya
+    if (scrollRight && tabsContainer) {
+        scrollRight.addEventListener('click', function() {
+            tabsContainer.scrollBy({
+                left: 100,
+                behavior: 'smooth'
+            });
+        });
+    }
+    
+
+    //loading hero - only on home page
+    const heroElement = document.getElementById("hero");
+    const herooElement = document.getElementById("heroo");
+    const fsElement = document.getElementById("fs");
+
+    if (heroElement) {
+        heroElement.classList.remove("hidden");
+    }
+
+    if (herooElement) {
+        herooElement.classList.add("swiper-wrapper");
+        herooElement.classList.add("patih");
+    }
+
+    if (fsElement) {
+        fsElement.classList.remove("hidden");
+    }
+
+//tampilkan lainnya - only on home page
  document.addEventListener("DOMContentLoaded", () => {
         const panelTopup = document.getElementById("game");
+        if (!panelTopup) return; // Exit if element doesn't exist
+
         const items = panelTopup.querySelectorAll(".category-item");
         const showAllButton = document.getElementById("showAllButton2");
         const buttonContainer = document.getElementById("buttonContainer2");
-        
+
+        if (!showAllButton || !buttonContainer) return; // Exit if buttons don't exist
+
         let visibleItems = 6;
-        
+
         function updateVisibility() {
             items.forEach((item, index) => {
                 item.style.display = index < visibleItems ? "block" : "none";
             });
-            
+
             if (items.length <= 6) {
                 buttonContainer.style.display = "none";
             } else {
                 buttonContainer.style.display = visibleItems >= items.length ? "none" : "block";
             }
         }
-        
+
         updateVisibility();
-        
+
         showAllButton.addEventListener("click", () => {
             visibleItems += 6;
             updateVisibility();
