@@ -204,6 +204,35 @@
                             </div>
                         </div>
                         <div class="mb-3 row">
+                            <label class="col-lg-2 col-form-label">Check ID?</label>
+                            <div class="col-lg-10">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="check_id_enabled" value="1" {{ old('check_id_enabled') ? 'checked' : '' }}>
+                                    <label class="form-check-label">Aktifkan SKU inquiry Digiflazz</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3 row">
+                            <label for="check_id_provider" class="col-lg-2 col-form-label">Check ID Provider</label>
+                            <div class="col-lg-10">
+                                <select class="form-select" name="check_id_provider">
+                                    <option value="digiflazz" selected>Digiflazz</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3 row">
+                            <label for="check_id_provider_sku" class="col-lg-2 col-form-label">Check ID SKU</label>
+                            <div class="col-lg-10">
+                                <input type="text" class="form-control @error('check_id_provider_sku') is-invalid @enderror"
+                                    value="{{ old('check_id_provider_sku') }}" name="check_id_provider_sku" placeholder="SKU inquiry Digiflazz">
+                                @error('check_id_provider_sku')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                            </div>
+                        </div>
+                        <div class="mb-3 row">
                             <label for="harga" class="col-lg-1 col-form-label">Harga Modal</label>
                             <div class="col-lg-5">
                                 <input step="0.01" type="number" class="form-control @error('harga') is-invalid @enderror"
@@ -430,14 +459,6 @@
                                                 </ul>
                                             </div>
                                         </td>
-                                        {{-- <td>
-                                            <a href="javascript:;"
-                                                onclick="modal('{{ $data->layanan }}', '{{ route('layanan.detail', [$data->id]) }}')"
-                                                class="btn btn-info mb-1">Edit</a>
-                                            <a href="javascript:;" onclick="confirmDelete('{{ $data->id }}')"
-                                                class="btn btn-danger">Delete</a>
-                                        </td> --}}
-
                                         <td>
                                             <div class="dropdown d-inline-block">
                                                 <button class="btn btn-soft-secondary btn-sm" type="button"
@@ -446,15 +467,13 @@
                                                 </button>
                                                 <ul class="dropdown-menu dropdown-menu-end">
                                                     <li>
-                                                        <a href="javascript:void(0);" class="dropdown-item"
-                                                            onclick="modal('{{ $data->layanan }}', '{{ route('layanan.detail', [$data->id]) }}')">
+                                                        <a href="javascript:void(0);" class="dropdown-item js-open-service-modal" data-modal-name="{{ e($data->layanan) }}" data-modal-link="{{ route('layanan.detail', [$data->id]) }}">
                                                             <i class="ri-pencil-fill align-bottom me-2 text-muted"></i>
                                                             Edit
                                                         </a>
                                                     </li>
                                                     <li>
-                                                        <a href="javascript:void(0);" class="dropdown-item"
-                                                            onclick="openDeleteModal('{{ $data->id }}')">
+                                                        <a href="javascript:void(0);" class="dropdown-item js-open-delete-modal" data-delete-id="{{ $data->id }}">
                                                             <i class="ri-delete-bin-fill align-bottom me-2 text-muted"></i>
                                                             Delete
                                                         </a>
@@ -466,7 +485,7 @@
                                 @endforeach
                             </tbody>
                         </table>
-                        <button id="bulk-delete-btn" class="btn btn-danger" onclick="confirmBulkDelete()">Hapus Terpilih</button>
+                        <button id="bulk-delete-btn" class="btn btn-danger" type="button">Hapus Terpilih</button>
                     
                     <script>
                         document.getElementById('select-all').addEventListener('click', function() {
@@ -480,11 +499,11 @@
                             const selected = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(checkbox => checkbox.value);
                             if (selected.length > 0) {
                                 if (confirm('Are you sure you want to delete the selected services?')) {
-                                    fetch('{{ route('layanan.bulkDelete') }}', {
+                                    fetch('/layanan/bulk-delete', {
                                         method: 'POST',
                                         headers: {
                                             'Content-Type': 'application/json',
-                                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                                         },
                                         body: JSON.stringify({ ids: selected })
                                     })
@@ -503,6 +522,20 @@
                                 alert('Please select a service to delete.');
                             }
                         }
+
+                        document.querySelectorAll('.js-open-service-modal').forEach(function (button) {
+                            button.addEventListener('click', function () {
+                                modal(this.dataset.modalName, this.dataset.modalLink);
+                            });
+                        });
+
+                        document.querySelectorAll('.js-open-delete-modal').forEach(function (button) {
+                            button.addEventListener('click', function () {
+                                openDeleteModal(this.dataset.deleteId);
+                            });
+                        });
+
+                        document.getElementById('bulk-delete-btn').addEventListener('click', confirmBulkDelete);
                     </script>
                     </div>
                 </div>

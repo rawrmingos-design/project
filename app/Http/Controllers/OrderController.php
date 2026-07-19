@@ -676,7 +676,7 @@ class OrderController extends Controller
 
 
         $dataKategori = Kategori::where('id', $dataLayanan->kategori_id)->select('kode')->first();
-        $apicheck = new ApiCheckController();
+        $apicheck = new ApiCheckController($item);
 
         $daftarGameValidasi = [
             'arena-breakout',
@@ -793,7 +793,7 @@ class OrderController extends Controller
             'king-of-avalon'
         ];
 
-        if (in_array($dataKategori->kode, $daftarGameValidasi)) {
+        if (in_array($dataKategori->kode, $daftarGameValidasi) || $this->hasDynamicCheckIdInquiry($item)) {
             $data = [];
             if ($dataKategori->kode == 'mobile-legends') {
                 $data = $apicheck->check($request->uid, $request->zone, 'Mobile Legends');
@@ -1638,9 +1638,10 @@ class OrderController extends Controller
         $request->validate([
             'uid' => 'required',
             'kategori_kode' => 'required',
+            'service' => 'nullable|integer',
         ]);
 
-        $kategori = Kategori::select('kode', 'tipe')
+        $kategori = Kategori::select('id', 'kode', 'tipe')
             ->where('kode', $request->kategori_kode)
             ->first();
 
@@ -1655,6 +1656,19 @@ class OrderController extends Controller
                 'status' => ['code' => 204, 'message' => 'Account validation skipped'],
                 'skip_check' => true,
             ]);
+        }
+
+        $layananContext = null;
+        if ($request->filled('service')) {
+            $layananContext = Layanan::query()
+                ->select('id', 'kategori_id', 'check_id_enabled', 'check_id_provider', 'check_id_provider_sku')
+                ->find((int) $request->service);
+
+            if (! $layananContext || (int) $layananContext->kategori_id !== (int) $kategori->id) {
+                return response()->json([
+                    'status' => ['code' => 422, 'message' => 'Layanan tidak sesuai kategori']
+                ], 422);
+            }
         }
 
         $kategoriKode = $kategori->kode;
@@ -1691,14 +1705,14 @@ class OrderController extends Controller
             'world-war-heroes', 'moonlight-blade-m', 'king-of-avalon'
         ];
 
-        if (!in_array($kategoriKode, $daftarGameValidasi)) {
+        if (!in_array($kategoriKode, $daftarGameValidasi) && ! $this->hasDynamicCheckIdInquiry($layananContext)) {
              return response()->json([
                 'status' => ['code' => 400, 'message' => 'Game not supported for validation']
             ]);
         }
 
         // 3. Map Category Code to Game Name for API
-        $apicheck = new ApiCheckController();
+        $apicheck = new ApiCheckController($layananContext);
         $data = [];
 
         // Simplified mapping based on common patterns
@@ -1724,6 +1738,14 @@ class OrderController extends Controller
         
         return response()->json($data);
     }
+    private function hasDynamicCheckIdInquiry(?Layanan $layanan): bool
+    {
+        return $layanan !== null
+            && (bool) ($layanan->check_id_enabled ?? false)
+            && strtolower(trim((string) ($layanan->check_id_provider ?? ''))) === 'digiflazz'
+            && trim((string) ($layanan->check_id_provider_sku ?? '')) !== '';
+    }
+
     private function validateOrder(Request $request)
     {
         $this->validateOrderRequest($request, false);
