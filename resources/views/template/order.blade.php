@@ -4868,8 +4868,6 @@
             document.addEventListener('DOMContentLoaded', initOrderMobileTabs);
         })();
     </script>
-    <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
-
     <!-- ===== AUTOSAVE ACCOUNT DATA SCRIPT ===== -->
     <script>
         (function() {
@@ -5236,6 +5234,8 @@
 
     @include('../footer')
     @push('custom_script')
+        <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
+
         @if(in_array($kategori->tipe, ['joki', 'jokigendong', 'vilogml']))
             <script>
                 const PAYMENT_FEES = {

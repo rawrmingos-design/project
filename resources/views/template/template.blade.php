@@ -270,7 +270,7 @@
         $isHistoryRoute = request()->routeIs(['reload', 'riwayat']);
         $needsSearchUi = $isHomepageRoute || $isLegacyOrderRoute;
         $needsJquery = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
-        $needsSweetAlert = $isInvoiceRoute;
+        $needsSweetAlert = $isInvoiceRoute || $isLegacyOrderRoute;
         $needsToastrStyles = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
         $needsPlaceholderLoadingStyles = false;
         $needsLegacyPublicBundle = $needsJquery;
