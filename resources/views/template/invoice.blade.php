@@ -1865,20 +1865,34 @@
             'QRIS2_RECURRING',
         ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
 
+        // Check if payment value is a QR image URL (ends with image extension)
+        $isQrImageUrl = $isPaymentUrl && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1;
+
         $isQrImage = (
             str_starts_with($paymentValue, 'data:image/') ||
+            $isQrImageUrl ||
             preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1 ||
             ($isQrMethod && !$isPaymentUrl && $paymentValue !== '')
         );
 
+        // Show QR image if it's a QRIS method AND (it's a QR image URL OR not a regular URL)
         $showQrImage = $isPaymentPending &&
             $isQrMethod &&
-            !$isPaymentUrl &&
+            ($isQrImageUrl || !$isPaymentUrl) &&
             $paymentValue !== '';
 
         $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
-        $resolvedQrImageUrl = $isQrImage && !str_starts_with($paymentValue, '00020101') && !filter_var($paymentValue, FILTER_VALIDATE_URL) && !$isPaymentUrl && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1 ? $paymentValue : $dynamicQrSource;
-        $showPayButton = $isPaymentPending && $isPaymentUrl && !$showQrImage;
+
+        // Use QR image URL directly if available, otherwise generate QR from string
+        if ($isQrImageUrl || (str_starts_with($paymentValue, 'data:image/'))) {
+            $resolvedQrImageUrl = $paymentValue;
+        } elseif ($isQrImage && !filter_var($paymentValue, FILTER_VALIDATE_URL)) {
+            $resolvedQrImageUrl = $dynamicQrSource;
+        } else {
+            $resolvedQrImageUrl = $dynamicQrSource;
+        }
+
+        $showPayButton = $isPaymentPending && $isPaymentUrl && !$isQrImageUrl && !$showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
 
         $showCopyPaymentNumber = $isPaymentPending && !$isPaymentUrl && !$showQrImage && (
