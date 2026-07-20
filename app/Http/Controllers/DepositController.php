@@ -390,11 +390,22 @@ class DepositController extends Controller
 
         $data = $payload['data'] ?? [];
 
+        // Extract payment details based on Tokopay API response structure
+        // Ref: https://docs.tokopay.id/order/create-order
+        $payUrl = $data['pay_url'] ?? null;
+        $checkoutUrl = $data['checkout_url'] ?? null;
+        $qrLink = $data['qr_link'] ?? null;
+        $qrString = $data['qr_string'] ?? null;
+
+        // Determine the appropriate value for va_number/no_pembayaran field
+        // Priority: QR code (qr_link) > checkout URL > QR string > payment URL
+        $paymentValue = $qrLink ?? $checkoutUrl ?? $qrString ?? $payUrl;
+
         return [
             'success' => true,
             'reference' => $data['trx_id'] ?? $merchantOrderId,
-            'pay_url' => $data['pay_url'] ?? null,
-            'va_number' => $data['pay_url'] ?? null,
+            'pay_url' => $payUrl,
+            'va_number' => $paymentValue,
             'amount' => (int) ($data['amount'] ?? $grossAmount),
             'gateway_ref' => $data['trx_id'] ?? null,
             'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
