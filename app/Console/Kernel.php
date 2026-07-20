@@ -28,6 +28,12 @@ class Kernel extends ConsoleKernel
          $schedule->command('model:prune', [
              '--model' => [\Illuminate\Notifications\DatabaseNotification::class],
          ])->daily();
+
+         // Log triage - analyze logs and alert if error thresholds exceeded
+         $schedule->command('log:triage')
+             ->daily()
+             ->at('09:00')
+             ->environments(['production', 'staging']);
     }
 
     /**

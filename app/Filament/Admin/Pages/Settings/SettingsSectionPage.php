@@ -1045,6 +1045,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ])
                             ->default('fonnte')
                             ->native(false)
+                            ->live()
                             ->helperText('Pilih provider yang sedang dipakai.'),
 
                         TextInput::make('nomor_admin')
@@ -1057,13 +1058,15 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->label('Token Fonnte')
                             ->password()
                             ->revealable()
-                            ->helperText('Isi jika provider yang dipakai adalah Fonnte.'),
-                            
+                            ->helperText('Isi jika provider yang dipakai adalah Fonnte.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
+
                         TextInput::make('wa_number')
                             ->label('Nomor Device Fonnte')
                             ->tel()
                             ->prefix('+62')
-                            ->helperText('Nomor WhatsApp yang terhubung di Fonnte.'),
+                            ->helperText('Nomor WhatsApp yang terhubung di Fonnte.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
@@ -1085,15 +1088,9 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ])
                             ->default('sync')
                             ->native(false)
-                            ->helperText('Pilih Langsung untuk kirim saat itu juga, atau Antrian jika memakai delay.')
+                            ->live()
+                            ->helperText('Mode Antrian memakai delay tetap 1 detik dari sistem.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
-
-                        TextInput::make('easywa_send_delay')
-                            ->label('Delay Kirim (detik)')
-                            ->numeric()
-                            ->default(0)
-                            ->helperText('Dipakai hanya saat mode EasyWA = Antrian.')
-                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa' && ($get('easywa_send_type') ?? 'sync') === 'async'),
                     ])
                     ->collapsible()
                     ->collapsed()
