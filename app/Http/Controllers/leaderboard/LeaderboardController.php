@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\leaderboard;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\Berita;
@@ -12,18 +11,22 @@ class LeaderboardController extends Controller
 {
     public function leaderboard()
     {
-        // Query top game accounts by total spending (real data from actual purchases)
-        // Falls back to reseller username if game account ID is empty
+        // Query top game nicknames by total spending (real data from actual purchases)
+        // Primary source is pembelians.nickname from check ID flow.
+        // Fallback keeps older rows visible.
+        $accountExpression = "COALESCE(NULLIF(TRIM(pembelians.nickname), ''), NULLIF(TRIM(pembelians.user_id), ''), NULLIF(TRIM(pembelians.username), ''))";
+
         $baseQuery = DB::table('pembelians')
             ->select(
-                DB::raw('COALESCE(NULLIF(pembelians.user_id, ""), pembelians.username) as account_identifier'),
+                DB::raw($accountExpression . ' as account_identifier'),
                 DB::raw('COUNT(pembelians.id) as transaction_count'),
                 DB::raw('SUM(pembelians.harga) as total_harga'),
                 DB::raw('MAX(pembelians.created_at) as last_purchase_at')
             )
             ->where('pembelians.status', 'Sukses')
-            ->whereNotNull('pembelians.user_id')
-            ->groupBy(DB::raw('COALESCE(NULLIF(pembelians.user_id, ""), pembelians.username)'))
+            ->whereRaw($accountExpression . ' IS NOT NULL')
+            ->whereNotIn(DB::raw('LOWER(' . $accountExpression . ')'), ['customer', 'guest', 'anonim', '-'])
+            ->groupBy(DB::raw($accountExpression))
             ->orderBy('total_harga', 'desc');
 
         $top10Today = (clone $baseQuery)
