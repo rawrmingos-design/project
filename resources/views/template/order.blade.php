@@ -4884,18 +4884,43 @@
                 return checkedAccountNickname;
             }
 
-            function saveAccountDraft() {
-                try {
-                    const uidInput = document.getElementById('user_id');
-                    const zoneInput = document.getElementById('zone');
-                    const nicknameJoki = document.getElementById('nickname_joki');
-                    const emailJoki = document.getElementById('email_joki');
+            function getInputValue(id) {
+                const inputs = Array.from(document.querySelectorAll("[id='" + id + "']"));
+                const activeInput = inputs.find(function(input) {
+                    return input === document.activeElement && input.value && input.value.trim();
+                });
+                if (activeInput) return activeInput.value.trim();
 
-                    const uid = uidInput ? uidInput.value.trim() : '';
-                    const zone = zoneInput ? zoneInput.value.trim() : '';
-                    let nickname = nicknameJoki ? nicknameJoki.value.trim() : '';
+                const visibleInput = inputs.find(function(input) {
+                    return input.offsetParent !== null && input.value && input.value.trim();
+                });
+                if (visibleInput) return visibleInput.value.trim();
+
+                const filledInput = inputs.find(function(input) {
+                    return input.value && input.value.trim();
+                });
+
+                return filledInput ? filledInput.value.trim() : '';
+            }
+
+            function fillEmptyInputs(id, value) {
+                if (!value) return;
+
+                document.querySelectorAll("[id='" + id + "']").forEach(function(input) {
+                    if (!input.value) {
+                        input.value = value;
+                    }
+                });
+            }
+
+            function saveAccountDraft(override) {
+                try {
+                    const overrideData = override || {};
+                    const uid = String(overrideData.uid || getInputValue('user_id')).trim();
+                    const zone = String(overrideData.zone || getInputValue('zone')).trim();
+                    let nickname = String(overrideData.nickname || getInputValue('nickname_joki')).trim();
                     if (!nickname) nickname = getCheckedAccountNickname();
-                    if (!nickname && emailJoki) nickname = emailJoki.value.trim();
+                    if (!nickname) nickname = getInputValue('email_joki');
 
                     if (!uid && !nickname) return;
 
@@ -4920,24 +4945,14 @@
                     const data = JSON.parse(saved);
                     if (!data || (!data.uid && !data.nickname)) return;
 
-                    const uidInput = document.getElementById('user_id');
-                    const zoneInput = document.getElementById('zone');
-                    const nicknameJoki = document.getElementById('nickname_joki');
+                    const hasJokiNicknameInput = document.querySelector("[id='nickname_joki']") !== null;
                     const nicknameDisplays = document.querySelectorAll("[id='nickname-display']");
 
-                    if (uidInput && data.uid && !uidInput.value) {
-                        uidInput.value = data.uid;
-                    }
+                    fillEmptyInputs('user_id', data.uid);
+                    fillEmptyInputs('zone', data.zone);
+                    fillEmptyInputs('nickname_joki', data.nickname);
 
-                    if (zoneInput && data.zone && !zoneInput.value) {
-                        zoneInput.value = data.zone;
-                    }
-
-                    if (nicknameJoki && data.nickname && !nicknameJoki.value) {
-                        nicknameJoki.value = data.nickname;
-                    }
-
-                    if (!nicknameJoki && nicknameDisplays.length && data.nickname) {
+                    if (!hasJokiNicknameInput && nicknameDisplays.length && data.nickname) {
                         checkedAccountNickname = data.nickname;
                         nicknameDisplays.forEach(function(nicknameDisplay) {
                             nicknameDisplay.dataset.username = data.nickname;
@@ -4961,16 +4976,21 @@
                 window.addEventListener('order:account-checked', function(event) {
                     const detail = event.detail || {};
                     checkedAccountNickname = String(detail.nickname || '').trim();
-                    saveAccountDraft();
+                    saveAccountDraft({
+                        uid: detail.uid,
+                        zone: detail.zone,
+                        nickname: detail.nickname
+                    });
                 });
 
                 // Add focusout listeners to save early
                 const inputs = ['user_id', 'zone', 'nickname_joki', 'email_joki'];
                 inputs.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        el.addEventListener('focusout', saveAccountDraft);
-                    }
+                    document.querySelectorAll("[id='" + id + "']").forEach(function(el) {
+                        el.addEventListener('focusout', function() {
+                            saveAccountDraft();
+                        });
+                    });
                 });
             });
         })();
