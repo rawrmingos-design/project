@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsappNotificationService
 {
+    private const EASYWA_ASYNC_DELAY_SECONDS = 1;
+
     public function getProviderStatus(): array
     {
         $api = SettingWeb::query()->first();
@@ -136,8 +138,8 @@ class WhatsappNotificationService
             'type' => in_array($api->easywa_send_type, ['sync', 'async'], true) ? $api->easywa_send_type : 'sync',
         ];
 
-        if (($payload['type'] ?? 'sync') === 'async' && (int) $api->easywa_send_delay > 0) {
-            $payload['delay'] = (int) $api->easywa_send_delay;
+        if (($payload['type'] ?? 'sync') === 'async') {
+            $payload['delay'] = self::EASYWA_ASYNC_DELAY_SECONDS;
         }
 
         $response = Http::withHeaders([
@@ -213,29 +215,44 @@ class WhatsappNotificationService
             return ['success' => false, 'message' => 'Konfigurasi EasyWA belum lengkap.'];
         }
 
-        $response = Http::withHeaders([
-            'email' => $api->easywa_email,
-            'secret-key' => $api->easywa_secret_key,
-        ])->get('https://api.easywa.id/v1/status');
+        try {
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'email' => $api->easywa_email,
+                    'secret-key' => $api->easywa_secret_key,
+                ])
+                ->get('https://api.easywa.id/v1/status');
 
+            if (! $response->successful()) {
+                return [
+                    'success' => false,
+                    'message' => 'EasyWA HTTP ' . $response->status(),
+                    'response' => $response->body(),
+                ];
+            }
 
-        if (! $response->successful()) {
+            $decoded = $response->json();
+            $status = strtolower(trim((string) ($decoded['status'] ?? 'unknown')));
+            $message = trim((string) ($decoded['msg'] ?? ''));
+
+            return [
+                'success' => in_array($status, ['ready', 'qr', 'starting'], true),
+                'status' => $status,
+                'message' => $message !== '' ? $message : 'EasyWA status fetched.',
+                'response' => $decoded,
+            ];
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::warning('EasyWA connection failed', ['error' => $e->getMessage()]);
             return [
                 'success' => false,
-                'message' => 'EasyWA HTTP ' . $response->status(),
-                'response' => $response->body(),
+                'message' => 'Tidak dapat terhubung ke EasyWA API. Coba lagi nanti.',
+            ];
+        } catch (\Exception $e) {
+            Log::error('EasyWA status check failed', ['error' => $e->getMessage()]);
+            return [
+                'success' => false,
+                'message' => 'Error saat cek status EasyWA: ' . $e->getMessage(),
             ];
         }
-
-        $decoded = $response->json();
-        $status = strtolower(trim((string) ($decoded['status'] ?? 'unknown')));
-        $message = trim((string) ($decoded['msg'] ?? ''));
-
-        return [
-            'success' => in_array($status, ['ready', 'qr', 'starting'], true),
-            'status' => $status,
-            'message' => $message !== '' ? $message : 'EasyWA status fetched.',
-            'response' => $decoded,
-        ];
     }
 }

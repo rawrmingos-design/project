@@ -37,7 +37,6 @@ class NotificationsSettings extends SettingsSectionPage
             'easywa_email',
             'easywa_secret_key',
             'easywa_send_type',
-            'easywa_send_delay',
             'mail_mailer',
             'mail_host',
             'mail_port',

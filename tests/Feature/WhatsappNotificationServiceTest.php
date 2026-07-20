@@ -63,6 +63,223 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->assertSame('token invalid', $result['reason']);
     }
 
+    public function test_easywa_returns_success_when_status_is_ready(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response([
+                'status' => 'ready',
+                'number' => '628123456789',
+                'msg' => 'Device connected',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('ready', $result['status']);
+        $this->assertSame('Device connected', $result['message']);
+    }
+
+    public function test_easywa_returns_success_when_status_is_qr(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response([
+                'status' => 'qr',
+                'qr' => 'data:image/png;base64,iVBORw0...',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('qr', $result['status']);
+    }
+
+    public function test_easywa_returns_success_when_status_is_starting(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response([
+                'status' => 'starting',
+                'msg' => 'Initializing...',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('starting', $result['status']);
+    }
+
+    public function test_easywa_returns_failed_when_status_is_unknown(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response([
+                'status' => 'disconnected',
+                'msg' => 'Device offline',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('disconnected', $result['status']);
+    }
+
+    public function test_easywa_returns_error_when_email_is_blank(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => '',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Konfigurasi EasyWA belum lengkap', $result['message']);
+    }
+
+    public function test_easywa_returns_error_when_secret_key_is_blank(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => '',
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Konfigurasi EasyWA belum lengkap', $result['message']);
+    }
+
+    public function test_easywa_handles_http_500_error_gracefully(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response('Internal Server Error', 500),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('EasyWA HTTP 500', $result['message']);
+    }
+
+    public function test_easywa_handles_connection_timeout_gracefully(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        // Simulate connection timeout (ConnectionException)
+        Http::fake([
+            'https://api.easywa.id/v1/status' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('cURL error 28: Operation timed out after 10000 milliseconds');
+            },
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Tidak dapat terhubung ke EasyWA API', $result['message']);
+    }
+
+    public function test_easywa_handles_generic_exception_gracefully(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        // Simulate unexpected exception
+        Http::fake([
+            'https://api.easywa.id/v1/status' => function () {
+                throw new \RuntimeException('Unexpected error occurred');
+            },
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Error saat cek status EasyWA', $result['message']);
+        $this->assertStringContainsString('Unexpected error occurred', $result['message']);
+    }
+
+    public function test_easywa_async_send_uses_fixed_one_second_delay(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+            'easywa_send_type' => 'async',
+            'easywa_send_delay' => 999,
+        ]);
+
+        Http::fake([
+            'https://api.easywa.id/v1/send-message' => Http::response([
+                'status' => true,
+                'msg' => 'queued',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)
+            ->sendTestMessage('085792464508', 'Halo test');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('queued', $result['message']);
+
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://api.easywa.id/v1/send-message'
+                && ($request->data()['type'] ?? null) === 'async'
+                && ($request->data()['delay'] ?? null) === 1;
+        });
+    }
+
+    public function test_get_provider_status_returns_unsupported_message_for_non_easywa_provider(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Cek status otomatis hanya tersedia untuk EasyWA', $result['message']);
+    }
+
     private function createSettings(array $overrides = []): void
     {
         SettingWeb::query()->create(array_merge([
