@@ -98,6 +98,30 @@
             background-color: var(--warna_4);
         }
 
+        /* Payment Section Disabled State */
+        #section-payment-channel.payment-disabled {
+            position: relative;
+            pointer-events: none;
+        }
+
+        #section-payment-channel.payment-disabled::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 10;
+            border-radius: 0.75rem;
+            cursor: not-allowed;
+        }
+
+        #section-payment-channel.payment-disabled dl {
+            opacity: 0.6;
+        }
+
         .relative {
             position: relative;
         }
@@ -5281,6 +5305,57 @@
     @include('../footer')
     @push('custom_script')
         <script src="{{ asset('/assets/js/newkbrorder.js') }}?v={{ time() }}"></script>
+
+        <script>
+            // Payment Section Security - Disable until product is selected
+            $(document).ready(function() {
+                // Initialize payment section as disabled
+                $('#section-payment-channel').addClass('payment-disabled');
+
+                // Function to enable payment section
+                function enablePaymentSection() {
+                    $('#section-payment-channel').removeClass('payment-disabled');
+                }
+
+                // Function to show toast notification
+                function showProductNotSelectedToast() {
+                    if (typeof toastr !== 'undefined') {
+                        toastr.warning('Silakan pilih produk/layanan terlebih dahulu!', 'Perhatian', {
+                            closeButton: true,
+                            progressBar: true,
+                            timeOut: 3000,
+                            positionClass: 'toast-top-right'
+                        });
+                    } else {
+                        alert('Silakan pilih produk/layanan terlebih dahulu!');
+                    }
+                }
+
+                // Intercept clicks on disabled payment section
+                $(document).on('click', '#section-payment-channel.payment-disabled', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showProductNotSelectedToast();
+                    return false;
+                });
+
+                // Listen for product selection via AJAX
+                $(document).ajaxSuccess(function(event, xhr, settings, data) {
+                    if (settings.url && settings.url.includes('ajax/price') && data && data.harga) {
+                        enablePaymentSection();
+                    }
+                });
+
+                // Fallback: listen for product-list clicks
+                $(document).on('click', '.product-list', function() {
+                    setTimeout(function() {
+                        if ($('#nominal').val()) {
+                            enablePaymentSection();
+                        }
+                    }, 500);
+                });
+            });
+        </script>
 
         @if(in_array($kategori->tipe, ['joki', 'jokigendong', 'vilogml']))
             <script>
