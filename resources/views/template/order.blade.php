@@ -4873,6 +4873,16 @@
         (function() {
             const categorySlug = "{{ $kategori->kode }}";
             const storageKey = 'order:account:draft:' + categorySlug;
+            let checkedAccountNickname = '';
+
+            function getCheckedAccountNickname() {
+                const nicknameDisplay = document.querySelector("[id='nickname-display'][data-username]");
+                if (nicknameDisplay && nicknameDisplay.dataset.username) {
+                    return nicknameDisplay.dataset.username.trim();
+                }
+
+                return checkedAccountNickname;
+            }
 
             function saveAccountDraft() {
                 try {
@@ -4884,6 +4894,7 @@
                     const uid = uidInput ? uidInput.value.trim() : '';
                     const zone = zoneInput ? zoneInput.value.trim() : '';
                     let nickname = nicknameJoki ? nicknameJoki.value.trim() : '';
+                    if (!nickname) nickname = getCheckedAccountNickname();
                     if (!nickname && emailJoki) nickname = emailJoki.value.trim();
 
                     if (!uid && !nickname) return;
@@ -4912,6 +4923,7 @@
                     const uidInput = document.getElementById('user_id');
                     const zoneInput = document.getElementById('zone');
                     const nicknameJoki = document.getElementById('nickname_joki');
+                    const nicknameDisplays = document.querySelectorAll("[id='nickname-display']");
 
                     if (uidInput && data.uid && !uidInput.value) {
                         uidInput.value = data.uid;
@@ -4923,6 +4935,14 @@
 
                     if (nicknameJoki && data.nickname && !nicknameJoki.value) {
                         nicknameJoki.value = data.nickname;
+                    }
+
+                    if (!nicknameJoki && nicknameDisplays.length && data.nickname) {
+                        checkedAccountNickname = data.nickname;
+                        nicknameDisplays.forEach(function(nicknameDisplay) {
+                            nicknameDisplay.dataset.username = data.nickname;
+                            nicknameDisplay.textContent = 'Valid: ' + data.nickname;
+                        });
                     }
                 } catch (e) {
                     // Ignore parse errors
@@ -4937,6 +4957,12 @@
                 if (orderForm) {
                     orderForm.addEventListener('submit', saveAccountDraft);
                 }
+
+                window.addEventListener('order:account-checked', function(event) {
+                    const detail = event.detail || {};
+                    checkedAccountNickname = String(detail.nickname || '').trim();
+                    saveAccountDraft();
+                });
 
                 // Add focusout listeners to save early
                 const inputs = ['user_id', 'zone', 'nickname_joki', 'email_joki'];

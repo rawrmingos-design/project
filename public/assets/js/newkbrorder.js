@@ -747,7 +747,7 @@ $(document).ready(function () {
     var checkTimer;
 
     function resetNicknameDisplay() {
-        $("#nickname-display").text("").removeClass("text-gray-500 text-green-500 text-red-500");
+        $("[id='nickname-display']").text("").removeClass("text-gray-500 text-green-500 text-red-500").removeAttr("data-username");
     }
 
     function canCheckAccount(kategoriTipe) {
@@ -786,9 +786,17 @@ $(document).ready(function () {
                         if (response.skip_check || (response.status && response.status.code === 204)) {
                             resetNicknameDisplay();
                         } else if (response.status && response.status.code === 200) {
-                            $("#nickname-display").html("Valid: " + response.data.username).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                            var checkedUsername = response.data.username || "";
+                            $("[id='nickname-display']").html("Valid: " + checkedUsername).attr("data-username", checkedUsername).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                            window.dispatchEvent(new CustomEvent("order:account-checked", {
+                                detail: {
+                                    uid: uid,
+                                    zone: zone,
+                                    nickname: checkedUsername
+                                }
+                            }));
                         } else {
-                            $("#nickname-display").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500");
+                            $("[id='nickname-display']").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500").removeAttr("data-username");
                         }
                     },
                     error: function () {
