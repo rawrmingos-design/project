@@ -12,50 +12,52 @@ class LeaderboardController extends Controller
 {
     public function leaderboard()
     {
-        $top10Today = DB::table('pembelians')
-            ->join('users', 'pembelians.username', '=', 'users.username')
-            ->select('users.name as username', DB::raw('SUM(pembelians.harga) as total_harga'))
+        // Query top game accounts by total spending (real data from actual purchases)
+        // Falls back to reseller username if game account ID is empty
+        $baseQuery = DB::table('pembelians')
+            ->select(
+                DB::raw('COALESCE(NULLIF(pembelians.user_id, ""), pembelians.username) as account_identifier'),
+                DB::raw('COUNT(pembelians.id) as transaction_count'),
+                DB::raw('SUM(pembelians.harga) as total_harga'),
+                DB::raw('MAX(pembelians.created_at) as last_purchase_at')
+            )
+            ->where('pembelians.status', 'Sukses')
+            ->whereNotNull('pembelians.user_id')
+            ->groupBy(DB::raw('COALESCE(NULLIF(pembelians.user_id, ""), pembelians.username)'))
+            ->orderBy('total_harga', 'desc');
+
+        $top10Today = (clone $baseQuery)
             ->whereDate('pembelians.created_at', Carbon::today())
-            ->where('pembelians.status', 'Sukses')
-            ->whereNotNull('pembelians.username')
-            ->groupBy('users.name')
-            ->orderBy('total_harga', 'desc')
             ->limit(10)
             ->get();
 
-        $top10ThisWeek = DB::table('pembelians')
-            ->join('users', 'pembelians.username', '=', 'users.username')
-            ->select('users.name as username', DB::raw('SUM(pembelians.harga) as total_harga'))
-            ->whereBetween('pembelians.created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()])
-            ->where('pembelians.status', 'Sukses')
-            ->whereNotNull('pembelians.username')
-            ->groupBy('users.name')
-            ->orderBy('total_harga', 'desc')
+        $top10ThisWeek = (clone $baseQuery)
+            ->whereBetween('pembelians.created_at', [
+                Carbon::now()->startOfWeek(Carbon::MONDAY),
+                Carbon::now()->endOfWeek(Carbon::SUNDAY)
+            ])
             ->limit(10)
             ->get();
 
-        $top10ThisMonth = DB::table('pembelians')
-            ->join('users', 'pembelians.username', '=', 'users.username')
-            ->select('users.name as username', DB::raw('SUM(pembelians.harga) as total_harga'))
+        $top10ThisMonth = (clone $baseQuery)
             ->whereMonth('pembelians.created_at', Carbon::now()->month)
-            ->where('pembelians.status', 'Sukses')
-            ->whereNotNull('pembelians.username')
-            ->groupBy('users.name')
-            ->orderBy('total_harga', 'desc')
+            ->whereYear('pembelians.created_at', Carbon::now()->year)
             ->limit(10)
             ->get();
 
-        $maskUsername = function($username) {
-            $len = strlen($username);
-            if ($len <= 3) return $username;
-            $visibleCount = max(1, floor($len / 2));
-            return substr($username, 0, $visibleCount) . str_repeat('*', $len - $visibleCount);
+        // Mask account identifiers for privacy
+        $maskIdentifier = function($identifier) {
+            $len = strlen((string) $identifier);
+            if ($len <= 3) return (string) $identifier;
+            // Show 1/3, hide 2/3
+            $visibleCount = max(1, ceil($len / 3));
+            return substr((string) $identifier, 0, $visibleCount) . str_repeat('*', $len - $visibleCount);
         };
 
         foreach ([$top10Today, $top10ThisWeek, $top10ThisMonth] as $collection) {
             foreach ($collection as $item) {
-                if (!empty($item->username)) {
-                    $item->username = $maskUsername($item->username);
+                if (!empty($item->account_identifier)) {
+                    $item->account_identifier = $maskIdentifier($item->account_identifier);
                 }
             }
         }

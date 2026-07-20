@@ -50,9 +50,11 @@
 		<div class="absolute inset-0 z-10 bg-transparent">
 		</div>
 			<div class="container relative z-20 py-12 ">
-			     <img src="{{url('')}}{{ !$config ? '' : $config->logo_header }}" width="100" height="100" class="mx-auto h-32 w-auto" style="color: transparent;" alt="{{ $config->judul_web }}"/>
+			     @if($logoheader && $logoheader->isi)
+			         <img src="{{ url($logoheader->isi) }}" width="100" height="100" class="mx-auto h-32 w-auto" style="color: transparent;" alt="Logo Header"/>
+			     @endif
 			<h2 class="mx-auto max-w-2xl text-center text-3xl font-bold tracking-tight text-white sm:text-4xl">Leaderboard!</h2>
-                        <div class="mt-6 mx-auto max-w-2xl text-center">    <span class="text-baser">Reseller, saatnya jadi juara! Raih posisi Top 10 di leaderboard Top Up sebanyak mungkin dan dapatkan hadiah menarik! Tingkatkan penjualanmu sekarang!</span></div>
+                        <div class="mt-6 mx-auto max-w-2xl text-center">    <span class="text-baser">Top 10 pembelian terbanyak! Data real dari transaksi sukses di platform kami.</span></div>
             </div>
 	</div>
 </div>
@@ -73,23 +75,23 @@
         <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
             <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10Today as $index => $item)
-                    @if ($item->username)
+                    @if ($item->account_identifier)
                         <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
                             <div class="flex items-center gap-x-4">
                                 <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
                                     @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
                                 </span>
                                 <div class="relative">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->account_identifier) }}&background=random&color=fff&size=40" alt="{{ $item->account_identifier }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
                                     @if($index < 3)
                                         <div class="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-green-500 ring-2 ring-secondary animate-pulse"></div>
                                     @endif
                                 </div>
-                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->account_identifier }}</div>
                             </div>
                             <div class="text-right flex flex-col items-end">
                                 <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
-                                <span class="text-[10px] text-murky-400 uppercase tracking-wider">Top Up Area</span>
+                                <span class="text-[10px] text-murky-400 uppercase tracking-wider">{{ $item->transaction_count }}x Top Up</span>
                             </div>
                         </li>
                     @endif
@@ -113,19 +115,20 @@
         <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
             <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10ThisWeek as $index => $item)
-                    @if ($item->username)
+                    @if ($item->account_identifier)
                         <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
                             <div class="flex items-center gap-x-4">
                                 <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
                                     @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
                                 </span>
                                 <div class="relative">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->account_identifier) }}&background=random&color=fff&size=40" alt="{{ $item->account_identifier }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
                                 </div>
-                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->account_identifier }}</div>
                             </div>
                             <div class="text-right flex flex-col items-end">
                                 <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
+                                <span class="text-[10px] text-murky-400 uppercase tracking-wider">{{ $item->transaction_count }}x Top Up</span>
                             </div>
                         </li>
                     @endif
@@ -149,19 +152,20 @@
         <div class="rounded-2xl bg-secondary shadow-xl ring-1 ring-white/5 p-4 sm:p-6">
             <ul class="space-y-4 text-sm leading-6 text-white">
                 @foreach($top10ThisMonth as $index => $item)
-                    @if ($item->username)
+                    @if ($item->account_identifier)
                          <li class="relative flex items-center justify-between gap-x-4 p-3 rounded-xl transition-all duration-300 {{ $index < 3 ? 'bg-primary-500/10 border border-primary-500/20' : 'hover:bg-murky-800 border border-transparent hover:border-white/5' }}">
                             <div class="flex items-center gap-x-4">
                                 <span class="flex items-center justify-center w-6 font-bold {{ $index == 0 ? 'text-yellow-400 text-lg' : ($index == 1 ? 'text-gray-300 text-lg' : ($index == 2 ? 'text-amber-600 text-lg' : 'text-murky-400')) }}">
                                     @if($index == 0) 🥇 @elseif($index == 1) 🥈 @elseif($index == 2) 🥉 @else #{{ $index + 1 }} @endif
                                 </span>
                                 <div class="relative">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->username) }}&background=random&color=fff&size=40" alt="{{ $item->username }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
+                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($item->account_identifier) }}&background=random&color=fff&size=40" alt="{{ $item->account_identifier }}" class="h-10 w-10 rounded-full {{ $index < 3 ? 'ring-2 ring-primary-500 focus:ring-offset-2 focus:ring-offset-secondary' : 'ring-1 ring-white/10' }}">
                                 </div>
-                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->username }}</div>
+                                <div class="font-medium {{ $index < 3 ? 'text-primary-100' : 'text-gray-200' }}">{{ $item->account_identifier }}</div>
                             </div>
                             <div class="text-right flex flex-col items-end">
                                 <span class="font-bold text-primary-400">Rp {{ number_format($item->total_harga, 0, '.', '.') }}</span>
+                                <span class="text-[10px] text-murky-400 uppercase tracking-wider">{{ $item->transaction_count }}x Top Up</span>
                             </div>
                         </li>
                     @endif
