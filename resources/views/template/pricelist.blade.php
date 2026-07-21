@@ -231,25 +231,19 @@ table {
                                     class="table-cell px-3 py-3.5 text-left text-xs font-semibold text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
                                     <div
                                         class="cursor-pointer select-none flex whitespace-nowrap items-center justify-between">
-                                        Public</div>
-                                </th>
-                                <th scope="col" colspan="1"
-                                    class="table-cell px-3 py-3.5 text-left text-xs font-semibold text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
-                                    <div
-                                        class="cursor-pointer select-none flex whitespace-nowrap items-center justify-between">
                                         Member</div>
                                 </th>
                                 <th scope="col" colspan="1"
                                     class="table-cell px-3 py-3.5 text-left text-xs font-semibold text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
                                     <div
                                         class="cursor-pointer select-none flex whitespace-nowrap items-center justify-between">
-                                        Platinum</div>
+                                        Gold</div>
                                 </th>
                                 <th scope="col" colspan="1"
                                     class="table-cell px-3 py-3.5 text-left text-xs font-semibold text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
                                     <div
                                         class="cursor-pointer select-none flex whitespace-nowrap items-center justify-between">
-                                        Gold</div>
+                                        Platinum</div>
                                 </th>
                                 <th scope="col" colspan="1"
                                     class="table-cell px-3 py-3.5 text-left text-xs font-semibold text-white first:table-cell first:pl-4 sm:first:pl-6 first:pr-4 last:relative last:table-cell sm:last:pr-6 [&amp;:nth-last-child(2)]:table-cell">
@@ -342,10 +336,9 @@ table {
                 row.innerHTML = `
                     <td class="table-cell px-3 py-3.5 text-xs text-white">${product.nama_kategori}</td>
                     <td class="table-cell px-3 py-3.5 text-xs text-white">${product.layanan}</td>
-                    <td class="table-cell px-3 py-3.5 text-xs text-white">Rp.${new Intl.NumberFormat('id-ID').format(product.harga)}</td>
                     <td class="table-cell px-3 py-3.5 text-xs text-white">Rp.${new Intl.NumberFormat('id-ID').format(product.harga_member)}</td>
-                    <td class="table-cell px-3 py-3.5 text-xs text-white">Rp.${new Intl.NumberFormat('id-ID').format(product.harga_platinum)}</td>
                     <td class="table-cell px-3 py-3.5 text-xs text-white">Rp.${new Intl.NumberFormat('id-ID').format(product.harga_gold)}</td>
+                    <td class="table-cell px-3 py-3.5 text-xs text-white">Rp.${new Intl.NumberFormat('id-ID').format(product.harga_platinum)}</td>
                     <td class="table-cell px-3 py-3.5 text-xs text-white">
                         <span class="inline-flex items-center rounded-md bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-500/20 uppercase">${product.status}</span>
                     </td>

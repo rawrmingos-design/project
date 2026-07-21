@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kategori;
-use Illuminate\Http\Request;
 use App\Models\Layanan;
 use App\Models\Berita;
 
@@ -24,7 +23,6 @@ class PricelistController extends Controller
                     'layanans.kategori_id',
                     'layanans.layanan',
                     'layanans.provider_id',
-                    'layanans.harga_member AS harga',
                     'layanans.harga_member',
                     'layanans.harga_platinum',
                     'layanans.harga_gold',
