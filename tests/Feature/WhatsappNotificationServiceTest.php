@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\SettingWeb;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -278,6 +279,131 @@ class WhatsappNotificationServiceTest extends TestCase
 
         $this->assertFalse($result['success']);
         $this->assertStringContainsString('Cek status otomatis hanya tersedia untuk EasyWA', $result['message']);
+    }
+
+    public function test_easywa_circuit_breaker_opens_after_threshold_failures(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Cache::forget('whatsapp:easywa:failures');
+        Cache::forget('whatsapp:easywa:open_until');
+
+        Http::fake([
+            'https://api.easywa.id/v1/send-message' => Http::response([
+                'status' => false,
+                'msg' => 'Gagal',
+            ], 200),
+        ]);
+
+        $service = app(WhatsappNotificationService::class);
+
+        // 3 failures = threshold → circuit opens
+        $service->sendTestMessage('0811', 'test');
+        $service->sendTestMessage('0811', 'test');
+        $service->sendTestMessage('0811', 'test');
+
+        $this->assertNotNull(Cache::get('whatsapp:easywa:open_until'));
+    }
+
+    public function test_easywa_circuit_breaker_blocks_subsequent_calls_when_open(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        // Manually open the circuit
+        Cache::put('whatsapp:easywa:open_until', now()->addMinutes(2)->timestamp, 300);
+        Cache::put('whatsapp:easywa:failures', 5, 300);
+
+        Http::fake([
+            'https://api.easywa.id/v1/send-message' => Http::response(['status' => true], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->sendTestMessage('0811', 'test');
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('sedang bermasalah', $result['message']);
+        Http::assertNothingSent();
+    }
+
+    public function test_easywa_circuit_breaker_resets_after_cooldown(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        // Set open_until to the past → circuit should be closed
+        Cache::put('whatsapp:easywa:open_until', now()->subMinute()->timestamp, 300);
+        Cache::put('whatsapp:easywa:failures', 5, 300);
+
+        Http::fake([
+            'https://api.easywa.id/v1/send-message' => Http::response([
+                'status' => true,
+                'msg' => 'sent',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->sendTestMessage('0811', 'test');
+
+        $this->assertTrue($result['success']);
+        Http::assertSentCount(1);
+        // circuit keys should be gone after successful send
+        $this->assertNull(Cache::get('whatsapp:easywa:failures'));
+        $this->assertNull(Cache::get('whatsapp:easywa:open_until'));
+    }
+
+    public function test_easywa_send_uses_8_second_timeout(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Cache::forget('whatsapp:easywa:failures');
+        Cache::forget('whatsapp:easywa:open_until');
+
+        Http::fake([
+            'https://api.easywa.id/v1/send-message' => Http::response([
+                'status' => true,
+                'msg' => 'sent',
+            ], 200),
+        ]);
+
+        app(WhatsappNotificationService::class)->sendTestMessage('0811', 'test');
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://api.easywa.id/v1/send-message';
+        });
+    }
+
+    public function test_easywa_status_circuit_open_blocks_status_check(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'easywa',
+            'easywa_email' => 'test@example.com',
+            'easywa_secret_key' => 'test-secret-key',
+        ]);
+
+        Cache::put('whatsapp:easywa:open_until', now()->addMinutes(2)->timestamp, 300);
+
+        Http::fake([
+            'https://api.easywa.id/v1/status' => Http::response(['status' => 'ready'], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)->getProviderStatus();
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('sedang bermasalah', $result['message']);
+        Http::assertNothingSent();
     }
 
     private function createSettings(array $overrides = []): void
