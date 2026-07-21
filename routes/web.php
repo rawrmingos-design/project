@@ -180,7 +180,9 @@ if ($adminHost !== '') {
 
 if ($docsHost !== '') {
     Route::domain($docsHost)->middleware(['xss', 'sanitize'])->group(function () {
-        Route::get('/', [\App\Http\Controllers\Public\DocsController::class, 'index'])->name('docs.index');
+        Route::get('/', [\App\Http\Controllers\Public\DocsController::class, 'index'])
+            ->name('docs.index')
+            ->middleware('auth.message:Anda harus login terlebih dahulu untuk mengakses dokumentasi API.');
     });
 }
 

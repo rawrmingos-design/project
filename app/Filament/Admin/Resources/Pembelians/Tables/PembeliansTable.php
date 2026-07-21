@@ -99,6 +99,15 @@ class PembeliansTable
                     ->copyable()
                     ->default('-'),
 
+                TextColumn::make('email')
+                    ->label('Email')
+                    ->getStateUsing(fn($record) => $record->email_pembeli ?? $record->user?->email ?? '-')
+                    ->searchable(['email_pembeli'])
+                    ->copyable()
+                    ->limit(30)
+                    ->tooltip(fn($record) => $record->email_pembeli ?? $record->user?->email)
+                    ->toggleable(),
+
                 TextColumn::make('keterangan_sn')
                     ->label('SN / Keterangan')
                     ->default('-')

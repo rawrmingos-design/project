@@ -52,6 +52,7 @@ class BrandingSettings extends SettingsSectionPage
             'url_tiktok',
             'url_youtube',
             'url_fb',
+            'url_discord',
         ];
     }
 }

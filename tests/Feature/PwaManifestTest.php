@@ -92,11 +92,11 @@ class PwaManifestTest extends TestCase
         $response->assertSee('pwa_install_prompt_shown', false);
         $response->assertSee('Install manual:', false);
         $response->assertSee('pwa_install_manual_hint_shown', false);
-        $response->assertSee('data-pwa-update-notice', false);
-        $response->assertSee('Update tersedia', false);
-        $response->assertSee('pwa-update-refresh', false);
-        $response->assertSee('updatefound', false);
-        $response->assertSee('controllerchange', false);
+        $response->assertDontSee('data-pwa-update-notice', false);
+        $response->assertDontSee('Update tersedia', false);
+        $response->assertDontSee('pwa-update-refresh', false);
+        $response->assertDontSee('updatefound', false);
+        $response->assertDontSee('controllerchange', false);
         $response->assertSee('format-detection', false);
         $response->assertSee('telephone=no', false);
         $response->assertSee('name="theme-color"', false);

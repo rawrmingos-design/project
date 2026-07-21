@@ -25,7 +25,19 @@
     <h2 id="footer-heading" class="sr-only">Footer</h2>
     <div class="container pb-8">
         @php
-            $footerDescription = trim((string) ($config->deskripsi_web ?? ''));
+            // Determine if current page is homepage/beranda
+            $isHomepage = request()->is('/') || request()->is('id');
+
+            // Use homepage-specific footer description if:
+            // 1. We're on homepage/beranda
+            // 2. Homepage footer is enabled
+            // 3. Homepage footer description is not empty
+            if ($isHomepage && ($config->aktif_footer_beranda ?? false) && !empty(trim((string) ($config->deskripsi_footer_beranda ?? '')))) {
+                $footerDescription = trim((string) $config->deskripsi_footer_beranda);
+            } else {
+                // Fallback to default description for all other pages
+                $footerDescription = trim((string) ($config->deskripsi_web ?? ''));
+            }
         @endphp
         @if($footerDescription !== '')
             <section class="footer-seo-rich" data-footer-seo>
@@ -112,8 +124,42 @@
                             <div class="h-1 w-1/4 rounded-full bg-primary-400"></div>
                         </div>
                         <ul role="list" class="mt-6 space-y-4">
-                            <li><a href="{{ !$config ? '' : $config->url_wa }}" class="text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">WhatsApp</a></li>
-                            <li><a href="{{ !$config ? '' : $config->url_ig }}" class="text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">Instagram</a></li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_wa }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#25D366" d="M20.52 3.48A11.79 11.79 0 0 0 12.1 0C5.55 0 .23 5.32.23 11.86c0 2.09.55 4.13 1.58 5.93L.13 24l6.36-1.67a11.88 11.88 0 0 0 5.61 1.43h.01c6.54 0 11.86-5.32 11.86-11.86 0-3.17-1.23-6.15-3.45-8.42Z"/><path fill="#fff" d="M12.1 21.75h-.01a9.84 9.84 0 0 1-5.02-1.38l-.36-.22-3.77.99 1-3.67-.24-.38a9.82 9.82 0 0 1-1.51-5.23c0-5.45 4.44-9.89 9.91-9.89 2.65 0 5.13 1.03 7 2.9a9.82 9.82 0 0 1 2.9 7.02c0 5.46-4.44 9.86-9.9 9.86Zm5.43-7.39c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.21-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.08-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.23 1.36.2 1.87.12.57-.08 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.42-.07-.13-.27-.2-.57-.35Z"/></svg>
+                                    <span>WhatsApp</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_ig }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="ig-footer-gradient" x1="0" x2="1" y1="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".35" stop-color="#FA7E1E"/><stop offset=".65" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#ig-footer-gradient)"/><path fill="#fff" d="M12 7.1a4.9 4.9 0 1 0 0 9.8 4.9 4.9 0 0 0 0-9.8Zm0 8.08a3.18 3.18 0 1 1 0-6.36 3.18 3.18 0 0 1 0 6.36Zm6.25-8.28a1.14 1.14 0 1 1-2.28 0 1.14 1.14 0 0 1 2.28 0Z"/><path fill="#fff" d="M12 3.6c2.28 0 2.55.01 3.45.05.83.04 1.28.18 1.58.3.4.15.68.34.98.64.3.3.49.58.64.98.12.3.26.75.3 1.58.04.9.05 1.17.05 3.45s-.01 2.55-.05 3.45c-.04.83-.18 1.28-.3 1.58-.15.4-.34.68-.64.98-.3.3-.58.49-.98.64-.3.12-.75.26-1.58.3-.9.04-1.17.05-3.45.05s-2.55-.01-3.45-.05c-.83-.04-1.28-.18-1.58-.3a2.64 2.64 0 0 1-.98-.64 2.64 2.64 0 0 1-.64-.98c-.12-.3-.26-.75-.3-1.58C5.01 13.15 5 12.88 5 10.6s.01-2.55.05-3.45c.04-.83.18-1.28.3-1.58.15-.4.34-.68.64-.98.3-.3.58-.49.98-.64.3-.12.75-.26 1.58-.3.9-.04 1.17-.05 3.45-.05Zm0-1.54c-2.32 0-2.61.01-3.52.05-.91.04-1.53.19-2.07.4-.56.22-1.04.51-1.51.98-.47.47-.76.95-.98 1.51-.21.54-.36 1.16-.4 2.07-.04.91-.05 1.2-.05 3.52s.01 2.61.05 3.52c.04.91.19 1.53.4 2.07.22.56.51 1.04.98 1.51.47.47.95.76 1.51.98.54.21 1.16.36 2.07.4.91.04 1.2.05 3.52.05s2.61-.01 3.52-.05c.91-.04 1.53-.19 2.07-.4.56-.22 1.04-.51 1.51-.98.47-.47.76-.95.98-1.51.21-.54.36-1.16.4-2.07.04-.91.05-1.2.05-3.52s-.01-2.61-.05-3.52c-.04-.91-.19-1.53-.4-2.07a4.18 4.18 0 0 0-.98-1.51 4.18 4.18 0 0 0-1.51-.98c-.54-.21-1.16-.36-2.07-.4-.91-.04-1.2-.05-3.52-.05Z"/></svg>
+                                    <span>Instagram</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_fb }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.68.23 2.68.23v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.27h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07Z"/></svg>
+                                    <span>Facebook</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_tiktok }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#111827" d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.3 0 .6.05.88.14V9.4a6.34 6.34 0 0 0-.88-.06A6.33 6.33 0 0 0 5 20.14a6.34 6.34 0 0 0 10.86-4.43V8.78a8.21 8.21 0 0 0 4.8 1.54V6.88c-.36 0-.72-.06-1.07-.19Z"/></svg>
+                                    <span>TikTok</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_youtube }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF0000" d="M23.5 6.2a3 3 0 0 0-2.1-2.13C19.55 3.56 12 3.56 12 3.56s-7.55 0-9.4.5A3 3 0 0 0 .5 6.2 31.2 31.2 0 0 0 0 12a31.2 31.2 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.13c1.85.5 9.4.5 9.4.5s7.55 0 9.4-.5a3 3 0 0 0 2.1-2.13A31.2 31.2 0 0 0 24 12a31.2 31.2 0 0 0-.5-5.8Z"/><path fill="#fff" d="M9.75 15.57V8.43L16 12l-6.25 3.57Z"/></svg>
+                                    <span>YouTube</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ !$config ? '' : $config->url_discord }}" class="flex items-center gap-2 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                    <svg style="width:16px;height:16px;flex-shrink:0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#5865F2" d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                                    <span>Discord</span>
+                                </a>
+                            </li>
                             <li><a class="text-sm leading-6 text-text-color hover:text-primary-200" href="{{ route('policy') }}" style="outline: none;">Kebijakan Pribadi</a></li>
                             <li><a class="text-sm leading-6 text-text-color hover:text-primary-200" href="{{ route('terms') }}" style="outline: none;">Syarat & Ketentuan</a></li>
                         </ul>

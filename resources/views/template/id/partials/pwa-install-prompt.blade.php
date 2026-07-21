@@ -274,6 +274,14 @@
                 }
             }
 
+            function clearDismissal() {
+                try {
+                    window.localStorage.removeItem(dismissKey);
+                } catch (error) {
+                    // Ignore unavailable storage.
+                }
+            }
+
             function showCard() {
                 if (!card || isStandalone() || recentlyDismissed() || !isMobileOrTabletDevice()) {
                     return;
@@ -356,6 +364,7 @@
                 hideCard();
                 hideHint();
                 deferredPrompt = null;
+                clearDismissal();
                 track('pwa_install_accepted', { pwa: { source: 'browser_appinstalled_event' } });
             });
 
