@@ -288,7 +288,7 @@ class DepositController extends Controller
             'paymentMethod' => $this->mapPaymentMethod($paymentMethod),
             'callbackUrl' => route('duitku.callback'),
             'returnUrl' => $returnUrl ?: route('riwayat'),
-            'expiryPeriod' => 60,
+            'expiryPeriod' => 180,
             'customerDetail' => [
                 'firstName' => $username,
                 'lastName' => '',
@@ -485,7 +485,7 @@ class DepositController extends Controller
         }
 
         return match (strtolower($gateway)) {
-            'duitku' => now()->addMinutes(60),
+            'duitku' => now()->addHours(3),
             'tripay' => now()->addHours(24),
             'tokopay' => now()->addHours(3),
             default => now()->addHours(3),

@@ -123,9 +123,13 @@ class InvoiceController extends Controller
             $methodName = 'Metode Tidak Dikenal';
         }
 
+        $isDuitkuGateway = in_array($methodCode, ['DUITKU'], true)
+            || Str::contains(Str::lower(trim((string) $methodName)), 'duitku');
+        $fallbackExpiryHours = $isDuitkuGateway ? 1 : 3;
+
         $expired = $data->expired_at
             ? Carbon::parse($data->expired_at)
-            : Carbon::create($data->created_at)->addHours(3);
+            : Carbon::create($data->created_at)->addHours($fallbackExpiryHours);
 
         $gtmBuilder = app(GtmDataLayerBuilder::class);
         $gtmInvoiceItem = $gtmBuilder->buildItem([

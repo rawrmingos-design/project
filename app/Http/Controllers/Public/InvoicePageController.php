@@ -128,6 +128,17 @@ class InvoicePageController extends Controller
             $methodName = 'Metode Tidak Dikenal';
         }
 
+        $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
+        $paymentValue = (string) ($data->no_pembayaran ?? '');
+        $paymentStatusRaw = (string) ($data->status_pembayaran ?? '');
+        $orderStatusRaw = (string) ($data->status_pembelian ?? '');
+        $paymentStatus = Str::lower(trim($paymentStatusRaw));
+        $orderStatus = Str::lower(trim($orderStatusRaw));
+        $methodNameLower = Str::lower(trim((string) $methodName));
+        $methodTypeLower = blank($methodType) ? '' : Str::lower(Method::normalizeTipe($methodType));
+        $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
+        $fallbackExpiryHours = $isDuitkuGateway ? 1 : 3;
+
         $methodImage = $this->normalizeAssetPath($data->metode_image, '');
         if ($methodImage === '') {
             $methodImage = null;
@@ -138,16 +149,6 @@ class InvoicePageController extends Controller
         $methodCategoryIcon = (string) ($data->metode_category_icon ?? '');
         $methodCategoryCode = (string) ($data->metode_category_code ?? '');
 
-        $paymentCode = Str::upper((string) ($data->metode_pembayaran ?? ''));
-        $paymentValue = (string) ($data->no_pembayaran ?? '');
-        $paymentStatusRaw = (string) ($data->status_pembayaran ?? '');
-        $orderStatusRaw = (string) ($data->status_pembelian ?? '');
-        $paymentStatus = Str::lower(trim($paymentStatusRaw));
-        $orderStatus = Str::lower(trim($orderStatusRaw));
-        $methodNameLower = Str::lower(trim((string) $methodName));
-        $methodTypeLower = blank($methodType) ? '' : Str::lower(Method::normalizeTipe($methodType));
-
-        $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $isPaymentUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false;
 
         $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
@@ -266,7 +267,7 @@ class InvoicePageController extends Controller
 
         $expiredAt = $data->expired_at
             ? Carbon::parse($data->expired_at)
-            : Carbon::parse($data->created_at)->addHours(3);
+            : Carbon::parse($data->created_at)->addHours($fallbackExpiryHours);
 
         $subtotal = (int) round((float) ($data->harga_layanan ?? 0));
         $total = (int) round((float) ($data->harga_pembayaran ?? 0));

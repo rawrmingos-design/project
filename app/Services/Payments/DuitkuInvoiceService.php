@@ -12,7 +12,7 @@ use Throwable;
 
 class DuitkuInvoiceService
 {
-    private const EXPIRY_PERIOD_MINUTES = 60;
+    private const EXPIRY_PERIOD_MINUTES = 180;
 
     public function __construct(private readonly DuitkuPopClient $client)
     {

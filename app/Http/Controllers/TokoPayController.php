@@ -69,7 +69,7 @@ class TokoPayController extends Controller
             'customer_email' => $customerEmail,
             'customer_phone' => $phone_number ?: '08000000000',
             'redirect_url'   => $redirectUrl,
-            'expired_ts'     => 0,
+            'expired_ts'     => now()->addHours(3)->timestamp,
             'signature'      => $signatureTrx,
             'items'          => [
                 [
