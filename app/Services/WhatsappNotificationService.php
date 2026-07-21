@@ -4,13 +4,21 @@ namespace App\Services;
 
 use App\Models\SettingWeb;
 use App\Models\WhatsappTemplate;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class WhatsappNotificationService
 {
     private const EASYWA_ASYNC_DELAY_SECONDS = 1;
+    private const EASYWA_TIMEOUT_SECONDS = 8;
+    private const EASYWA_CIRCUIT_BREAKER_THRESHOLD = 3;
+    private const EASYWA_CIRCUIT_BREAKER_COOLDOWN_SECONDS = 120;
+    private const EASYWA_CIRCUIT_BREAKER_FAILURES_KEY = 'whatsapp:easywa:failures';
+    private const EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY = 'whatsapp:easywa:open_until';
 
     public function getProviderStatus(): array
     {
@@ -84,9 +92,10 @@ class WhatsappNotificationService
     {
         try {
             $api = SettingWeb::first();
-            
+
             if (! $api) {
                 Log::error('WhatsappNotificationService: Missing setting_webs configuration.');
+
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
 
@@ -96,8 +105,9 @@ class WhatsappNotificationService
                 return $this->sendViaEasyWa($api, $target, $message);
             }
 
-            if (!$api->wa_key) {
+            if (! $api->wa_key) {
                 Log::error('WhatsappNotificationService: Missing configuration.');
+
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
 
@@ -110,11 +120,10 @@ class WhatsappNotificationService
                     'message' => $message,
                 ]);
 
-
             return $this->normalizeFonnteResponse($response);
-
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             Log::error('WhatsappNotificationService Exception', ['error' => $e->getMessage()]);
+
             return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
         }
     }
@@ -132,6 +141,10 @@ class WhatsappNotificationService
             return ['success' => false, 'message' => 'Konfigurasi EasyWA belum lengkap.'];
         }
 
+        if ($this->isEasyWaCircuitOpen()) {
+            return $this->easyWaCircuitOpenResponse();
+        }
+
         $payload = [
             'number' => $target,
             'message' => $message,
@@ -142,27 +155,65 @@ class WhatsappNotificationService
             $payload['delay'] = self::EASYWA_ASYNC_DELAY_SECONDS;
         }
 
-        $response = Http::withHeaders([
-            'email' => $api->easywa_email,
-            'secret-key' => $api->easywa_secret_key,
-        ])->post('https://api.easywa.id/v1/send-message', $payload);
+        try {
+            $response = Http::connectTimeout(5)
+                ->timeout(self::EASYWA_TIMEOUT_SECONDS)
+                ->withHeaders([
+                    'email' => $api->easywa_email,
+                    'secret-key' => $api->easywa_secret_key,
+                ])->post('https://api.easywa.id/v1/send-message', $payload);
 
+            if (! $response->successful()) {
+                $this->recordEasyWaFailure('send_http_error', [
+                    'http_status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
 
-        if (! $response->successful()) {
+                return [
+                    'success' => false,
+                    'message' => 'EasyWA HTTP ' . $response->status(),
+                    'response' => $response->body(),
+                    'provider' => 'easywa',
+                    'http_status' => $response->status(),
+                ];
+            }
+
+            $decoded = $response->json();
+            $decoded = is_array($decoded) ? $decoded : [];
+            $success = (bool) ($decoded['status'] ?? false);
+
+            if (! $success) {
+                $this->recordEasyWaFailure('send_failed_response', [
+                    'response' => $decoded,
+                ]);
+            } else {
+                $this->resetEasyWaCircuitBreaker();
+            }
+
+            return [
+                'success' => $success,
+                'message' => $decoded['msg'] ?? 'EasyWA request processed',
+                'response' => $decoded,
+                'provider' => 'easywa',
+                'http_status' => $response->status(),
+            ];
+        } catch (ConnectionException $e) {
+            $this->recordEasyWaFailure('send_connection_failed', ['error' => $e->getMessage()]);
+
             return [
                 'success' => false,
-                'message' => 'EasyWA HTTP ' . $response->status(),
-                'response' => $response->body(),
+                'message' => 'Tidak dapat terhubung ke EasyWA API. Coba lagi nanti.',
+                'provider' => 'easywa',
+            ];
+        } catch (Throwable $e) {
+            $this->recordEasyWaFailure('send_failed', ['error' => $e->getMessage()]);
+
+            return [
+                'success' => false,
+                'message' => 'Error saat kirim EasyWA: ' . $e->getMessage(),
+                'provider' => 'easywa',
             ];
         }
-
-        $decoded = $response->json();
-
-        return [
-            'success' => (bool) ($decoded['status'] ?? false),
-            'message' => $decoded['msg'] ?? 'EasyWA request processed',
-            'response' => $decoded,
-        ];
     }
 
     private function normalizeFonnteResponse(Response $response): array
@@ -215,8 +266,13 @@ class WhatsappNotificationService
             return ['success' => false, 'message' => 'Konfigurasi EasyWA belum lengkap.'];
         }
 
+        if ($this->isEasyWaCircuitOpen()) {
+            return $this->easyWaCircuitOpenResponse();
+        }
+
         try {
-            $response = Http::timeout(10)
+            $response = Http::connectTimeout(5)
+                ->timeout(self::EASYWA_TIMEOUT_SECONDS)
                 ->withHeaders([
                     'email' => $api->easywa_email,
                     'secret-key' => $api->easywa_secret_key,
@@ -224,35 +280,129 @@ class WhatsappNotificationService
                 ->get('https://api.easywa.id/v1/status');
 
             if (! $response->successful()) {
+                $this->recordEasyWaFailure('status_http_error', [
+                    'http_status' => $response->status(),
+                    'response' => $response->body(),
+                ]);
+
                 return [
                     'success' => false,
                     'message' => 'EasyWA HTTP ' . $response->status(),
                     'response' => $response->body(),
+                    'provider' => 'easywa',
+                    'http_status' => $response->status(),
                 ];
             }
 
             $decoded = $response->json();
             $status = strtolower(trim((string) ($decoded['status'] ?? 'unknown')));
             $message = trim((string) ($decoded['msg'] ?? ''));
+            $success = in_array($status, ['ready', 'qr', 'starting'], true);
+
+            if ($success) {
+                $this->resetEasyWaCircuitBreaker();
+            } else {
+                $this->recordEasyWaFailure('status_unavailable', [
+                    'status' => $status,
+                    'response' => $decoded,
+                ]);
+            }
 
             return [
-                'success' => in_array($status, ['ready', 'qr', 'starting'], true),
+                'success' => $success,
                 'status' => $status,
                 'message' => $message !== '' ? $message : 'EasyWA status fetched.',
                 'response' => $decoded,
+                'provider' => 'easywa',
+                'http_status' => $response->status(),
             ];
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::warning('EasyWA connection failed', ['error' => $e->getMessage()]);
+        } catch (ConnectionException $e) {
+            $this->recordEasyWaFailure('status_connection_failed', ['error' => $e->getMessage()]);
+
             return [
                 'success' => false,
                 'message' => 'Tidak dapat terhubung ke EasyWA API. Coba lagi nanti.',
+                'provider' => 'easywa',
             ];
-        } catch (\Exception $e) {
-            Log::error('EasyWA status check failed', ['error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            $this->recordEasyWaFailure('status_failed', ['error' => $e->getMessage()]);
+
             return [
                 'success' => false,
                 'message' => 'Error saat cek status EasyWA: ' . $e->getMessage(),
+                'provider' => 'easywa',
             ];
         }
+    }
+
+    private function isEasyWaCircuitOpen(): bool
+    {
+        $openUntil = (int) Cache::get(self::EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY, 0);
+
+        if ($openUntil <= 0) {
+            return false;
+        }
+
+        if ($openUntil <= now()->timestamp) {
+            Cache::forget(self::EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY);
+            Cache::forget(self::EASYWA_CIRCUIT_BREAKER_FAILURES_KEY);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function easyWaCircuitOpenResponse(): array
+    {
+        $retryAfter = max(1, (int) Cache::get(self::EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY, now()->timestamp) - now()->timestamp);
+
+        Log::warning('EasyWA circuit breaker open; skipping provider request.', [
+            'retry_after_seconds' => $retryAfter,
+        ]);
+
+        return [
+            'success' => false,
+            'message' => 'EasyWA sedang bermasalah. Sistem akan coba lagi dalam beberapa menit.',
+            'provider' => 'easywa',
+            'retry_after_seconds' => $retryAfter,
+        ];
+    }
+
+    private function recordEasyWaFailure(string $event, array $context = []): void
+    {
+        $failures = (int) Cache::get(self::EASYWA_CIRCUIT_BREAKER_FAILURES_KEY, 0) + 1;
+
+        Cache::put(
+            self::EASYWA_CIRCUIT_BREAKER_FAILURES_KEY,
+            $failures,
+            self::EASYWA_CIRCUIT_BREAKER_COOLDOWN_SECONDS * 2,
+        );
+
+        Log::warning('EasyWA provider request failed.', array_merge($context, [
+            'event' => $event,
+            'failure_count' => $failures,
+        ]));
+
+        if ($failures < self::EASYWA_CIRCUIT_BREAKER_THRESHOLD) {
+            return;
+        }
+
+        Cache::put(
+            self::EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY,
+            now()->addSeconds(self::EASYWA_CIRCUIT_BREAKER_COOLDOWN_SECONDS)->timestamp,
+            self::EASYWA_CIRCUIT_BREAKER_COOLDOWN_SECONDS,
+        );
+
+        Log::error('EasyWA circuit breaker opened.', [
+            'failure_count' => $failures,
+            'cooldown_seconds' => self::EASYWA_CIRCUIT_BREAKER_COOLDOWN_SECONDS,
+        ]);
+    }
+
+    private function resetEasyWaCircuitBreaker(): void
+    {
+        Cache::forget(self::EASYWA_CIRCUIT_BREAKER_FAILURES_KEY);
+        Cache::forget(self::EASYWA_CIRCUIT_BREAKER_OPEN_UNTIL_KEY);
     }
 }
