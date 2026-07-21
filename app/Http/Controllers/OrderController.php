@@ -2219,7 +2219,7 @@ class OrderController extends Controller
         }
 
         return match (strtolower((string) ($dataMethod->payment ?? ''))) {
-            'duitku' => now()->addMinutes(60),
+            'duitku' => now()->addHours(3),
             'tripay' => now()->addHours(24),
             'tokopay' => now()->addHours(3),
             default => now()->addHours(3),

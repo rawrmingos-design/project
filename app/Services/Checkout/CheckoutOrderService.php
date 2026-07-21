@@ -545,7 +545,7 @@ class CheckoutOrderService
     {
         return match ((string) $method->payment) {
             'tripay' => 24,
-            'duitku' => 1,
+            'duitku' => 3,
             default => 3,
         };
     }
