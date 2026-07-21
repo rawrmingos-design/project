@@ -963,8 +963,6 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                let hasRefreshedForServiceWorkerUpdate = false;
-                let pwaUpdateNotice = null;
                 let connectivityToast = null;
                 let connectivityProbeTimer = null;
                 let recoveryRefreshTimer = null;
@@ -1247,44 +1245,6 @@
                 if (navigator.onLine === false) {
                     handleOfflineState();
                 }
-
-                function showPwaUpdateNotice(registration) {
-                    if (!registration || !registration.waiting) {
-                        return;
-                    }
-
-                    if (!pwaUpdateNotice) {
-                        pwaUpdateNotice = document.createElement('div');
-                        pwaUpdateNotice.id = 'pwa-update-notice';
-                        pwaUpdateNotice.setAttribute('data-pwa-update-notice', '');
-                        pwaUpdateNotice.innerHTML = `
-                            <div style="position:fixed;right:16px;bottom:16px;z-index:9999;max-width:320px;padding:16px 18px;border-radius:16px;background:rgba(17,24,39,.96);box-shadow:0 20px 45px rgba(15,23,42,.35);color:#f8fafc;font-family:inherit;">
-                                <div style="font-size:15px;font-weight:700;line-height:1.4;">Update tersedia</div>
-                                <div style="margin-top:6px;font-size:13px;line-height:1.5;color:rgba(248,250,252,.78);">Versi terbaru aplikasi siap dipakai. Refresh untuk mengaktifkan update.</div>
-                                <button type="button" id="pwa-update-refresh" style="margin-top:12px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:10px 14px;background:#38bdf8;color:#082f49;font-size:13px;font-weight:700;cursor:pointer;">Refresh</button>
-                            </div>
-                        `;
-                        document.body.appendChild(pwaUpdateNotice);
-
-                        var refreshButton = document.getElementById('pwa-update-refresh');
-                        if (refreshButton) {
-                            refreshButton.addEventListener('click', function () {
-                                if (registration.waiting) {
-                                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                                }
-                            });
-                        }
-                    }
-                }
-
-                navigator.serviceWorker.addEventListener('controllerchange', function () {
-                    if (hasRefreshedForServiceWorkerUpdate) {
-                        return;
-                    }
-
-                    hasRefreshedForServiceWorkerUpdate = true;
-                    window.location.reload();
-                });
 
                 let pwaSplashHideTimer = null;
 
@@ -1608,24 +1568,6 @@
                 navigator.serviceWorker.register('/sw.js')
                     .then(function (registration) {
                         registration.update();
-
-                        if (registration.waiting) {
-                            showPwaUpdateNotice(registration);
-                        }
-
-                        registration.addEventListener('updatefound', function () {
-                            var newWorker = registration.installing;
-
-                            if (!newWorker) {
-                                return;
-                            }
-
-                            newWorker.addEventListener('statechange', function () {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    showPwaUpdateNotice(registration);
-                                }
-                            });
-                        });
 
                         setupPublicPushPrompt(registration);
                     })

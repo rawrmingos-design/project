@@ -35,6 +35,8 @@ class GeneralSettings extends SettingsSectionPage
             'order_prefik',
             'public_theme',
             'deskripsi_web',
+            'aktif_footer_beranda',
+            'deskripsi_footer_beranda',
             'keywords',
             'home_popup_enabled',
             'live_sales_enabled',

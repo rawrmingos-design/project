@@ -90,7 +90,25 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->required()
                             ->columnSpanFull()
                             ->helperText('Konten rich text untuk footer SEO. Meta description dan preview link otomatis memakai versi teks biasa.'),
-                            
+
+                        Toggle::make('aktif_footer_beranda')
+                            ->label('Aktifkan Deskripsi Footer Khusus Beranda')
+                            ->default(false)
+                            ->live()
+                            ->helperText('Jika diaktifkan, halaman beranda akan menampilkan deskripsi footer khusus. Halaman lain tetap menggunakan Deskripsi Website di atas.')
+                            ->columnSpanFull(),
+
+                        RichEditor::make('deskripsi_footer_beranda')
+                            ->label('Deskripsi Footer Beranda')
+                            ->toolbarButtons([
+                                'bold', 'italic', 'underline', 'strike', 'link',
+                                'bulletList', 'orderedList', 'h2', 'h3',
+                                'blockquote', 'undo', 'redo',
+                            ])
+                            ->visible(fn (Get $get): bool => (bool) $get('aktif_footer_beranda'))
+                            ->columnSpanFull()
+                            ->helperText('Konten rich text khusus untuk footer di halaman beranda/homepage. Hanya tampil jika toggle di atas diaktifkan.'),
+
                         Textarea::make('keywords')
                             ->label('Kata Kunci SEO')
                             ->rows(2)
@@ -785,6 +803,12 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->url()
                             ->prefix('https://')
                             ->helperText('Link halaman Facebook.'),
+
+                        TextInput::make('url_discord')
+                            ->label('Link Discord')
+                            ->url()
+                            ->prefix('https://')
+                            ->helperText('Link server Discord.'),
                     ])
                     ->collapsible()
                     ->collapsed()
