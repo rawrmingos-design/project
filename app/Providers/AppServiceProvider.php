@@ -109,6 +109,7 @@ class AppServiceProvider extends ServiceProvider
             'url_tiktok' => '',
             'url_youtube' => '',
             'url_fb' => '',
+            'url_discord' => '',
             'captcha_site_key' => env('NOCAPTCHA_SITEKEY'),
             'captcha_secret' => env('NOCAPTCHA_SECRET'),
             'captcha_enabled' => filter_var((string) env('ADMIN_LOGIN_CAPTCHA_ENABLED', 'true'), FILTER_VALIDATE_BOOL),
