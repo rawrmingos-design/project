@@ -19,7 +19,7 @@
             <div class="relative z-10 flex w-full items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-3">
                     <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#ffc007] p-1 shadow-sm">
-                        <img src="{{ ENV('COIN_STORE') }}" class="h-full w-full rounded-full object-cover" alt="Coin" width="45"
+                        <img src="{{ asset('assets/payment/saldo-akun.png') }}" class="h-full w-full rounded-full object-cover" alt="Coin" width="45"
                             height="40" />
                     </div>
                     <div class="min-w-0">
@@ -47,7 +47,7 @@
             <div class="flex w-full items-center justify-between gap-3">
                 <div class="flex min-w-0 items-center gap-3">
                     <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#ffc007] p-1 shadow-sm">
-                        <img src="{{ ENV('COIN_STORE') }}" class="h-full w-full rounded-full object-cover" alt="Coin" width="45" height="40" />
+                        <img src="{{ asset('assets/payment/saldo-akun.png') }}" class="h-full w-full rounded-full object-cover" alt="Coin" width="45" height="40" />
                     </div>
                     <div class="min-w-0">
                         <span class="block truncate text-xs font-bold text-white sm:text-sm"
