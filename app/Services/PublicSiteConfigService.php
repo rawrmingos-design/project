@@ -174,9 +174,25 @@ class PublicSiteConfigService
         return $url;
     }
 
+    public function docsUrl(): string
+    {
+        $docsDomain = trim((string) env('DOCS_DOMAIN', ''));
+
+        if ($docsDomain !== '') {
+            return str_starts_with($docsDomain, 'http://') || str_starts_with($docsDomain, 'https://')
+                ? $docsDomain
+                : 'https://' . $docsDomain;
+        }
+
+        $docsUrl = trim((string) env('DOCS_URL', ''));
+
+        return $docsUrl !== '' ? $docsUrl : '/api-documentation';
+    }
+
     protected function buildFooterColumns(string $theme, array $socials): array
     {
         $tenancyEnabled = ! (bool) config('tenancy.disabled', true);
+        $docsUrl = $this->docsUrl();
 
         $columns = $theme === 'bangjeff'
             ? [
@@ -185,7 +201,7 @@ class PublicSiteConfigService
                     'items' => [
                         ['label' => 'Join Partnership', 'href' => $socials['whatsapp']],
                         ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
-                        ['label' => 'API Documentation', 'href' => '/api-documentation'],
+                        ['label' => 'API Documentation', 'href' => $docsUrl],
                     ],
                 ],
                 [
@@ -213,7 +229,7 @@ class PublicSiteConfigService
                     'items' => [
                         ['label' => 'Gabung Kemitraan', 'href' => $socials['whatsapp']],
                         ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
-                        ['label' => 'Dokumentasi API', 'href' => '/api-documentation'],
+                        ['label' => 'Dokumentasi API', 'href' => $docsUrl],
                     ],
                 ],
                 [

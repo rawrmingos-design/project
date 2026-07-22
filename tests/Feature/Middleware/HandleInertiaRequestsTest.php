@@ -4,6 +4,9 @@ namespace Tests\Feature\Middleware;
 
 use App\Services\PublicSiteConfigService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class HandleInertiaRequestsTest extends TestCase
@@ -14,7 +17,7 @@ class HandleInertiaRequestsTest extends TestCase
     {
         // SettingWeb doesn't have HasFactory, so we seed via DB directly.
         // Only supply the minimal required (non-nullable) columns.
-        \DB::table('setting_webs')->insert([
+        DB::table('setting_webs')->insert([
             'id'                   => 1,
             'judul_web'            => 'TestSite',
             'deskripsi_web'        => 'Test',
@@ -54,11 +57,11 @@ class HandleInertiaRequestsTest extends TestCase
             'uploads.placeholder' => 'assets/logo/favicon.webp',
         ]);
 
-        \Storage::fake('r2');
-        \File::ensureDirectoryExists(public_path('assets/logo'));
-        \File::put(public_path('assets/logo/r2-local-logo.png'), 'local logo');
+        Storage::fake('r2');
+        File::ensureDirectoryExists(public_path('assets/logo'));
+        File::put(public_path('assets/logo/r2-local-logo.png'), 'local logo');
 
-        \DB::table('setting_webs')->insert([
+        DB::table('setting_webs')->insert([
             'id'                   => 1,
             'judul_web'            => 'TestSite',
             'deskripsi_web'        => 'Test',
@@ -86,15 +89,18 @@ class HandleInertiaRequestsTest extends TestCase
             $this->assertSame(asset('assets/logo/r2-local-logo.png'), $shared['siteConfig']['logoHeader']);
             $this->assertTrue($shared['siteConfig']['assetAudit']['logoHeader']['exists']);
         } finally {
-            \File::delete(public_path('assets/logo/r2-local-logo.png'));
+            File::delete(public_path('assets/logo/r2-local-logo.png'));
         }
     }
 
     public function test_default_footer_copy_distinguishes_kemitraan_and_reseller_topup(): void
     {
         config(['tenancy.disabled' => false]);
+        putenv('DOCS_DOMAIN=docs.example.test');
+        $_ENV['DOCS_DOMAIN'] = 'docs.example.test';
+        $_SERVER['DOCS_DOMAIN'] = 'docs.example.test';
 
-        \DB::table('setting_webs')->insert([
+        DB::table('setting_webs')->insert([
             'id'                   => 1,
             'judul_web'            => 'TestSite',
             'deskripsi_web'        => 'Test',
@@ -121,6 +127,6 @@ class HandleInertiaRequestsTest extends TestCase
         $this->assertNotNull($partnershipColumn);
         $this->assertContains(['label' => 'Gabung Kemitraan', 'href' => 'https://wa.me/6281234567890'], $partnershipColumn['items']);
         $this->assertContains(['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'], $partnershipColumn['items']);
-        $this->assertContains(['label' => 'Dokumentasi API', 'href' => '/api-documentation'], $partnershipColumn['items']);
+        $this->assertContains(['label' => 'Dokumentasi API', 'href' => 'https://docs.example.test'], $partnershipColumn['items']);
     }
 }
