@@ -204,7 +204,7 @@ table {
                         class="inline-flex w-full items-center justify-center rounded-md border border-murky-500 bg-murky-600 px-4 py-2 text-xs hover:bg-murky-700 disabled:cursor-not-allowed disabled:opacity-75 md:w-auto">Download
                         XLSX</button>
                     <select id="entries"
-                        class="inline-flex w-full cursor-pointer items-center justify-center rounded-md border border-murky-500 bg-murky-600 py-2 text-xs ring-inset hover:bg-murky-700 focus:ring-2 focus:ring-primary-500 md:w-auto">
+                        class="inline-flex w-full cursor-pointer items-center justify-center rounded-md border border-murky-300 bg-white py-2 text-xs text-murky-800 ring-inset hover:bg-murky-100 focus:ring-2 focus:ring-primary-500 md:w-auto">
                         <option value="5">5<!-- --> Entries</option>
                         <option value="10" selected>10<!-- --> Entries</option>
                         <option value="25">25<!-- --> Entries</option>
