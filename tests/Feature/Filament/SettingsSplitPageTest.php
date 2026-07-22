@@ -3,6 +3,7 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Admin\Pages\Settings\GeneralSettings;
+use App\Filament\Admin\Pages\Settings\ProvidersApiSettings;
 use App\Models\SettingWeb;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -170,4 +171,65 @@ class SettingsSplitPageTest extends AdminTestCase
 
         $this->assertFalse(Cache::has('public:active-theme'));
     }
+
+    public function test_providers_api_settings_excludes_unused_provider_fields(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        SettingWeb::query()->create([
+            'id' => 1,
+            'judul_web' => 'Old Title',
+            'deskripsi_web' => 'Old Description',
+            'keywords' => 'topup,old',
+            'public_theme' => 'default',
+            'url_wa' => 'https://wa.me/6281234567890',
+            'url_ig' => 'https://instagram.com/original',
+            'url_tiktok' => 'https://tiktok.com/@original',
+            'url_youtube' => 'https://youtube.com/@original',
+            'url_fb' => 'https://facebook.com/original',
+            'topupindo_api' => 'topupindo-key',
+            'apikey_bangjeff' => 'old-bangjeff-key',
+            'apikey_aoshi' => 'old-aoshi-key',
+            'api_mobilegamestore' => 'old-mobile-game-store-key',
+            'vip_apiid' => 'old-vip-apiid',
+            'vip_apikey' => 'old-vip-apikey',
+            'vip_sign' => 'old-vip-sign',
+            'username_digi' => 'old-digi-user',
+            'api_key_digi' => 'old-digi-key',
+            'apigames_merchant' => 'old-apigames-merchant',
+            'apigames_secret' => 'old-apigames-secret',
+            'warna1' => '#111111',
+            'warna2' => '#222222',
+            'warna3' => '#333333',
+            'warna4' => '#444444',
+            'paydisini_apikey' => 'paydisini-key',
+            'order_prefik' => 'OLD',
+        ]);
+
+        Livewire::test(ProvidersApiSettings::class)
+            ->assertFormFieldExists('apikey_bangjeff')
+            ->assertFormFieldExists('vip_apiid')
+            ->assertFormFieldExists('username_digi')
+            ->assertFormFieldExists('apigames_merchant')
+            ->assertFormFieldDoesNotExist('topupindo_api')
+            ->assertFormFieldDoesNotExist('apikey_aoshi')
+            ->assertFormFieldDoesNotExist('api_mobilegamestore')
+            ->fillForm([
+                'apikey_bangjeff' => 'new-bangjeff-key',
+                'topupindo_api' => 'changed-topupindo-key',
+                'apikey_aoshi' => 'changed-aoshi-key',
+                'api_mobilegamestore' => 'changed-mobile-game-store-key',
+            ])
+            ->call('save');
+
+        $settings = SettingWeb::query()->findOrFail(1);
+
+        $this->assertSame('new-bangjeff-key', $settings->apikey_bangjeff);
+        $this->assertSame('topupindo-key', $settings->topupindo_api);
+        $this->assertSame('old-aoshi-key', $settings->apikey_aoshi);
+        $this->assertSame('old-mobile-game-store-key', $settings->api_mobilegamestore);
+    }
 }
+

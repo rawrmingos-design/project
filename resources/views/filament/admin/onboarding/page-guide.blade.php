@@ -560,16 +560,16 @@
                 'Lebih aman saat rotasi secret key.',
             ],
             'targets' => [
-                'topupindo' => '[data-onboarding-target="settings-topupindo"]',
+                'bangjeff' => '[data-onboarding-target="settings-bangjeff"]',
                 'vipReseller' => '[data-onboarding-target="settings-vip-reseller"]',
                 'apiGames' => '[data-onboarding-target="settings-api-games"]',
                 'save' => '[data-onboarding-target="settings-save"]',
             ],
             'steps' => [
                 [
-                    'targetKey' => 'topupindo',
+                    'targetKey' => 'bangjeff',
                     'title' => 'Provider Credentials',
-                    'description' => 'Isi credential untuk TopUpIndo, BangJeff, Aoshi, dan provider lainnya.',
+                    'description' => 'Isi credential untuk BangJeff dan provider aktif lainnya.',
                     'placement' => 'left',
                 ],
                 [

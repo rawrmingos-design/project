@@ -777,37 +777,31 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         TextInput::make('url_wa')
                             ->label('Link WhatsApp')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Contoh: wa.me/62812xxxx.'),
                             
                         TextInput::make('url_ig')
                             ->label('Link Instagram')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Link profil Instagram.'),
                             
                         TextInput::make('url_tiktok')
                             ->label('Link TikTok')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Link profil TikTok.'),
                             
                         TextInput::make('url_youtube')
                             ->label('Link YouTube')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Link channel YouTube.'),
                             
                         TextInput::make('url_fb')
                             ->label('Link Facebook')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Link halaman Facebook.'),
 
                         TextInput::make('url_discord')
                             ->label('Link Discord')
                             ->url()
-                            ->prefix('https://')
                             ->helperText('Link server Discord.'),
                     ])
                     ->collapsible()

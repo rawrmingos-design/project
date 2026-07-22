@@ -18,10 +18,7 @@ class ProvidersApiSettings extends SettingsSectionPage
     protected function getVisibleSectionHeadings(): ?array
     {
         return [
-            'TopUpIndo',
             'BangJeff',
-            'Aoshi',
-            'Mobile Game Store',
             'VIP Reseller',
             'Digiflazz',
             'API Games',
@@ -34,10 +31,7 @@ class ProvidersApiSettings extends SettingsSectionPage
     protected function getSettingFieldWhitelist(): ?array
     {
         return [
-            'topupindo_api',
             'apikey_bangjeff',
-            'apikey_aoshi',
-            'api_mobilegamestore',
             'vip_apiid',
             'vip_apikey',
             'vip_sign',
