@@ -8,6 +8,7 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Jobs\PollSufPaymentStatusJob;
 use App\Services\OrderProcessingService;
 use App\Support\PembelianStatus;
 use App\Models\User;
@@ -195,9 +196,15 @@ class CallbackController extends Controller
                         $pembelian->update([
                             'status' => $providerStatus,
                             'provider_order_id' => $providerOrderId,
+                            'active_attempt_token' => $providerOrderId,
                             'keterangan_sn' => $snValue,
                             'log' => json_encode(['result' => $result]),
                         ]);
+
+                        $freshPembelian = $pembelian->fresh(['pembayaran']);
+                        if ($freshPembelian) {
+                            PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $providerStatus);
+                        }
 
                         $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                             ? 'transaction_success'

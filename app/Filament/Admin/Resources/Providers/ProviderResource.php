@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Providers\Pages\ManageProviders;
 use App\Jobs\CheckProviderBalanceJob;
 use App\Jobs\SyncActiveProviderBalancesJob;
 use App\Models\Provider;
+use App\Support\ProviderBalanceSupport;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -13,7 +14,6 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\ToggleColumn;
@@ -87,8 +87,8 @@ class ProviderResource extends Resource
                 Action::make('check_balance')
                     ->label('Cek Saldo')
                     ->icon('heroicon-o-arrow-path')
-                    ->disabled(fn(Provider $record): bool => !in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true))
-                    ->tooltip(fn(Provider $record): ?string => in_array($record->code, ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'], true)
+                    ->disabled(fn(Provider $record): bool => ! in_array($record->code, ProviderBalanceSupport::SUPPORTED_PROVIDER_CODES, true))
+                    ->tooltip(fn(Provider $record): ?string => in_array($record->code, ProviderBalanceSupport::SUPPORTED_PROVIDER_CODES, true)
                         ? null
                         : 'Provider ini belum mendukung cek saldo otomatis.')
                     ->action(function (Provider $record) {

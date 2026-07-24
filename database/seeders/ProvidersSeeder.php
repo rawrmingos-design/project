@@ -58,6 +58,17 @@ class ProvidersSeeder extends Seeder
         ],
         [
             'id' => 5,
+            'code' => 'sufpayment',
+            'name' => 'SUFPAYMENT',
+            'api_endpoint' => 'https://sufpayment.com/api/v1',
+            'balance' => '0.00',
+            'is_active' => 1,
+            'last_check_at' => null,
+            'created_at' => '2026-02-06 09:25:03',
+            'updated_at' => '2026-02-06 09:25:03'
+        ],
+        [
+            'id' => 6,
             'code' => 'manual',
             'name' => 'MANUAL',
             'api_endpoint' => null,

@@ -4,12 +4,23 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class UsersSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('users')->truncate();
+        $foreignKeysWereEnabled = $this->foreignKeyChecksEnabled();
+
+        Schema::disableForeignKeyConstraints();
+
+        try {
+            DB::table('users')->truncate();
+        } finally {
+            if ($foreignKeysWereEnabled) {
+                Schema::enableForeignKeyConstraints();
+            }
+        }
 
         DB::table('users')->insert([
         [
@@ -1370,5 +1381,16 @@ class UsersSeeder extends Seeder
             'two_factor_recovery_codes' => null
         ],
         ]);
+    }
+
+    private function foreignKeyChecksEnabled(): bool
+    {
+        if (DB::getDriverName() !== 'mysql') {
+            return true;
+        }
+
+        $row = DB::selectOne('SELECT @@FOREIGN_KEY_CHECKS AS checks_enabled');
+
+        return (int) ($row->checks_enabled ?? 1) === 1;
     }
 }

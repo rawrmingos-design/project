@@ -16,6 +16,7 @@ use App\Services\WhatsappNotificationService;
 use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
+use App\Jobs\PollSufPaymentStatusJob;
 
 class TokoPayCallbackController extends Controller
 {
@@ -32,7 +33,7 @@ class TokoPayCallbackController extends Controller
             return;
         }
 
-        $this->api = \DB::table('setting_webs')->where('id', 1)->first();
+        $this->api = DB::table('setting_webs')->where('id', 1)->first();
     }
 
     public function handle(Request $request)
@@ -99,7 +100,7 @@ class TokoPayCallbackController extends Controller
 
         try {
             if ($dataDeposit) {
-                $this->processDeposit($dataDeposit, $invoice);
+                $this->processDeposit($dataDeposit);
             } else {
                 $this->sendPaymentSuccessPushNotification($dataPembeli);
                 $this->processPembelian($dataPembeli, $invoice);
@@ -161,7 +162,7 @@ class TokoPayCallbackController extends Controller
         }
     }
 
-    private function processDeposit(Deposit $deposit, Pembayaran $invoice): void
+    private function processDeposit(Deposit $deposit): void
     {
         DB::transaction(function () use ($deposit): void {
             $depositLocked = Deposit::query()
@@ -244,13 +245,21 @@ class TokoPayCallbackController extends Controller
         }
 
         if (($result['success'] ?? false) === true) {
+            $providerOrderId = $result['transaction_id'] ?? $pembelian->provider_order_id;
+
             $pembelian->update([
                 'status' => $providerStatus,
-                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'provider_order_id' => $providerOrderId,
+                'active_attempt_token' => $providerOrderId,
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
             InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
+
+            $freshPembelian = $pembelian->fresh(['pembayaran']);
+            if ($freshPembelian) {
+                PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $providerStatus);
+            }
 
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'

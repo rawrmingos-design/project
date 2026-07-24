@@ -15,6 +15,7 @@ class PwaManifestTest extends TestCase
         config(['app.url' => 'https://egymarket.id']);
 
         SettingWeb::query()->create([
+            'id' => 1,
             'judul_web' => 'Egy Market Topup Store',
             'deskripsi_web' => 'Top up game cepat dan aman.',
             'keywords' => 'topup,game',

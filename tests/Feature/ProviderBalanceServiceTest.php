@@ -192,6 +192,87 @@ class ProviderBalanceServiceTest extends TestCase
         });
     }
 
+    public function test_it_syncs_sufpayment_balance_and_updates_provider_record(): void
+    {
+        Http::fake([
+            'https://sufpayment.com/api/v1/account' => Http::response([
+                'response' => true,
+                'data' => [
+                    'username' => 'demouser',
+                    'level' => 'basic',
+                    'balance' => 31361,
+                ],
+            ]),
+        ]);
+
+        $this->createSettings([
+            'sufpayment_api_id' => '713',
+            'sufpayment_api_key' => 'settings-sufpayment-key',
+            'sufpayment_secret_key' => 'settings-sufpayment-secret',
+        ]);
+
+        $provider = Provider::query()->where('code', 'sufpayment')->firstOrFail();
+        $provider->update([
+            'name' => 'SufPayment',
+            'api_endpoint' => 'https://sufpayment.com/api/v1',
+            'is_active' => true,
+            'balance' => 0,
+            'last_check_at' => null,
+        ]);
+
+        $result = app(ProviderBalanceService::class)->sync($provider);
+
+        $provider->refresh();
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(31361.0, (float) $provider->balance);
+        $this->assertNotNull($provider->last_check_at);
+        Http::assertSent(function ($request): bool {
+            $data = $request->data();
+
+            return $request->url() === 'https://sufpayment.com/api/v1/account'
+                && ($data['api_id'] ?? null) === '713'
+                && ($data['api_key'] ?? null) === 'settings-sufpayment-key'
+                && ($data['secret_key'] ?? null) === 'settings-sufpayment-secret';
+        });
+    }
+
+    public function test_it_preserves_sufpayment_balance_when_provider_rejects_credentials(): void
+    {
+        Http::fake([
+            'https://sufpayment.com/api/v1/account' => Http::response([
+                'response' => false,
+                'data' => [
+                    'msg' => 'Invalid Secret Key',
+                ],
+            ]),
+        ]);
+
+        $this->createSettings([
+            'sufpayment_api_id' => '713',
+            'sufpayment_api_key' => 'settings-sufpayment-key',
+            'sufpayment_secret_key' => 'bad-secret',
+        ]);
+
+        $provider = Provider::query()->where('code', 'sufpayment')->firstOrFail();
+        $provider->update([
+            'name' => 'SufPayment',
+            'api_endpoint' => 'https://sufpayment.com/api/v1',
+            'is_active' => true,
+            'balance' => 5000,
+            'last_check_at' => null,
+        ]);
+
+        $result = app(ProviderBalanceService::class)->sync($provider);
+
+        $provider->refresh();
+
+        $this->assertFalse($result['success']);
+        $this->assertSame('Invalid Secret Key', $result['message']);
+        $this->assertSame(5000.0, (float) $provider->balance);
+        $this->assertNull($provider->last_check_at);
+    }
+
     private function createSettings(array $overrides = []): SettingWeb
     {
         return SettingWeb::create(array_merge([
@@ -230,6 +311,9 @@ class ProviderBalanceServiceTest extends TestCase
             'api_key_digi' => 'test-digi-key',
             'apigames_merchant' => 'test-apigames-merchant',
             'apigames_secret' => 'test-apigames-secret',
+            'sufpayment_api_id' => 'test-sufpayment-api-id',
+            'sufpayment_api_key' => 'test-sufpayment-api-key',
+            'sufpayment_secret_key' => 'test-sufpayment-secret-key',
             'vip_apiid' => 'test-vip-apiid',
             'vip_apikey' => 'test-vip-apikey',
             'nomor_admin' => '620000000000',

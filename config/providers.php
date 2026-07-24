@@ -54,6 +54,23 @@ return [
         'webhook_secret' => env('APIGAMES_WEBHOOK_SECRET'),
     ],
 
+    'sufpayment' => [
+        'base_url' => env('SUFPAYMENT_BASE_URL', 'https://sufpayment.com/api/v1'),
+        'order_cmd' => env('SUFPAYMENT_ORDER_CMD', ''),
+        'status_cmd' => env('SUFPAYMENT_STATUS_CMD', ''),
+        'product_cmd' => env('SUFPAYMENT_PRODUCT_CMD', ''),
+        'target_separator' => env('SUFPAYMENT_TARGET_SEPARATOR', ''),
+        'enabled' => env('SUFPAYMENT_ENABLED', true),
+        'timeout' => env('SUFPAYMENT_TIMEOUT', 15),
+        'retry_attempts' => env('SUFPAYMENT_RETRY_ATTEMPTS', 1),
+        'polling' => [
+            'enabled' => env('SUFPAYMENT_POLLING_ENABLED', true),
+            'interval_seconds' => env('SUFPAYMENT_POLLING_INTERVAL_SECONDS', 120),
+            'max_attempts' => env('SUFPAYMENT_POLLING_MAX_ATTEMPTS', 30),
+            'queue' => env('SUFPAYMENT_POLLING_QUEUE', 'default'),
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Global Provider Settings

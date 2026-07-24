@@ -25,6 +25,8 @@ use App\Http\Controllers\provider\BangJeffController;
 use App\Http\Controllers\provider\TopupediaController;
 use App\Http\Controllers\provider\MoogoldController;
 use App\Http\Controllers\Public\TransactionLookupPageController;
+use App\Jobs\PollSufPaymentStatusJob;
+use App\Services\Providers\SufPaymentService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -1313,9 +1315,9 @@ class OrderController extends Controller
                 $providerSn = trim((string) ($providerOrderData['sn'] ?? ''));
                 $keteranganSn = $providerSn !== '' ? $providerSn : ($providerResult['order_status'] === 'Pending' ? 'Sedang Diproses' : null);
 
-                $this->createOrderRecord(
-                    $request, $dataLayanan, $order_id, $dataLayanan->harga, $dataMethod, 
-                    'Lunas', 'Balance Payment', '', $status_pembelian, 
+                $pembelian = $this->createOrderRecord(
+                    $request, $dataLayanan, $order_id, $dataLayanan->harga, $dataMethod,
+                    'Lunas', 'Balance Payment', '', $status_pembelian,
                     $provider_order_id, $log_data, $ipAddress, $tipe, $keteranganSn, $usedPoints, $usedPointAmount, [
                         'gateway_fee_amount' => $gatewayFeeAmount,
                         'base_service_amount' => $baseServiceAmount,
@@ -1327,6 +1329,7 @@ class OrderController extends Controller
                 $orderCreated = true;
 
                 DB::commit();
+                PollSufPaymentStatusJob::dispatchIfNeeded($pembelian, $provider_order_id, $providerResult['order_status'] ?? $status_pembelian);
                 Cache::forget($userKey);
 
                 // Send Success Message
@@ -1815,6 +1818,29 @@ class OrderController extends Controller
                     }
                     break;
 
+                case "sufpayment":
+                    $sufpayment = new SufPaymentService($credentials);
+                    $provider_order_id = $order_id;
+                    $order = $sufpayment->order($request->uid, $request->zone, $sku);
+
+                    if (($order['result'] ?? false) === true) {
+                        $orderData = is_array($order['data'] ?? null) ? $order['data'] : [];
+                        $statusMeta = SufPaymentService::normalizeStatusMeta($orderData['status'] ?? $orderData['order_status'] ?? null);
+                        $provider_order_id = $orderData['id']
+                            ?? $orderData['trxid']
+                            ?? $orderData['trx_id']
+                            ?? $orderData['transaction_id']
+                            ?? $order_id;
+                        $order['transactionId'] = $provider_order_id;
+                        $order['provider_status'] = $statusMeta['internal_status'];
+                        $status = true;
+                        $order_status = $statusMeta['internal_status'];
+                    } elseif (($order['transport_error'] ?? false) === true) {
+                        $status = true;
+                        $order_status = 'Pending';
+                    }
+                    break;
+
                 case "vip":
                 case "vip_reseller": // Handle alias
                     $vip = new VipResellerController($credentials);
@@ -1941,7 +1967,7 @@ class OrderController extends Controller
         ];
     }
 
-    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = [], array $providerContextOverride = []) {
+    private function createOrderRecord($request, $dataLayanan, $order_id, $amount, $dataMethod, $status_pembayaran, $no_pembayaran, $reference, $order_status, $provider_order_id = '', $order_log = '', $ipAddress, $tipe, $keteranganSn = null, $usedPoints = 0, $usedPointAmount = 0, array $gatewayMeta = [], array $providerContextOverride = []): Pembelian {
         $user_id = Auth::check() ? Auth::user()->username : "Anonim"; // Consistent with original code
         $providerContext = $this->resolveProviderContextForOrder($dataLayanan, $providerContextOverride);
         $normalizedPhone = $this->normalizeOrderContactPhone($request);
@@ -1968,6 +1994,7 @@ class OrderController extends Controller
         $pembelian->active_provider_code = $providerContext['provider_code'];
         $pembelian->active_provider_sku = $providerContext['provider_sku'];
         $pembelian->provider_order_id = $provider_order_id;
+        $pembelian->active_attempt_token = trim((string) $provider_order_id) !== '' ? $provider_order_id : null;
         $pembelian->ip_address = $ipAddress;
         $pembelian->voucher = $request->voucher ?? null;
         $pembelian->keterangan_sn = $keteranganSn;
@@ -2012,6 +2039,8 @@ class OrderController extends Controller
                 'updated_at' => now()
             ]);
         }
+
+        return $pembelian;
     }
 
     private function normalizeOrderContactPhone(Request $request): string

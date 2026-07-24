@@ -1035,7 +1035,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         TextInput::make('apigames_merchant')
                             ->label('Merchant ID API Games')
                             ->helperText('Merchant ID dari dashboard API Games.'),
-                            
+
                         TextInput::make('apigames_secret')
                             ->label('Secret Key API Games')
                             ->password()
@@ -1045,7 +1045,31 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('api-games')),
-                    
+
+                Section::make('SufPayment')
+                    ->description('Isi API ID, API Key, dan Secret Key SufPayment untuk cek saldo provider.')
+                    ->columns(3)
+                    ->schema([
+                        TextInput::make('sufpayment_api_id')
+                            ->label('API ID SufPayment')
+                            ->helperText('API ID dari halaman dokumentasi API SufPayment.'),
+
+                        TextInput::make('sufpayment_api_key')
+                            ->label('API Key SufPayment')
+                            ->password()
+                            ->revealable()
+                            ->helperText('API key dari dashboard SufPayment. Jangan isi password login akun.'),
+
+                        TextInput::make('sufpayment_secret_key')
+                            ->label('Secret Key SufPayment')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Secret key dari menu Keamanan SufPayment.'),
+                    ])
+                    ->collapsible()
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('sufpayment')),
+
                 // WhatsApp Integration
                 Section::make('Konfigurasi WhatsApp')
                     ->description('Atur provider dan akun WhatsApp untuk notifikasi otomatis.')

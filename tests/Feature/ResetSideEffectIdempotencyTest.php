@@ -180,6 +180,7 @@ class ResetSideEffectIdempotencyTest extends TestCase
     private function seedSettingWeb(): void
     {
         SettingWeb::create([
+            'id' => 1,
             'judul_web' => 'Test Web',
             'deskripsi_web' => 'Test Desc',
             'keywords' => 'test',

@@ -8,6 +8,7 @@ use App\Http\Controllers\provider\VipResellerController;
 use App\Models\Provider;
 use App\Models\SettingWeb;
 use App\Services\Providers\BangJeffService;
+use App\Services\Providers\SufPaymentService;
 
 class ProviderBalanceService
 {
@@ -81,6 +82,20 @@ class ProviderBalanceService
                         ?? null;
                     break;
 
+                case 'sufpayment':
+                    $res = (new SufPaymentService($config))->balance();
+
+                    if (! ($res['success'] ?? false)) {
+                        return [
+                            'success' => false,
+                            'balance' => $provider->balance,
+                            'message' => $res['message'] ?? 'SufPayment gagal mengembalikan saldo akun.',
+                        ];
+                    }
+
+                    $rawBalance = $res['balance'] ?? null;
+                    break;
+
                 default:
                     return [
                         'success' => false,
@@ -143,6 +158,13 @@ class ProviderBalanceService
                 'merchant_id' => $this->credential($settings?->apigames_merchant),
                 'secret_key' => $this->credential($settings?->apigames_secret),
                 'endpoint' => 'https://v1.apigames.id/v2',
+            ],
+            'sufpayment' => [
+                'api_id' => $this->credential($settings?->sufpayment_api_id),
+                'api_key' => $this->credential($settings?->sufpayment_api_key),
+                'secret_key' => $this->credential($settings?->sufpayment_secret_key),
+                'endpoint' => rtrim((string) config('providers.sufpayment.base_url', 'https://sufpayment.com/api/v1'), '/'),
+                'timeout' => (int) config('providers.sufpayment.timeout', 15),
             ],
             default => [],
         };
