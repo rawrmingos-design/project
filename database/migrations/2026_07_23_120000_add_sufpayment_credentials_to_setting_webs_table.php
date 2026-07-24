@@ -26,17 +26,30 @@ return new class extends Migration
         }
 
         if (Schema::hasTable('providers')) {
+            $insertData = [
+                'name' => 'SUFPAYMENT',
+                'api_endpoint' => 'https://sufpayment.com/api/v1',
+                'balance' => 0,
+                'is_active' => true,
+                'last_check_at' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
+            if (Schema::hasColumn('providers', 'type')) {
+                $column = DB::selectOne("SHOW COLUMNS FROM `providers` LIKE 'type'");
+                $columnType = strtolower((string) ($column->Type ?? ''));
+                if (preg_match("/^enum\((.+)\)$/", $columnType, $matches) === 1) {
+                    preg_match_all("/'([^']+)'/", $matches[1], $enumMatches);
+                    $insertData['type'] = $enumMatches[1][0] ?? 'sufpayment';
+                } else {
+                    $insertData['type'] = 'sufpayment';
+                }
+            }
+
             DB::table('providers')->updateOrInsert(
                 ['code' => 'sufpayment'],
-                [
-                    'name' => 'SUFPAYMENT',
-                    'api_endpoint' => 'https://sufpayment.com/api/v1',
-                    'balance' => 0,
-                    'is_active' => true,
-                    'last_check_at' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
+                $insertData
             );
         }
     }
