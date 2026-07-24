@@ -8,39 +8,15 @@ use App\Services\ProviderBalanceService;
 use App\Services\Providers\BangJeffService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class BangJeffServiceCredentialsTest extends TestCase
 {
+    use RefreshDatabase;
     protected function setUp(): void
     {
         parent::setUp();
-
-        if (! Schema::hasTable('setting_webs')) {
-            Schema::create('setting_webs', function (Blueprint $table): void {
-                $table->id();
-                $table->string('apikey_bangjeff')->nullable();
-                $table->timestamps();
-            });
-        }
-
-        if (! Schema::hasTable('providers')) {
-            Schema::create('providers', function (Blueprint $table): void {
-                $table->id();
-                $table->string('code');
-                $table->string('name');
-                $table->string('api_username')->nullable();
-                $table->string('api_key')->nullable();
-                $table->string('api_sign')->nullable();
-                $table->string('api_endpoint')->nullable();
-                $table->decimal('balance', 15, 2)->default(0);
-                $table->boolean('is_active')->default(true);
-                $table->timestamp('last_check_at')->nullable();
-                $table->timestamps();
-            });
-        }
 
         SettingWeb::query()->delete();
         Provider::query()->delete();
