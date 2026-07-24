@@ -33,9 +33,6 @@ class ProviderStatusUpdateService
             }
 
             $currentStatus = PembelianStatus::normalize($locked->status);
-            if ($currentStatus === PembelianStatus::PROCESSING && $incomingStatus === PembelianStatus::PENDING) {
-                $incomingStatus = PembelianStatus::PROCESSING;
-            }
             $providerOrderId = trim((string) ($providerResult['transaction_id'] ?? ''));
             $message = trim((string) ($providerResult['message'] ?? ''));
             $sn = trim((string) ($providerResult['sn'] ?? ''));
