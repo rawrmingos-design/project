@@ -14,6 +14,7 @@ use App\Services\OrderProcessingService;
 use App\Services\Payments\DuitkuInvoiceService;
 use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
+use App\Jobs\PollSufPaymentStatusJob;
 use Duitku\Config;
 use Duitku\Pop;
 
@@ -289,9 +290,15 @@ class DuitkuPaymentController extends Controller
                             $orderData = ['status' => $providerStatus];
                             if ($transactionId) {
                                 $orderData['provider_order_id'] = $transactionId;
+                                $orderData['active_attempt_token'] = $transactionId;
                             }
                             $orderData['keterangan_sn'] = $snValue;
                             $order->update($orderData);
+
+                            $freshOrder = $order->fresh(['pembayaran']);
+                            if ($freshOrder) {
+                                PollSufPaymentStatusJob::dispatchIfNeeded($freshOrder, $transactionId, $providerStatus);
+                            }
 
                             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                                 ? 'transaction_success'

@@ -22,6 +22,7 @@ class ProvidersApiSettings extends SettingsSectionPage
             'VIP Reseller',
             'Digiflazz',
             'API Games',
+            'SufPayment',
         ];
     }
 
@@ -39,6 +40,9 @@ class ProvidersApiSettings extends SettingsSectionPage
             'api_key_digi',
             'apigames_merchant',
             'apigames_secret',
+            'sufpayment_api_id',
+            'sufpayment_api_key',
+            'sufpayment_secret_key',
         ];
     }
 }

@@ -22,6 +22,7 @@ use App\Libraries\Provider\ElitediasProvider;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
+use App\Jobs\PollSufPaymentStatusJob;
 use App\Services\OrderProcessingService;
 
 class OrderController extends Controller
@@ -71,12 +72,20 @@ class OrderController extends Controller
             $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
             $nextStatus = ($result['order_status'] ?? 'Pending') === 'Sukses' ? 'Sukses' : 'Proses';
 
+            $providerOrderId = $result['transaction_id'] ?? $pembelian->provider_order_id;
+
             $pembelian->update([
-                'provider_order_id' => $result['transaction_id'] ?? $pembelian->provider_order_id,
+                'provider_order_id' => $providerOrderId,
+                'active_attempt_token' => $providerOrderId,
                 'status' => $nextStatus,
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result])
             ]);
+
+            $freshPembelian = $pembelian->fresh(['pembayaran']);
+            if ($freshPembelian) {
+                PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $result['order_status'] ?? $nextStatus);
+            }
 
             if (($result['provider'] ?? null) !== 'joki') {
                 $pesanPembeli = 

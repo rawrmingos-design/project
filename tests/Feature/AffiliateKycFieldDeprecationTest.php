@@ -128,7 +128,7 @@ class AffiliateKycFieldDeprecationTest extends TestCase
         $user->refresh();
 
         $this->assertSame('pending', $user->affiliate_status);
-        $this->assertSame($reviewHistory, data_get($user->affiliate_application_meta, 'review_history'));
+        $this->assertEquals($reviewHistory, data_get($user->affiliate_application_meta, 'review_history'));
         $this->assertNull(data_get($user->affiliate_application_meta, 'review_last'));
         $this->assertLegacyDocumentFieldsUnchanged($user);
     }

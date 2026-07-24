@@ -60,6 +60,14 @@ class LegacyImportBootstrapSeeder extends Seeder
                 'last_check_at' => null,
             ],
             [
+                'code' => 'sufpayment',
+                'name' => 'SUFPAYMENT',
+                'api_endpoint' => 'https://sufpayment.com/api/v1',
+                'balance' => 0,
+                'is_active' => true,
+                'last_check_at' => null,
+            ],
+            [
                 'code' => 'manual',
                 'name' => 'MANUAL',
                 'api_endpoint' => null,

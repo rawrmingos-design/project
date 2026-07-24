@@ -145,6 +145,21 @@ class BangJeffServiceCredentialsTest extends TestCase
     private function createSettings(string $bangJeffApiKey): SettingWeb
     {
         return SettingWeb::query()->create([
+            'judul_web' => 'Test Web',
+            'deskripsi_web' => 'Test Desc',
+            'keywords' => 'test',
+            'url_wa' => 'https://wa.me/test',
+            'url_ig' => 'https://instagram.com/test',
+            'url_tiktok' => 'https://tiktok.com/test',
+            'url_youtube' => 'https://youtube.com/test',
+            'url_fb' => 'https://facebook.com/test',
+            'topupindo_api' => 'test_api',
+            'warna1' => '#222222',
+            'warna2' => '#d06800',
+            'warna3' => '#ffa54a',
+            'warna4' => '#ff8040',
+            'paydisini_apikey' => 'test_paydisini',
+            'order_prefik' => 'INV',
             'apikey_bangjeff' => $bangJeffApiKey,
         ]);
     }

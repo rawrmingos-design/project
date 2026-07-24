@@ -12,6 +12,7 @@ use App\Services\WhatsappNotificationService;
 use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
+use App\Jobs\PollSufPaymentStatusJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -307,10 +308,16 @@ class TriPayCallbackController extends Controller
             $pembelian->update([
                 'status' => $providerStatus,
                 'provider_order_id' => $providerOrderId,
+                'active_attempt_token' => $providerOrderId,
                 'keterangan_sn' => $snValue,
                 'log' => json_encode(['result' => $result]),
             ]);
             InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
+
+            $freshPembelian = $pembelian->fresh(['pembayaran']);
+            if ($freshPembelian) {
+                PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $providerStatus);
+            }
 
             $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
                 ? 'transaction_success'

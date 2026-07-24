@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Provider;
+use App\Support\ProviderBalanceSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,7 @@ class SyncActiveProviderBalancesJob implements ShouldQueue, ShouldBeUnique
     {
         Provider::query()
             ->where('is_active', true)
-            ->whereIn('code', ['digiflazz', 'bangjeff', 'vip', 'vip_reseller', 'apigames'])
+            ->whereIn('code', ProviderBalanceSupport::SUPPORTED_PROVIDER_CODES)
             ->select(['id'])
             ->orderBy('id')
             ->chunkById(100, function ($providers): void {

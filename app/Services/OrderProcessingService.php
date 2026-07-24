@@ -11,12 +11,14 @@ use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\TopupediaController;
 use App\Services\Providers\BangJeffService;
+use App\Services\Providers\SufPaymentService;
 
 class OrderProcessingService
 {
     protected $routingService;
     protected string $dispatchMode = 'auto';
     protected ?string $vipStatusReference = null;
+    protected ?string $sufPaymentStatusReference = null;
 
     public function __construct(ProviderRoutingService $routingService)
     {
@@ -33,6 +35,7 @@ class OrderProcessingService
     {
         $this->dispatchMode = $this->normalizeDispatchMode($dispatchMode);
         $this->vipStatusReference = $this->resolveVipStatusReference($pembelian, $this->dispatchMode);
+        $this->sufPaymentStatusReference = $this->resolveSufPaymentStatusReference($pembelian, $this->dispatchMode);
 
         $layanan = $this->resolveLayanan($pembelian);
 
@@ -70,7 +73,9 @@ class OrderProcessingService
             'transaction_id' => null,
             'message' => '',
             'sn' => null,
-            'provider' => $providerCode
+            'provider' => $providerCode,
+            'provider_status' => null,
+            'raw' => null,
         ];
 
         try {
@@ -149,6 +154,25 @@ class OrderProcessingService
         $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
         if ($providerOrderId !== '') {
             return $providerOrderId;
+        }
+
+        return null;
+    }
+
+    protected function resolveSufPaymentStatusReference(Pembelian $pembelian, string $dispatchMode): ?string
+    {
+        if ($dispatchMode !== 'retry_status') {
+            return null;
+        }
+
+        $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
+        if ($providerOrderId !== '') {
+            return $providerOrderId;
+        }
+
+        $attemptToken = trim((string) ($pembelian->active_attempt_token ?? ''));
+        if ($attemptToken !== '') {
+            return $attemptToken;
         }
 
         return null;
@@ -313,6 +337,55 @@ class OrderProcessingService
                         : ($isRetryStatusMode ? 'API Games status checked.' : 'API Games order accepted.');
                 } else {
                     $result['message'] = trim((string) ($response['message'] ?? '')) ?: 'ApiGames failed';
+                }
+
+                return $result;
+
+            case 'sufpayment':
+                $sufpayment = new SufPaymentService($credentials);
+                $isRetryStatusMode = $this->dispatchMode === 'retry_status';
+                $statusReference = $this->sufPaymentStatusReference;
+
+                if ($isRetryStatusMode && blank($statusReference)) {
+                    $result['order_status'] = 'Pending';
+                    $result['message'] = 'SufPayment retry status check membutuhkan provider_order_id/id pesanan.';
+
+                    return $result;
+                }
+
+                $response = $isRetryStatusMode
+                    ? $sufpayment->status($statusReference)
+                    : $sufpayment->order($uid, $zone, $sku);
+
+                if (($response['transport_error'] ?? false) === true) {
+                    $result['success'] = true;
+                    $result['order_status'] = 'Pending';
+                    $result['transaction_id'] = $isRetryStatusMode ? ($statusReference ?? $providerReference) : $providerReference;
+                    $result['message'] = trim((string) ($response['message'] ?? 'SufPayment transport error')) ?: 'SufPayment transport error';
+
+                    return $result;
+                }
+
+                if (($response['result'] ?? false) === true) {
+                    $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+                    $statusMeta = SufPaymentService::normalizeStatusMeta($responseData['status'] ?? $responseData['order_status'] ?? null);
+                    $providerMessage = trim((string) ($responseData['message'] ?? $responseData['note'] ?? $responseData['msg'] ?? $response['message'] ?? ''));
+                    $providerTransactionId = $responseData['id']
+                        ?? $responseData['trxid']
+                        ?? $responseData['trx_id']
+                        ?? $responseData['transaction_id']
+                        ?? ($isRetryStatusMode ? $statusReference : $providerReference);
+                    $note = trim((string) ($responseData['sn'] ?? $responseData['serial_number'] ?? $responseData['note'] ?? ''));
+
+                    $result['success'] = true;
+                    $result['order_status'] = $statusMeta['internal_status'];
+                    $result['transaction_id'] = $providerTransactionId;
+                    $result['provider_status'] = $statusMeta['raw_status'];
+                    $result['raw'] = $response;
+                    $result['sn'] = $note !== '' ? $note : (in_array($statusMeta['internal_status'], ['Pending', 'Processing'], true) ? 'Sedang Diproses' : null);
+                    $result['message'] = $providerMessage !== '' ? $providerMessage : ($isRetryStatusMode ? 'SufPayment status checked.' : 'SufPayment order accepted.');
+                } else {
+                    $result['message'] = trim((string) ($response['message'] ?? '')) ?: 'SufPayment failed';
                 }
 
                 return $result;

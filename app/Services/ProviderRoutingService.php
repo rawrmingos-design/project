@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Layanan;
 use App\Models\SettingWeb;
-use App\Models\ProviderPath;
 use Illuminate\Support\Facades\Log;
 
 class ProviderRoutingService
@@ -96,6 +95,19 @@ class ProviderRoutingService
                     'merchant_id' => $settings->apigames_merchant,
                     'secret_key' => $settings->apigames_secret,
                     'endpoint' => 'https://v1.apigames.id/v2',
+                ];
+                break;
+
+            case 'sufpayment':
+                $credentials = [
+                    'api_id' => $settings->sufpayment_api_id,
+                    'api_key' => $settings->sufpayment_api_key,
+                    'secret_key' => $settings->sufpayment_secret_key,
+                    'endpoint' => rtrim((string) config('providers.sufpayment.base_url', 'https://sufpayment.com/api/v1'), '/'),
+                    'order_cmd' => (string) config('providers.sufpayment.order_cmd', ''),
+                    'status_cmd' => (string) config('providers.sufpayment.status_cmd', ''),
+                    'target_separator' => (string) config('providers.sufpayment.target_separator', ''),
+                    'timeout' => (int) config('providers.sufpayment.timeout', 15),
                 ];
                 break;
 

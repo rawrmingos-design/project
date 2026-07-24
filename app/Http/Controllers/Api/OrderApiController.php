@@ -13,6 +13,8 @@ use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Libraries\Provider\ElitediasProvider;
+use App\Jobs\PollSufPaymentStatusJob;
+use App\Services\Providers\SufPaymentService;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembelian;
@@ -312,6 +314,33 @@ class OrderApiController extends Controller
             } else {
                 $order['data']['status'] = false;
             }
+        } else if ($providerCode == "sufpayment") {
+            $sufpayment = new SufPaymentService($credentials);
+            $provider_order_id = $providerReference;
+            $order = $sufpayment->order($targetUserId, $zoneId, $providerSku);
+
+            if (($order['result'] ?? false) === true) {
+                $responseData = is_array($order['data'] ?? null) ? $order['data'] : [];
+                $statusMeta = SufPaymentService::normalizeStatusMeta($responseData['status'] ?? $responseData['order_status'] ?? null);
+                $provider_order_id = $responseData['id']
+                    ?? $responseData['trxid']
+                    ?? $responseData['trx_id']
+                    ?? $responseData['transaction_id']
+                    ?? $providerReference;
+                $order['transactionId'] = $provider_order_id;
+                $order['provider_status'] = $statusMeta['internal_status'];
+                $order['data']['status'] = true;
+                $order['status'] = true;
+                $resolvedOrderStatus = PembelianStatus::preferredDatabaseLabel($statusMeta['internal_status']);
+            } else if (($order['transport_error'] ?? false) === true) {
+                $order['provider_status'] = PembelianStatus::PENDING;
+                $order['data']['status'] = true;
+                $order['status'] = true;
+                $resolvedOrderStatus = $STATUS_PENDING;
+            } else {
+                $order['data']['status'] = false;
+                $order['status'] = false;
+            }
         } else if ($providerCode == "bangjeff") {
             $bangjeff = new BangJeffController($credentials);
             $requestData = [['name' => 'ID', 'value' => $targetUserId]];
@@ -416,6 +445,7 @@ class OrderApiController extends Controller
 
             // Snapshot balance BEFORE deduction so we can report buyer_last_saldo accurately
             $balanceBefore = (float) $user->balance;
+            $pembelian = null;
 
             DB::transaction(function () use (
                 $user,
@@ -431,7 +461,8 @@ class OrderApiController extends Controller
                 $provider_order_id,
                 $order,
                 $referenceNumber,
-                $integration
+                $integration,
+                &$pembelian
             ): void {
                 $user->update([
                     'balance' => $user->balance - $harga
@@ -453,6 +484,7 @@ class OrderApiController extends Controller
                 $pembelian->active_provider_code = $providerCode;
                 $pembelian->active_provider_sku = $providerSku;
                 $pembelian->provider_order_id = $provider_order_id ? $provider_order_id : "";
+                $pembelian->active_attempt_token = $provider_order_id ? $provider_order_id : null;
                 $pembelian->log = json_encode($order);
                 $pembelian->traffic_source = $integration ? 'reseller_h2h' : $pembelian->traffic_source;
                 $pembelian->tipe_transaksi = 'game';
@@ -471,6 +503,10 @@ class OrderApiController extends Controller
                 $pembayaran->expired_at = null;
                 $pembayaran->save();
             });
+
+            if ($pembelian instanceof Pembelian) {
+                PollSufPaymentStatusJob::dispatchIfNeeded($pembelian, $provider_order_id, $resolvedOrderStatus);
+            }
 
             $buyerLastSaldo = (float) ($balanceBefore - $harga);
 
@@ -556,8 +592,6 @@ class OrderApiController extends Controller
                 404,
             );
         }
-    
-        $statusCode = PembelianStatus::apiStatusCode($cek->status);
     
         return response()->json([
             "error"   => false,

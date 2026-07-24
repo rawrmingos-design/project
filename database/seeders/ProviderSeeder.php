@@ -38,6 +38,11 @@ class ProviderSeeder extends Seeder
                 'api_endpoint' => 'https://v1.apigames.id',
             ],
             [
+                'code' => 'sufpayment',
+                'name' => 'SUFPAYMENT',
+                'api_endpoint' => 'https://sufpayment.com/api/v1',
+            ],
+            [
                 'code' => 'manual',
                 'name' => 'MANUAL',
                 'api_endpoint' => null,
