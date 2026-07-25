@@ -249,13 +249,7 @@ class ListProduks extends ListRecords
                 ->form([
                     Select::make('provider')
                         ->label('Provider')
-                        ->options([
-                            'digiflazz' => 'Digiflazz',
-                            'apigames' => 'API Games',
-                            'vip' => 'VIP Reseller',
-                            'bangjeff' => 'BangJeff',
-                            'topupedia' => 'Topupedia',
-                        ])
+                        ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray())
                         ->required(),
                     Select::make('price_adjustment')
                         ->label('Price Adjustment')
@@ -286,14 +280,7 @@ class ListProduks extends ListRecords
                 ->form([
                     Select::make('provider')
                         ->label('Provider')
-                        ->options([
-                            'digiflazz' => 'Digiflazz',
-                            'apigames' => 'API Games',
-                            'vip' => 'VIP Reseller',
-                            'bangjeff' => 'BangJeff',
-                            'topupedia' => 'Topupedia',
-                            'manual' => 'Manual',
-                        ])
+                        ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray())
                         ->placeholder('Semua provider'),
                     Select::make('kategori_id')
                         ->label('Kategori')
