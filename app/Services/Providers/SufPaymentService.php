@@ -107,7 +107,9 @@ class SufPaymentService
 
     public function products(): array
     {
-        $payload = $this->authenticatedPayload([]);
+        $payload = $this->authenticatedPayload([
+            'cmd' => 'games',
+        ]);
 
         $productCommand = trim((string) ($this->config['product_cmd'] ?? config('providers.sufpayment.product_cmd', '')));
         if ($productCommand !== '') {
@@ -161,6 +163,7 @@ class SufPaymentService
         if ($missing !== []) {
             return [
                 'result' => false,
+                'success' => false,
                 'transport_error' => false,
                 'message' => 'Credential SufPayment belum lengkap: ' . implode(', ', $missing),
             ];
@@ -173,6 +176,7 @@ class SufPaymentService
         } catch (\Throwable $exception) {
             return [
                 'result' => false,
+                'success' => false,
                 'transport_error' => true,
                 'message' => 'SufPayment transport error: ' . $exception->getMessage(),
             ];
@@ -181,6 +185,7 @@ class SufPaymentService
         if (! $response->successful()) {
             return [
                 'result' => false,
+                'success' => false,
                 'transport_error' => true,
                 'message' => 'SufPayment HTTP error: ' . $response->status(),
                 'raw' => $response->body(),
@@ -192,6 +197,7 @@ class SufPaymentService
         if (! is_array($decoded)) {
             return [
                 'result' => false,
+                'success' => false,
                 'transport_error' => true,
                 'message' => 'SufPayment mengembalikan response JSON tidak valid.',
                 'raw' => $response->body(),
