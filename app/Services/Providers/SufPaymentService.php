@@ -79,6 +79,7 @@ class SufPaymentService
     public function order(mixed $uid = null, mixed $zone = null, mixed $service = null): array
     {
         $payload = $this->authenticatedPayload([
+            'cmd' => 'games',
             'service' => trim((string) $service),
             'target' => $this->target($uid, $zone),
         ]);
@@ -94,6 +95,7 @@ class SufPaymentService
     public function status(mixed $orderId): array
     {
         $payload = $this->authenticatedPayload([
+            'cmd' => 'games',
             'id' => trim((string) $orderId),
         ]);
 
