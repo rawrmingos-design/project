@@ -114,7 +114,7 @@ class SufPaymentService
             $payload['cmd'] = $productCommand;
         }
 
-        return $this->post('/products', $payload, 'products');
+        return $this->post('/product', $payload, 'products');
     }
 
     public static function normalizeStatusMeta(mixed $status): array
