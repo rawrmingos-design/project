@@ -19,6 +19,8 @@ class ProdukPivotLogoTest extends AdminTestCase
 
     public function test_creating_produk_attaches_selected_paket(): void
     {
+        \App\Models\Provider::create(['code' => 'manual', 'name' => 'Manual']);
+
         $admin = User::factory()->create(['role' => 'Admin']);
         $this->actingAs($admin);
 
@@ -61,6 +63,8 @@ class ProdukPivotLogoTest extends AdminTestCase
 
     public function test_creating_produk_with_media_library_logo_sets_pivot_logo_path(): void
     {
+        \App\Models\Provider::create(['code' => 'manual', 'name' => 'Manual']);
+
         $admin = User::factory()->create(['role' => 'Admin']);
         $this->actingAs($admin);
 
