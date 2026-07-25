@@ -103,7 +103,54 @@ class ProdukForm
                                     $set('vip_reseller_status_filter', 'available');
                                     $set('vip_reseller_service', null);
                                 }
+
+                                if ($state !== 'sufpayment') {
+                                    $set('sufpayment_category_filter', null);
+                                    $set('sufpayment_product', null);
+                                }
                             }),
+
+                        Select::make('sufpayment_category_filter')
+                            ->label('Filter Kategori SufPayment')
+                            ->options(fn (): array => static::getSufPaymentCategoryOptions())
+                            ->placeholder('Semua kategori')
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'sufpayment')
+                            ->live()
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('sufpayment_product', null);
+                            }),
+
+                        Select::make('sufpayment_product')
+                            ->label('Pilih Produk SufPayment')
+                            ->helperText('Cari produk SufPayment lalu pilih untuk mengisi nama produk, Provider ID, status, dan harga modal otomatis.')
+                            ->searchable()
+                            ->dehydrated(false)
+                            ->visible(fn (Get $get) => $get('provider') === 'sufpayment')
+                            ->getSearchResultsUsing(fn (string $search, Get $get): array => static::getSufPaymentProductSearchResults(
+                                $search,
+                                $get('sufpayment_category_filter'),
+                            ))
+                            ->getOptionLabelUsing(fn ($value): ?string => static::getSufPaymentProductOptionLabel($value))
+                            ->hintAction(
+                                Action::make('refreshSufPaymentCache')
+                                    ->label('Refresh Cache')
+                                    ->icon('heroicon-o-arrow-path')
+                                    ->action(function (Set $set) {
+                                        static::refreshSufPaymentCache();
+                                        $set('sufpayment_product', null);
+
+                                        Notification::make()
+                                            ->title('Pricelist SufPayment diperbarui')
+                                            ->success()
+                                            ->send();
+                                    })
+                            )
+                            ->live()
+                            ->afterStateUpdated(function ($state, $set, $get) {
+                                static::applySufPaymentProductSelection($state, $set, $get);
+                            })
+                            ->columnSpanFull(),
 
                         Select::make('digiflazz_category_filter')
                             ->label('Filter Kategori DigiFlazz')
@@ -679,6 +726,165 @@ class ProdukForm
 
             return array_values(array_filter($products, fn ($product) => isset($product['buyer_sku_code'], $product['product_name'], $product['price'])));
         });
+    }
+
+    protected static function getSufPaymentProducts(): array
+    {
+        $cacheKey = 'filament.sufpayment.products';
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        try {
+            $settings = \App\Models\SettingWeb::query()->first();
+            if (!$settings || blank($settings->sufpayment_api_key)) {
+                return [];
+            }
+
+            $route = app(\App\Services\ProviderRoutingService::class)->resolveExplicitProvider('sufpayment', 'dummy');
+            $response = (new \App\Services\Providers\SufPaymentService($route['credentials'] ?? []))->products();
+
+            if (!($response['result'] ?? false)) {
+                return [];
+            }
+
+            $products = is_array($response['data'] ?? null) ? $response['data'] : [];
+            Cache::put($cacheKey, $products, now()->addMinutes(5));
+
+            return $products;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    protected static function refreshSufPaymentCache(): void
+    {
+        Cache::forget('filament.sufpayment.products');
+    }
+
+    protected static function getSufPaymentCategoryOptions(): array
+    {
+        $products = static::getSufPaymentProducts();
+        $categories = [];
+
+        foreach ($products as $product) {
+            $category = trim((string) ($product['category'] ?? $product['kategori'] ?? $product['game'] ?? $product['brand'] ?? ''));
+            if ($category !== '') {
+                $categories[$category] = $category;
+            }
+        }
+
+        asort($categories);
+        return $categories;
+    }
+
+    protected static function getSufPaymentProductSearchResults(string $search, ?string $categoryFilter = null): array
+    {
+        $products = static::getSufPaymentProducts();
+        $options = [];
+
+        $search = strtolower(trim($search));
+
+        foreach ($products as $product) {
+            $code = trim((string) ($product['code'] ?? $product['sku'] ?? $product['id'] ?? ''));
+            $name = trim((string) ($product['name'] ?? $product['layanan'] ?? $product['service'] ?? ''));
+            $category = trim((string) ($product['category'] ?? $product['kategori'] ?? $product['game'] ?? $product['brand'] ?? ''));
+
+            if ($code === '' || $name === '') {
+                continue;
+            }
+
+            if (filled($categoryFilter) && $category !== $categoryFilter) {
+                continue;
+            }
+
+            if ($search !== '' && !str_contains(strtolower($name), $search) && !str_contains(strtolower($code), $search)) {
+                continue;
+            }
+
+            $price = (int) ($product['price'] ?? $product['harga'] ?? 0);
+            $status = strtolower(trim((string) ($product['status'] ?? '')));
+            $statusLabel = in_array($status, ['normal', 'available', 'active', 'aktif', '1', 'true', 1, true], true) ? 'Tersedia' : 'Gangguan';
+
+            $options[$code] = "{$name} - Rp " . number_format($price, 0, ',', '.') . " [{$statusLabel}] ({$code})";
+        }
+
+        return $options;
+    }
+
+    protected static function getSufPaymentProductOptionLabel($value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        foreach (static::getSufPaymentProducts() as $product) {
+            $code = trim((string) ($product['code'] ?? $product['sku'] ?? $product['id'] ?? ''));
+
+            if ($code === (string) $value) {
+                $name = trim((string) ($product['name'] ?? $product['layanan'] ?? $product['service'] ?? ''));
+                $price = (int) ($product['price'] ?? $product['harga'] ?? 0);
+                $status = strtolower(trim((string) ($product['status'] ?? '')));
+                $statusLabel = in_array($status, ['normal', 'available', 'active', 'aktif', '1', 'true', 1, true], true) ? 'Tersedia' : 'Gangguan';
+
+                return "{$name} - Rp " . number_format($price, 0, ',', '.') . " [{$statusLabel}] ({$code})";
+            }
+        }
+
+        return $value;
+    }
+
+    protected static function applySufPaymentProductSelection(?string $code, $set, $get): void
+    {
+        if (blank($code)) {
+            return;
+        }
+
+        foreach (static::getSufPaymentProducts() as $product) {
+            $productCode = trim((string) ($product['code'] ?? $product['sku'] ?? $product['id'] ?? ''));
+
+            if ($productCode === $code) {
+                $name = trim((string) ($product['name'] ?? $product['layanan'] ?? $product['service'] ?? ''));
+                $price = (int) ($product['price'] ?? $product['harga'] ?? 0);
+                $status = strtolower(trim((string) ($product['status'] ?? '')));
+                $isAvailable = in_array($status, ['normal', 'available', 'active', 'aktif', '1', 'true', 1, true], true);
+
+                $category = trim((string) ($product['category'] ?? $product['kategori'] ?? $product['game'] ?? $product['brand'] ?? ''));
+
+                if ($name !== '') {
+                    $set('layanan', $name);
+                }
+
+                $set('provider_id', $productCode);
+                $set('status', $isAvailable ? 'available' : 'inactive');
+                $set('harga', $price);
+
+                $noteText = "SufPayment: Kategori {$category}";
+                if (isset($product['note']) || isset($product['catatan']) || isset($product['description'])) {
+                    $note = trim((string) ($product['note'] ?? $product['catatan'] ?? $product['description'] ?? ''));
+                    if ($note !== '') {
+                        $noteText .= "\n" . $note;
+                    }
+                }
+                $set('catatan', $noteText);
+
+                static::syncSuggestedProviderPath(
+                    'sufpayment',
+                    $productCode,
+                    $price,
+                    $isAvailable ? 'available' : 'inactive',
+                    ['category' => $category],
+                    $set,
+                    $get
+                );
+
+                static::syncTierPricesFromProfit($price, $set, $get);
+
+                break;
+            }
+        }
     }
 
     protected static function refreshDigiflazzCache(): void
