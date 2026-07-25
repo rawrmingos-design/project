@@ -16,6 +16,8 @@ class ProdukCheckIdConfigTest extends AdminTestCase
 
     public function test_creating_produk_persists_check_id_inquiry_config(): void
     {
+        \App\Models\Provider::create(['code' => 'digiflazz', 'name' => 'Digiflazz']);
+
         /** @var User $admin */
         $admin = User::factory()->create(['role' => 'Admin']);
         $this->actingAs($admin);
@@ -56,6 +58,8 @@ class ProdukCheckIdConfigTest extends AdminTestCase
 
     public function test_disabled_check_id_clears_provider_and_sku(): void
     {
+        \App\Models\Provider::create(['code' => 'digiflazz', 'name' => 'Digiflazz']);
+
         /** @var User $admin */
         $admin = User::factory()->create(['role' => 'Admin']);
         $this->actingAs($admin);
