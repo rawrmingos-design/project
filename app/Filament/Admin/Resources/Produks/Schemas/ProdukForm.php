@@ -605,13 +605,7 @@ class ProdukForm
                                     ->schema([
                                         Select::make('provider_code')
                                             ->label('Provider')
-                                            ->options([
-                                                'digiflazz' => 'Digiflazz',
-                                                'bangjeff' => 'BangJeff',
-                                                'vip' => 'VIP Reseller',
-                                                'apigames' => 'API Games',
-                                                'manual' => 'Manual / Joki',
-                                            ])
+                                            ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray())
                                             ->required(),
 
                                         TextInput::make('provider_sku')
