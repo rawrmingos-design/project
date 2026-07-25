@@ -105,6 +105,18 @@ class SufPaymentService
         return $this->post('/status', $payload, 'status');
     }
 
+    public function products(): array
+    {
+        $payload = $this->authenticatedPayload([]);
+
+        $productCommand = trim((string) ($this->config['product_cmd'] ?? config('providers.sufpayment.product_cmd', '')));
+        if ($productCommand !== '') {
+            $payload['cmd'] = $productCommand;
+        }
+
+        return $this->post('/products', $payload, 'products');
+    }
+
     public static function normalizeStatusMeta(mixed $status): array
     {
         $raw = strtolower(trim((string) $status));
