@@ -50,6 +50,16 @@ class ResellerOrderResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->select([
+                'id', 'order_id', 'username', 'user_id', 'zone', 'nickname', 'layanan',
+                'harga', 'profit', 'provider_order_id', 'status', 'traffic_source', 'voucher',
+                'keterangan_sn', 'tipe_transaksi', 'email_pembeli', 'ip_address', 'used_points',
+                'used_point_amount', 'created_at', 'updated_at', 'base_order_id', 'invoice_version',
+                'display_order_id', 'active_layanan_id', 'active_provider_code', 'active_provider_sku',
+                'active_attempt_token', 'active_attempt_reference', 'reset_status', 'reset_count',
+                'reset_requested_by', 'reset_requested_at', 'reset_reason', 'reseller_integration_id',
+                'is_sandbox', 'environment', 'refund_amount', 'refunded_at', 'tenant_commission_credited_at'
+            ])
             ->whereNotNull('reseller_integration_id') // Only reseller API orders
             ->with([
                 'pembayaran:id,order_id,status,no_pembeli,metode',
