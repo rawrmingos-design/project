@@ -861,6 +861,8 @@ class ProdukForm
                 $set('status', $isAvailable ? 'available' : 'inactive');
                 $set('harga', $price);
 
+                static::syncTierPricesFromProfit($price, $set, $get);
+
                 $noteText = "SufPayment: Kategori {$category}";
                 if (isset($product['note']) || isset($product['catatan']) || isset($product['description'])) {
                     $note = trim((string) ($product['note'] ?? $product['catatan'] ?? $product['description'] ?? ''));
