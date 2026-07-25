@@ -191,14 +191,7 @@ class ProduksTable
 
                 SelectFilter::make('provider')
                     ->label('Provider')
-                    ->options([
-                        'digiflazz' => 'Digiflazz',
-                        'apigames' => 'API Games',
-                        'vip' => 'VIP Reseller',
-                        'bangjeff' => 'BangJeff',
-                        'topupedia' => 'Topupedia',
-                        'manual' => 'Manual',
-                    ]),
+                    ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray()),
 
                 SelectFilter::make('status')
                     ->label('Status')
