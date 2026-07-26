@@ -104,6 +104,10 @@ class EditProduk extends EditRecord
         $data['profit_platinum'] = (float) $draft->profit_platinum;
         $data['profit_gold'] = (float) $draft->profit_gold;
 
+        if (\Illuminate\Support\Facades\Schema::hasColumn('layanans', 'profit')) {
+            $data['profit'] = (float) $draft->profit_member;
+        }
+
         return $data;
     }
 
