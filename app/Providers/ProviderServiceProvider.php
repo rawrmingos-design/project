@@ -13,9 +13,7 @@ class ProviderServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(ProviderManager::class, function ($app) {
-            return new ProviderManager();
-        });
+        $this->app->singleton(ProviderManager::class, fn (): ProviderManager => new ProviderManager());
     }
 
     /**
@@ -52,6 +50,11 @@ class ProviderServiceProvider extends ServiceProvider
                     ->everyMinute()
                     ->withoutOverlapping();
             }
+
+            $schedule->command('payments:expire-pending --batch=100')
+                ->everyMinute()
+                ->withoutOverlapping()
+                ->runInBackground();
         });
     }
 }

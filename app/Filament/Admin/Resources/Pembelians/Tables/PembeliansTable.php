@@ -267,21 +267,24 @@ class PembeliansTable
                                 ->label('Status Baru')
                                 ->options(PembelianStatus::manualStatusOptions())
                                 ->required()
-                                ->default(fn($record) => $record->status),
+                                ->default(fn($record) => PembelianStatus::preferredDatabaseLabel($record->status)),
                         ])
                         ->action(function ($record, array $data) {
-                            $oldStatus = $record->status;
-                            $newStatus = $data['status'];
+                            $oldStatus = PembelianStatus::preferredDatabaseLabel($record->status);
+                            $newStatus = PembelianStatus::preferredDatabaseLabel($data['status'] ?? null);
 
-                            if ($oldStatus === $newStatus)
+                            if ($oldStatus === $newStatus) {
                                 return;
+                            }
 
                             $logMsg = $record->log . "\nStatus diubah manual oleh admin dari '{$oldStatus}' menjadi '{$newStatus}' pada " . now()->format('Y-m-d H:i:s');
                             $record->update(['status' => $newStatus, 'log' => $logMsg]);
                             $record->syncPaymentStatusForResetEligibility($newStatus);
+                            $record->refresh();
 
                             Notification::make()
                                 ->title('Status berhasil diubah')
+                                ->body("Status berubah dari {$oldStatus} menjadi {$newStatus}.")
                                 ->success()
                                 ->send();
                         })
