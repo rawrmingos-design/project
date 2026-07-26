@@ -131,26 +131,19 @@ class ApiCheckController extends Controller
             }
 
             // ApiGames API (hanya game yang didukung)
-            if (! $this->supportsApiGamesGame($parsedGame)) {
-                // Langsung ke Digiflazz fallback jika game tidak didukung ApiGames
-                $digiflazzResult = $this->connectDigiflazz($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null, $digiflazzInquirySku);
-
-                if ($this->isSuccessfulResult($digiflazzResult)) {
-                    return $digiflazzResult;
-                }
-
-                return $this->failedResult(
-                    $digiflazzResult['message']
-                        ?? $velixsResult['message']
-                        ?? $primaryResult['message']
-                        ?? 'User not found.'
-                );
-            }
-
-            $apiGamesResult = $this->connectApiGames($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+            $apiGamesResult = $this->supportsApiGamesGame($parsedGame)
+                ? $this->connectApiGames($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null)
+                : $this->failedResult("ApiGames does not support game: {$parsedGame}.");
 
             if ($this->isSuccessfulResult($apiGamesResult)) {
                 return $apiGamesResult;
+            }
+
+            // Self-hosted API fallback — setelah ApiGames, sebelum Digiflazz
+            $selfHostedResult = $this->connectSelfHosted($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+
+            if ($this->isSuccessfulResult($selfHostedResult)) {
+                return $selfHostedResult;
             }
 
             // 3. Digiflazz fallback — kalo semua API gratisan gagal
@@ -161,14 +154,16 @@ class ApiCheckController extends Controller
             }
 
             Log::warning('ApiCheckController:check - All providers failed.', [
-                'primary_response'    => $primaryResult,
-                'velixs_response'     => $velixsResult,
-                'apigames_response'   => $apiGamesResult,
-                'digiflazz_response'  => $digiflazzResult,
+                'primary_response'     => $primaryResult,
+                'velixs_response'      => $velixsResult,
+                'apigames_response'    => $apiGamesResult,
+                'selfhosted_response'  => $selfHostedResult,
+                'digiflazz_response'   => $digiflazzResult,
             ]);
 
             return $this->failedResult(
                 $digiflazzResult['message']
+                    ?? $selfHostedResult['message']
                     ?? $apiGamesResult['message']
                     ?? $velixsResult['message']
                     ?? $primaryResult['message']
@@ -475,6 +470,87 @@ class ApiCheckController extends Controller
         }
     }
 
+    private function connectSelfHosted(string $parsedGame, string $userId, ?string $zoneId = null): array
+    {
+        if (! (bool) config('providers.check_id.selfhosted.enabled', false)) {
+            return $this->failedResult('Self-hosted check ID API is disabled.');
+        }
+
+        $baseUrl = $this->resolveSelfHostedBaseUrl();
+        $apiKey = trim((string) config('providers.check_id.selfhosted.api_key', ''));
+
+        if ($baseUrl === null) {
+            return $this->failedResult('Self-hosted check ID API URL is not configured.');
+        }
+
+        if ($apiKey === '') {
+            return $this->failedResult('Self-hosted check ID API key is not configured.');
+        }
+
+        $slug = str_replace('_', '-', $parsedGame);
+        $url = $baseUrl . '/api/check';
+
+        try {
+            $response = Http::acceptJson()
+                ->withHeaders(['x-api-key' => $apiKey])
+                ->connectTimeout((int) config('providers.check_id.selfhosted.connect_timeout', 3))
+                ->timeout((int) config('providers.check_id.selfhosted.timeout', 5))
+                ->get($url, [
+                    'slug' => $slug,
+                    'id' => $userId,
+                    'zone' => $zoneId ?? '',
+                    'fallback' => '1',
+                    'cache' => '1',
+                ]);
+
+            if (! $response->successful()) {
+                return $this->failedResult('Self-hosted check ID API returned a non-200 response.');
+            }
+
+            return $this->normalizeSelfHostedResponse($response->json());
+        } catch (\Throwable $exception) {
+            Log::error('ApiCheckController:connectSelfHosted - Request failed.', [
+                'message' => $exception->getMessage(),
+                'host' => parse_url($baseUrl, PHP_URL_HOST),
+                'game' => $slug,
+            ]);
+
+            return $this->failedResult('Self-hosted check ID API request failed.');
+        }
+    }
+
+    private function resolveSelfHostedBaseUrl(): ?string
+    {
+        $baseUrl = trim((string) config('providers.check_id.selfhosted.base_url', ''));
+
+        if ($baseUrl === '') {
+            return null;
+        }
+
+        $scheme = parse_url($baseUrl, PHP_URL_SCHEME);
+        $host = parse_url($baseUrl, PHP_URL_HOST);
+
+        if ($scheme !== 'https' || ! is_string($host) || trim($host) === '') {
+            Log::warning('ApiCheckController:resolveSelfHostedBaseUrl - Self-hosted check ID API must use HTTPS production URL.', [
+                'scheme' => $scheme,
+                'host' => $host,
+            ]);
+
+            return null;
+        }
+
+        $normalizedHost = strtolower(trim($host, '[]'));
+        if (in_array($normalizedHost, ['localhost', '127.0.0.1', '::1'], true)) {
+            Log::warning('ApiCheckController:resolveSelfHostedBaseUrl - Local self-hosted check ID URL is not allowed.', [
+                'host' => $host,
+            ]);
+
+            return null;
+        }
+
+        return rtrim($baseUrl, '/');
+    }
+
     private function normalizePrimaryResponse(mixed $decoded): array
     {
         if (! is_array($decoded)) {
@@ -527,6 +603,34 @@ class ApiCheckController extends Controller
         }
 
         return $this->failedResult($decoded['message'] ?? 'User not found on ApiGames.');
+    }
+
+    private function normalizeSelfHostedResponse(mixed $decoded): array
+    {
+        if (! is_array($decoded)) {
+            return $this->failedResult('Self-hosted check ID API returned an invalid payload.');
+        }
+
+        $nickname = trim((string) (
+            $decoded['data']['username']
+            ?? $decoded['data']['nickname']
+            ?? $decoded['username']
+            ?? $decoded['nickname']
+            ?? ''
+        ));
+
+        $isSuccess = ($decoded['status'] ?? null) === true
+            || (($decoded['status']['code'] ?? null) === 200 && $nickname !== '')
+            || (($decoded['code'] ?? null) === 200 && $nickname !== '');
+
+        if ($isSuccess && $nickname !== '') {
+            $provider = trim((string) ($decoded['provider'] ?? ''));
+            $source = $provider !== '' ? 'selfhosted:' . $provider : 'selfhosted';
+
+            return $this->successfulResult($nickname, $source);
+        }
+
+        return $this->failedResult($decoded['message'] ?? 'User not found on self-hosted check ID API.');
     }
 
     private function successfulResult(string $nickname, string $source): array

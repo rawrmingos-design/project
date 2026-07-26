@@ -71,6 +71,16 @@ return [
         ],
     ],
 
+    'check_id' => [
+        'selfhosted' => [
+            'enabled' => env('CHECK_ID_SELFHOSTED_ENABLED', false),
+            'base_url' => env('CHECK_ID_SELFHOSTED_BASE_URL', 'https://cekid.jasakoding.web.id'),
+            'api_key' => env('CHECK_ID_SELFHOSTED_API_KEY'),
+            'timeout' => env('CHECK_ID_SELFHOSTED_TIMEOUT', 5),
+            'connect_timeout' => env('CHECK_ID_SELFHOSTED_CONNECT_TIMEOUT', 3),
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Global Provider Settings
