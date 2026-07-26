@@ -19,14 +19,11 @@ use Filament\Forms\Components\Repeater;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use App\Models\Kategori;
-use App\Models\PaketLayanan;
 use App\Filament\Admin\Resources\Kategoris\Schemas\KategoriForm;
 use App\Filament\Admin\Resources\Pakets\Schemas\PaketForm;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Services\Providers\BangJeffService;
-use App\Models\MediaAsset;
 use App\Support\KategoriFormDataHandler;
 use App\Support\MediaAssetPicker;
 use Illuminate\Support\Facades\Cache;
@@ -460,9 +457,10 @@ class ProdukForm
                             ->label('Profit Member / Publik')
                             ->numeric()
                             ->required()
+                            ->default(0)
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            ->afterStateUpdated(function (Set $set, Get $get) {
                                 if (filled($get('pricing_sync_source'))) {
                                     return;
                                 }
@@ -492,9 +490,10 @@ class ProdukForm
                             ->label('Profit Platinum')
                             ->numeric()
                             ->required()
+                            ->default(0)
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            ->afterStateUpdated(function (Set $set, Get $get) {
                                 if (filled($get('pricing_sync_source'))) {
                                     return;
                                 }
@@ -503,7 +502,7 @@ class ProdukForm
                                     static::syncTierPricesFromProfit($get('harga'), $set, $get);
                                 });
                             }),
-                            
+
                         TextInput::make('harga_gold')
                             ->label('Harga Gold')
                             ->numeric()
@@ -524,9 +523,10 @@ class ProdukForm
                             ->label('Profit Gold')
                             ->numeric()
                             ->required()
+                            ->default(0)
                             ->suffix('%')
                             ->live(onBlur: true)
-                            ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            ->afterStateUpdated(function (Set $set, Get $get) {
                                 if (filled($get('pricing_sync_source'))) {
                                     return;
                                 }
@@ -754,7 +754,7 @@ class ProdukForm
             Cache::put($cacheKey, $products, now()->addMinutes(5));
 
             return $products;
-        } catch (\Throwable $e) {
+        } catch (\Throwable) {
             return [];
         }
     }
