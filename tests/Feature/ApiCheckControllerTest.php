@@ -143,7 +143,7 @@ class ApiCheckControllerTest extends TestCase
         });
     }
 
-    public function test_unsupported_apigames_game_stops_after_velixs_and_returns_not_found(): void
+    public function test_unsupported_apigames_game_without_selfhosted_or_digiflazz_sku_returns_not_found(): void
     {
         $this->seedApiGamesSettings();
 
@@ -219,6 +219,161 @@ class ApiCheckControllerTest extends TestCase
         $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
 
         Http::assertSentCount(3);
+    }
+
+    public function test_selfhosted_runs_after_apigames_failure_and_before_digiflazz(): void
+    {
+        $this->seedApiGamesSettings();
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://v1.apigames.id/merchant/demo-merchant/cek-username/mobilelegend*' => Http::response([
+                'status' => 1,
+                'message' => 'Data Not Found',
+                'data' => ['is_valid' => false, 'username' => ''],
+            ]),
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => true,
+                'message' => 'ID berhasil ditemukan',
+                'data' => [
+                    'username' => 'Self Hosted Nick',
+                    'user_id' => '123456',
+                    'zone' => '2222',
+                ],
+                'provider' => 'codashop',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Self Hosted Nick', $result['data']['username']);
+
+        Http::assertSentCount(4);
+        Http::assertSent(function ($request) {
+            if (! str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check')) {
+                return false;
+            }
+
+            return $request->hasHeader('x-api-key', 'selfhosted-secret')
+                && $request['slug'] === 'mobile-legends'
+                && $request['id'] === '123456'
+                && $request['zone'] === '2222'
+                && $request['fallback'] === '1'
+                && $request['cache'] === '1';
+        });
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
+    }
+
+    public function test_selfhosted_rejects_non_https_or_local_url_without_requesting_it(): void
+    {
+        $this->seedApiGamesSettings();
+        $this->enableSelfHostedCheckId('http://127.0.0.1:3010');
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://v1.apigames.id/merchant/demo-merchant/cek-username/mobilelegend*' => Http::response([
+                'status' => 1,
+                'message' => 'Data Not Found',
+                'data' => ['is_valid' => false, 'username' => ''],
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
+
+        $this->assertSame(404, $result['status']['code']);
+        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
+
+        Http::assertSentCount(3);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '127.0.0.1'));
+    }
+
+    public function test_unsupported_apigames_game_can_still_use_selfhosted_fallback(): void
+    {
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => true,
+                'data' => ['username' => 'Valorant Self Hosted Nick'],
+                'provider' => 'unipin',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('VALORANT_UID', null, 'Valorant');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Valorant Self Hosted Nick', $result['data']['username']);
+
+        Http::assertSentCount(3);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check')
+            && $request['slug'] === 'valorant');
+    }
+
+    public function test_selfhosted_invalid_payload_continues_to_digiflazz(): void
+    {
+        $this->seedDigiflazzSettings();
+        $this->enableSelfHostedCheckId();
+
+        $layanan = \App\Models\Layanan::factory()->create([
+            'check_id_enabled' => true,
+            'check_id_provider' => 'digiflazz',
+            'check_id_provider_sku' => 'DYNAMIC_INQUIRY_SKU',
+        ]);
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => false,
+                'message' => 'ID tidak ditemukan',
+            ]),
+            'https://api.digiflazz.com/v1/transaction' => Http::response([
+                'data' => [
+                    'status' => 'Sukses',
+                    'customer_name' => 'Digiflazz After Self Hosted Nick',
+                    'message' => 'Transaksi Sukses',
+                ],
+            ]),
+        ]);
+
+        $result = (new ApiCheckController($layanan))->check('DYNAMIC_UID', null, 'Valorant');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Digiflazz After Self Hosted Nick', $result['data']['username']);
+
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check'));
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.digiflazz.com/v1/transaction');
     }
 
     public function test_successful_result_is_cached_for_identical_request(): void
@@ -423,6 +578,17 @@ class ApiCheckControllerTest extends TestCase
         DB::table('setting_webs')->where('id', 1)->update([
             'username_digi' => 'demo_digi_user',
             'api_key_digi' => 'demo_digi_key',
+        ]);
+    }
+
+    private function enableSelfHostedCheckId(string $baseUrl = 'https://cekid.jasakoding.web.id', string $apiKey = 'selfhosted-secret'): void
+    {
+        config([
+            'providers.check_id.selfhosted.enabled' => true,
+            'providers.check_id.selfhosted.base_url' => $baseUrl,
+            'providers.check_id.selfhosted.api_key' => $apiKey,
+            'providers.check_id.selfhosted.timeout' => 5,
+            'providers.check_id.selfhosted.connect_timeout' => 3,
         ]);
     }
 
