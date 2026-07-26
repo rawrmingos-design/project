@@ -73,7 +73,7 @@ final class PaymentStatus
     {
         return match ($status) {
             self::PAID => ['Lunas', 'Paid', 'PAID', 'Success', 'success', 'Sukses', 'sukses'],
-            self::PENDING => ['Belum Lunas', 'Unpaid', 'unpaid', 'Pending', 'pending'],
+            self::PENDING => ['Belum Lunas', 'belum lunas', 'Unpaid', 'UNPAID', 'unpaid', 'Pending', 'PENDING', 'pending'],
             self::EXPIRED => ['Expired', 'expired'],
             self::CANCELLED => ['Batal', 'batal', 'Cancelled', 'cancelled', 'Canceled', 'canceled', 'Refunded', 'refunded', 'Failed', 'failed', 'Gagal', 'gagal'],
             default => [],

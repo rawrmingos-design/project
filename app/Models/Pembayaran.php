@@ -70,11 +70,11 @@ class Pembayaran extends Model
 
         $pembelian = $this->pembelian()->first();
 
-        if (! $pembelian || $pembelian->hasStatus(PembelianStatus::SUCCESS)) {
+        if (! $pembelian || $pembelian->hasStatus(PembelianStatus::EXPIRED)) {
             return false;
         }
 
-        if ($pembelian->hasStatus(PembelianStatus::EXPIRED)) {
+        if (PembelianStatus::shouldIgnoreTransition($pembelian->status, PembelianStatus::EXPIRED)) {
             return false;
         }
 
