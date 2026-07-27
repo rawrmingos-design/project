@@ -259,16 +259,14 @@ class ApiCheckControllerTest extends TestCase
 
         Http::assertSentCount(4);
         Http::assertSent(function ($request) {
-            if (! str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check')) {
+            if (! str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check-id-game')) {
                 return false;
             }
 
             return $request->hasHeader('x-api-key', 'selfhosted-secret')
-                && $request['slug'] === 'mobile-legends'
-                && $request['id'] === '123456'
-                && $request['zone'] === '2222'
-                && $request['fallback'] === '1'
-                && $request['cache'] === '1';
+                && $request['type_name'] === 'mobile_legends'
+                && $request['userId'] === '123456'
+                && $request['zoneId'] === '2222';
         });
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
     }
@@ -316,7 +314,7 @@ class ApiCheckControllerTest extends TestCase
                 'status' => false,
                 'message' => 'User not found',
             ]),
-            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+            'https://cekid.jasakoding.web.id/api/check-id-game*' => Http::response([
                 'status' => true,
                 'data' => ['username' => 'Valorant Self Hosted Nick'],
                 'provider' => 'unipin',
@@ -330,8 +328,8 @@ class ApiCheckControllerTest extends TestCase
 
         Http::assertSentCount(3);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
-        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check')
-            && $request['slug'] === 'valorant');
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check-id-game')
+            && $request['type_name'] === 'valorant');
     }
 
     public function test_selfhosted_invalid_payload_continues_to_digiflazz(): void
@@ -354,7 +352,7 @@ class ApiCheckControllerTest extends TestCase
                 'status' => false,
                 'message' => 'User not found',
             ]),
-            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+            'https://cekid.jasakoding.web.id/api/check-id-game*' => Http::response([
                 'status' => false,
                 'message' => 'ID tidak ditemukan',
             ]),
@@ -372,7 +370,7 @@ class ApiCheckControllerTest extends TestCase
         $this->assertSame(200, $result['status']['code']);
         $this->assertSame('Digiflazz After Self Hosted Nick', $result['data']['username']);
 
-        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check'));
+        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check-id-game'));
         Http::assertSent(fn ($request) => $request->url() === 'https://api.digiflazz.com/v1/transaction');
     }
 
