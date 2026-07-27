@@ -1,0 +1,166 @@
+<?php
+
+namespace App\Services\Gateway;
+
+use App\Models\Pembelian;
+use App\Models\User;
+use App\Services\Checkout\CheckoutOrderService;
+use App\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
+
+class GatewayInvoiceService
+{
+    private const ALLOWED_SOURCES = ['whatsapp_gateway', 'telegram_gateway'];
+
+    public function __construct(
+        private readonly CheckoutOrderService $checkout,
+        private readonly TenantContext $tenantContext,
+    ) {
+    }
+
+    public function createInvoice(array $payload, ?User $user = null, string $source = 'whatsapp_gateway', array $context = []): array
+    {
+        $source = $this->normalizeSource($source);
+        $checkoutPayload = $payload;
+
+        if (isset($checkoutPayload['service_id']) && ! isset($checkoutPayload['service'])) {
+            $checkoutPayload['service'] = $checkoutPayload['service_id'];
+        }
+
+        $context = $this->normalizeContext($context + [
+            'external_user_id' => $payload['external_user_id'] ?? null,
+            'idempotency_key' => $payload['idempotency_key'] ?? null,
+            'channel' => $this->channelFromSource($source),
+            'message_id' => $payload['message_id'] ?? null,
+        ], $source, $checkoutPayload);
+
+        $result = $this->checkout->createFromPayload($checkoutPayload, $user, $source, $context);
+
+        return [
+            'ok' => (bool) ($result['status'] ?? false),
+            'message' => (string) ($result['message'] ?? 'Invoice berhasil dibuat.'),
+            'data' => $result,
+        ];
+    }
+
+    public function status(string $orderId, ?User $user = null, array $context = []): array
+    {
+        $orderId = trim($orderId);
+        if ($orderId === '') {
+            throw ValidationException::withMessages([
+                'order_id' => 'Order ID wajib diisi.',
+            ]);
+        }
+
+        $order = Pembelian::query()
+            ->with('pembayaran')
+            ->where(function (Builder $query) use ($orderId): void {
+                $query->where('order_id', $orderId)
+                    ->orWhere('display_order_id', $orderId);
+            })
+            ->when($this->tenantContext->id() !== null, function (Builder $query): void {
+                $query->where('tenant_id', $this->tenantContext->id());
+            })
+            ->first();
+
+        if (! $order) {
+            return [
+                'ok' => false,
+                'error_code' => 'INVOICE_NOT_FOUND',
+                'message' => 'Invoice tidak ditemukan.',
+                'data' => null,
+            ];
+        }
+
+        $this->authorizeStatusLookup($order, $user, $context);
+
+        if ($order->pembayaran) {
+            $order->pembayaran->syncExpiredStatus();
+            $order->refresh()->load('pembayaran');
+        }
+
+        return [
+            'ok' => true,
+            'message' => 'Status invoice berhasil dimuat.',
+            'data' => $this->checkout->statusPayload($order),
+        ];
+    }
+
+    private function authorizeStatusLookup(Pembelian $order, ?User $user, array $context): void
+    {
+        if ($user) {
+            if ((string) $order->username !== (string) $user->username) {
+                throw ValidationException::withMessages([
+                    'order_id' => 'Invoice tidak dapat diakses oleh user ini.',
+                ]);
+            }
+
+            return;
+        }
+
+        $source = trim((string) ($context['source'] ?? ''));
+        if ($source !== '') {
+            $source = $this->normalizeSource($source);
+            if ((string) $order->traffic_source !== $source) {
+                throw ValidationException::withMessages([
+                    'order_id' => 'Invoice tidak dapat diakses dari source ini.',
+                ]);
+            }
+        }
+
+        $externalUserId = trim((string) ($context['external_user_id'] ?? ''));
+        if ($externalUserId === '') {
+            return;
+        }
+
+        $metadata = json_decode((string) $order->log, true);
+        $gatewayContext = is_array($metadata) ? ($metadata['gateway_context'] ?? []) : [];
+
+        if (! is_array($gatewayContext) || (string) ($gatewayContext['external_user_id'] ?? '') !== $externalUserId) {
+            throw ValidationException::withMessages([
+                'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
+            ]);
+        }
+    }
+
+    private function normalizeContext(array $context, string $source, array $payload): array
+    {
+        $context['source'] = $source;
+        $context['channel'] = trim((string) ($context['channel'] ?? '')) ?: $this->channelFromSource($source);
+
+        if (blank($context['idempotency_key'] ?? null)) {
+            $context['idempotency_key'] = hash('sha256', json_encode([
+                'source' => $source,
+                'external_user_id' => $context['external_user_id'] ?? null,
+                'service' => $payload['service'] ?? null,
+                'payment_method' => $payload['payment_method'] ?? null,
+                'uid' => $payload['uid'] ?? null,
+                'zone' => $payload['zone'] ?? null,
+            ], JSON_UNESCAPED_SLASHES));
+        }
+
+        return $context;
+    }
+
+    private function normalizeSource(string $source): string
+    {
+        $source = strtolower(trim($source));
+
+        if (! in_array($source, self::ALLOWED_SOURCES, true)) {
+            throw ValidationException::withMessages([
+                'source' => 'Source gateway tidak valid.',
+            ]);
+        }
+
+        return $source;
+    }
+
+    private function channelFromSource(string $source): string
+    {
+        return match ($source) {
+            'telegram_gateway' => 'telegram',
+            default => 'whatsapp',
+        };
+    }
+}

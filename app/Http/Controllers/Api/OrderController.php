@@ -3,21 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\ApiCheckController;
 use App\Models\Kategori;
 use App\Models\Layanan;
-use App\Models\Method;
 use App\Models\Voucher;
 use App\Models\Pembelian;
-use App\Models\Pembayaran;
-use App\Models\User;
+use App\Services\CheckId\CheckIdResolver;
 use App\Services\Checkout\CheckoutOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -176,11 +170,14 @@ class OrderController extends Controller
         }
 
         $username = "Anonim";
-        $daftarGameValidasi = ['mobile-legends', 'free-fire', 'valorant', 'genshin-impact', 'pubg-mobile-tp']; 
-        
-        if (in_array($produk->kode, $daftarGameValidasi)) {
-            $apicheck = new ApiCheckController();
-            $checkData = $apicheck->check($request->uid, $request->zone, $produk->nama);
+        $checkData = app(CheckIdResolver::class)->resolveForCategory(
+            $produk,
+            (string) $request->uid,
+            $request->zone !== null ? (string) $request->zone : null,
+            $item,
+        );
+
+        if (($checkData['skip_check'] ?? false) !== true) {
             if (isset($checkData['status']['code']) && $checkData['status']['code'] === 200 && !empty($checkData['data']['username'])) {
                 $username = $checkData['data']['username'];
             } else {

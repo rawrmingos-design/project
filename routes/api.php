@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\GatewayController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\SandboxOrderApiController;
 use App\Http\Controllers\Api\WebhookController;
@@ -17,6 +18,8 @@ use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\PostmanExportController;
 use App\Http\Controllers\Api\SubscriptionWebhookController;
 use App\Http\Controllers\Api\TenantRegistrationController;
+
+use App\Http\Controllers\Api\BotWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -97,6 +100,13 @@ Route::prefix('webhooks')->group(function () {
         ->middleware('inbound.whitelist:supplier_callback,@provider,log_only')
         ->name('webhooks.generic');
 });
+
+// ── BOT WEBHOOKS (TELEGRAM / WHATSAPP) ──────────────────
+Route::prefix('webhooks/bot')->group(function () {
+    Route::post('/telegram', [BotWebhookController::class, 'telegram'])->name('webhooks.bot.telegram');
+    Route::post('/fonnte', [BotWebhookController::class, 'fonnte'])->name('webhooks.bot.fonnte');
+});
+
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
@@ -130,6 +140,21 @@ Route::prefix('v2')->middleware('tenant.resolve')->group(function () {
     Route::post('/order/store', [OrderController::class, 'store']);
     Route::get('/order/status/{order_id}', [OrderController::class, 'show']);
     Route::post('/order/voucher', [OrderController::class, 'validateVoucher']);
+});
+
+// ── GATEWAY MVP ─────────────────────────────────────────
+Route::prefix('gateway')->middleware('tenant.resolve')->group(function () {
+    Route::get('/category-types', [GatewayController::class, 'categoryTypes']);
+    Route::get('/categories', [GatewayController::class, 'categories']);
+    Route::get('/products', [GatewayController::class, 'products']);
+    Route::get('/services', [GatewayController::class, 'services']);
+    Route::get('/services/{service_id}', [GatewayController::class, 'serviceDetail']);
+    Route::get('/payment-methods', [GatewayController::class, 'paymentMethods']);
+    Route::post('/vouchers/validate', [GatewayController::class, 'validateVoucher']);
+    Route::post('/price', [GatewayController::class, 'price']);
+    Route::post('/check-id', [GatewayController::class, 'checkId']);
+    Route::post('/invoices', [GatewayController::class, 'createInvoice']);
+    Route::get('/invoices/{order_id}', [GatewayController::class, 'status']);
 });
 
 // ── POSTMAN EXPORT ──────────────────────────────────────

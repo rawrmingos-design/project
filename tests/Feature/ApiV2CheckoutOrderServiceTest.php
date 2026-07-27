@@ -276,4 +276,97 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
         $this->assertEquals($tenant1->id, $orderA->tenant_id);
         $this->assertEquals($tenant2->id, $orderB->tenant_id);
     }
+
+    public function test_create_from_payload_accepts_gateway_sources_and_persists_source_metadata(): void
+    {
+        [$service] = $this->createManualCheckoutFixtures();
+
+        foreach (['whatsapp_gateway', 'telegram_gateway'] as $source) {
+            $result = app(\App\Services\Checkout\CheckoutOrderService::class)->createFromPayload([
+                'service' => $service->id,
+                'payment_method' => 'MANUAL',
+                'whatsapp' => '081234567890',
+                'email' => 'buyer@example.test',
+                'uid' => '123456',
+                'zone' => '1234',
+                'nickname' => 'Gateway Nick',
+            ], null, $source, [
+                'ip' => '203.0.113.10',
+                'external_user_id' => $source . ':user-1',
+                'idempotency_key' => $source . ':message-1',
+            ]);
+
+            $this->assertTrue($result['status']);
+
+            $order = Pembelian::query()->where('order_id', $result['order_id'])->firstOrFail();
+            $payment = Pembayaran::query()->where('order_id', $order->order_id)->firstOrFail();
+
+            $this->assertSame($source, $order->traffic_source);
+            $this->assertSame('203.0.113.10', $order->ip_address);
+            $this->assertSame('Gateway Nick', $order->nickname);
+            $this->assertSame('081234567890', $payment->no_pembeli);
+            $this->assertStringContainsString('"source":"' . $source . '_checkout"', (string) $order->log);
+        }
+    }
+
+    public function test_create_from_payload_gateway_idempotency_is_scoped_by_source_and_external_user(): void
+    {
+        [$service] = $this->createManualCheckoutFixtures();
+        $payload = [
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'nomor' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+        ];
+
+        $checkout = app(\App\Services\Checkout\CheckoutOrderService::class);
+
+        $firstWhatsapp = $checkout->createFromPayload($payload, null, 'whatsapp_gateway', [
+            'external_user_id' => 'wa:user-1',
+        ]);
+        $secondWhatsapp = $checkout->createFromPayload($payload, null, 'whatsapp_gateway', [
+            'external_user_id' => 'wa:user-1',
+        ]);
+        $telegram = $checkout->createFromPayload($payload, null, 'telegram_gateway', [
+            'external_user_id' => 'tg:user-1',
+        ]);
+
+        $this->assertSame($firstWhatsapp['order_id'], $secondWhatsapp['order_id']);
+        $this->assertSame('Order sudah diproses sebelumnya.', $secondWhatsapp['message']);
+        $this->assertNotSame($firstWhatsapp['order_id'], $telegram['order_id']);
+
+        $this->assertSame(2, Pembelian::query()->count());
+    }
+
+    private function createManualCheckoutFixtures(): array
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-100',
+            'harga_member' => 10000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10000,
+            'profit_member' => 1000,
+            'profit_platinum' => 1000,
+            'profit_gold' => 1000,
+        ]);
+
+        $method = Method::query()->create([
+            'name' => 'Manual Transfer',
+            'code' => 'MANUAL',
+            'payment' => 'manual',
+            'tipe' => 'manual',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer desc',
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+            'statuspayment' => 1,
+        ]);
+
+        return [$service, $method];
+    }
 }
