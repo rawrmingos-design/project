@@ -22,12 +22,23 @@ use Illuminate\Validation\ValidationException;
 class CheckoutOrderService
 {
     private const IDEMPOTENCY_TTL_SECONDS = 600;
+    private const ALLOWED_SOURCES = ['api_v2', 'whatsapp_gateway', 'telegram_gateway', 'website'];
 
     public function createFromApi(Request $request, ?User $user = null): array
     {
+        return $this->createFromPayload($request->all(), $user, 'api_v2', [
+            'ip' => $request->ip(),
+            'idempotency_key' => $request->headers->get('X-Idempotency-Key'),
+        ]);
+    }
+
+    public function createFromPayload(array $payload, ?User $user = null, string $source = 'api_v2', array $context = []): array
+    {
+        $source = $this->normalizeSource($source);
+        $request = Request::create('/checkout/payload', 'POST', $payload);
         $this->validateApiPayload($request);
 
-        $idempotencyKey = $this->idempotencyKey($request, $user);
+        $idempotencyKey = $this->idempotencyKeyFromPayload($request->all(), $user, $source, $context);
         if ($cachedOrderId = Cache::get($idempotencyKey)) {
             $order = Pembelian::query()->where('order_id', $cachedOrderId)->with('pembayaran')->first();
             if ($order) {
@@ -35,7 +46,7 @@ class CheckoutOrderService
             }
         }
 
-        $order = DB::transaction(function () use ($request, $user): Pembelian {
+        $order = DB::transaction(function () use ($request, $user, $source, $context): Pembelian {
             $service = Layanan::query()
                 ->whereKey($request->integer('service'))
                 ->where('status', 'available')
@@ -133,16 +144,17 @@ class CheckoutOrderService
             $order->provider_order_id = '';
             $order->status = 'Pending';
             $order->log = json_encode([
-                'source' => 'api_v2_checkout',
+                'source' => $source . '_checkout',
                 'payment' => (string) $method->payment,
                 'base_amount' => $baseAmount,
                 'fee_amount' => $feeAmount,
+                'gateway_context' => $this->gatewayContext($context),
             ], JSON_UNESCAPED_SLASHES);
-            $order->traffic_source = 'api_v2';
+            $order->traffic_source = $source;
             $order->voucher = $voucherCode !== '' ? $voucherCode : null;
             $order->tipe_transaksi = $orderType;
             $order->email_pembeli = $this->orderEmail($request, $user);
-            $order->ip_address = $request->ip();
+            $order->ip_address = $context['ip'] ?? null;
             $order->active_layanan_id = $service->id;
             $order->active_provider_code = strtolower((string) $service->provider);
             $order->active_provider_sku = (string) $service->provider_id;
@@ -566,20 +578,47 @@ class CheckoutOrderService
         };
     }
 
-    private function idempotencyKey(Request $request, ?User $user): string
+    private function gatewayContext(array $context): array
+    {
+        return array_filter([
+            'source' => $context['source'] ?? null,
+            'channel' => $context['channel'] ?? null,
+            'external_user_id' => $context['external_user_id'] ?? null,
+            'message_id' => $context['message_id'] ?? null,
+        ], static fn ($value): bool => $value !== null && $value !== '');
+    }
+
+    private function normalizeSource(string $source): string
+    {
+        $source = strtolower(trim($source));
+
+        if (! in_array($source, self::ALLOWED_SOURCES, true)) {
+            throw ValidationException::withMessages([
+                'source' => 'Source transaksi tidak valid.',
+            ]);
+        }
+
+        return $source;
+    }
+
+    private function idempotencyKeyFromPayload(array $payload, ?User $user, string $source, array $context = []): string
     {
         $tenantId = app(\App\Tenancy\TenantContext::class)->id() ?? 'main';
-        $key = trim((string) $request->headers->get('X-Idempotency-Key', ''));
+        $key = trim((string) ($context['idempotency_key'] ?? ''));
 
         if ($key === '') {
             $key = hash('sha256', json_encode([
                 'tenant_id' => $tenantId,
                 'user_id' => $user?->id,
-                'ip' => $request->ip(),
-                'payload' => $request->only(['service', 'payment_method', 'nomor', 'email', 'uid', 'zone', 'voucher']),
+                'source' => $source,
+                'external_user_id' => $context['external_user_id'] ?? null,
+                'ip' => $context['ip'] ?? null,
+                'payload' => array_intersect_key($payload, array_flip([
+                    'service', 'payment_method', 'nomor', 'whatsapp', 'email', 'uid', 'zone', 'voucher', 'ktg_tipe', 'qty',
+                ])),
             ], JSON_UNESCAPED_SLASHES));
         }
 
-        return "api_v2_checkout:{$tenantId}:" . sha1($key);
+        return "checkout:{$source}:{$tenantId}:" . sha1($key);
     }
 }
