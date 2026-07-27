@@ -493,33 +493,33 @@ class ApiCheckController extends Controller
             return $this->failedResult('Self-hosted check ID API key is not configured.');
         }
 
-        // Endpoint cekid.jasakoding.web.id menggunakan format POST /api/check-id-game
-        $url = $baseUrl . '/api/check-id-game';
-
-        $payload = [
-            'type_name' => $parsedGame,
-            'userId' => $userId,
-            'zoneId' => $zoneId ?? '',
-        ];
+        // Sesuai OpenAPI Spec: GET /api/check dengan parameter query: slug, id, zone, fallback, cache
+        $slug = str_replace('_', '-', $parsedGame);
+        $url = $baseUrl . '/api/check';
 
         try {
             $response = Http::acceptJson()
                 ->withHeaders(['x-api-key' => $apiKey])
                 ->connectTimeout((int) config('providers.check_id.selfhosted.connect_timeout', 3))
                 ->timeout((int) config('providers.check_id.selfhosted.timeout', 5))
-                ->post($url, $payload);
+                ->get($url, [
+                    'slug' => $slug,
+                    'id' => $userId,
+                    'zone' => $zoneId ?? '',
+                    'fallback' => '1',
+                    'cache' => '1',
+                ]);
 
             if (! $response->successful()) {
                 return $this->failedResult('Self-hosted check ID API returned a non-200 response.');
             }
 
-            // Normalisasi response primary karena engine self-hosted menggunakan script yang sama dengan API primary
-            return $this->normalizePrimaryResponse($response->json());
+            return $this->normalizeSelfHostedResponse($response->json());
         } catch (\Throwable $exception) {
             Log::error('ApiCheckController:connectSelfHosted - Request failed.', [
                 'message' => $exception->getMessage(),
                 'host' => parse_url($baseUrl, PHP_URL_HOST),
-                'game' => $parsedGame,
+                'game' => $slug,
             ]);
 
             return $this->failedResult('Self-hosted check ID API request failed.');
@@ -610,6 +610,34 @@ class ApiCheckController extends Controller
         }
 
         return $this->failedResult($decoded['message'] ?? 'User not found on ApiGames.');
+    }
+
+    private function normalizeSelfHostedResponse(mixed $decoded): array
+    {
+        if (! is_array($decoded)) {
+            return $this->failedResult('Self-hosted check ID API returned an invalid payload.');
+        }
+
+        $nickname = trim((string) (
+            $decoded['data']['username']
+            ?? $decoded['data']['nickname']
+            ?? $decoded['username']
+            ?? $decoded['nickname']
+            ?? ''
+        ));
+
+        $isSuccess = ($decoded['status'] ?? null) === true
+            || (($decoded['status']['code'] ?? null) === 200 && $nickname !== '')
+            || (($decoded['code'] ?? null) === 200 && $nickname !== '');
+
+        if ($isSuccess && $nickname !== '') {
+            $provider = trim((string) ($decoded['provider'] ?? ''));
+            $source = $provider !== '' ? 'selfhosted:' . $provider : 'selfhosted';
+
+            return $this->successfulResult($nickname, $source);
+        }
+
+        return $this->failedResult($decoded['message'] ?? 'User not found on self-hosted check ID API.');
     }
 
     private function successfulResult(string $nickname, string $source): array
