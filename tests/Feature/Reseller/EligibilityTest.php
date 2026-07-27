@@ -4,9 +4,12 @@ namespace Tests\Feature\Reseller;
 
 use App\Models\ResellerApplication;
 use App\Models\User;
+use App\Services\ResellerDocumentStorageService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class EligibilityTest extends TestCase
@@ -20,6 +23,12 @@ class EligibilityTest extends TestCase
         parent::setUp();
 
         $this->disableCaptchaForTests();
+
+        $this->mock(ResellerDocumentStorageService::class, function (MockInterface $mock) {
+            $mock->shouldReceive('store')->andReturn('assets/reseller-documents/fake.jpg');
+            $mock->shouldReceive('replace')->andReturn('assets/reseller-documents/fake.jpg');
+            $mock->shouldReceive('delete')->andReturn(null);
+        });
     }
 
     protected function tearDown(): void
@@ -74,6 +83,7 @@ class EligibilityTest extends TestCase
      */
     public function test_user_with_reseller_access_is_redirected_on_submit(): void
     {
+        /** @var \App\Models\User $user */
         $user = User::factory()->create([
             'role' => 'Gold',
             'created_at' => now()->subDays(10),
@@ -187,7 +197,7 @@ class EligibilityTest extends TestCase
 
     private function disableCaptchaForTests(): void
     {
-        \DB::table('setting_webs')->updateOrInsert(
+        DB::table('setting_webs')->updateOrInsert(
             ['id' => 1],
             [
                 'judul_web' => 'Test App',
