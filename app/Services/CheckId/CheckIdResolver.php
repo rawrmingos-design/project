@@ -5,6 +5,9 @@ namespace App\Services\CheckId;
 use App\Http\Controllers\ApiCheckController;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CheckIdResolver
 {
@@ -199,19 +202,69 @@ class CheckIdResolver
         return (new ApiCheckController($layanan))->check($uid, $zoneForCheck, $gameName);
     }
 
+    private function fetchCatalog(): array
+    {
+        return Cache::remember('checkid_catalog_v1', now()->addDay(), function () {
+            $baseUrl = rtrim(trim((string) config('providers.check_id.selfhosted.base_url', 'https://cekid.jasakoding.web.id')), '/');
+            $apiKey = trim((string) config('providers.check_id.selfhosted.api_key', ''));
+
+            try {
+                $req = Http::connectTimeout(3)->timeout(5);
+                if ($apiKey !== '') {
+                    $req->withHeaders(['x-api-key' => $apiKey]);
+                }
+
+                $response = $req->get($baseUrl . '/api/');
+
+                if ($response->successful()) {
+                    $json = $response->json();
+                    if (isset($json['data']) && is_array($json['data'])) {
+                        return collect($json['data'])->keyBy('slug')->toArray();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning("ApiCheckController:fetchCatalog - Failed to fetch check id catalog", ['message' => $e->getMessage()]);
+            }
+            return [];
+        });
+    }
+
+    private function getCatalogItem(string $categoryCode): ?array
+    {
+        $catalog = $this->fetchCatalog();
+        return $catalog[$categoryCode] ?? null;
+    }
+
     private function supports(string $categoryCode): bool
     {
+        if ($this->getCatalogItem($categoryCode) !== null) {
+            return true;
+        }
         return in_array($categoryCode, self::SUPPORTED_CODES, true);
     }
 
     private function gameName(string $categoryCode): string
     {
+        if ($item = $this->getCatalogItem($categoryCode)) {
+            $name = trim((string) ($item['name'] ?? ''));
+            if ($name !== '') {
+                return $name;
+            }
+        }
         return self::GAME_NAMES[$categoryCode]
             ?? ucwords(str_replace(['-', '_'], ' ', $categoryCode));
     }
 
     private function zoneForCheck(string $categoryCode, ?string $zone): ?string
     {
+        if ($item = $this->getCatalogItem($categoryCode)) {
+            if (isset($item['hasZoneId']) && $item['hasZoneId'] === false) {
+                return null;
+            }
+            $zone = trim((string) $zone);
+            return $zone !== '' ? $zone : null;
+        }
+
         if (in_array($categoryCode, self::ZONELESS_CODES, true)) {
             return null;
         }
