@@ -53,18 +53,17 @@ class BotMessageFormatter
         }
 
         $pagination = $this->paginate($data['data'], $page);
-        $buttons = [];
+        $items = [];
 
         foreach ($pagination['items'] as $type) {
             $slug = (string) ($type['slug'] ?? '');
-            $buttons[] = [
-                $this->button(
-                    $this->categoryButtonLabel((string) ($type['name'] ?? 'Kategori'), $slug, $type['icon'] ?? null),
-                    'kategori ' . $slug,
-                ),
-            ];
+            $items[] = $this->button(
+                $this->categoryButtonLabel((string) ($type['name'] ?? 'Kategori'), $slug, $type['icon'] ?? null),
+                'kategori ' . $slug,
+            );
         }
 
+        $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'menu', $pagination);
 
         return [
@@ -85,18 +84,17 @@ class BotMessageFormatter
         $firstType = $data['data'][0]['category_type']['name'] ?? 'Produk';
         $typeSlug = (string) ($data['data'][0]['category_type']['slug'] ?? '');
         $pagination = $this->paginate($data['data'], $page);
-        $buttons = [];
+        $items = [];
 
         foreach ($pagination['items'] as $product) {
             $code = (string) ($product['code'] ?? '');
-            $buttons[] = [
-                $this->button(
-                    $this->gameButtonLabel((string) ($product['name'] ?? 'Produk'), $code),
-                    'layanan ' . $code,
-                ),
-            ];
+            $items[] = $this->button(
+                $this->gameButtonLabel((string) ($product['name'] ?? 'Produk'), $code),
+                'layanan ' . $code,
+            );
         }
 
+        $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'kategori ' . $typeSlug, $pagination);
         $buttons = $this->appendBack($buttons, 'menu');
 
