@@ -7,6 +7,7 @@ use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
 use App\Services\Gateway\GatewayPricingService;
 use App\Services\PaymentMethodCatalogService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class BotCommandHandler
@@ -28,6 +29,10 @@ class BotCommandHandler
      */
     public function handle(?string $command, array $args, array $context): array
     {
+        if ($this->shouldClearCheckoutState($command, $context)) {
+            Cache::forget($this->checkoutStateKey($context));
+        }
+
         try {
             return match ($command) {
                 'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
@@ -35,14 +40,12 @@ class BotCommandHandler
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
                 'pembayaran', 'metode' => $this->handlePembayaran($args),
-                'harga', 'price' => $this->handleHarga($args),
+                'harga', 'price' => $this->handleHarga($args, $context),
                 'cekid' => $this->handleCekId($args),
                 'invoice', 'beli' => $this->handleInvoice($args, $context),
                 'status' => $this->handleStatus($args, $context),
-                default => [
-                    'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
-                    'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']]
-                ],
+                'batal', 'cancel' => $this->cancelCheckout($context),
+                default => $this->handleUnknownInput($command, $args, $context),
             };
         } catch (ValidationException $e) {
             $err = collect($e->errors())->flatten()->first();
@@ -116,7 +119,7 @@ class BotCommandHandler
         return $this->formatter->formatPaymentMethods(['ok' => true, 'data' => $methods], $serviceId, $this->pageFromArgs($args), $backCallback);
     }
 
-    private function handleHarga(array $args): array
+    private function handleHarga(array $args, array $context): array
     {
         if (count($args) < 2) {
             return [
@@ -131,7 +134,77 @@ class BotCommandHandler
         ];
 
         $res = $this->pricing->quote($payload, null);
-        return $this->formatter->formatPriceQuote($res);
+
+        if (($res['ok'] ?? false) && $this->supportsConversationalCheckout($context)) {
+            Cache::put($this->checkoutStateKey($context), [
+                'step' => 'waiting_game_id',
+                'service_id' => $res['data']['service_id'],
+                'payment_method' => $res['data']['payment_method']['code'],
+                'category_code' => $res['data']['category_code'],
+                'requires_zone_id' => (bool) ($res['data']['requires_zone_id'] ?? false),
+            ], now()->addMinutes(15));
+        }
+
+        return $this->formatter->formatPriceQuote($res, $this->supportsConversationalCheckout($context));
+    }
+
+    private function handleUnknownInput(?string $command, array $args, array $context): array
+    {
+        $state = $this->supportsConversationalCheckout($context)
+            ? Cache::get($this->checkoutStateKey($context))
+            : null;
+
+        if (($state['step'] ?? null) !== 'waiting_game_id') {
+            return [
+                'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
+                'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']],
+            ];
+        }
+
+        $input = trim(implode(' ', array_filter([$command, ...$args], fn ($value) => $value !== null && $value !== '')));
+        $parts = preg_split('/\s+/', $input) ?: [];
+        $uid = trim((string) ($parts[0] ?? ''));
+        $zone = trim((string) ($parts[1] ?? ''));
+        $expectedPartCount = ($state['requires_zone_id'] ?? false) ? 2 : 1;
+
+        if ($uid === '' || count($parts) !== $expectedPartCount) {
+            $format = ($state['requires_zone_id'] ?? false) ? '`UID ZONE`' : '`UID`';
+
+            return [
+                'text' => "Format ID belum sesuai. Balas dengan {$format}.",
+                'buttons' => [
+                    [
+                        ['text' => '❌ Batal', 'callback' => 'batal'],
+                        ['text' => '🔙 Kembali', 'callback' => 'layanan ' . ($state['category_code'] ?? '')],
+                    ],
+                ],
+            ];
+        }
+
+        $response = $this->handleInvoice([
+            (string) $state['service_id'],
+            (string) $state['payment_method'],
+            $uid,
+            $zone !== '' ? $zone : null,
+        ], $context);
+
+        if (! str_starts_with((string) ($response['text'] ?? ''), 'Gagal membuat invoice:')) {
+            Cache::forget($this->checkoutStateKey($context));
+        }
+
+        return $response;
+    }
+
+    private function cancelCheckout(array $context): array
+    {
+        if ($this->supportsConversationalCheckout($context)) {
+            Cache::forget($this->checkoutStateKey($context));
+        }
+
+        return [
+            'text' => 'Checkout dibatalkan.',
+            'buttons' => [['text' => '🛍️ Buka Menu', 'callback' => 'menu']],
+        ];
     }
 
     private function handleCekId(array $args): array
@@ -197,6 +270,26 @@ class BotCommandHandler
         ]);
 
         return $this->formatter->formatStatus($res);
+    }
+
+    private function shouldClearCheckoutState(?string $command, array $context): bool
+    {
+        return $this->supportsConversationalCheckout($context)
+            && in_array($command, [
+                'start', 'help', 'bantuan', 'menu', 'kategori', 'layanan', 'produk',
+                'pembayaran', 'metode', 'cekid', 'invoice', 'beli', 'status',
+            ], true);
+    }
+
+    private function supportsConversationalCheckout(array $context): bool
+    {
+        return ($context['source'] ?? null) === 'telegram_gateway'
+            && filled($context['external_user_id'] ?? null);
+    }
+
+    private function checkoutStateKey(array $context): string
+    {
+        return 'bot:checkout-state:' . hash('sha256', (string) $context['external_user_id']);
     }
 
     private function pageFromArgs(array $args): int

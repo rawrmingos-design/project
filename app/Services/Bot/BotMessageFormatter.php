@@ -164,7 +164,7 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatPriceQuote(array $data): array
+    public function formatPriceQuote(array $data, bool $isConversationalCheckout = false): array
     {
         if (! ($data['ok'] ?? false)) {
             return [
@@ -193,15 +193,31 @@ class BotMessageFormatter
 
         $lines[] = "Biaya Admin: Rp {$fee}";
         $lines[] = "*Total Bayar: Rp {$total}*";
-        $lines[] = "\nKetik ID Game Anda:";
-        $lines[] = "`invoice {$d['service_id']} {$d['payment_method']['code']} <UID> [Zone_ID]`";
-        $lines[] = "\nContoh: invoice {$d['service_id']} {$d['payment_method']['code']} 1234567 1234";
+
+        if ($isConversationalCheckout) {
+            if ($d['requires_zone_id'] ?? false) {
+                $lines[] = "\nSilahkan balas pesan ini dengan ID Game Anda.";
+                $lines[] = "Format: `UID ZONE`";
+                $lines[] = "Contoh: `12345 6789`";
+            } else {
+                $lines[] = "\nSilahkan balas pesan ini dengan ID Game Anda.";
+                $lines[] = "Format: `UID`";
+                $lines[] = "Contoh: `12345`";
+            }
+        } else {
+            $lines[] = "\nKetik ID Game Anda:";
+            $lines[] = "`invoice {$d['service_id']} {$d['payment_method']['code']} <UID> [Zone_ID]`";
+            $lines[] = "\nContoh: invoice {$d['service_id']} {$d['payment_method']['code']} 1234567 1234";
+        }
 
         return [
             'text' => implode("\n", $lines),
-            'buttons' => [
-                [$this->button('🔙 Kembali', $backCallback)],
-            ],
+            'buttons' => $isConversationalCheckout
+                ? [[
+                    $this->button('❌ Batal', 'batal'),
+                    $this->button('🔙 Kembali', $backCallback),
+                ]]
+                : [[$this->button('🔙 Kembali', $backCallback)]],
         ];
     }
 
@@ -250,7 +266,7 @@ class BotMessageFormatter
             "\nPesanan akan diproses otomatis setelah pembayaran lunas."
         ]);
 
-        return [
+        $response = [
             'text' => $text,
             'buttons' => [
                 [
@@ -258,6 +274,13 @@ class BotMessageFormatter
                 ],
             ],
         ];
+
+        $photoUrl = $this->invoicePhotoUrl($data['data'], (string) $paymentCode);
+        if ($photoUrl !== null) {
+            $response['photo_url'] = $photoUrl;
+        }
+
+        return $response;
     }
 
     public function formatStatus(array $data): array
@@ -305,6 +328,38 @@ class BotMessageFormatter
                 ],
             ],
         ];
+    }
+
+    private function invoicePhotoUrl(array $invoice, string $paymentCode): ?string
+    {
+        foreach ([
+            data_get($invoice, 'qris_url'),
+            data_get($invoice, 'qr_url'),
+            data_get($invoice, 'qr_image_url'),
+            data_get($invoice, 'barcode_url'),
+            data_get($invoice, 'payment.qris_url'),
+            data_get($invoice, 'payment.qr_url'),
+            data_get($invoice, 'payment.qr_image_url'),
+            data_get($invoice, 'payment.barcode_url'),
+        ] as $url) {
+            if (filter_var($url, FILTER_VALIDATE_URL)) {
+                return $url;
+            }
+        }
+
+        if (! $this->isQrisPayload($paymentCode)) {
+            return null;
+        }
+
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=' . rawurlencode($paymentCode);
+    }
+
+    private function isQrisPayload(string $paymentCode): bool
+    {
+        $paymentCode = trim($paymentCode);
+
+        return str_starts_with($paymentCode, '000201')
+            && strlen($paymentCode) >= 50;
     }
 
     private function categoryButtonLabel(string $name, string $slug, mixed $icon = null): string
