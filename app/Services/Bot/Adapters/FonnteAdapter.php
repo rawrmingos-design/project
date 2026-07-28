@@ -29,6 +29,7 @@ class FonnteAdapter implements BotAdapterInterface
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:' . $sender,
             'message_id' => $messageId ? 'whatsapp:' . $messageId : null,
+            'whatsapp' => preg_replace('/\D+/', '', (string) $sender),
         ];
 
         $parsed = $this->parser->parse($text);
@@ -42,10 +43,20 @@ class FonnteAdapter implements BotAdapterInterface
         // dengan meminta user mengetik command-nya atau menambahkan prefix ke chat.
         if (!empty($response['buttons'])) {
             $replyText .= "\n\n*Pilihan:*";
-            foreach ($response['buttons'] as $index => $btn) {
-                $num = $index + 1;
-                // Kita infokan command asli yang harus diketik user
-                $replyText .= "\n{$num}. {$btn['text']} \n👉 Ketik: `{$btn['callback']}`";
+            $num = 1;
+
+            foreach ($response['buttons'] as $row) {
+                $buttons = $this->isButton($row) ? [$row] : $row;
+
+                foreach ($buttons as $btn) {
+                    if (! $this->isButton($btn)) {
+                        continue;
+                    }
+
+                    // Kita infokan command asli yang harus diketik user
+                    $replyText .= "\n{$num}. {$btn['text']} \n👉 Ketik: `{$btn['callback']}`";
+                    $num++;
+                }
             }
         }
 
@@ -54,5 +65,13 @@ class FonnteAdapter implements BotAdapterInterface
         return response()->json([
             'status' => true,
         ]);
+    }
+
+    private function isButton(mixed $value): bool
+    {
+        return is_array($value)
+            && isset($value['text'], $value['callback'])
+            && is_string($value['text'])
+            && is_string($value['callback']);
     }
 }
