@@ -5,6 +5,7 @@ namespace Tests\Feature\Bot;
 use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use App\Services\Bot\BotMessageFormatter;
 use App\Services\Gateway\GatewayInvoiceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -195,6 +196,83 @@ class BotWebhookTest extends TestCase
                 && $keyboard[0][1]['text'] === '⚔️ Mobile Legends'
                 && $keyboard[array_key_last($keyboard)][0]['text'] === '🔙 Kembali'
                 && $keyboard[array_key_last($keyboard)][0]['callback_data'] === 'menu';
+        });
+    }
+
+    public function test_payment_methods_wrap_two_buttons_per_row()
+    {
+        $response = app(BotMessageFormatter::class)->formatPaymentMethods([
+            'ok' => true,
+            'data' => [
+                ['name' => 'QRIS', 'code' => 'QRIS'],
+                ['name' => 'BCA Virtual Account', 'code' => 'BCAVA'],
+                ['name' => 'GoPay', 'code' => 'GOPAY'],
+            ],
+        ], 123, 1, 'layanan mlbb');
+
+        $buttons = $response['buttons'];
+
+        $this->assertCount(2, $buttons[0]);
+        $this->assertSame('💳 QRIS', $buttons[0][0]['text']);
+        $this->assertSame('💳 BCA Virtual Account', $buttons[0][1]['text']);
+        $this->assertCount(1, $buttons[1]);
+        $this->assertSame('💳 GoPay', $buttons[1][0]['text']);
+        $this->assertSame('🔙 Kembali', $buttons[2][0]['text']);
+        $this->assertSame('layanan mlbb', $buttons[2][0]['callback']);
+    }
+
+    public function test_telegram_service_list_wraps_two_buttons_per_row()
+    {
+        $type = CategoryType::query()->create([
+            'name' => 'Top Up Games',
+            'slug' => 'top-up-games',
+            'sort' => 1,
+        ]);
+        $category = Kategori::factory()->create([
+            'category_type_id' => $type->id,
+            'kode' => 'mlbb',
+            'nama' => 'Mobile Legends',
+            'status' => 'active',
+        ]);
+
+        foreach (range(1, 9) as $index) {
+            Layanan::factory()->create([
+                'kategori_id' => $category->id,
+                'layanan' => "{$index} Diamond",
+                'harga_member' => $index * 1000,
+                'status' => 'available',
+            ]);
+        }
+
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $response = $this->postJson('/api/webhooks/bot/telegram', [
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'layanan mlbb',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) {
+            $keyboard = $request['reply_markup']['inline_keyboard'];
+
+            $paginationRow = $keyboard[array_key_last($keyboard) - 1];
+            $backRow = $keyboard[array_key_last($keyboard)];
+
+            return count($keyboard[0]) === 2
+                && $keyboard[0][0]['text'] === '💎 1 Diamond · Rp 1.000'
+                && $keyboard[0][1]['text'] === '💎 2 Diamond · Rp 2.000'
+                && count($paginationRow) === 1
+                && $paginationRow[0]['text'] === 'Next ➡️'
+                && count($backRow) === 1
+                && $backRow[0]['text'] === '🔙 Kembali'
+                && $backRow[0]['callback_data'] === 'kategori top-up-games';
         });
     }
 

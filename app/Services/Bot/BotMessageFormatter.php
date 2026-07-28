@@ -118,15 +118,14 @@ class BotMessageFormatter
         $categoryCode = (string) ($category['code'] ?? '');
         $typeSlug = (string) ($category['category_type']['slug'] ?? '');
         $pagination = $this->paginate($data['data']['services'], $page);
-        $buttons = [];
+        $items = [];
 
         foreach ($pagination['items'] as $service) {
             $price = number_format($service['price'], 0, ',', '.');
-            $buttons[] = [
-                $this->button("💎 {$service['name']} · Rp {$price}", 'metode ' . $service['service_id']),
-            ];
+            $items[] = $this->button("💎 {$service['name']} · Rp {$price}", 'metode ' . $service['service_id']);
         }
 
+        $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'layanan ' . $categoryCode, $pagination);
         $buttons = $this->appendBack($buttons, $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu');
 
@@ -146,14 +145,13 @@ class BotMessageFormatter
         }
 
         $pagination = $this->paginate($data['data'], $page);
-        $buttons = [];
+        $items = [];
 
         foreach ($pagination['items'] as $method) {
-            $buttons[] = [
-                $this->button('💳 ' . $method['name'], "harga {$serviceId} {$method['code']}"),
-            ];
+            $items[] = $this->button('💳 ' . $method['name'], "harga {$serviceId} {$method['code']}");
         }
 
+        $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'metode ' . $serviceId, $pagination);
 
         if ($backCallback) {
