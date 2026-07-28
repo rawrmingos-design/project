@@ -170,26 +170,21 @@ class BotCommandHandler
             ];
         }
 
-        $requiresZoneId = (bool) ($service['data']['category']['requires_zone_id'] ?? false);
+        $category = $service['data']['category'];
+        $requiresZoneId = (bool) ($category['requires_zone_id'] ?? false);
+        $customInputs = is_array($category['custom_inputs'] ?? null) ? $category['custom_inputs'] : [];
         $input = trim(implode(' ', array_filter([$command, ...$args], fn ($value) => $value !== null && $value !== '')));
         $parts = preg_split('/\s+/', $input) ?: [];
-        $uid = trim((string) ($parts[0] ?? ''));
-        $zone = trim((string) ($parts[1] ?? ''));
-        $expectedPartCount = $requiresZoneId ? 2 : 1;
+        $uid = trim((string) array_shift($parts));
+        $zone = trim(implode(' ', $parts));
+        $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
-        if ($uid === '' || count($parts) !== $expectedPartCount) {
-            $format = $requiresZoneId ? '`UID ZONE`' : '`UID`';
-            $backCallback = 'layanan ' . ($service['data']['category']['code'] ?? $state['category_code']);
+        if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
+            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+        }
 
-            return [
-                'text' => "Format ID belum sesuai. Balas dengan {$format}.",
-                'buttons' => [
-                    [
-                        ['text' => '❌ Batal', 'callback' => 'batal'],
-                        ['text' => '🔙 Kembali', 'callback' => $backCallback],
-                    ],
-                ],
-            ];
+        if ($requiresZoneId && ! $this->isValidZoneValue($zone, $customInputs)) {
+            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
         }
 
         $response = $this->handleInvoice([
@@ -204,6 +199,23 @@ class BotCommandHandler
         }
 
         return $response;
+    }
+
+    private function isValidZoneValue(string $zone, array $customInputs): bool
+    {
+        $zoneInput = $customInputs['zone'] ?? null;
+        if (! is_array($zoneInput) || ! ($zoneInput['is_select'] ?? false)) {
+            return true;
+        }
+
+        $values = collect($zoneInput['options'] ?? [])
+            ->filter(fn (mixed $option): bool => is_array($option))
+            ->pluck('value')
+            ->map(fn ($value): string => trim((string) $value))
+            ->filter()
+            ->all();
+
+        return $values === [] || in_array($zone, $values, true);
     }
 
     private function cancelCheckout(array $context): array

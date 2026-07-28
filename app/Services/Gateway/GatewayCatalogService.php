@@ -7,6 +7,7 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\User;
 use App\Services\CheckId\CheckIdResolver;
+use App\Support\CustomInputDefaults;
 use Illuminate\Support\Facades\Cache;
 
 class GatewayCatalogService
@@ -361,6 +362,7 @@ class GatewayCatalogService
             ] : null,
             'requires_user_id' => (bool) ($category->require_user_id ?? true),
             'requires_zone_id' => $this->requiresZoneId($category),
+            'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category),
             'service_count' => $serviceCount,
             'thumbnail' => $category->thumbnail,
         ];

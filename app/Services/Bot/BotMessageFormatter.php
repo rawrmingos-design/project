@@ -195,15 +195,11 @@ class BotMessageFormatter
         $lines[] = "*Total Bayar: Rp {$total}*";
 
         if ($isConversationalCheckout) {
-            if ($d['requires_zone_id'] ?? false) {
-                $lines[] = "\nSilahkan balas pesan ini dengan ID Game Anda.";
-                $lines[] = "Format: `UID ZONE`";
-                $lines[] = "Contoh: `12345 6789`";
-            } else {
-                $lines[] = "\nSilahkan balas pesan ini dengan ID Game Anda.";
-                $lines[] = "Format: `UID`";
-                $lines[] = "Contoh: `12345`";
-            }
+            $lines[] = '';
+            $lines = [...$lines, ...$this->conversationalInputLines(
+                (bool) ($d['requires_zone_id'] ?? false),
+                $d['custom_inputs'] ?? [],
+            )];
         } else {
             $lines[] = "\nKetik ID Game Anda:";
             $lines[] = "`invoice {$d['service_id']} {$d['payment_method']['code']} <UID> [Zone_ID]`";
@@ -218,6 +214,21 @@ class BotMessageFormatter
                     $this->button('🔙 Kembali', $backCallback),
                 ]]
                 : [[$this->button('🔙 Kembali', $backCallback)]],
+        ];
+    }
+
+    public function formatCheckoutInputRetry(bool $requiresZoneId, array $customInputs, string $backCallback): array
+    {
+        return [
+            'text' => implode("\n", [
+                'Format ID belum sesuai.',
+                '',
+                ...$this->conversationalInputLines($requiresZoneId, $customInputs),
+            ]),
+            'buttons' => [[
+                $this->button('❌ Batal', 'batal'),
+                $this->button('🔙 Kembali', $backCallback),
+            ]],
         ];
     }
 
@@ -328,6 +339,73 @@ class BotMessageFormatter
                 ],
             ],
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function conversationalInputLines(bool $requiresZoneId, array $customInputs): array
+    {
+        $userInput = is_array($customInputs['user_id'] ?? null) ? $customInputs['user_id'] : [];
+        $zoneInput = is_array($customInputs['zone'] ?? null) ? $customInputs['zone'] : [];
+        $userLabel = trim((string) ($userInput['label'] ?? 'User ID')) ?: 'User ID';
+        $userPlaceholder = trim((string) ($userInput['placeholder'] ?? 'Masukkan User ID')) ?: 'Masukkan User ID';
+        $userLabelText = $this->escapeMarkdown($userLabel);
+        $lines = [];
+
+        if (! $requiresZoneId) {
+            return [
+                "Silahkan balas pesan ini dengan {$userLabelText} Anda.",
+                "{$userLabelText}: " . $this->escapeMarkdown($userPlaceholder),
+                'Format: `UID`',
+                'Contoh: `12345`',
+            ];
+        }
+
+        $zoneLabel = trim((string) ($zoneInput['label'] ?? 'Server ID')) ?: 'Server ID';
+        $zonePlaceholder = trim((string) ($zoneInput['placeholder'] ?? 'Masukkan Server ID')) ?: 'Masukkan Server ID';
+        $zoneLabelText = $this->escapeMarkdown($zoneLabel);
+
+        $lines[] = "Silahkan balas pesan ini dengan {$userLabelText} dan {$zoneLabelText}.";
+        $lines[] = "{$userLabelText}: " . $this->escapeMarkdown($userPlaceholder);
+        $lines[] = "{$zoneLabelText}: " . $this->escapeMarkdown($zonePlaceholder);
+        $lines[] = 'Format: `UID <' . $this->escapeMarkdownCode($zoneLabel) . '>`';
+        $lines[] = 'Contoh: `12345 6789`';
+
+        if (($zoneInput['is_select'] ?? false) && ! empty($zoneInput['options']) && is_array($zoneInput['options'])) {
+            $lines[] = "Pilihan {$zoneLabelText}:";
+
+            foreach ($zoneInput['options'] as $option) {
+                if (! is_array($option)) {
+                    continue;
+                }
+
+                $label = trim((string) ($option['label'] ?? ''));
+                $value = trim((string) ($option['value'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+
+                $lines[] = '• ' . $this->escapeMarkdown($label !== '' ? $label : $value)
+                    . ': `' . $this->escapeMarkdownCode($value) . '`';
+            }
+        }
+
+        return $lines;
+    }
+
+    private function escapeMarkdown(string $value): string
+    {
+        return str_replace(
+            ['\\', '_', '*', '`', '[', ']'],
+            ['\\\\', '\\_', '\\*', '\\`', '\\[', '\\]'],
+            $value,
+        );
+    }
+
+    private function escapeMarkdownCode(string $value): string
+    {
+        return str_replace(['\\', '`'], ['\\\\', '\\`'], $value);
     }
 
     private function invoicePhotoUrl(array $invoice, string $paymentCode): ?string

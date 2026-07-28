@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Voucher;
 use App\Services\CheckId\CheckIdResolver;
 use App\Services\PaymentMethodCatalogService;
+use App\Support\CustomInputDefaults;
 use Illuminate\Validation\ValidationException;
 
 class GatewayPricingService
@@ -58,6 +59,7 @@ class GatewayPricingService
                 'category_name' => (string) $category->nama,
                 'requires_user_id' => (bool) $category->require_user_id,
                 'requires_zone_id' => $this->requiresZoneId($category),
+                'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category),
                 'base_amount' => $baseAmount,
                 'discount' => $discount,
                 'amount_after_discount' => $amountAfterDiscount,

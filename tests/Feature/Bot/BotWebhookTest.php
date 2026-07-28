@@ -3,6 +3,7 @@
 namespace Tests\Feature\Bot;
 
 use App\Models\CategoryType;
+use App\Models\CustomInput;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Services\Bot\BotCommandHandler;
@@ -306,6 +307,48 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
+    public function test_telegram_checkout_mentions_configured_zone_field_on_quote_and_retry()
+    {
+        Cache::flush();
+        $service = $this->createConversationService('mobile-legends', true, 123);
+        CustomInput::query()->updateOrCreate([
+            'kategori_id' => (string) $service->kategori_id,
+        ], [
+            'field_1' => 'Game_ID,Masukkan Game_ID,number',
+            'field_2' => 'Server_ID,Masukkan Server_ID,number',
+        ]);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $customInputs = app(\App\Support\CustomInputDefaults::class)->inputSpecification(
+            Kategori::query()->findOrFail($service->kategori_id),
+        );
+        $this->assertSame('Game_ID', $customInputs['user_id']['label']);
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock) use ($service, $customInputs): void {
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(
+                serviceId: $service->id,
+                categoryCode: 'mobile-legends',
+                requiresZoneId: true,
+                customInputs: $customInputs,
+            ));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $quote = $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
+        $retry = $handler->handle('12345', [], $context);
+
+        $this->assertStringContainsString('Game\\_ID', $quote['text']);
+        $this->assertStringContainsString('Server\\_ID', $quote['text']);
+        $this->assertStringContainsString('Game\\_ID', $retry['text']);
+        $this->assertStringContainsString('Server\\_ID', $retry['text']);
+    }
+
     public function test_telegram_checkout_uses_current_service_zone_requirement()
     {
         Cache::flush();
@@ -343,7 +386,50 @@ class BotWebhookTest extends TestCase
         $invalid = $handler->handle('12345', [], $context);
         $success = $handler->handle('12345', ['6789'], $context);
 
-        $this->assertStringContainsString('UID ZONE', $invalid['text']);
+        $this->assertStringContainsString('UID <Server ID>', $invalid['text']);
+        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+    }
+
+    public function test_telegram_checkout_validates_select_zone_values_and_supports_spaces()
+    {
+        Cache::flush();
+        $service = $this->createConversationService('mobile-legends', true, 123);
+        CustomInput::query()->updateOrCreate([
+            'kategori_id' => (string) $service->kategori_id,
+        ], [
+            'field_1' => 'User ID,Masukkan User ID,number',
+            'field_2' => 'Region,Pilih Region,select',
+            'field_select_title' => 'Asia Tenggara,Eropa',
+            'field_select' => 'asia tenggara,eropa',
+        ]);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock) use ($service): void {
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(
+                serviceId: $service->id,
+                categoryCode: 'mobile-legends',
+                requiresZoneId: true,
+                customInputs: app(\App\Support\CustomInputDefaults::class)->inputSpecification(
+                    Kategori::query()->findOrFail($service->kategori_id),
+                ),
+            ));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withArgs(fn (array $payload): bool => $payload['uid'] === '12345' && $payload['zone'] === 'asia tenggara')
+                ->andReturn($this->fakeInvoiceResponse());
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $quote = $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
+        $success = $handler->handle('12345', ['asia', 'tenggara'], $context);
+
+        $this->assertStringContainsString('Asia Tenggara: `asia tenggara`', $quote['text']);
         $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
     }
 
@@ -422,7 +508,7 @@ class BotWebhookTest extends TestCase
         $quote = $handler->handle('harga', ['123', 'QRIS'], $context);
         $invoiceResponse = $handler->handle('12345', ['6789'], $context);
 
-        $this->assertStringContainsString('Silahkan balas pesan ini dengan ID Game Anda', $quote['text']);
+        $this->assertStringContainsString('Silahkan balas pesan ini dengan User ID dan Server ID', $quote['text']);
         $this->assertSame('*Invoice Berhasil Dibuat*', strtok($invoiceResponse['text'], "\n"));
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
@@ -577,6 +663,7 @@ class BotWebhookTest extends TestCase
         int $serviceId = 123,
         string $categoryCode = 'mlbb',
         string $categoryName = 'Mobile Legends',
+        array $customInputs = [],
     ): array {
         return [
             'ok' => true,
@@ -586,6 +673,7 @@ class BotWebhookTest extends TestCase
                 'category_code' => $categoryCode,
                 'category_name' => $categoryName,
                 'requires_zone_id' => $requiresZoneId,
+                'custom_inputs' => $customInputs,
                 'base_amount' => 10000,
                 'discount' => 0,
                 'payment_fee' => 0,
