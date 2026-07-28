@@ -6,6 +6,7 @@ use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\User;
+use App\Services\CheckId\CheckIdResolver;
 use Illuminate\Support\Facades\Cache;
 
 class GatewayCatalogService
@@ -254,7 +255,7 @@ class GatewayCatalogService
                     'name' => (string) $category->nama,
                     'type' => (string) ($category->tipe ?? 'game'),
                     'requires_user_id' => (bool) ($category->require_user_id ?? true),
-                    'requires_zone_id' => (bool) ($category->server_id ?? false),
+                    'requires_zone_id' => $this->requiresZoneId($category),
                 ],
                 'services' => $services->map(fn (Layanan $service): array => $this->servicePayload($service, $category, $user))->values()->all(),
             ],
@@ -340,6 +341,12 @@ class GatewayCatalogService
         ];
     }
 
+    private function requiresZoneId(Kategori $category): bool
+    {
+        return (bool) $category->server_id
+            && ! app(CheckIdResolver::class)->isZoneless((string) $category->kode);
+    }
+
     private function categoryPayload(Kategori $category, int $serviceCount): array
     {
         return [
@@ -353,7 +360,7 @@ class GatewayCatalogService
                 'name' => (string) $category->categoryType->name,
             ] : null,
             'requires_user_id' => (bool) ($category->require_user_id ?? true),
-            'requires_zone_id' => (bool) ($category->server_id ?? false),
+            'requires_zone_id' => $this->requiresZoneId($category),
             'service_count' => $serviceCount,
             'thumbnail' => $category->thumbnail,
         ];

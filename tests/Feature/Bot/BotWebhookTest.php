@@ -306,9 +306,90 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
+    public function test_telegram_checkout_uses_current_service_zone_requirement()
+    {
+        Cache::flush();
+        $category = Kategori::factory()->create([
+            'kode' => 'mobile-legends',
+            'server_id' => true,
+            'status' => 'active',
+        ]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'status' => 'available',
+        ]);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock) use ($service): void {
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(
+                serviceId: $service->id,
+                categoryCode: 'mobile-legends',
+                requiresZoneId: false,
+            ));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withArgs(fn (array $payload): bool => $payload['uid'] === '12345' && $payload['zone'] === '6789')
+                ->andReturn($this->fakeInvoiceResponse());
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
+        $invalid = $handler->handle('12345', [], $context);
+        $success = $handler->handle('12345', ['6789'], $context);
+
+        $this->assertStringContainsString('UID ZONE', $invalid['text']);
+        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+    }
+
+    public function test_telegram_checkout_uses_zoneless_resolver_rule()
+    {
+        Cache::flush();
+        $category = Kategori::factory()->create([
+            'kode' => 'free-fire',
+            'server_id' => true,
+            'status' => 'active',
+        ]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'status' => 'available',
+        ]);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock) use ($service): void {
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(
+                serviceId: $service->id,
+                categoryCode: 'free-fire',
+                requiresZoneId: true,
+            ));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withArgs(fn (array $payload): bool => $payload['uid'] === '12345' && $payload['zone'] === null)
+                ->andReturn($this->fakeInvoiceResponse());
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
+        $success = $handler->handle('12345', [], $context);
+
+        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+    }
+
     public function test_telegram_checkout_state_creates_invoice_from_uid_and_zone_reply()
     {
         Cache::flush();
+        $this->createConversationService('mobile-legends', true, 123);
         $context = [
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:9876',
@@ -349,6 +430,7 @@ class BotWebhookTest extends TestCase
     public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()
     {
         Cache::flush();
+        $this->createConversationService('mobile-legends', true, 123);
         $context = [
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:9876',
@@ -463,6 +545,21 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
+    private function createConversationService(string $categoryCode, bool $requiresZoneId, int $serviceId): Layanan
+    {
+        $category = Kategori::factory()->create([
+            'kode' => $categoryCode,
+            'server_id' => $requiresZoneId,
+            'status' => 'active',
+        ]);
+
+        return Layanan::factory()->create([
+            'id' => $serviceId,
+            'kategori_id' => $category->id,
+            'status' => 'available',
+        ]);
+    }
+
     private function makeBotCommandHandler(GatewayPricingService $pricing, GatewayInvoiceService $invoice): BotCommandHandler
     {
         return new BotCommandHandler(
@@ -475,15 +572,19 @@ class BotWebhookTest extends TestCase
         );
     }
 
-    private function fakePriceQuote(bool $requiresZoneId): array
-    {
+    private function fakePriceQuote(
+        bool $requiresZoneId,
+        int $serviceId = 123,
+        string $categoryCode = 'mlbb',
+        string $categoryName = 'Mobile Legends',
+    ): array {
         return [
             'ok' => true,
             'data' => [
-                'service_id' => 123,
+                'service_id' => $serviceId,
                 'service_name' => '100 Diamond',
-                'category_code' => 'mlbb',
-                'category_name' => 'Mobile Legends',
+                'category_code' => $categoryCode,
+                'category_name' => $categoryName,
                 'requires_zone_id' => $requiresZoneId,
                 'base_amount' => 10000,
                 'discount' => 0,

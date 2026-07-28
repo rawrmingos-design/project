@@ -7,6 +7,7 @@ use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Services\CheckId\CheckIdResolver;
 use App\Services\PaymentMethodCatalogService;
 use Illuminate\Validation\ValidationException;
 
@@ -56,7 +57,7 @@ class GatewayPricingService
                 'category_code' => (string) $category->kode,
                 'category_name' => (string) $category->nama,
                 'requires_user_id' => (bool) $category->require_user_id,
-                'requires_zone_id' => (bool) $category->server_id,
+                'requires_zone_id' => $this->requiresZoneId($category),
                 'base_amount' => $baseAmount,
                 'discount' => $discount,
                 'amount_after_discount' => $amountAfterDiscount,
@@ -70,6 +71,12 @@ class GatewayPricingService
                 'flash_sale_applied' => $this->isFlashSaleActive($service),
             ],
         ];
+    }
+
+    private function requiresZoneId(Kategori $category): bool
+    {
+        return (bool) $category->server_id
+            && ! app(CheckIdResolver::class)->isZoneless((string) $category->kode);
     }
 
     private function resolveBaseAmount(Layanan $service, Kategori $category, ?User $user, array $payload): int
