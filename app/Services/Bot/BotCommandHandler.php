@@ -23,7 +23,7 @@ class BotCommandHandler
     /**
      * @param string $command
      * @param array $args
-     * @param array $context {source: string, external_user_id: string, message_id?: string}
+     * @param array $context {source: string, external_user_id: string, message_id?: string, nomor?: string, whatsapp?: string, email?: string}
      * @return array{text: string, buttons: array}
      */
     public function handle(?string $command, array $args, array $context): array
@@ -31,7 +31,7 @@ class BotCommandHandler
         try {
             return match ($command) {
                 'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
-                'menu' => $this->handleMenu(),
+                'menu' => $this->handleMenu($args),
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
                 'pembayaran', 'metode' => $this->handlePembayaran($args),
@@ -58,10 +58,10 @@ class BotCommandHandler
         }
     }
 
-    private function handleMenu(): array
+    private function handleMenu(array $args = []): array
     {
         $res = $this->catalog->categoryTypes();
-        return $this->formatter->formatCategories($res);
+        return $this->formatter->formatCategories($res, $this->pageFromArgs($args));
     }
 
     private function handleKategori(array $args): array
@@ -75,7 +75,7 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->categories(null, ['type' => $type]);
-        return $this->formatter->formatProducts($res);
+        return $this->formatter->formatProducts($res, $this->pageFromArgs($args));
     }
 
     private function handleLayanan(array $args): array
@@ -89,7 +89,7 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->services($catCode);
-        return $this->formatter->formatServices($res);
+        return $this->formatter->formatServices($res, $this->pageFromArgs($args));
     }
 
     private function handlePembayaran(array $args): array
@@ -108,7 +108,12 @@ class BotCommandHandler
             return ['name' => $m->name, 'code' => $m->code];
         })->values()->all();
 
-        return $this->formatter->formatPaymentMethods(['ok' => true, 'data' => $methods], $serviceId);
+        $service = $this->catalog->serviceById($serviceId);
+        $backCallback = isset($service['data']['category']['code'])
+            ? 'layanan ' . $service['data']['category']['code']
+            : null;
+
+        return $this->formatter->formatPaymentMethods(['ok' => true, 'data' => $methods], $serviceId, $this->pageFromArgs($args), $backCallback);
     }
 
     private function handleHarga(array $args): array
@@ -167,6 +172,12 @@ class BotCommandHandler
             'message_id' => $context['message_id'] ?? null,
         ];
 
+        foreach (['nomor', 'whatsapp', 'email'] as $contactField) {
+            if (filled($context[$contactField] ?? null)) {
+                $payload[$contactField] = $context[$contactField];
+            }
+        }
+
         $res = $this->invoice->createInvoice($payload, null, $context['source'], $payload);
         return $this->formatter->formatInvoice($res);
     }
@@ -186,5 +197,16 @@ class BotCommandHandler
         ]);
 
         return $this->formatter->formatStatus($res);
+    }
+
+    private function pageFromArgs(array $args): int
+    {
+        foreach ($args as $arg) {
+            if (preg_match('/^page:(\d+)$/', (string) $arg, $matches)) {
+                return max(1, (int) $matches[1]);
+            }
+        }
+
+        return 1;
     }
 }

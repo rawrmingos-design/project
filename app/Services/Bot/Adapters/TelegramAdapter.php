@@ -48,7 +48,7 @@ class TelegramAdapter implements BotAdapterInterface
             return response()->json(['status' => 'ignored']);
         }
 
-        if (! $chatId || $text === '') {
+        if (! $chatId || ! $fromId || $text === '') {
             return response()->json(['status' => 'ignored']);
         }
 
@@ -56,6 +56,7 @@ class TelegramAdapter implements BotAdapterInterface
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:' . $fromId,
             'message_id' => 'telegram:' . $chatId . ':' . $messageId,
+            'email' => $fromId . '@telegram.user',
         ];
 
         $parsed = $this->parser->parse($text);
@@ -77,7 +78,7 @@ class TelegramAdapter implements BotAdapterInterface
             Http::post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
                 'callback_query_id' => $callbackQueryId,
             ]);
-        } catch (\Exception $e) {
+        } catch (\Exception) {
             // ignore
         }
     }
@@ -99,14 +100,24 @@ class TelegramAdapter implements BotAdapterInterface
         // Format inline keyboard if buttons exist
         if (!empty($response['buttons'])) {
             $keyboard = [];
-            foreach ($response['buttons'] as $btn) {
-                // simple 1 button per row layout
-                $keyboard[] = [
-                    [
+            foreach ($response['buttons'] as $row) {
+                $buttons = $this->isButton($row) ? [$row] : $row;
+                $keyboardRow = [];
+
+                foreach ($buttons as $btn) {
+                    if (! $this->isButton($btn)) {
+                        continue;
+                    }
+
+                    $keyboardRow[] = [
                         'text' => $btn['text'],
-                        'callback_data' => substr($btn['callback'], 0, 64) // max 64 bytes for telegram
-                    ]
-                ];
+                        'callback_data' => substr($btn['callback'], 0, 64),
+                    ];
+                }
+
+                if ($keyboardRow !== []) {
+                    $keyboard[] = $keyboardRow;
+                }
             }
 
             $payload['reply_markup'] = [
@@ -119,5 +130,13 @@ class TelegramAdapter implements BotAdapterInterface
         } catch (\Exception $e) {
             Log::error("Failed to send telegram reply: " . $e->getMessage());
         }
+    }
+
+    private function isButton(mixed $value): bool
+    {
+        return is_array($value)
+            && isset($value['text'], $value['callback'])
+            && is_string($value['text'])
+            && is_string($value['callback']);
     }
 }
