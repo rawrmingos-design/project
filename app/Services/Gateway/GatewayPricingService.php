@@ -55,6 +55,8 @@ class GatewayPricingService
                 'service_name' => (string) $service->layanan,
                 'category_code' => (string) $category->kode,
                 'category_name' => (string) $category->nama,
+                'requires_user_id' => (bool) $category->require_user_id,
+                'requires_zone_id' => (bool) $category->server_id,
                 'base_amount' => $baseAmount,
                 'discount' => $discount,
                 'amount_after_discount' => $amountAfterDiscount,

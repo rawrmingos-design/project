@@ -5,8 +5,13 @@ namespace Tests\Feature\Bot;
 use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
+use App\Services\Gateway\GatewayCatalogService;
+use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
+use App\Services\Gateway\GatewayPricingService;
+use App\Services\PaymentMethodCatalogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -301,6 +306,75 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
+    public function test_telegram_checkout_state_creates_invoice_from_uid_and_zone_reply()
+    {
+        Cache::flush();
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('quote')->once()->with([
+                'service_id' => '123',
+                'payment_method' => 'QRIS',
+            ], null)->andReturn($this->fakePriceQuote(requiresZoneId: true));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withArgs(function (array $payload, $user, string $source, array $invoiceContext): bool {
+                    return $user === null
+                        && $source === 'telegram_gateway'
+                        && $payload['service_id'] === '123'
+                        && $payload['payment_method'] === 'QRIS'
+                        && $payload['uid'] === '12345'
+                        && $payload['zone'] === '6789'
+                        && $payload['email'] === '9876@telegram.user'
+                        && $invoiceContext === $payload;
+                })
+                ->andReturn($this->fakeInvoiceResponse());
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $quote = $handler->handle('harga', ['123', 'QRIS'], $context);
+        $invoiceResponse = $handler->handle('12345', ['6789'], $context);
+
+        $this->assertStringContainsString('Silahkan balas pesan ini dengan ID Game Anda', $quote['text']);
+        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($invoiceResponse['text'], "\n"));
+        $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
+    }
+
+    public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()
+    {
+        Cache::flush();
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(requiresZoneId: true));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $handler->handle('harga', ['123', 'QRIS'], $context);
+        $invalid = $handler->handle('12345', [], $context);
+
+        $this->assertStringContainsString('Format ID belum sesuai', $invalid['text']);
+        $this->assertNotNull(Cache::get($this->checkoutStateKey('telegram:9876')));
+
+        $cancelled = $handler->handle('batal', [], $context);
+
+        $this->assertSame('Checkout dibatalkan.', $cancelled['text']);
+        $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
+    }
+
     public function test_telegram_invoice_uses_synthetic_email_contact()
     {
         Http::fake([
@@ -331,6 +405,39 @@ class BotWebhookTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_telegram_invoice_sends_qris_image_when_provider_returns_qris_url()
+    {
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendPhoto' => Http::response(['ok' => true]),
+        ]);
+
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse('https://provider.example/qris/INV-1.png'));
+        });
+
+        $response = $this->postJson('/api/webhooks/bot/telegram', [
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'invoice 1 QRIS user123 zone123',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'sendPhoto')
+                && $request['photo'] === 'https://provider.example/qris/INV-1.png'
+                && str_contains($request['caption'], 'Invoice Berhasil Dibuat')
+                && isset($request['reply_markup']['inline_keyboard']);
+        });
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendMessage'));
+    }
+
     public function test_fonnte_invoice_uses_sender_as_whatsapp_contact()
     {
         Http::fake();
@@ -356,19 +463,59 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
-    private function fakeInvoiceResponse(): array
+    private function makeBotCommandHandler(GatewayPricingService $pricing, GatewayInvoiceService $invoice): BotCommandHandler
+    {
+        return new BotCommandHandler(
+            app(GatewayCatalogService::class),
+            app(PaymentMethodCatalogService::class),
+            $pricing,
+            app(GatewayCheckIdService::class),
+            $invoice,
+            app(BotMessageFormatter::class),
+        );
+    }
+
+    private function fakePriceQuote(bool $requiresZoneId): array
+    {
+        return [
+            'ok' => true,
+            'data' => [
+                'service_id' => 123,
+                'service_name' => '100 Diamond',
+                'category_code' => 'mlbb',
+                'category_name' => 'Mobile Legends',
+                'requires_zone_id' => $requiresZoneId,
+                'base_amount' => 10000,
+                'discount' => 0,
+                'payment_fee' => 0,
+                'total_amount' => 10000,
+                'payment_method' => [
+                    'code' => 'QRIS',
+                    'name' => 'QRIS',
+                ],
+            ],
+        ];
+    }
+
+    private function checkoutStateKey(string $externalUserId): string
+    {
+        return 'bot:checkout-state:' . hash('sha256', $externalUserId);
+    }
+
+    private function fakeInvoiceResponse(?string $qrisUrl = null): array
     {
         return [
             'ok' => true,
             'message' => 'Invoice berhasil dibuat.',
-            'data' => [
+            'data' => array_filter([
                 'order_id' => 'INV-1',
                 'payment_url' => 'https://pay.example/inv-1',
+                'qris_url' => $qrisUrl,
                 'payment' => [
                     'payment_code' => 'QRIS-1',
                     'amount' => 10000,
                 ],
-            ],
+            ]),
         ];
     }
 }

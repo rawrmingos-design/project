@@ -91,11 +91,18 @@ class TelegramAdapter implements BotAdapterInterface
             return;
         }
 
+        $hasPhoto = filter_var($response['photo_url'] ?? null, FILTER_VALIDATE_URL) !== false;
         $payload = [
             'chat_id' => $chatId,
-            'text' => $response['text'],
             'parse_mode' => 'Markdown',
         ];
+
+        if ($hasPhoto) {
+            $payload['photo'] = $response['photo_url'];
+            $payload['caption'] = $response['text'];
+        } else {
+            $payload['text'] = $response['text'];
+        }
 
         // Format inline keyboard if buttons exist
         if (!empty($response['buttons'])) {
@@ -125,8 +132,10 @@ class TelegramAdapter implements BotAdapterInterface
             ];
         }
 
+        $endpoint = $hasPhoto ? 'sendPhoto' : 'sendMessage';
+
         try {
-            Http::post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
+            Http::post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
         } catch (\Exception $e) {
             Log::error("Failed to send telegram reply: " . $e->getMessage());
         }
