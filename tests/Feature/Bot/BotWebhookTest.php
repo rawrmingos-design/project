@@ -136,7 +136,9 @@ class BotWebhookTest extends TestCase
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
             return str_contains($request['text'], 'Halaman 1/2')
-                && count($keyboard) === 9
+                && count($keyboard) === 5
+                && count($keyboard[0]) === 2
+                && $keyboard[0][0]['text'] === '🎮 Top Up 1'
                 && $callbacks->contains('menu page:2')
                 && $callbacks->every(fn (string $callback): bool => strlen($callback) <= 64);
         });
@@ -159,6 +161,16 @@ class BotWebhookTest extends TestCase
             'kategori_id' => $category->id,
             'status' => 'available',
         ]);
+        $secondCategory = Kategori::factory()->create([
+            'category_type_id' => $type->id,
+            'nama' => 'Free Fire',
+            'kode' => 'free-fire',
+            'status' => 'active',
+        ]);
+        Layanan::factory()->create([
+            'kategori_id' => $secondCategory->id,
+            'status' => 'available',
+        ]);
 
         Http::fake([
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
@@ -178,7 +190,9 @@ class BotWebhookTest extends TestCase
         Http::assertSent(function ($request) {
             $keyboard = $request['reply_markup']['inline_keyboard'];
 
-            return $keyboard[0][0]['text'] === '⚔️ Mobile Legends'
+            return count($keyboard[0]) === 2
+                && $keyboard[0][0]['text'] === '🔫 Free Fire'
+                && $keyboard[0][1]['text'] === '⚔️ Mobile Legends'
                 && $keyboard[array_key_last($keyboard)][0]['text'] === '🔙 Kembali'
                 && $keyboard[array_key_last($keyboard)][0]['callback_data'] === 'menu';
         });
