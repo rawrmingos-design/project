@@ -141,7 +141,6 @@ class BotCommandHandler
                 'service_id' => $res['data']['service_id'],
                 'payment_method' => $res['data']['payment_method']['code'],
                 'category_code' => $res['data']['category_code'],
-                'requires_zone_id' => (bool) ($res['data']['requires_zone_id'] ?? false),
             ], now()->addMinutes(15));
         }
 
@@ -161,21 +160,33 @@ class BotCommandHandler
             ];
         }
 
+        $service = $this->catalog->serviceById((int) $state['service_id']);
+        if (! ($service['ok'] ?? false) || ! isset($service['data']['category'])) {
+            Cache::forget($this->checkoutStateKey($context));
+
+            return [
+                'text' => 'Layanan sudah tidak tersedia. Silahkan mulai transaksi kembali.',
+                'buttons' => [['text' => '🛍️ Buka Menu', 'callback' => 'menu']],
+            ];
+        }
+
+        $requiresZoneId = (bool) ($service['data']['category']['requires_zone_id'] ?? false);
         $input = trim(implode(' ', array_filter([$command, ...$args], fn ($value) => $value !== null && $value !== '')));
         $parts = preg_split('/\s+/', $input) ?: [];
         $uid = trim((string) ($parts[0] ?? ''));
         $zone = trim((string) ($parts[1] ?? ''));
-        $expectedPartCount = ($state['requires_zone_id'] ?? false) ? 2 : 1;
+        $expectedPartCount = $requiresZoneId ? 2 : 1;
 
         if ($uid === '' || count($parts) !== $expectedPartCount) {
-            $format = ($state['requires_zone_id'] ?? false) ? '`UID ZONE`' : '`UID`';
+            $format = $requiresZoneId ? '`UID ZONE`' : '`UID`';
+            $backCallback = 'layanan ' . ($service['data']['category']['code'] ?? $state['category_code']);
 
             return [
                 'text' => "Format ID belum sesuai. Balas dengan {$format}.",
                 'buttons' => [
                     [
                         ['text' => '❌ Batal', 'callback' => 'batal'],
-                        ['text' => '🔙 Kembali', 'callback' => 'layanan ' . ($state['category_code'] ?? '')],
+                        ['text' => '🔙 Kembali', 'callback' => $backCallback],
                     ],
                 ],
             ];
@@ -185,7 +196,7 @@ class BotCommandHandler
             (string) $state['service_id'],
             (string) $state['payment_method'],
             $uid,
-            $zone !== '' ? $zone : null,
+            $requiresZoneId ? $zone : null,
         ], $context);
 
         if (! str_starts_with((string) ($response['text'] ?? ''), 'Gagal membuat invoice:')) {

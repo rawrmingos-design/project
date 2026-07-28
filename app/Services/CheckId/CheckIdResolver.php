@@ -172,6 +172,21 @@ class CheckIdResolver
         'heroic-uncle-kim-idle-rpg', 'world-war-heroes', 'moonlight-blade-m', 'king-of-avalon',
     ];
 
+    public function isZoneless(string $categoryCode): bool
+    {
+        $categoryCode = $this->normalizeCode($categoryCode);
+
+        if (in_array($categoryCode, self::ZONELESS_CODES, true)) {
+            return true;
+        }
+
+        if ($item = $this->getCatalogItem($categoryCode)) {
+            return isset($item['hasZoneId']) && $item['hasZoneId'] === false;
+        }
+
+        return false;
+    }
+
     public function resolveForCategory(
         Kategori|string $category,
         string $uid,
@@ -257,15 +272,7 @@ class CheckIdResolver
 
     private function zoneForCheck(string $categoryCode, ?string $zone): ?string
     {
-        if ($item = $this->getCatalogItem($categoryCode)) {
-            if (isset($item['hasZoneId']) && $item['hasZoneId'] === false) {
-                return null;
-            }
-            $zone = trim((string) $zone);
-            return $zone !== '' ? $zone : null;
-        }
-
-        if (in_array($categoryCode, self::ZONELESS_CODES, true)) {
+        if ($this->isZoneless($categoryCode)) {
             return null;
         }
 
@@ -276,7 +283,10 @@ class CheckIdResolver
 
     private function normalizeCode(string $code): string
     {
-        return strtolower(trim($code));
+        $code = strtolower(trim($code));
+        $code = preg_replace('/[\s_]+/', '-', $code) ?? '';
+
+        return trim($code, '-');
     }
 
     private function hasDynamicCheckIdInquiry(?Layanan $layanan): bool
