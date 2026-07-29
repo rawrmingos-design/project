@@ -124,7 +124,11 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
             'zone' => '1234',
         ]);
 
-        $response->assertOk()->assertJsonPath('status', true);
+        $response->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('service_name', '100 Diamonds')
+            ->assertJsonPath('category_name', $category->nama)
+            ->assertJsonPath('quantity', 1);
 
         $order = Pembelian::query()->where('order_id', $response->json('order_id'))->firstOrFail();
         $payment = Pembayaran::query()->where('order_id', $order->order_id)->firstOrFail();

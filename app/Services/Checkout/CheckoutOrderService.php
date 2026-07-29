@@ -326,13 +326,16 @@ class CheckoutOrderService
 
     private function buildResult(Pembelian $order, bool $idempotent = false): array
     {
-        $order->loadMissing('pembayaran');
+        $order->loadMissing(['pembayaran', 'activeLayanan.kategori']);
         $payment = $order->pembayaran;
 
         return [
             'status' => true,
             'message' => $idempotent ? 'Order sudah diproses sebelumnya.' : 'Order berhasil dibuat.',
             'order_id' => $order->order_id,
+            'service_name' => (string) $order->layanan,
+            'category_name' => (string) ($order->activeLayanan?->kategori?->nama ?? ''),
+            'quantity' => 1,
             'invoice_url' => route('pembelian', $order->order_id),
             'payment_url' => route('pembelian', $order->order_id),
             'payment' => [
