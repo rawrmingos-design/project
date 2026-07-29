@@ -417,26 +417,65 @@ class BotMessageFormatter
 
     private function invoicePhotoUrl(array $invoice, string $paymentCode): ?string
     {
+        // Step 1: Cek URL gambar QR yang sudah jadi dari berbagai gateway
         foreach ([
             data_get($invoice, 'qris_url'),
             data_get($invoice, 'qr_url'),
             data_get($invoice, 'qr_image_url'),
+            data_get($invoice, 'qr_link'),           // Tokopay: qr_link
             data_get($invoice, 'barcode_url'),
             data_get($invoice, 'payment.qris_url'),
             data_get($invoice, 'payment.qr_url'),
             data_get($invoice, 'payment.qr_image_url'),
+            data_get($invoice, 'payment.qr_link'),   // Tokopay nested
             data_get($invoice, 'payment.barcode_url'),
+            data_get($invoice, 'data.qr_link'),      // Tokopay: data.qr_link
         ] as $url) {
-            if (filter_var($url, FILTER_VALIDATE_URL)) {
+            if (filter_var($url, FILTER_VALIDATE_URL) && $this->isImageUrl($url)) {
                 return $url;
             }
         }
 
-        if (! $this->isQrisPayload($paymentCode)) {
+        // Step 2: Cek raw QR string atau checkout URL dari berbagai gateway
+        $qrData = null;
+        foreach ([
+            data_get($invoice, 'qrString'),          // Duitku: qrString
+            data_get($invoice, 'qr_string'),         // Tripay/Tokopay: qr_string
+            data_get($invoice, 'payment.qr_string'),
+            data_get($invoice, 'data.qr_string'),    // Tokopay: data.qr_string
+            data_get($invoice, 'paymentUrl'),        // Duitku: paymentUrl (fallback)
+            data_get($invoice, 'pay_url'),           // Tokopay: pay_url
+            data_get($invoice, 'data.pay_url'),      // Tokopay: data.pay_url
+            data_get($invoice, 'checkout_url'),      // Tripay: checkout_url
+            data_get($invoice, 'payment.checkout_url'),
+            $paymentCode,                             // Fallback ke payment_code
+        ] as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate !== '' && ($this->isQrisPayload($candidate) || $this->isCheckoutUrl($candidate))) {
+                $qrData = $candidate;
+                break;
+            }
+        }
+
+        if ($qrData === null) {
             return null;
         }
 
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=' . rawurlencode($paymentCode);
+        // Step 3: Generate QR code menggunakan api.qrserver.com
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&margin=15&data=' . rawurlencode($qrData);
+    }
+
+    private function isImageUrl(string $url): bool
+    {
+        return preg_match('/\.(png|jpg|jpeg|gif|webp)$/i', parse_url($url, PHP_URL_PATH) ?? '') === 1;
+    }
+
+    private function isCheckoutUrl(string $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_URL) !== false
+            && (str_contains($value, 'checkout')
+                || str_contains($value, 'pay.')
+                || str_contains($value, '/pay/'));
     }
 
     private function isQrisPayload(string $paymentCode): bool
