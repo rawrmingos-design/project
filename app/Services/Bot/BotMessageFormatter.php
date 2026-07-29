@@ -436,7 +436,12 @@ class BotMessageFormatter
             }
         }
 
-        // Step 2: Cek raw QR string atau checkout URL dari berbagai gateway
+        // Step 2: QR image bisa tersimpan sebagai payment_code oleh gateway.
+        if (filter_var($paymentCode, FILTER_VALIDATE_URL) && $this->isImageUrl($paymentCode)) {
+            return $paymentCode;
+        }
+
+        // Step 3: Cek raw QR string atau checkout URL dari berbagai gateway
         $qrData = null;
         foreach ([
             data_get($invoice, 'qrString'),          // Duitku: qrString
