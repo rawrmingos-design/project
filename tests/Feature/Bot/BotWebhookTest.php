@@ -387,7 +387,7 @@ class BotWebhookTest extends TestCase
         $success = $handler->handle('12345', ['6789'], $context);
 
         $this->assertStringContainsString('UID <Server ID>', $invalid['text']);
-        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+        $this->assertSame('*⏳ MENUNGGU PEMBAYARAN*', strtok($success['text'], "\n"));
     }
 
     public function test_telegram_checkout_validates_select_zone_values_and_supports_spaces()
@@ -430,7 +430,7 @@ class BotWebhookTest extends TestCase
         $success = $handler->handle('12345', ['asia', 'tenggara'], $context);
 
         $this->assertStringContainsString('Asia Tenggara: `asia tenggara`', $quote['text']);
-        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+        $this->assertSame('*⏳ MENUNGGU PEMBAYARAN*', strtok($success['text'], "\n"));
     }
 
     public function test_telegram_checkout_uses_zoneless_resolver_rule()
@@ -469,7 +469,7 @@ class BotWebhookTest extends TestCase
         $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
         $success = $handler->handle('12345', [], $context);
 
-        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($success['text'], "\n"));
+        $this->assertSame('*⏳ MENUNGGU PEMBAYARAN*', strtok($success['text'], "\n"));
     }
 
     public function test_telegram_checkout_state_creates_invoice_from_uid_and_zone_reply()
@@ -509,7 +509,7 @@ class BotWebhookTest extends TestCase
         $invoiceResponse = $handler->handle('12345', ['6789'], $context);
 
         $this->assertStringContainsString('Silahkan balas pesan ini dengan User ID dan Server ID', $quote['text']);
-        $this->assertSame('*Invoice Berhasil Dibuat*', strtok($invoiceResponse['text'], "\n"));
+        $this->assertSame('*⏳ MENUNGGU PEMBAYARAN*', strtok($invoiceResponse['text'], "\n"));
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 
