@@ -602,7 +602,11 @@ class BotWebhookTest extends TestCase
 
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === 'https://provider.example/qris/INV-1.png'
-                && str_contains($request['caption'], 'Invoice Berhasil Dibuat')
+                && str_contains($request['caption'], '⏳ MENUNGGU PEMBAYARAN')
+                && str_contains($request['caption'], 'Produk: Mobile Legends (Top Up Games)')
+                && str_contains($request['caption'], 'Jumlah: x1')
+                && str_contains($request['caption'], 'Total Tagihan: Rp 10.000 (Termasuk Admin)')
+                && str_contains($request['caption'], 'Silakan scan QRIS atau gunakan nomor VA di atas.')
                 && ! str_contains($request['caption'], 'Kode Bayar / VA')
                 && ! str_contains($request['caption'], 'Link Pembayaran:')
                 && $keyboard[0][0]['text'] === '🔗 Buka Halaman Invoice'
@@ -712,7 +716,12 @@ class BotWebhookTest extends TestCase
             $keyboard = $request['reply_markup']['inline_keyboard'];
 
             return str_contains($request->url(), 'sendMessage')
+                && str_contains($request['text'], '⏳ MENUNGGU PEMBAYARAN')
+                && str_contains($request['text'], 'Produk: Mobile Legends (Top Up Games)')
+                && str_contains($request['text'], 'Jumlah: x1')
+                && str_contains($request['text'], 'Total Tagihan: Rp 10.000 (Termasuk Admin)')
                 && str_contains($request['text'], 'Kode Bayar / VA: `1234567890123456`')
+                && str_contains($request['text'], 'Silakan scan QRIS atau gunakan nomor VA di atas.')
                 && ! str_contains($request['text'], 'Link Pembayaran:')
                 && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
                 && isset($keyboard[1][0]['callback_data']);
@@ -812,6 +821,9 @@ class BotWebhookTest extends TestCase
             'message' => 'Invoice berhasil dibuat.',
             'data' => array_filter([
                 'order_id' => 'INV-1',
+                'service_name' => 'Mobile Legends',
+                'category_name' => 'Top Up Games',
+                'quantity' => 1,
                 'payment_url' => 'https://pay.example/inv-1',
                 'qris_url' => $qrisUrl,
                 'payment' => [

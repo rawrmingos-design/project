@@ -266,22 +266,30 @@ class BotMessageFormatter
         $orderId = (string) $data['data']['order_id'];
         $paymentCode = trim((string) ($data['data']['payment']['payment_code'] ?? ''));
         $amount = number_format($data['data']['payment']['amount'] ?? 0, 0, ',', '.');
+        $serviceName = trim((string) ($data['data']['service_name'] ?? '')) ?: 'Produk';
+        $categoryName = trim((string) ($data['data']['category_name'] ?? '')) ?: 'Kategori';
+        $quantity = max(1, (int) ($data['data']['quantity'] ?? 1));
         $invoiceUrl = filter_var($data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
             ? (string) $data['data']['payment_url']
             : null;
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
         $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode);
         $lines = [
-            "*Invoice Berhasil Dibuat*",
-            "Order ID: `{$orderId}`",
-            "Total Bayar: *Rp {$amount}*",
+            '*⏳ MENUNGGU PEMBAYARAN*',
+            '',
+            "Produk: {$serviceName} ({$categoryName})",
+            "Jumlah: x{$quantity}",
+            "Total Tagihan: Rp {$amount} (Termasuk Admin)",
         ];
 
         if (! $isQrPayment && $paymentCode !== '') {
+            $lines[] = '';
             $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
         }
 
-        $lines[] = "\nPesanan akan diproses otomatis setelah pembayaran lunas.";
+        $lines[] = '';
+        $lines[] = '⚠️ *PENTING:*';
+        $lines[] = 'Silakan scan QRIS atau gunakan nomor VA di atas. Pastikan transfer SESUAI NOMINAL agar sistem kami otomatis memverifikasi pesanan.';
         $buttons = [];
 
         if ($invoiceUrl !== null) {
