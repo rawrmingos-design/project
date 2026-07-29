@@ -109,15 +109,40 @@ class GatewayInvoiceService
             }
         }
 
-        $externalUserId = trim((string) ($context['external_user_id'] ?? ''));
+        $externalUserId = $this->normalizeExternalUserId($source, $context['external_user_id'] ?? null);
         if ($externalUserId === '') {
-            return;
+            throw ValidationException::withMessages([
+                'order_id' => 'Invoice tidak dapat diakses tanpa identitas sender.',
+            ]);
+        }
+
+        if ($source === 'telegram_gateway') {
+            $storedPrincipal = trim((string) $order->gateway_principal);
+            if ($storedPrincipal !== '') {
+                if (hash_equals($storedPrincipal, $externalUserId)) {
+                    return;
+                }
+
+                throw ValidationException::withMessages([
+                    'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
+                ]);
+            }
+
+            $legacyEmail = $this->telegramEmailForPrincipal($externalUserId);
+            if ($legacyEmail !== null && hash_equals($legacyEmail, trim((string) $order->email_pembeli))) {
+                return;
+            }
+
+            throw ValidationException::withMessages([
+                'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
+            ]);
         }
 
         $metadata = json_decode((string) $order->log, true);
         $gatewayContext = is_array($metadata) ? ($metadata['gateway_context'] ?? []) : [];
+        $storedExternalUserId = $this->normalizeExternalUserId($source, $gatewayContext['external_user_id'] ?? null);
 
-        if (! is_array($gatewayContext) || (string) ($gatewayContext['external_user_id'] ?? '') !== $externalUserId) {
+        if (! is_array($gatewayContext) || ! hash_equals($storedExternalUserId, $externalUserId)) {
             throw ValidationException::withMessages([
                 'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
             ]);
@@ -128,6 +153,7 @@ class GatewayInvoiceService
     {
         $context['source'] = $source;
         $context['channel'] = trim((string) ($context['channel'] ?? '')) ?: $this->channelFromSource($source);
+        $context['external_user_id'] = $this->normalizeExternalUserId($source, $context['external_user_id'] ?? null);
 
         if (blank($context['idempotency_key'] ?? null)) {
             $context['idempotency_key'] = hash('sha256', json_encode([
@@ -141,6 +167,30 @@ class GatewayInvoiceService
         }
 
         return $context;
+    }
+
+    private function normalizeExternalUserId(?string $source, mixed $externalUserId): string
+    {
+        $externalUserId = trim((string) $externalUserId);
+
+        if ($source !== 'telegram_gateway' || $externalUserId === '') {
+            return $externalUserId;
+        }
+
+        if (preg_match('/^(?:telegram:)?(\d+)$/', $externalUserId, $matches) !== 1) {
+            return $externalUserId;
+        }
+
+        return 'telegram:' . $matches[1];
+    }
+
+    private function telegramEmailForPrincipal(string $principal): ?string
+    {
+        if (preg_match('/^telegram:(\d+)$/', $principal, $matches) !== 1) {
+            return null;
+        }
+
+        return 'telegram:' . $matches[1] . '@telegram.user';
     }
 
     private function normalizeSource(string $source): string

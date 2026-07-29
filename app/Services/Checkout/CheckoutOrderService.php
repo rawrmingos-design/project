@@ -151,6 +151,7 @@ class CheckoutOrderService
                 'gateway_context' => $this->gatewayContext($context),
             ], JSON_UNESCAPED_SLASHES);
             $order->traffic_source = $source;
+            $order->gateway_principal = $this->gatewayPrincipal($source, $context);
             $order->voucher = $voucherCode !== '' ? $voucherCode : null;
             $order->tipe_transaksi = $orderType;
             $order->email_pembeli = $this->orderEmail($request, $user);
@@ -589,6 +590,17 @@ class CheckoutOrderService
             'external_user_id' => $context['external_user_id'] ?? null,
             'message_id' => $context['message_id'] ?? null,
         ], static fn ($value): bool => $value !== null && $value !== '');
+    }
+
+    private function gatewayPrincipal(string $source, array $context): ?string
+    {
+        if ($source !== 'telegram_gateway') {
+            return null;
+        }
+
+        $externalUserId = trim((string) ($context['external_user_id'] ?? ''));
+
+        return preg_match('/^telegram:\d+$/', $externalUserId) === 1 ? $externalUserId : null;
     }
 
     private function normalizeSource(string $source): string

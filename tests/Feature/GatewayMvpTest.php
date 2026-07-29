@@ -388,6 +388,76 @@ class GatewayMvpTest extends TestCase
             ->assertJsonValidationErrors(['order_id']);
     }
 
+    public function test_telegram_gateway_status_uses_durable_principal_after_callback_log_replacement(): void
+    {
+        [$service] = $this->createManualCheckoutFixtures();
+
+        $orderId = $this->postJson('/api/gateway/invoices', [
+            'source' => 'telegram_gateway',
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'nomor' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+            'external_user_id' => '9876',
+        ])->assertOk()->json('data.order_id');
+
+        $order = Pembelian::query()->where('order_id', $orderId)->firstOrFail();
+        $this->assertSame('telegram:9876', $order->gateway_principal);
+
+        $order->update(['log' => json_encode(['result' => ['status' => 'SUCCESS']])]);
+
+        $this->getJson('/api/gateway/invoices/' . $orderId . '?source=telegram_gateway&external_user_id=telegram:9876')
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('data.order_id', $orderId);
+
+        $this->getJson('/api/gateway/invoices/' . $orderId . '?source=telegram_gateway&external_user_id=telegram:1111')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['order_id']);
+
+        $this->getJson('/api/gateway/invoices/' . $orderId . '?source=telegram_gateway')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['order_id']);
+    }
+
+    public function test_telegram_gateway_status_supports_legacy_synthetic_email_owner_only(): void
+    {
+        $order = Pembelian::factory()->create([
+            'traffic_source' => 'telegram_gateway',
+            'email_pembeli' => 'telegram:9876@telegram.user',
+            'gateway_principal' => null,
+            'log' => json_encode(['result' => ['status' => 'SUCCESS']]),
+        ]);
+        Pembayaran::query()->create([
+            'order_id' => $order->order_id,
+            'harga' => $order->harga,
+            'no_pembayaran' => '1234567890',
+            'no_pembeli' => '-',
+            'status' => 'Lunas',
+            'metode' => 'MANUAL',
+            'reference' => 'REF-' . $order->order_id,
+        ]);
+
+        $this->getJson('/api/gateway/invoices/' . $order->order_id . '?source=telegram_gateway&external_user_id=9876')
+            ->assertOk()
+            ->assertJsonPath('ok', true);
+
+        $this->getJson('/api/gateway/invoices/' . $order->order_id . '?source=telegram_gateway&external_user_id=1111')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['order_id']);
+
+        $unownedOrder = Pembelian::factory()->create([
+            'traffic_source' => 'telegram_gateway',
+            'gateway_principal' => null,
+            'log' => json_encode(['result' => ['status' => 'SUCCESS']]),
+        ]);
+
+        $this->getJson('/api/gateway/invoices/' . $unownedOrder->order_id . '?source=telegram_gateway&external_user_id=9876')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['order_id']);
+    }
+
     public function test_gateway_payment_methods_return_visible_methods_for_tenant(): void
     {
         Method::query()->create([
