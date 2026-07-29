@@ -116,10 +116,15 @@ class TelegramAdapter implements BotAdapterInterface
                         continue;
                     }
 
-                    $keyboardRow[] = [
-                        'text' => $btn['text'],
-                        'callback_data' => substr($btn['callback'], 0, 64),
-                    ];
+                    $keyboardRow[] = isset($btn['url'])
+                        ? [
+                            'text' => $btn['text'],
+                            'url' => $btn['url'],
+                        ]
+                        : [
+                            'text' => $btn['text'],
+                            'callback_data' => substr($btn['callback'], 0, 64),
+                        ];
                 }
 
                 if ($keyboardRow !== []) {
@@ -143,9 +148,13 @@ class TelegramAdapter implements BotAdapterInterface
 
     private function isButton(mixed $value): bool
     {
-        return is_array($value)
-            && isset($value['text'], $value['callback'])
-            && is_string($value['text'])
-            && is_string($value['callback']);
+        if (! is_array($value) || ! isset($value['text']) || ! is_string($value['text'])) {
+            return false;
+        }
+
+        $hasCallback = isset($value['callback']) && is_string($value['callback']);
+        $hasUrl = isset($value['url']) && filter_var($value['url'], FILTER_VALIDATE_URL) !== false;
+
+        return $hasCallback xor $hasUrl;
     }
 }
