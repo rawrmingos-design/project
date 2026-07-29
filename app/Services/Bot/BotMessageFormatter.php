@@ -277,6 +277,7 @@ class BotMessageFormatter
         $lines = [
             '*⏳ MENUNGGU PEMBAYARAN*',
             '',
+            'No. Invoice: `' . $this->escapeMarkdownCode($orderId) . '`',
             "Produk: {$serviceName} ({$categoryName})",
             "Jumlah: x{$quantity}",
             "Total Tagihan: Rp {$amount} (Termasuk Admin)",

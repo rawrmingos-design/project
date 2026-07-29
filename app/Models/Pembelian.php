@@ -63,6 +63,7 @@ class Pembelian extends Model
         'refund_amount'           => 'integer',
         'refunded_at'             => 'datetime',
         'email_pembeli'           => 'string',
+        'gateway_principal'       => 'string',
         'reseller_integration_id' => 'integer',
         'base_order_id'           => 'string',
         'invoice_version'         => 'integer',

@@ -603,6 +603,7 @@ class BotWebhookTest extends TestCase
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === 'https://provider.example/qris/INV-1.png'
                 && str_contains($request['caption'], '⏳ MENUNGGU PEMBAYARAN')
+                && str_contains($request['caption'], 'No. Invoice: `INV-1`')
                 && str_contains($request['caption'], 'Produk: Mobile Legends (Top Up Games)')
                 && str_contains($request['caption'], 'Jumlah: x1')
                 && str_contains($request['caption'], 'Total Tagihan: Rp 10.000 (Termasuk Admin)')
@@ -717,6 +718,7 @@ class BotWebhookTest extends TestCase
 
             return str_contains($request->url(), 'sendMessage')
                 && str_contains($request['text'], '⏳ MENUNGGU PEMBAYARAN')
+                && str_contains($request['text'], 'No. Invoice: `INV-1`')
                 && str_contains($request['text'], 'Produk: Mobile Legends (Top Up Games)')
                 && str_contains($request['text'], 'Jumlah: x1')
                 && str_contains($request['text'], 'Total Tagihan: Rp 10.000 (Termasuk Admin)')
