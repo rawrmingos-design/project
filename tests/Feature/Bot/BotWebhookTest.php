@@ -613,6 +613,43 @@ class BotWebhookTest extends TestCase
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendMessage'));
     }
 
+    public function test_telegram_invoice_sends_qris_image_when_payment_code_is_direct_image_url()
+    {
+        $qrisUrl = 'https://assets-b3xk0.b-cdn.net/2026/07/TP260729IGRQ307771.png';
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendPhoto' => Http::response(['ok' => true]),
+        ]);
+
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($qrisUrl): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: $qrisUrl));
+        });
+
+        $response = $this->postJson('/api/webhooks/bot/telegram', [
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'invoice 1 QRIS user123 zone123',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) use ($qrisUrl): bool {
+            $keyboard = $request['reply_markup']['inline_keyboard'];
+
+            return str_contains($request->url(), 'sendPhoto')
+                && $request['photo'] === $qrisUrl
+                && ! str_contains($request['caption'], 'Kode Bayar / VA')
+                && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
+                && isset($keyboard[1][0]['callback_data']);
+        });
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendMessage'));
+    }
+
     public function test_telegram_invoice_hides_raw_qris_payload_and_sends_generated_qr_photo()
     {
         $rawQris = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';
