@@ -263,30 +263,37 @@ class BotMessageFormatter
             ];
         }
 
-        $orderId = $data['data']['order_id'];
-        $paymentCode = $data['data']['payment']['payment_code'];
+        $orderId = (string) $data['data']['order_id'];
+        $paymentCode = trim((string) ($data['data']['payment']['payment_code'] ?? ''));
         $amount = number_format($data['data']['payment']['amount'] ?? 0, 0, ',', '.');
-        $url = $data['data']['payment_url'] ?? '-';
-
-        $text = implode("\n", [
+        $invoiceUrl = filter_var($data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
+            ? (string) $data['data']['payment_url']
+            : null;
+        $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
+        $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode);
+        $lines = [
             "*Invoice Berhasil Dibuat*",
             "Order ID: `{$orderId}`",
             "Total Bayar: *Rp {$amount}*",
-            "Kode Bayar / VA: `{$paymentCode}`",
-            "Link Pembayaran: {$url}",
-            "\nPesanan akan diproses otomatis setelah pembayaran lunas."
-        ]);
-
-        $response = [
-            'text' => $text,
-            'buttons' => [
-                [
-                    $this->button('🔎 Cek Status Pembayaran', "status {$orderId}"),
-                ],
-            ],
         ];
 
-        $photoUrl = $this->invoicePhotoUrl($data['data'], (string) $paymentCode);
+        if (! $isQrPayment && $paymentCode !== '') {
+            $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
+        }
+
+        $lines[] = "\nPesanan akan diproses otomatis setelah pembayaran lunas.";
+        $buttons = [];
+
+        if ($invoiceUrl !== null) {
+            $buttons[] = [$this->urlButton('🔗 Buka Halaman Invoice', $invoiceUrl)];
+        }
+
+        $buttons[] = [$this->button('🔎 Cek Status Pembayaran', "status {$orderId}")];
+        $response = [
+            'text' => implode("\n", $lines),
+            'buttons' => $buttons,
+        ];
+
         if ($photoUrl !== null) {
             $response['photo_url'] = $photoUrl;
         }
@@ -560,6 +567,14 @@ class BotMessageFormatter
         return [
             'text' => $text,
             'callback' => $this->callback($callback),
+        ];
+    }
+
+    private function urlButton(string $text, string $url): array
+    {
+        return [
+            'text' => $text,
+            'url' => $url,
         ];
     }
 

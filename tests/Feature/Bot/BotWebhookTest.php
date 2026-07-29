@@ -598,12 +598,89 @@ class BotWebhookTest extends TestCase
         $response->assertOk();
 
         Http::assertSent(function ($request): bool {
+            $keyboard = $request['reply_markup']['inline_keyboard'];
+
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === 'https://provider.example/qris/INV-1.png'
                 && str_contains($request['caption'], 'Invoice Berhasil Dibuat')
-                && isset($request['reply_markup']['inline_keyboard']);
+                && ! str_contains($request['caption'], 'Kode Bayar / VA')
+                && ! str_contains($request['caption'], 'Link Pembayaran:')
+                && $keyboard[0][0]['text'] === '🔗 Buka Halaman Invoice'
+                && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
+                && $keyboard[1][0]['text'] === '🔎 Cek Status Pembayaran'
+                && isset($keyboard[1][0]['callback_data']);
         });
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendMessage'));
+    }
+
+    public function test_telegram_invoice_hides_raw_qris_payload_and_sends_generated_qr_photo()
+    {
+        $rawQris = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';
+        Http::fake([
+            'https://api.qrserver.com/v1/create-qr-code/*' => Http::response('image', 200),
+            'https://api.telegram.org/botdummy-token/sendPhoto' => Http::response(['ok' => true]),
+        ]);
+
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($rawQris): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: $rawQris));
+        });
+
+        $response = $this->postJson('/api/webhooks/bot/telegram', [
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'invoice 1 QRIS user123 zone123',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) use ($rawQris): bool {
+            return str_contains($request->url(), 'sendPhoto')
+                && str_starts_with($request['photo'], 'https://api.qrserver.com/v1/create-qr-code/')
+                && ! str_contains($request['caption'], $rawQris)
+                && ! str_contains($request['caption'], 'Kode Bayar / VA');
+        });
+    }
+
+    public function test_telegram_invoice_shows_text_payment_code_and_invoice_url_button()
+    {
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: '1234567890123456'));
+        });
+
+        $response = $this->postJson('/api/webhooks/bot/telegram', [
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'invoice 1 BCA user123 zone123',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            $keyboard = $request['reply_markup']['inline_keyboard'];
+
+            return str_contains($request->url(), 'sendMessage')
+                && str_contains($request['text'], 'Kode Bayar / VA: `1234567890123456`')
+                && ! str_contains($request['text'], 'Link Pembayaran:')
+                && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
+                && isset($keyboard[1][0]['callback_data']);
+        });
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendPhoto'));
     }
 
     public function test_fonnte_invoice_uses_sender_as_whatsapp_contact()
@@ -691,7 +768,7 @@ class BotWebhookTest extends TestCase
         return 'bot:checkout-state:' . hash('sha256', $externalUserId);
     }
 
-    private function fakeInvoiceResponse(?string $qrisUrl = null): array
+    private function fakeInvoiceResponse(?string $qrisUrl = null, string $paymentCode = 'QRIS-1'): array
     {
         return [
             'ok' => true,
@@ -701,7 +778,7 @@ class BotWebhookTest extends TestCase
                 'payment_url' => 'https://pay.example/inv-1',
                 'qris_url' => $qrisUrl,
                 'payment' => [
-                    'payment_code' => 'QRIS-1',
+                    'payment_code' => $paymentCode,
                     'amount' => 10000,
                 ],
             ]),
