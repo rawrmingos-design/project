@@ -328,7 +328,58 @@ class BotWebhookTest extends TestCase
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
-    public function test_telegram_status_keeps_generic_template_when_payment_is_not_verified(): void
+    public function test_telegram_status_renders_unpaid_payment_details(): void
+    {
+        config([
+            'app.name' => 'Z_Vault *Store*',
+            'app.timezone' => 'Asia/Jakarta',
+        ]);
+
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV_[123]',
+                'product' => 'Mobile *Legends*',
+                'nickname' => 'Player',
+                'amount' => 10000,
+                'status' => 'Pending',
+                'payment' => [
+                    'status' => 'Belum Lunas',
+                    'amount' => 12500,
+                    'method' => 'BCA_VA',
+                    'payment_code' => '12345_678',
+                    'expires_at' => '2026-07-30T06:00:00+00:00',
+                ],
+                'sn' => null,
+            ],
+        ]);
+
+        $this->assertSame("⏳ *MENUNGGU PEMBAYARAN*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV\\_\\[123\\]*\n├ Produk: *Mobile \\*Legends\\**\n├ Total Tagihan: *Rp 12.500*\n└ Metode: *BCA\\_VA*\n\n💳 Kode Bayar / VA: *12345\\_678*\n⏰ Bayar sebelum: *30/07/2026 13:00*\n\n⚠️ Selesaikan pembayaran agar pesanan diproses otomatis.", $response['text']);
+    }
+
+    public function test_telegram_status_hides_qris_payload_for_unpaid_payment(): void
+    {
+        $qrisPayload = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';
+
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV-123',
+                'product' => 'Mobile Legends',
+                'amount' => 10000,
+                'payment' => [
+                    'status' => 'Belum Lunas',
+                    'method' => 'QRIS',
+                    'payment_code' => $qrisPayload,
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('Buka invoice yang telah dibuat untuk scan QRIS', $response['text']);
+        $this->assertStringNotContainsString($qrisPayload, $response['text']);
+    }
+
+    public function test_telegram_status_keeps_generic_template_for_expired_payment(): void
     {
         $response = app(BotMessageFormatter::class)->formatStatus([
             'ok' => true,
@@ -337,16 +388,16 @@ class BotWebhookTest extends TestCase
                 'product' => 'Mobile Legends',
                 'nickname' => 'Player',
                 'amount' => 10000,
-                'status' => 'Success',
-                'payment' => ['status' => 'Belum Lunas'],
+                'status' => 'Pending',
+                'payment' => ['status' => 'Expired'],
                 'sn' => null,
             ],
         ]);
 
         $this->assertStringNotContainsString('PEMBAYARAN BERHASIL DIVERIFIKASI', $response['text']);
+        $this->assertStringNotContainsString('MENUNGGU PEMBAYARAN', $response['text']);
         $this->assertStringContainsString('*Status Pesanan*', $response['text']);
-        $this->assertStringContainsString('Status Pembayaran: *Belum Lunas*', $response['text']);
-        $this->assertStringContainsString('Status Pesanan: *Success*', $response['text']);
+        $this->assertStringContainsString('Status Pembayaran: *Expired*', $response['text']);
     }
 
     public function test_telegram_checkout_mentions_configured_zone_field_on_quote_and_retry()

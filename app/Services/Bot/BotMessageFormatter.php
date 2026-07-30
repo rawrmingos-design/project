@@ -348,6 +348,10 @@ class BotMessageFormatter
             ];
         }
 
+        if ($paymentStatus === 'belum lunas') {
+            return $this->formatUnpaidStatus($d);
+        }
+
         $amount = number_format($d['amount'], 0, ',', '.');
         $lines = [
             "*Status Pesanan*",
@@ -435,6 +439,67 @@ class BotMessageFormatter
         }
 
         return $lines;
+    }
+
+    private function formatUnpaidStatus(array $data): array
+    {
+        $payment = is_array($data['payment'] ?? null) ? $data['payment'] : [];
+        $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
+        $orderId = $this->escapeMarkdown((string) ($data['order_id'] ?? ''));
+        $product = $this->escapeMarkdown((string) ($data['product'] ?? 'Produk'));
+        $amount = is_numeric($payment['amount'] ?? null) ? (int) $payment['amount'] : (int) ($data['amount'] ?? 0);
+        $method = $this->escapeMarkdown(trim((string) ($payment['method'] ?? '')) ?: 'Pembayaran');
+        $paymentCode = trim((string) ($payment['payment_code'] ?? ''));
+        $expiresAt = $this->paymentExpiryLabel($payment['expires_at'] ?? null);
+
+        $paymentLine = $paymentCode === '' || $this->isQrisPayload($paymentCode) || filter_var($paymentCode, FILTER_VALIDATE_URL)
+            ? '💳 Pembayaran: *Buka invoice yang telah dibuat untuk scan QRIS atau melanjutkan pembayaran.*'
+            : '💳 Kode Bayar / VA: *' . $this->escapeMarkdown($paymentCode) . '*';
+
+        $lines = [
+            '⏳ *MENUNGGU PEMBAYARAN*',
+            '',
+            "Terima kasih telah berbelanja di {$storeName}.",
+            '',
+            '🧾 *RINCIAN TRANSAKSI*',
+            "├ Nomor Invoice: *{$orderId}*",
+            "├ Produk: *{$product}*",
+            '├ Total Tagihan: *Rp ' . number_format($amount, 0, ',', '.') . '*',
+            "└ Metode: *{$method}*",
+            '',
+            $paymentLine,
+        ];
+
+        if ($expiresAt !== null) {
+            $lines[] = "⏰ Bayar sebelum: *{$expiresAt}*";
+        }
+
+        $lines[] = '';
+        $lines[] = '⚠️ Selesaikan pembayaran agar pesanan diproses otomatis.';
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [
+                [
+                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                ],
+            ],
+        ];
+    }
+
+    private function paymentExpiryLabel(mixed $expiresAt): ?string
+    {
+        if (blank($expiresAt)) {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse($expiresAt)
+                ->timezone(config('app.timezone'))
+                ->format('d/m/Y H:i');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function escapeMarkdown(string $value): string
