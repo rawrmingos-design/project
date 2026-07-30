@@ -352,6 +352,10 @@ class BotMessageFormatter
             return $this->formatUnpaidStatus($d);
         }
 
+        if (in_array($paymentStatus, ['expired', 'kadaluarsa'], true)) {
+            return $this->formatExpiredStatus($d);
+        }
+
         $amount = number_format($d['amount'], 0, ',', '.');
         $lines = [
             "*Status Pesanan*",
@@ -439,6 +443,32 @@ class BotMessageFormatter
         }
 
         return $lines;
+    }
+
+    private function formatExpiredStatus(array $data): array
+    {
+        $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
+        $orderId = $this->escapeMarkdown((string) ($data['order_id'] ?? ''));
+        $product = $this->escapeMarkdown((string) ($data['product'] ?? 'Produk'));
+
+        return [
+            'text' => implode("\n", [
+                '❌ *PEMBAYARAN EXPIRED*',
+                '',
+                "Terima kasih telah berbelanja di {$storeName}.",
+                '',
+                '🧾 *RINCIAN TRANSAKSI*',
+                "├ No. Invoice: *{$orderId}*",
+                "└ Produk: *{$product}*",
+                '',
+                '💡 Pesanan telah kadaluarsa. Silakan lakukan pembayaran ulang agar token AI dapat digunakan kembali.',
+            ]),
+            'buttons' => [
+                [
+                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                ],
+            ],
+        ];
     }
 
     private function formatUnpaidStatus(array $data): array

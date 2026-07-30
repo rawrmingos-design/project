@@ -379,25 +379,38 @@ class BotWebhookTest extends TestCase
         $this->assertStringNotContainsString($qrisPayload, $response['text']);
     }
 
-    public function test_telegram_status_keeps_generic_template_for_expired_payment(): void
+    public function test_telegram_status_renders_expired_payment_message(): void
+    {
+        config(['app.name' => 'Z_Vault *Store*']);
+
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV_[123]',
+                'product' => 'Mobile *Legends*',
+                'payment' => ['status' => 'Expired'],
+            ],
+        ]);
+
+        $this->assertSame("❌ *PEMBAYARAN EXPIRED*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ No. Invoice: *INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n💡 Pesanan telah kadaluarsa. Silakan lakukan pembayaran ulang agar token AI dapat digunakan kembali.", $response['text']);
+        $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
+        $this->assertStringNotContainsString('*Status Pesanan*', $response['text']);
+    }
+
+    public function test_telegram_status_treats_kadaluarsa_as_expired_payment(): void
     {
         $response = app(BotMessageFormatter::class)->formatStatus([
             'ok' => true,
             'data' => [
                 'order_id' => 'INV-123',
                 'product' => 'Mobile Legends',
-                'nickname' => 'Player',
-                'amount' => 10000,
-                'status' => 'Pending',
-                'payment' => ['status' => 'Expired'],
-                'sn' => null,
+                'payment' => ['status' => '  KADALUARSA  '],
             ],
         ]);
 
-        $this->assertStringNotContainsString('PEMBAYARAN BERHASIL DIVERIFIKASI', $response['text']);
-        $this->assertStringNotContainsString('MENUNGGU PEMBAYARAN', $response['text']);
-        $this->assertStringContainsString('*Status Pesanan*', $response['text']);
-        $this->assertStringContainsString('Status Pembayaran: *Expired*', $response['text']);
+        $this->assertStringContainsString('❌ *PEMBAYARAN EXPIRED*', $response['text']);
+        $this->assertStringContainsString('├ No. Invoice: *INV-123*', $response['text']);
+        $this->assertStringContainsString('└ Produk: *Mobile Legends*', $response['text']);
     }
 
     public function test_telegram_checkout_mentions_configured_zone_field_on_quote_and_retry()
