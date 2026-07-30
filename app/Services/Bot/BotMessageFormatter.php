@@ -320,8 +320,35 @@ class BotMessageFormatter
         }
 
         $d = $data['data'];
-        $amount = number_format($d['amount'], 0, ',', '.');
+        $paymentStatus = strtolower(trim((string) data_get($d, 'payment.status')));
 
+        if ($paymentStatus === 'lunas') {
+            $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
+            $orderId = $this->escapeMarkdown((string) ($d['order_id'] ?? ''));
+            $product = $this->escapeMarkdown((string) ($d['product'] ?? 'Produk'));
+
+            return [
+                'text' => implode("\n", [
+                    '✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*',
+                    '',
+                    "Terima kasih telah berbelanja di {$storeName}.",
+                    '',
+                    '🧾 *RINCIAN TRANSAKSI*',
+                    "├ ID Transaksi: *INV-ZV-{$orderId}*",
+                    "└ Produk: *{$product}*",
+                    '',
+                    '🔐 Jika ada kendala hubungi admin utama:',
+                    'chat admin @mings dan kirimkan id pesanan nya',
+                ]),
+                'buttons' => [
+                    [
+                        $this->button('🔙 Kembali ke Menu', 'menu'),
+                    ],
+                ],
+            ];
+        }
+
+        $amount = number_format($d['amount'], 0, ',', '.');
         $lines = [
             "*Status Pesanan*",
             "Order ID: {$d['order_id']}",

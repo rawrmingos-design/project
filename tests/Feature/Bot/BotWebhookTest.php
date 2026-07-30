@@ -307,6 +307,48 @@ class BotWebhookTest extends TestCase
         $response->assertOk()->assertJsonPath('status', true);
     }
 
+    public function test_telegram_status_renders_verified_payment_message_with_configured_store_name(): void
+    {
+        config(['app.name' => 'Z_Vault *Store*']);
+
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV_[123]',
+                'product' => 'Mobile *Legends*',
+                'nickname' => 'Player',
+                'amount' => 10000,
+                'status' => 'Pending',
+                'payment' => ['status' => 'Lunas'],
+                'sn' => null,
+            ],
+        ]);
+
+        $this->assertSame("✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya", $response['text']);
+        $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
+    }
+
+    public function test_telegram_status_keeps_generic_template_when_payment_is_not_verified(): void
+    {
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV-123',
+                'product' => 'Mobile Legends',
+                'nickname' => 'Player',
+                'amount' => 10000,
+                'status' => 'Success',
+                'payment' => ['status' => 'Belum Lunas'],
+                'sn' => null,
+            ],
+        ]);
+
+        $this->assertStringNotContainsString('PEMBAYARAN BERHASIL DIVERIFIKASI', $response['text']);
+        $this->assertStringContainsString('*Status Pesanan*', $response['text']);
+        $this->assertStringContainsString('Status Pembayaran: *Belum Lunas*', $response['text']);
+        $this->assertStringContainsString('Status Pesanan: *Success*', $response['text']);
+    }
+
     public function test_telegram_checkout_mentions_configured_zone_field_on_quote_and_retry()
     {
         Cache::flush();
