@@ -76,7 +76,7 @@ class WhatsappNotificationServiceTest extends TestCase
             'slug' => 'transaction_success',
             'name' => 'Transaksi Sukses',
             'details' => '_Variables: {order_id}, {product}_',
-            'content' => "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya",
+            'content' => "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya",
             'is_active' => true,
         ]);
 
@@ -92,7 +92,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://api.fonnte.com/send'
                 && ($request->data()['target'] ?? null) === '085792464508'
-                && ($request->data()['message'] ?? null) === "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-INV-TRIPAY-001*\n└ Produk: *Mobile Legends 86 Diamonds*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya";
+                && ($request->data()['message'] ?? null) === "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV-TRIPAY-001*\n└ Produk: *Mobile Legends 86 Diamonds*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya";
         });
     }
 

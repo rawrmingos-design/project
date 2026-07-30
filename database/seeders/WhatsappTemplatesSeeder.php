@@ -27,7 +27,7 @@ class WhatsappTemplatesSeeder extends Seeder
             'slug' => 'transaction_success',
             'name' => 'Transaksi Sukses',
             'details' => '_Variables: {order_id}, {product}_',
-            'content' => '✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya',
+            'content' => '✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya',
             'is_active' => 1,
             'created_at' => '2026-02-07 11:54:59',
             'updated_at' => '2026-02-07 11:54:59'

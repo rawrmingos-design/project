@@ -324,7 +324,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya", $response['text']);
+        $this->assertSame("✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya", $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 

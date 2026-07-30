@@ -334,7 +334,7 @@ class BotMessageFormatter
                     "Terima kasih telah berbelanja di {$storeName}.",
                     '',
                     '🧾 *RINCIAN TRANSAKSI*',
-                    "├ ID Transaksi: *INV-ZV-{$orderId}*",
+                    "├ Nomor Invoice: *{$orderId}*",
                     "└ Produk: *{$product}*",
                     '',
                     '🔐 Jika ada kendala hubungi admin utama:',
