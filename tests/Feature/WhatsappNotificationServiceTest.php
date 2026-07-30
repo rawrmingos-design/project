@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\SettingWeb;
+use App\Models\WhatsappTemplate;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -62,6 +63,66 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->assertFalse($result['success']);
         $this->assertSame('token invalid', $result['message']);
         $this->assertSame('token invalid', $result['reason']);
+    }
+
+    public function test_transaction_success_notification_renders_verified_payment_message(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+        ]);
+
+        WhatsappTemplate::query()->create([
+            'slug' => 'transaction_success',
+            'name' => 'Transaksi Sukses',
+            'details' => '_Variables: {order_id}, {product}_',
+            'content' => "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya",
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
+        ]);
+
+        app(WhatsappNotificationService::class)->sendNotification('085792464508', 'transaction_success', [
+            'order_id' => 'INV-TRIPAY-001',
+            'product' => 'Mobile Legends 86 Diamonds',
+        ]);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://api.fonnte.com/send'
+                && ($request->data()['target'] ?? null) === '085792464508'
+                && ($request->data()['message'] ?? null) === "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-INV-TRIPAY-001*\n└ Produk: *Mobile Legends 86 Diamonds*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya";
+        });
+    }
+
+    public function test_transaction_pending_notification_content_remains_unchanged(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+        ]);
+
+        $pendingContent = "*Konfirmasi Pesanan*\n\nQRIS dan VA tetap mengikuti instruksi pembayaran yang ada.";
+
+        WhatsappTemplate::query()->create([
+            'slug' => 'transaction_pending',
+            'name' => 'Transaksi Pending',
+            'details' => null,
+            'content' => $pendingContent,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
+        ]);
+
+        app(WhatsappNotificationService::class)->sendNotification('085792464508', 'transaction_pending');
+
+        Http::assertSent(function ($request) use ($pendingContent): bool {
+            return $request->url() === 'https://api.fonnte.com/send'
+                && ($request->data()['message'] ?? null) === $pendingContent;
+        });
     }
 
     public function test_easywa_returns_success_when_status_is_ready(): void

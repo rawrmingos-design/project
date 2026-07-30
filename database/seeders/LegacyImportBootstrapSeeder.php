@@ -241,8 +241,8 @@ class LegacyImportBootstrapSeeder extends Seeder
             [
                 'slug' => 'transaction_success',
                 'name' => 'Transaksi Sukses',
-                'details' => '_Variables: {order_id}, {nickname}, {product}, {amount}, {sn}_',
-                'content' => "*Pesanan Sukses!*\n\nHalo *{nickname}*,\nPesanan kamu telah berhasil diproses.\n\nNo Invoice: *{order_id}*\nProduk: *{product}*\nSN/Kode: *{sn}*\n\nTerima kasih telah berbelanja.",
+                'details' => '_Variables: {order_id}, {product}_',
+                'content' => "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ ID Transaksi: *INV-ZV-{order_id}*\n└ Produk: *{product}*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya",
                 'is_active' => true,
             ],
             [
