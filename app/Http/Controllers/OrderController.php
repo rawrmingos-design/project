@@ -1158,7 +1158,14 @@ class OrderController extends Controller
                 : '3 jam dari sekarang';
 
             // Send Pending Message
-            $pesanPending = "*Menunggu Pembayaran*\n\nNo Invoice: *$order_id*\nLayanan: *$dataLayanan->layanan*\nID : *$request->uid*\nServer : *$request->zone*\nNickname : *$request->nickname*\nHarga: *Rp. " . number_format($amount, 0, '.', ',') . "*\nStatus: *Menunggu Pembayaran*\nMetode Pembayaran: *$dataMethod->name*\nKode Bayar / Nomor VA : *" . $no_pembayaran . "*\n\n*Harap Dibayar Sebelum $paymentExpiryLabel!*\n\n*Invoice* : " . env("APP_URL") . "/id/invoices/$order_id\n\nINI ADALAH PESAN OTOMATIS";
+            $pesanPending = $this->buildPendingPaymentMessage(
+                $order_id,
+                (string) $dataLayanan->layanan,
+                (int) $amount,
+                (string) $dataMethod->name,
+                (string) $no_pembayaran,
+                $paymentExpiryLabel,
+            );
             if ($request->nomor) {
                 $this->msg($request->nomor, $pesanPending);
             }
@@ -1170,6 +1177,42 @@ class OrderController extends Controller
         } finally {
             Cache::forget($idempotencyLockKey);
         }
+    }
+
+    public function buildPendingPaymentMessage(
+        string $orderId,
+        string $product,
+        int $amount,
+        string $method,
+        string $paymentCode,
+        string $paymentExpiryLabel,
+    ): string {
+        $paymentCode = trim($paymentCode);
+        $isPaymentLink = filter_var($paymentCode, FILTER_VALIDATE_URL) !== false;
+        $isQrisPayload = str_starts_with($paymentCode, '000201') && strlen($paymentCode) >= 50;
+        $paymentInstruction = $paymentCode === '' || $isPaymentLink || $isQrisPayload
+            ? '💳 Pembayaran: *Buka invoice di bawah untuk scan QRIS atau melanjutkan pembayaran.*'
+            : "💳 Kode Bayar / VA: *{$paymentCode}*";
+        $storeName = trim((string) config('app.name', 'Laravel')) ?: 'Laravel';
+        $invoiceUrl = rtrim((string) config('app.url'), '/') . '/id/invoices/' . rawurlencode($orderId);
+
+        return implode("\n", [
+            '⏳ *MENUNGGU PEMBAYARAN*',
+            '',
+            "Terima kasih telah berbelanja di {$storeName}.",
+            '',
+            '🧾 *RINCIAN TRANSAKSI*',
+            "├ Nomor Invoice: *{$orderId}*",
+            "├ Produk: *{$product}*",
+            '├ Total Tagihan: *Rp ' . number_format($amount, 0, ',', '.') . '*',
+            "└ Metode: *{$method}*",
+            '',
+            $paymentInstruction,
+            "⏰ Bayar sebelum: *{$paymentExpiryLabel}*",
+            '',
+            '⚠️ Selesaikan pembayaran agar pesanan diproses otomatis.',
+            "🔗 Invoice: {$invoiceUrl}",
+        ]);
     }
 
     private function sendOrderCreatedPushNotification(Request $request, string $orderId): void
