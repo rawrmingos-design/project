@@ -100,6 +100,26 @@ class RouteServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('password-recovery-request', function (Request $request) {
+            $username = mb_strtolower(trim((string) $request->input('username', '')));
+            $identifier = hash_hmac('sha256', $username, (string) config('app.key'));
+
+            return [
+                Limit::perMinute(5)->by('password-recovery-ip:' . $request->ip()),
+                Limit::perMinutes(60, 3)->by('password-recovery-identifier:' . $identifier),
+            ];
+        });
+
+        RateLimiter::for('password-reset-submit', function (Request $request) {
+            $token = (string) $request->input('token', '');
+            $tokenFingerprint = hash_hmac('sha256', $token, (string) config('app.key'));
+
+            return [
+                Limit::perMinute(5)->by('password-reset-ip:' . $request->ip()),
+                Limit::perMinutes(60, 3)->by('password-reset-token:' . $tokenFingerprint),
+            ];
+        });
+
         RateLimiter::for('public-affiliate-request', function (Request $request) {
             $userKey = (string) (optional($request->user())->id ?: 'guest');
 

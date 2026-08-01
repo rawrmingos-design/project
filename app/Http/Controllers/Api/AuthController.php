@@ -4,15 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\PasswordRecoveryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly PasswordRecoveryService $passwordRecoveryService,
+    ) {
+    }
+
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -24,31 +30,30 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $credentials = $request->only('username', 'password');
 
-        if (!Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Username / password mismatch'
+                'message' => 'Username / password mismatch',
             ], 401);
         }
 
         $user = Auth::user();
 
-        // Block Admin from API Auth (as per original LoginController logic)
         if ($user->role === 'Admin') {
             Auth::logout();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Username / password mismatch'
+                'message' => 'Username / password mismatch',
             ], 401);
         }
 
-        // Generate Sanctum token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -64,7 +69,7 @@ class AuthController extends Controller
                 ],
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-            ]
+            ],
         ]);
     }
 
@@ -76,29 +81,26 @@ class AuthController extends Controller
             'password' => 'required|string|min:6|max:255',
             'email' => 'required|email|unique:users,email',
             'no_wa' => 'required|numeric|unique:users,no_wa',
-            'kode_referral' => 'nullable|string'
+            'kode_referral' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        // WhatsApp normalization
-        $no_wa = $request->no_wa;
-        if ($no_wa[0] == '0') {
-            $no_wa = '62' . substr($no_wa, 1);
+        $noWa = $request->no_wa;
+        if ($noWa[0] == '0') {
+            $noWa = '62' . substr($noWa, 1);
         }
 
-        // Generate Referral Code
         do {
             $referralCode = 'REF-' . Str::upper(Str::random(6));
         } while (User::where('referral_code', $referralCode)->exists());
 
-        // Process referral/uplink
         $uplink = null;
         $kodeReferral = $request->kode_referral;
         if ($kodeReferral) {
@@ -115,7 +117,7 @@ class AuthController extends Controller
             'email' => htmlspecialchars($request->email, ENT_QUOTES, 'UTF-8'),
             'api_key' => Str::random(32),
             'balance' => 0,
-            'no_wa' => htmlspecialchars($no_wa, ENT_QUOTES, 'UTF-8'),
+            'no_wa' => htmlspecialchars($noWa, ENT_QUOTES, 'UTF-8'),
             'role' => 'Member',
             'referral_code' => $referralCode,
             'uplink' => $uplink,
@@ -135,7 +137,7 @@ class AuthController extends Controller
                 ],
                 'access_token' => $token,
                 'token_type' => 'Bearer',
-            ]
+            ],
         ], 201);
     }
 
@@ -145,76 +147,63 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Logged out successfully'
+            'message' => 'Logged out successfully',
         ]);
     }
 
     public function forgotPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'username' => 'required|string',
+            'username' => ['required', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $user = User::where('username', $request->username)->first();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Username not found'
-            ], 404);
-        }
-
-        $newPassword = 'WeJizy' . Str::random(6);
-        $user->update([
-            'password' => Hash::make($newPassword)
-        ]);
-
-        $content = "Password baru anda *$newPassword*";
-        $this->sendWhatsapp($user->no_wa, $content);
+        $this->passwordRecoveryService->requestRecovery($validator->validated()['username']);
 
         return response()->json([
             'success' => true,
-            'message' => 'New password has been sent to your WhatsApp'
-        ]);
+            'message' => PasswordRecoveryService::REQUEST_ACCEPTED_MESSAGE,
+        ], 202);
     }
 
-    protected function sendWhatsapp($nomor, $msg)
+    public function resetPassword(Request $request)
     {
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-        if (!$api || !$api->wa_key) {
-            return null;
+        $validator = Validator::make($request->all(), [
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'confirmed', Password::min(12)],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => "https://api.fonnte.com/send",
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => "",
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => "POST",
-            CURLOPT_POSTFIELDS => array(
-                'target' => $nomor,
-                'message' => $msg,
-                'countryCode' => '0'
-            ),
-            CURLOPT_HTTPHEADER => array(
-                "Authorization: " . $api->wa_key,
-            ),
-        ));
+        $validated = $validator->validated();
+        if (! $this->passwordRecoveryService->resetPassword(
+            $validated['token'],
+            $validated['email'],
+            $validated['password'],
+        )) {
+            return response()->json([
+                'success' => false,
+                'message' => PasswordRecoveryService::RESET_FAILURE_MESSAGE,
+            ], 422);
+        }
 
-        $response = curl_exec($curl);
-        curl_close($curl);
-        return $response;
+        return response()->json([
+            'success' => true,
+            'message' => 'Password reset successful. Please sign in again.',
+        ]);
     }
 }

@@ -202,6 +202,17 @@ Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->nam
     Route::get('/track/{order}', PublicInvoicePageController::class)->name('track');
 });
 
+Route::prefix('id')->group(function () {
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])
+        ->middleware('throttle:password-recovery-request')
+        ->name('post.forgot');
+    Route::get('/reset-password/{token}', [ForgotPasswordController::class, 'showResetForm'])
+        ->name('password.reset');
+    Route::post('/reset-password', [ForgotPasswordController::class, 'reset'])
+        ->middleware('throttle:password-reset-submit')
+        ->name('password.update');
+});
+
 Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
     // Artikel Routes (Inertia for bangjeff theme, blade fallback in controller for default theme)
@@ -322,7 +333,6 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
     Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->name('reviews');
     Route::get('/forgot-password',                                         [PublicInformationalPageController::class, 'forgotPassword'])->name('forgot');
-    Route::post('/forgot-password',                                         [ForgotPasswordController::class, 'store'])->name('post.forgot');
 });
 
 Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {

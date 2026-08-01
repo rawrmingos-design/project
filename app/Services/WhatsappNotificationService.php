@@ -121,10 +121,10 @@ class WhatsappNotificationService
                 ]);
 
             return $this->normalizeFonnteResponse($response);
-        } catch (Throwable $e) {
-            Log::error('WhatsappNotificationService Exception', ['error' => $e->getMessage()]);
+        } catch (Throwable) {
+            Log::error('WhatsappNotificationService exception.');
 
-            return ['success' => false, 'message' => 'System Error: ' . $e->getMessage()];
+            return ['success' => false, 'message' => 'System Error.'];
         }
     }
 
@@ -166,7 +166,6 @@ class WhatsappNotificationService
             if (! $response->successful()) {
                 $this->recordEasyWaFailure('send_http_error', [
                     'http_status' => $response->status(),
-                    'response' => $response->body(),
                 ]);
 
                 return [
@@ -183,9 +182,7 @@ class WhatsappNotificationService
             $success = (bool) ($decoded['status'] ?? false);
 
             if (! $success) {
-                $this->recordEasyWaFailure('send_failed_response', [
-                    'response' => $decoded,
-                ]);
+                $this->recordEasyWaFailure('send_failed_response');
             } else {
                 $this->resetEasyWaCircuitBreaker();
             }
@@ -198,7 +195,7 @@ class WhatsappNotificationService
                 'http_status' => $response->status(),
             ];
         } catch (ConnectionException $e) {
-            $this->recordEasyWaFailure('send_connection_failed', ['error' => $e->getMessage()]);
+            $this->recordEasyWaFailure('send_connection_failed');
 
             return [
                 'success' => false,
@@ -206,7 +203,7 @@ class WhatsappNotificationService
                 'provider' => 'easywa',
             ];
         } catch (Throwable $e) {
-            $this->recordEasyWaFailure('send_failed', ['error' => $e->getMessage()]);
+            $this->recordEasyWaFailure('send_failed');
 
             return [
                 'success' => false,
