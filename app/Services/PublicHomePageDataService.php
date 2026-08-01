@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Helpers\HtmlSanitizer;
 use App\Models\Artikel;
 use App\Models\Berita;
 use App\Models\CategoryType;
@@ -111,7 +112,7 @@ class PublicHomePageDataService
         return [
             'id' => $popup->id,
             'title' => $this->beritaTitle($popup, 'Info Penting'),
-            'description' => $popup->deskripsi,
+            'description' => HtmlSanitizer::cleanArticle($popup->deskripsi),
             'image' => $this->beritaImage($popup),
         ];
     }

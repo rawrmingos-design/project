@@ -26,7 +26,6 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProdukController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\VoucherController;
-use App\Http\Controllers\PricelistController;
 use App\Http\Controllers\DsController;
 use App\Http\Controllers\MethodController;
 
@@ -34,7 +33,6 @@ use App\Http\Controllers\Admin\DataJokiController;
 // use App\Http\Controllers\GiftskinController;
 // use App\Http\Controllers\Admin\DataGiftSkinController;
 use App\Http\Controllers\CheckRegionController;
-use App\Http\Controllers\ratingCustomerController;
 use App\Http\Controllers\ratingAdminController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaketLayananController;
@@ -67,6 +65,7 @@ use App\Http\Controllers\Public\DepositPageController as PublicDepositPageContro
 use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageController;
 use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
+use App\Http\Controllers\Public\InformationalPageController as PublicInformationalPageController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
@@ -306,7 +305,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/search/products',                                               [PublicProductSearchController::class, 'index'])->name('public.search.products');
     Route::get('/invoices',                                                      [PublicTransactionLookupPageController::class, 'index'])->name('cari');
     Route::post('/cari',                                                         [PublicTransactionLookupPageController::class, 'lookup'])->name('cari.post');
-    Route::get('/price-list',                                                    [PricelistController::class, 'create'])->name('price');
+    Route::get('/price-list',                                                    [PublicInformationalPageController::class, 'priceList'])->name('price');
     Route::get('/calculator/magic-wheel',                                        [PublicCalculatorPageController::class, 'magicWheel'])->name('hitungpointmw');
     Route::get('/cek-region',                                        [CheckRegionController::class, 'create'])->name('cekregion');
     Route::get('/calculator/zodiac',                                             [PublicCalculatorPageController::class, 'zodiac'])->name('hitungpointzodiac');
@@ -321,8 +320,8 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
     Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
     Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
-    Route::get('/reviews',                                                       [RatingCustomerController::class, 'create'])->name('reviews');
-    Route::get('/forgot-password',                                         [ForgotPasswordController::class, 'create'])->name('forgot');
+    Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->name('reviews');
+    Route::get('/forgot-password',                                         [PublicInformationalPageController::class, 'forgotPassword'])->name('forgot');
     Route::post('/forgot-password',                                         [ForgotPasswordController::class, 'store'])->name('post.forgot');
 });
 

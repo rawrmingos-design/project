@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Public;
 
+use App\Helpers\HtmlSanitizer;
 use App\Http\Controllers\ArtikelController as LegacyArtikelController;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
@@ -141,7 +142,7 @@ class ArticlePageController extends Controller
             'publishedAgo' => optional($article->created_at)?->diffForHumans(),
             'excerpt' => (string) $excerpt,
             'metaDescription' => $withMetaDescription ? $metaDescription : null,
-            'content' => $withContent ? $content : null,
+            'content' => $withContent ? HtmlSanitizer::cleanArticle($content) : null,
             'keywords' => (string) ($article->keywords ?? ''),
         ];
     }
