@@ -156,69 +156,11 @@
         };
     </script>
 
-    {{-- Google Analytics 4 --}}
-    @if(!app()->runningUnitTests() && config('services.google_analytics.measurement_id'))
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.google_analytics.measurement_id') }}"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '{{ config('services.google_analytics.measurement_id') }}', {
-                'send_page_view': true,
-                'anonymize_ip': true
-            });
-        </script>
-    @endif
-
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        window.__trackedTransactions = window.__trackedTransactions || {};
-
-        window.pushDataLayerEvent = window.pushDataLayerEvent || function (eventName, payload, options) {
-            if (!eventName || !payload || !window.dataLayer) {
-                return false;
-            }
-
-            const settings = options || {};
-            const dedupeKey = settings.dedupeKey || null;
-
-            if (dedupeKey) {
-                if (window.__trackedTransactions[dedupeKey]) {
-                    return false;
-                }
-
-                try {
-                    if (window.sessionStorage && window.sessionStorage.getItem('gtm:' + dedupeKey) === '1') {
-                        window.__trackedTransactions[dedupeKey] = true;
-                        return false;
-                    }
-                } catch (error) {
-                    console.debug('Data layer dedupe sessionStorage unavailable:', error);
-                }
-            }
-
-            if (payload.ecommerce) {
-                window.dataLayer.push({ ecommerce: null });
-            }
-
-            window.dataLayer.push(Object.assign({ event: eventName }, payload));
-
-            if (dedupeKey) {
-                window.__trackedTransactions[dedupeKey] = true;
-
-                try {
-                    if (window.sessionStorage) {
-                        window.sessionStorage.setItem('gtm:' + dedupeKey, '1');
-                    }
-                } catch (error) {
-                    console.debug('Data layer dedupe sessionStorage write skipped:', error);
-                }
-            }
-
-            return true;
-        };
-    </script>
+    {{-- Tracking bootstrap: GTM / GA / Meta Pixel / pushDataLayerEvent --}}
+    @php
+        $inertiaTrackingSettings = app(\App\Services\PublicSiteConfigService::class)->getSettings();
+    @endphp
+    @include('partials.tracking-bootstrap', ['trackingSettings' => $inertiaTrackingSettings])
 
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -230,6 +172,10 @@
     @endunless
 </head>
 <body>
+    @include('partials.tracking-bootstrap', [
+        'trackingSettings' => $inertiaTrackingSettings,
+        'trackingPlacement' => 'body',
+    ])
     @inertia
 </body>
 </html>
