@@ -39,6 +39,25 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
                 ->where('invoice.payment.hint', 'Gunakan e-wallet atau aplikasi mobile banking untuk melakukan scan QR pembayaran.')
                 ->where('invoice.realtime.channel', InvoiceRealtimeStatus::channelName($orderId))
                 ->where('invoice.realtime.event', '.InvoiceStatusUpdated')
+                ->has('invoice.gtmEvents', 3)
+                ->where('invoice.gtmEvents.0.name', 'invoice_viewed')
+                ->where('invoice.gtmEvents.1.name', 'add_payment_info')
+                ->where('invoice.gtmEvents.2.name', 'payment_pending')
+                ->where('invoice.gtmEvents.0.dedupe_key', "invoice_viewed:{$orderId}")
+                ->missing('invoice.gtmEvents.0.payload.email_pembeli')
+                ->missing('invoice.gtmEvents.0.payload.no_pembeli')
+                ->missing('invoice.gtmEvents.0.payload.uid')
+                ->where('invoice.gtmEvents.0.payload.customer_email_sha256', fn (string $hash) => $hash === hash('sha256', 'test@example.com'))
+                ->where('invoice.gtmEvents.0.payload.customer_phone_sha256', fn (string $hash) => $hash === hash('sha256', '628123456789'))
+                ->where('invoice.gtmEvents.0.payload.game_user_id', '12345678')
+                ->where('invoice.gtmEvents.0.payload.game_zone', '1234')
+                ->where('invoice.gtmEvents.0.payload.game_nickname', 'TestPlayer')
+                ->where('invoice.gtmEvents.0.payload.enhanced_conversion_data.email', fn (string $hash) => $hash === hash('sha256', 'test@example.com'))
+                ->where('invoice.gtmEvents.0.payload.enhanced_conversion_data.phone_number', fn (string $hash) => $hash === hash('sha256', '628123456789'))
+                ->where('invoice.gtmEvents.0.payload.items.0.item_name', 'Mobile Legends 86 Diamond')
+                ->where('invoice.gtmEvents.0.payload.currency', 'IDR')
+                ->missing('invoice.gtmEvents.0.payload.gtm_custom_head_script')
+                ->missing('invoice.gtmEvents.0.payload.gtm_custom_body_noscript')
             );
     }
 
@@ -104,6 +123,7 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             'user_id' => '12345678',
             'zone' => '1234',
             'nickname' => 'TestPlayer',
+            'email_pembeli' => 'test@example.com',
             'layanan' => 'Mobile Legends 86 Diamond',
             'harga' => 50000,
             'status' => 'Pending',

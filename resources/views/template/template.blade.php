@@ -79,127 +79,13 @@
         @endif
     @endif
 
-    <!-- Analytics & Tracking -->
+    {{-- Shared tracking bootstrap: GTM / GA / Meta Pixel / pushDataLayerEvent --}}
     @php
-        $googleTagManagerId = '';
-        $googleAnalyticsId = '';
-        $customGtmHeadScript = '';
-        $customGtmBodyNoscript = '';
-        $hasCustomGoogleTagManagerSnippet = false;
-        $hasValidGoogleTagManagerId = false;
-        $hasValidGoogleAnalyticsId = false;
-        $shouldLoadDirectGoogleAnalytics = false;
-        $gtmTrackingEnabled = false;
+        $legacyTrackingSettings = isset($config)
+            ? $config
+            : app(\App\Services\PublicSiteConfigService::class)->getSettings();
     @endphp
-    @if(isset($config))
-        @php
-            $googleTagManagerId = trim((string) ($config->google_tag_manager_id ?? ''));
-            $googleAnalyticsId = trim((string) ($config->google_analytics_id ?? ''));
-            $facebookPixelId = trim((string) ($config->facebook_pixel_id ?? ''));
-            $customGtmHeadScript = trim((string) ($config->gtm_custom_head_script ?? ''));
-            $customGtmBodyNoscript = trim((string) ($config->gtm_custom_body_noscript ?? ''));
-            $hasCustomGoogleTagManagerSnippet = $customGtmHeadScript !== '';
-            $hasValidGoogleTagManagerId = preg_match('/^GTM-[A-Z0-9]+$/i', $googleTagManagerId) === 1;
-            $hasValidGoogleAnalyticsId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $googleAnalyticsId) === 1;
-            $hasValidFacebookPixelId = preg_match('/^[0-9]{5,30}$/', $facebookPixelId) === 1;
-            $gtmTrackingEnabled = $hasCustomGoogleTagManagerSnippet || $hasValidGoogleTagManagerId;
-            $shouldLoadDirectGoogleAnalytics = $hasValidGoogleAnalyticsId && ! $gtmTrackingEnabled;
-        @endphp
-
-        @if($hasCustomGoogleTagManagerSnippet)
-            <!-- Custom Google Tag Manager -->
-            {!! $customGtmHeadScript !!}
-        @elseif($hasValidGoogleTagManagerId)
-            <!-- Google Tag Manager -->
-            <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-            })(window,document,'script','dataLayer','{{ $googleTagManagerId }}');</script>
-        @endif
-
-        @if($shouldLoadDirectGoogleAnalytics)
-            <!-- Google Analytics 4 -->
-            <script async src="https://www.googletagmanager.com/gtag/js?id={{ $googleAnalyticsId }}"></script>
-            <script>
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '{{ $googleAnalyticsId }}');
-            </script>
-        @elseif($gtmTrackingEnabled && $hasValidGoogleAnalyticsId)
-            <!-- Direct Google Analytics snippet skipped because GTM is active. Configure GA4 inside GTM to avoid duplicate tracking. -->
-        @endif
-
-        @if($hasValidFacebookPixelId)
-            <!-- Facebook Pixel -->
-            <script>
-                !function(f,b,e,v,n,t,s)
-                {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                n.queue=[];t=b.createElement(e);t.async=!0;
-                t.src=v;s=b.getElementsByTagName(e)[0];
-                s.parentNode.insertBefore(t,s)}(window, document,'script',
-                'https://connect.facebook.net/en_US/fbevents.js');
-                fbq('init', '{{ $facebookPixelId }}');
-                fbq('track', 'PageView');
-            </script>
-            <noscript><img height="1" width="1" style="display:none"
-                src="https://www.facebook.com/tr?id={{ $facebookPixelId }}&ev=PageView&noscript=1"
-            /></noscript>
-        @endif
-    @endif
-
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        window.gtmTrackingEnabled = @json($gtmTrackingEnabled ?? false);
-        window.__trackedTransactions = window.__trackedTransactions || {};
-
-        window.pushDataLayerEvent = function (eventName, payload, options) {
-            if (!window.gtmTrackingEnabled || !eventName || !payload || !window.dataLayer) {
-                return false;
-            }
-
-            const settings = options || {};
-            const dedupeKey = settings.dedupeKey || null;
-
-            if (dedupeKey) {
-                if (window.__trackedTransactions[dedupeKey]) {
-                    return false;
-                }
-
-                try {
-                    if (window.sessionStorage && window.sessionStorage.getItem('gtm:' + dedupeKey) === '1') {
-                        window.__trackedTransactions[dedupeKey] = true;
-                        return false;
-                    }
-                } catch (error) {
-                    console.debug('GTM dedupe sessionStorage unavailable:', error);
-                }
-            }
-
-            if (payload.ecommerce) {
-                window.dataLayer.push({ ecommerce: null });
-            }
-
-            window.dataLayer.push(Object.assign({ event: eventName }, payload));
-
-            if (dedupeKey) {
-                window.__trackedTransactions[dedupeKey] = true;
-
-                try {
-                    if (window.sessionStorage) {
-                        window.sessionStorage.setItem('gtm:' + dedupeKey, '1');
-                    }
-                } catch (error) {
-                    console.debug('GTM dedupe sessionStorage write skipped:', error);
-                }
-            }
-
-            return true;
-        };
-    </script>
+    @include('partials.tracking-bootstrap', ['trackingSettings' => $legacyTrackingSettings])
     
     @php
         $seasonalEnabled = isset($config) ? (bool) ($config->seasonal_enabled ?? false) : false;
@@ -598,15 +484,10 @@
         </div>
     </div>
     
-    @if(isset($config) && !empty($hasCustomGoogleTagManagerSnippet))
-        <!-- Custom Google Tag Manager (noscript) -->
-        {!! $customGtmBodyNoscript !!}
-    @elseif(isset($config) && !empty($hasValidGoogleTagManagerId))
-        <!-- Google Tag Manager (noscript) -->
-        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ $googleTagManagerId }}"
-        height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-        <!-- End Google Tag Manager (noscript) -->
-    @endif
+    @include('partials.tracking-bootstrap', [
+        'trackingSettings' => $legacyTrackingSettings,
+        'trackingPlacement' => 'body',
+    ])
     <div
         class="seasonal-global-bg"
         aria-hidden="true"

@@ -292,11 +292,12 @@ class InvoicePageController extends Controller
             $data->zone ?? null,
             $data->nickname ?? null,
         );
+        $transactionId = (string) $data->id_pembelian;
         $gtmInvoiceEvents = [
             [
                 'name' => 'invoice_viewed',
                 'payload' => $gtmBuilder->buildInvoiceViewedPayload(
-                    (string) $data->id_pembelian,
+                    $transactionId,
                     (string) $methodName,
                     $paymentStatusRaw,
                     $orderStatusRaw,
@@ -305,9 +306,123 @@ class InvoicePageController extends Controller
                     'IDR',
                     $gtmIdentityPayload,
                 ),
-                'dedupe_key' => 'invoice_viewed:' . $data->id_pembelian,
+                'dedupe_key' => "invoice_viewed:{$transactionId}",
             ],
         ];
+
+        if (in_array($paymentStatus, ['belum lunas', 'unpaid', 'pending'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'add_payment_info',
+                'payload' => $gtmBuilder->buildAddPaymentInfoPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "add_payment_info:{$transactionId}",
+            ];
+            $gtmInvoiceEvents[] = [
+                'name' => 'payment_pending',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "payment_pending:{$transactionId}",
+            ];
+        }
+
+        if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'payment_success',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "payment_success:{$transactionId}",
+            ];
+
+            if (in_array($orderStatus, ['sukses', 'success'], true)) {
+                $gtmInvoiceEvents[] = [
+                    'name' => 'purchase',
+                    'payload' => $gtmBuilder->buildPurchasePayload(
+                        $transactionId,
+                        (string) $methodName,
+                        $total,
+                        $gtmInvoiceItem,
+                        'IDR',
+                        $paymentStatusRaw,
+                        $orderStatusRaw,
+                        $gtmIdentityPayload,
+                    ),
+                    'dedupe_key' => "purchase:{$transactionId}",
+                ];
+            }
+        }
+
+        if ($paymentStatus === 'expired') {
+            $gtmInvoiceEvents[] = [
+                'name' => 'payment_expired',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "payment_expired:{$transactionId}",
+            ];
+        }
+
+        if (in_array($orderStatus, ['proses', 'processing'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'order_processing',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "order_processing:{$transactionId}",
+            ];
+        }
+
+        if (in_array($orderStatus, ['gagal', 'failed', 'batal', 'cancelled'], true)) {
+            $gtmInvoiceEvents[] = [
+                'name' => 'order_failed',
+                'payload' => $gtmBuilder->buildOperationalPayload(
+                    $transactionId,
+                    (string) $methodName,
+                    $paymentStatusRaw,
+                    $orderStatusRaw,
+                    $total,
+                    $gtmInvoiceItem,
+                    'IDR',
+                    $gtmIdentityPayload,
+                ),
+                'dedupe_key' => "order_failed:{$transactionId}",
+            ];
+        }
 
         return Inertia::render('Public/Invoice', [
             'invoice' => [

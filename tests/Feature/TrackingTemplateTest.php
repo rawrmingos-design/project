@@ -67,6 +67,48 @@ class TrackingTemplateTest extends TestCase
         $response->assertSee('window.gtmTrackingEnabled = false', false);
     }
 
+    public function test_bangjeff_inertia_root_uses_setting_backed_tracking_bootstrap(): void
+    {
+        $settings = $this->createSettings([
+            'public_theme' => 'bangjeff',
+            'google_tag_manager_id' => 'GTM-INERTIA123',
+            'google_analytics_id' => 'G-INERTIA123',
+            'facebook_pixel_id' => '1234567890',
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertSee('GTM-INERTIA123', false);
+        $response->assertDontSee('googletagmanager.com/gtag/js?id=G-INERTIA123', false);
+        $response->assertSee('connect.facebook.net/en_US/fbevents.js', false);
+        $response->assertSee("fbq('init', '1234567890')", false);
+        $response->assertSee('window.gtmTrackingEnabled = true', false);
+        $response->assertSee('window.pushDataLayerEvent = function', false);
+        $response->assertSee('googletagmanager.com/ns.html?id=GTM-INERTIA123', false);
+    }
+
+    public function test_bangjeff_inertia_root_keeps_custom_gtm_server_rendered(): void
+    {
+        $settings = $this->createSettings([
+            'public_theme' => 'bangjeff',
+            'google_tag_manager_id' => 'GTM-INERTIA123',
+            'google_analytics_id' => 'G-INERTIA123',
+            'gtm_custom_head_script' => '<script src="https://gtm.istanatopup.com/inertia-loader.js"></script>',
+            'gtm_custom_body_noscript' => '<noscript><iframe src="https://gtm.istanatopup.com/inertia-ns.html?id=GTM-CUSTOM"></iframe></noscript>',
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee('https://gtm.istanatopup.com/inertia-loader.js', false);
+        $response->assertSee('https://gtm.istanatopup.com/inertia-ns.html?id=GTM-CUSTOM', false);
+        $response->assertDontSee("https://www.googletagmanager.com/gtm.js?id='+i+dl", false);
+        $response->assertDontSee('googletagmanager.com/gtag/js?id=G-INERTIA123', false);
+        $response->assertDontSee('googletagmanager.com/ns.html?id=GTM-INERTIA123', false);
+    }
+
     private function createSettings(array $overrides = []): SettingWeb
     {
         return SettingWeb::create(array_merge([
