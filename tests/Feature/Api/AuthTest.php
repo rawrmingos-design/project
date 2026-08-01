@@ -100,22 +100,24 @@ class AuthTest extends TestCase
         $this->assertCount(0, $user->tokens);
     }
 
-    public function test_forgot_password_works()
+    public function test_forgot_password_accepts_a_valid_username_without_replacing_the_password(): void
     {
         $user = User::factory()->create([
             'username' => 'forgotuser',
-            'no_wa' => '628123456789'
+            'no_wa' => '628123456789',
         ]);
+        $originalPassword = $user->password;
 
-        // Mocking DB if needed, but since it's RefreshDatabase and we check response
         $response = $this->postJson('/api/auth/forgot-password', [
             'username' => 'forgotuser',
         ]);
 
-        $response->assertStatus(200)
+        $response->assertStatus(202)
             ->assertJson([
                 'success' => true,
-                'message' => 'New password has been sent to your WhatsApp'
+                'message' => \App\Services\PasswordRecoveryService::REQUEST_ACCEPTED_MESSAGE,
             ]);
+
+        $this->assertSame($originalPassword, $user->fresh()->password);
     }
 }

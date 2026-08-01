@@ -2,16 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use App\Models\Berita;
-use Illuminate\Support\Facades\DB;
+use App\Services\PasswordRecoveryService;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\View\View;
 
 class ForgotPasswordController extends Controller
 {
-    public function create()
+    public function __construct(
+        private readonly PasswordRecoveryService $passwordRecoveryService,
+    ) {
+    }
+
+    public function create(): View
     {
         return view('template.forgotpassword', [
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
@@ -19,61 +25,69 @@ class ForgotPasswordController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'username' => 'required',
+        $validated = $request->validate([
+            'username' => ['required', 'string', 'max:255'],
         ], [
-            'username.required' => 'Harap isi kolom username!',
-        ]);
-        
-        $user = User::where('username', $request->username)->first();
-
-        if (!$user) return back()->with('error', 'Username tidak ditemukan');
-        
-        $forgot = 'WeJizy' . Str::random('6');
-        
-        $user->update([
-            'password'  => Hash::make($forgot)
+            'username.required' => 'Harap isi kolom username.',
         ]);
 
-$content = "Password baru anda *$forgot*";
-$requestPesan = $this->msg($user->no_wa, $content);
-        return back()->with('success', 'Kata sandi baru anda telah dikirim ke whatsapp Anda');        
-        
+        $this->passwordRecoveryService->requestRecovery($validated['username']);
+
+        return back()->with('success', PasswordRecoveryService::REQUEST_ACCEPTED_MESSAGE);
     }
-    public function msg($nomor, $msg)
+
+    public function showResetForm(Request $request, string $token)
     {
+        $email = (string) $request->query('email', '');
 
-        $api = \DB::table('setting_webs')->where('id', 1)->first();
-        $data = [
-            'number'  => "$nomor",
-            'message' => "$msg"
-        ];
+        if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return response()->view('password-reset', [
+                'token' => '',
+                'email' => '',
+                'invalidLink' => true,
+            ], 422)->withHeaders($this->resetResponseHeaders());
+        }
 
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-                CURLOPT_URL => "https://api.fonnte.com/send",
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => "",
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                CURLOPT_CUSTOMREQUEST => "POST",
-                CURLOPT_POSTFIELDS => array(
-                    'target' => $nomor,
-                    'message' => $msg,
-                    'countryCode' => '0'),
-                CURLOPT_HTTPHEADER => array(
-                    "Authorization: ".$api->wa_key,
-            ),
-        ));
-
-        $response = curl_exec($curl);
-
-        curl_close($curl);
-        return $response;
+        return response()->view('password-reset', [
+            'token' => $token,
+            'email' => $email,
+            'invalidLink' => false,
+        ])->withHeaders($this->resetResponseHeaders());
     }
-    
+
+    public function reset(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string', 'confirmed', Password::min(12)],
+        ]);
+
+        if (! $this->passwordRecoveryService->resetPassword(
+            $validated['token'],
+            $validated['email'],
+            $validated['password'],
+        )) {
+            return back()
+                ->withInput($request->except(['token', 'password', 'password_confirmation']))
+                ->withErrors(['email' => PasswordRecoveryService::RESET_FAILURE_MESSAGE]);
+        }
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->with('success', 'Kata sandi berhasil diperbarui. Silakan masuk kembali.');
+    }
+
+    private function resetResponseHeaders(): array
+    {
+        return [
+            'Cache-Control' => 'no-store, private',
+            'Pragma' => 'no-cache',
+            'Referrer-Policy' => 'no-referrer',
+        ];
+    }
 }

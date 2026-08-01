@@ -100,10 +100,9 @@ class EmailNotificationService
             Mail::to($email)->send(new TransactionMail($data, $subject, $contentHtml));
 
             return true;
-        } catch (\Exception $e) {
-            Log::error('EmailNotificationService Generic Error: ' . $e->getMessage(), [
-                'email' => $email,
-                'subject' => $subject,
+        } catch (\Exception) {
+            Log::error('EmailNotificationService Generic Error.', [
+                'notification_type' => (string) ($context['notification_type'] ?? 'generic'),
             ]);
 
             return false;

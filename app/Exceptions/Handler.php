@@ -39,7 +39,7 @@ class Handler extends ExceptionHandler
             $exception instanceof TooManyRequestsHttpException
             && ! $request->expectsJson()
             && $request->isMethod('post')
-            && ($request->is('id/sign-in') || $request->is('id/sign-up'))
+            && ($request->is('id/sign-in') || $request->is('id/sign-up') || $request->is('id/forgot-password') || $request->is('id/reset-password'))
         ) {
             $retryAfter = (int) ($exception->getHeaders()['Retry-After'] ?? 0);
 
@@ -49,7 +49,7 @@ class Handler extends ExceptionHandler
 
             return redirect()
                 ->back()
-                ->withInput($request->except(['password', 'passwordd']))
+                ->withInput($request->except(['token', 'password', 'password_confirmation', 'passwordd']))
                 ->withErrors([
                     'error' => $this->buildAuthThrottleMessage($request, $retryAfter),
                 ]);

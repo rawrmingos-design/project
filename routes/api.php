@@ -110,7 +110,10 @@ Route::prefix('webhooks/bot')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+        ->middleware('throttle:password-recovery-request');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:password-reset-submit');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 });
 
