@@ -61,6 +61,7 @@ class P03CanonicalDocumentationTest extends TestCase
 
     public function test_docs_host_owns_the_configured_documentation_portal(): void
     {
+        /** @var User $user */
         $user = User::factory()->create(['role' => 'Member']);
 
         $this->actingAs($user)
