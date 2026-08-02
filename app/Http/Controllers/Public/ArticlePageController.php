@@ -144,6 +144,27 @@ class ArticlePageController extends Controller
             'metaDescription' => $withMetaDescription ? $metaDescription : null,
             'content' => $withContent ? HtmlSanitizer::cleanArticle($content) : null,
             'keywords' => (string) ($article->keywords ?? ''),
+            'layout' => $withContent ? $this->normalizeLayout($article->layout) : null,
+            'primaryColor' => $withContent ? $this->normalizeColor($article->primary_color) : null,
+            'secondaryColor' => $withContent ? $this->normalizeColor($article->secondary_color) : null,
         ];
+    }
+
+    private function normalizeLayout(?string $layout): string
+    {
+        $layout = strtolower(trim((string) $layout));
+
+        return in_array($layout, ['default', 'modern'], true) ? $layout : 'default';
+    }
+
+    private function normalizeColor(?string $color): ?string
+    {
+        $color = trim((string) $color);
+
+        if (! preg_match('/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color)) {
+            return null;
+        }
+
+        return strtolower($color);
     }
 }
