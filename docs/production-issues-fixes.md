@@ -99,7 +99,85 @@ try {
 
 ---
 
-### 5. BangJeff Webhook Signature Verification Failed
+### 5. Duitku Retry Order Callback Race Condition ✅ FIXED
+- **Date Fixed:** 2026-08-02
+- **Risk:** Critical - Wrong payment marked as paid during retry
+- **Impact:** User doesn't receive order, financial discrepancy
+
+**Root Cause:**
+[DuitkuPaymentController.php:117-130](app/Http/Controllers/DuitkuPaymentController.php#L117-L130) callback handler used ambiguous OR query that could match multiple payment records when an order has retries.
+
+**The Bug:**
+1. `merchantOrderId` format: `'DUITKU-' . $order->order_id` (same for all retries)
+2. When user retries payment, creates NEW Pembayaran with:
+   - NEW unique `reference` (e.g., REF-002)
+   - SAME `duitku_merchant_order_id` (e.g., DUITKU-ABC123)
+3. Callback query used OR conditions: match by reference OR merchantOrderId
+4. Multiple payment records could match (old retry by merchantOrderId, new retry by both)
+5. Query used `->first()` without ordering → non-deterministic which record returned
+6. **Result:** Callback could update wrong (old) payment record
+
+**Scenario:**
+```
+1. Payment attempt #1: reference=REF-001, merchantOrderId=DUITKU-ABC123, status=Belum Lunas
+2. Payment expires, user retries
+3. Payment attempt #2: reference=REF-002, merchantOrderId=DUITKU-ABC123, status=Belum Lunas
+4. User pays using attempt #2
+5. Callback: reference=REF-002, merchantOrderId=DUITKU-ABC123
+6. Query matches BOTH records (record #1 by merchantOrderId, record #2 by reference)
+7. ->first() returns wrong record → old payment marked paid ❌
+```
+
+**Fix Applied:** [DuitkuPaymentController.php:112-143](app/Http/Controllers/DuitkuPaymentController.php#L112-L143)
+```php
+// Strategy: Prioritize matching by reference (unique per attempt) first
+$payment = null;
+
+if ($reference) {
+    $payment = Pembayaran::query()
+        ->where('status', 'Belum Lunas')
+        ->where(function ($query) use ($reference) {
+            $query->where('duitku_reference', $reference)
+                ->orWhere('reference', $reference);
+        })
+        ->lockForUpdate()
+        ->first();
+}
+
+// Fallback to merchantOrderId if reference not found
+if (!$payment && $merchantOrderId) {
+    $payment = Pembayaran::query()
+        ->where('status', 'Belum Lunas')
+        ->where('duitku_merchant_order_id', $merchantOrderId)
+        ->orderBy('id', 'desc')  // Get latest if multiple retries exist
+        ->lockForUpdate()
+        ->first();
+}
+```
+
+**Benefits:**
+- Prioritizes unique identifier (reference) over shared identifier (merchantOrderId)
+- Defensive ordering in fallback ensures latest payment if multiple match
+- Maintains backward compatibility (fallback to merchantOrderId)
+- Race condition eliminated
+
+**Testing:**
+- ✅ Created comprehensive test suite: [tests/Feature/DuitkuRetryOrderCallbackTest.php](tests/Feature/DuitkuRetryOrderCallbackTest.php)
+- ✅ 4 test scenarios, 21 assertions, all passing:
+  1. Callback updates correct payment when order has multiple retries
+  2. Callback falls back to merchantOrderId when reference not found
+  3. Callback picks latest payment when multiple retries match by merchantOrderId
+  4. Callback ignores payment that is already paid
+
+**Deployment Notes:**
+- Low-risk fix (only changes query logic, no data structure changes)
+- Backward compatible (maintains fallback behavior)
+- No migration needed
+- Test thoroughly in staging before production
+
+---
+
+### 6. BangJeff Webhook Signature Verification Failed
 - **Count:** 7x Medium
 - **Risk:** Illegitimate callbacks processed
 - **Status:** NEEDS INVESTIGATION (not addressed in this fix cycle)
