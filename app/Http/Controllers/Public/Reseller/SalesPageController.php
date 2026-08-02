@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public\Reseller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Layanan;
+use App\Services\PublicSiteConfigService;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -35,15 +36,9 @@ class SalesPageController extends Controller
     /**
      * Resolve the canonical API docs URL without rendering duplicate reseller docs content.
      */
-    private function docsUrl(): string
+    private function docsUrl(): ?string
     {
-        if (\Illuminate\Support\Facades\Route::has('docs.index')) {
-            return route('docs.index');
-        }
-
-        $docsUrl = trim((string) env('DOCS_URL', ''));
-
-        return $docsUrl !== '' ? $docsUrl : '#';
+        return app(PublicSiteConfigService::class)->docsUrl();
     }
 
     /**

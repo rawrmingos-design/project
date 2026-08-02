@@ -163,11 +163,18 @@ table {
                         </svg>
                     </div>
                     <div class="ml-3">
+                        @php
+                            $docsUrl = app(\App\Services\PublicSiteConfigService::class)->docsUrl();
+                        @endphp
                         <p class="max-w-5xl text-sm text-cyan-900">Koneksi tersedia melalui metode POST (API) dan metode
-                            GET (H2H). Silahkan baca <a href="/id/docs"
-                                class="font-semibold underline decoration-primary-500 underline-offset-2" target="_blank"
-                                rel="noopener noreferrer" style="outline: none;">Dokumentasi</a> untuk
-                            memulai integrasi dengan {{ $config->judul_web }}. </p>
+                            GET (H2H).
+                            @if($docsUrl)
+                                Silahkan baca <a href="{{ $docsUrl }}"
+                                    class="font-semibold underline decoration-primary-500 underline-offset-2" target="_blank"
+                                    rel="noopener noreferrer" style="outline: none;">Dokumentasi</a> untuk
+                                memulai integrasi dengan {{ $config->judul_web }}.
+                            @endif
+                        </p>
                     </div>
                 </div>
             </div>
