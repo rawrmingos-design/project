@@ -114,20 +114,32 @@ class DuitkuPaymentController extends Controller
                 $merchantOrderId = $payload['merchantOrderId'] ?? null;
 
                 // Find payment record with lock
-                $payment = Pembayaran::query()
-                    ->where(function ($query) use ($reference, $merchantOrderId) {
-                        if ($reference) {
-                            $query->orWhere('duitku_reference', $reference)
-                                ->orWhere('reference', $reference);
-                        }
+                // Strategy: Prioritize matching by reference (unique per attempt) to avoid
+                // ambiguity when multiple payment records exist for retries of the same order.
+                // The merchantOrderId format 'DUITKU-{order_id}' is shared across all retries,
+                // so matching by reference first ensures we update the correct payment attempt.
+                $payment = null;
 
-                        if ($merchantOrderId) {
-                            $query->orWhere('duitku_merchant_order_id', $merchantOrderId);
-                        }
-                    })
-                    ->where('status', 'Belum Lunas')
-                    ->lockForUpdate()
-                    ->first();
+                if ($reference) {
+                    $payment = Pembayaran::query()
+                        ->where('status', 'Belum Lunas')
+                        ->where(function ($query) use ($reference) {
+                            $query->where('duitku_reference', $reference)
+                                ->orWhere('reference', $reference);
+                        })
+                        ->lockForUpdate()
+                        ->first();
+                }
+
+                // Fallback to merchantOrderId if reference not found
+                if (!$payment && $merchantOrderId) {
+                    $payment = Pembayaran::query()
+                        ->where('status', 'Belum Lunas')
+                        ->where('duitku_merchant_order_id', $merchantOrderId)
+                        ->orderBy('id', 'desc')  // Get latest if multiple retries exist
+                        ->lockForUpdate()
+                        ->first();
+                }
 
                 if (!$payment) {
                     Log::debug('Duitku: Payment not found or already processed', [
