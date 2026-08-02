@@ -32,7 +32,6 @@ use App\Http\Controllers\MethodController;
 use App\Http\Controllers\Admin\DataJokiController;
 // use App\Http\Controllers\GiftskinController;
 // use App\Http\Controllers\Admin\DataGiftSkinController;
-use App\Http\Controllers\CheckRegionController;
 use App\Http\Controllers\ratingAdminController;
 use App\Http\Controllers\PaketController;
 use App\Http\Controllers\PaketLayananController;
@@ -252,16 +251,11 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/deposit-methods', [\App\Http\Controllers\Public\Reseller\DepositMethodController::class, 'index'])->name('deposit.methods');
             Route::get('/credentials', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'index'])->name('credentials');
             Route::get('/docs', function () {
-                if (Route::has('docs.index')) {
-                    return redirect()->route('docs.index', [], 301);
-                }
+                $docsUrl = app(\App\Services\PublicSiteConfigService::class)->docsUrl();
 
-                $docsUrl = trim((string) env('DOCS_URL', ''));
-                if ($docsUrl !== '') {
-                    return redirect()->away($docsUrl, 301);
-                }
+                abort_if($docsUrl === null, 404);
 
-                abort(404);
+                return redirect()->away($docsUrl, 301);
             })->name('docs');
             Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->name('credentials.rotate.live');
             Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->name('credentials.rotate.sandbox');
@@ -318,7 +312,6 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::post('/cari',                                                         [PublicTransactionLookupPageController::class, 'lookup'])->name('cari.post');
     Route::get('/price-list',                                                    [PublicInformationalPageController::class, 'priceList'])->name('price');
     Route::get('/calculator/magic-wheel',                                        [PublicCalculatorPageController::class, 'magicWheel'])->name('hitungpointmw');
-    Route::get('/cek-region',                                        [CheckRegionController::class, 'create'])->name('cekregion');
     Route::get('/calculator/zodiac',                                             [PublicCalculatorPageController::class, 'zodiac'])->name('hitungpointzodiac');
     Route::get('/calculator/winrate',                                            [PublicCalculatorPageController::class, 'winrate'])->name('hitungwr');
     Route::get('/leaderboard',                                                   PublicLeaderboardPageController::class)->name('leaderboardd');

@@ -72,24 +72,14 @@
                                     </a>
                                 </li>
                             @endunless
-                            <li>
-                                @php
-                                    $docsDomain = trim((string) env('DOCS_DOMAIN', ''));
-                                    $docsUrl = '#';
-
-                                    if ($docsDomain !== '') {
-                                        $docsUrl = str_starts_with($docsDomain, 'http://') || str_starts_with($docsDomain, 'https://')
-                                            ? $docsDomain
-                                            : 'https://' . $docsDomain;
-                                    } elseif (env('DOCS_URL')) {
-                                        $docsUrl = env('DOCS_URL');
-                                    }
-                                @endphp
-                                <a href="{{ $docsUrl }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
-                                   
-                                    <span>Dokumentasi API </span>
-                                </a>
-                            </li>
+                            @php($docsUrl = app(\App\Services\PublicSiteConfigService::class)->docsUrl())
+                            @if($docsUrl)
+                                <li>
+                                    <a href="{{ $docsUrl }}" class="flex space-x-3 text-sm leading-6 text-text-color hover:text-primary-200" target="_blank" rel="noopener noreferrer" style="outline: none;">
+                                        <span>Dokumentasi API</span>
+                                    </a>
+                                </li>
+                            @endif
                            
                         </ul>
                     </div>

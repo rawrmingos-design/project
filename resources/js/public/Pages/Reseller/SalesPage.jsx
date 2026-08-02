@@ -85,7 +85,7 @@ export default function SalesPage({
 }) {
     const { siteConfig } = usePage().props;
     const primaryUrl = ctaConfig?.primaryUrl || '/id/reseller/registry';
-    const docsUrl = ctaConfig?.docsUrl || '/'; // ✅ Fixed: Use from config
+    const docsUrl = ctaConfig?.docsUrl || null;
 
     const logoHeader = siteConfig?.logoHeader || '/assets/logo/favicon.webp';
     const logoFooter = siteConfig?.logoFooter || '/assets/logo/favicon.webp';
@@ -174,9 +174,11 @@ export default function SalesPage({
                                     <Link href={primaryUrl} onClick={() => trackEvent('cta_clicked', { cta_position: 'hero_primary' })} className="bg-primary-container text-on-primary-container px-xl py-4 rounded-xl btn-primary-shimmer font-black text-lg uppercase tracking-tight neon-glow text-center">
                                         Hubungkan API Sekarang
                                     </Link>
-                                    <a href={docsUrl} onClick={() => trackEvent('cta_clicked', { cta_position: 'hero_docs' })} className="border border-outline-variant text-on-surface px-xl py-4 rounded-xl hover:bg-surface-bright/50 transition-colors font-bold text-lg bg-surface-container/30 text-center">
-                                        Cek Dokumentasi
-                                    </a>
+                                    {docsUrl && (
+                                        <a href={docsUrl} onClick={() => trackEvent('cta_clicked', { cta_position: 'hero_docs' })} className="border border-outline-variant text-on-surface px-xl py-4 rounded-xl hover:bg-surface-bright/50 transition-colors font-bold text-lg bg-surface-container/30 text-center">
+                                            Cek Dokumentasi
+                                        </a>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-md mt-lg">
                                     <div className="flex items-center gap-4 py-2 px-4 bg-surface-container/30 border border-outline-variant/20 rounded-lg">
@@ -265,9 +267,11 @@ export default function SalesPage({
                                         </div>
                                     ))}
                                 </div>
-                                <a href={docsUrl} className="bg-surface-bright/50 text-on-surface px-lg py-3 rounded-xl font-bold border border-outline-variant/30 hover:border-primary-container transition-all inline-flex items-center gap-sm">
-                                    Pelajari Dokumentasi API <span className="material-symbols-outlined">arrow_forward</span>
-                                </a>
+                                {docsUrl && (
+                                    <a href={docsUrl} className="bg-surface-bright/50 text-on-surface px-lg py-3 rounded-xl font-bold border border-outline-variant/30 hover:border-primary-container transition-all inline-flex items-center gap-sm">
+                                        Pelajari Dokumentasi API <span className="material-symbols-outlined">arrow_forward</span>
+                                    </a>
+                                )}
                             </div>
                             <div className="bg-surface-container-lowest rounded-lg border border-surface-bright/50 overflow-hidden shadow-2xl">
                                 <div className="bg-surface-container-high px-md py-2 border-b border-surface-bright/50 flex justify-between items-center">
@@ -594,7 +598,7 @@ export default function SalesPage({
                             <div className="flex items-center gap-md mb-md"><img src={logoHeader} alt={siteName} className="h-10 w-auto object-contain" /><span className="font-display-lg font-black uppercase"></span></div>
                             <p className="text-sm text-secondary max-w-sm mb-lg">Gateway H2H Top Up Games & PPOB tercepat di Indonesia. Dirancang untuk stabilitas tinggi dan kemudahan integrasi bagi developer dan marketplace.</p>
                         </div>
-                        <div><h4 className="font-black text-xs uppercase tracking-widest text-on-surface mb-lg">Developer Resources</h4><ul className="space-y-sm"><li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href={docsUrl}>API Documentation</a></li><li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href="/api/postman/collection" download>Postman Collection</a></li></ul></div>
+                        <div><h4 className="font-black text-xs uppercase tracking-widest text-on-surface mb-lg">Developer Resources</h4><ul className="space-y-sm">{docsUrl && <li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href={docsUrl}>API Documentation</a></li>}<li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href="/api/postman/collection" download>Postman Collection</a></li></ul></div>
                         <div><h4 className="font-black text-xs uppercase tracking-widest text-on-surface mb-lg">Legal & Business</h4><ul className="space-y-sm"><li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href="/id/terms-and-condition">Terms of Service</a></li><li><a className="text-sm text-secondary hover:text-primary-container transition-colors" href="/id/privacy-policy">Privacy Policy</a></li></ul></div>
                     </div>
                     <div className="max-w-7xl mx-auto px-margin-mobile md:px-margin-desktop mt-xl pt-lg border-t border-surface-bright/10">

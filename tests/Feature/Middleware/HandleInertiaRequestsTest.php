@@ -13,6 +13,25 @@ class HandleInertiaRequestsTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** @var string|false */
+    private string|false $savedDocsDomain;
+
+    protected function tearDown(): void
+    {
+        if (isset($this->savedDocsDomain)) {
+            if ($this->savedDocsDomain === false) {
+                putenv('DOCS_DOMAIN');
+                unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
+            } else {
+                putenv("DOCS_DOMAIN={$this->savedDocsDomain}");
+                $_ENV['DOCS_DOMAIN'] = $this->savedDocsDomain;
+                $_SERVER['DOCS_DOMAIN'] = $this->savedDocsDomain;
+            }
+        }
+
+        parent::tearDown();
+    }
+
     public function test_inertia_shares_favicon_from_site_config(): void
     {
         // SettingWeb doesn't have HasFactory, so we seed via DB directly.
@@ -93,12 +112,31 @@ class HandleInertiaRequestsTest extends TestCase
         }
     }
 
+    public function test_docs_url_is_canonical_https_url(): void
+    {
+        $this->setDocsDomain('http://Docs.Example.Test:8443/path?legacy=true');
+
+        $this->assertSame(
+            'https://docs.example.test',
+            app(PublicSiteConfigService::class)->docsUrl(),
+        );
+    }
+
+    public function test_footer_hides_api_documentation_when_docs_domain_is_missing(): void
+    {
+        $this->setDocsDomain(null);
+
+        $footerColumns = app(PublicSiteConfigService::class)->sharedProps()['siteConfig']['footerColumns'];
+        $items = collect($footerColumns)->flatMap(fn (array $column) => $column['items']);
+
+        $this->assertFalse($items->contains('label', 'Dokumentasi API'));
+        $this->assertFalse($items->contains('label', 'API Documentation'));
+    }
+
     public function test_default_footer_copy_distinguishes_kemitraan_and_reseller_topup(): void
     {
         config(['tenancy.disabled' => false]);
-        putenv('DOCS_DOMAIN=docs.example.test');
-        $_ENV['DOCS_DOMAIN'] = 'docs.example.test';
-        $_SERVER['DOCS_DOMAIN'] = 'docs.example.test';
+        $this->setDocsDomain('docs.example.test');
 
         DB::table('setting_webs')->insert([
             'id'                   => 1,
@@ -128,5 +166,30 @@ class HandleInertiaRequestsTest extends TestCase
         $this->assertContains(['label' => 'Gabung Kemitraan', 'href' => 'https://wa.me/6281234567890'], $partnershipColumn['items']);
         $this->assertContains(['label' => 'Reseller Topup', 'href' => '/id/reseller-topup'], $partnershipColumn['items']);
         $this->assertContains(['label' => 'Dokumentasi API', 'href' => 'https://docs.example.test'], $partnershipColumn['items']);
+
+        DB::table('setting_webs')->where('id', 1)->update(['public_theme' => 'bangjeff']);
+        $bangjeffColumns = app(PublicSiteConfigService::class)->sharedProps()['siteConfig']['footerColumns'];
+        $bangjeffPartnershipColumn = collect($bangjeffColumns)->firstWhere('title', 'Partnership');
+
+        $this->assertNotNull($bangjeffPartnershipColumn);
+        $this->assertContains(['label' => 'API Documentation', 'href' => 'https://docs.example.test'], $bangjeffPartnershipColumn['items']);
+    }
+
+    private function setDocsDomain(?string $value): void
+    {
+        if (! isset($this->savedDocsDomain)) {
+            $this->savedDocsDomain = getenv('DOCS_DOMAIN');
+        }
+
+        if ($value === null) {
+            putenv('DOCS_DOMAIN');
+            unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
+
+            return;
+        }
+
+        putenv("DOCS_DOMAIN={$value}");
+        $_ENV['DOCS_DOMAIN'] = $value;
+        $_SERVER['DOCS_DOMAIN'] = $value;
     }
 }

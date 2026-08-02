@@ -174,19 +174,22 @@ class PublicSiteConfigService
         return $url;
     }
 
-    public function docsUrl(): string
+    public function docsUrl(): ?string
     {
         $docsDomain = trim((string) env('DOCS_DOMAIN', ''));
 
-        if ($docsDomain !== '') {
-            return str_starts_with($docsDomain, 'http://') || str_starts_with($docsDomain, 'https://')
-                ? $docsDomain
-                : 'https://' . $docsDomain;
+        if ($docsDomain === '') {
+            return null;
         }
 
-        $docsUrl = trim((string) env('DOCS_URL', ''));
+        $url = str_contains($docsDomain, '://') ? $docsDomain : 'https://' . $docsDomain;
+        $host = parse_url($url, PHP_URL_HOST);
 
-        return $docsUrl !== '' ? $docsUrl : '/api-documentation';
+        if (! is_string($host) || $host === '') {
+            return null;
+        }
+
+        return 'https://' . strtolower($host);
     }
 
     protected function buildFooterColumns(string $theme, array $socials): array
@@ -201,7 +204,7 @@ class PublicSiteConfigService
                     'items' => [
                         ['label' => 'Join Partnership', 'href' => $socials['whatsapp']],
                         ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
-                        ['label' => 'API Documentation', 'href' => $docsUrl],
+                        ['label' => 'API Documentation', 'href' => $docsUrl, 'enabled' => $docsUrl !== null],
                     ],
                 ],
                 [
@@ -229,7 +232,7 @@ class PublicSiteConfigService
                     'items' => [
                         ['label' => 'Gabung Kemitraan', 'href' => $socials['whatsapp']],
                         ['label' => 'Reseller Topup', 'href' => '/id/reseller-topup', 'enabled' => $tenancyEnabled],
-                        ['label' => 'Dokumentasi API', 'href' => $docsUrl],
+                        ['label' => 'Dokumentasi API', 'href' => $docsUrl, 'enabled' => $docsUrl !== null],
                     ],
                 ],
                 [

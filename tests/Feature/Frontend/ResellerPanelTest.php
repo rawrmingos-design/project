@@ -5,11 +5,33 @@ namespace Tests\Feature\Frontend;
 use App\Models\User;
 use App\Models\ResellerIntegration;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Env;
 use Tests\TestCase;
 
 class ResellerPanelTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @var string|false */
+    private string|false $savedDocsDomain;
+
+    protected function tearDown(): void
+    {
+        if (isset($this->savedDocsDomain)) {
+            if ($this->savedDocsDomain === false) {
+                putenv('DOCS_DOMAIN');
+                unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
+            } else {
+                putenv("DOCS_DOMAIN={$this->savedDocsDomain}");
+                $_ENV['DOCS_DOMAIN'] = $this->savedDocsDomain;
+                $_SERVER['DOCS_DOMAIN'] = $this->savedDocsDomain;
+            }
+
+            Env::enablePutenv();
+        }
+
+        parent::tearDown();
+    }
 
     public function test_unauthenticated_user_cannot_access_panel(): void
     {
@@ -98,7 +120,30 @@ class ResellerPanelTest extends TestCase
         $response->assertSee('example.com');
     }
 
-    public function test_reseller_docs_page_returns_404_when_canonical_docs_are_unavailable(): void
+    public function test_reseller_docs_page_returns_404_when_docs_domain_is_missing(): void
+    {
+        $user = $this->createResellerForDocs();
+        $this->setDocsDomain(null);
+
+        $response = $this->actingAs($user)->get('/id/reseller/docs');
+
+        $response->assertNotFound();
+        $response->assertDontSee('secret-live-key-123456');
+        $response->assertDontSee('sandbox-integration-test');
+    }
+
+    public function test_reseller_docs_page_redirects_to_the_canonical_docs_domain(): void
+    {
+        $user = $this->createResellerForDocs();
+        $this->setDocsDomain('docs.example.test');
+
+        $this->actingAs($user)
+            ->get('/id/reseller/docs')
+            ->assertStatus(301)
+            ->assertRedirect('https://docs.example.test');
+    }
+
+    private function createResellerForDocs(): User
     {
         $user = User::factory()->create([
             'role' => 'Member',
@@ -113,17 +158,27 @@ class ResellerPanelTest extends TestCase
             'api_key_hash' => \Illuminate\Support\Facades\Hash::make('secret-live-key-123456'),
         ]);
 
-        $response = $this->actingAs($user)->get('/id/reseller/docs');
+        return $user;
+    }
 
-        if (\Illuminate\Support\Facades\Route::has('docs.index')) {
-            $response->assertRedirect(route('docs.index'));
-            $this->assertSame(301, $response->getStatusCode());
-        } else {
-            $response->assertNotFound();
+    private function setDocsDomain(?string $value): void
+    {
+        if (! isset($this->savedDocsDomain)) {
+            $this->savedDocsDomain = getenv('DOCS_DOMAIN');
         }
 
-        $response->assertDontSee('secret-live-key-123456');
-        $response->assertDontSee('sandbox-integration-test');
+        if ($value === null) {
+            putenv('DOCS_DOMAIN');
+            unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
+            Env::enablePutenv();
+
+            return;
+        }
+
+        putenv("DOCS_DOMAIN={$value}");
+        $_ENV['DOCS_DOMAIN'] = $value;
+        $_SERVER['DOCS_DOMAIN'] = $value;
+        Env::enablePutenv();
     }
 
     public function test_orders_page_only_shows_authenticated_reseller_orders(): void
