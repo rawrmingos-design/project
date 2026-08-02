@@ -17,6 +17,13 @@ class P03CanonicalDocumentationTest extends TestCase
     /** @var array<string, string|false> */
     private array $savedEnv = [];
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withoutVite();
+    }
+
     public function createApplication()
     {
         $this->savedEnv = [
