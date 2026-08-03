@@ -20,7 +20,9 @@ php artisan test tests/Feature/PublicInertiaPagesTest.php --filter="bangjeff_the
 php artisan test tests/Feature/TrackingTemplateTest.php
 php artisan test tests/Feature/InvoicePageControllerRealtimePropsTest.php
 php artisan test tests/Feature/TransactionDataLayerTest.php
+php artisan test tests/Feature/PasswordRecoveryTest.php
 php artisan test tests/Feature/P04PasswordRecoveryTest.php
+php artisan test tests/Feature/ArticleLayoutParityTest.php
 ```
 
 Opsional smoke E2E:

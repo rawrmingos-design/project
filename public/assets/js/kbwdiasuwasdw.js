@@ -8,11 +8,19 @@
             o = document.querySelectorAll(".close-popup-buttonn");
 
         function n() {
-            t.style.display = "none", e.checked && localStorage.setItem("hidePopupp", "true")
+            t.style.display = "none";
+            // For legacy popups without dynamic IDs, use default
+            localStorage.setItem("hidePopup_default", "true");
         }
         o.forEach(e => {
             e.addEventListener("click", n)
-        }), "true" === localStorage.getItem("hidePopupp") ? t.style.display = "none" : t.style.display = "block"
+        });
+
+        if ("true" === localStorage.getItem("hidePopup_default")) {
+            t.style.display = "none";
+        } else {
+            t.style.display = "block";
+        }
     }), document.addEventListener("DOMContentLoaded", function() {
         let e = document.querySelectorAll(".popup-slidee"),
             t = !1;
