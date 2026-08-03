@@ -350,23 +350,23 @@
 }
 </style>
 
-<div id="popupp" x-data="{ open: false, dontShowAgain: localStorage.getItem('dontShowPopup') === 'true' }" 
-     x-init="if (!dontShowAgain) { setTimeout(() => open = true, 500) }" 
-     @keydown.escape.window="open = false"
+<div id="popupp" x-data="{ open: false, storageKey: '{{ isset($popup->id) ? 'hidePopup_' . $popup->id : 'hidePopup_default' }}', get dontShowAgain() { return localStorage.getItem(this.storageKey) === 'true'; } }"
+     x-init="if (!dontShowAgain) { setTimeout(() => open = true, 500) }"
+     @keydown.escape.window="open = false; localStorage.setItem(storageKey, 'true')"
      class="font-sans" x-cloak>
 
     <!-- Backdrop -->
-    <div class="popup-backdrop" x-show="open" 
-         x-transition:enter="transition-opacity ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" 
+    <div class="popup-backdrop" x-show="open" @click="open = false; localStorage.setItem(storageKey, 'true')"
+         x-transition:enter="transition-opacity ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
          x-transition:leave="transition-opacity ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
     </div>
 
     <!-- Container -->
-    <div class="popup-container" x-show="open" @click.outside="open = false" x-bind:class="open ? 'popup-show' : ''">
+    <div class="popup-container" x-show="open" x-bind:class="open ? 'popup-show' : ''">
         <div class="popup-content" @click.stop>
-            
+
             <!-- Close Button -->
-            <button type="button" @click="open = false" class="popup-close-btn">
+            <button type="button" @click="open = false; localStorage.setItem(storageKey, 'true')" class="popup-close-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" style="width: 1rem; height: 1rem;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
                 </svg>
@@ -400,14 +400,8 @@
                     {!! isset($popup->deskripsi) ? $popup->deskripsi : 'Selamat datang di ' . htmlspecialchars($config->judul_web , ENT_QUOTES, 'UTF-8') . '. Selamat berbelanja.' !!}
                 </div>
 
-                <!-- Footer / Checkbox -->
-                <div class="popup-footer">
-                    <label for="dontShowPopup" class="custom-checkbox-label">
-                        <input type="checkbox" id="dontShowPopup" class="custom-checkbox"
-                            x-model="dontShowAgain"
-                            @change="localStorage.setItem('dontShowPopup', dontShowAgain ? 'true' : 'false'); if(dontShowAgain) { open = false }">
-                        <span class="checkbox-text">Jangan tampilkan info ini lagi</span>
-                    </label>
+                <!-- Footer / Checkbox (Removed per implicit opt-out) -->
+                <div class="popup-footer" style="display: none;">
                 </div>
             </div>
         </div>
