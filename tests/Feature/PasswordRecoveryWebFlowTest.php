@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
-class P04PasswordRecoveryTest extends TestCase
+class PasswordRecoveryWebFlowTest extends TestCase
 {
     use RefreshDatabase;
 

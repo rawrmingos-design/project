@@ -21,16 +21,12 @@ php artisan test tests/Feature/TrackingTemplateTest.php
 php artisan test tests/Feature/InvoicePageControllerRealtimePropsTest.php
 php artisan test tests/Feature/TransactionDataLayerTest.php
 php artisan test tests/Feature/PasswordRecoveryTest.php
-php artisan test tests/Feature/P04PasswordRecoveryTest.php
+php artisan test tests/Feature/PasswordRecoveryWebFlowTest.php
 php artisan test tests/Feature/ArticleLayoutParityTest.php
+npm run test:e2e
 ```
 
-Opsional smoke E2E:
-
-```bash
-npm run test:e2e:smoke:local
-npm run test:e2e:auth:local
-```
+Gate Playwright harus selesai tanpa deterministic test yang skipped. Runner membuat SQLite fixture sendiri; jangan arahkan gate ini ke database staging/production.
 
 ## 3) Gate SEO
 

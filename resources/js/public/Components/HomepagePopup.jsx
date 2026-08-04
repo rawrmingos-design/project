@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import { createPortal } from 'react-dom';
 
@@ -82,7 +82,7 @@ export default function HomepagePopup({ popup, enabled = true }) {
         return () => window.clearTimeout(timer);
     }, [enabled, popup, storageKey]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!open) {
             if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
                 previousFocusRef.current.focus();
@@ -172,12 +172,13 @@ export default function HomepagePopup({ popup, enabled = true }) {
 
     return createPortal(
         <div className="homepage-popup" {...modalAriaProps}>
-            <div className="homepage-popup__backdrop" onClick={handleClose} />
-            <div className="homepage-popup__viewport">
+            <div className="homepage-popup__backdrop" aria-hidden="true" />
+            <div className="homepage-popup__viewport" onClick={handleClose}>
                 <div
                     className={`homepage-popup__panel ${popupThemeClass}`.trim()}
                     ref={popupRef}
                     tabIndex="-1"
+                    onClick={(event) => event.stopPropagation()}
                 >
                     <button type="button" className="homepage-popup__close" onClick={handleClose} aria-label="Tutup popup">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
