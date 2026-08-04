@@ -141,18 +141,26 @@ class PasswordRecoveryService
     {
         $displayName = e((string) ($user->name ?: $user->username ?: 'Member'));
         $safeUrl = e($resetUrl);
+        $expiryMinutes = $this->expiryMinutes();
 
         return <<<HTML
 <p>Halo {$displayName},</p>
 <p>Kami menerima permintaan untuk mereset kata sandi akun Anda. Gunakan tautan berikut untuk membuat kata sandi baru:</p>
 <p><a href="{$safeUrl}">Reset kata sandi</a></p>
-<p>Tautan ini berlaku selama 60 menit dan hanya dapat digunakan satu kali. Jika Anda tidak meminta reset, abaikan pesan ini.</p>
+<p>Tautan ini berlaku selama {$expiryMinutes} menit dan hanya dapat digunakan satu kali. Jika Anda tidak meminta reset, abaikan pesan ini.</p>
 HTML;
     }
 
     private function whatsappContent(string $resetUrl): string
     {
-        return "Permintaan reset kata sandi diterima. Gunakan tautan ini untuk membuat kata sandi baru (berlaku 60 menit, satu kali pakai):\n{$resetUrl}\n\nJika Anda tidak meminta reset, abaikan pesan ini.";
+        $expiryMinutes = $this->expiryMinutes();
+
+        return "Permintaan reset kata sandi diterima. Gunakan tautan ini untuk membuat kata sandi baru (berlaku {$expiryMinutes} menit, satu kali pakai):\n{$resetUrl}\n\nJika Anda tidak meminta reset, abaikan pesan ini.";
+    }
+
+    private function expiryMinutes(): int
+    {
+        return max(1, (int) config('auth.passwords.users.expire', 60));
     }
 
     private function identifierFingerprint(string $username): string

@@ -101,13 +101,71 @@ jobs:
       - name: ✅ Run Tests (Pest)
         run: php artisan test --parallel
 
+  browser-tests:
+    name: 🌐 Run Browser Tests
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v7
+
+      - name: 🐘 Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_sqlite, sqlite3, mbstring, bcmath, gd, zip, intl
+          coverage: none
+
+      - name: 🟢 Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: 📦 Cache Composer dependencies
+        uses: actions/cache@v6
+        with:
+          path: vendor
+          key: composer-browser-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-browser-
+
+      - name: 📁 Prepare required directories
+        run: |
+          mkdir -p bootstrap/cache
+          mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs
+          chmod -R 777 bootstrap/cache storage
+
+      - name: 🔧 Install dependencies
+        run: |
+          composer install --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-reqs
+          npm ci
+
+      - name: 🎭 Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: ✅ Run deterministic browser tests
+        run: npm run test:e2e
+
+      - name: 📎 Upload browser test artifacts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # ===================================================
   # JOB 2: Build & Push Docker Image
   # ===================================================
   build:
     name: 🐳 Build & Push Docker Image
     runs-on: ubuntu-24.04
-    needs: test   # Hanya jalan jika test lulus
+    needs:
+      - test
+      - browser-tests
     outputs:
       image_tag: ${{ steps.meta.outputs.tags }}
 

@@ -87,11 +87,24 @@ class PasswordRecoveryTest extends TestCase
         app(PasswordRecoveryService::class)->requestRecovery($user->username);
 
         $record = (array) \Illuminate\Support\Facades\DB::table('password_resets')->where('email', $user->email)->first();
+        $plainToken = null;
+
+        Mail::assertSent(\App\Mail\TransactionMail::class, function ($mail) use ($user, &$plainToken): bool {
+            if (! $mail->hasTo($user->email)) {
+                return false;
+            }
+
+            preg_match('#/id/reset-password/([^?"<]+)#', (string) $mail->contentBody, $matches);
+            $plainToken = isset($matches[1]) ? rawurldecode($matches[1]) : null;
+
+            return filled($plainToken);
+        });
+
+        $this->assertNotEmpty($plainToken);
         $this->assertNotEmpty($record['token']);
-        /** @var PasswordBroker $broker */
-        $broker = Password::broker('users');
-        $this->assertNotSame($record['token'], $broker->createToken($user));
-        Mail::assertSent(\App\Mail\TransactionMail::class, fn ($mail) => $mail->hasTo($user->email));
+        $this->assertNotSame($plainToken, $record['token']);
+        $this->assertTrue(Hash::check((string) $plainToken, (string) $record['token']));
+        $this->assertSame(1, \Illuminate\Support\Facades\DB::table('password_resets')->where('email', $user->email)->count());
     }
 
     public function test_duplicate_email_is_not_eligible_for_recovery(): void
@@ -229,6 +242,79 @@ class PasswordRecoveryTest extends TestCase
             'password' => 'Another-password-123',
             'password_confirmation' => 'Another-password-123',
         ])->assertStatus(422)->assertJsonPath('message', PasswordRecoveryService::RESET_FAILURE_MESSAGE);
+    }
+
+    public function test_expired_token_cannot_change_credentials_or_revoke_sessions(): void
+    {
+        $createdUser = User::factory()->create([
+            'email' => 'expired@example.com',
+            'password' => Hash::make('old-password'),
+            'remember_token' => 'old-remember-token',
+        ]);
+        /** @var User $user */
+        $user = User::query()->findOrFail($createdUser->getKey());
+        /** @var PasswordBroker $broker */
+        $broker = Password::broker('users');
+        $token = $broker->createToken($user);
+        $user->createToken('existing-session');
+        $expiresIn = (int) config('auth.passwords.users.expire');
+
+        try {
+            $this->travel($expiresIn + 1)->minutes();
+
+            $this->postJson('/api/auth/reset-password', [
+                'email' => $user->email,
+                'token' => $token,
+                'password' => 'A-new-password-123',
+                'password_confirmation' => 'A-new-password-123',
+            ])->assertStatus(422)->assertJsonPath('message', PasswordRecoveryService::RESET_FAILURE_MESSAGE);
+
+            $fresh = $user->fresh();
+            $this->assertTrue(Hash::check('old-password', $fresh->password));
+            $this->assertSame('old-remember-token', $fresh->remember_token);
+            $this->assertSame(1, $fresh->tokens()->count());
+        } finally {
+            $this->travelBack();
+        }
+    }
+
+    public function test_email_and_whatsapp_copy_use_the_configured_expiry(): void
+    {
+        config(['auth.passwords.users.expire' => 17]);
+        $emailContent = null;
+        $whatsappContent = null;
+        User::factory()->create([
+            'username' => 'configured-expiry',
+            'email' => 'configured-expiry@example.com',
+            'no_wa' => '628123456789',
+        ]);
+
+        $this->mock(EmailNotificationService::class, function (MockInterface $mock) use (&$emailContent): void {
+            $mock->shouldReceive('sendGenericEmail')
+                ->once()
+                ->withArgs(function (string $email, string $_subject, string $content) use (&$emailContent): bool {
+                    $emailContent = $content;
+
+                    return $email === 'configured-expiry@example.com'
+                        && $_subject === 'Instruksi Reset Kata Sandi';
+                })
+                ->andReturnFalse();
+        });
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$whatsappContent): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->withArgs(function (string $phone, string $message) use (&$whatsappContent): bool {
+                    $whatsappContent = $message;
+
+                    return $phone === '628123456789';
+                })
+                ->andReturn(['success' => true]);
+        });
+
+        app(PasswordRecoveryService::class)->requestRecovery('configured-expiry');
+
+        $this->assertStringContainsString('17 menit', (string) $emailContent);
+        $this->assertStringContainsString('17 menit', (string) $whatsappContent);
     }
 
     public function test_recovery_request_throttle_applies_to_api_and_web_routes(): void
