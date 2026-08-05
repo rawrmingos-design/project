@@ -4,7 +4,6 @@ namespace App\Services\Payments;
 
 use App\Models\InboundSourceEvent;
 use App\Models\Pembayaran;
-use Duitku\Config;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -76,8 +75,7 @@ class DuitkuReconciliationService
             throw new RuntimeException('Duitku merchant order ID is missing.');
         }
 
-        $settings = \App\Services\Payments\DuitkuConfiguration::settings();
-        $config = \App\Services\Payments\DuitkuConfiguration::load();
+        $config = DuitkuConfiguration::load();
         $status = $this->client->transactionStatusForPayment(
             $merchantOrderId,
             $config,
@@ -128,13 +126,6 @@ class DuitkuReconciliationService
             );
         }, 3);
     }
-
-
-
-        return $settings;
-    }
-
-
 
     private function recordEvent(Pembayaran $payment, string $statusCode, string $decision): void
     {

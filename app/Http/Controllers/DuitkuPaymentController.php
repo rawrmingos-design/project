@@ -7,9 +7,7 @@ use App\Services\Payments\DuitkuCallbackException;
 use App\Services\Payments\DuitkuCallbackService;
 use App\Services\Payments\DuitkuInvoiceService;
 use App\Services\Payments\DuitkuReconciliationService;
-use Duitku\Config;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DuitkuPaymentController extends Controller
