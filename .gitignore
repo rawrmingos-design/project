@@ -100,3 +100,10 @@ testsprite_tests\tmp\config.json
 /bruno
 /sufpayment.html
 /artifacts/
+/graphify-out
+/serve.pid
+
+# Keep the reviewed TikTok implementation guide versioned.
+!/docs/
+/docs/*
+!/docs/tiktok-ads.md
