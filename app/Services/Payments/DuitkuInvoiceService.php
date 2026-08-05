@@ -4,9 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Pembelian;
 use App\Support\DuitkuPaymentChannels;
-use Duitku\Config;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
@@ -25,7 +23,7 @@ class DuitkuInvoiceService
             $settings = \App\Services\Payments\DuitkuConfiguration::settings();
             $config = \App\Services\Payments\DuitkuConfiguration::load();
             $requestedPaymentMethodCode = strtoupper(trim((string) $paymentMethodCode));
-            $duitkuPaymentMethodCode = AppSupportDuitkuPaymentChannels::normalize($requestedPaymentMethodCode);
+            $duitkuPaymentMethodCode = $this->mapPaymentMethodCode($requestedPaymentMethodCode);
             $merchantOrderId = 'DUITKU-' . $order->order_id;
             $amount = (int) $order->harga;
             $customerName = trim((string) ($order->nickname ?: $order->username ?: 'Customer'));
@@ -61,7 +59,7 @@ class DuitkuInvoiceService
                 ],
             ];
 
-            $payload = AppSupportDuitkuPaymentChannels::isDirect($duitkuPaymentMethodCode)
+            $payload = $this->isDirectPaymentMethod($duitkuPaymentMethodCode)
                 ? $this->client->createDirectInvoice($params, $config)
                 : $this->client->createInvoice($params, $config);
 
@@ -72,7 +70,7 @@ class DuitkuInvoiceService
                 'merchantOrderId' => $merchantOrderId,
                 'requestedPaymentMethod' => $requestedPaymentMethodCode,
                 'duitkuPaymentMethod' => $duitkuPaymentMethodCode,
-                'directMode' => AppSupportDuitkuPaymentChannels::isDirect($duitkuPaymentMethodCode),
+                'directMode' => $this->isDirectPaymentMethod($duitkuPaymentMethodCode),
             ]);
 
             return $this->normalizeResponse(
@@ -153,12 +151,22 @@ class DuitkuInvoiceService
         ];
     }
 
-
-
-        return $settings;
+    public function mapPaymentMethodCode(string $paymentMethodCode): string
+    {
+        return match (DuitkuPaymentChannels::normalize($paymentMethodCode)) {
+            'QRIS' => 'SP',
+            'SHOPEEPAY' => 'SA',
+            'OVO' => 'OV',
+            'DANA' => 'DA',
+            'LINKAJA' => 'LA',
+            default => DuitkuPaymentChannels::normalize($paymentMethodCode),
+        };
     }
 
-
+    public function isDirectPaymentMethod(string $paymentMethodCode): bool
+    {
+        return DuitkuPaymentChannels::isDirect($paymentMethodCode);
+    }
 
     private function callbackUrl(object $settings): string
     {
