@@ -1622,6 +1622,9 @@ class OrderController extends Controller
         $pembelian->provider_order_id = $provider_order_id;
         $pembelian->active_attempt_token = trim((string) $provider_order_id) !== '' ? $provider_order_id : null;
         $pembelian->ip_address = $ipAddress;
+        $pembelian->ttclid = $request->cookie('ttclid');
+        $pembelian->ttp = $request->cookie('_ttp');
+        $pembelian->client_user_agent = substr((string) $request->userAgent(), 0, 1000);
         $pembelian->voucher = $request->voucher ?? null;
         $pembelian->keterangan_sn = $keteranganSn;
         $pembelian->used_points = $usedPoints;

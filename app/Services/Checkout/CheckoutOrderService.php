@@ -26,7 +26,7 @@ class CheckoutOrderService
 
     public function createFromApi(Request $request, ?User $user = null): array
     {
-        return $this->createFromPayload($request->all(), $user, 'api_v2', [
+        return $this->createFromPayload($request->all(), $user, 'website', [
             'ip' => $request->ip(),
             'idempotency_key' => $request->headers->get('X-Idempotency-Key'),
         ]);
@@ -156,6 +156,11 @@ class CheckoutOrderService
             $order->tipe_transaksi = $orderType;
             $order->email_pembeli = $this->orderEmail($request, $user);
             $order->ip_address = $context['ip'] ?? null;
+            if ($source === 'website') {
+                $order->ttclid = $request->cookie('ttclid');
+                $order->ttp = $request->cookie('_ttp');
+                $order->client_user_agent = substr((string) $request->userAgent(), 0, 1000);
+            }
             $order->active_layanan_id = $service->id;
             $order->active_provider_code = strtolower((string) $service->provider);
             $order->active_provider_sku = (string) $service->provider_id;
