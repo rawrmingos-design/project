@@ -2,6 +2,7 @@
 
 namespace App\Services\Payments;
 
+use App\Support\DuitkuPaymentChannels;
 use Duitku\Api;
 use Duitku\Config;
 use Duitku\Pop;
@@ -19,9 +20,22 @@ class DuitkuPopClient
         return $this->decode(Api::createInvoice($params, $config));
     }
 
-    public function transactionStatus(string $merchantOrderId, Config $config): array
+    public function transactionStatus(string $merchantOrderId, Config $config, string $apiMode = 'pop'): array
     {
-        return $this->decode(Pop::transactionStatus($merchantOrderId, $config));
+        $response = strtolower(trim($apiMode)) === 'direct'
+            ? Api::transactionStatus($merchantOrderId, $config)
+            : Pop::transactionStatus($merchantOrderId, $config);
+
+        return $this->decode($response);
+    }
+
+    public function transactionStatusForPayment(string $merchantOrderId, Config $config, ?string $apiMode, ?string $paymentCode): array
+    {
+        $mode = in_array(strtolower(trim((string) $apiMode)), ['direct', 'pop'], true)
+            ? strtolower(trim((string) $apiMode))
+            : DuitkuPaymentChannels::apiMode($paymentCode);
+
+        return $this->transactionStatus($merchantOrderId, $config, $mode);
     }
 
     public function getPaymentMethod(string $amount, Config $config): array

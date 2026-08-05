@@ -492,3 +492,4 @@ class DepositController extends Controller
         };
     }
 }
+

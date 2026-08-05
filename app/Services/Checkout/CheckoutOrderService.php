@@ -109,6 +109,7 @@ class CheckoutOrderService
             $expiresAt = now()->addHours($this->paymentExpiryHours($method));
             $paymentCode = $this->paymentCode($method, $orderId);
             $duitkuMerchantOrderId = null;
+            $duitkuPaymentCode = null;
             $orderType = $this->orderType((string) $request->input('ktg_tipe', $category->tipe));
             $isJoki = in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true);
 
@@ -128,6 +129,7 @@ class CheckoutOrderService
                 $paymentCode = (string) ($gateway['no_pembayaran'] ?? $paymentCode);
                 $expiresAt = $this->parseGatewayExpiry($gateway['expired_at'] ?? null, $method);
                 $duitkuMerchantOrderId = $gateway['merchant_order_id'] ?? null;
+                $duitkuPaymentCode = $gateway['duitku_payment_code'] ?? null;
             }
 
             $order = new Pembelian();
@@ -181,6 +183,7 @@ class CheckoutOrderService
             if ((string) $method->payment === 'duitku') {
                 $payment->duitku_reference = $paymentReference;
                 $payment->duitku_merchant_order_id = $duitkuMerchantOrderId ?: ('DUITKU-' . $orderId);
+                $payment->duitku_payment_code = $duitkuPaymentCode ?? $method->code;
             }
 
             $payment->save();
@@ -465,6 +468,7 @@ class CheckoutOrderService
             'no_pembayaran' => $result['payment_value'] ?? $result['no_pembayaran'] ?? $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? null,
             'amount' => $result['amount'] ?? $amount,
             'merchant_order_id' => $result['merchant_order_id'] ?? $result['merchantOrderId'] ?? ('DUITKU-' . $orderId),
+            'duitku_payment_code' => $result['duitku_payment_method'] ?? $method->code,
             'expired_at' => $result['expired_at'] ?? null,
         ];
     }
@@ -642,3 +646,4 @@ class CheckoutOrderService
         return "checkout:{$source}:{$tenantId}:" . sha1($key);
     }
 }
+

@@ -39,7 +39,7 @@ class MethodForm
                             ->required()
                             ->maxLength(100)
                             ->unique(ignoreRecord: true)
-                            ->helperText('Wajib diisi. Gunakan kode unik agar method mudah dikenali sistem.')
+                            ->helperText('Untuk Duitku, gunakan kode channel resmi dari dashboard/payment-method API. Contoh: SP, BR, DM. Kode DUITKU memakai halaman POP.')
                             ->validationMessages([
                                 'required' => 'Kode metode wajib diisi.',
                                 'unique'   => 'Kode metode sudah dipakai. Gunakan kode lain.',
