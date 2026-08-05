@@ -1103,6 +1103,7 @@ class OrderController extends Controller
                         'reference' => $res['reference'],
                         'amount' => $res['amount'] ?? $amount,
                         'merchant_order_id' => $res['merchant_order_id'] ?? $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
+                        'duitku_payment_code' => $res['duitku_payment_method'] ?? $duitkuMethodCode,
                         'expired_at' => $res['expired_at'] ?? null,
                     ];
                 } else {
@@ -1646,6 +1647,7 @@ class OrderController extends Controller
         if (($dataMethod->payment ?? null) === 'duitku') {
             $pembayaran->duitku_reference = $reference;
             $pembayaran->duitku_merchant_order_id = $gatewayMeta['merchant_order_id'] ?? ('DUITKU-' . $order_id);
+            $pembayaran->duitku_payment_code = $gatewayMeta['duitku_payment_code'] ?? $request->payment_method;
         }
 
         $pembayaran->save();
@@ -1921,3 +1923,4 @@ class OrderController extends Controller
         ];
     }
 }
+

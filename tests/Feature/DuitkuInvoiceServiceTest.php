@@ -197,3 +197,4 @@ class DuitkuInvoiceServiceTest extends TestCase
         $this->assertEquals('Invalid merchant code', $result['message']);
     }
 }
+

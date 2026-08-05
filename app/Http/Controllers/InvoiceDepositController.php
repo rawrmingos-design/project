@@ -78,6 +78,20 @@ class InvoiceDepositController extends Controller
             ->first();
 
         if ($payment) {
+            if (! in_array($payment->normalizedStatus(), ['lunas', 'paid', 'success'], true)
+                && filled($payment->duitku_merchant_order_id)) {
+                try {
+                    app(\App\Services\Payments\DuitkuReconciliationService::class)
+                        ->reconcileByOrderId($order, true);
+                    $payment->refresh();
+                } catch (\Throwable $exception) {
+                    \Illuminate\Support\Facades\Log::debug('duitku.deposit_reconciliation.skipped', [
+                        'order_id' => $order,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
+            }
+
             $payment->syncExpiredStatus();
         }
 

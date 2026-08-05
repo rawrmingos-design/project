@@ -70,7 +70,7 @@ class DuitkuRetryOrderCallbackTest extends TestCase
         $merchantCode = 'TEST123';
         $amount = '50000';
         $merchantOrderId = 'DUITKU-TEST-ORDER-001';
-        $signature = md5($merchantCode . $amount . $merchantOrderId . 'test-merchant-key');
+        $signature = $this->generateSignature($merchantCode, $amount, $merchantOrderId);
 
         $response = $this->post(route('duitku.callback'), [
             'merchantCode' => $merchantCode,
@@ -93,6 +93,115 @@ class DuitkuRetryOrderCallbackTest extends TestCase
         $oldPayment->refresh();
         $this->assertSame('Belum Lunas', $oldPayment->status);
         $this->assertNull($oldPayment->paid_at);
+    }
+
+    public function test_pending_callback_keeps_payment_and_order_pending(): void
+    {
+        $order = Pembelian::factory()->create([
+            'order_id' => 'TEST-ORDER-PENDING-001',
+            'layanan' => 'Mobile Legends 100 Diamond',
+            'harga' => 50000,
+            'status' => 'Pending',
+        ]);
+
+        $payment = Pembayaran::create([
+            'order_id' => $order->order_id,
+            'harga' => 50000,
+            'metode' => 'BR',
+            'status' => 'Belum Lunas',
+            'no_pembayaran' => 'BRI-VA-001',
+            'no_pembeli' => '081234567890',
+            'reference' => 'BRI-REF-PENDING-001',
+            'duitku_reference' => 'BRI-REF-PENDING-001',
+            'duitku_merchant_order_id' => 'DUITKU-TEST-ORDER-PENDING-001',
+        ]);
+
+        $payload = $this->callbackPayload(
+            'DUITKU-TEST-ORDER-PENDING-001',
+            'BRI-REF-PENDING-001',
+            '01',
+            'BR',
+        );
+
+        $this->post(route('duitku.callback'), $payload)
+            ->assertOk()
+            ->assertSee('SUCCESS');
+
+        $this->assertSame('Belum Lunas', $payment->fresh()->status);
+        $this->assertSame('Pending', $order->fresh()->status);
+    }
+
+    public function test_bri_and_danamon_va_callbacks_use_the_same_legacy_contract(): void
+    {
+        foreach ([
+            ['code' => 'BR', 'suffix' => 'BRI'],
+            ['code' => 'DM', 'suffix' => 'DANAMON'],
+        ] as $channel) {
+            $orderId = 'TEST-ORDER-' . $channel['suffix'] . '-001';
+            Pembelian::factory()->create([
+                'order_id' => $orderId,
+                'layanan' => 'Voucher',
+                'harga' => 50000,
+                'status' => 'Pending',
+            ]);
+            Pembayaran::create([
+                'order_id' => $orderId,
+                'harga' => 50000,
+                'metode' => $channel['code'],
+                'status' => 'Belum Lunas',
+                'no_pembayaran' => $channel['suffix'] . '-VA-001',
+                'no_pembeli' => '081234567890',
+                'reference' => $channel['suffix'] . '-REF-001',
+                'duitku_reference' => $channel['suffix'] . '-REF-001',
+                'duitku_merchant_order_id' => 'DUITKU-' . $orderId,
+                'duitku_payment_code' => $channel['code'],
+            ]);
+
+            $response = $this->post(route('duitku.callback'), $this->callbackPayload(
+                'DUITKU-' . $orderId,
+                $channel['suffix'] . '-REF-001',
+                '00',
+                $channel['code'],
+            ));
+
+            $response->assertOk()->assertSee('SUCCESS');
+            $this->assertDatabaseHas('pembayarans', [
+                'order_id' => $orderId,
+                'status' => 'Lunas',
+            ]);
+        }
+    }
+
+    public function test_reference_match_with_different_merchant_order_id_is_rejected(): void
+    {
+        Pembelian::factory()->create([
+            'order_id' => 'TEST-ORDER-IDENTITY-001',
+            'harga' => 50000,
+            'status' => 'Pending',
+        ]);
+        Pembayaran::create([
+            'order_id' => 'TEST-ORDER-IDENTITY-001',
+            'harga' => 50000,
+            'metode' => 'BR',
+            'status' => 'Belum Lunas',
+            'no_pembayaran' => 'BRI-VA-IDENTITY-001',
+            'no_pembeli' => '081234567890',
+            'reference' => 'IDENTITY-REF-001',
+            'duitku_reference' => 'IDENTITY-REF-001',
+            'duitku_merchant_order_id' => 'DUITKU-TEST-ORDER-IDENTITY-001',
+        ]);
+
+        $this->post(route('duitku.callback'), $this->callbackPayload(
+            'DUITKU-WRONG-ORDER-001',
+            'IDENTITY-REF-001',
+            '00',
+            'BR',
+        ))->assertStatus(400)->assertSee('Payment identity mismatch');
+
+        $this->assertDatabaseHas('pembayarans', [
+            'order_id' => 'TEST-ORDER-IDENTITY-001',
+            'status' => 'Belum Lunas',
+        ]);
     }
 
     public function test_callback_falls_back_to_merchant_order_id_when_reference_not_found(): void
@@ -120,7 +229,7 @@ class DuitkuRetryOrderCallbackTest extends TestCase
         $merchantCode = 'TEST123';
         $amount = '50000';
         $merchantOrderId = 'DUITKU-TEST-ORDER-002';
-        $signature = md5($merchantCode . $amount . $merchantOrderId . 'test-merchant-key');
+        $signature = $this->generateSignature($merchantCode, $amount, $merchantOrderId);
 
         $response = $this->post(route('duitku.callback'), [
             'merchantCode' => $merchantCode,
@@ -189,11 +298,12 @@ class DuitkuRetryOrderCallbackTest extends TestCase
             'created_at' => now()->subHours(1),
         ]);
 
-        // Simulate callback with no reference (only merchantOrderId)
+        // Simulate callback with no reference (only merchantOrderId). Multiple unpaid retries
+        // are intentionally ambiguous and must not be guessed by the callback handler.
         $merchantCode = 'TEST123';
         $amount = '50000';
         $merchantOrderId = 'DUITKU-TEST-ORDER-003';
-        $signature = md5($merchantCode . $amount . $merchantOrderId . 'test-merchant-key');
+        $signature = $this->generateSignature($merchantCode, $amount, $merchantOrderId);
 
         $response = $this->post(route('duitku.callback'), [
             'merchantCode' => $merchantCode,
@@ -204,21 +314,44 @@ class DuitkuRetryOrderCallbackTest extends TestCase
             'signature' => $signature,
         ]);
 
-        $response->assertOk();
-        $response->assertSee('SUCCESS');
+        $response->assertStatus(409);
+        $response->assertSee('Ambiguous payment identity');
 
-        // Assert: Latest payment (payment3) should be marked as paid
-        $payment3->refresh();
-        $this->assertSame('Lunas', $payment3->status);
-        $this->assertNotNull($payment3->paid_at);
-
-        // Assert: Older payments should remain unpaid
         $payment1->refresh();
         $payment2->refresh();
+        $payment3->refresh();
         $this->assertSame('Belum Lunas', $payment1->status);
         $this->assertSame('Belum Lunas', $payment2->status);
+        $this->assertSame('Belum Lunas', $payment3->status);
         $this->assertNull($payment1->paid_at);
         $this->assertNull($payment2->paid_at);
+        $this->assertNull($payment3->paid_at);
+    }
+
+    private function generateSignature(string $merchantCode, string $amount, string $merchantOrderId): string
+    {
+        return md5($merchantCode . $amount . $merchantOrderId . 'test-merchant-key');
+    }
+
+    private function callbackPayload(
+        string $merchantOrderId,
+        string $reference,
+        string $resultCode,
+        string $paymentCode = 'SP',
+        int $amount = 50000,
+    ): array {
+        $merchantCode = 'TEST123';
+        $amountString = (string) $amount;
+
+        return [
+            'merchantCode' => $merchantCode,
+            'amount' => $amountString,
+            'merchantOrderId' => $merchantOrderId,
+            'reference' => $reference,
+            'paymentCode' => $paymentCode,
+            'resultCode' => $resultCode,
+            'signature' => $this->generateSignature($merchantCode, $amountString, $merchantOrderId),
+        ];
     }
 
     public function test_callback_ignores_payment_that_is_already_paid(): void
@@ -247,7 +380,7 @@ class DuitkuRetryOrderCallbackTest extends TestCase
         $merchantCode = 'TEST123';
         $amount = '50000';
         $merchantOrderId = 'DUITKU-TEST-ORDER-004';
-        $signature = md5($merchantCode . $amount . $merchantOrderId . 'test-merchant-key');
+        $signature = $this->generateSignature($merchantCode, $amount, $merchantOrderId);
 
         // Try to process duplicate callback
         $response = $this->post(route('duitku.callback'), [
@@ -267,3 +400,4 @@ class DuitkuRetryOrderCallbackTest extends TestCase
         $this->assertSame('Lunas', $payment->status);
     }
 }
+

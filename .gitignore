@@ -103,7 +103,8 @@ testsprite_tests\tmp\config.json
 /graphify-out
 /serve.pid
 
-# Keep the reviewed TikTok implementation guide versioned.
+# Keep reviewed payment/tracking implementation guides versioned.
 !/docs/
 /docs/*
 !/docs/tiktok-ads.md
+!/docs/duitku-payments.md
