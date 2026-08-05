@@ -3,14 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Crypt;
 
 class SettingWeb extends Model
 {
     protected $table = 'setting_webs';
     
     protected $guarded = [];
-    
+
+    protected $hidden = [
+        'tiktok_access_token_encrypted',
+    ];
+
     protected $casts = [
+        'tiktok_tracking_enabled' => 'boolean',
         'profit_member' => 'integer',
         'profit_platinum' => 'integer',
         'profit_gold' => 'integer',
@@ -43,4 +49,33 @@ class SettingWeb extends Model
         'seo_sitemap_categories_asset_id' => 'integer',
         'pwa_icon_generated_at' => 'datetime',
     ];
+
+    public function setTiktokAccessTokenAttribute(mixed $value): void
+    {
+        $value = filled($value) ? trim((string) $value) : null;
+
+        if ($value !== null) {
+            $this->attributes['tiktok_access_token_encrypted'] = Crypt::encryptString($value);
+        }
+    }
+
+    public function decryptedTiktokAccessToken(): string
+    {
+        $encrypted = (string) ($this->attributes['tiktok_access_token_encrypted'] ?? '');
+
+        if ($encrypted === '') {
+            return '';
+        }
+
+        try {
+            return Crypt::decryptString($encrypted);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    public function hasTiktokAccessToken(): bool
+    {
+        return $this->decryptedTiktokAccessToken() !== '';
+    }
 }

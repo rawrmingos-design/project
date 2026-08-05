@@ -4,6 +4,7 @@ namespace Tests\Feature\Filament;
 
 use App\Filament\Admin\Pages\Settings\GeneralSettings;
 use App\Filament\Admin\Pages\Settings\ProvidersApiSettings;
+use App\Filament\Admin\Pages\Settings\SeoTrackingSettings;
 use App\Models\SettingWeb;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -170,6 +171,120 @@ class SettingsSplitPageTest extends AdminTestCase
             ->call('save');
 
         $this->assertFalse(Cache::has('public:active-theme'));
+    }
+
+    public function test_seo_tracking_settings_saves_encrypted_tiktok_credentials_and_preserves_blank_token(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings();
+
+        Livewire::test(SeoTrackingSettings::class)
+            ->assertFormFieldExists('tiktok_tracking_enabled')
+            ->assertFormFieldExists('tiktok_pixel_id')
+            ->assertFormFieldExists('tiktok_access_token')
+            ->assertFormFieldExists('tiktok_test_event_code')
+            ->fillForm([
+                'tiktok_tracking_enabled' => true,
+                'tiktok_pixel_id' => 'CDB1234567890123',
+                'tiktok_access_token' => 'admin-secret-token',
+                'tiktok_test_event_code' => 'ADMIN-TEST-CODE',
+            ])
+            ->call('save');
+
+        $settings = SettingWeb::query()->findOrFail(1);
+        $ciphertext = $settings->getRawOriginal('tiktok_access_token_encrypted');
+
+        $this->assertTrue((bool) $settings->tiktok_tracking_enabled);
+        $this->assertSame('CDB1234567890123', $settings->tiktok_pixel_id);
+        $this->assertSame('admin-secret-token', $settings->decryptedTiktokAccessToken());
+        $this->assertNotSame('admin-secret-token', $ciphertext);
+        $this->assertSame('ADMIN-TEST-CODE', $settings->tiktok_test_event_code);
+
+        Livewire::test(SeoTrackingSettings::class)
+            ->assertFormSet(['tiktok_access_token' => null])
+            ->fillForm([
+                'tiktok_tracking_enabled' => true,
+                'tiktok_pixel_id' => 'CDB1234567890123',
+                'tiktok_access_token' => '',
+                'tiktok_test_event_code' => null,
+            ])
+            ->call('save');
+
+        $settings->refresh();
+        $this->assertSame($ciphertext, $settings->getRawOriginal('tiktok_access_token_encrypted'));
+        $this->assertSame('admin-secret-token', $settings->decryptedTiktokAccessToken());
+        $this->assertNull($settings->tiktok_test_event_code);
+    }
+
+    public function test_seo_tracking_settings_clear_action_removes_only_database_token(): void
+    {
+        config(['services.tiktok.access_token' => 'environment-fallback-token']);
+
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings([
+            'tiktok_tracking_enabled' => true,
+            'tiktok_pixel_id' => 'CDB1234567890123',
+            'tiktok_access_token' => 'database-secret-token',
+        ]);
+
+        Livewire::test(SeoTrackingSettings::class)
+            ->assertFormComponentActionExists('tiktok_credentials_status', 'clear_tiktok_access_token')
+            ->callFormComponentAction('tiktok_credentials_status', 'clear_tiktok_access_token');
+
+        $settings = SettingWeb::query()->findOrFail(1);
+        $this->assertNull($settings->getRawOriginal('tiktok_access_token_encrypted'));
+        $this->assertSame('environment-fallback-token', app(\App\Services\TikTokSettingsService::class)->accessToken());
+    }
+
+    public function test_seo_tracking_settings_rejects_enable_without_effective_token(): void
+    {
+        config(['services.tiktok.access_token' => null]);
+
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings();
+
+        Livewire::test(SeoTrackingSettings::class)
+            ->fillForm([
+                'tiktok_tracking_enabled' => true,
+                'tiktok_pixel_id' => 'CDB1234567890123',
+                'tiktok_access_token' => '',
+            ])
+            ->call('save');
+
+        $settings = SettingWeb::query()->findOrFail(1);
+        $this->assertNull($settings->getRawOriginal('tiktok_tracking_enabled'));
+        $this->assertNull($settings->tiktok_pixel_id);
+    }
+
+    private function createTrackingSettings(array $overrides = []): SettingWeb
+    {
+        return SettingWeb::query()->create(array_merge([
+            'id' => 1,
+            'judul_web' => 'Tracking Test',
+            'deskripsi_web' => 'Tracking settings test',
+            'keywords' => 'tracking',
+            'url_wa' => 'https://wa.me/6281234567890',
+            'url_ig' => 'https://instagram.com/tracking',
+            'url_tiktok' => 'https://tiktok.com/@tracking',
+            'url_youtube' => 'https://youtube.com/@tracking',
+            'url_fb' => 'https://facebook.com/tracking',
+            'topupindo_api' => '-',
+            'warna1' => '#111111',
+            'warna2' => '#222222',
+            'warna3' => '#333333',
+            'warna4' => '#444444',
+            'paydisini_apikey' => '-',
+            'order_prefik' => 'INV',
+        ], $overrides));
     }
 
     public function test_providers_api_settings_excludes_unused_provider_fields(): void
