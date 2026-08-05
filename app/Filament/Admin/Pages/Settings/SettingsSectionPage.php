@@ -138,6 +138,58 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->placeholder('GTM-XXXXXXX')
                             ->helperText('Container ID GTM. Diabaikan jika custom snippet diisi.'),
 
+                        Toggle::make('tiktok_tracking_enabled')
+                            ->label('Aktifkan TikTok Tracking')
+                            ->nullable()
+                            ->live()
+                            ->helperText('Aktifkan PageView browser dan CompletePayment server-side untuk storefront utama.'),
+
+                        TextInput::make('tiktok_pixel_id')
+                            ->label('TikTok Pixel ID')
+                            ->placeholder('CXXXXXXXXXXXXXXXX')
+                            ->maxLength(30)
+                            ->regex('/^[A-Z0-9]{15,30}$/i')
+                            ->visible(fn (Get $get): bool => (bool) $get('tiktok_tracking_enabled'))
+                            ->helperText('Pixel ID dari TikTok Events Manager. Berbeda dari Facebook Pixel ID.'),
+
+                        TextInput::make('tiktok_access_token')
+                            ->label('TikTok Events API Access Token')
+                            ->password()
+                            ->revealable()
+                            ->dehydrated(fn (?string $state): bool => filled($state))
+                            ->visible(fn (Get $get): bool => (bool) $get('tiktok_tracking_enabled'))
+                            ->helperText('Kosongkan untuk mempertahankan token lama. Token baru disimpan terenkripsi dan tidak ditampilkan kembali.'),
+
+                        TextInput::make('tiktok_test_event_code')
+                            ->label('TikTok Test Event Code')
+                            ->maxLength(255)
+                            ->visible(fn (Get $get): bool => (bool) $get('tiktok_tracking_enabled'))
+                            ->helperText('Opsional untuk tab Test Events. Wajib dikosongkan sebelum campaign production.'),
+
+                        Placeholder::make('tiktok_credentials_status')
+                            ->label('Status Credential TikTok')
+                            ->content(function (): HtmlString {
+                                $resolver = app(\App\Services\TikTokSettingsService::class);
+                                $pixelSource = $resolver->pixelIdSource();
+                                $tokenSource = $resolver->accessTokenSource();
+
+                                $labels = [
+                                    'database' => 'tersimpan di database',
+                                    'environment' => 'fallback environment',
+                                    'missing' => 'belum dikonfigurasi',
+                                ];
+
+                                return new HtmlString(sprintf(
+                                    '<span>Pixel ID: <strong>%s</strong><br>Access Token: <strong>%s</strong></span>',
+                                    e($labels[$pixelSource] ?? $pixelSource),
+                                    e($labels[$tokenSource] ?? $tokenSource),
+                                ));
+                            })
+                            ->hintActions([
+                                $this->makeClearTikTokAccessTokenAction(),
+                            ])
+                            ->columnSpanFull(),
+
                         Textarea::make('gtm_custom_head_script')
                             ->label('Script GTM di Head')
                             ->rows(6)
@@ -1463,6 +1515,16 @@ abstract class SettingsSectionPage extends Page implements HasForms
             : true;
         $data['gtm_custom_head_script'] ??= null;
         $data['gtm_custom_body_noscript'] ??= null;
+
+        $tiktokSettings = app(\App\Services\TikTokSettingsService::class);
+        $data['tiktok_tracking_enabled'] = array_key_exists('tiktok_tracking_enabled', $data)
+            && $settings?->getRawOriginal('tiktok_tracking_enabled') !== null
+                ? (bool) $data['tiktok_tracking_enabled']
+                : $tiktokSettings->enabled();
+        $data['tiktok_pixel_id'] = $tiktokSettings->pixelId();
+        $data['tiktok_access_token'] = null;
+        $data['tiktok_test_event_code'] = $tiktokSettings->testEventCode();
+
         $data['wa_provider'] ??= 'fonnte';
         $data['easywa_email'] ??= null;
         $data['easywa_secret_key'] ??= null;
@@ -1561,6 +1623,11 @@ abstract class SettingsSectionPage extends Page implements HasForms
         // Get or create settings record
         $settings = SettingWeb::firstOrNew(['id' => 1]);
 
+        $data = $this->mutateSettingsDataBeforeSave($data, $settings);
+        if ($data === null) {
+            return;
+        }
+
         $this->applyMediaLibrarySelectionToData($data);
 
         $previousPwaIconSource = (string) ($settings->pwa_icon_source ?? '');
@@ -1634,9 +1701,39 @@ abstract class SettingsSectionPage extends Page implements HasForms
             ->send();
     }
 
+    protected function mutateSettingsDataBeforeSave(array $data, SettingWeb $settings): ?array
+    {
+        return $data;
+    }
+
     private function shouldRegeneratePwaIcons(string $previousSource, string $currentSource): bool
     {
         return $currentSource !== '' && $currentSource !== $previousSource;
+    }
+
+    protected function makeClearTikTokAccessTokenAction(): Action
+    {
+        return Action::make('clear_tiktok_access_token')
+            ->label('Hapus Token DB')
+            ->icon('heroicon-o-trash')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Hapus Access Token TikTok dari database?')
+            ->modalDescription('Jika fallback environment tersedia, sistem akan kembali memakainya. Jika tidak, tracking berhenti sampai token baru disimpan.')
+            ->action(function (): void {
+                $settings = SettingWeb::query()->find(1);
+
+                if ($settings) {
+                    $settings->forceFill(['tiktok_access_token_encrypted' => null])->save();
+                }
+
+                $this->form->fill($this->getSettingsData());
+
+                Notification::make()
+                    ->title('Token TikTok database dihapus')
+                    ->success()
+                    ->send();
+            });
     }
 
     private function filterStateByWhitelist(array $data): array
