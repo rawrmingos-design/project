@@ -32,8 +32,10 @@ class DataJokiController extends Controller
         // Update status joki di tabel data_joki
         \DB::table('data_joki')->where('order_id', $order_id)->update(['status_joki' => $status]);
 
-        // Perbarui status di tabel pembelian
-        \DB::table('pembelians')->where('order_id', $order_id)->update(['status' => $status]);
+        // Gunakan model instance agar observer status dan side effect tetap berjalan.
+        \App\Models\Pembelian::where('order_id', $order_id)
+            ->firstOrFail()
+            ->update(['status' => $status]);
 
         \DB::commit();
 

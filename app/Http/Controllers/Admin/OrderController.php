@@ -134,14 +134,13 @@ class OrderController extends Controller
 
     public function update($order_id, $status)
     {
-        Pembelian::where('order_id', $order_id)->update([
+        $pembelian = Pembelian::where('order_id', $order_id)->firstOrFail();
+        $pembelian->update([
             'status' => $status,
-            'updated_at' => now()
         ]);
-        
+
         // Kirim pesan saat status diperbarui menjadi 'Sukses'
         if ($status == 'Sukses') {
-            $pembelian = Pembelian::where('order_id', $order_id)->first();
             if ($pembelian && $pembelian->tipe_transaksi != 'joki') {
                 $pesanSukses =
                     "*Diamond Berhasil Dikirim*\n\n" .

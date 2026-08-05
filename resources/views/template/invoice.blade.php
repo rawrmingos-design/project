@@ -3500,6 +3500,10 @@
                     });
                 }
 
+                // Note: The string 'purchase' is emitted to GTM here for Google Analytics (GA4).
+                // DO NOT configure TikTok Pixel tags in GTM to trigger on this 'purchase' event.
+                // TikTok conversion tracking is intentionally handled server-side (C2S) with 'CompletePayment'
+                // to prevent double counting. See docs/tiktok-ads.md for details.
                 if (paymentCode === 'paid' && orderCode === 'success') {
                     window.pushDataLayerEvent('purchase', buildPurchasePayload(paymentStatus, orderStatus), {
                         dedupeKey: 'purchase:' + orderId,

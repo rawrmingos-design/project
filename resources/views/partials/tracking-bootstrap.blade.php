@@ -14,6 +14,8 @@
     $trackingGoogleTagManagerId = trim((string) ($trackingSettings->google_tag_manager_id ?? ''));
     $trackingGoogleAnalyticsId = trim((string) ($trackingSettings->google_analytics_id ?? ''));
     $trackingFacebookPixelId = trim((string) ($trackingSettings->facebook_pixel_id ?? ''));
+    $trackingTiktokSettings = app(\App\Services\TikTokSettingsService::class);
+    $trackingTiktokPixelId = trim((string) ($trackingTiktokSettings->pixelId() ?? ''));
     $trackingCustomGtmHeadScript = trim((string) ($trackingSettings->gtm_custom_head_script ?? ''));
     $trackingCustomGtmBodyNoscript = trim((string) ($trackingSettings->gtm_custom_body_noscript ?? ''));
 
@@ -21,6 +23,11 @@
     $trackingHasValidGtmId = preg_match('/^GTM-[A-Z0-9]+$/i', $trackingGoogleTagManagerId) === 1;
     $trackingHasValidGaId = preg_match('/^(G-|GT-|AW-|UA-)[A-Z0-9\-_]+$/i', $trackingGoogleAnalyticsId) === 1;
     $trackingHasValidPixelId = preg_match('/^[0-9]{5,30}$/', $trackingFacebookPixelId) === 1;
+    $trackingHasValidTiktokId = preg_match('/^[A-Z0-9]{15,30}$/i', $trackingTiktokPixelId) === 1;
+    $trackingIsMainStorefront = ! app(\App\Tenancy\TenantContext::class)->has();
+    $trackingShouldLoadTiktok = $trackingTiktokSettings->enabled()
+        && $trackingHasValidTiktokId
+        && $trackingIsMainStorefront;
     $trackingGtmEnabled = $trackingHasCustomGtmSnippet || $trackingHasValidGtmId;
     $trackingShouldLoadDirectGa = $trackingHasValidGaId && ! $trackingGtmEnabled;
 @endphp
@@ -73,6 +80,16 @@
         <noscript><img height="1" width="1" style="display:none"
             src="https://www.facebook.com/tr?id={{ $trackingFacebookPixelId }}&ev=PageView&noscript=1"
         /></noscript>
+    @endif
+
+    @if($trackingShouldLoadTiktok)
+        <script>
+            !function (w, d, t) {
+                w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=document.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=document.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};
+                ttq.load('{{ $trackingTiktokPixelId }}');
+                ttq.page();
+            }(window, document, 'ttq');
+        </script>
     @endif
 
     <script>

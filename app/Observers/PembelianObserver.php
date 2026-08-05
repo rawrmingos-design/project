@@ -9,6 +9,7 @@ use App\Services\AffiliateService;
 use App\Services\PointService;
 use App\Services\ResellerCallbackDeliveryService;
 use App\Services\ResetOutboundCallbackService;
+use App\Services\TikTokDeliveryService;
 use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\DB;
 
@@ -18,18 +19,21 @@ class PembelianObserver
     protected $affiliateService;
     protected $pointService;
     protected $resetOutboundCallbackService;
+    protected $tikTokDeliveryService;
 
     public function __construct(
         TierService $tierService,
         AffiliateService $affiliateService,
         PointService $pointService,
-        ResetOutboundCallbackService $resetOutboundCallbackService
+        ResetOutboundCallbackService $resetOutboundCallbackService,
+        TikTokDeliveryService $tikTokDeliveryService
     )
     {
         $this->tierService = $tierService;
         $this->affiliateService = $affiliateService;
         $this->pointService = $pointService;
         $this->resetOutboundCallbackService = $resetOutboundCallbackService;
+        $this->tikTokDeliveryService = $tikTokDeliveryService;
     }
 
     /**
@@ -50,14 +54,18 @@ class PembelianObserver
             return;
         }
 
+        if ($pembelian->wasChanged('status') && $this->transitionedToSuccess($pembelian) && $pembelian->hasPaidPaymentStatus()) {
+            $this->tikTokDeliveryService->dispatchForEligibleOrder($pembelian);
+        }
+
         if ($pembelian->wasChanged('status') && $this->transitionedToSuccess($pembelian)) {
             $this->pointService->ensureRedeemedPointsForOrder($pembelian);
-            
+
             $user = $pembelian->user;
             if ($user) {
                 // Check Tier
                 $this->tierService->checkAndUpgradeTier($user);
-                
+
                 // Process Affiliate Commission
                 $this->affiliateService->processCommission($pembelian);
 
@@ -76,6 +84,10 @@ class PembelianObserver
 
         if ($pembelian->isSandboxOrder()) {
             return;
+        }
+
+        if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS && $pembelian->hasPaidPaymentStatus()) {
+            $this->tikTokDeliveryService->dispatchForEligibleOrder($pembelian);
         }
 
         if (PembelianStatus::normalize($pembelian->status) === PembelianStatus::SUCCESS) {
