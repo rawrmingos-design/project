@@ -10,10 +10,12 @@ use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
 use App\Models\Pembelian;
+use App\Models\Pembayaran;
 use App\Models\Kategori;
 use App\Models\MediaAsset;
 use App\Models\Tenant;
 use App\Observers\PembelianObserver;
+use App\Observers\PembayaranObserver;
 use App\Observers\KategoriObserver;
 use App\Observers\TenantObserver;
 use App\Services\OptimizedImageService;
@@ -144,6 +146,7 @@ class AppServiceProvider extends ServiceProvider
 
         
         Pembelian::observe(PembelianObserver::class);
+        Pembayaran::observe(PembayaranObserver::class);
         Kategori::observe(KategoriObserver::class);
         Tenant::observe(TenantObserver::class);
 
@@ -202,7 +205,9 @@ class AppServiceProvider extends ServiceProvider
                 $dbConfig = \DB::table('setting_webs')->where('id', 1)->first();
 
                 if ($dbConfig) {
-                    $config = (object) array_merge($defaultConfig, (array) $dbConfig);
+                    $dbConfig = (array) $dbConfig;
+                    unset($dbConfig['tiktok_access_token_encrypted']);
+                    $config = (object) array_merge($defaultConfig, $dbConfig);
 
                     config([
                         'mail.default' => $config->mail_mailer ?: env('MAIL_MAILER', 'smtp'),

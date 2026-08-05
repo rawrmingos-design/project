@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
+use App\Models\Tenant;
+use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -87,6 +89,70 @@ class TrackingTemplateTest extends TestCase
         $response->assertSee('window.gtmTrackingEnabled = true', false);
         $response->assertSee('window.pushDataLayerEvent = function', false);
         $response->assertSee('googletagmanager.com/ns.html?id=GTM-INERTIA123', false);
+    }
+
+    public function test_tiktok_pixel_loads_pageview_once_when_configured(): void
+    {
+        config([
+            'services.tiktok.pixel_id' => 'C123456789012345',
+            'services.tiktok.access_token' => 'tiktok-test-token',
+        ]);
+        $settings = $this->createSettings();
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee("ttq.load('C123456789012345')", false);
+        $this->assertSame(1, substr_count($response->getContent(), "ttq.load('C123456789012345')"));
+        $this->assertSame(1, substr_count($response->getContent(), 'ttq.page()'));
+        $response->assertDontSee("ttq.track('CompletePayment'", false);
+    }
+
+    public function test_tiktok_pixel_uses_database_pixel_and_hides_access_token(): void
+    {
+        config([
+            'services.tiktok.pixel_id' => 'CENV123456789012',
+            'services.tiktok.access_token' => 'environment-secret-token',
+        ]);
+        $settings = $this->createSettings([
+            'tiktok_tracking_enabled' => true,
+            'tiktok_pixel_id' => 'CDB1234567890123',
+            'tiktok_access_token' => 'database-secret-token',
+        ]);
+
+        $response = $this->renderTrackingPage($settings);
+
+        $response->assertOk();
+        $response->assertSee("ttq.load('CDB1234567890123')", false);
+        $response->assertDontSee('CENV123456789012', false);
+        $response->assertDontSee('database-secret-token', false);
+        $response->assertDontSee('environment-secret-token', false);
+        $response->assertDontSee((string) $settings->getRawOriginal('tiktok_access_token_encrypted'), false);
+    }
+
+    public function test_tenant_storefront_does_not_load_main_tiktok_pixel(): void
+    {
+        config([
+            'services.tiktok.pixel_id' => 'C123456789012345',
+            'services.tiktok.access_token' => 'tiktok-test-token',
+        ]);
+        $tenant = new Tenant([
+            'name' => 'Tenant Pixel',
+            'subdomain' => 'tenant-pixel',
+            'status' => 'active',
+        ]);
+        $tenant->setAttribute('id', 999);
+        app(TenantContext::class)->set($tenant);
+
+        try {
+            $html = view('partials.tracking-bootstrap', [
+                'trackingSettings' => $this->createSettings(),
+            ])->render();
+        } finally {
+            app(TenantContext::class)->clear();
+        }
+
+        $this->assertStringNotContainsString("ttq.load('C123456789012345')", $html);
     }
 
     public function test_bangjeff_inertia_root_keeps_custom_gtm_server_rendered(): void
