@@ -107,7 +107,7 @@ class ResetDomainService
                     if (in_array($providerStatus, [PembelianStatus::SUCCESS, PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
                         // The order is actually successful or still processing on the provider side
                         // Instead of resetting, we should update the order status
-                        $lockedPembelian->status = $providerStatus;
+                        $lockedPembelian->status = PembelianStatus::preferredDatabaseLabel($providerStatus);
 
                         if ($providerStatus === PembelianStatus::SUCCESS) {
                             $lockedPembelian->keterangan_sn = $statusData['sn'] ?? $statusData['message'] ?? 'Transaksi Sukses';
