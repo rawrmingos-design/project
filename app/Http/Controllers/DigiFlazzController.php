@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -136,7 +135,20 @@ class DigiFlazzController extends Controller
                 'Content-Type' => 'application/json',
             ])->post($this->endpoint . $url, $data);
 
-            return $response->json();
+            $responseData = $response->json();
+
+            // Log all responses to keep track of Digiflazz API calls
+            Log::info("Digiflazz API Response: " . $url, [
+                'request_ref_id' => $data['ref_id'] ?? null,
+                'request_sku' => $data['buyer_sku_code'] ?? null,
+                'status_code' => $response->status(),
+                'response_status' => $responseData['data']['status'] ?? 'unknown',
+                'response_sn' => $responseData['data']['sn'] ?? null,
+                'response_message' => $responseData['data']['message'] ?? null,
+                'response_body' => $responseData,
+            ]);
+
+            return $responseData;
         } catch (\Exception $e) {
             Log::error("DigiFlazz Connection Error: " . $e->getMessage(), ['url' => $this->endpoint . $url, 'data' => $data]);
             return ['data' => ['status' => 'Gagal', 'message' => 'Connection Error: ' . $e->getMessage()]];

@@ -5,6 +5,8 @@ namespace Tests\Feature\Bot;
 use App\Models\CategoryType;
 use App\Models\CustomInput;
 use App\Models\Kategori;
+use App\Models\InboundSourcePolicy;
+use App\Models\InboundSourceEntry;
 use App\Models\Layanan;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
@@ -28,6 +30,36 @@ class BotWebhookTest extends TestCase
         parent::setUp();
         Http::preventStrayRequests();
         config(['services.telegram-bot-api.token' => 'dummy-token']);
+        config(['services.telegram-bot-api.webhook_secret' => 'dummy-secret']);
+        config(['services.fonnte.device_token' => 'dummy-device-token']);
+
+        // Mock inbound source policies to allow local requests
+        $telegramPolicy = InboundSourcePolicy::query()->create([
+            'source_domain' => 'bot_webhook',
+            'source_name' => 'telegram',
+            'mode' => 'disabled',
+            'is_active' => true,
+        ]);
+        $fonntePolicy = InboundSourcePolicy::query()->create([
+            'source_domain' => 'bot_webhook',
+            'source_name' => 'fonnte',
+            'mode' => 'disabled',
+            'is_active' => true,
+        ]);
+    }
+
+    protected function postJsonTelegram(array $data)
+    {
+        return parent::postJson('/api/webhooks/bot/telegram', $data, [
+            'X-Telegram-Bot-Api-Secret-Token' => config('services.telegram-bot-api.webhook_secret', ''),
+        ]);
+    }
+
+    protected function postJsonFonnte(array $data)
+    {
+        return parent::postJson('/api/webhooks/bot/fonnte', $data, [
+            'Authorization' => config('services.fonnte.device_token', ''),
+        ]);
     }
 
     public function test_telegram_adapter_handles_menu_command_and_replies_with_buttons()
@@ -53,7 +85,7 @@ class BotWebhookTest extends TestCase
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -79,7 +111,7 @@ class BotWebhookTest extends TestCase
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'callback_query' => [
                 'id' => 'cb_123',
                 'from' => ['id' => 9876],
@@ -127,7 +159,7 @@ class BotWebhookTest extends TestCase
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -183,7 +215,7 @@ class BotWebhookTest extends TestCase
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -254,7 +286,7 @@ class BotWebhookTest extends TestCase
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -298,7 +330,7 @@ class BotWebhookTest extends TestCase
             'status' => 'available'
         ]);
 
-        $response = $this->postJson('/api/webhooks/bot/fonnte', [
+        $response = $this->postJsonFonnte([
             'sender' => '6281234567890',
             'message' => 'layanan mlbb',
             'id' => 'MSG123',
@@ -667,7 +699,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse());
         });
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -692,7 +724,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse('https://provider.example/qris/INV-1.png'));
         });
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -738,7 +770,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse(paymentCode: $qrisUrl));
         });
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -776,7 +808,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse(paymentCode: $rawQris));
         });
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -808,7 +840,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse(paymentCode: '1234567890123456'));
         });
 
-        $response = $this->postJson('/api/webhooks/bot/telegram', [
+        $response = $this->postJsonTelegram([
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876],
@@ -853,7 +885,7 @@ class BotWebhookTest extends TestCase
                 ->andReturn($this->fakeInvoiceResponse());
         });
 
-        $response = $this->postJson('/api/webhooks/bot/fonnte', [
+        $response = $this->postJsonFonnte([
             'sender' => '+62 812-3456-7890',
             'message' => 'invoice 1 QRIS user123 zone123',
             'id' => 'MSG123',
