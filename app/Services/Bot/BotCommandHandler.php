@@ -18,22 +18,35 @@ class BotCommandHandler
         private readonly GatewayPricingService $pricing,
         private readonly GatewayCheckIdService $checkId,
         private readonly GatewayInvoiceService $invoice,
-        private readonly BotMessageFormatter $formatter
+        private readonly BotMessageFormatter $formatter,
+        private readonly TelegramChannelMembershipService $telegramMembership
     ) {}
 
     /**
      * @param string $command
      * @param array $args
-     * @param array $context {source: string, external_user_id: string, message_id?: string, nomor?: string, whatsapp?: string, email?: string}
+     * @param array $context {source: string, external_user_id: string, telegram_user_id?: int|string, message_id?: string, nomor?: string, whatsapp?: string, email?: string}
      * @return array{text: string, buttons: array}
      */
     public function handle(?string $command, array $args, array $context): array
     {
-        if ($this->shouldClearCheckoutState($command, $context)) {
-            Cache::forget($this->checkoutStateKey($context));
-        }
-
         try {
+            $membership = $this->telegramMembership->check($context);
+
+            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
+                return $this->formatter->formatTelegramMembershipRequired(
+                    (string) ($membership['channel_url'] ?? ''),
+                );
+            }
+
+            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
+                return $this->formatter->formatTelegramMembershipUnavailable();
+            }
+
+            if ($this->shouldClearCheckoutState($command, $context)) {
+                Cache::forget($this->checkoutStateKey($context));
+            }
+
             return match ($command) {
                 'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
                 'menu' => $this->handleMenu($args),

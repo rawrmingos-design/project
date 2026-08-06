@@ -55,6 +55,7 @@ class TelegramAdapter implements BotAdapterInterface
         $context = [
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:' . $fromId,
+            'telegram_user_id' => $fromId,
             'message_id' => 'telegram:' . $chatId . ':' . $messageId,
             'email' => $fromId . '@telegram.user',
         ];

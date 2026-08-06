@@ -43,6 +43,41 @@ class BotMessageFormatter
     /**
      * @return array{text: string, buttons: array}
      */
+    public function formatTelegramMembershipRequired(string $channelUrl): array
+    {
+        return [
+            'text' => implode("\n", [
+                '*Gabung Channel Terlebih Dahulu*',
+                '',
+                'Anda harus bergabung ke channel Telegram kami sebelum membuka menu, melihat produk, atau melakukan transaksi.',
+                '',
+                'Setelah bergabung, tekan tombol *Cek Keanggotaan*.',
+            ]),
+            'buttons' => [[
+                $this->urlButton('Gabung Channel', $channelUrl),
+                $this->button('Cek Keanggotaan', 'menu'),
+            ]],
+        ];
+    }
+
+    /**
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTelegramMembershipUnavailable(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '*Verifikasi Keanggotaan Bermasalah*',
+                '',
+                'Keanggotaan channel Anda belum dapat diverifikasi. Silakan coba lagi dalam beberapa saat.',
+            ]),
+            'buttons' => [[$this->button('Coba Lagi', 'menu')]],
+        ];
+    }
+
+    /**
+     * @return array{text: string, buttons: array}
+     */
     public function formatCategories(array $data, int $page = 1): array
     {
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
