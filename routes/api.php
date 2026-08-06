@@ -102,9 +102,13 @@ Route::prefix('webhooks')->group(function () {
 });
 
 // ── BOT WEBHOOKS (TELEGRAM / WHATSAPP) ──────────────────
-Route::prefix('webhooks/bot')->group(function () {
-    Route::post('/telegram', [BotWebhookController::class, 'telegram'])->name('webhooks.bot.telegram');
-    Route::post('/fonnte', [BotWebhookController::class, 'fonnte'])->name('webhooks.bot.fonnte');
+Route::prefix('webhooks/bot')->middleware('throttle:60,1')->group(function () {
+    Route::post('/telegram', [BotWebhookController::class, 'telegram'])
+        ->middleware('inbound.whitelist:bot_webhook,telegram,enforce')
+        ->name('webhooks.bot.telegram');
+    Route::post('/fonnte', [BotWebhookController::class, 'fonnte'])
+        ->middleware('inbound.whitelist:bot_webhook,fonnte,enforce')
+        ->name('webhooks.bot.fonnte');
 });
 
 Route::prefix('auth')->group(function () {

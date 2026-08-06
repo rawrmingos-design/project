@@ -156,7 +156,9 @@ final class PembelianStatus
             return true;
         }
 
-        if (in_array($current, [self::FAILED, self::CANCELLED, self::EXPIRED, self::REFUNDED], true)) {
+        // Fix Digiflazz transient error -> callback success bug
+        // Failed is no longer a terminal state that blocks all updates
+        if (in_array($current, [self::CANCELLED, self::EXPIRED, self::REFUNDED], true)) {
             return true;
         }
 

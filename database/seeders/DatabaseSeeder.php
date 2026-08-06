@@ -51,6 +51,8 @@ class DatabaseSeeder extends Seeder
 
                 // Misc
                 VouchersSeeder::class,
+
+                InboundWhitelistBotWebhookSeeder::class,
             ]);
         } finally {
             Schema::enableForeignKeyConstraints();

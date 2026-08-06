@@ -52,6 +52,11 @@ return [
 
     'telegram-bot-api' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+    ],
+
+    'fonnte' => [
+        'device_token' => env('FONNTE_DEVICE_TOKEN'),
     ],
 
     'tiktok' => [

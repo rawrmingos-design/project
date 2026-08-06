@@ -7,20 +7,41 @@ use App\Services\Bot\Adapters\FonnteAdapter;
 use App\Services\Bot\Adapters\TelegramAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class BotWebhookController extends Controller
 {
     public function telegram(Request $request, TelegramAdapter $adapter): JsonResponse
     {
-        // Simple security: check token in path if we registered webhook with path
-        // e.g. /api/webhooks/bot/telegram/{token}
-        // For MVP, we assume the route is protected or secret enough
+        $secret = (string) config('services.telegram-bot-api.webhook_secret');
+        $headerToken = (string) $request->header('X-Telegram-Bot-Api-Secret-Token', '');
+
+        if ($secret !== '' && ! hash_equals($secret, $headerToken)) {
+            Log::warning('Telegram webhook authentication failed.', [
+                'ip' => $request->ip(),
+                'secret_configured' => $secret !== '',
+            ]);
+
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
         return $adapter->handle($request);
     }
 
     public function fonnte(Request $request, FonnteAdapter $adapter): JsonResponse
     {
-        // Fonnte webhook validation can be done here (e.g. check device token header if any)
+        $expectedToken = (string) config('services.fonnte.device_token');
+        $providedToken = (string) ($request->header('Authorization') ?: $request->input('device_token', ''));
+
+        if ($expectedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
+            Log::warning('Fonnte webhook authentication failed.', [
+                'ip' => $request->ip(),
+                'secret_configured' => $expectedToken !== '',
+            ]);
+
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
         return $adapter->handle($request);
     }
 }

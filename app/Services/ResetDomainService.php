@@ -6,6 +6,8 @@ use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Pembelian;
 use App\Models\ProviderPath;
+use App\Http\Controllers\DigiFlazzController;
+use App\Support\PembelianStatus;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -86,6 +88,37 @@ class ResetDomainService
 
             $sourceLayanan = $this->resolveSourceLayanan($lockedPembelian);
             [$currentProviderCode, $currentProviderSku] = $this->resolveCurrentProviderContext($lockedPembelian, $sourceLayanan);
+
+            // Fix Digiflazz double execution bug
+            // Before resetting, check if the current attempt is actually successful on Digiflazz's end
+            if ($currentProviderCode === 'digiflazz' && $lockedPembelian->active_attempt_reference) {
+                $digiFlazz = new DigiFlazzController();
+                $response = $digiFlazz->status(
+                    $lockedPembelian->active_attempt_reference,
+                    $currentProviderSku,
+                    $lockedPembelian->user_id,
+                    $lockedPembelian->zone
+                );
+
+                $statusData = $response['data'] ?? null;
+                if ($statusData && isset($statusData['status'])) {
+                    $providerStatus = PembelianStatus::normalize($statusData['status']);
+
+                    if (in_array($providerStatus, [PembelianStatus::SUCCESS, PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
+                        // The order is actually successful or still processing on the provider side
+                        // Instead of resetting, we should update the order status
+                        $lockedPembelian->status = $providerStatus;
+
+                        if ($providerStatus === PembelianStatus::SUCCESS) {
+                            $lockedPembelian->keterangan = $statusData['sn'] ?? $statusData['message'] ?? 'Transaksi Sukses';
+                        }
+
+                        $lockedPembelian->save();
+                        throw new DomainException("Cannot reset: Order is already {$providerStatus} at provider. Status has been synced.");
+                    }
+                }
+            }
+
             $validatedCandidate = $candidateId !== null
                 ? $this->validateProviderSwitch($lockedPembelian, $candidateId)
                 : null;
