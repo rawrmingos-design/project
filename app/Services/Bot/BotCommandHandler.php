@@ -34,12 +34,16 @@ class BotCommandHandler
             $membership = $this->telegramMembership->check($context);
 
             if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
+                $this->clearCheckoutState($context);
+
                 return $this->formatter->formatTelegramMembershipRequired(
                     (string) ($membership['channel_url'] ?? ''),
                 );
             }
 
             if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
+                $this->clearCheckoutState($context);
+
                 return $this->formatter->formatTelegramMembershipUnavailable();
             }
 
@@ -233,9 +237,7 @@ class BotCommandHandler
 
     private function cancelCheckout(array $context): array
     {
-        if ($this->supportsConversationalCheckout($context)) {
-            Cache::forget($this->checkoutStateKey($context));
-        }
+        $this->clearCheckoutState($context);
 
         return [
             'text' => 'Checkout dibatalkan.',
@@ -315,6 +317,13 @@ class BotCommandHandler
                 'start', 'help', 'bantuan', 'menu', 'kategori', 'layanan', 'produk',
                 'pembayaran', 'metode', 'cekid', 'invoice', 'beli', 'status',
             ], true);
+    }
+
+    private function clearCheckoutState(array $context): void
+    {
+        if ($this->supportsConversationalCheckout($context)) {
+            Cache::forget($this->checkoutStateKey($context));
+        }
     }
 
     private function supportsConversationalCheckout(array $context): bool
