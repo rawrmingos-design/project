@@ -781,6 +781,48 @@ class BotWebhookTest extends TestCase
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 
+    public function test_telegram_membership_denial_blocks_input_and_clears_checkout_state(): void
+    {
+        Cache::flush();
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.id' => '@testchannel',
+            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+        ]);
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
+                'ok' => true,
+                'result' => ['status' => 'left'],
+            ]),
+        ]);
+
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'telegram_user_id' => 9876,
+            'message_id' => 'telegram:12345:111',
+        ];
+        Cache::put($this->checkoutStateKey('telegram:9876'), [
+            'step' => 'waiting_game_id',
+            'service_id' => 123,
+            'payment_method' => 'QRIS',
+            'category_code' => 'mobile-legends',
+        ], now()->addMinutes(15));
+
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('quote');
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $response = $handler->handle('12345', ['6789'], $context);
+
+        $this->assertStringContainsString('Gabung Channel Terlebih Dahulu', $response['text']);
+        $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
+    }
+
     public function test_telegram_invoice_uses_synthetic_email_contact()
     {
         Http::fake([
