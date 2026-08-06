@@ -110,7 +110,7 @@ class ResetDomainService
                         $lockedPembelian->status = $providerStatus;
 
                         if ($providerStatus === PembelianStatus::SUCCESS) {
-                            $lockedPembelian->keterangan = $statusData['sn'] ?? $statusData['message'] ?? 'Transaksi Sukses';
+                            $lockedPembelian->keterangan_sn = $statusData['sn'] ?? $statusData['message'] ?? 'Transaksi Sukses';
                         }
 
                         $lockedPembelian->save();
