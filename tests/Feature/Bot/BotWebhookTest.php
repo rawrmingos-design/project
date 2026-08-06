@@ -6,10 +6,10 @@ use App\Models\CategoryType;
 use App\Models\CustomInput;
 use App\Models\Kategori;
 use App\Models\InboundSourcePolicy;
-use App\Models\InboundSourceEntry;
 use App\Models\Layanan;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
+use App\Services\Bot\TelegramChannelMembershipService;
 use App\Services\Gateway\GatewayCatalogService;
 use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
@@ -34,13 +34,13 @@ class BotWebhookTest extends TestCase
         config(['services.fonnte.device_token' => 'dummy-device-token']);
 
         // Mock inbound source policies to allow local requests
-        $telegramPolicy = InboundSourcePolicy::query()->create([
+        InboundSourcePolicy::query()->create([
             'source_domain' => 'bot_webhook',
             'source_name' => 'telegram',
             'mode' => 'disabled',
             'is_active' => true,
         ]);
-        $fonntePolicy = InboundSourcePolicy::query()->create([
+        InboundSourcePolicy::query()->create([
             'source_domain' => 'bot_webhook',
             'source_name' => 'fonnte',
             'mode' => 'disabled',
@@ -102,6 +102,85 @@ class BotWebhookTest extends TestCase
                    str_contains($request['text'], 'Pilih kategori') &&
                    isset($request['reply_markup']['inline_keyboard']);
         });
+    }
+
+    public function test_telegram_non_member_must_join_before_opening_menu(): void
+    {
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.id' => '@testchannel',
+            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+        ]);
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
+                'ok' => true,
+                'result' => ['status' => 'left'],
+            ]),
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $response = $this->postJsonTelegram([
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => '/menu',
+                'message_id' => 111,
+            ],
+        ]);
+
+        $response->assertOk();
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), 'getChatMember')) {
+                return false;
+            }
+
+            return $request['chat_id'] === '@testchannel'
+                && $request['user_id'] === 9876;
+        });
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), 'sendMessage')) {
+                return false;
+            }
+
+            $keyboard = $request['reply_markup']['inline_keyboard'];
+
+            return str_contains($request['text'], 'Gabung Channel Terlebih Dahulu')
+                && $keyboard[0][0]['url'] === 'https://t.me/testchannel'
+                && $keyboard[0][1]['callback_data'] === 'menu';
+        });
+    }
+
+    public function test_telegram_callback_checks_callback_user_membership(): void
+    {
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.id' => '@testchannel',
+            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+        ]);
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
+                'ok' => true,
+                'result' => ['status' => 'member'],
+            ]),
+            'https://api.telegram.org/botdummy-token/answerCallbackQuery' => Http::response(['ok' => true]),
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $response = $this->postJsonTelegram([
+            'callback_query' => [
+                'id' => 'cb_member',
+                'from' => ['id' => 9876],
+                'message' => [
+                    'chat' => ['id' => -100999999],
+                    'message_id' => 111,
+                ],
+                'data' => 'menu',
+            ],
+        ]);
+
+        $response->assertOk();
+        Http::assertSent(fn ($request): bool => str_contains($request->url(), 'getChatMember')
+            && $request['user_id'] === 9876);
     }
 
     public function test_telegram_adapter_handles_callback_query()
@@ -312,6 +391,27 @@ class BotWebhookTest extends TestCase
                 && $backRow[0]['text'] === '🔙 Kembali'
                 && $backRow[0]['callback_data'] === 'kategori top-up-games';
         });
+    }
+
+    public function test_fonnte_skips_telegram_membership_check(): void
+    {
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.id' => '@testchannel',
+            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+        ]);
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true]),
+        ]);
+
+        $response = $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'menu',
+            'id' => 'MSG-SKIP',
+        ]);
+
+        $response->assertOk();
+        Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'getChatMember'));
     }
 
     public function test_fonnte_adapter_handles_layanan_command_and_appends_fallback_buttons()
@@ -918,6 +1018,7 @@ class BotWebhookTest extends TestCase
             app(GatewayCheckIdService::class),
             $invoice,
             app(BotMessageFormatter::class),
+            app(TelegramChannelMembershipService::class),
         );
     }
 

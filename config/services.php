@@ -53,6 +53,12 @@ return [
     'telegram-bot-api' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        'required_channel' => [
+            'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
+            'id' => env('TELEGRAM_REQUIRED_CHANNEL_ID'),
+            'url' => env('TELEGRAM_REQUIRED_CHANNEL_URL'),
+            'cache_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_CACHE_SECONDS', 120),
+        ],
     ],
 
     'fonnte' => [
