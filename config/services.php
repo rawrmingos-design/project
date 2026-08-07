@@ -53,6 +53,7 @@ return [
     'telegram-bot-api' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        'admin_contact_url' => env('TELEGRAM_ADMIN_CONTACT_URL', ''),
         'required_channel' => [
             'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
             'id' => env('TELEGRAM_REQUIRED_CHANNEL_ID'),

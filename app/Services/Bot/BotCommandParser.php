@@ -13,6 +13,18 @@ class BotCommandParser
     public function parse(string $message): array
     {
         $message = trim($message);
+
+        $message = match ($message) {
+            '🛍️ Buka Menu'       => 'menu',
+            '🔎 Cek Status'      => 'status',
+            '📦 Cek Status'      => 'status',
+            '🔍 Cek ID Game'     => 'cekid',
+            '❓ Bantuan'         => 'help',
+            '❌ Batal Transaksi' => 'batal',
+            '📞 Hubungi Admin'   => 'admin',
+            default              => $message,
+        };
+
         if ($message === '') {
             return ['command' => null, 'args' => []];
         }

@@ -105,8 +105,11 @@ class TelegramAdapter implements BotAdapterInterface
             $payload['text'] = $response['text'];
         }
 
-        // Format inline keyboard if buttons exist
-        if (!empty($response['buttons'])) {
+        $hasInlineButtons = ! empty($response['buttons']);
+        $wantsReplyKeyboard = ! empty($response['use_reply_keyboard']);
+
+        if ($hasInlineButtons) {
+            // Format inline keyboard
             $keyboard = [];
             foreach ($response['buttons'] as $row) {
                 $buttons = $this->isButton($row) ? [$row] : $row;
@@ -134,7 +137,24 @@ class TelegramAdapter implements BotAdapterInterface
             }
 
             $payload['reply_markup'] = [
-                'inline_keyboard' => $keyboard
+                'inline_keyboard' => $keyboard,
+            ];
+        } elseif ($wantsReplyKeyboard) {
+            // Tidak ada inline button — gunakan reply keyboard permanen
+            $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
+            $keyboard = [
+                [['text' => '🛍️ Buka Menu']],
+                [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
+                [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
+            ];
+            if ($adminUrl !== '') {
+                $keyboard[] = [['text' => '📞 Hubungi Admin']];
+            }
+            $payload['reply_markup'] = [
+                'keyboard' => $keyboard,
+                'resize_keyboard' => true,
+                'is_persistent' => true,
+                'input_field_placeholder' => 'Pilih aksi...',
             ];
         }
 
