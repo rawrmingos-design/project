@@ -424,6 +424,28 @@ class BotMessageFormatter
                     $this->button('🛍️ Tampilkan Menu / Produk', 'menu'),
                 ],
             ],
+            'use_reply_keyboard' => true,
+        ];
+    }
+
+    public function defaultReplyKeyboard(): array
+    {
+        $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
+        $keyboard = [
+            [['text' => '🛍️ Buka Menu']],
+            [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
+            [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
+        ];
+
+        if ($adminUrl !== '') {
+            $keyboard[] = [['text' => '📞 Hubungi Admin']];
+        }
+
+        return [
+            'keyboard' => $keyboard,
+            'resize_keyboard' => true,
+            'is_persistent' => true,
+            'input_field_placeholder' => 'Pilih aksi...',
         ];
     }
 

@@ -62,6 +62,7 @@ class BotCommandHandler
                 'invoice', 'beli' => $this->handleInvoice($args, $context),
                 'status' => $this->handleStatus($args, $context),
                 'batal', 'cancel' => $this->cancelCheckout($context),
+                'admin' => $this->handleAdmin(),
                 default => $this->handleUnknownInput($command, $args, $context),
             };
         } catch (ValidationException $e) {
@@ -174,6 +175,7 @@ class BotCommandHandler
             return [
                 'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
                 'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']],
+                'use_reply_keyboard' => true,
             ];
         }
 
@@ -235,6 +237,25 @@ class BotCommandHandler
         return $values === [] || in_array($zone, $values, true);
     }
 
+    private function handleAdmin(): array
+    {
+        $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
+
+        if ($adminUrl === '') {
+            return [
+                'text' => 'Hubungi admin melalui channel resmi kami.',
+                'buttons' => [],
+            ];
+        }
+
+        return [
+            'text' => '📞 Klik tombol di bawah untuk menghubungi admin:',
+            'buttons' => [[
+                ['text' => '📞 Chat Admin', 'url' => $adminUrl],
+            ]],
+        ];
+    }
+
     private function cancelCheckout(array $context): array
     {
         $this->clearCheckoutState($context);
@@ -247,6 +268,22 @@ class BotCommandHandler
 
     private function handleCekId(array $args): array
     {
+        if (count($args) === 0) {
+            return [
+                'text' => implode("\n", [
+                    '*🔍 Cek ID Game*',
+                    '',
+                    'Gunakan perintah berikut untuk memeriksa validitas UID:',
+                    '',
+                    'Format: `cekid <kode_produk> <uid> [zone]`',
+                    'Contoh: `cekid mobile-legends 1234567 1234`',
+                ]),
+                'buttons' => [
+                    [['text' => '🛍️ Buka Menu', 'callback' => 'menu']],
+                ],
+            ];
+        }
+
         if (count($args) < 2) {
             return [
                 'text' => "Format salah. Gunakan: `cekid <kode_produk> <uid> [zone]`\nContoh: `cekid mobile-legends 1234567 1234`",
