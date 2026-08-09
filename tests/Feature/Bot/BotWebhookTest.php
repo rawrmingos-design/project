@@ -11,6 +11,7 @@ use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\TelegramChannelMembershipService;
 use App\Services\Gateway\GatewayCatalogService;
+use App\Services\WhatsappNotificationService;
 use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
 use App\Services\Gateway\GatewayPricingService;
@@ -437,6 +438,211 @@ class BotWebhookTest extends TestCase
         ]);
 
         $response->assertOk()->assertJsonPath('status', true);
+    }
+
+    public function test_fonnte_numeric_menu_maps_selection_and_rejects_out_of_range_choice(): void
+    {
+        Cache::flush();
+
+        $type = CategoryType::query()->create([
+            'name' => 'Top Up Games',
+            'slug' => 'top-up-games',
+            'sort' => 1,
+        ]);
+        $category = Kategori::factory()->create([
+            'category_type_id' => $type->id,
+            'kode' => 'mlbb',
+            'nama' => 'Mobile Legends',
+            'status' => 'active',
+        ]);
+        Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 DM',
+            'harga_member' => 15000,
+            'status' => 'available',
+        ]);
+
+        $sentMessages = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sentMessages): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(3)
+                ->andReturnUsing(function (string $target, string $message) use (&$sentMessages): array {
+                    $sentMessages[] = compact('target', 'message');
+
+                    return ['success' => true];
+                });
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '+62 812-3456-7890',
+            'message' => 'menu',
+            'id' => 'MSG-NUMERIC-1',
+        ])->assertOk();
+
+        $this->assertStringContainsString('1. 🎮 Top Up Games — ketik: 1', $sentMessages[0]['message']);
+        $this->assertStringContainsString('Ketik 1-1 untuk memilih.', $sentMessages[0]['message']);
+
+        $stateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890');
+        $this->assertSame('categories', Cache::get($stateKey)['menu']);
+        $this->assertSame('kategori top-up-games', Cache::get($stateKey)['items'][0]['command']);
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => '1',
+            'id' => 'MSG-NUMERIC-2',
+        ])->assertOk();
+
+        $this->assertStringContainsString('Daftar Produk Top Up Games', $sentMessages[1]['message']);
+        $this->assertStringContainsString('1. ⚔️ Mobile Legends — ketik: 1', $sentMessages[1]['message']);
+        $this->assertSame('products', Cache::get($stateKey)['menu']);
+        $this->assertSame('layanan mlbb', Cache::get($stateKey)['items'][0]['command']);
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => '5',
+            'id' => 'MSG-NUMERIC-3',
+        ])->assertOk();
+
+        $this->assertStringStartsWith('Pilihan tidak valid. Silakan pilih angka 1-2.', $sentMessages[2]['message']);
+        $this->assertStringContainsString('Daftar Produk Top Up Games', $sentMessages[2]['message']);
+        $this->assertStringNotContainsString('Perintah tidak dikenali', $sentMessages[2]['message']);
+        $this->assertSame('products', Cache::get($stateKey)['menu']);
+    }
+
+    public function test_fonnte_numeric_menu_maps_pagination_on_the_active_page(): void
+    {
+        Cache::flush();
+
+        foreach (range(1, 9) as $index) {
+            $type = CategoryType::query()->create([
+                'name' => "Top Up {$index}",
+                'slug' => "top-up-{$index}",
+                'sort' => $index,
+            ]);
+            $category = Kategori::factory()->create([
+                'category_type_id' => $type->id,
+                'status' => 'active',
+            ]);
+            Layanan::factory()->create([
+                'kategori_id' => $category->id,
+                'status' => 'available',
+            ]);
+        }
+
+        $sentMessages = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sentMessages): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message) use (&$sentMessages): array {
+                    $sentMessages[] = compact('target', 'message');
+
+                    return ['success' => true];
+                });
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281111111111',
+            'message' => 'menu',
+            'id' => 'MSG-PAGE-1',
+        ])->assertOk();
+
+        $stateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281111111111');
+        $pageOneState = Cache::get($stateKey);
+        $this->assertSame(1, $pageOneState['page']);
+        $this->assertSame('menu page:2', $pageOneState['items'][8]['command']);
+        $this->assertStringContainsString('9. Next ➡️', $sentMessages[0]['message']);
+
+        $this->postJsonFonnte([
+            'sender' => '6281111111111',
+            'message' => '9',
+            'id' => 'MSG-PAGE-2',
+        ])->assertOk();
+
+        $pageTwoState = Cache::get($stateKey);
+        $this->assertSame(2, $pageTwoState['page']);
+        $this->assertSame('kategori top-up-9', $pageTwoState['items'][0]['command']);
+        $this->assertSame('menu page:1', $pageTwoState['items'][1]['command']);
+        $this->assertStringContainsString('Halaman 2/2', $sentMessages[1]['message']);
+        $this->assertStringContainsString('1. 🎮 Top Up 9 — ketik: 1', $sentMessages[1]['message']);
+    }
+
+    public function test_fonnte_numeric_input_without_state_keeps_unknown_command_fallback(): void
+    {
+        Cache::flush();
+        $sentMessage = null;
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sentMessage): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $_target, string $message) use (&$sentMessage): array {
+                    $sentMessage = $message;
+
+                    return ['success' => true];
+                });
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6289999999999',
+            'message' => '1',
+            'id' => 'MSG-NO-STATE',
+        ])->assertOk();
+
+        $this->assertStringContainsString('Perintah tidak dikenali', (string) $sentMessage);
+        $this->assertStringContainsString('Ketik: `menu`', (string) $sentMessage);
+    }
+
+    public function test_fonnte_long_command_still_works_and_telegram_does_not_create_numeric_state(): void
+    {
+        Cache::flush();
+
+        $type = CategoryType::query()->create([
+            'name' => 'Top Up Games',
+            'slug' => 'top-up-games',
+            'sort' => 1,
+        ]);
+        $category = Kategori::factory()->create([
+            'category_type_id' => $type->id,
+            'kode' => 'mlbb',
+            'nama' => 'Mobile Legends',
+            'status' => 'active',
+        ]);
+        Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'status' => 'available',
+        ]);
+
+        $sentMessage = null;
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sentMessage): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $_target, string $message) use (&$sentMessage): array {
+                    $sentMessage = $message;
+
+                    return ['success' => true];
+                });
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6287777777777',
+            'message' => 'kategori top-up-games',
+            'id' => 'MSG-LONG-COMMAND',
+        ])->assertOk();
+
+        $this->assertStringContainsString('Daftar Produk Top Up Games', (string) $sentMessage);
+
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+        $this->postJsonTelegram([
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'menu',
+                'message_id' => 111,
+            ],
+        ])->assertOk();
+
+        $telegramStateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:9876');
+        $this->assertFalse(Cache::has($telegramStateKey));
     }
 
     public function test_telegram_status_renders_verified_payment_message_with_configured_store_name(): void

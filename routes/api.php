@@ -39,7 +39,7 @@ Route::post('/tenant/register', [TenantRegistrationController::class, 'register'
     ->middleware('throttle:10,1')
     ->name('api.tenant.register');
 Route::post('/webhooks/subscription', SubscriptionWebhookController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:subscription-callback')
     ->name('api.webhooks.subscription');
 
 Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
@@ -83,21 +83,21 @@ Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
 
 Route::prefix('webhooks')->group(function () {
     Route::post('/digiflazz', [WebhookController::class, 'digiflazz'])
-        ->middleware('inbound.whitelist:supplier_callback,digiflazz,log_only')
+        ->middleware(['throttle:provider-webhook', 'inbound.whitelist:supplier_callback,digiflazz,log_only'])
         ->name('webhooks.digiflazz');
     Route::post('/bangjeff', [WebhookController::class, 'bangjeff'])
-        ->middleware('inbound.whitelist:supplier_callback,bangjeff,log_only')
+        ->middleware(['throttle:provider-webhook', 'inbound.whitelist:supplier_callback,bangjeff,log_only'])
         ->name('webhooks.bangjeff');
     Route::post('/topupedia', [WebhookController::class, 'generic'])
         ->defaults('provider', 'topupedia')
-        ->middleware('inbound.whitelist:supplier_callback,topupedia,log_only')
+        ->middleware(['throttle:provider-webhook', 'inbound.whitelist:supplier_callback,topupedia,log_only'])
         ->name('webhooks.topupedia');
     Route::post('/apigames', [WebhookController::class, 'generic'])
         ->defaults('provider', 'apigames')
-        ->middleware('inbound.whitelist:supplier_callback,apigames,log_only')
+        ->middleware(['throttle:provider-webhook', 'inbound.whitelist:supplier_callback,apigames,log_only'])
         ->name('webhooks.apigames');
     Route::post('/{provider}', [WebhookController::class, 'generic'])
-        ->middleware('inbound.whitelist:supplier_callback,@provider,log_only')
+        ->middleware(['throttle:provider-webhook', 'inbound.whitelist:supplier_callback,@provider,log_only'])
         ->name('webhooks.generic');
 });
 
@@ -112,8 +112,10 @@ Route::prefix('webhooks/bot')->middleware('throttle:60,1')->group(function () {
 });
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:public-login');
+    Route::post('/register', [AuthController::class, 'register'])
+        ->middleware('throttle:public-register');
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
         ->middleware('throttle:password-recovery-request');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])
@@ -130,38 +132,40 @@ Route::prefix('auth')->group(function () {
 //     });
 
 // ── PUBLIC STOREFRONT ────────────────────────────────────
-Route::get('/home', [HomeController::class, 'index']);
-Route::get('/categories/search', [CategoryController::class, 'search']);
-Route::get('/categories/{kode}', [CategoryController::class, 'show']);
-Route::get('/price-list', [PricelistController::class, 'index']);
-Route::get('/reviews', [ReviewController::class, 'index']);
-Route::get('/leaderboard', [LeaderboardController::class, 'index']);
-Route::get('/articles', [ArticleController::class, 'index']);
-Route::get('/articles/{slug}', [ArticleController::class, 'show']);
-Route::get('/recent-purchases', [RecentPurchasesController::class, 'index']);
-Route::get('/content/{slug}', [ContentController::class, 'show']);
+Route::get('/home', [HomeController::class, 'index'])->middleware('throttle:public-api-read');
+Route::get('/categories/search', [CategoryController::class, 'search'])->middleware('throttle:public-search');
+Route::get('/categories/{kode}', [CategoryController::class, 'show'])->middleware('throttle:public-api-expensive-read');
+Route::get('/price-list', [PricelistController::class, 'index'])->middleware('throttle:public-api-expensive-read');
+Route::get('/reviews', [ReviewController::class, 'index'])->middleware('throttle:public-api-expensive-read');
+Route::get('/leaderboard', [LeaderboardController::class, 'index'])->middleware('throttle:public-api-expensive-read');
+Route::get('/articles', [ArticleController::class, 'index'])->middleware('throttle:public-api-read');
+Route::get('/articles/{slug}', [ArticleController::class, 'show'])->middleware('throttle:public-api-read');
+Route::get('/recent-purchases', [RecentPurchasesController::class, 'index'])
+    ->middleware('throttle:public-api-read')
+    ->name('recent-purchases.index');
+Route::get('/content/{slug}', [ContentController::class, 'show'])->middleware('throttle:public-api-read');
 // ── ORDER FLOW (HEADLESS) ──────────────────────────────
 Route::prefix('v2')->middleware('tenant.resolve')->group(function () {
-    Route::post('/order/price', [OrderController::class, 'price']);
-    Route::post('/order/confirm', [OrderController::class, 'confirm']);
-    Route::post('/order/store', [OrderController::class, 'store']);
-    Route::get('/order/status/{order_id}', [OrderController::class, 'show']);
-    Route::post('/order/voucher', [OrderController::class, 'validateVoucher']);
+    Route::post('/order/price', [OrderController::class, 'price'])->middleware('throttle:public-order-price');
+    Route::post('/order/confirm', [OrderController::class, 'confirm'])->middleware('throttle:public-order-confirm');
+    Route::post('/order/store', [OrderController::class, 'store'])->middleware('throttle:public-order-submit');
+    Route::get('/order/status/{order_id}', [OrderController::class, 'show'])->middleware('throttle:public-status');
+    Route::post('/order/voucher', [OrderController::class, 'validateVoucher'])->middleware('throttle:public-voucher');
 });
 
 // ── GATEWAY MVP ─────────────────────────────────────────
 Route::prefix('gateway')->middleware('tenant.resolve')->group(function () {
-    Route::get('/category-types', [GatewayController::class, 'categoryTypes']);
-    Route::get('/categories', [GatewayController::class, 'categories']);
-    Route::get('/products', [GatewayController::class, 'products']);
-    Route::get('/services', [GatewayController::class, 'services']);
-    Route::get('/services/{service_id}', [GatewayController::class, 'serviceDetail']);
-    Route::get('/payment-methods', [GatewayController::class, 'paymentMethods']);
-    Route::post('/vouchers/validate', [GatewayController::class, 'validateVoucher']);
-    Route::post('/price', [GatewayController::class, 'price']);
-    Route::post('/check-id', [GatewayController::class, 'checkId']);
-    Route::post('/invoices', [GatewayController::class, 'createInvoice']);
-    Route::get('/invoices/{order_id}', [GatewayController::class, 'status']);
+    Route::get('/category-types', [GatewayController::class, 'categoryTypes'])->middleware('throttle:public-api-read');
+    Route::get('/categories', [GatewayController::class, 'categories'])->middleware('throttle:public-api-read');
+    Route::get('/products', [GatewayController::class, 'products'])->middleware('throttle:public-api-read');
+    Route::get('/services', [GatewayController::class, 'services'])->middleware('throttle:public-api-read');
+    Route::get('/services/{service_id}', [GatewayController::class, 'serviceDetail'])->middleware('throttle:public-api-expensive-read');
+    Route::get('/payment-methods', [GatewayController::class, 'paymentMethods'])->middleware('throttle:public-api-read');
+    Route::post('/vouchers/validate', [GatewayController::class, 'validateVoucher'])->middleware('throttle:public-voucher');
+    Route::post('/price', [GatewayController::class, 'price'])->middleware('throttle:public-order-price');
+    Route::post('/check-id', [GatewayController::class, 'checkId'])->middleware('throttle:public-account-check');
+    Route::post('/invoices', [GatewayController::class, 'createInvoice'])->middleware('throttle:public-invoice-create');
+    Route::get('/invoices/{order_id}', [GatewayController::class, 'status'])->middleware('throttle:public-status');
 });
 
 // ── POSTMAN EXPORT ──────────────────────────────────────

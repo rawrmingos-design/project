@@ -57,13 +57,21 @@ class Handler extends ExceptionHandler
 
         if (
             $exception instanceof TooManyRequestsHttpException
-            && ($request->expectsJson() || $request->is('api/v1/*'))
+            && ($request->expectsJson() || $request->is('api/*'))
         ) {
             $retryAfter = (int) ($exception->getHeaders()['Retry-After'] ?? 0);
 
             if ($retryAfter <= 0) {
                 $retryAfter = 60;
             }
+
+            Log::warning('http.rate_limit.exceeded', [
+                'route' => $request->route()?->getName(),
+                'route_uri' => $request->route()?->uri(),
+                'method' => $request->method(),
+                'retry_after' => $retryAfter,
+                'ip_hash' => hash_hmac('sha256', (string) $request->ip(), (string) config('app.key')),
+            ]);
 
             return ResellerApiResponse::tooManyRequests($retryAfter, $exception->getHeaders());
         }

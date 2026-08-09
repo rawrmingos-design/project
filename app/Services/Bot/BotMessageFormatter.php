@@ -104,6 +104,11 @@ class BotMessageFormatter
         return [
             'text' => "*Menu Utama*\nPilih kategori layanan yang Anda inginkan:" . $this->pageSuffix($pagination),
             'buttons' => $buttons,
+            'numeric_menu' => [
+                'menu' => 'categories',
+                'parent_menu' => null,
+                'page' => $pagination['page'],
+            ],
         ];
     }
 
@@ -136,6 +141,11 @@ class BotMessageFormatter
         return [
             'text' => "*Daftar Produk {$firstType}*\nSilahkan pilih produk:" . $this->pageSuffix($pagination),
             'buttons' => $buttons,
+            'numeric_menu' => [
+                'menu' => 'products',
+                'parent_menu' => 'menu',
+                'page' => $pagination['page'],
+            ],
         ];
     }
 
@@ -167,6 +177,11 @@ class BotMessageFormatter
         return [
             'text' => "*Layanan {$productName}*\nPilih nominal yang ingin dibeli:" . $this->pageSuffix($pagination),
             'buttons' => $buttons,
+            'numeric_menu' => [
+                'menu' => 'services',
+                'parent_menu' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
+                'page' => $pagination['page'],
+            ],
         ];
     }
 
@@ -196,6 +211,11 @@ class BotMessageFormatter
         return [
             'text' => "*Pilih Metode Pembayaran:*" . $this->pageSuffix($pagination),
             'buttons' => $buttons,
+            'numeric_menu' => [
+                'menu' => 'payments',
+                'parent_menu' => $backCallback,
+                'page' => $pagination['page'],
+            ],
         ];
     }
 

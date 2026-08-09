@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 
@@ -81,7 +82,7 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('public-login', function (Request $request) {
-            $username = mb_strtolower(trim((string) $request->input('username', '')));
+            $username = $this->fingerprint([$request->input('username')]);
 
             return [
                 Limit::perMinute(15)->by('login-ip:' . $request->ip()),
@@ -90,8 +91,10 @@ class RouteServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('public-register', function (Request $request) {
-            $email = mb_strtolower(trim((string) $request->input('email', '')));
-            $phone = preg_replace('/\D+/', '', (string) $request->input('no_wa', ''));
+            $email = $this->fingerprint([$request->input('email')]);
+            $phone = $this->fingerprint([
+                preg_replace('/\D+/', '', (string) $request->input('no_wa', '')),
+            ]);
 
             return [
                 Limit::perMinute(8)->by('register-ip:' . $request->ip()),
@@ -147,6 +150,162 @@ class RouteServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('public-order-price', fn (Request $request) =>
+            Limit::perMinute(30)->by('order-price:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('public-order-confirm', fn (Request $request) =>
+            Limit::perMinute(10)->by('order-confirm:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('public-account-check', function (Request $request) {
+            $target = $this->fingerprint([
+                $request->input('kategori_id', $request->input('category_id', $request->input('category'))),
+                $request->input('uid', $request->input('user_id', $request->input('id'))),
+                $request->input('zone', $request->input('server')),
+            ]);
+
+            return [
+                Limit::perMinute(10)->by('account-check:' . $this->tenantIpKey($request)),
+                Limit::perMinutes(60, 30)->by('account-check-hour:' . $request->ip()),
+                Limit::perMinute(6)->by('account-check-target:' . $this->tenantKey() . ':' . $target),
+            ];
+        });
+
+        RateLimiter::for('public-order-submit', function (Request $request) {
+            return [
+                Limit::perMinute(5)->by('order-submit:' . $this->tenantIpKey($request)),
+                Limit::perMinute(5)->by('order-submit-actor:' . $this->actorKey($request)),
+            ];
+        });
+
+        RateLimiter::for('public-status', function (Request $request) {
+            $order = $request->route('order') ?? $request->route('order_id') ?? $request->route('invoice');
+
+            return [
+                Limit::perMinute(30)->by('public-status-ip:' . $request->ip()),
+                Limit::perMinute(10)->by('public-status-order:' . $this->fingerprint([$order])),
+            ];
+        });
+
+        RateLimiter::for('public-voucher', fn (Request $request) =>
+            Limit::perMinute(30)->by('public-voucher:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('supplier-callback', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.supplier_per_minute', 240)))
+                ->by('supplier-callback:' . $this->callbackKey($request))
+        );
+
+        RateLimiter::for('payment-callback', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.payment_per_minute', 180)))
+                ->by('payment-callback:' . $this->callbackKey($request))
+        );
+
+        RateLimiter::for('subscription-callback', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.subscription_per_minute', 120)))
+                ->by('subscription-callback:' . $this->callbackKey($request))
+        );
+
+        RateLimiter::for('razer-callback', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.razer_per_minute', 180)))
+                ->by('razer-callback:' . $request->ip())
+        );
+
+        RateLimiter::for('public-api-read', fn (Request $request) =>
+            Limit::perMinute(120)->by('public-api-read:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('public-api-expensive-read', fn (Request $request) =>
+            Limit::perMinute(30)->by('public-api-expensive-read:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('public-invoice-create', function (Request $request) {
+            $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
+            $keyFingerprint = $idempotencyKey !== ''
+                ? $this->fingerprint([$idempotencyKey])
+                : $this->fingerprint([$this->tenantIpKey($request), 'missing']);
+
+            return [
+                Limit::perMinute(5)->by('invoice-create:' . $this->tenantIpKey($request)),
+                Limit::perMinute(5)->by('invoice-create-key:' . $keyFingerprint),
+            ];
+        });
+
+        RateLimiter::for('provider-webhook', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.provider_webhook_per_minute', 240)))
+                ->by('provider-webhook:' . $this->callbackKey($request))
+        );
+
+        RateLimiter::for('public-search', fn (Request $request) =>
+            Limit::perMinute(30)->by('public-search:' . $this->tenantIpKey($request))
+        );
+
+        RateLimiter::for('public-transaction-lookup', function (Request $request) {
+            $lookup = $request->input('order_id', $request->input('invoice', $request->input('search')));
+
+            return [
+                Limit::perMinute(10)->by('transaction-lookup-ip:' . $request->ip()),
+                Limit::perMinute(5)->by('transaction-lookup-target:' . $this->fingerprint([$lookup])),
+            ];
+        });
+
+        RateLimiter::for('security-settings', fn (Request $request) =>
+            Limit::perMinute(5)->by('security-settings:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('critical-security-settings', fn (Request $request) =>
+            Limit::perMinute(3)->by('critical-security-settings:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('reseller-credential-mutation', fn (Request $request) =>
+            Limit::perMinute(3)->by('reseller-credential-mutation:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('reseller-sandbox-mutation', fn (Request $request) =>
+            Limit::perMinute(10)->by('reseller-sandbox-mutation:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('reseller-notification-mutation', fn (Request $request) =>
+            Limit::perMinute(20)->by('reseller-notification-mutation:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('admin-external-read', fn (Request $request) =>
+            Limit::perMinute(20)->by('admin-external-read:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('admin-provider-sync', fn (Request $request) =>
+            Limit::perMinute(2)->by('admin-provider-sync:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('admin-order-retry', function (Request $request) {
+            $order = $request->route('order_id') ?? $request->route('order');
+
+            return [
+                Limit::perMinute(3)->by('admin-order-retry:' . $this->actorKey($request)),
+                Limit::perMinute(2)->by('admin-order-retry-target:' . $this->fingerprint([$order])),
+            ];
+        });
+
+        RateLimiter::for('admin-financial-mutation', fn (Request $request) =>
+            Limit::perMinute(3)->by('admin-financial-mutation:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('admin-bulk-mutation', fn (Request $request) =>
+            Limit::perMinute(3)->by('admin-bulk-mutation:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('admin-critical', fn (Request $request) =>
+            Limit::perMinute(2)->by('admin-critical:' . $this->actorKey($request))
+        );
+
+        RateLimiter::for('livewire-upload', function (Request $request) {
+            return [
+                Limit::perMinute(10)->by('livewire-upload-actor:' . $this->actorKey($request)),
+                Limit::perMinute(20)->by('livewire-upload-ip:' . $request->ip()),
+            ];
+        });
+
         // Rate limit for manual callback resend via Reseller Hub.
         // Keyed by authenticated user ID so each user has their own independent bucket.
         // 10 requests/minute allows reasonable retry workflow without enabling abuse.
@@ -177,5 +336,44 @@ class RouteServiceProvider extends ServiceProvider
             Limit::perMinute($tokenLimit)->by('reseller-api:' . $segment . ':' . $tokenKey),
             Limit::perMinute($ipLimit)->by('reseller-api:' . $segment . ':ip:' . $request->ip()),
         ];
+    }
+
+    private function tenantIpKey(Request $request): string
+    {
+        return $this->tenantKey() . ':ip:' . $request->ip();
+    }
+
+    private function tenantKey(): string
+    {
+        $tenantId = app(TenantContext::class)->id();
+
+        return $tenantId ? 'tenant:' . $tenantId : 'tenant:public';
+    }
+
+    private function actorKey(Request $request): string
+    {
+        $userId = optional($request->user())->id;
+
+        return $userId ? 'user:' . $userId : 'guest-ip:' . $request->ip();
+    }
+
+    private function callbackKey(Request $request): string
+    {
+        $route = $request->route();
+        $provider = is_object($route) ? $route->parameter('provider') : null;
+        $routeName = is_object($route) ? $route->getName() : null;
+        $identity = $provider ?: $routeName ?: $request->path();
+
+        return $this->fingerprint([$identity]) . ':ip:' . $request->ip();
+    }
+
+    private function fingerprint(array $values): string
+    {
+        $normalized = array_map(
+            static fn (mixed $value): string => mb_strtolower(trim((string) $value)),
+            $values,
+        );
+
+        return hash_hmac('sha256', implode('|', $normalized), (string) config('app.key'));
     }
 }

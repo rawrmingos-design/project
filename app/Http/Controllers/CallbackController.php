@@ -3,271 +3,159 @@
 namespace App\Http\Controllers;
 
 
+use App\Jobs\SendPembelianToProviderJob;
 use App\Models\Deposit;
-use App\Models\Kategori;
-use App\Models\Layanan;
 use App\Models\Pembayaran;
-use App\Models\Pembelian;
-use App\Jobs\PollSufPaymentStatusJob;
-use App\Services\OrderProcessingService;
-use App\Support\PembelianStatus;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Validator;
 
 class CallbackController extends Controller
 {
-    public function razerpay(Request $request)
+    public function razerpay(Request $request): JsonResponse
     {
-        $post = $request->all();
-        $sec_key = env('RAZERPAY_SECRET_KEY');
-        $nbcb = $post['nbcb'];
-        $tranID = $post['tranID'];
-        $orderid = $post['orderid'];
-        $status = $post['status'];
-        $domain = $post['domain'];
-        $amount = $post['amount'];
-        $currency = $post['currency'];
-        $appcode = $post['appcode'];
-        $paydate= $post['paydate'];
-        $skey = $post['skey'];
+        $validator = Validator::make($request->all(), [
+            'nbcb' => ['required', 'integer', 'in:1'],
+            'tranID' => ['required', 'string', 'max:100'],
+            'orderid' => ['required', 'string', 'max:100'],
+            'status' => ['required', 'string', 'max:10'],
+            'domain' => ['required', 'string', 'max:255'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'currency' => ['required', 'string', 'size:3'],
+            'appcode' => ['required', 'string', 'max:100'],
+            'paydate' => ['required', 'string', 'max:100'],
+            'skey' => ['required', 'string', 'size:32'],
+        ]);
 
-        // if ($nbcb != 1) abort(404);
+        if ($validator->fails()) {
+            return Response::json(['success' => false, 'message' => 'Invalid callback payload'], 400);
+        }
 
-        /***********************************************************
-         *ToverifythedataintegritysendingbyPG
-        ************************************************************/
-        $key0 = md5($tranID.$orderid.$status.$domain.$amount.$currency);
-        $key1 = md5($paydate.$domain.$key0.$appcode.$sec_key);
+        $payload = $validator->validated();
+        $secret = (string) config('services.razerpay.secret_key');
 
-        // if($skey != $key1) abort(404); //Invalidtransaction
+        if ($secret === '') {
+            Log::error('razerpay.callback.secret_missing');
 
-        Log::info("RAZERPG CALLBACK : [".$request->ip()."] " . json_encode($request->all()));
+            return Response::json(['success' => false, 'message' => 'Callback unavailable'], 503);
+        }
 
-        if (isset($post['orderid'])) {
-            $referenceUniq = $orderid;
-            $invoice = Pembayaran::where('order_id', $referenceUniq)
-                ->where('status', 'Belum Lunas')
+        $key0 = md5(
+            $payload['tranID']
+            . $payload['orderid']
+            . $payload['status']
+            . $payload['domain']
+            . $payload['amount']
+            . $payload['currency'],
+        );
+        $expectedSignature = md5(
+            $payload['paydate']
+            . $payload['domain']
+            . $key0
+            . $payload['appcode']
+            . $secret,
+        );
+
+        if (! hash_equals($expectedSignature, strtolower($payload['skey']))) {
+            Log::warning('razerpay.callback.invalid_signature', [
+                'ip_hash' => $this->ipHash($request),
+                'payload_hash' => $this->payloadHash($payload),
+            ]);
+
+            return Response::json(['success' => false, 'message' => 'Invalid signature'], 400);
+        }
+
+        if ($payload['status'] !== '00') {
+            return Response::json(['success' => false, 'message' => 'Payment is not successful'], 422);
+        }
+
+        $result = DB::transaction(function () use ($payload): array {
+            $invoice = Pembayaran::query()
+                ->where('order_id', $payload['orderid'])
+                ->lockForUpdate()
                 ->first();
 
-            if (!$invoice) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No invoice found or already paid: ' . $referenceUniq,
-                ]);
+            if (! $invoice) {
+                return ['decision' => 'missing'];
             }
 
-            $order_id = $invoice->order_id;
-            $dataPembeli = Pembelian::where('order_id', $order_id)->first();
+            if (in_array($invoice->normalizedStatus(), ['lunas', 'paid', 'success'], true)) {
+                return ['decision' => 'duplicate'];
+            }
 
-            if ($dataPembeli) {
-                $dataLayanan = $dataPembeli->active_layanan_id
-                    ? Layanan::query()->find($dataPembeli->active_layanan_id)
-                    : Layanan::where('layanan', $dataPembeli->layanan)->first();
+            if ((int) round((float) $payload['amount']) !== (int) $invoice->harga) {
+                return ['decision' => 'amount_mismatch'];
+            }
 
-                if ($dataLayanan) {
-                    $dataKategori = Kategori::where('id', $dataLayanan->kategori_id)->first();
+            $deposit = Deposit::query()
+                ->where('order_id', $invoice->order_id)
+                ->lockForUpdate()
+                ->first();
+            $purchase = $deposit ? null : $invoice->pembelian()->lockForUpdate()->first();
 
-                    if ($dataKategori) {
-                        $pesanPembeli =
-                            "*Pembayaran Berhasil*\n\n" .
-                            "No Invoice: *$order_id*\n" .
-                            "Layanan : *$dataPembeli->layanan*\n" .
-                            "ID : *$dataPembeli->user_id*\n" .
-                            "Server : *$dataPembeli->zone*\n" .
-                            "Nickname : *$dataPembeli->nickname*\n" .
-                            "Harga : *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                            "Status Pembelian: *Process*\n" .
-                            "Estimasi Proses: *1-5 Menit Max 24 Jam*\n\n" .
-                            "INI ADALAH PESAN OTOMATIS";
+            if (! $deposit && ! $purchase) {
+                return ['decision' => 'missing'];
+            }
 
-                        $pesanJoki =
-                            "*Pembayaran Berhasil*\n\n" .
-                            "No Invoice: *$order_id*\n" .
-                            "Layanan: *$dataPembeli->layanan*\n" .
-                            "ID: *$dataPembeli->user_id*\n" .
-                            "Server: *$dataPembeli->zone*\n" .
-                            "Nickname: *$dataPembeli->nickname*\n" .
-                            "Harga: *Rp. " . number_format($dataPembeli->harga, 0, '.', ',') . "*\n" .
-                            "Status Pembelian: *Process*\n" .
-                            "Penjoki kami akan segera memulai permainan.\n\n" .
-                            "INI ADALAH PESAN OTOMATIS";
+            $invoice->forceFill([
+                'status' => 'Lunas',
+                'paid_at' => $invoice->paid_at ?: now(),
+                'reference' => $payload['tranID'],
+            ])->save();
 
-                        $pesanSukses =
-                            "*Purchase Successful*\n\n" .
-                            "No Invoice: *$order_id*\n" .
-                            "Service: *$dataPembeli->layanan*\n" .
-                            "ID: *$dataPembeli->user_id*\n" .
-                            "Server: *$dataPembeli->zone*\n" .
-                            "Nickname: *$dataPembeli->nickname*\n" .
-                            "Price: *RM. " . number_format($dataPembeli->harga, 2, '.', ',') . "*\n" .
-                            "Purchase Status: *Success*\n\n" .
-                            "Thank you for transacting with us.";
-
-                        $zoneSend = $dataPembeli->zone == null ? "" : "($dataPembeli->zone)\n";
-                        $nickname = $dataPembeli->nickname == null ? '' : "Nickname : $dataPembeli->nickname\n";
-
-                        $uid = $dataPembeli->user_id;
-                        $zone = $dataPembeli->zone;
-                        $provider_id = $dataLayanan->provider_id;
-                    } else {
-                        // Handle jika $dataKategori tidak ditemukan
-                    }
-                } else {
-                    // Handle jika $dataLayanan tidak ditemukan
+            if ($deposit) {
+                if (strtolower(trim((string) $deposit->status)) !== 'success') {
+                    $user = User::query()->where('username', $deposit->username)->lockForUpdate()->first();
+                    $deposit->update(['status' => 'Success']);
+                    $user?->increment('balance', (int) $deposit->jumlah);
                 }
-            } else {
-                $dataDeposit = Deposit::where('order_id', $order_id)->first();
+
+                return ['decision' => 'deposit_paid'];
             }
-            if ($status === "00") {
-                // Hanya proses yang status transaksi sudah di bayar, sukses = dibayar
-                $ref_id = $orderid;
-                
-                if (isset($dataDeposit)) {
-                    $userDeposit = User::where('username', $dataDeposit->username)->first();
 
-                    if (in_array($dataDeposit->metode, ["QRIS", "QRISREALTIME", "OVOPUSH", "GOPAY", "SHOPEEPAY", "DANA", "ASTRAPAY", "VIRGO", "BRIVA", "BCAVA", "BNIVA", "MANDIRIVA", "PERMATAVA", "CIMBVA", "DANAMONVA", "BSIVA", "ALFAMART", "INDOMARET"])) {
-                        $order['data']['status'] = true;
-                    } else {
-                        $order['data']['status'] = true; // Default true for others
-                    }
+            return ['decision' => 'purchase_paid', 'purchase_id' => $purchase->id];
+        }, 3);
 
-                    if ($order['data']['status']) { 
-                        $userDeposit->update([
-                            'balance' => $dataDeposit->jumlah + $userDeposit->balance,
-                        ]);
-                        $dataDeposit->update([
-                            'status' => 'Success'
-                        ]);
-                    } else {
-                        $dataDeposit->update([
-                            'status' => 'Gagal'
-                        ]);
-                    }
-                } else {
-                    // START Multi-Provider Integration via Services
-                    $pembelian = $dataPembeli;
-                    $transaction = $invoice;
-
-                    $orderProcessor = app(OrderProcessingService::class);
-                    $waService = new \App\Services\WhatsappNotificationService();
-
-                    // Process Order
-                    $result = $orderProcessor->process($pembelian);
-                    
-                    $emailService = new \App\Services\EmailNotificationService();
-                    $recipientEmail = $transaction->email_pembeli ?? ($transaction->user->email ?? null);
-                    $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
-                    $providerStatus = PembelianStatus::preferredDatabaseLabel($normalizedStatus);
-                    $snValue = trim((string) ($result['sn'] ?? '')) ?: ($pembelian->keterangan_sn ?: 'Sedang Diproses');
-                    $providerOrderId = $result['transaction_id'] ?? $pembelian->provider_order_id;
-
-                    if (in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
-                        $pembelian->update([
-                            'status' => $providerStatus,
-                            'provider_order_id' => $providerOrderId,
-                            'keterangan_sn' => $snValue,
-                            'log' => json_encode(['result' => $result]),
-                        ]);
-
-                        app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
-
-                        $waService->sendNotification($transaction->no_pembeli, 'transaction_failed', [
-                            'nickname' => $pembelian->nickname,
-                            'order_id' => $pembelian->order_id,
-                            'product' => $pembelian->layanan,
-                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $pembelian->order_id,
-                                'product' => $pembelian->layanan,
-                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode($providerStatus),
-                                'nickname' => $pembelian->nickname,
-                                'sn' => $snValue,
-                                'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-                            ]);
-                        }
-                    } elseif ($result['success']) {
-                        $pembelian->update([
-                            'status' => $providerStatus,
-                            'provider_order_id' => $providerOrderId,
-                            'active_attempt_token' => $providerOrderId,
-                            'keterangan_sn' => $snValue,
-                            'log' => json_encode(['result' => $result]),
-                        ]);
-
-                        $freshPembelian = $pembelian->fresh(['pembayaran']);
-                        if ($freshPembelian) {
-                            PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $providerStatus);
-                        }
-
-                        $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                            ? 'transaction_success'
-                            : 'transaction_pending';
-
-                        $waService->sendNotification($transaction->no_pembeli, $notificationSlug, [
-                            'nickname' => $pembelian->nickname,
-                            'order_id' => $pembelian->order_id,
-                            'product' => $pembelian->layanan,
-                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'sn' => $snValue,
-                            'status' => PembelianStatus::label($providerStatus),
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $pembelian->order_id,
-                                'product' => $pembelian->layanan,
-                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode($providerStatus),
-                                'nickname' => $pembelian->nickname,
-                                'sn' => $snValue,
-                                'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                                    ? 'Terima kasih telah berbelanja.'
-                                    : 'Pesanan sedang menunggu respon provider.',
-                            ]);
-                        }
-                    } else {
-                        $pembelian->update([
-                            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
-                            'provider_order_id' => $providerOrderId,
-                            'log' => json_encode(['error' => $result['message'] ?? 'Order processing failed']),
-                        ]);
-
-                        $waService->sendNotification($transaction->no_pembeli, 'transaction_pending', [
-                            'nickname' => $pembelian->nickname,
-                            'order_id' => $pembelian->order_id,
-                            'product' => $pembelian->layanan,
-                            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                            'status' => 'Menunggu Provider',
-                        ]);
-
-                        if ($recipientEmail) {
-                            $emailService->sendTransactionEmail($recipientEmail, [
-                                'order_id' => $pembelian->order_id,
-                                'product' => $pembelian->layanan,
-                                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
-                                'nickname' => $pembelian->nickname,
-                                'note' => 'Pesanan sedang menunggu respon provider.',
-                            ]);
-                        }
-                    }
-                    // END Multi-Provider Integration
-                }
-                $invoice->update(['status' => 'Lunas']);
-
-                return true;
-            } else {
-                return Response::json(['error' => "Status payment tidak success"]);
-            }
-        } else {
-            return Response::json(['error' => "Data json tidak sesuai"]);
+        if (($result['decision'] ?? null) === 'purchase_paid') {
+            SendPembelianToProviderJob::dispatch((int) $result['purchase_id'], null, 'auto');
         }
+
+        $status = match ($result['decision'] ?? null) {
+            'missing' => 404,
+            'amount_mismatch' => 400,
+            default => 200,
+        };
+
+        Log::info('razerpay.callback.' . ($result['decision'] ?? 'unknown'), [
+            'ip_hash' => $this->ipHash($request),
+            'payload_hash' => $this->payloadHash($payload),
+        ]);
+
+        return Response::json([
+            'success' => $status === 200,
+            'message' => match ($result['decision'] ?? null) {
+                'duplicate' => 'Callback already processed',
+                'deposit_paid', 'purchase_paid' => 'Callback processed',
+                'amount_mismatch' => 'Invalid amount',
+                default => 'Invoice not found',
+            },
+        ], $status);
+    }
+
+    private function payloadHash(array $payload): string
+    {
+        unset($payload['skey']);
+        ksort($payload);
+
+        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES));
+    }
+
+    private function ipHash(Request $request): string
+    {
+        return hash_hmac('sha256', (string) $request->ip(), (string) config('app.key'));
     }
 }
