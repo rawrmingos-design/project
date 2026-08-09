@@ -88,7 +88,7 @@ class WhatsappNotificationService
     /**
      * Send raw message via Fonnte API.
      */
-    public function sendMessage(string $target, string $message): array
+    public function sendMessage(string $target, string $message, ?string $url = null): array
     {
         try {
             $api = SettingWeb::first();
@@ -111,14 +111,20 @@ class WhatsappNotificationService
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
 
+            $payload = [
+                'target' => $target,
+                'message' => $message,
+            ];
+
+            if ($url !== null) {
+                $payload['url'] = $url;
+            }
+
             $response = Http::withHeaders([
                 'Authorization' => $api->wa_key,
             ])->asForm()
                 ->timeout(30)
-                ->post('https://api.fonnte.com/send', [
-                    'target' => $target,
-                    'message' => $message,
-                ]);
+                ->post('https://api.fonnte.com/send', $payload);
 
             return $this->normalizeFonnteResponse($response);
         } catch (Throwable) {

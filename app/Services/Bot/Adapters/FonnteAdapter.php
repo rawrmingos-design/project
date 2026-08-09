@@ -67,6 +67,12 @@ class FonnteAdapter implements BotAdapterInterface
         [$replyText, $newNumericMenuState] = $this->renderResponse($response);
         $sendResult = $this->waService->sendMessage($sender, $replyText);
 
+        $photoUrl = $response['photo_url'] ?? null;
+
+        if (is_string($photoUrl) && trim($photoUrl) !== '') {
+            $this->waService->sendMessage($sender, '', $photoUrl);
+        }
+
         if ($sendResult['success'] ?? false) {
             if ($newNumericMenuState === null) {
                 Cache::forget($numericMenuKey);
