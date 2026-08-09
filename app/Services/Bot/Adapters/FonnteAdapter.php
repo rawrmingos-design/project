@@ -38,6 +38,17 @@ class FonnteAdapter implements BotAdapterInterface
         $numericMenuState = Cache::get($numericMenuKey);
         $selection = $this->numericSelection((string) $text);
 
+        // Saat user sedang dalam alur checkout konversasional (state waiting_game_id
+        // aktif), input angka adalah User ID game — BUKAN pilihan numeric menu.
+        // Skip interpretasi numeric menu agar ID game tidak tertelan sebagai seleksi.
+        // Key harus sama dengan BotCommandHandler::checkoutStateKey().
+        $checkoutStateKey = 'bot:checkout-state:' . hash('sha256', (string) $context['external_user_id']);
+        $inConversationalCheckout = is_array(Cache::get($checkoutStateKey));
+
+        if ($selection !== null && $inConversationalCheckout) {
+            $selection = null;
+        }
+
         if ($selection !== null && is_array($numericMenuState)) {
             $items = is_array($numericMenuState['items'] ?? null) ? $numericMenuState['items'] : [];
 
