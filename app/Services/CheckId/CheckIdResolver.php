@@ -11,6 +11,16 @@ use Illuminate\Support\Facades\Log;
 
 class CheckIdResolver
 {
+    /**
+     * Kode kategori internal → slug resmi catalog cekid.jasakoding.
+     * Kategori DB tidak selalu memakai slug provider yang sama.
+     */
+    private const CATALOG_ALIASES = [
+        'fc-mobile' => 'ea-sports-fc-mobile',
+        'pubg-mobile' => 'pubg-mobile-dg',
+        'magic-chess-gogo' => 'magic-chess-go-go',
+    ];
+
     private const SUPPORTED_CODES = [
         // Alias: DB kategori FC Mobile pake 'fc-mobile', slug cekid 'ea-sports-fc-mobile'
         'fc-mobile', 'ea-sports-fc-mobile',
@@ -267,12 +277,10 @@ class CheckIdResolver
     {
         $catalog = $this->fetchCatalog();
 
-        // Alias: kategori DB 'fc-mobile' → slug cekid 'ea-sports-fc-mobile'
-        if (isset($catalog[$categoryCode]) === false && $categoryCode === 'fc-mobile') {
-            $categoryCode = 'ea-sports-fc-mobile';
-        }
+        // Kategori DB tidak selalu memakai slug resmi dari catalog cekid.
+        $catalogCode = self::CATALOG_ALIASES[$categoryCode] ?? $categoryCode;
 
-        return $catalog[$categoryCode] ?? null;
+        return $catalog[$catalogCode] ?? null;
     }
 
     private function supports(string $categoryCode): bool
