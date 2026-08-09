@@ -80,48 +80,6 @@
                                 </div>
                             </form>
 
-<form method="POST" action="{{ route('synctopupedia.produk.get.post') }}">
-                                @csrf
-                                <div class="m-2">
-
-                                    <button type="submit"
-                                        class="btn btn-success bg-gradient btn-label waves-effect waves-light rounded-pill inline-flex"
-                                        style="float: left;">
-                                        <i class="ri-loop-left-line label-icon align-middle rounded-pill fs-16 me-2"
-                                            style="float: left;"></i> Sync Harga topupedia
-                                    </button>
-
-                                    {{-- <button type="submit"
-                                        class="btn btn-sm btn-outline-primary inline-flex items-center justify-center rounded-4 px-3 py-2.7 hvrbutton"
-                                        style="float: right; border-radius:6px;">
-                                        <span style="display: flex;">
-                                            <i class="ri-loop-left-line"></i> Sync Price Digiflazz
-                                        </span>
-                                    </button> --}}
-
-                                </div>
-                            </form>
-                              <form method="POST" action="{{ route('syncmoogold.produk.get.post') }}">
-                                @csrf
-                                <div class="m-2">
-
-                                    <button type="submit"
-                                        class="btn btn-success bg-gradient btn-label waves-effect waves-light rounded-pill inline-flex"
-                                        style="float: left;">
-                                        <i class="ri-loop-left-line label-icon align-middle rounded-pill fs-16 me-2"
-                                            style="float: left;"></i> Sync Harga Moogold
-                                    </button>
-
-                                    {{-- <button type="submit"
-                                        class="btn btn-sm btn-outline-primary inline-flex items-center justify-center rounded-4 px-3 py-2.7 hvrbutton"
-                                        style="float: right; border-radius:6px;">
-                                        <span style="display: flex;">
-                                            <i class="ri-loop-left-line"></i> Sync Harga Moogold
-                                        </span>
-                                    </button> --}}
-
-                                </div>
-                            </form>                       
                              
 
                             <a href="{{ route('produk.get') }}" class="m-2">
@@ -177,12 +135,7 @@
                                     <option value="vip">VIP - Vipreseller.co.id</option>
                                     <option value="apigames">ApiGames - Apigames.id</option>
                                     <option value="bangjeff">BJ - Bangjeff.com</option>
-                                    <option value="topupedia">TP - Topupedia.com</option>
-                                    <option value="yezzpay">YP - Yezzpay.com</option>
-                                    <option value="elitedias">ED - Elitedias.com</option>
-                                    <option value="moogold">MG - Moogold.com</option>
-                                    <option value="gameshop">GSZ - gameshop.zsdzw.com</option>
-                                    <option value="strleyashop">Strleyashop</option>
+                                    <option value="sufpayment">SufPayment</option>
                                     <option value="joki">Joki MLBB</option>
                                     <option value="jokigendong">Joki Gendong</option>
                                     <option value="vilogml">ML Vilog</option>

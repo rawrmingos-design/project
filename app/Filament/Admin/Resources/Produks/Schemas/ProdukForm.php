@@ -78,7 +78,7 @@ class ProdukForm
                             
                         Select::make('provider')
                             ->label('Provider')
-                            ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray())
+                            ->options(fn () => \App\Models\Provider::routableOptions())
                             ->required()
                             ->live()
                             ->dehydrated()
@@ -652,7 +652,7 @@ class ProdukForm
                                     ->schema([
                                         Select::make('provider_code')
                                             ->label('Provider')
-                                            ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray())
+                                            ->options(fn () => \App\Models\Provider::routableOptions())
                                             ->required(),
 
                                         TextInput::make('provider_sku')

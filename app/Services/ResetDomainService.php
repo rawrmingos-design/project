@@ -8,6 +8,7 @@ use App\Models\Pembelian;
 use App\Models\ProviderPath;
 use App\Http\Controllers\DigiFlazzController;
 use App\Support\PembelianStatus;
+use App\Support\ProviderRetirement;
 use DomainException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -227,6 +228,10 @@ class ResetDomainService
 
         if ($candidateProviderCode === '') {
             throw new DomainException('Selected provider switch target must define a provider code.');
+        }
+
+        if (ProviderRetirement::isRetired($candidateProviderCode)) {
+            throw new DomainException('Selected provider switch target has been retired.');
         }
 
         if ($candidateProviderSku === '') {

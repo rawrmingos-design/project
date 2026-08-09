@@ -7,6 +7,7 @@ use App\Models\PaketLayanan;
 use App\Services\MediaAssetAssignmentService;
 use App\Services\OptimizedImageService;
 use App\Services\ProductPricingService;
+use App\Support\ProviderRetirement;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Validation\ValidationException;
 
@@ -51,6 +52,7 @@ class CreateProduk extends CreateRecord
         );
 
         $data = $this->normalizeCheckIdInquiryFields($data);
+        $data = $this->normalizeAndValidateProviderSelection($data);
         $data = $this->normalizeAndValidateProviderPaths($data);
 
         if (array_key_exists('provider_paths', $data)) {
@@ -116,6 +118,23 @@ class CreateProduk extends CreateRecord
         return $data;
     }
 
+    private function normalizeAndValidateProviderSelection(array $data): array
+    {
+        $providerCode = ProviderRetirement::normalizeCode($data['provider'] ?? '');
+
+        if (ProviderRetirement::isRetired($providerCode)) {
+            throw ValidationException::withMessages([
+                'data.provider' => "Provider sudah dihentikan dan tidak dapat dipilih: {$providerCode}",
+            ]);
+        }
+
+        if ($providerCode !== '') {
+            $data['provider'] = $providerCode;
+        }
+
+        return $data;
+    }
+
     private function normalizeAndValidateProviderPaths(array $data): array
     {
         $paths = collect($data['provider_paths'] ?? [])
@@ -145,6 +164,18 @@ class CreateProduk extends CreateRecord
                 return $row;
             })
             ->values();
+
+        $retiredCodes = $paths
+            ->filter(fn ($row): bool => is_array($row) && \App\Support\ProviderRetirement::isRetired($row['provider_code'] ?? null))
+            ->pluck('provider_code')
+            ->unique()
+            ->values();
+
+        if ($retiredCodes->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'data.provider_paths' => 'Provider sudah dihentikan dan tidak dapat dipilih: ' . $retiredCodes->implode(', '),
+            ]);
+        }
 
         $duplicateKeys = $paths
             ->filter(fn ($row): bool => is_array($row)

@@ -17,6 +17,7 @@ use App\Libraries\Provider\YezzpayProvider;
 use App\Models\Layanan;
 use App\Models\Kategori;
 use App\Services\ProductPricingService;
+use App\Support\ProviderRetirement;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -49,9 +50,16 @@ class ProdukController extends Controller
             'kategori.required' => 'Kategori is required.',
         ];
 
-        $validatedData = $request->validate($rules, $messages);
+        $request->validate($rules, $messages);
+        $providerCode = ProviderRetirement::normalizeCode($request->input('provider'));
 
-        if ($request->provider == "vip") {
+        if (ProviderRetirement::isRetired($providerCode)) {
+            return back()->withErrors([
+                'provider' => "Provider sudah dihentikan dan tidak dapat diimpor: {$providerCode}",
+            ])->withInput();
+        }
+
+        if ($providerCode === 'vip') {
             $data = (new VipResellerController())->services();
 
             if (($data['result'] ?? false) === true) {
@@ -151,7 +159,7 @@ class ProdukController extends Controller
             } else {
                 return back()->with('error', 'Data layanan tidak valid dari API.');
             }
-          }else if ($request->provider == 'bangjeff') {
+          } else if ($providerCode === 'bangjeff') {
             $responseData = (new BangJeffController())->listVariant($request->kategori);
 
             if (($responseData['rc'] ?? null) !== null && ($responseData['rc'] !== '00')) {
@@ -196,7 +204,7 @@ class ProdukController extends Controller
             } else {
                 return back()->with('error', 'Data layanan tidak valid dari API.');
             }
-        }  else if ($request->provider == 'digiflazz') {
+        } else if ($providerCode === 'digiflazz') {
            $digi = new DigiFlazzController;
            $data = $digi->harga();
             if ($data && isset($data['data'])) {
@@ -223,7 +231,7 @@ class ProdukController extends Controller
             } else {
                 return back()->with('error', 'Data layanan tidak valid dari API.');
             }
-        }  else if ($request->provider == 'moogold') {
+        } else if ($providerCode === 'moogold') {
             
             $moo = new MoogoldController;
         
@@ -262,7 +270,7 @@ class ProdukController extends Controller
                 Log::warning('Data produk tidak valid dari API Moogold.', ['data' => $data]);
                 return back()->with('error', 'Data produk tidak valid dari API Moogold.');
             }
-        }  else if ($request->provider == 'gameshop') {
+        } else if ($providerCode === 'gameshop') {
             
             $gameshop = new GameShopProvider;
         
@@ -305,7 +313,7 @@ class ProdukController extends Controller
                 Log::warning('Data produk tidak valid dari API Gameshop.', ['data' => $data]);
                 return back()->with('error', 'Data produk tidak valid dari API Gameshop.');
             }
-        }  else if ($request->provider == 'strleyashop') {
+        } else if ($providerCode === 'strleyashop') {
             
             $strleyashop = new StrleyaShopProvider;
         
@@ -337,7 +345,7 @@ class ProdukController extends Controller
                 Log::warning('Data produk tidak valid dari API StrleyaShop.', ['data' => $data]);
                 return back()->with('error', 'Data produk tidak valid dari API StrleyaShop.');
             }
-        }  else if ($request->provider == 'yezzpay') {
+        } else if ($providerCode === 'yezzpay') {
             
             $yezzpay = new YezzpayProvider;
         
@@ -372,7 +380,7 @@ class ProdukController extends Controller
                 Log::warning('Data produk tidak valid dari API Yezzpay.', ['data' => $data]);
                 return back()->with('error', 'Data produk tidak valid dari API Yezzpay.');
             }
-        }  else if ($request->provider == 'elitedias') {
+        } else if ($providerCode === 'elitedias') {
             
             $elitedias = new ElitediasProvider;
         

@@ -7,6 +7,7 @@ use App\Jobs\CheckProviderBalanceJob;
 use App\Jobs\SyncActiveProviderBalancesJob;
 use App\Models\Provider;
 use App\Support\ProviderBalanceSupport;
+use App\Support\ProviderRetirement;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -63,7 +64,11 @@ class ProviderResource extends Resource
                 ToggleColumn::make('is_active')
                     ->label('Aktif')
                     ->onColor('success')
-                    ->offColor('danger'),
+                    ->offColor('danger')
+                    ->disabled(fn (Provider $record): bool => ProviderRetirement::isRetired($record->code))
+                    ->tooltip(fn (Provider $record): ?string => ProviderRetirement::isRetired($record->code)
+                        ? 'Provider ini telah dihentikan dan tidak dapat diaktifkan kembali.'
+                        : null),
 
                 TextColumn::make('balance')
                     ->label('Saldo')

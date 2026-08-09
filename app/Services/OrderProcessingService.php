@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\DigiFlazzController;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
-use App\Http\Controllers\provider\TopupediaController;
 use App\Services\Providers\BangJeffService;
 use App\Services\Providers\SufPaymentService;
 
@@ -416,41 +415,11 @@ class OrderProcessingService
 
                 return $result;
 
-            case 'topupedia':
-                $topupedia = new TopupediaController($credentials);
-                $requestData = [['name' => 'ID', 'value' => $uid]];
-                if (! empty($zone)) {
-                    $requestData[] = ['name' => 'Server', 'value' => $zone];
-                }
-
-                $response = $topupedia->order($sku, $providerReference, 1, $requestData);
-                $responseData = is_array($response['data'] ?? null) ? $response['data'] : $response;
-                $providerMessage = trim((string) ($responseData['statusDesc'] ?? $responseData['message'] ?? $response['message'] ?? ''));
-                $providerStatus = strtoupper((string) ($responseData['statusCode'] ?? $responseData['status_code'] ?? 'PROCESSING'));
-                $providerInvoice = $responseData['invoiceNumber'] ?? $responseData['invoice_number'] ?? $providerReference;
-
-                $isSuccess = (($response['error'] ?? null) === false)
-                    || (($response['rc'] ?? null) === '00')
-                    || isset($responseData['invoiceNumber'])
-                    || isset($responseData['invoice_number']);
-
-                if ($isSuccess) {
-                    $result['success'] = true;
-                    $result['order_status'] = match ($providerStatus) {
-                        'SUCCESS', 'SUKSES' => 'Sukses',
-                        'REFUNDED', 'FAILED', 'GAGAL', 'CANCELLED', 'CANCELED' => 'Gagal',
-                        default => 'Pending',
-                    };
-                    $result['transaction_id'] = $providerInvoice;
-                    $result['message'] = $providerMessage !== '' ? $providerMessage : 'Topupedia order accepted.';
-                } else {
-                    $result['message'] = $providerMessage !== '' ? $providerMessage : 'Topupedia failed';
-                }
-
-                return $result;
-
             case 'manual':
             case 'joki':
+            case 'jokigendong':
+            case 'vilogml':
+            case 'giftskin':
                 $result['success'] = true;
                 $result['order_status'] = PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS);
                 $result['message'] = 'Manual/Joki order marked as processing.';

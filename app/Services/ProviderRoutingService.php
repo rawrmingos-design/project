@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Layanan;
+use App\Models\Provider;
 use App\Models\SettingWeb;
+use App\Support\ProviderRetirement;
 use Illuminate\Support\Facades\Log;
 
 class ProviderRoutingService
@@ -18,38 +20,65 @@ class ProviderRoutingService
      */
     public function findBestProvider(Layanan $layanan)
     {
-        // 1. Try Multi-Provider Paths
         $paths = $layanan->provider_paths()
             ->where('status', 'available')
-            ->orderBy('priority', 'asc') // 1 is highest priority
-            ->orderBy('modal_price', 'asc') // Cheaper is better as tie-breaker
-            ->get();
+            ->orderBy('priority', 'asc')
+            ->orderBy('modal_price', 'asc')
+            ->get()
+            ->filter(fn ($path): bool => $this->isRoutableProvider($path->provider_code));
 
         if ($paths->isNotEmpty()) {
             $bestPath = $paths->first();
+
             return $this->formatProviderResult($bestPath->provider_code, $bestPath->provider_sku);
         }
 
-        // 2. Fallback to Legacy Fields (provider column in layanans table stores the code, e.g., 'digiflazz')
-        // And provider_id stores the SKU.
-        if (!empty($layanan->provider_id) && !empty($layanan->provider)) {
-            // Check if legacy provider is valid/active? 
-            // For now assume available if set.
+        if (! empty($layanan->provider_id)
+            && ! empty($layanan->provider)
+            && $this->isRoutableProvider($layanan->provider)) {
             return $this->formatProviderResult($layanan->provider, $layanan->provider_id);
         }
 
-        // 3. No provider found
         Log::warning("ProviderRoutingService: No provider found for Service ID {$layanan->id} ({$layanan->layanan}).", [
             'provider_paths_count' => $paths->count(),
             'legacy_provider' => $layanan->provider,
-            'legacy_provider_sku' => $layanan->provider_id
+            'legacy_provider_sku' => $layanan->provider_id,
         ]);
+
         return null;
     }
 
-    public function resolveExplicitProvider(string $providerCode, string $sku): array
+    public function resolveExplicitProvider(string $providerCode, string $sku): ?array
     {
+        if (! $this->isRoutableProvider($providerCode)) {
+            Log::warning('ProviderRoutingService: Explicit provider route rejected.', [
+                'provider_code' => ProviderRetirement::normalizeCode($providerCode),
+            ]);
+
+            return null;
+        }
+
         return $this->formatProviderResult($providerCode, $sku);
+    }
+
+    public function isRoutableProvider(string $providerCode): bool
+    {
+        $code = ProviderRetirement::normalizeCode($providerCode);
+
+        if ($code === '' || ProviderRetirement::isRetired($code)) {
+            return false;
+        }
+
+        if (ProviderRetirement::isInternal($code)) {
+            return true;
+        }
+
+        $canonicalCode = ProviderRetirement::canonicalCode($code);
+        $provider = Provider::query()
+            ->whereRaw('LOWER(code) = ?', [$canonicalCode])
+            ->first();
+
+        return $provider === null || $provider->is_active;
     }
 
     /**
@@ -111,17 +140,13 @@ class ProviderRoutingService
                 ];
                 break;
 
-            case 'topupedia':
-                $credentials = [
-                    'api_key' => $settings->topupindo_api,
-                    'endpoint' => 'https://api.topupedia.com',
-                ];
-                break;
-                
             case 'manual':
             case 'joki':
+            case 'jokigendong':
+            case 'vilogml':
+            case 'giftskin':
                 $credentials = [
-                    'type' => 'manual'
+                    'type' => 'manual',
                 ];
                 break;
 

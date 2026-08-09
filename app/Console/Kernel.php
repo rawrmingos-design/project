@@ -23,8 +23,19 @@ class Kernel extends ConsoleKernel
         
         //  $schedule->command('Service')->everyMinute();
 
-         $schedule->job(new \App\Jobs\DigiflazzSyncJob)->hourly();
-         
+         $schedule->job(new \App\Jobs\DigiflazzSyncJob)
+             ->hourly()
+             ->withoutOverlapping()
+             ->onOneServer();
+
+         foreach (['gameshop', 'strleyashop', 'elitedias', 'yezzpay'] as $provider) {
+             $schedule->job(new \App\Jobs\SyncProviderOrderStatusesJob($provider))
+                 ->everyFiveMinutes()
+                 ->name('provider-order-status:' . $provider)
+                 ->withoutOverlapping()
+                 ->onOneServer();
+         }
+
          $schedule->command('model:prune', [
              '--model' => [\Illuminate\Notifications\DatabaseNotification::class],
          ])->daily();

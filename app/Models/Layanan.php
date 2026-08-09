@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ProviderRetirement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +13,15 @@ class Layanan extends Model
 {
     use HasFactory;
     protected $guarded = [];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Layanan $layanan): void {
+            if (ProviderRetirement::isRetired($layanan->provider) && $layanan->status !== 'unavailable') {
+                throw new \DomainException('Layanan using a retired provider must remain unavailable.');
+            }
+        });
+    }
 
     protected $casts = [
         'kategori_id' => 'integer',

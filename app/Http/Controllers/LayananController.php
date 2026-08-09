@@ -6,6 +6,7 @@ use App\Models\Kategori;
 use App\Services\ProductPricingService;
 use Illuminate\Http\Request;
 use App\Models\Layanan;
+use App\Support\ProviderRetirement;
 use Illuminate\Support\Str;
 
 class LayananController extends Controller
@@ -36,6 +37,13 @@ class LayananController extends Controller
     public function store(Request $request)
     {
         $pricing = app(ProductPricingService::class);
+        $providerCode = ProviderRetirement::normalizeCode($request->input('provider'));
+
+        if (ProviderRetirement::isRetired($providerCode)) {
+            return back()->withErrors([
+                'provider' => "Provider sudah dihentikan dan tidak dapat dipilih: {$providerCode}",
+            ])->withInput();
+        }
 
         $request->validate([
             'nama' => 'required',
@@ -73,7 +81,7 @@ class LayananController extends Controller
             $request->harga_platinum,
             $request->harga_gold,
         );
-        $layanan->provider = $request->provider;
+        $layanan->provider = $providerCode;
         $layanan->catatan = '';
         $layanan->fill($this->normalizeCheckIdInquiryPayload($request));
         $layanan->check_id_enabled = $request->boolean('check_id_enabled');
@@ -134,14 +142,10 @@ class LayananController extends Controller
                                 <option value='vip' " . ($data->provider == 'vip' ? 'selected' : '') . ">VipReseller</option>
                                 <option value='apigames' " . ($data->provider == 'apigames' ? 'selected' : '') . ">ApiGames</option>
                                 <option value='bangjeff' " . ($data->provider == 'bangjeff' ? 'selected' : '') . ">BangJeff</option>
-                                <option value='topupedia' " . ($data->provider == 'topupedia' ? 'selected' : '') . ">TopuPedia</option>
-                                <option value='yezzpay' " . ($data->provider == 'yezzpay' ? 'selected' : '') . ">Yezzpay</option>
-                                <option value='elitedias' " . ($data->provider == 'elitedias' ? 'selected' : '') . ">Elitedias</option>
-                                <option value='gameshop' " . ($data->provider == 'gameshop' ? 'selected' : '') . ">Gameshop</option>
-                                <option value='strleyashop' " . ($data->provider == 'strleyashop' ? 'selected' : '') . ">Strleyashop</option>
-                                <option value='moogold' " . ($data->provider == 'moogold' ? 'selected' : '') . ">Moogold</option>
-                                <option value='digiflazz' " . ($data->provider == 'digiflazz' ? 'selected' : '') . ">Digiflazz</option>
-                                <option value='giftskin' " . ($data->provider == 'giftskin' ? 'selected' : '') . ">Gift SKin</option>
+                                <option value='sufpayment' " . ($data->provider == 'sufpayment' ? 'selected' : '') . ">SufPayment</option>
+                                <option value='manual' " . ($data->provider == 'manual' ? 'selected' : '') . ">Manual</option>
+                                <option value='jokigendong' " . ($data->provider == 'jokigendong' ? 'selected' : '') . ">Joki Gendong</option>
+                                <option value='giftskin' " . ($data->provider == 'giftskin' ? 'selected' : '') . ">Gift Skin</option>
                                 <option value='vilogml' " . ($data->provider == 'vilogml' ? 'selected' : '') . ">Vilog ML</option>
                                 <option value='joki' " . ($data->provider == 'joki' ? 'selected' : '') . ">Joki MLBB</option>
                             </select>
@@ -273,9 +277,17 @@ class LayananController extends Controller
         }
         
         $cek = Layanan::where('id', $id)->first();
+        $providerCode = ProviderRetirement::normalizeCode($request->input('provider'));
+
+        if (ProviderRetirement::isRetired($providerCode)) {
+            return back()->withErrors([
+                'provider' => "Provider sudah dihentikan dan tidak dapat dipilih: {$providerCode}",
+            ])->withInput();
+        }
+
         $payload = [
             'layanan' => $request->layanan,
-            'provider' => $request->provider,
+            'provider' => $providerCode,
             'provider_id' => $request->provider_id,
             'status' => $request->status,
             'harga_flash_sale' => $request->harga_flash_sale,
