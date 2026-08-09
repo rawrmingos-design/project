@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Log;
 class CheckIdResolver
 {
     private const SUPPORTED_CODES = [
+        // Alias: DB kategori FC Mobile pake 'fc-mobile', slug cekid 'ea-sports-fc-mobile'
+        'fc-mobile', 'ea-sports-fc-mobile',
         'arena-breakout', 'mobile-legends', 'magic-chess-go-go', 'magic-chess-gogo', 'magic-chess-gogo-up',
         'free-fire', '8-ball-pool', 'point-blank', 'arena-of-valor', 'genshin-impact', 'dragon-raja',
         'valorant', 'metal-slug-awakening', 'sausage-man', 'ea-sports-fc-mobile', 'undawn',
@@ -61,6 +63,7 @@ class CheckIdResolver
         'metal-slug-awakening' => 'Metal Slug Awakening',
         'sausage-man' => 'Sausage Man',
         'ea-sports-fc-mobile' => 'FC Mobile',
+        'fc-mobile' => 'FC Mobile',
         'undawn' => 'Undawn',
         'steam-wallet-code-indonesia' => 'Steam Wallet Code - Indonesia',
         'astra-knights-of-veda' => 'ASTRA: Knights of Veda',
@@ -155,7 +158,7 @@ class CheckIdResolver
     private const ZONELESS_CODES = [
         'free-fire', 'free-fire-max', 'pubg-mobile-tp', 'honor-of-kings-tp', 'point-blank',
         'arena-of-valor', 'genshin-impact', 'dragon-raja', 'call-of-duty-mobile', '8-ball-pool',
-        'valorant', 'metal-slug-awakening', 'sausage-man', 'ea-sports-fc-mobile', 'undawn',
+        'valorant', 'metal-slug-awakening', 'sausage-man', 'ea-sports-fc-mobile', 'fc-mobile', 'undawn',
         'steam-wallet-code-indonesia', 'au2-mobile', 'aether-gazer', 'angel-squad-dg', 'aov-dg',
         'arcane-saga', 'arena-breakout', 'atlantica-online-dg', 'auto-chess', 'battlenet-dg',
         'bigo-live', 'bigo-live-voucher', 'bilibili-dg', 'bioskop-online', 'blade-x-odyssey-of-heroes',
@@ -247,15 +250,33 @@ class CheckIdResolver
     private function getCatalogItem(string $categoryCode): ?array
     {
         $catalog = $this->fetchCatalog();
+
+        // Alias: kategori DB 'fc-mobile' → slug cekid 'ea-sports-fc-mobile'
+        if (isset($catalog[$categoryCode]) === false && $categoryCode === 'fc-mobile') {
+            $categoryCode = 'ea-sports-fc-mobile';
+        }
+
         return $catalog[$categoryCode] ?? null;
     }
 
     private function supports(string $categoryCode): bool
     {
-        if ($this->getCatalogItem($categoryCode) !== null) {
-            return true;
-        }
-        return in_array($categoryCode, self::SUPPORTED_CODES, true);
+        // Source of truth = catalog cekid selfhosted (dinamis, sync dengan
+        // cekid.jasakoding.web.id): semua slug yang ada di GET /api/ auto-supported.
+        // Fallback SUPPORTED_CODES hanya safety-net saat fetch catalog gagal/timeout
+        // (cekid down) supaya game yang sudah berjalan tidak tiba-tiba 400.
+        return in_array($categoryCode, $this->catalogCodes(), true)
+            || in_array($categoryCode, self::SUPPORTED_CODES, true);
+    }
+
+    /**
+     * Semua slug game yang terdaftar di cekid selfhosted (hasil GET /api/).
+     * Dipakai sebagai source of truth SUPPORTED — nambah/ubah game di cekid
+     * otomatis sync ke sini (cache 1 hari, key checkid_catalog_v1).
+     */
+    private function catalogCodes(): array
+    {
+        return array_keys($this->fetchCatalog());
     }
 
     private function gameName(string $categoryCode): string
