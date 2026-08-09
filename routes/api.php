@@ -13,7 +13,7 @@ use App\Http\Controllers\Api\PricelistController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\ArticleController;
-use App\Http\Controllers\Api\RecentPurchasesController;
+use App\Http\Controllers\RecentPurchasesController;
 use App\Http\Controllers\Api\ContentController;
 use App\Http\Controllers\Api\PostmanExportController;
 use App\Http\Controllers\Api\SubscriptionWebhookController;

@@ -2,15 +2,27 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembelian;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class RecentPurchasesControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_recent_purchases_route_uses_the_live_sales_controller(): void
+    {
+        $route = collect(Route::getRoutes())->first(
+            fn ($route): bool => $route->getName() === 'recent-purchases.index',
+        );
+
+        $this->assertNotNull($route);
+        $this->assertSame(RecentPurchasesController::class . '@index', $route->getActionName());
+    }
 
     public function test_recent_purchases_endpoint_returns_masked_successful_purchases_only(): void
     {
