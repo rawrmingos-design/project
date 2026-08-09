@@ -28,14 +28,6 @@ class Kernel extends ConsoleKernel
              ->withoutOverlapping()
              ->onOneServer();
 
-         foreach (['gameshop', 'strleyashop', 'elitedias', 'yezzpay'] as $provider) {
-             $schedule->job(new \App\Jobs\SyncProviderOrderStatusesJob($provider))
-                 ->everyFiveMinutes()
-                 ->name('provider-order-status:' . $provider)
-                 ->withoutOverlapping()
-                 ->onOneServer();
-         }
-
          $schedule->command('model:prune', [
              '--model' => [\Illuminate\Notifications\DatabaseNotification::class],
          ])->daily();

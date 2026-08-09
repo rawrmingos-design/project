@@ -20,19 +20,27 @@ class ProviderOrderStatusScheduleTest extends TestCase
         $this->assertSame(300, $gameshop->uniqueFor);
     }
 
-    public function test_all_provider_status_schedules_prevent_overlap_and_run_on_one_server(): void
+    public function test_retired_provider_status_schedules_are_paused(): void
     {
-        $events = collect(app(Schedule::class)->events());
+        $descriptions = collect(app(Schedule::class)->events())
+            ->pluck('description')
+            ->filter()
+            ->values();
 
         foreach (['gameshop', 'strleyashop', 'elitedias', 'yezzpay'] as $provider) {
-            $event = $events->first(
-                fn ($event): bool => $event->description === 'provider-order-status:' . $provider,
-            );
-
-            $this->assertNotNull($event, 'Missing schedule for ' . $provider);
-            $this->assertTrue($event->withoutOverlapping);
-            $this->assertTrue($event->onOneServer);
-            $this->assertSame('*/5 * * * *', $event->expression);
+            $this->assertNotContains('provider-order-status:' . $provider, $descriptions);
         }
+    }
+
+    public function test_retained_digiflazz_sync_schedule_remains_enabled(): void
+    {
+        $event = collect(app(Schedule::class)->events())->first(
+            fn ($event): bool => str_contains($event->description ?? '', 'App\\Jobs\\DigiflazzSyncJob'),
+        );
+
+        $this->assertNotNull($event, 'Missing retained Digiflazz sync schedule.');
+        $this->assertTrue($event->withoutOverlapping);
+        $this->assertTrue($event->onOneServer);
+        $this->assertSame('0 * * * *', $event->expression);
     }
 }
