@@ -224,10 +224,16 @@ class CheckIdResolver
             return ['status' => ['code' => 400, 'message' => 'Game not supported for validation']];
         }
 
-        $gameName = $this->gameName($categoryCode);
+        // ApiCheckController harus menerima slug provider, bukan nama display.
+        // Contoh: catalog name "Magic Chess: Go Go" akan dinormalisasi menjadi
+        // magic_chess:_go_go dan gagal; slug resminya adalah magic-chess-go-go.
+        $catalogItem = $this->getCatalogItem($categoryCode);
+        $gameCode = is_array($catalogItem) && ! empty($catalogItem['slug'])
+            ? (string) $catalogItem['slug']
+            : (self::CATALOG_ALIASES[$categoryCode] ?? $categoryCode);
         $zoneForCheck = $this->zoneForCheck($categoryCode, $zone);
 
-        return (new ApiCheckController($layanan))->check($uid, $zoneForCheck, $gameName);
+        return (new ApiCheckController($layanan))->check($uid, $zoneForCheck, $gameCode);
     }
 
     private function fetchCatalog(): array
