@@ -5,7 +5,7 @@ export default function FileUploadZone({
     helper, 
     icon, 
     accept, 
-    maxSize = 2, // MB
+    maxSize = 5, // MB
     file,
     preview,
     error,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import FileUploadZone from './FileUploadZone';
 
 export default function Step2Documents({ 
@@ -8,16 +8,31 @@ export default function Step2Documents({
     onBack, 
     errors = {},
     captcha,
+    captchaToken = '',
+    onCaptchaToken,
+    onCaptchaExpired,
     processing = false,
     disabled = false
 }) {
 
 
+    useEffect(() => {
+        window.onResellerCaptchaVerified = (token) => {
+            onCaptchaToken?.(token || '');
+        };
+        window.onResellerCaptchaExpired = () => {
+            onCaptchaExpired?.();
+        };
+
+        return () => {
+            delete window.onResellerCaptchaVerified;
+            delete window.onResellerCaptchaExpired;
+        };
+    }, [onCaptchaExpired, onCaptchaToken]);
+
     const handleFileChange = (field, file) => {
         onChange(field, file);
     };
-
-
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -28,8 +43,10 @@ export default function Step2Documents({
             return;
         }
         
-        // Captcha validation handled by backend
-        
+        if (captcha?.enabled && !captchaToken) {
+            return;
+        }
+
         onSubmit(e);
     };
 
@@ -56,7 +73,7 @@ export default function Step2Documents({
                         label="1. Foto KTP Asli"
                         icon="id_card"
                         accept=".jpg,.jpeg,.png,.pdf"
-                        maxSize={2}
+                        maxSize={5}
                         file={formData.identity}
                         error={errors.identity}
                         onChange={(file) => handleFileChange('identity', file)}
@@ -69,7 +86,7 @@ export default function Step2Documents({
                         helper="Pastikan wajah dan KTP terlihat jelas"
                         icon="face"
                         accept=".jpg,.jpeg,.png"
-                        maxSize={2}
+                        maxSize={5}
                         file={formData.selfie}
                         error={errors.selfie}
                         onChange={(file) => handleFileChange('selfie', file)}
@@ -82,7 +99,7 @@ export default function Step2Documents({
                         helper="Screenshot profil toko / foto fisik konter"
                         icon="storefront"
                         accept=".jpg,.jpeg,.png,.pdf"
-                        maxSize={2}
+                        maxSize={5}
                         file={formData.business_proof}
                         error={errors.business_proof}
                         onChange={(file) => handleFileChange('business_proof', file)}
@@ -90,24 +107,37 @@ export default function Step2Documents({
                     />
 
                     {/* Captcha Section - Right above submit button */}
-                    {captcha.enabled && (
+                    {captcha?.enabled && captcha?.site_key && (
                         <div className="pt-6 border-t border-white/5">
                             <label className="block text-xs font-semibold text-white mb-3 tracking-wide uppercase">
                                 Verifikasi Keamanan
                             </label>
                             <div className="flex justify-center">
-                                <div 
-                                    className="g-recaptcha" 
+                                <div
+                                    className="g-recaptcha"
                                     data-sitekey={captcha.site_key}
                                     data-theme="dark"
+                                    data-callback="onResellerCaptchaVerified"
+                                    data-expired-callback="onResellerCaptchaExpired"
                                 ></div>
                             </div>
+                            {!captchaToken && (
+                                <p className="mt-2 text-xs text-amber-400 text-center">
+                                    Selesaikan verifikasi captcha sebelum mengirim aplikasi.
+                                </p>
+                            )}
                             {errors['g-recaptcha-response'] && (
                                 <p className="mt-2 text-xs text-red-400 text-center">
                                     {errors['g-recaptcha-response']}
                                 </p>
                             )}
                         </div>
+                    )}
+
+                    {captcha?.misconfigured && (
+                        <p className="pt-6 border-t border-white/5 text-xs text-amber-400 text-center">
+                            Verifikasi keamanan belum tersedia. Silakan hubungi admin.
+                        </p>
                     )}
 
                     {/* Actions */}
