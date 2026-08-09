@@ -222,29 +222,45 @@ class CheckIdResolver
 
     private function fetchCatalog(): array
     {
-        return Cache::remember('checkid_catalog_v1', now()->addDay(), function () {
-            $baseUrl = rtrim(trim((string) config('providers.check_id.selfhosted.base_url', 'https://cekid.jasakoding.web.id')), '/');
-            $apiKey = trim((string) config('providers.check_id.selfhosted.api_key', ''));
+        $cacheKey = 'checkid_catalog_v1';
+        $cached = Cache::get($cacheKey);
 
-            try {
-                $req = Http::connectTimeout(3)->timeout(5);
-                if ($apiKey !== '') {
-                    $req->withHeaders(['x-api-key' => $apiKey]);
-                }
+        // Jangan pakai cache kosong sebagai source of truth (bug lama: saat fetch
+        // gagal sesaat, [] sempat tersimpan 1 hari dan bikin semua game jadi
+        // unsupported). Cache kosong akan diperlakukan sebagai miss dan di-refetch.
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
 
-                $response = $req->get($baseUrl . '/api/');
+        $baseUrl = rtrim(trim((string) config('providers.check_id.selfhosted.base_url', 'https://cekid.jasakoding.web.id')), '/');
+        $apiKey = trim((string) config('providers.check_id.selfhosted.api_key', ''));
 
-                if ($response->successful()) {
-                    $json = $response->json();
-                    if (isset($json['data']) && is_array($json['data'])) {
-                        return collect($json['data'])->keyBy('slug')->toArray();
-                    }
-                }
-            } catch (\Throwable $e) {
-                Log::warning("ApiCheckController:fetchCatalog - Failed to fetch check id catalog", ['message' => $e->getMessage()]);
+        try {
+            $req = Http::connectTimeout(3)->timeout(5);
+            if ($apiKey !== '') {
+                $req->withHeaders(['x-api-key' => $apiKey]);
             }
-            return [];
-        });
+
+            $response = $req->get($baseUrl . '/api/');
+
+            if ($response->successful()) {
+                $json = $response->json();
+                if (isset($json['data']) && is_array($json['data'])) {
+                    $catalog = collect($json['data'])->keyBy('slug')->toArray();
+
+                    // Cache hanya kalau isi valid/non-empty agar tidak lock empty.
+                    if ($catalog !== []) {
+                        Cache::put($cacheKey, $catalog, now()->addDay());
+                    }
+
+                    return $catalog;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("ApiCheckController:fetchCatalog - Failed to fetch check id catalog", ['message' => $e->getMessage()]);
+        }
+
+        return [];
     }
 
     private function getCatalogItem(string $categoryCode): ?array
