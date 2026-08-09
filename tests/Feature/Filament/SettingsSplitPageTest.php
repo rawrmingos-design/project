@@ -3,12 +3,14 @@
 namespace Tests\Feature\Filament;
 
 use App\Filament\Admin\Pages\Settings\GeneralSettings;
+use App\Filament\Admin\Pages\Settings\NotificationsSettings;
 use App\Filament\Admin\Pages\Settings\ProvidersApiSettings;
 use App\Filament\Admin\Pages\Settings\SeoTrackingSettings;
 use App\Models\SettingWeb;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\AdminTestCase;
 
@@ -171,6 +173,54 @@ class SettingsSplitPageTest extends AdminTestCase
             ->call('save');
 
         $this->assertFalse(Cache::has('public:active-theme'));
+    }
+
+    public function test_notifications_settings_normalizes_whatsapp_numbers_without_calling_wablas(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $settings = $this->createTrackingSettings([
+            'wa_provider' => 'fonnte',
+            'nomor_admin' => '628111111111',
+            'wa_key' => 'fonnte-token',
+            'wa_number' => '628222222222',
+        ]);
+
+        Http::fake();
+
+        foreach ([
+            ['087780901780', '6287780901780'],
+            ['87780901780', '6287780901780'],
+            ['6287780901780', '6287780901780'],
+            ['+6287780901780', '6287780901780'],
+            [null, null],
+        ] as [$input, $expected]) {
+            $component = Livewire::test(NotificationsSettings::class)
+                ->fillForm([
+                    'wa_provider' => 'fonnte',
+                    'nomor_admin' => $input,
+                    'wa_key' => 'fonnte-token',
+                    'wa_number' => $input,
+                    'mail_mailer' => 'smtp',
+                ])
+                ->assertSet('data.nomor_admin', $input)
+                ->assertSet('data.wa_number', $input);
+
+            $state = $component->instance()->form->getState();
+            $this->assertSame($expected, $state['nomor_admin']);
+            $this->assertSame($expected, $state['wa_number']);
+
+            $component->call('save');
+
+            $settings->refresh();
+
+            $this->assertSame($expected, $settings->nomor_admin);
+            $this->assertSame($expected, $settings->wa_number);
+        }
+
+        Http::assertNothingSent();
     }
 
     public function test_seo_tracking_settings_saves_encrypted_tiktok_credentials_and_preserves_blank_token(): void

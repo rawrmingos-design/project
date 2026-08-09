@@ -1146,6 +1146,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->label('Nomor WhatsApp Admin')
                             ->tel()
                             ->prefix('+62')
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor utama admin untuk menerima notifikasi sistem.'),
                             
                         TextInput::make('wa_key')
@@ -1159,6 +1160,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->label('Nomor Device Fonnte')
                             ->tel()
                             ->prefix('+62')
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor WhatsApp yang terhubung di Fonnte.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
@@ -1652,16 +1654,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
         }
 
         $this->stripMediaFormOnlyFields($data);
-        
-        // Check if WA Number changed and trigger API update
-        if (
-            ($data['wa_provider'] ?? 'fonnte') === 'fonnte' &&
-            isset($data['wa_number']) &&
-            $settings->wa_number !== $data['wa_number']
-        ) {
-             $this->changeNumber($data['wa_number'], $data['wa_key'] ?? $settings->wa_key);
-        }
-        
+
         $data = $this->filterStateByWhitelist($data);
 
         // Update all fields
@@ -1704,6 +1697,25 @@ abstract class SettingsSectionPage extends Page implements HasForms
     protected function mutateSettingsDataBeforeSave(array $data, SettingWeb $settings): ?array
     {
         return $data;
+    }
+
+    private static function normalizePhoneNumber(?string $state): ?string
+    {
+        if (blank($state)) {
+            return $state;
+        }
+
+        $digits = preg_replace('/\D+/', '', $state) ?? '';
+
+        if (str_starts_with($digits, '0')) {
+            return '62' . substr($digits, 1);
+        }
+
+        if (str_starts_with($digits, '8')) {
+            return '62' . $digits;
+        }
+
+        return $digits;
     }
 
     private function shouldRegeneratePwaIcons(string $previousSource, string $currentSource): bool
@@ -1835,20 +1847,6 @@ abstract class SettingsSectionPage extends Page implements HasForms
             ->value('id');
 
         return $id ? (int) $id : null;
-    }
-
-    protected function changeNumber($number, $waKey)
-    {
-        try {
-            \Illuminate\Support\Facades\Http::withHeaders([
-                'Authorization' => $waKey,
-            ])->post("https://solo.wablas.com/api/device/change-number", [
-                'phone' => $number,
-            ]);
-        } catch (\Exception $e) {
-            // Log error or silently fail if not critical
-            \Illuminate\Support\Facades\Log::error('Failed to change WA number: ' . $e->getMessage());
-        }
     }
 
     protected function makeValidateSitemapXmlAction(): Action

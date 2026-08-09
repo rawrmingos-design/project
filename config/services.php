@@ -66,6 +66,10 @@ return [
         'device_token' => env('FONNTE_DEVICE_TOKEN'),
     ],
 
+    'razerpay' => [
+        'secret_key' => env('RAZERPAY_SECRET_KEY'),
+    ],
+
     'tiktok' => [
         'pixel_id' => env('TIKTOK_PIXEL_ID'),
         'access_token' => env('TIKTOK_ACCESS_TOKEN'),

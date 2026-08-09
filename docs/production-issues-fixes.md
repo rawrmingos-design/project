@@ -528,6 +528,50 @@ docker compose logs app | grep "log:triage"
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** 2026-07-20  
+## API Rate-Limit and Callback Hardening (2026-08-08)
+
+### Implemented controls
+
+- Public authentication, checkout, account-check, order status, voucher, search, lookup, API v2, and Gateway routes now use cost-specific named limiters. The generic API limiter remains an outer ceiling.
+- JSON/API throttling returns HTTP `429`, `Retry-After`, and the standard `TOO_MANY_REQUESTS` error contract.
+- Limiter keys use HMAC fingerprints for usernames, emails, phone numbers, UIDs, order IDs, idempotency keys, and lookup targets instead of raw sensitive values.
+- Supplier, payment, subscription, Razer, and provider webhook quotas are configurable through `RATE_LIMIT_*_PER_MINUTE` environment variables.
+- Razer callbacks require `RAZERPAY_SECRET_KEY`, validate signatures before database work, lock settlement records, and dispatch purchase fulfillment after settlement.
+- Anonymous provider cron and maintenance HTTP routes were removed. Provider status polling now uses unique queued jobs every five minutes with scheduler overlap and single-server guards.
+- Livewire temporary uploads use the `livewire-upload` limiter and a 12 MB package-level maximum.
+
+### Production requirements
+
+- Use a shared Redis cache and lock store on multi-node deployments. Per-node cache does not provide cross-node limiter or unique-job consistency.
+- Validate `TrustProxies` so request IP resolution cannot be spoofed through untrusted forwarding headers.
+- Keep inbound provider whitelist middleware in `log_only` until each production allowlist is validated; throttling does not replace signature or source validation.
+- Monitor `429` rates, `Retry-After`, checkout conversion, callback backlog, queue lag, and provider polling failures for 24–48 hours after rollout.
+- Run scheduler and queue workers through the deployment process manager.
+
+### Configurable callback quotas
+
+```dotenv
+RAZERPAY_SECRET_KEY=
+RATE_LIMIT_RAZER_CALLBACK_PER_MINUTE=180
+RATE_LIMIT_SUPPLIER_CALLBACK_PER_MINUTE=240
+RATE_LIMIT_PAYMENT_CALLBACK_PER_MINUTE=180
+RATE_LIMIT_SUBSCRIPTION_CALLBACK_PER_MINUTE=120
+RATE_LIMIT_PROVIDER_WEBHOOK_PER_MINUTE=240
+```
+
+### Deferred follow-up
+
+- Convert remaining state-changing admin GET routes to POST/PATCH/DELETE.
+- Queue additional expensive admin sync, retry, and bulk actions with single-flight locks.
+- Add action-level limits to expensive Filament/Livewire actions.
+- Audit export authorization, signed URLs, and download quotas.
+- Add field-specific upload MIME and file-count limits.
+- Add ownership or scoped capability checks to public order-status endpoints where client contracts permit them.
+
+---
+
+**Document Version:** 1.1
+
+**Last Updated:** 2026-08-08
+
 **Maintained By:** Tech Lead Team

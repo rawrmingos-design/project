@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\IndexController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\InvoiceController;
@@ -44,7 +43,6 @@ use App\Http\Controllers\SenangpayController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\PwaManifestController;
-use App\Http\Controllers\RecentPurchasesController;
 use App\Models\Withdrawal;
 use Illuminate\Support\Facades\App;
 use App\Http\Controllers\Public\HomeController as PublicHomeController;
@@ -83,21 +81,10 @@ Route::redirect('/id/sitemap-categories.xml', '/sitemap-categories.xml', 301);
 Route::post('/senangpay/create', [SenangpayController::class, 'createPaymentRequest']);
 Route::get('/senangpay/callback', [SenangpayController::class, 'handlePaymentResponse'])->name('senangpay.callback');
 
-// Live Sales FOMO Toast - recent purchases for toast notifications
-Route::get('/api/recent-purchases', [RecentPurchasesController::class, 'index'])->name('recent-purchases.index');
-
-# CRONJOB
-// /cronjob/update-gameshop
-// /cronjob/update-strleyashop
-Route::prefix('cronjob')->group(function () {
-    Route::get('/update-gameshop', [\App\Http\Controllers\CronjobController::class, 'updateGameShop']);
-    Route::get('/update-strleyashop', [\App\Http\Controllers\CronjobController::class, 'updateStrleyashop']);
-    Route::get('/update-elitedias', [\App\Http\Controllers\CronjobController::class, 'updateElitedias']);
-    Route::get('/update-yezzpay', [\App\Http\Controllers\CronjobController::class, 'updateYezzpay']);
-});
-
 Route::prefix('callback')->group(function () {
-    Route::post('/razerpay', [\App\Http\Controllers\CallbackController::class, 'razerpay'])->name('callback.razerpay');
+    Route::post('/razerpay', [\App\Http\Controllers\CallbackController::class, 'razerpay'])
+        ->middleware('throttle:razer-callback')
+        ->name('callback.razerpay');
 });
 
 
@@ -113,29 +100,6 @@ Route::get('language/{lang}', function ($lang) {
 Route::get('/wip', function () {
     $ipAddress = request()->ip();
     return response()->json(['ip' => $ipAddress]);
-});
-
-Route::middleware(['auth'])->group(function () {
-    Route::get('/weji-mt', function () {
-        if ((string) (auth()->user()->role ?? '') !== 'Admin') {
-            abort(403);
-        }
-
-        Artisan::call('down', [
-            '--secret' => 'kbrs-0189-kahisnxs',
-        ]);
-
-        dd(Artisan::output());
-    });
-
-    Route::get('/weji-up', function () {
-        if ((string) (auth()->user()->role ?? '') !== 'Admin') {
-            abort(403);
-        }
-
-        Artisan::call('up');
-        dd(Artisan::output());
-    });
 });
 
 $publicHost = parse_url((string) config('app.url'), PHP_URL_HOST);
@@ -194,11 +158,11 @@ Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->nam
     Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
         ->missing(fn () => redirect('/', 302))
         ->name('order');
-    Route::post('/order/price', [OrderController::class, 'price'])->name('order.price');
-    Route::post('/order/checkout', [OrderController::class, 'store'])->name('order.checkout');
-    Route::post('/order/confirm', [OrderController::class, 'confirm'])->name('order.confirm');
-    Route::get('/invoices/{order}', PublicInvoicePageController::class)->name('invoice');
-    Route::get('/track/{order}', PublicInvoicePageController::class)->name('track');
+    Route::post('/order/price', [OrderController::class, 'price'])->middleware('throttle:public-order-price')->name('order.price');
+    Route::post('/order/checkout', [OrderController::class, 'store'])->middleware('throttle:public-order-submit')->name('order.checkout');
+    Route::post('/order/confirm', [OrderController::class, 'confirm'])->middleware('throttle:public-order-confirm')->name('order.confirm');
+    Route::get('/invoices/{order}', PublicInvoicePageController::class)->middleware('throttle:public-status')->name('invoice');
+    Route::get('/track/{order}', PublicInvoicePageController::class)->middleware('throttle:public-status')->name('track');
 });
 
 Route::prefix('id')->group(function () {
@@ -227,11 +191,11 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
         Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
         Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
-        Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->name('settings.change-password');
-        Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->middleware('not-reseller')->name('settings.api-key.regenerate');
-        Route::post('/settings/2fa/setup',                                           [PublicSettingsPageController::class, 'setupTwoFactor'])->name('settings.2fa.setup');
-        Route::post('/settings/2fa/enable',                                          [PublicSettingsPageController::class, 'enableTwoFactor'])->name('settings.2fa.enable');
-        Route::post('/settings/2fa/disable',                                         [PublicSettingsPageController::class, 'disableTwoFactor'])->name('settings.2fa.disable');
+        Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->middleware('throttle:security-settings')->name('settings.change-password');
+        Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->middleware(['not-reseller', 'throttle:critical-security-settings'])->name('settings.api-key.regenerate');
+        Route::post('/settings/2fa/setup',                                           [PublicSettingsPageController::class, 'setupTwoFactor'])->middleware('throttle:security-settings')->name('settings.2fa.setup');
+        Route::post('/settings/2fa/enable',                                          [PublicSettingsPageController::class, 'enableTwoFactor'])->middleware('throttle:security-settings')->name('settings.2fa.enable');
+        Route::post('/settings/2fa/disable',                                         [PublicSettingsPageController::class, 'disableTwoFactor'])->middleware('throttle:critical-security-settings')->name('settings.2fa.disable');
         Route::post('/logout',                                                       [LoginController::class, 'destroy'])->name('logout');
         Route::post('/id/logout',                                                    [LoginController::class, 'destroy'])->name('logout.legacy');
         Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->middleware('not-reseller:reseller.deposits')->name('reload');
@@ -257,11 +221,11 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
 
                 return redirect()->away($docsUrl, 301);
             })->name('docs');
-            Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->name('credentials.rotate.live');
-            Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->name('credentials.rotate.sandbox');
-            Route::post('/credentials/webhook', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'updateWebhook'])->name('credentials.webhook.update');
-            Route::post('/ip-whitelist', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'store'])->name('ip.whitelist.store');
-            Route::delete('/ip-whitelist/{ip}', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'destroy'])->where('ip', '.*')->name('ip.whitelist.destroy');
+            Route::post('/credentials/rotate-live', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateLive'])->middleware('throttle:reseller-credential-mutation')->name('credentials.rotate.live');
+            Route::post('/credentials/rotate-sandbox', [\App\Http\Controllers\Public\Reseller\RotateKeyController::class, 'rotateSandbox'])->middleware('throttle:reseller-credential-mutation')->name('credentials.rotate.sandbox');
+            Route::post('/credentials/webhook', [\App\Http\Controllers\Public\Reseller\CredentialController::class, 'updateWebhook'])->middleware('throttle:reseller-credential-mutation')->name('credentials.webhook.update');
+            Route::post('/ip-whitelist', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'store'])->middleware('throttle:reseller-credential-mutation')->name('ip.whitelist.store');
+            Route::delete('/ip-whitelist/{ip}', [\App\Http\Controllers\Public\Reseller\IpWhitelistController::class, 'destroy'])->middleware('throttle:reseller-credential-mutation')->where('ip', '.*')->name('ip.whitelist.destroy');
             Route::get('/callbacks', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'index'])->name('callbacks');
             Route::post('/callbacks/{delivery}/resend', [\App\Http\Controllers\Public\Reseller\CallbackLogController::class, 'resend'])
                 ->middleware('throttle:reseller-callback-resend')
@@ -274,17 +238,17 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
             Route::get('/orders',    [\App\Http\Controllers\Public\Reseller\OrderLogController::class,        'index'])->name('orders');
             Route::get('/deposits',  [\App\Http\Controllers\Public\Reseller\DepositHistoryController::class,  'index'])->name('deposits');
             Route::get('/sandbox',   [\App\Http\Controllers\Public\Reseller\SandboxController::class,          'index'])->name('sandbox');
-            Route::post('/sandbox/simulate', [\App\Http\Controllers\Public\Reseller\SandboxController::class,  'simulateStatus'])->name('sandbox.simulate');
+            Route::post('/sandbox/simulate', [\App\Http\Controllers\Public\Reseller\SandboxController::class,  'simulateStatus'])->middleware('throttle:reseller-sandbox-mutation')->name('sandbox.simulate');
             
             // Notifications API
             Route::get('/notifications', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'index'])->name('notifications.index');
             Route::get('/notifications/unread-count', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
-            Route::post('/notifications/read-all', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
-            Route::post('/notifications/{id}/read', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAsRead'])->name('notifications.read');
+            Route::post('/notifications/read-all', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAllAsRead'])->middleware('throttle:reseller-notification-mutation')->name('notifications.read-all');
+            Route::post('/notifications/{id}/read', [\App\Http\Controllers\Public\Reseller\NotificationController::class, 'markAsRead'])->middleware('throttle:reseller-notification-mutation')->name('notifications.read');
 
             // Native web push (reseller-only, manual test phase)
-            Route::post('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
-            Route::delete('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
+            Route::post('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'store'])->middleware('throttle:reseller-notification-mutation')->name('push-subscriptions.store');
+            Route::delete('/push-subscriptions', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'destroy'])->middleware('throttle:reseller-notification-mutation')->name('push-subscriptions.destroy');
             Route::post('/push-subscriptions/test', [\App\Http\Controllers\Public\Reseller\PushSubscriptionController::class, 'sendTest'])
                 ->middleware('throttle:reseller-callback-test')
                 ->name('push-subscriptions.test');
@@ -306,15 +270,15 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         ->name('reseller.sales');
 
     // Rute publik
-    Route::post('/cari/index',                                                   [IndexController::class, 'cariIndex']);
-    Route::get('/search/products',                                               [PublicProductSearchController::class, 'index'])->name('public.search.products');
-    Route::get('/invoices',                                                      [PublicTransactionLookupPageController::class, 'index'])->name('cari');
-    Route::post('/cari',                                                         [PublicTransactionLookupPageController::class, 'lookup'])->name('cari.post');
-    Route::get('/price-list',                                                    [PublicInformationalPageController::class, 'priceList'])->name('price');
+    Route::post('/cari/index',                                                   [IndexController::class, 'cariIndex'])->middleware('throttle:public-search');
+    Route::get('/search/products',                                               [PublicProductSearchController::class, 'index'])->middleware('throttle:public-search')->name('public.search.products');
+    Route::get('/invoices',                                                      [PublicTransactionLookupPageController::class, 'index'])->middleware('throttle:public-api-read')->name('cari');
+    Route::post('/cari',                                                         [PublicTransactionLookupPageController::class, 'lookup'])->middleware('throttle:public-transaction-lookup')->name('cari.post');
+    Route::get('/price-list',                                                    [PublicInformationalPageController::class, 'priceList'])->middleware('throttle:public-api-expensive-read')->name('price');
     Route::get('/calculator/magic-wheel',                                        [PublicCalculatorPageController::class, 'magicWheel'])->name('hitungpointmw');
     Route::get('/calculator/zodiac',                                             [PublicCalculatorPageController::class, 'zodiac'])->name('hitungpointzodiac');
     Route::get('/calculator/winrate',                                            [PublicCalculatorPageController::class, 'winrate'])->name('hitungwr');
-    Route::get('/leaderboard',                                                   PublicLeaderboardPageController::class)->name('leaderboardd');
+    Route::get('/leaderboard',                                                   PublicLeaderboardPageController::class)->middleware('throttle:public-api-expensive-read')->name('leaderboardd');
     Route::get('/terms-and-condition',                                           [PublicLegalPageController::class, 'terms'])->name('terms');
     Route::get('/privacy-policy',                                                [PublicLegalPageController::class, 'privacyPolicy'])->name('policy');
     Route::get('/policy',                                                        [PublicLegalPageController::class, 'privacy'])->name('privacy');
@@ -324,7 +288,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
     Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
     Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
-    Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->name('reviews');
+    Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->middleware('throttle:public-api-expensive-read')->name('reviews');
     Route::get('/forgot-password',                                         [PublicInformationalPageController::class, 'forgotPassword'])->name('forgot');
 });
 
@@ -338,55 +302,55 @@ Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(functi
 
     Route::get('/id/{kategori:kode}',                                            PublicOrderPageController::class)
         ->missing(fn () => redirect('/id', 302));
-    Route::post('/id/harga',                                                     [OrderController::class, 'price'])->name('ajax.price');
-    Route::post('/id/konfirmasi-data',          [OrderController::class, 'confirm'])->name('ajax.confirmation');
-    Route::post('/ajax/check-account',          [OrderController::class, 'checkAccount'])->name('ajax.check-account');
-    Route::post('/id',                                                           [OrderController::class, 'store'])->name('ordered');
-    Route::get('/id/invoices/{order}',                                           PublicInvoicePageController::class)->name('pembelian');
-    Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->name('rating.pembelian');
-    Route::get('/ajax/transaction-status/{order}',                               [InvoiceController::class, 'checkStatus'])->name('ajax.status');
-    Route::get('/ajax/deposit-status/{order}',                                   [InvoiceDepositController::class, 'checkStatus'])->name('ajax.deposit-status');
-    Route::post('/check-voucher',                                                [VoucherController::class, 'confirm'])->name('check.voucher');
-    Route::post('/available-voucher',                                            [VoucherController::class, 'best'])->name('available.voucher');
+    Route::post('/id/harga',                                                     [OrderController::class, 'price'])->middleware('throttle:public-order-price')->name('ajax.price');
+    Route::post('/id/konfirmasi-data',          [OrderController::class, 'confirm'])->middleware('throttle:public-order-confirm')->name('ajax.confirmation');
+    Route::post('/ajax/check-account',          [OrderController::class, 'checkAccount'])->middleware('throttle:public-account-check')->name('ajax.check-account');
+    Route::post('/id',                                                           [OrderController::class, 'store'])->middleware('throttle:public-order-submit')->name('ordered');
+    Route::get('/id/invoices/{order}',                                           PublicInvoicePageController::class)->middleware('throttle:public-status')->name('pembelian');
+    Route::post('/id/invoices/{order}',                                          [InvoiceController::class, 'ratingCustomer'])->middleware('throttle:public-order-confirm')->name('rating.pembelian');
+    Route::get('/ajax/transaction-status/{order}',                               [InvoiceController::class, 'checkStatus'])->middleware('throttle:public-status')->name('ajax.status');
+    Route::get('/ajax/deposit-status/{order}',                                   [InvoiceDepositController::class, 'checkStatus'])->middleware('throttle:public-status')->name('ajax.deposit-status');
+    Route::post('/check-voucher',                                                [VoucherController::class, 'confirm'])->middleware('throttle:public-voucher')->name('check.voucher');
+    Route::post('/available-voucher',                                            [VoucherController::class, 'best'])->middleware('throttle:public-voucher')->name('available.voucher');
 });
 
 // Rute callback
 Route::post('/wejizy/digi/payload', [DigiflazzCallbackController::class, 'handle'])
-    ->middleware('inbound.whitelist:supplier_callback,digiflazz,log_only');
+    ->middleware(['throttle:supplier-callback', 'inbound.whitelist:supplier_callback,digiflazz,log_only']);
 Route::post('/wejizy/vip/callback', [VipResellerCallbackController::class, 'handle'])
-    ->middleware('inbound.whitelist:supplier_callback,vip,log_only');
+    ->middleware(['throttle:supplier-callback', 'inbound.whitelist:supplier_callback,vip,log_only']);
 Route::match(['get', 'post'], '/wejizy/apigames/callback', [ApiGamesCallbackController::class, 'handle'])
-    ->middleware('inbound.whitelist:supplier_callback,apigames,log_only');
+    ->middleware(['throttle:supplier-callback', 'inbound.whitelist:supplier_callback,apigames,log_only']);
 Route::post('/wejizy/tokopay/callback', [TokoPayCallbackController::class, 'handle'])
-    ->middleware('inbound.whitelist:payment_gateway,tokopay,log_only');
+    ->middleware(['throttle:payment-callback', 'inbound.whitelist:payment_gateway,tokopay,log_only']);
 Route::post('/wejizy/tripay/callback', [TriPayCallbackController::class, 'handle'])
-    ->middleware('inbound.whitelist:payment_gateway,tripay,log_only');
+    ->middleware(['throttle:payment-callback', 'inbound.whitelist:payment_gateway,tripay,log_only']);
 Route::post('/wejizy/paydisini/callback', [PaydisiniCallbackController::class, 'callbackTransaction'])
-    ->middleware('inbound.whitelist:payment_gateway,paydisini,log_only');
+    ->middleware(['throttle:payment-callback', 'inbound.whitelist:payment_gateway,paydisini,log_only']);
 Route::post('/wejizy/duitku/callback', [DuitkuPaymentController::class, 'handleCallback'])
-    ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
+    ->middleware(['throttle:payment-callback', 'inbound.whitelist:payment_gateway,duitku,log_only'])
     ->name('duitku.callback');
 Route::post('/wejizy/duitku/subscription/callback', [SubscriptionWebhookController::class, 'duitku'])
-    ->middleware('inbound.whitelist:payment_gateway,duitku,log_only')
+    ->middleware(['throttle:subscription-callback', 'inbound.whitelist:payment_gateway,duitku,log_only'])
     ->name('duitku.subscription.callback');
 
 Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/pesanan',                                                       [AdminOrder::class, 'create'])->name('pesanan');
-    Route::get('/order-status/{order_id}/{status}',                              [AdminOrder::class, 'update']);
-    Route::get('/process-order/{order_id}',                              [AdminOrder::class, 'reorder']);
+    Route::get('/order-status/{order_id}/{status}',                              [AdminOrder::class, 'update'])->middleware('throttle:admin-financial-mutation');
+    Route::get('/process-order/{order_id}',                              [AdminOrder::class, 'reorder'])->middleware('throttle:admin-order-retry');
 
 
     Route::prefix('bangjeff')->middleware(['auth', 'check.role'])->group(function () {
-        Route::get('/balance',                                                       [BangjeffdashboardController::class, 'balance'])->name('bangjeff.balance');
-        Route::get('/product',                                                       [BangjeffdashboardController::class, 'getProduct'])->name('bangjeff.product');
+        Route::get('/balance',                                                       [BangjeffdashboardController::class, 'balance'])->middleware('throttle:admin-external-read')->name('bangjeff.balance');
+        Route::get('/product',                                                       [BangjeffdashboardController::class, 'getProduct'])->middleware('throttle:admin-external-read')->name('bangjeff.product');
     });
     Route::prefix('topupedia')->middleware(['auth', 'check.role'])->group(function () {
-        Route::get('/balance',                                                       [TopupediadashboardController::class, 'balance'])->name('topupedia.balance');
-        Route::get('/product',                                                       [TopupediadashboardController::class, 'getProduct'])->name('topupedia.product');
+        Route::get('/balance',                                                       [TopupediadashboardController::class, 'balance'])->middleware('throttle:admin-external-read')->name('topupedia.balance');
+        Route::get('/product',                                                       [TopupediadashboardController::class, 'getProduct'])->middleware('throttle:admin-external-read')->name('topupedia.product');
     });
 
     Route::prefix('digiflazz')->middleware(['auth', 'check.role'])->group(function () {
-        Route::get('/produk',                                                        [DigiflazzdashboardController::class, 'harga'])->name('digiflazz.prices');
+        Route::get('/produk',                                                        [DigiflazzdashboardController::class, 'harga'])->middleware('throttle:admin-external-read')->name('digiflazz.prices');
     });
 
     Route::get('/berita',                                                        [Berita::class, 'create'])->name('berita');
@@ -411,9 +375,9 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::post('/kategori/{id}/detail',                                         [KategoriController::class, 'patch'])->name('kategori.detail.update');
     Route::get('/produk/get/{provider?}',                                        [ProdukController::class, 'get'])->name('produk.get');
     Route::post('/produk/get/{provider?}',                                       [ProdukController::class, 'store'])->name('produk.get.post');
-    Route::post('/produk/sync/',                                                 [ProdukController::class, 'sync'])->name('sync.produk.get.post');
-    Route::post('/produk/syncmoogold/',                                          [ProdukController::class, 'syncmoogold'])->name('syncmoogold.produk.get.post');
-    Route::post('/produk/synctopupedia/',                                        [ProdukController::class, 'synctopupedia'])->name('synctopupedia.produk.get.post');
+    Route::post('/produk/sync/',                                                 [ProdukController::class, 'sync'])->middleware('throttle:admin-provider-sync')->name('sync.produk.get.post');
+    Route::post('/produk/syncmoogold/',                                          [ProdukController::class, 'syncmoogold'])->middleware('throttle:admin-provider-sync')->name('syncmoogold.produk.get.post');
+    Route::post('/produk/synctopupedia/',                                        [ProdukController::class, 'synctopupedia'])->middleware('throttle:admin-provider-sync')->name('synctopupedia.produk.get.post');
     Route::get('/produk/get/{id}/detail',                                        [ProdukController::class, 'detail'])->name('detail.produk.get');
     Route::post('/produk/get/{id}/detail',                                       [ProdukController::class, 'patch'])->name('detail.produk.get.update');
     Route::get('/rating-customer',                                               [ratingAdminController::class, 'create'])->name('rating-customer');
@@ -424,7 +388,7 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::get('/layanan-status/{id}/{status}',                                  [LayananController::class, 'update'])->name('layanan.update');
     Route::get('/layanan/{id}/detail',                                           [LayananController::class, 'detail'])->name('layanan.detail');
     Route::post('/layanan/{id}/detail',                                          [LayananController::class, 'patch'])->name('layanan.detail.update');
-    Route::post('/layanan/bulk-delete',                                          [LayananController::class, 'bulkDelete'])->name('layanan.bulkDelete');
+    Route::post('/layanan/bulk-delete',                                          [LayananController::class, 'bulkDelete'])->middleware('throttle:admin-bulk-mutation')->name('layanan.bulkDelete');
 
     Route::resources(['paket' => PaketController::class, 'paket-layanan' => PaketLayananController::class]);
     Route::post('paket-layanan-get-layanan',                                     [PaketLayananController::class, 'get_layanan'])->name('paket-layanan.get-layanan');
