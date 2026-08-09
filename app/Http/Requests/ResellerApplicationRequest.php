@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\CaptchaRuntimeResolver;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ResellerApplicationRequest extends FormRequest
@@ -14,13 +15,10 @@ class ResellerApplicationRequest extends FormRequest
     public function rules(): array
     {
         $isUpdate = $this->user()?->resellerApplication?->exists ?? false;
-        
-        // Check if captcha bypass is enabled in settings or running in test environment
-        $captchaBypass = app()->environment('testing') || 
-            (\DB::table('setting_webs')
-                ->where('id', 1)
-                ->value('captcha_bypass') ?? false);
-        
+        $captchaActive = app()->environment('testing')
+            ? false
+            : app(CaptchaRuntimeResolver::class)->resolve()['is_active'];
+
         return [
             'business_name' => ['required', 'string', 'max:255'],
             'business_url' => ['nullable', 'url', 'max:500'],
@@ -47,8 +45,8 @@ class ResellerApplicationRequest extends FormRequest
                 'max:5120',
             ],
             
-            // reCAPTCHA v2 validation - conditional based on bypass setting
-            'g-recaptcha-response' => $captchaBypass ? [] : ['required', 'captcha'],
+            // reCAPTCHA v2 validation follows the shared runtime resolver.
+            'g-recaptcha-response' => $captchaActive ? ['required', 'captcha'] : [],
         ];
     }
 

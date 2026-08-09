@@ -28,6 +28,8 @@ export default function Registry({ current_user, captcha, existing_application, 
 
     // Multi-step state
     const [currentStep, setCurrentStep] = useState(1);
+    const [captchaToken, setCaptchaToken] = useState('');
+    const captchaActive = captcha?.enabled === true && Boolean(captcha?.site_key);
 
     // Form data state
     const { data, setData, post, processing, errors } = useForm({
@@ -86,15 +88,31 @@ export default function Registry({ current_user, captcha, existing_application, 
             return;
         }
 
-        // Get captcha response from DOM (in case it's rendered)
-        const captchaResponse = document.querySelector('[name="g-recaptcha-response"]')?.value || '';
+        if (captchaActive && !captchaToken) {
+            setCurrentStep(2);
+            return;
+        }
 
         router.post('/id/reseller/registry', {
             ...data,
-            'g-recaptcha-response': captchaResponse,
+            'g-recaptcha-response': captchaToken,
         }, {
             forceFormData: true,
+            onError: () => {
+                setCaptchaToken('');
+                if (window.grecaptcha) {
+                    window.grecaptcha.reset();
+                }
+            },
         });
+    };
+
+    const handleCaptchaToken = (token) => {
+        setCaptchaToken(token || '');
+    };
+
+    const handleCaptchaExpired = () => {
+        setCaptchaToken('');
     };
 
     // Banner Components (preserved from original)
@@ -301,7 +319,7 @@ export default function Registry({ current_user, captcha, existing_application, 
                 <title>{`Pendaftaran Reseller - ${appName}`}</title>
                 <meta name="description" content="Bergabunglah dengan mitra resmi kami dan dapatkan akses eksklusif ke sistem H2H dengan harga kompetitif" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-                {captcha?.enabled && captcha?.site_key && (
+                {captchaActive && (
                     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
                 )}
             </Head>
@@ -370,6 +388,9 @@ export default function Registry({ current_user, captcha, existing_application, 
                                     onBack={handleBack}
                                     errors={errors}
                                     captcha={captcha}
+                                    captchaToken={captchaToken}
+                                    onCaptchaToken={handleCaptchaToken}
+                                    onCaptchaExpired={handleCaptchaExpired}
                                     processing={processing}
                                     disabled={!isAuthenticated}
                                 />

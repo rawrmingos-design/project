@@ -3,9 +3,11 @@
 namespace Tests\Feature\Reseller;
 
 use App\Models\User;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -18,12 +20,41 @@ class RegistryTest extends TestCase
         parent::setUp();
         Storage::fake('public');
         
-        // Mock captcha validation to always pass in tests
-        Config::set('captcha.secret', 'test-secret-key');
+        // Keep the default registry fixture explicitly disabled until a test opts in.
+        DB::table('setting_webs')->updateOrInsert(
+            ['id' => 1],
+            [
+                'judul_web' => 'Test',
+                'deskripsi_web' => 'Test',
+                'keywords' => 'test',
+                'url_wa' => 'https://wa.me/test',
+                'url_ig' => 'https://instagram.com/test',
+                'url_tiktok' => 'https://tiktok.com/@test',
+                'url_youtube' => 'https://youtube.com/@test',
+                'url_fb' => 'https://facebook.com/test',
+                'warna1' => '#000',
+                'warna2' => '#111',
+                'warna3' => '#222',
+                'warna4' => '#333',
+                'topupindo_api' => 'test',
+                'paydisini_apikey' => 'test',
+                'order_prefik' => 'TST',
+                'captcha_enabled' => false,
+                'captcha_bypass' => true,
+                'captcha_site_key' => null,
+                'captcha_secret' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        );
+
+        Config::set('captcha.sitekey', '');
+        Config::set('captcha.secret', '');
     }
 
     public function test_authenticated_user_can_access_registry_form()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         $response = $this->actingAs($user)->get(route('reseller.registry.form'));
@@ -39,6 +70,8 @@ class RegistryTest extends TestCase
             )
             ->has('captcha', fn ($captcha) => $captcha
                 ->has('site_key')
+                ->has('bypass')
+                ->has('misconfigured')
                 ->where('enabled', false)
             )
         );
@@ -51,13 +84,83 @@ class RegistryTest extends TestCase
             'username' => 'testuser',
             'email' => 'test@example.com',
         ]);
-        
+
         $response = $this->actingAs($user)->get(route('reseller.registry.form'));
-        
+
         $response->assertInertia(fn ($page) => $page
             ->where('current_user.username', 'testuser')
             ->where('current_user.email', 'test@example.com')
             ->where('current_user.role', 'Member')
+        );
+    }
+
+    public function test_registry_form_uses_captcha_enabled_flag()
+    {
+        DB::table('setting_webs')->where('id', 1)->update([
+            'captcha_enabled' => false,
+            'captcha_bypass' => false,
+            'captcha_site_key' => 'site-key',
+            'captcha_secret' => 'secret',
+        ]);
+
+        Config::set('captcha.sitekey', 'site-key');
+        Config::set('captcha.secret', 'secret');
+
+        /** @var User&Authenticatable $user */
+        $user = User::factory()->create(['role' => 'Member']);
+
+        $response = $this->actingAs($user)->get(route('reseller.registry.form'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('captcha.enabled', false)
+            ->where('captcha.misconfigured', false)
+        );
+    }
+
+    public function test_registry_form_marks_enabled_captcha_without_credentials_as_misconfigured()
+    {
+        Config::set('captcha.sitekey', '');
+        Config::set('captcha.secret', '');
+
+        DB::table('setting_webs')->where('id', 1)->update([
+            'captcha_enabled' => true,
+            'captcha_bypass' => false,
+            'captcha_site_key' => null,
+            'captcha_secret' => null,
+        ]);
+
+        /** @var User&Authenticatable $user */
+        $user = User::factory()->create(['role' => 'Member']);
+
+        $response = $this->actingAs($user)->get(route('reseller.registry.form'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('captcha.enabled', false)
+            ->where('captcha.misconfigured', true)
+        );
+    }
+
+    public function test_registry_form_bypass_does_not_render_captcha()
+    {
+        DB::table('setting_webs')->where('id', 1)->update([
+            'captcha_enabled' => true,
+            'captcha_bypass' => true,
+            'captcha_site_key' => 'site-key',
+            'captcha_secret' => 'secret',
+        ]);
+
+        Config::set('captcha.sitekey', 'site-key');
+        Config::set('captcha.secret', 'secret');
+
+        /** @var User&Authenticatable $user */
+        $user = User::factory()->create(['role' => 'Member']);
+
+        $response = $this->actingAs($user)->get(route('reseller.registry.form'));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('captcha.enabled', false)
+            ->where('captcha.bypass', true)
+            ->where('captcha.misconfigured', false)
         );
     }
 
@@ -72,6 +175,7 @@ class RegistryTest extends TestCase
 
     public function test_submit_requires_business_name()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         $response = $this->actingAs($user)->post(route('reseller.registry.submit'), [
@@ -86,6 +190,7 @@ class RegistryTest extends TestCase
 
     public function test_submit_requires_all_documents()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         $response = $this->actingAs($user)->post(route('reseller.registry.submit'), [
@@ -98,6 +203,7 @@ class RegistryTest extends TestCase
 
     public function test_rate_limiting_blocks_excessive_submissions()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         // Mock captcha to always pass
@@ -128,6 +234,7 @@ class RegistryTest extends TestCase
 
     public function test_validates_business_url_format()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         $response = $this->actingAs($user)->post(route('reseller.registry.submit'), [
@@ -144,6 +251,7 @@ class RegistryTest extends TestCase
 
     public function test_validates_file_types()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         // Try uploading a non-image file for selfie
@@ -160,6 +268,7 @@ class RegistryTest extends TestCase
 
     public function test_validates_file_size_limit()
     {
+        /** @var User&Authenticatable $user */
         $user = User::factory()->create(['role' => 'Member']);
         
         // Try uploading file larger than 5MB

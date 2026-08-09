@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public\Reseller;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ResellerApplicationRequest;
+use App\Services\CaptchaRuntimeResolver;
 use App\Services\ResellerApplicationEligibilityService;
 use App\Services\ResellerApplicationSubmissionService;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class RegistryController extends Controller
     public function __construct(
         private readonly ResellerApplicationEligibilityService $eligibilityService,
         private readonly ResellerApplicationSubmissionService $submissionService,
+        private readonly CaptchaRuntimeResolver $captchaRuntimeResolver,
     ) {
     }
 
@@ -21,14 +23,17 @@ class RegistryController extends Controller
     {
         $user = $request->user();
         
-        // Fetch settings from database (including captcha and WhatsApp)
+        // Fetch settings from database (including WhatsApp and public branding)
         $settings = \DB::table('setting_webs')->where('id', 1)->first();
         $supportWhatsappUrl = $settings?->url_wa ?? null;
-        
-        // Captcha config from database
+        $captchaRuntime = $this->captchaRuntimeResolver->resolve();
         $captchaConfig = [
-            'site_key' => $settings?->captcha_site_key ?? '',
-            'enabled' => !($settings?->captcha_bypass ?? true), // enabled if NOT bypassed
+            'site_key' => $captchaRuntime['site_key'],
+            'enabled' => $captchaRuntime['is_active'],
+            'bypass' => $captchaRuntime['bypass'],
+            'misconfigured' => $captchaRuntime['enabled']
+                && ! $captchaRuntime['bypass']
+                && ! $captchaRuntime['is_active'],
         ];
         
         // If user is authenticated, load their existing application data
@@ -116,7 +121,7 @@ class RegistryController extends Controller
         }
         
         try {
-            $application = $this->submissionService->submit(
+            $this->submissionService->submit(
                 user: $user,
                 applicationData: $request->only([
                     'business_name',
