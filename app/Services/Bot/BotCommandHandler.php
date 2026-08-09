@@ -365,7 +365,7 @@ class BotCommandHandler
 
     private function supportsConversationalCheckout(array $context): bool
     {
-        return ($context['source'] ?? null) === 'telegram_gateway'
+        return in_array($context['source'] ?? null, ['telegram_gateway', 'whatsapp_gateway'], true)
             && filled($context['external_user_id'] ?? null);
     }
 
