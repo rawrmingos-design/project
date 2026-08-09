@@ -33,7 +33,7 @@ class BotWebhookController extends Controller
         $expectedToken = (string) config('services.fonnte.device_token');
         $providedToken = (string) ($request->header('Authorization') ?: $request->input('device_token', ''));
 
-        if ($expectedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
+        if ($providedToken !== '' && $expectedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
             Log::warning('Fonnte webhook authentication failed.', [
                 'ip' => $request->ip(),
                 'secret_configured' => $expectedToken !== '',
