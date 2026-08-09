@@ -100,6 +100,19 @@ class ResetDomainServiceTest extends TestCase
         $service->executeReset($pembelian, $invalidCandidate->id);
     }
 
+    public function test_it_rejects_a_retired_provider_switch_candidate(): void
+    {
+        $service = app(ResetDomainService::class);
+        $currentLayanan = $this->createLayanan('Weekly Pass', 'SKU-WP', 'digiflazz');
+        $retiredCandidate = $this->createProviderPath($currentLayanan, 'topupedia', 'OLD-WP', 'unavailable');
+        $pembelian = $this->createEligiblePembelian($currentLayanan);
+
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('has been retired');
+
+        $service->validateProviderSwitch($pembelian, $retiredCandidate);
+    }
+
     public function test_it_rechecks_reset_eligibility_before_persisting_changes(): void
     {
         $service = app(ResetDomainService::class);

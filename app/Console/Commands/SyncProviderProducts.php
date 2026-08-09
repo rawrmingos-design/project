@@ -7,7 +7,7 @@ use App\Services\ProviderManager;
 use App\Services\ProductPricingService;
 use App\Models\Produk;
 use App\Models\Kategori;
-use Illuminate\Support\Facades\DB;
+use App\Support\ProviderRetirement;
 
 class SyncProviderProducts extends Command
 {
@@ -71,6 +71,12 @@ class SyncProviderProducts extends Command
 
     private function syncSpecificProvider(string $providerName, bool $updateExisting, bool $dryRun): void
     {
+        $providerName = ProviderRetirement::normalizeCode($providerName);
+
+        if (ProviderRetirement::isRetired($providerName)) {
+            throw new \InvalidArgumentException("Provider {$providerName} has been retired and cannot be synced.");
+        }
+
         $this->info("📡 Syncing products from: {$providerName}");
         
         $result = $this->providerManager->syncProviderProducts($providerName);

@@ -70,9 +70,7 @@
                                     <select class="form-select" name="provider">
                                         <option value="digiflazz">DigiFlazz</option>
                                         <option value="vip">VipReseller</option>
-                                        <option value="topupedia">TopuPedia</option>
                                         <option value="bangjeff">Bangjeff</option>
-                                        <option value="moogold">Moogold</option>                                                                                
                                     </select>
                                 </div>
                             </div>

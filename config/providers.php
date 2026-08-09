@@ -34,16 +34,6 @@ return [
         'webhook_secret' => env('BANGJEFF_WEBHOOK_SECRET'),
     ],
 
-    'topupedia' => [
-        'base_url' => env('TOPUPEDIA_BASE_URL', 'https://api.topupedia.com/'),
-        'api_key' => env('TOPUPEDIA_API_KEY'),
-        'secret_key' => env('TOPUPEDIA_SECRET_KEY'),
-        'enabled' => env('TOPUPEDIA_ENABLED', false),
-        'timeout' => env('TOPUPEDIA_TIMEOUT', 30),
-        'retry_attempts' => env('TOPUPEDIA_RETRY_ATTEMPTS', 3),
-        'webhook_secret' => env('TOPUPEDIA_WEBHOOK_SECRET'),
-    ],
-
     'apigames' => [
         'base_url' => env('APIGAMES_BASE_URL', 'https://apigames.id/api/'),
         'api_id' => env('APIGAMES_API_ID'),
@@ -117,10 +107,36 @@ return [
         'primary_provider' => env('PROVIDER_PRIMARY', 'digiflazz'),
         'fallback_providers' => [
             'bangjeff',
-            'topupedia',
-            'apigames'
+            'apigames',
         ],
         'max_fallback_attempts' => env('PROVIDER_MAX_FALLBACK_ATTEMPTS', 3),
+    ],
+
+    'retirement' => [
+        'retired_codes' => [
+            'topupedia',
+            'moogold',
+            'gameshop',
+            'strleyashop',
+            'yezzpay',
+            'elitedias',
+            'aoshi',
+        ],
+        'retained_external_codes' => [
+            'digiflazz',
+            'bangjeff',
+            'vip',
+            'vip_reseller',
+            'apigames',
+            'sufpayment',
+        ],
+        'internal_codes' => [
+            'manual',
+            'joki',
+            'jokigendong',
+            'vilogml',
+            'giftskin',
+        ],
     ],
 
     'cache' => [

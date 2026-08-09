@@ -79,7 +79,6 @@ class ProduksTable
                         'success' => 'apigames',
                         'warning' => 'vip',
                         'info' => 'bangjeff',
-                        'secondary' => 'topupedia',
                         'danger' => 'manual',
                     ]),
 
@@ -191,7 +190,7 @@ class ProduksTable
 
                 SelectFilter::make('provider')
                     ->label('Provider')
-                    ->options(fn () => \App\Models\Provider::pluck('name', 'code')->toArray()),
+                    ->options(fn () => \App\Models\Provider::routableOptions()),
 
                 SelectFilter::make('status')
                     ->label('Status')
