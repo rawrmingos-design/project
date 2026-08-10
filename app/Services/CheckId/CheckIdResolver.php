@@ -295,7 +295,9 @@ class CheckIdResolver
         // cekid.jasakoding.web.id): semua slug yang ada di GET /api/ auto-supported.
         // Fallback SUPPORTED_CODES hanya safety-net saat fetch catalog gagal/timeout
         // (cekid down) supaya game yang sudah berjalan tidak tiba-tiba 400.
-        return in_array($categoryCode, $this->catalogCodes(), true)
+        $catalogCode = self::CATALOG_ALIASES[$categoryCode] ?? $categoryCode;
+
+        return in_array($catalogCode, $this->catalogCodes(), true)
             || in_array($categoryCode, self::SUPPORTED_CODES, true);
     }
 
