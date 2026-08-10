@@ -12,12 +12,17 @@ use App\Models\SettingWeb;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 class ApiOrderRegressionTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->mockSuccessfulAccountValidation();
+    }
 
     private function seedSettings(array $overrides = []): void
     {

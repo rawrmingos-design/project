@@ -7,7 +7,9 @@ use App\Models\User;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembelian;
+use App\Services\CheckId\CheckIdResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery\MockInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -87,6 +89,34 @@ class OrderControllerPointTest extends TestCase
             'provider_id' => 'manual-sku',
             'provider' => 'manual',
         ]);
+
+        $this->mockSuccessfulAccountValidation();
+    }
+
+    /** @test */
+    public function ordered_endpoint_rejects_invalid_account_before_deducting_balance()
+    {
+        $this->mock(CheckIdResolver::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('resolveForCategory')->once()->andReturn([
+                'status' => ['code' => 404, 'message' => 'Account not found'],
+            ]);
+        });
+
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid' => 'INVALID-UID',
+            'zone' => '1234',
+            'qty' => 1,
+            'use_point' => 50,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('error_code', 'INVALID_GAME_ACCOUNT');
+        $this->assertSame(100000, $this->user->fresh()->balance);
+        $this->assertSame(100, $this->user->fresh()->point_balance);
+        $this->assertDatabaseCount('pembelians', 0);
     }
 
     /** @test */
@@ -162,7 +192,7 @@ class OrderControllerPointTest extends TestCase
         // Poin yang mau dipakai: 50 poin = Rp 5000 diskon
         // Harga layanan: 20000. Bayar pakai saldo member.
         // Saldo awal: 100000. Sesudah bayar: 100000 - (20000 - 5000) = 85000
-        
+
         $response = $this->actingAs($this->user)->postJson(route('ordered'), [
             'service' => $this->layanan->id,
             'payment_method' => 'SALDO',
@@ -186,7 +216,7 @@ class OrderControllerPointTest extends TestCase
         $order = Pembelian::where('username', $this->user->username)->latest()->first();
         $this->assertNotNull($order);
         $this->assertEquals(50, $order->used_points);
-        
+
         // Check point history record
         $this->assertDatabaseHas('point_histories', [
             'user_id' => $this->user->id,

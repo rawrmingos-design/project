@@ -125,6 +125,8 @@ class OrderContactRequirementTest extends TestCase
             'fix_fee' => 0,
             'statuspayment' => 1,
         ]);
+
+        $this->mockSuccessfulAccountValidation();
     }
 
     #[Test]
