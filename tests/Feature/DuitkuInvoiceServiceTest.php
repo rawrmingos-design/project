@@ -111,6 +111,7 @@ class DuitkuInvoiceServiceTest extends TestCase
         $this->assertTrue($result['success']);
         $this->assertEquals('REF-123', $result['reference']);
         $this->assertEquals('https://sandbox.duitku.com/pay', $result['paymentUrl']);
+        $this->assertEquals('https://sandbox.duitku.com/pay', $result['payment_url']);
         $this->assertEquals('https://sandbox.duitku.com/pay', $result['payment_value']);
         $this->assertEquals(50000, $result['amount']);
         $this->assertEquals('DUITKU-ORD-001', $result['merchant_order_id']);

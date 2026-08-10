@@ -50,25 +50,34 @@ class TriPayController extends Controller
         if (isset($response->success) && $response->success == true) {
             $methodCode = strtoupper((string) $method);
             $isQrMethod = str_contains($methodCode, 'QR');
+            $payCode = $response->data->pay_code ?? null;
+            $qrUrl = $response->data->qr_url ?? null;
+            $payUrl = $response->data->pay_url ?? null;
 
-            if (!empty($response->data->pay_code)) {
-                $paymentNumber = $response->data->pay_code;
-            } elseif ($isQrMethod && !empty($response->data->qr_url)) {
+            if (! empty($payCode)) {
+                $paymentNumber = $payCode;
+            } elseif ($isQrMethod && ! empty($qrUrl)) {
                 // QR methods should prioritize direct QR URL over payment URL.
-                $paymentNumber = $response->data->qr_url;
-            } elseif (!empty($response->data->pay_url)) {
-                $paymentNumber = $response->data->pay_url;
-            } elseif (!empty($response->data->qr_url)) {
-                $paymentNumber = $response->data->qr_url;
+                $paymentNumber = $qrUrl;
+            } elseif (! empty($payUrl)) {
+                $paymentNumber = $payUrl;
+            } elseif (! empty($qrUrl)) {
+                $paymentNumber = $qrUrl;
             }
 
-            return array(
+            return [
                 'success' => $response->success,
                 'amount' => $response->data->amount,
                 'no_pembayaran' => $paymentNumber,
+                'payment_code' => $payCode,
+                'qr_url' => $qrUrl,
+                'qr_image_url' => $qrUrl,
+                'pay_url' => $payUrl,
+                'payment_url' => $payUrl,
                 'reference' => $response->data->reference,
                 'expired_at' => $response->data->expired_time ?? null,
-            );
+            ];
+
             
         } else {
             $err = isset($response->message) ? strtolower($response->message) : 'unknown error';

@@ -1141,6 +1141,129 @@ class BotWebhookTest extends TestCase
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'sendMessage'));
     }
 
+    public function test_invoice_formatter_uses_normalized_gateway_qr_image_url(): void
+    {
+        $cases = [
+            ['provider' => 'tripay', 'url' => 'https://tripay.co.id/qr/REF-1'],
+            ['provider' => 'duitku', 'url' => 'https://cdn.duitku.test/qr/REF-2.png'],
+            ['provider' => 'tokopay', 'url' => 'https://cdn.tokopay.test/qr/REF-3.png'],
+        ];
+
+        foreach ($cases as $case) {
+            $response = app(BotMessageFormatter::class)->formatInvoice([
+                'ok' => true,
+                'data' => [
+                    'order_id' => 'INV-' . $case['provider'],
+                    'invoice_url' => 'https://app.example/invoice',
+                    'payment_url' => 'https://checkout.example/pay',
+                    'payment' => [
+                        'payment_code' => 'PAY-' . $case['provider'],
+                        'qr_image_url' => $case['url'],
+                        'amount' => 10000,
+                    ],
+                ],
+            ]);
+
+            $this->assertSame($case['url'], $response['photo_url']);
+            $this->assertSame('https://app.example/invoice', $response['buttons'][0][0]['url']);
+        }
+    }
+
+    public function test_invoice_formatter_uses_extensionless_tripay_qr_url_directly(): void
+    {
+        $tripayUrl = 'https://tripay.co.id/qr/DEV-EM260810131805T6WB2A';
+
+        $response = app(BotMessageFormatter::class)->formatInvoice([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'EM260810131805T6WB2A',
+                'payment_url' => $tripayUrl,
+                'payment' => [
+                    'payment_code' => $tripayUrl,
+                    'amount' => 10000,
+                ],
+            ],
+        ]);
+
+        $this->assertSame($tripayUrl, $response['photo_url']);
+        $this->assertStringNotContainsString('api.qrserver.com', $response['photo_url']);
+    }
+
+    public function test_invoice_formatter_checks_nested_gateway_image_fields(): void
+    {
+        $cases = [
+            ['payment' => ['pay_url' => 'https://tripay.co.id/payment/DEV-1']],
+            ['data' => ['pay_url' => 'https://tripay.co.id/qr/DEV-2']],
+            ['paymentUrl' => 'https://duitku.example/qr/DEV-3.png'],
+            ['qr_link' => 'https://tokopay.example/qr/DEV-4.png'],
+        ];
+
+        foreach ($cases as $fields) {
+            $response = app(BotMessageFormatter::class)->formatInvoice([
+                'ok' => true,
+                'data' => array_merge([
+                    'order_id' => 'INV-1',
+                    'payment' => ['payment_code' => 'QRIS-1', 'amount' => 10000],
+                ], $fields),
+            ]);
+
+            $expected = data_get($fields, 'payment.pay_url')
+                ?? data_get($fields, 'data.pay_url')
+                ?? data_get($fields, 'paymentUrl')
+                ?? data_get($fields, 'qr_link');
+
+            $this->assertSame($expected, $response['photo_url']);
+        }
+    }
+
+    public function test_invoice_formatter_does_not_treat_untrusted_extensionless_url_as_image(): void
+    {
+        $checkoutUrl = 'https://evil-tripay.co.id/qr/DEV-1';
+
+        $response = app(BotMessageFormatter::class)->formatInvoice([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV-1',
+                'payment_url' => $checkoutUrl,
+                'payment' => ['payment_code' => 'QRIS-1', 'amount' => 10000],
+            ],
+        ]);
+
+        $this->assertArrayNotHasKey('photo_url', $response);
+        $this->assertSame($checkoutUrl, $response['buttons'][0][0]['url']);
+    }
+
+    public function test_fonnte_invoice_sends_direct_qris_url_as_media(): void
+    {
+        $tripayUrl = 'https://tripay.co.id/qr/DEV-FONNTE-1';
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($tripayUrl): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: $tripayUrl));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 QRIS user123 zone123',
+            'id' => 'MSG-QRIS-1',
+        ])->assertOk();
+
+        $this->assertNull($sent[0]['url']);
+        $this->assertSame($tripayUrl, $sent[1]['url']);
+        $this->assertSame('', $sent[1]['message']);
+    }
+
     public function test_telegram_invoice_hides_raw_qris_payload_and_sends_generated_qr_photo()
     {
         $rawQris = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';

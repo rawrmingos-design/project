@@ -788,6 +788,35 @@ class OrderController extends Controller
             return $this->orderErrorResponse('Layanan tidak ditemukan atau tidak tersedia.', 'SERVICE_UNAVAILABLE');
         }
 
+        if (! in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)) {
+            $orderLayanan = Layanan::query()->find((int) $dataLayanan->id);
+            $orderKategori = $orderLayanan?->kategori_id
+                ? Kategori::query()->find((int) $orderLayanan->kategori_id)
+                : null;
+
+            if ($orderLayanan && $orderKategori) {
+                $checkResult = app(CheckIdResolver::class)->resolveForCategory(
+                    $orderKategori,
+                    (string) $request->uid,
+                    $request->zone !== null ? (string) $request->zone : null,
+                    $orderLayanan,
+                );
+
+                if (($checkResult['skip_check'] ?? false) !== true) {
+                    if (($checkResult['status']['code'] ?? null) !== 200
+                        || blank($checkResult['data']['username'] ?? null)) {
+                        return $this->orderErrorResponse(
+                            'User ID tidak ditemukan atau tidak valid. Silakan periksa kembali.',
+                            'INVALID_GAME_ACCOUNT'
+                        );
+                    }
+
+                    // Never persist a client-supplied nickname for validated game orders.
+                    $request->merge(['nickname' => $checkResult['data']['username']]);
+                }
+            }
+        }
+
         $flashSaleReserved = false;
         $voucherReserved = false;
         $orderCreated = false;
@@ -1052,6 +1081,9 @@ class OrderController extends Controller
                             ?? $res['data']['checkout_url']
                             ?? $res['data']['pay_url']
                             ?? null,
+                        'payment_url' => $res['data']['checkout_url'] ?? $res['data']['pay_url'] ?? null,
+                        'qr_image_url' => $res['data']['qr_link'] ?? null,
+                        'qr_payload' => $res['data']['qrString'] ?? $res['data']['qr_string'] ?? null,
                         'reference' => $res['data']['trx_id'] ?? null,
                         'amount' => $res['data']['total_bayar'] ?? $amount,
                         'expired_at' => $res['data']['expired_at'] ?? $res['data']['expired_ts'] ?? null,
@@ -1071,6 +1103,9 @@ class OrderController extends Controller
                     $gatewayResult = [
                         'status' => true,
                         'no_pembayaran' => $res['no_pembayaran'],
+                        'payment_url' => $res['pay_url'] ?? null,
+                        'qr_image_url' => $res['qr_url'] ?? null,
+                        'qr_payload' => $res['qr_payload'] ?? null,
                         'reference' => $res['reference'],
                         'amount' => $res['amount'],
                         'expired_at' => $res['expired_at'] ?? null,
@@ -1099,7 +1134,9 @@ class OrderController extends Controller
                 if ($res['success']) {
                     $gatewayResult = [
                         'status' => true,
-                        'no_pembayaran' => $res['payment_value'] ?? $res['no_pembayaran'] ?? $res['vaNumber'] ?? $res['qrString'] ?? $res['paymentUrl'] ?? $res['reference'],
+                        'no_pembayaran' => $res['vaNumber'] ?? $res['qrString'] ?? $res['paymentUrl'] ?? $res['reference'],
+                        'payment_url' => $res['paymentUrl'] ?? $res['payment_url'] ?? null,
+                        'qr_payload' => $res['qrString'] ?? $res['qr_string'] ?? null,
                         'reference' => $res['reference'],
                         'amount' => $res['amount'] ?? $amount,
                         'merchant_order_id' => $res['merchant_order_id'] ?? $res['merchantOrderId'] ?? ('DUITKU-' . $order_id),
@@ -1356,7 +1393,7 @@ class OrderController extends Controller
         $layananContext = null;
         if ($request->filled('service')) {
             $layananContext = Layanan::query()
-                ->select('id', 'kategori_id', 'check_id_enabled', 'check_id_provider', 'check_id_provider_sku')
+                ->select('id', 'kategori_id')
                 ->find((int) $request->service);
 
             if (! $layananContext || (int) $layananContext->kategori_id !== (int) $kategori->id) {
@@ -1610,7 +1647,7 @@ class OrderController extends Controller
         $pembelian->zone = !$is_joki ? $request->zone : '-';
         $pembelian->nickname = !$is_joki ? $request->nickname : ($request->ktg_tipe !== 'joki' ? $request->nickname_joki : '-');
         
-        $pembelian->log = $order_log;
+        $pembelian->log = $this->mergeGatewayPaymentLog($order_log, $gatewayMeta);
         $pembelian->status = $order_status; // 'Pending' or 'Proses'
         $pembelian->tipe_transaksi = $tipe;
         
@@ -1672,6 +1709,24 @@ class OrderController extends Controller
         }
 
         return $pembelian;
+    }
+
+    private function mergeGatewayPaymentLog(string $orderLog, array $gatewayMeta): string
+    {
+        $metadata = json_decode($orderLog, true);
+        $metadata = is_array($metadata) ? $metadata : [];
+        $gatewayPayment = array_filter([
+            'provider' => $gatewayMeta['provider'] ?? null,
+            'payment_url' => $gatewayMeta['payment_url'] ?? null,
+            'qr_image_url' => $gatewayMeta['qr_image_url'] ?? null,
+            'qr_payload' => $gatewayMeta['qr_payload'] ?? null,
+        ], static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '');
+
+        if ($gatewayPayment !== []) {
+            $metadata['gateway_payment'] = $gatewayPayment;
+        }
+
+        return $metadata !== [] ? json_encode($metadata, JSON_UNESCAPED_SLASHES) : $orderLog;
     }
 
     private function normalizeOrderContactPhone(Request $request): string

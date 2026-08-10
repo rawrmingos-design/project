@@ -320,15 +320,16 @@ class BotMessageFormatter
 
         $orderId = (string) $data['data']['order_id'];
         $paymentCode = trim((string) ($data['data']['payment']['payment_code'] ?? ''));
+        $qrPayload = trim((string) data_get($data, 'data.payment.qr_payload', ''));
         $amount = number_format($data['data']['payment']['amount'] ?? 0, 0, ',', '.');
         $serviceName = trim((string) ($data['data']['service_name'] ?? '')) ?: 'Produk';
         $categoryName = trim((string) ($data['data']['category_name'] ?? '')) ?: 'Kategori';
         $quantity = max(1, (int) ($data['data']['quantity'] ?? 1));
-        $invoiceUrl = filter_var($data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
-            ? (string) $data['data']['payment_url']
+        $invoiceUrl = filter_var($data['data']['invoice_url'] ?? $data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
+            ? (string) ($data['data']['invoice_url'] ?? $data['data']['payment_url'])
             : null;
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
-        $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode);
+        $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode) || $this->isQrisPayload($qrPayload);
         $lines = [
             '*⏳ MENUNGGU PEMBAYARAN*',
             '',
@@ -638,6 +639,8 @@ class BotMessageFormatter
 
         // Step 1: Cek URL gambar QR yang sudah jadi dari berbagai gateway
         foreach ([
+            data_get($invoice, 'payment.qr_image_url'),
+            data_get($invoice, 'qr_image_url'),
             data_get($invoice, 'qris_url'),
             data_get($invoice, 'qr_url'),
             data_get($invoice, 'qr_image_url'),
@@ -649,26 +652,35 @@ class BotMessageFormatter
             data_get($invoice, 'payment.qr_link'),   // Tokopay nested
             data_get($invoice, 'payment.barcode_url'),
             data_get($invoice, 'data.qr_link'),      // Tokopay: data.qr_link
+            data_get($invoice, 'payment_url'),       // Gateway payment URL
+            data_get($invoice, 'payment.payment_url'),
+            data_get($invoice, 'pay_url'),           // Gateway pay URL
+            data_get($invoice, 'payment.pay_url'),
+            data_get($invoice, 'data.pay_url'),
+            data_get($invoice, 'paymentUrl'),        // Duitku: paymentUrl
+            data_get($invoice, 'payment.paymentUrl'),
+            data_get($invoice, 'data.paymentUrl'),
+            $paymentCode,                             // Bisa berupa URL gambar langsung
         ] as $url) {
             if (filter_var($url, FILTER_VALIDATE_URL) && $this->isImageUrl($url)) {
                 return $url;
             }
         }
 
-        // Step 2: QR image bisa tersimpan sebagai payment_code oleh gateway.
-        if (filter_var($paymentCode, FILTER_VALIDATE_URL) && $this->isImageUrl($paymentCode)) {
-            return $paymentCode;
-        }
-
         // Step 3: Cek raw QR string atau checkout URL dari berbagai gateway
         $qrData = null;
         foreach ([
+            data_get($invoice, 'payment.qr_payload'),
+            data_get($invoice, 'qr_payload'),
             data_get($invoice, 'qrString'),          // Duitku: qrString
             data_get($invoice, 'qr_string'),         // Tripay/Tokopay: qr_string
             data_get($invoice, 'payment.qr_string'),
             data_get($invoice, 'data.qr_string'),    // Tokopay: data.qr_string
             data_get($invoice, 'paymentUrl'),        // Duitku: paymentUrl (fallback)
+            data_get($invoice, 'payment.paymentUrl'),
+            data_get($invoice, 'data.paymentUrl'),
             data_get($invoice, 'pay_url'),           // Tokopay: pay_url
+            data_get($invoice, 'payment.pay_url'),
             data_get($invoice, 'data.pay_url'),      // Tokopay: data.pay_url
             data_get($invoice, 'checkout_url'),      // Tripay: checkout_url
             data_get($invoice, 'payment.checkout_url'),
@@ -691,7 +703,24 @@ class BotMessageFormatter
 
     private function isImageUrl(string $url): bool
     {
-        return preg_match('/\.(png|jpg|jpeg|gif|webp)$/i', parse_url($url, PHP_URL_PATH) ?? '') === 1;
+        $parsedUrl = parse_url($url);
+        $path = is_array($parsedUrl) ? (string) ($parsedUrl['path'] ?? '') : '';
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        if (in_array(strtolower($extension), ['png', 'jpg', 'jpeg', 'gif', 'webp'], true)) {
+            return true;
+        }
+
+        if (! is_array($parsedUrl) || strtolower((string) ($parsedUrl['scheme'] ?? '')) !== 'https') {
+            return false;
+        }
+
+        $host = strtolower((string) ($parsedUrl['host'] ?? ''));
+        if (! in_array($host, ['tripay.co.id', 'www.tripay.co.id'], true)) {
+            return false;
+        }
+
+        return preg_match('#^/(?:qr|payment)/[^/]+(?:/|$)#i', $path) === 1;
     }
 
     private function isCheckoutUrl(string $value): bool
