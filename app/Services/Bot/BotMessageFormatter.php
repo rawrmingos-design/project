@@ -625,6 +625,17 @@ class BotMessageFormatter
 
     private function invoicePhotoUrl(array $invoice, string $paymentCode): ?string
     {
+        // Step 0: URL checkout TriPay (/qr/...) langsung return gambar PNG.
+        // Kalau dibawa ke isCheckoutUrl, bakal di-generate QR dari URL-nya
+        // (salah: QR yang dihasilkan berisi link, bukan payload QRIS).
+        $tripayQr = data_get($invoice, 'payment_url')
+            ?? data_get($invoice, 'pay_url')
+            ?? data_get($invoice, 'payment.pay_url')
+            ?? data_get($invoice, 'data.pay_url');
+        if (is_string($tripayQr) && $tripayQr !== '' && preg_match('#tripay\.co\.id/(qr|payment)/#i', $tripayQr) === 1) {
+            return $tripayQr;
+        }
+
         // Step 1: Cek URL gambar QR yang sudah jadi dari berbagai gateway
         foreach ([
             data_get($invoice, 'qris_url'),
