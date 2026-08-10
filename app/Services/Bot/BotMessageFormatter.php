@@ -633,7 +633,7 @@ class BotMessageFormatter
             ?? data_get($invoice, 'pay_url')
             ?? data_get($invoice, 'payment.pay_url')
             ?? data_get($invoice, 'data.pay_url');
-        if (is_string($tripayQr) && $tripayQr !== '' && preg_match('#tripay\.co\.id/(qr|payment)/#i', $tripayQr) === 1) {
+        if (is_string($tripayQr) && $tripayQr !== '' && $this->isTripayQrUrl($tripayQr)) {
             return $tripayQr;
         }
 
@@ -699,6 +699,23 @@ class BotMessageFormatter
 
         // Step 3: Generate QR code menggunakan api.qrserver.com
         return 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&margin=15&data=' . rawurlencode($qrData);
+    }
+
+    private function isTripayQrUrl(string $url): bool
+    {
+        $parsedUrl = parse_url($url);
+        if (! is_array($parsedUrl) || strtolower((string) ($parsedUrl['scheme'] ?? '')) !== 'https') {
+            return false;
+        }
+
+        $host = strtolower((string) ($parsedUrl['host'] ?? ''));
+        if (! in_array($host, ['tripay.co.id', 'www.tripay.co.id'], true)) {
+            return false;
+        }
+
+        $path = (string) ($parsedUrl['path'] ?? '');
+
+        return preg_match('#^/(?:qr|payment)/[^/]+$#i', $path) === 1;
     }
 
     private function isImageUrl(string $url): bool
