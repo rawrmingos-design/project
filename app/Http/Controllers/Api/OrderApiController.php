@@ -22,6 +22,7 @@ use App\Models\Pembayaran;
 use App\Models\ProviderPath;
 use App\Models\ResellerIntegration;
 use App\Models\User;
+use App\Services\CheckId\CheckIdResolver;
 use App\Support\PembelianStatus;
 use App\Support\ResellerApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -209,11 +210,32 @@ class OrderApiController extends Controller
               ResellerApiResponse::CODE_NOT_FOUND,
               404,
           );
-           
+
        }
-       
-       
-        if ($user->role == 'Platinum') {
+
+       $targetUserId = trim((string) $payload['user_id']);
+       $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
+           ? trim((string) $payload['zone_id'])
+           : null;
+
+       $checkResult = app(CheckIdResolver::class)->resolveForCategory(
+           $service->kategori,
+           $targetUserId,
+           $zoneId,
+           $service,
+       );
+
+       if (($checkResult['skip_check'] ?? false) !== true
+           && (($checkResult['status']['code'] ?? null) !== 200
+               || blank($checkResult['data']['username'] ?? null))) {
+           return ResellerApiResponse::error(
+               'User ID tidak ditemukan atau tidak valid.',
+               ResellerApiResponse::VALIDATION_FAILED,
+               422,
+           );
+       }
+
+       if ($user->role == 'Platinum') {
            $harga = $service->harga_platinum;
         } elseif ($user->role == 'Gold') {
             $harga = $service->harga_gold;
@@ -234,10 +256,6 @@ class OrderApiController extends Controller
        }
       
        // Phase 5 — explicit named fields replace the ambiguous pipe-separated `data` field.
-       $targetUserId = trim((string) $payload['user_id']);
-       $zoneId = isset($payload['zone_id']) && $payload['zone_id'] !== null
-           ? trim((string) $payload['zone_id'])
-           : null;
        $order_id = $this->generateOrderId();
        $providerCode = strtolower(trim((string) ($providerRoute['provider_code'] ?? $service->provider)));
        $providerSku = trim((string) ($providerRoute['sku'] ?? $service->provider_id));

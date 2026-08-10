@@ -22,7 +22,6 @@ class Produk extends Model implements HasMedia
     
     protected $casts = [
         'is_flash_sale' => 'boolean',
-        'check_id_enabled' => 'boolean',
         'expired_flash_sale' => 'datetime',
         'harga' => 'integer',
         'harga_member' => 'integer',
@@ -101,7 +100,7 @@ class Produk extends Model implements HasMedia
         return [];
     }
 
-    public function resolveActiveMediaPreviewData(?string $collection = null, ?string $legacyColumn = null): ?array
+    public function resolveActiveMediaPreviewData(?string $collection = null): ?array
     {
         if ($collection !== 'product_logo') {
             return null;

@@ -16,10 +16,11 @@ class ProviderRoutingService
      * 1. Check 'provider_paths' (Multi-provider).
      * 2. Filter status='available'.
      * 3. Sort by priority (ASC), then modal_price (ASC).
-     * 4. If no multi-provider found, fallback to legacy fields.
+     * 4. Use legacy fields only when no provider paths are configured.
      */
     public function findBestProvider(Layanan $layanan)
     {
+        $configuredPathCount = $layanan->provider_paths()->count();
         $paths = $layanan->provider_paths()
             ->where('status', 'available')
             ->orderBy('priority', 'asc')
@@ -33,7 +34,8 @@ class ProviderRoutingService
             return $this->formatProviderResult($bestPath->provider_code, $bestPath->provider_sku);
         }
 
-        if (! empty($layanan->provider_id)
+        if ($configuredPathCount === 0
+            && ! empty($layanan->provider_id)
             && ! empty($layanan->provider)
             && $this->isRoutableProvider($layanan->provider)) {
             return $this->formatProviderResult($layanan->provider, $layanan->provider_id);

@@ -156,4 +156,44 @@ class ProviderRoutingServiceTest extends TestCase
         $this->assertEquals('digiflazz', $best['provider_code']);
         $this->assertEquals('SKU_LEGACY', $best['sku']);
     }
+
+    /** @test */
+    public function it_does_not_bypass_unavailable_configured_paths_with_legacy_fields()
+    {
+        $layanan = Layanan::factory()->create([
+            'provider' => 'digiflazz',
+            'provider_id' => 'SKU_LEGACY',
+        ]);
+
+        ProviderPath::create([
+            'layanan_id' => $layanan->id,
+            'provider_code' => 'vip',
+            'provider_sku' => 'SKU_MAINTENANCE',
+            'priority' => 1,
+            'modal_price' => 10000,
+            'status' => 'maintenance',
+        ]);
+
+        $this->assertNull($this->service->findBestProvider($layanan));
+    }
+
+    /** @test */
+    public function it_does_not_route_when_configured_paths_are_empty()
+    {
+        $layanan = Layanan::factory()->create([
+            'provider' => 'digiflazz',
+            'provider_id' => 'SKU_LEGACY',
+        ]);
+
+        ProviderPath::create([
+            'layanan_id' => $layanan->id,
+            'provider_code' => '',
+            'provider_sku' => '',
+            'priority' => 1,
+            'modal_price' => 10000,
+            'status' => 'available',
+        ]);
+
+        $this->assertNull($this->service->findBestProvider($layanan));
+    }
 }

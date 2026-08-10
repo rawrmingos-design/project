@@ -68,7 +68,6 @@ class EditProduk extends EditRecord
             $data['vip_reseller_service'],
         );
 
-        $data = $this->normalizeCheckIdInquiryFields($data);
         $data = $this->normalizeAndValidateProviderSelection($data);
         $data = $this->normalizeAndValidateProviderPaths($data);
 
@@ -109,28 +108,6 @@ class EditProduk extends EditRecord
         if (\Illuminate\Support\Facades\Schema::hasColumn('layanans', 'profit')) {
             $data['profit'] = (float) $draft->profit_member;
         }
-
-        return $data;
-    }
-
-    private function normalizeCheckIdInquiryFields(array $data): array
-    {
-        $enabled = (bool) ($data['check_id_enabled'] ?? false);
-
-        $data['check_id_enabled'] = $enabled;
-
-        if (! $enabled) {
-            $data['check_id_provider'] = null;
-            $data['check_id_provider_sku'] = null;
-
-            return $data;
-        }
-
-        $provider = strtolower(trim((string) ($data['check_id_provider'] ?? 'digiflazz')));
-        $sku = trim((string) ($data['check_id_provider_sku'] ?? ''));
-
-        $data['check_id_provider'] = $provider === 'digiflazz' ? 'digiflazz' : null;
-        $data['check_id_provider_sku'] = $data['check_id_provider'] === 'digiflazz' && $sku !== '' ? $sku : null;
 
         return $data;
     }
