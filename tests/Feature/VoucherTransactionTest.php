@@ -23,6 +23,7 @@ class VoucherTransactionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->mockSuccessfulAccountValidation();
 
         Http::fake([
             'ipinfo.io/*' => Http::response(['ip' => '127.0.0.1', 'country' => 'ID'], 200),

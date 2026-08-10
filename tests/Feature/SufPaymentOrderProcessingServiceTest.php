@@ -26,6 +26,12 @@ class SufPaymentOrderProcessingServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->mockSuccessfulAccountValidation();
+    }
+
     public function test_it_dispatches_sufpayment_order_with_settings_credentials(): void
     {
         config()->set('providers.sufpayment.order_cmd', 'order');
