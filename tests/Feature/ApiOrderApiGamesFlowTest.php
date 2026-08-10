@@ -8,7 +8,6 @@ use App\Models\Layanan;
 use App\Models\Pembelian;
 use App\Models\ProviderPath;
 use App\Models\SettingWeb;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -17,6 +16,12 @@ use Tests\TestCase;
 class ApiOrderApiGamesFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->mockSuccessfulAccountValidation();
+    }
 
     public function test_list_variant_exposes_best_provider_path_sku(): void
     {
