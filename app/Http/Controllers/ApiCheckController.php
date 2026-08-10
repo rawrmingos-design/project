@@ -2,21 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Layanan;
 use App\Models\VerifiedGameAccount;
 use App\Models\SettingWeb;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class ApiCheckController extends Controller
 {
-    public function __construct(private ?Layanan $layananContext = null)
-    {
-    }
-
     private const APIGAMES_GAME_CODES = [
         'mobile_legends' => 'mobilelegend',
         'mobile_legends_bang_bang' => 'mobilelegend',
@@ -52,21 +46,6 @@ class ApiCheckController extends Controller
         'codm' => 'codm',
     ];
 
-    /**
-     * Mapping from normalized game key to a Digiflazz product SKU
-     * that supports inquiry (cek-tagihan / check via Digiflazz API).
-     *
-     * The values here are INQUIRY/CHECK SKUs from Digiflazz — these must be
-     * set to valid inquiry SKUs in the Digiflazz product catalog.
-     * Configure this in config/digiflazz_inquiry.php or directly here.
-     * Leave null to skip fallback for that game.
-     */
-    protected const DIGIFLAZZ_INQUIRY_SKUS = [
-        'mobilelegend' => null, // e.g. 'CML5' if Digiflazz provides MLBB inquiry SKU
-        'freefire'     => null, // e.g. 'CFF1'
-        'pubgm'        => null, // e.g. 'CPUBG1'
-    ];
-
     public function check($user_id = null, $zone_id = null, $game = null): array
     {
         if (! $user_id || ! $game) {
@@ -76,13 +55,9 @@ class ApiCheckController extends Controller
         }
 
         $parsedGame = $this->normalizeGameKey($game);
-        $digiflazzInquirySku = $this->resolveDigiflazzInquirySku($parsedGame);
 
         // 1. Cek DB persistent cache terlebih dahulu — tidak perlu hit API sama sekali.
-        // Dynamic inquiry SKU skip persistent cache agar hasil tidak tercampur antar SKU.
-        $dbCached = $digiflazzInquirySku === null
-            ? $this->lookupDbCache($parsedGame, (string) $user_id, $zone_id)
-            : null;
+        $dbCached = $this->lookupDbCache($parsedGame, (string) $user_id, $zone_id);
 
         if ($dbCached !== null) {
             Log::debug('ApiCheckController:check - Returning from DB cache.', [
@@ -107,11 +82,11 @@ class ApiCheckController extends Controller
             return $data;
         }
 
-        // 2. Short-term Laravel cache (10 menit) untuk deduplicate request bersamaan
-        $routeHash = $digiflazzInquirySku !== null ? md5('digiflazz:' . $digiflazzInquirySku) : 'legacy';
-        $cacheKey = "check_id_{$parsedGame}_{$user_id}_{$zone_id}_{$routeHash}";
+        // 2. Short-term Laravel cache (10 menit) untuk deduplicate request bersamaan.
+        // Versi key baru mengisolasi hasil dari cache inquiry Digiflazz lama.
+        $cacheKey = "check_id_v2_{$parsedGame}_{$user_id}_{$zone_id}";
 
-        $result = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($parsedGame, $user_id, $zone_id, $digiflazzInquirySku) {
+        $result = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($parsedGame, $user_id, $zone_id) {
             // Primary free API
             $primaryResult = $this->connectPrimary([
                 'game'    => $parsedGame,
@@ -139,31 +114,22 @@ class ApiCheckController extends Controller
                 return $apiGamesResult;
             }
 
-            // Self-hosted API fallback — setelah ApiGames, sebelum Digiflazz
+            // Self-hosted API fallback — setelah ApiGames.
             $selfHostedResult = $this->connectSelfHosted($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
 
             if ($this->isSuccessfulResult($selfHostedResult)) {
                 return $selfHostedResult;
             }
 
-            // 3. Digiflazz fallback — kalo semua API gratisan gagal
-            $digiflazzResult = $this->connectDigiflazz($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null, $digiflazzInquirySku);
-
-            if ($this->isSuccessfulResult($digiflazzResult)) {
-                return $digiflazzResult;
-            }
-
             Log::warning('ApiCheckController:check - All providers failed.', [
-                'primary_response'     => $primaryResult,
-                'velixs_response'      => $velixsResult,
-                'apigames_response'    => $apiGamesResult,
-                'selfhosted_response'  => $selfHostedResult,
-                'digiflazz_response'   => $digiflazzResult,
+                'primary_response'    => $primaryResult,
+                'velixs_response'     => $velixsResult,
+                'apigames_response'   => $apiGamesResult,
+                'selfhosted_response' => $selfHostedResult,
             ]);
 
             return $this->failedResult(
-                $digiflazzResult['message']
-                    ?? $selfHostedResult['message']
+                $selfHostedResult['message']
                     ?? $apiGamesResult['message']
                     ?? $velixsResult['message']
                     ?? $primaryResult['message']
@@ -175,10 +141,7 @@ class ApiCheckController extends Controller
             $nickname = $result['nickname'] ?? null;
             $source   = $result['source'] ?? 'unknown';
 
-            // 4. Simpan ke DB persistent cache hanya untuk route legacy agar SKU inquiry dinamis tidak tercampur.
-            if ($digiflazzInquirySku === null) {
-                $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, $nickname, $source);
-            }
+            $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, $nickname, $source);
 
             $data = [
                 'status' => ['code' => 200, 'message' => 'User found'],
@@ -252,113 +215,6 @@ class ApiCheckController extends Controller
         }
     }
 
-    private function resolveDigiflazzInquirySku(string $parsedGame): ?string
-    {
-        if (
-            $this->layananContext
-            && (bool) ($this->layananContext->check_id_enabled ?? false)
-            && strtolower(trim((string) ($this->layananContext->check_id_provider ?? ''))) === 'digiflazz'
-        ) {
-            $sku = trim((string) ($this->layananContext->check_id_provider_sku ?? ''));
-
-            if ($sku !== '') {
-                return $sku;
-            }
-        }
-
-        $legacySku = static::DIGIFLAZZ_INQUIRY_SKUS[$parsedGame] ?? null;
-        $legacySku = is_string($legacySku) ? trim($legacySku) : null;
-
-        return $legacySku !== '' ? $legacySku : null;
-    }
-
-    /**
-     * Fallback ke Digiflazz inquiry.
-     * Digiflazz mendukung inquiry via endpoint /v1/transaction dengan command inquiry-pasca
-     * atau via SKU khusus yang memberikan response customer_name.
-     *
-     * SKU untuk setiap game harus dikonfigurasi di DIGIFLAZZ_INQUIRY_SKUS.
-     * Jika SKU tidak tersedia, fallback ini akan skip dengan gracefully.
-     */
-    private function connectDigiflazz(string $parsedGame, string $userId, ?string $zoneId = null, ?string $configuredSku = null): array
-    {
-        $sku = $configuredSku ?: (static::DIGIFLAZZ_INQUIRY_SKUS[$parsedGame] ?? null);
-
-        if ($sku === null) {
-            return $this->failedResult("No Digiflazz inquiry SKU configured for game: {$parsedGame}.");
-        }
-
-        $api = DB::table('setting_webs')->where('id', 1)->first();
-
-        if (! $api) {
-            return $this->failedResult('Digiflazz credentials not found.');
-        }
-
-        $username = trim((string) ($api->username_digi ?? ''));
-        $apiKey   = trim((string) ($api->api_key_digi ?? ''));
-
-        if ($username === '' || $apiKey === '') {
-            return $this->failedResult('Digiflazz credentials are not configured.');
-        }
-
-        // Digiflazz pakai ref_id unik — gunakan kombinasi game+uid+zone agar deduplicate
-        $refId    = 'CHK-' . md5("{$parsedGame}_{$userId}_{$zoneId}");
-        $target   = $userId . ($zoneId ?? '');
-        $sign     = md5($username . $apiKey . $refId);
-
-        $payload = [
-            'username'        => $username,
-            'buyer_sku_code'  => $sku,
-            'customer_no'     => $target,
-            'ref_id'          => $refId,
-            'sign'            => $sign,
-            'testing'         => app()->environment('local'),
-        ];
-
-        try {
-            $response = Http::withHeaders(['Content-Type' => 'application/json'])
-                ->connectTimeout(5)
-                ->timeout(10)
-                ->post('https://api.digiflazz.com/v1/transaction', $payload);
-
-            if (! $response->successful()) {
-                return $this->failedResult('Digiflazz returned a non-200 response.');
-            }
-
-            return $this->normalizeDigiflazzResponse($response->json());
-        } catch (\Throwable $exception) {
-            Log::error('ApiCheckController:connectDigiflazz - Request failed.', [
-                'message'    => $exception->getMessage(),
-                'game'       => $parsedGame,
-                'parsed_sku' => $sku,
-            ]);
-
-            return $this->failedResult('Digiflazz inquiry request failed.');
-        }
-    }
-
-    /**
-     * Normalisasi respons Digiflazz inquiry ke format internal.
-     * Digiflazz mengembalikan customer_name sebagai nickname game.
-     */
-    private function normalizeDigiflazzResponse(mixed $decoded): array
-    {
-        if (! is_array($decoded)) {
-            return $this->failedResult('Digiflazz returned an invalid payload.');
-        }
-
-        $data     = $decoded['data'] ?? [];
-        $status   = strtolower((string) ($data['status'] ?? ''));
-        $nickname = trim((string) ($data['customer_name'] ?? ''));
-
-        // Digiflazz inquiry success: status "Sukses" atau "Pending" dengan customer_name terisi
-        if (in_array($status, ['sukses', 'pending'], true) && $nickname !== '') {
-            return $this->successfulResult($nickname, 'digiflazz');
-        }
-
-        return $this->failedResult($data['message'] ?? $decoded['message'] ?? 'User not found on Digiflazz.');
-    }
-
     private function connectPrimary(array $params): array
     {
         $defaultUrl = 'https://api-cek-id-game-ten.vercel.app/api/check-id-game';
@@ -396,7 +252,7 @@ class ApiCheckController extends Controller
 
     private function connectVelixs(string $parsedGame, string $userId): array
     {
-        $apiKey = trim((string) (env('VELIXS_API_KEY') ?: 'b3f0bdc7ce3c73ab6404d59bc6a0324f94690d8bfa430bd8cd'));
+        $apiKey = trim((string) env('VELIXS_API_KEY', ''));
 
         if (! $apiKey) {
             Log::warning('ApiCheckController:connectVelixs - VELIXS_API_KEY is not set in .env');

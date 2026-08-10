@@ -157,35 +157,6 @@
                             </div>
                         </div>
                         <div class="mb-3 row">
-                            <label class="col-lg-2 col-form-label">Check ID?</label>
-                            <div class="col-lg-10">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" role="switch" name="check_id_enabled" value="1" {{ old('check_id_enabled') ? 'checked' : '' }}>
-                                    <label class="form-check-label">Aktifkan SKU inquiry Digiflazz</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3 row">
-                            <label for="check_id_provider" class="col-lg-2 col-form-label">Check ID Provider</label>
-                            <div class="col-lg-10">
-                                <select class="form-select" name="check_id_provider">
-                                    <option value="digiflazz" selected>Digiflazz</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="mb-3 row">
-                            <label for="check_id_provider_sku" class="col-lg-2 col-form-label">Check ID SKU</label>
-                            <div class="col-lg-10">
-                                <input type="text" class="form-control @error('check_id_provider_sku') is-invalid @enderror"
-                                    value="{{ old('check_id_provider_sku') }}" name="check_id_provider_sku" placeholder="SKU inquiry Digiflazz">
-                                @error('check_id_provider_sku')
-                                    <div class="invalid-feedback">
-                                        {{ $message }}
-                                    </div>
-                                @enderror
-                            </div>
-                        </div>
-                        <div class="mb-3 row">
                             <label for="harga" class="col-lg-1 col-form-label">Harga Modal</label>
                             <div class="col-lg-5">
                                 <input step="0.01" type="number" class="form-control @error('harga') is-invalid @enderror"

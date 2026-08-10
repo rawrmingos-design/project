@@ -143,7 +143,7 @@ class ApiCheckControllerTest extends TestCase
         });
     }
 
-    public function test_unsupported_apigames_game_without_selfhosted_or_digiflazz_sku_returns_not_found(): void
+    public function test_unsupported_game_returns_not_found_without_digiflazz_request(): void
     {
         $this->seedApiGamesSettings();
 
@@ -161,10 +161,79 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', null, 'Valorant');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('No Digiflazz inquiry SKU configured for game: valorant.', $result['status']['message']);
+        $this->assertNotSame('', $result['status']['message']);
 
         Http::assertSentCount(2);
-        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
+    }
+
+    public function test_missing_apigames_credentials_still_runs_selfhosted_fallback(): void
+    {
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => true,
+                'data' => ['username' => 'Self Hosted Nick'],
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', null, 'Valorant');
+
+        $this->assertSame(200, $result['status']['code']);
+        $this->assertSame('Self Hosted Nick', $result['data']['username']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
+    }
+
+    public function test_missing_velixs_key_does_not_send_request_to_velixs(): void
+    {
+        config(['providers.check_id.selfhosted.enabled' => false]);
+        putenv('VELIXS_API_KEY=');
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', null, 'Valorant');
+
+        $this->assertSame(404, $result['status']['code']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.velixs.com'));
+    }
+
+    public function test_all_checker_fallbacks_never_call_digiflazz(): void
+    {
+        $this->seedApiGamesSettings();
+
+        Http::fake([
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Data not found',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'User not found',
+            ]),
+            'https://v1.apigames.id/merchant/demo-merchant/cek-username/mobilelegend*' => Http::response([
+                'status' => 1,
+                'data' => ['is_valid' => false, 'username' => ''],
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
+
+        $this->assertSame(404, $result['status']['code']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
     }
 
     public function test_missing_apigames_credentials_skips_third_fallback_safely(): void
@@ -183,7 +252,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
+        $this->assertNotSame('', $result['status']['message']);
 
         Http::assertSentCount(2);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
@@ -216,7 +285,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
+        $this->assertNotSame('', $result['status']['message']);
 
         Http::assertSentCount(3);
     }
@@ -299,7 +368,7 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-        $this->assertSame('No Digiflazz inquiry SKU configured for game: mobile_legends.', $result['status']['message']);
+        $this->assertNotSame('', $result['status']['message']);
 
         Http::assertSentCount(3);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), '127.0.0.1'));
@@ -337,48 +406,6 @@ class ApiCheckControllerTest extends TestCase
             return str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check?')
                 && ($query['slug'] ?? '') === 'valorant';
         });
-    }
-
-    public function test_selfhosted_invalid_payload_continues_to_digiflazz(): void
-    {
-        $this->seedDigiflazzSettings();
-        $this->enableSelfHostedCheckId();
-
-        $layanan = \App\Models\Layanan::factory()->create([
-            'check_id_enabled' => true,
-            'check_id_provider' => 'digiflazz',
-            'check_id_provider_sku' => 'DYNAMIC_INQUIRY_SKU',
-        ]);
-
-        Http::fake([
-            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
-                'status' => false,
-                'message' => 'Data not found',
-            ]),
-            'https://api.velixs.com/idgames-checker' => Http::response([
-                'status' => false,
-                'message' => 'User not found',
-            ]),
-            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
-                'status' => false,
-                'message' => 'ID tidak ditemukan',
-            ]),
-            'https://api.digiflazz.com/v1/transaction' => Http::response([
-                'data' => [
-                    'status' => 'Sukses',
-                    'customer_name' => 'Digiflazz After Self Hosted Nick',
-                    'message' => 'Transaksi Sukses',
-                ],
-            ]),
-        ]);
-
-        $result = (new ApiCheckController($layanan))->check('DYNAMIC_UID', null, 'Valorant');
-
-        $this->assertSame(200, $result['status']['code']);
-        $this->assertSame('Digiflazz After Self Hosted Nick', $result['data']['username']);
-
-        Http::assertSent(fn ($request) => str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check?'));
-        Http::assertSent(fn ($request) => $request->url() === 'https://api.digiflazz.com/v1/transaction');
     }
 
     public function test_successful_result_is_cached_for_identical_request(): void
@@ -468,9 +495,8 @@ class ApiCheckControllerTest extends TestCase
         ]);
     }
 
-    public function test_digiflazz_fallback_is_skipped_when_no_sku_configured(): void
+    public function test_checker_fallbacks_never_call_digiflazz(): void
     {
-        // Mobile Legends tidak ada DIGIFLAZZ_INQUIRY_SKUS (null), jadi Digiflazz tidak dipanggil
         $this->seedApiGamesSettings();
 
         Http::fake([
@@ -492,61 +518,12 @@ class ApiCheckControllerTest extends TestCase
         $result = app(ApiCheckController::class)->check('123456', '2222', 'Mobile Legends');
 
         $this->assertSame(404, $result['status']['code']);
-
-        // Digiflazz tidak dipanggil karena SKU null
-        Http::assertNotSent(fn ($req) => str_contains($req->url(), 'api.digiflazz.com'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
         Http::assertSentCount(3);
     }
 
-    public function test_digiflazz_fallback_returns_customer_name_on_success(): void
+    public function test_legacy_inquiry_configuration_cannot_trigger_digiflazz(): void
     {
-        $this->seedDigiflazzSettings();
-
-        Http::fake([
-            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
-                'status'  => false,
-                'message' => 'Data not found',
-            ]),
-            'https://api.velixs.com/idgames-checker' => Http::response([
-                'status'  => false,
-                'message' => 'User not found',
-            ]),
-            // Digiflazz inquiry response — status Sukses + customer_name
-            'https://api.digiflazz.com/v1/transaction' => Http::response([
-                'data' => [
-                    'status'        => 'Sukses',
-                    'customer_name' => 'Valorant Nick From Digiflazz',
-                    'message'       => 'Transaksi Sukses',
-                ],
-            ]),
-        ]);
-
-        // Kita test dengan game yang tidak support ApiGames tapi ada di Digiflazz,
-        // menggunakan reflection untuk override konstanta
-        $controller = new class extends ApiCheckController {
-            // Override konstanta melalui subclass untuk testing
-            protected const DIGIFLAZZ_INQUIRY_SKUS = [
-                'valorant' => 'VLR_TEST_SKU',
-            ];
-        };
-
-        $result = $controller->check('VALORANT_UID', null, 'Valorant');
-
-        $this->assertSame(200, $result['status']['code']);
-        $this->assertSame('Valorant Nick From Digiflazz', $result['data']['username']);
-        Http::assertSent(fn ($req) => str_contains($req->url(), 'api.digiflazz.com'));
-    }
-
-    public function test_digiflazz_fallback_uses_layanan_inquiry_sku(): void
-    {
-        $this->seedDigiflazzSettings();
-
-        $layanan = \App\Models\Layanan::factory()->create([
-            'check_id_enabled' => true,
-            'check_id_provider' => 'digiflazz',
-            'check_id_provider_sku' => 'DYNAMIC_INQUIRY_SKU',
-        ]);
-
         Http::fake([
             'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
                 'status' => false,
@@ -556,34 +533,12 @@ class ApiCheckControllerTest extends TestCase
                 'status' => false,
                 'message' => 'User not found',
             ]),
-            'https://api.digiflazz.com/v1/transaction' => Http::response([
-                'data' => [
-                    'status' => 'Sukses',
-                    'customer_name' => 'Dynamic SKU Nick',
-                    'message' => 'Transaksi Sukses',
-                ],
-            ]),
         ]);
 
-        $result = (new ApiCheckController($layanan))->check('DYNAMIC_UID', null, 'Valorant');
+        $result = app(ApiCheckController::class)->check('LEGACY_UID', null, 'Valorant');
 
-        $this->assertSame(200, $result['status']['code']);
-        $this->assertSame('Dynamic SKU Nick', $result['data']['username']);
-
-        Http::assertSent(function ($request) {
-            return $request->url() === 'https://api.digiflazz.com/v1/transaction'
-                && $request['buyer_sku_code'] === 'DYNAMIC_INQUIRY_SKU'
-                && $request['customer_no'] === 'DYNAMIC_UID';
-        });
-    }
-
-    private function seedDigiflazzSettings(): void
-    {
-        $this->seed(\Database\Seeders\SettingWebsSeeder::class);
-        DB::table('setting_webs')->where('id', 1)->update([
-            'username_digi' => 'demo_digi_user',
-            'api_key_digi' => 'demo_digi_key',
-        ]);
+        $this->assertSame(404, $result['status']['code']);
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
     }
 
     private function enableSelfHostedCheckId(string $baseUrl = 'https://cekid.jasakoding.web.id', string $apiKey = 'selfhosted-secret'): void

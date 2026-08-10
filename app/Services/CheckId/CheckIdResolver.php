@@ -220,7 +220,7 @@ class CheckIdResolver
             ];
         }
 
-        if (! $this->supports($categoryCode) && ! $this->hasDynamicCheckIdInquiry($layanan)) {
+        if (! $this->supports($categoryCode)) {
             return ['status' => ['code' => 400, 'message' => 'Game not supported for validation']];
         }
 
@@ -342,11 +342,4 @@ class CheckIdResolver
         return trim($code, '-');
     }
 
-    private function hasDynamicCheckIdInquiry(?Layanan $layanan): bool
-    {
-        return $layanan !== null
-            && (bool) ($layanan->check_id_enabled ?? false)
-            && strtolower(trim((string) ($layanan->check_id_provider ?? ''))) === 'digiflazz'
-            && trim((string) ($layanan->check_id_provider_sku ?? '')) !== '';
-    }
 }
