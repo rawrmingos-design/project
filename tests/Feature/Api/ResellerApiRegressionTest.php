@@ -19,6 +19,12 @@ class ResellerApiRegressionTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->mockSuccessfulAccountValidation();
+    }
+
     public function test_balance_returns_authenticated_reseller_profile(): void
     {
         $integration = ResellerIntegration::factory()->create([
@@ -295,9 +301,17 @@ class ResellerApiRegressionTest extends TestCase
     public function test_provider_failure_returns_safe_order_failed_error(): void
     {
         $integration = $this->createIntegrationWithProfile();
+        $kategori = Kategori::factory()->create([
+            'kode' => 'mobile-legends',
+            'nama' => 'Mobile Legends',
+            'status' => 'active',
+            'tipe' => 'game',
+            'server_id' => true,
+            'require_user_id' => true,
+        ]);
 
         Layanan::query()->create([
-            'kategori_id' => '1',
+            'kategori_id' => (string) $kategori->getKey(),
             'layanan' => 'VIP Failure Service',
             'provider_id' => 'VIP-FAIL-MVP-001',
             'harga' => 10000,
@@ -423,8 +437,18 @@ class ResellerApiRegressionTest extends TestCase
 
     private function createManualLayanan(): Layanan
     {
+        $kategori = Kategori::query()->create([
+            'nama' => 'Mobile Legends',
+            'sub_nama' => 'Mobile Legends',
+            'kode' => 'mobile-legends',
+            'tipe' => 'game',
+            'status' => 'active',
+            'server_id' => true,
+            'require_user_id' => true,
+        ]);
+
         return Layanan::query()->create([
-            'kategori_id' => '1',
+            'kategori_id' => (string) $kategori->getKey(),
             'layanan' => 'Manual MVP Service',
             'provider_id' => 'MANUAL-MVP-001',
             'harga' => 10000,
