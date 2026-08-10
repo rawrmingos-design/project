@@ -2,13 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\ResellerCallbackDelivery;
 use App\Models\ResellerCallbackProfile;
 use App\Models\ResellerIntegration;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -16,6 +16,12 @@ use Tests\TestCase;
 class OutboundH2hOrderApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->mockSuccessfulAccountValidation();
+    }
 
     public function test_valid_live_order_stores_integration_and_sends_signed_callback(): void
     {
@@ -232,8 +238,18 @@ class OutboundH2hOrderApiTest extends TestCase
 
     private function createManualLayanan(): Layanan
     {
+        $kategori = Kategori::query()->create([
+            'nama' => 'Mobile Legends',
+            'sub_nama' => 'Mobile Legends',
+            'kode' => 'mobile-legends',
+            'tipe' => 'game',
+            'status' => 'active',
+            'server_id' => true,
+            'require_user_id' => true,
+        ]);
+
         return Layanan::query()->create([
-            'kategori_id' => '1',
+            'kategori_id' => (string) $kategori->getKey(),
             'layanan' => 'Manual MVP Service',
             'provider_id' => 'MANUAL-MVP-001',
             'harga' => 10_000,

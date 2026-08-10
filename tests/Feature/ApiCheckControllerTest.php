@@ -21,6 +21,7 @@ class ApiCheckControllerTest extends TestCase
         $this->artisan('migrate');
 
         Cache::flush();
+        putenv('VELIXS_API_KEY=test-velixs-key');
         Http::preventStrayRequests();
     }
 
