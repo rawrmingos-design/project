@@ -110,6 +110,7 @@ class CheckoutOrderService
             $paymentCode = $this->paymentCode($method, $orderId);
             $duitkuMerchantOrderId = null;
             $duitkuPaymentCode = null;
+            $gatewayPayment = [];
             $orderType = $this->orderType((string) $request->input('ktg_tipe', $category->tipe));
             $isJoki = in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true);
 
@@ -130,6 +131,7 @@ class CheckoutOrderService
                 $expiresAt = $this->parseGatewayExpiry($gateway['expired_at'] ?? null, $method);
                 $duitkuMerchantOrderId = $gateway['merchant_order_id'] ?? null;
                 $duitkuPaymentCode = $gateway['duitku_payment_code'] ?? null;
+                $gatewayPayment = $this->normalizeGatewayPayment($gateway, (string) $method->payment);
             }
 
             $order = new Pembelian();
@@ -151,6 +153,7 @@ class CheckoutOrderService
                 'base_amount' => $baseAmount,
                 'fee_amount' => $feeAmount,
                 'gateway_context' => $this->gatewayContext($context),
+                'gateway_payment' => $gatewayPayment,
             ], JSON_UNESCAPED_SLASHES);
             $order->traffic_source = $source;
             $order->gateway_principal = $this->gatewayPrincipal($source, $context);
@@ -231,6 +234,8 @@ class CheckoutOrderService
                 'amount' => $payment ? (int) $payment->harga : null,
                 'reference' => $payment?->reference,
                 'payment_code' => $payment?->no_pembayaran,
+                'payment_url' => $this->gatewayPaymentValue($order, 'payment_url') ?? route('pembelian', $order->order_id),
+                'qr_image_url' => $this->gatewayPaymentValue($order, 'qr_image_url'),
                 'expires_at' => $payment?->expired_at?->toIso8601String(),
             ],
             'sn' => $order->keterangan_sn,
@@ -346,17 +351,51 @@ class CheckoutOrderService
             'category_name' => (string) ($order->activeLayanan?->kategori?->nama ?? ''),
             'quantity' => 1,
             'invoice_url' => route('pembelian', $order->order_id),
-            'payment_url' => route('pembelian', $order->order_id),
+            'payment_url' => $this->gatewayPaymentValue($order, 'payment_url') ?? route('pembelian', $order->order_id),
             'payment' => [
                 'method' => $payment?->metode,
                 'status' => $payment?->status,
                 'amount' => $payment ? (int) $payment->harga : null,
                 'reference' => $payment?->reference,
                 'payment_code' => $payment?->no_pembayaran,
-                'payment_url' => route('pembelian', $order->order_id),
+                'payment_url' => $this->gatewayPaymentValue($order, 'payment_url'),
+                'qr_image_url' => $this->gatewayPaymentValue($order, 'qr_image_url'),
+                'qr_payload' => $this->gatewayPaymentValue($order, 'qr_payload'),
                 'expires_at' => $payment?->expired_at?->toIso8601String(),
             ],
         ];
+    }
+
+    private function gatewayPaymentValue(Pembelian $order, string $key): ?string
+    {
+        $metadata = json_decode((string) $order->log, true);
+        $value = is_array($metadata) ? data_get($metadata, 'gateway_payment.' . $key) : null;
+        $value = is_scalar($value) ? trim((string) $value) : '';
+
+        return $value !== '' ? $value : null;
+    }
+
+    private function normalizeGatewayPayment(array $gateway, string $provider): array
+    {
+        $payment = [
+            'provider' => strtolower(trim($provider)),
+            'payment_url' => $gateway['payment_url']
+                ?? $gateway['paymentUrl']
+                ?? $gateway['pay_url']
+                ?? $gateway['checkout_url']
+                ?? null,
+            'qr_image_url' => $gateway['qr_image_url']
+                ?? $gateway['qr_url']
+                ?? $gateway['qr_link']
+                ?? $gateway['qris_url']
+                ?? null,
+            'qr_payload' => $gateway['qr_payload']
+                ?? $gateway['qrString']
+                ?? $gateway['qr_string']
+                ?? null,
+        ];
+
+        return array_filter($payment, static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '');
     }
 
     private function resolveServiceAmount(Layanan $service, ?User $user, Request $request): int
@@ -465,7 +504,9 @@ class CheckoutOrderService
 
         return [
             'reference' => $result['reference'] ?? null,
-            'no_pembayaran' => $result['payment_value'] ?? $result['no_pembayaran'] ?? $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? null,
+            'no_pembayaran' => $result['vaNumber'] ?? $result['qrString'] ?? $result['paymentUrl'] ?? $result['reference'] ?? null,
+            'payment_url' => $result['paymentUrl'] ?? $result['payment_url'] ?? null,
+            'qr_payload' => $result['qrString'] ?? $result['qr_string'] ?? null,
             'amount' => $result['amount'] ?? $amount,
             'merchant_order_id' => $result['merchant_order_id'] ?? $result['merchantOrderId'] ?? ('DUITKU-' . $orderId),
             'duitku_payment_code' => $result['duitku_payment_method'] ?? $method->code,
@@ -491,7 +532,12 @@ class CheckoutOrderService
 
         return [
             'reference' => $result['reference'] ?? null,
-            'no_pembayaran' => $result['no_pembayaran'] ?? null,
+            'no_pembayaran' => $result['pay_code']
+                ?? $result['qr_url']
+                ?? $result['pay_url']
+                ?? null,
+            'payment_url' => $result['pay_url'] ?? null,
+            'qr_image_url' => $result['qr_url'] ?? null,
             'amount' => $result['amount'] ?? $amount,
             'expired_at' => $result['expired_at'] ?? null,
         ];
@@ -526,6 +572,9 @@ class CheckoutOrderService
                 ?? $data['checkout_url']
                 ?? $data['pay_url']
                 ?? null,
+            'payment_url' => $data['checkout_url'] ?? $data['pay_url'] ?? null,
+            'qr_image_url' => $data['qr_link'] ?? null,
+            'qr_payload' => $data['qrString'] ?? $data['qr_string'] ?? null,
             'amount' => $data['total_bayar'] ?? $amount,
             'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
         ];
