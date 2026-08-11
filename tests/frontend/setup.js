@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom';
 
+window.scrollTo = jest.fn();
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -30,7 +32,8 @@ global.IntersectionObserver = class IntersectionObserver {
 window.grecaptcha = {
   ready: jest.fn((cb) => cb()),
   execute: jest.fn(() => Promise.resolve('test-captcha-token')),
-  render: jest.fn(),
+  render: jest.fn(() => 0),
+  reset: jest.fn(),
 };
 
 // Suppress console errors in tests

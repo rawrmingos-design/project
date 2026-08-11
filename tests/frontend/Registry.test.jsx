@@ -13,6 +13,7 @@ jest.mock('@inertiajs/react', () => ({
   router: {
     post: jest.fn(),
   },
+  usePage: () => ({ props: {} }),
 }));
 
 describe('Registry Component', () => {
@@ -38,7 +39,11 @@ describe('Registry Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseForm.mockImplementation((initialData = {}) => ({
-      data: initialData,
+      data: {
+        ...initialData,
+        business_name: 'Test Shop',
+        business_url: 'https://example.com',
+      },
       setData: jest.fn(),
       post: jest.fn(),
       processing: false,
@@ -46,21 +51,44 @@ describe('Registry Component', () => {
     }));
   });
 
+  const setProcessingForm = () => {
+    mockUseForm.mockImplementation((initialData = {}) => ({
+      data: {
+        ...initialData,
+        business_name: 'Test Shop',
+        business_url: 'https://example.com',
+      },
+      setData: jest.fn(),
+      post: jest.fn(),
+      processing: true,
+      errors: {},
+    }));
+  };
+
+  const validFormData = (initialData = {}) => ({
+    ...initialData,
+    business_name: 'Test Shop',
+    business_url: 'https://example.com',
+  });
+
+  const advanceToStep2 = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Lanjut ke Upload Dokumen/i }));
+  };
+
   describe('Account Info Banner', () => {
     it('renders account information banner', () => {
       render(<Registry {...defaultProps} />);
 
-      expect(screen.getByText('Akun Yang Akan Diupgrade')).toBeInTheDocument();
+      expect(screen.getByText('Akun Saat Ini')).toBeInTheDocument();
       expect(screen.getByText('testuser')).toBeInTheDocument();
       expect(screen.getByText('test@example.com')).toBeInTheDocument();
       expect(screen.getByText('Member')).toBeInTheDocument();
     });
 
-    it('displays upgrade explanation message', () => {
+    it('displays account information message', () => {
       render(<Registry {...defaultProps} />);
 
-      expect(screen.getByText(/Setelah pengajuan disetujui/i)).toBeInTheDocument();
-      expect(screen.getByText(/username dan password yang sama/i)).toBeInTheDocument();
+      expect(screen.getByText(/Informasi akun yang akan digunakan/i)).toBeInTheDocument();
     });
 
     it('does not render banner when current_user is null', () => {
@@ -83,12 +111,31 @@ describe('Registry Component', () => {
       expect(recaptchaScript).toBeDefined();
     });
 
-    it('renders reCAPTCHA widget when enabled', () => {
+    it('renders reCAPTCHA explicitly after advancing to Step 2', async () => {
       render(<Registry {...defaultProps} />);
 
-      const recaptchaWidget = document.querySelector('.g-recaptcha');
-      expect(recaptchaWidget).toBeInTheDocument();
-      expect(recaptchaWidget).toHaveAttribute('data-sitekey', 'test-site-key');
+      expect(document.querySelector('.g-recaptcha')).not.toBeInTheDocument();
+      await advanceToStep2();
+
+      await waitFor(() => expect(window.grecaptcha.render).toHaveBeenCalledWith(
+        expect.any(HTMLElement),
+        expect.objectContaining({
+          sitekey: 'test-site-key',
+          theme: 'dark',
+          callback: expect.any(Function),
+          'expired-callback': expect.any(Function),
+        })
+      ));
+    });
+
+    it('renders one widget per Step 2 mount', async () => {
+      render(<Registry {...defaultProps} />);
+      await advanceToStep2();
+      await waitFor(() => expect(window.grecaptcha.render).toHaveBeenCalledTimes(1));
+
+      await userEvent.click(screen.getByRole('button', { name: /Kembali/i }));
+      await userEvent.click(screen.getByRole('button', { name: /Lanjut ke Upload Dokumen/i }));
+      await waitFor(() => expect(window.grecaptcha.render).toHaveBeenCalledTimes(2));
     });
 
     it('does not render reCAPTCHA when disabled', () => {
@@ -111,31 +158,54 @@ describe('Registry Component', () => {
 
       const recaptchaWidget = document.querySelector('.g-recaptcha');
       expect(recaptchaWidget).not.toBeInTheDocument();
+      expect(window.grecaptcha.render).not.toHaveBeenCalled();
+    });
+
+    it('resets the rendered widget by ID after a CAPTCHA expiry', async () => {
+      render(<Registry {...defaultProps} />);
+      await advanceToStep2();
+      await waitFor(() => expect(window.grecaptcha.render).toHaveBeenCalled());
+
+      window.onResellerCaptchaExpired();
+      expect(window.grecaptcha.reset).toHaveBeenCalledWith(0);
     });
   });
 
   describe('Form Fields', () => {
     it('renders all required form fields', () => {
+      mockUseForm.mockImplementation((initialData = {}) => ({
+        data: {
+          ...initialData,
+          business_name: 'Test Shop',
+          business_url: 'https://example.com',
+        },
+        setData: jest.fn(),
+        post: jest.fn(),
+        processing: false,
+        errors: {},
+      }));
       render(<Registry {...defaultProps} />);
 
-      expect(screen.getByPlaceholderText(/PT Digital Solusi/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Masukkan nama bisnis Anda/i)).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/https:\/\//i)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/50000000/i)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/Ceritakan mengapa/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/^0$/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText(/Ceritakan singkat/i)).toBeInTheDocument();
     });
 
-    it('renders document upload sections', () => {
+    it('renders document upload sections', async () => {
       render(<Registry {...defaultProps} />);
+      await advanceToStep2();
 
-      expect(screen.getByText(/Identitas \(KTP\/ID Card\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/Selfie dengan KTP/i)).toBeInTheDocument();
-      expect(screen.getByText(/Bukti Bisnis/i)).toBeInTheDocument();
+      expect(screen.getByText(/Foto KTP Asli/i)).toBeInTheDocument();
+      expect(screen.getByText(/Foto Selfie dengan KTP/i)).toBeInTheDocument();
+      expect(screen.getByText(/Bukti Kepemilikan Toko/i)).toBeInTheDocument();
     });
 
-    it('displays submit button', () => {
+    it('displays submit button', async () => {
       render(<Registry {...defaultProps} />);
+      await advanceToStep2();
 
-      const submitButton = screen.getByRole('button', { name: /Kirim Pengajuan/i });
+      const submitButton = screen.getByRole('button', { name: /Kirim Aplikasi/i });
       expect(submitButton).toBeInTheDocument();
       expect(submitButton).not.toBeDisabled();
     });
@@ -149,12 +219,13 @@ describe('Registry Component', () => {
   });
 
   describe('Form Validation', () => {
-    it('displays error for captcha validation', () => {
+    it('displays error for captcha validation', async () => {
       const propsWithErrors = {
         ...defaultProps,
       };
       
       const { rerender } = render(<Registry {...propsWithErrors} />);
+      await advanceToStep2();
 
       mockUseForm.mockImplementation((initialData = {}) => ({
         data: initialData,
@@ -183,6 +254,13 @@ describe('Registry Component', () => {
         },
       };
 
+      mockUseForm.mockImplementation((initialData = {}) => ({
+        data: initialData,
+        setData: jest.fn(),
+        post: jest.fn(),
+        processing: false,
+        errors: {},
+      }));
       render(<Registry {...propsWithExisting} />);
 
       expect(screen.getByDisplayValue('Existing Business')).toBeInTheDocument();
@@ -193,31 +271,21 @@ describe('Registry Component', () => {
   });
 
   describe('Form Submission', () => {
-    it('disables submit button when processing', () => {
-      mockUseForm.mockImplementation((initialData = {}) => ({
-        data: initialData,
-        setData: jest.fn(),
-        post: jest.fn(),
-        processing: true,
-        errors: {},
-      }));
+    it('disables submit button when processing', async () => {
+      setProcessingForm();
 
       render(<Registry {...defaultProps} />);
 
+      await advanceToStep2();
       const submitButton = screen.getByRole('button', { name: /Mengirim/i });
       expect(submitButton).toBeDisabled();
     });
 
-    it('shows processing state text', () => {
-      mockUseForm.mockImplementation((initialData = {}) => ({
-        data: initialData,
-        setData: jest.fn(),
-        post: jest.fn(),
-        processing: true,
-        errors: {},
-      }));
+    it('shows processing state text', async () => {
+      setProcessingForm();
 
       render(<Registry {...defaultProps} />);
+      await advanceToStep2();
 
       expect(screen.getByText('Mengirim...')).toBeInTheDocument();
     });
@@ -234,19 +302,20 @@ describe('Registry Component', () => {
     it('has proper labels for form inputs', () => {
       render(<Registry {...defaultProps} />);
 
-      expect(screen.getByText(/NAMA BISNIS/i)).toBeInTheDocument();
-      expect(screen.getByText(/URL\/WEBSITE BISNIS/i)).toBeInTheDocument();
-      expect(screen.getByText(/ESTIMASI TRANSAKSI BULANAN/i)).toBeInTheDocument();
+      expect(screen.getByText(/NAMA TOKO\/BISNIS/i)).toBeInTheDocument();
+      expect(screen.getByText(/LINK PLATFORM/i)).toBeInTheDocument();
+      expect(screen.getByText(/ESTIMASI TRANSAKSI PER BULAN/i)).toBeInTheDocument();
     });
   });
 
   describe('Security Features', () => {
-    it('renders benefit badges including security features', () => {
-      render(<Registry {...defaultProps} />);
+    it('renders the registration security requirements', () => {
+      const props = { ...defaultProps, current_user: null };
+      render(<Registry {...props} />);
 
-      expect(screen.getByText(/API H2H/i)).toBeInTheDocument();
-      expect(screen.getByText(/Harga Khusus/i)).toBeInTheDocument();
-      expect(screen.getByText(/Support 24\/7/i)).toBeInTheDocument();
+      expect(screen.getByText(/Harus login sebagai/i)).toBeInTheDocument();
+      expect(screen.getByText(/Memiliki informasi bisnis yang valid/i)).toBeInTheDocument();
+      expect(screen.getByText(/Menyelesaikan verifikasi captcha/i)).toBeInTheDocument();
     });
   });
 });

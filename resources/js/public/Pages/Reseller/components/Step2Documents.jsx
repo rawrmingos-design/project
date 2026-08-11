@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import FileUploadZone from './FileUploadZone';
 
 export default function Step2Documents({ 
@@ -11,10 +11,13 @@ export default function Step2Documents({
     captchaToken = '',
     onCaptchaToken,
     onCaptchaExpired,
+    onCaptchaWidget,
+    captchaScriptReady = false,
     processing = false,
     disabled = false
 }) {
-
+    const captchaContainerRef = useRef(null);
+    const captchaWidgetIdRef = useRef(null);
 
     useEffect(() => {
         window.onResellerCaptchaVerified = (token) => {
@@ -27,8 +30,62 @@ export default function Step2Documents({
         return () => {
             delete window.onResellerCaptchaVerified;
             delete window.onResellerCaptchaExpired;
+            captchaWidgetIdRef.current = null;
+            onCaptchaWidget?.(null);
         };
-    }, [onCaptchaExpired, onCaptchaToken]);
+    }, [onCaptchaExpired, onCaptchaToken, onCaptchaWidget]);
+
+    useEffect(() => {
+        const captchaActive = captcha?.enabled === true && Boolean(captcha?.site_key);
+        let retryTimer;
+        let cancelled = false;
+
+        const renderCaptcha = () => {
+            const grecaptcha = typeof window !== 'undefined' ? window.grecaptcha : null;
+            const container = captchaContainerRef.current;
+
+            if (cancelled || !captchaActive || !grecaptcha?.ready || !grecaptcha.render || !container) {
+                return Boolean(cancelled || !captchaActive);
+            }
+
+            if (captchaWidgetIdRef.current !== null || container.childElementCount > 0) {
+                return true;
+            }
+
+            grecaptcha.ready(() => {
+                if (cancelled || captchaWidgetIdRef.current !== null || !captchaContainerRef.current) {
+                    return;
+                }
+
+                const widgetId = grecaptcha.render(captchaContainerRef.current, {
+                    sitekey: captcha.site_key,
+                    theme: 'dark',
+                    callback: window.onResellerCaptchaVerified,
+                    'expired-callback': window.onResellerCaptchaExpired,
+                });
+                captchaWidgetIdRef.current = widgetId;
+                onCaptchaWidget?.(widgetId);
+            });
+            return true;
+        };
+
+        if (!renderCaptcha()) {
+            retryTimer = window.setInterval(() => {
+                if (renderCaptcha()) {
+                    window.clearInterval(retryTimer);
+                }
+            }, 50);
+        }
+
+        return () => {
+            cancelled = true;
+            if (retryTimer) {
+                window.clearInterval(retryTimer);
+            }
+        };
+    }, [captcha, captchaScriptReady, onCaptchaWidget]);
+
+    const captchaEnabled = captcha?.enabled === true && Boolean(captcha?.site_key);
 
     const handleFileChange = (field, file) => {
         onChange(field, file);
@@ -43,7 +100,7 @@ export default function Step2Documents({
             return;
         }
         
-        if (captcha?.enabled && !captchaToken) {
+        if (captchaEnabled && !captchaToken) {
             return;
         }
 
@@ -107,19 +164,13 @@ export default function Step2Documents({
                     />
 
                     {/* Captcha Section - Right above submit button */}
-                    {captcha?.enabled && captcha?.site_key && (
+                    {captchaEnabled && (
                         <div className="pt-6 border-t border-white/5">
                             <label className="block text-xs font-semibold text-white mb-3 tracking-wide uppercase">
                                 Verifikasi Keamanan
                             </label>
                             <div className="flex justify-center">
-                                <div
-                                    className="g-recaptcha"
-                                    data-sitekey={captcha.site_key}
-                                    data-theme="dark"
-                                    data-callback="onResellerCaptchaVerified"
-                                    data-expired-callback="onResellerCaptchaExpired"
-                                ></div>
+                                <div ref={captchaContainerRef}></div>
                             </div>
                             {!captchaToken && (
                                 <p className="mt-2 text-xs text-amber-400 text-center">

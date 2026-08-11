@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Head, useForm, router, usePage } from '@inertiajs/react';
 
 // Import new multi-step components
@@ -29,7 +29,40 @@ export default function Registry({ current_user, captcha, existing_application, 
     // Multi-step state
     const [currentStep, setCurrentStep] = useState(1);
     const [captchaToken, setCaptchaToken] = useState('');
+    const [captchaScriptReady, setCaptchaScriptReady] = useState(
+        typeof window !== 'undefined' && Boolean(window.grecaptcha)
+    );
+    const captchaWidgetIdRef = useRef(null);
     const captchaActive = captcha?.enabled === true && Boolean(captcha?.site_key);
+
+    useEffect(() => {
+        if (!captchaActive || typeof window === 'undefined') {
+            setCaptchaScriptReady(false);
+            return undefined;
+        }
+
+        if (window.grecaptcha) {
+            setCaptchaScriptReady(true);
+        }
+
+        const handleScriptLoad = () => setCaptchaScriptReady(true);
+        const script = document.querySelector('script[data-reseller-recaptcha]');
+        script?.addEventListener('load', handleScriptLoad);
+
+        return () => script?.removeEventListener('load', handleScriptLoad);
+    }, [captchaActive]);
+
+    const handleCaptchaWidget = useCallback((widgetId) => {
+        captchaWidgetIdRef.current = widgetId;
+    }, []);
+
+    const resetCaptcha = useCallback(() => {
+        setCaptchaToken('');
+        const widgetId = captchaWidgetIdRef.current;
+        if (widgetId !== null && widgetId !== undefined && window.grecaptcha?.reset) {
+            window.grecaptcha.reset(widgetId);
+        }
+    }, []);
 
     // Form data state
     const { data, setData, post, processing, errors } = useForm({
@@ -75,6 +108,8 @@ export default function Registry({ current_user, captcha, existing_application, 
 
     // Handle back (Step 2 → Step 1)
     const handleBack = () => {
+        resetCaptcha();
+        captchaWidgetIdRef.current = null;
         setCurrentStep(1);
         window.scrollTo(0, 0);
     };
@@ -100,20 +135,14 @@ export default function Registry({ current_user, captcha, existing_application, 
             forceFormData: true,
             onError: () => {
                 setCaptchaToken('');
-                if (window.grecaptcha) {
-                    window.grecaptcha.reset();
-                }
+                resetCaptcha();
             },
         });
     };
 
-    const handleCaptchaToken = (token) => {
+    const handleCaptchaToken = useCallback((token) => {
         setCaptchaToken(token || '');
-    };
-
-    const handleCaptchaExpired = () => {
-        setCaptchaToken('');
-    };
+    }, []);
 
     // Banner Components (preserved from original)
     const AccountInfoSection = () => (
@@ -320,7 +349,13 @@ export default function Registry({ current_user, captcha, existing_application, 
                 <meta name="description" content="Bergabunglah dengan mitra resmi kami dan dapatkan akses eksklusif ke sistem H2H dengan harga kompetitif" />
                 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
                 {captchaActive && (
-                    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                    <script
+                        src="https://www.google.com/recaptcha/api.js?render=explicit"
+                        data-reseller-recaptcha
+                        onLoad={() => setCaptchaScriptReady(true)}
+                        async
+                        defer
+                    ></script>
                 )}
             </Head>
 
@@ -390,7 +425,9 @@ export default function Registry({ current_user, captcha, existing_application, 
                                     captcha={captcha}
                                     captchaToken={captchaToken}
                                     onCaptchaToken={handleCaptchaToken}
-                                    onCaptchaExpired={handleCaptchaExpired}
+                                    onCaptchaExpired={resetCaptcha}
+                                    onCaptchaWidget={handleCaptchaWidget}
+                                    captchaScriptReady={captchaScriptReady}
                                     processing={processing}
                                     disabled={!isAuthenticated}
                                 />
