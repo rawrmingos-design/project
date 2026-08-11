@@ -111,6 +111,13 @@ describe('Registry Component', () => {
       expect(recaptchaScript).toBeDefined();
     });
 
+    it('links guests to login with the registry redirect target', () => {
+      render(<Registry {...defaultProps} current_user={null} />);
+
+      expect(screen.getByRole('link', { name: /Login Sekarang/i }))
+        .toHaveAttribute('href', '/id/sign-in?redirect=%2Fid%2Freseller%2Fregistry');
+    });
+
     it('renders reCAPTCHA explicitly after advancing to Step 2', async () => {
       render(<Registry {...defaultProps} />);
 

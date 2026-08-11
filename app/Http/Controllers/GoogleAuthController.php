@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SettingWeb;
 use App\Models\User;
+use App\Http\Controllers\Concerns\HandlesLoginRedirect;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class GoogleAuthController extends Controller
 {
+    use HandlesLoginRedirect;
+
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
@@ -113,7 +116,7 @@ class GoogleAuthController extends Controller
         Auth::login($user, true);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard');
+        return $this->redirectAfterLogin($request);
     }
 
     private function createGoogleUser(
