@@ -227,7 +227,7 @@ export default function Registry({ current_user, captcha, existing_application, 
 
                 <div className="mt-6 text-center">
                     <a
-                        href="/id/sign-in"
+                        href="/id/sign-in?redirect=%2Fid%2Freseller%2Fregistry"
                         className="inline-block px-8 py-3 bg-gradient-to-b from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:shadow-lg hover:scale-105 transition-all"
                     >
                         Login Sekarang

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAuthCaptchaRuntime;
+use App\Http\Controllers\Concerns\HandlesLoginRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -16,9 +17,11 @@ use PragmaRX\Google2FA\Google2FA;
 class LoginController extends Controller
 {
     use ResolvesAuthCaptchaRuntime;
+    use HandlesLoginRedirect;
 
-    public function create()
+    public function create(Request $request)
     {
+        $this->rememberLoginRedirect($request);
         $captchaRuntime = $this->getAuthCaptchaRuntime();
 
         return view('template.login', [
@@ -81,7 +84,7 @@ class LoginController extends Controller
                 }
 
                 $request->session()->regenerate();
-                return redirect()->route('dashboard');
+                return $this->redirectAfterLogin($request);
             } else {
                 Auth::logout();
                 return redirect()->route('login')->withErrors(['error' => 'Username / password mismatch']);
