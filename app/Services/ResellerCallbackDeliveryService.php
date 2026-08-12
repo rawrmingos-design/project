@@ -5,15 +5,28 @@ namespace App\Services;
 use App\Models\Pembelian;
 use App\Models\ResellerCallbackDelivery;
 use App\Support\PembelianStatus;
+use App\Support\ResellerCallbackOutboundClient;
 use App\Support\ResellerCallbackUrlValidator;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Throwable;
 
 class ResellerCallbackDeliveryService
 {
     public const LIVE_EVENT_NAME = 'h2h.order.updated';
+
+    public function __construct(
+        private readonly ResellerCallbackOutboundClient $outboundClient,
+    ) {}
+
+    private const SAFE_ERROR_MESSAGES = [
+        'destination_blocked' => 'Callback destination blocked by security policy.',
+        'response_too_large' => 'Callback response exceeded the allowed size.',
+        'connection_failed' => 'Callback endpoint could not be reached.',
+    ];
+
+    private function safeErrorMessage(?string $category): string
+    {
+        return self::SAFE_ERROR_MESSAGES[$category] ?? 'Callback delivery failed.';
+    }
     public const SANDBOX_EVENT_NAME = 'h2h.sandbox.order.updated';
 
     public function dispatchInitial(Pembelian $pembelian): array
@@ -196,43 +209,49 @@ class ResellerCallbackDeliveryService
             $secret,
         );
 
-        try {
-            $response = Http::timeout($this->resolveTimeoutSeconds((int) ($profile->timeout_ms ?? 10000)))
-                ->withHeaders($headers)
-                ->withBody($rawPayload, 'application/json')
-                ->post($delivery->callback_url);
+        $result = $this->outboundClient->post(
+            (string) $delivery->callback_url,
+            (string) ($delivery->environment ?? 'live'),
+            $headers,
+            $rawPayload,
+            (int) ($profile->timeout_ms ?? 10000),
+        );
 
-            $delivery->last_response_status = $response->status();
-            $delivery->last_response_body   = Str::limit($response->body(), 2000);
-
-            if ($response->successful()) {
-                $delivery->status      = 'delivered';
-                $delivery->delivered_at = now();
-                $delivery->last_error  = null;
-                $delivery->save();
-
-                return ['status' => 'delivered', 'status_code' => $delivery->last_response_status];
-            }
-
-            $delivery->status     = 'failed';
-            $delivery->last_error = sprintf('HTTP %d response', $response->status());
+        if ($result['response'] === null) {
+            $error = $result['error'] ?? 'connection_failed';
+            $message = $this->safeErrorMessage($error);
+            $delivery->status = 'failed';
+            $delivery->last_response_body = null;
+            $delivery->last_error = $message;
             $delivery->save();
 
-            return ['status' => 'failed', 'status_code' => $delivery->last_response_status];
-
-        } catch (Throwable $exception) {
-            $delivery->status     = 'failed';
-            $delivery->last_error = $exception->getMessage();
-            $delivery->save();
-
-            Log::error('Reseller callback resend threw an exception.', [
+            Log::warning('Reseller callback delivery failed.', [
                 'delivery_id' => $delivery->getKey(),
-                'order_id'    => $pembelian?->order_id,
-                'message'     => $exception->getMessage(),
+                'order_id' => $pembelian?->order_id,
+                'category' => $error,
             ]);
 
-            return ['status' => 'failed', 'reason' => $exception->getMessage()];
+            return ['status' => 'failed', 'reason' => $message];
         }
+
+        $response = $result['response'];
+        $delivery->last_response_status = $response->status();
+        $delivery->last_response_body = null;
+
+        if ($response->successful()) {
+            $delivery->status = 'delivered';
+            $delivery->delivered_at = now();
+            $delivery->last_error = null;
+            $delivery->save();
+
+            return ['status' => 'delivered', 'status_code' => $delivery->last_response_status];
+        }
+
+        $delivery->status = 'failed';
+        $delivery->last_error = sprintf('HTTP %d response', $response->status());
+        $delivery->save();
+
+        return ['status' => 'failed', 'status_code' => $delivery->last_response_status, 'reason' => $delivery->last_error];
     }
 
     private function shouldDispatchForOrder(Pembelian $pembelian): bool
@@ -295,11 +314,6 @@ class ResellerCallbackDeliveryService
         $header = trim((string) $header);
 
         return $header !== '' ? $header : 'X-Callback-Signature';
-    }
-
-    private function resolveTimeoutSeconds(int $timeoutMs): int
-    {
-        return max(1, (int) ceil(max(1000, $timeoutMs) / 1000));
     }
 
     /**
@@ -367,42 +381,48 @@ class ResellerCallbackDeliveryService
             'last_attempted_at'           => now(),
         ]);
 
-        try {
-            $response = Http::timeout($this->resolveTimeoutSeconds((int) ($profile->timeout_ms ?? 10000)))
-                ->withHeaders($headers)
-                ->withBody($rawPayload, 'application/json')
-                ->post($delivery->callback_url);
+        $result = $this->outboundClient->post(
+            (string) $delivery->callback_url,
+            'sandbox',
+            $headers,
+            $rawPayload,
+            (int) ($profile->timeout_ms ?? 10000),
+        );
 
-            $delivery->last_response_status = $response->status();
-            $delivery->last_response_body   = Str::limit($response->body(), 2000);
-
-            if ($response->successful()) {
-                $delivery->status       = 'delivered';
-                $delivery->delivered_at = now();
-                $delivery->last_error   = null;
-                $delivery->save();
-
-                return ['success' => true];
-            }
-
-            $delivery->status     = 'failed';
-            $delivery->last_error = sprintf('HTTP %d response', $response->status());
-            $delivery->save();
-
-            return ['success' => false, 'reason' => sprintf('HTTP %d response dari callback URL.', $response->status())];
-        } catch (Throwable $exception) {
-            $delivery->status     = 'failed';
-            $delivery->last_error = $exception->getMessage();
+        if ($result['response'] === null) {
+            $error = $result['error'] ?? 'connection_failed';
+            $message = $this->safeErrorMessage($error);
+            $delivery->status = 'failed';
+            $delivery->last_response_body = null;
+            $delivery->last_error = $message;
             $delivery->save();
 
             Log::warning('Reseller test webhook delivery failed.', [
                 'reseller_integration_id' => $profile->reseller_integration_id,
-                'callback_url'            => $delivery->callback_url,
-                'message'                 => $exception->getMessage(),
+                'category' => $error,
             ]);
 
-            return ['success' => false, 'reason' => $exception->getMessage()];
+            return ['success' => false, 'reason' => $message];
         }
+
+        $response = $result['response'];
+        $delivery->last_response_status = $response->status();
+        $delivery->last_response_body = null;
+
+        if ($response->successful()) {
+            $delivery->status = 'delivered';
+            $delivery->delivered_at = now();
+            $delivery->last_error = null;
+            $delivery->save();
+
+            return ['success' => true];
+        }
+
+        $delivery->status = 'failed';
+        $delivery->last_error = sprintf('HTTP %d response', $response->status());
+        $delivery->save();
+
+        return ['success' => false, 'reason' => sprintf('HTTP %d response dari callback URL.', $response->status())];
     }
 }
 

@@ -23,6 +23,18 @@ class CallbackLogController extends Controller
             ->with(['integration:id,mode,integration_code'])
             ->orderByDesc('created_at')
             ->paginate(15)
+            ->through(static fn (ResellerCallbackDelivery $delivery): array => [
+                'id' => $delivery->getKey(),
+                'created_at' => $delivery->created_at?->toIso8601String(),
+                'status' => $delivery->status,
+                'attempt_count' => (int) $delivery->attempt_count,
+                'last_response_status' => $delivery->last_response_status,
+                'order_id' => $delivery->order_id,
+                'integration' => $delivery->integration ? [
+                    'mode' => $delivery->integration->mode,
+                    'integration_code' => $delivery->integration->integration_code,
+                ] : null,
+            ])
             ->withQueryString();
 
         // Phase 5 — Task 5.3: Tell frontend whether reseller has an active sandbox profile

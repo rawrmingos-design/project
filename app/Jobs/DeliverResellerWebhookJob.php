@@ -74,8 +74,7 @@ class DeliverResellerWebhookJob implements ShouldQueue
         $result = $service->redeliver($this->delivery);
 
         if ($result['status'] === 'failed') {
-            $reason = $result['reason'] ?? 'Unknown error';
-            throw new Exception("Webhook delivery failed: {$reason}");
+            throw new Exception('Webhook delivery failed: callback delivery did not succeed.');
         }
     }
 
@@ -84,10 +83,12 @@ class DeliverResellerWebhookJob implements ShouldQueue
      */
     public function failed(?Throwable $exception): void
     {
+        unset($exception);
+
         Log::error('Reseller webhook delivery permanently failed after all retries.', [
             'delivery_id' => $this->delivery->getKey(),
             'order_id'    => $this->delivery->order_id,
-            'exception'   => $exception?->getMessage()
+            'category'    => 'delivery_failed',
         ]);
     }
 }
