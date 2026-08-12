@@ -4,6 +4,12 @@ import PublicLayout from '../../Layouts/PublicLayout';
 import SectionShell from '../../Components/SectionShell';
 import ProductCard from '../../Components/ProductCard';
 import PaymentMethodCard from '../../Components/PaymentMethodCard';
+import {
+    getMethodFinalPrice,
+    getSelectedBaseAmount,
+    getSelectedFeeAmount,
+    getSelectedFinalPrice,
+} from '../../orderPricing';
 
 function buildDefaultFaqQuestions(appName = 'website ini') {
     return [
@@ -1301,6 +1307,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [nickname, setNickname] = useState('');
     const [pricePreview, setPricePreview] = useState(null);
     const [priceLoading, setPriceLoading] = useState(false);
+    const priceRequestSequenceRef = useRef(0);
     const [checkLoading, setCheckLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [message, setMessage] = useState(null);
@@ -2069,9 +2076,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [category.slug, gtmViewItemPayload]);
 
     useEffect(() => {
+        const requestSequence = priceRequestSequenceRef.current + 1;
+        priceRequestSequenceRef.current = requestSequence;
+
         if (!selectedProductId) {
             setPricePreview(null);
-            return;
+            setPriceLoading(false);
+            return undefined;
         }
 
         const controller = new AbortController();
@@ -2096,18 +2107,22 @@ export default function Order({ meta, category, products, packages, paymentMetho
                     signal: controller.signal,
                 });
 
-                if (!response.ok) {
+                if (!response.ok || requestSequence !== priceRequestSequenceRef.current) {
                     return;
                 }
 
                 const payload = await response.json();
-                setPricePreview(payload);
+                if (requestSequence === priceRequestSequenceRef.current) {
+                    setPricePreview(payload);
+                }
             } catch (error) {
-                if (error.name !== 'AbortError') {
+                if (error.name !== 'AbortError' && requestSequence === priceRequestSequenceRef.current) {
                     console.warn('Failed to load price preview', error);
                 }
             } finally {
-                setPriceLoading(false);
+                if (requestSequence === priceRequestSequenceRef.current) {
+                    setPriceLoading(false);
+                }
             }
         };
 
@@ -2115,6 +2130,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
         return () => controller.abort();
     }, [category.type, quantity, selectedMethodCode, selectedProductId, voucher]);
+
+    useEffect(() => {
+        if (selectedProductId) {
+            setPricePreview(null);
+            setPriceLoading(true);
+        }
+    }, [quantity, selectedMethodCode, selectedProductId, voucher]);
 
     const handleCheckAccount = async () => {
         if (isComplexOrder || !category.requiresGameValidation) {
@@ -2183,13 +2205,9 @@ export default function Order({ meta, category, products, packages, paymentMetho
         handleSpecialFieldChange('qty', String(nextValue));
     };
 
-    const applyVoucherPreview = (nextVoucherCode, discountedPrice) => {
+    const applyVoucherPreview = (nextVoucherCode) => {
         setVoucher(nextVoucherCode);
-        setPricePreview((current) => ({
-            ...(current || {}),
-            harga: discountedPrice,
-            selected_final_price: discountedPrice,
-        }));
+        setPricePreview(null);
     };
 
     const resetStaleVoucherState = () => {
@@ -2240,7 +2258,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
 
             if (typeof payload?.harga === 'number') {
-                applyVoucherPreview(nextVoucher, payload.harga);
+                applyVoucherPreview(nextVoucher);
             }
 
             setMessage({ type: 'success', text: `Promo ${nextVoucher} berhasil dipakai.` });
@@ -2303,7 +2321,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setVoucher(promo.kode);
 
         if (typeof promo.final_price === 'number') {
-            applyVoucherPreview(promo.kode, promo.final_price);
+            applyVoucherPreview(promo.kode);
         }
 
         setMessage({ type: 'success', text: `Promo ${promo.kode} berhasil dipakai.` });
@@ -2533,14 +2551,25 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const orderSummaryAccount = isComplexOrder
         ? (specialForm.nickname_joki || specialForm.email_joki || 'Belum diisi')
         : (nickname || uid || 'Belum dicek');
-    const previewPrice = pricePreview?.selected_final_price || pricePreview?.harga || (selectedProduct?.isFlashSale && selectedProduct?.flashPrice ? selectedProduct.flashPrice : selectedProduct?.price || 0);
-    const selectedUnitPrice = selectedProduct
-        ? (selectedProduct.isFlashSale && selectedProduct.flashPrice ? selectedProduct.flashPrice : selectedProduct.price || 0)
-        : 0;
+    const selectedUnitPrice = getSelectedBaseAmount(
+        pricePreview,
+        selectedMethodCode,
+        selectedProduct?.isFlashSale && selectedProduct?.flashPrice
+            ? selectedProduct.flashPrice
+            : selectedProduct?.price || 0,
+    );
     const selectedPurchaseQuantity = quantityEnabled ? Math.max(1, Number(quantity) || 1) : 1;
-    const summaryTotalPrice = Number(previewPrice) || 0;
-    const summaryFeeAmount = Math.max(0, summaryTotalPrice - (selectedUnitPrice * selectedPurchaseQuantity));
+    const previewPrice = getSelectedFinalPrice(pricePreview, selectedMethodCode, 0);
+    const summaryFeeAmount = getSelectedFeeAmount(pricePreview, selectedMethodCode);
+    const selectedMethodPrice = getMethodFinalPrice(pricePreview, selectedMethodCode);
     const summaryProductImage = category.thumbnail || selectedProduct?.productLogo || selectedProduct?.thumbnail || '/assets/logo/favicon.webp';
+    const hasBackendPrice = selectedMethodPrice !== null || pricePreview?.selected_final_price !== undefined || pricePreview?.harga !== undefined;
+    const displayPreviewPrice = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
+    const displaySummaryFee = priceLoading && !hasBackendPrice
+        ? 'Menghitung...'
+        : summaryFeeAmount === null ? '—' : formatCurrency(summaryFeeAmount);
+    const displaySummaryBase = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(selectedUnitPrice);
+    const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
     const bangjeffVariantInitialVisibleCount = 6;
     const savedAccountUid = String(savedAccountDraft?.uid || '').trim();
     const showSavedAccountQuickFill = Boolean(
@@ -2812,6 +2841,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                                     key={method.id}
                                                     method={method}
                                                     selected={selectedMethodCode === method.code}
+                                                    displayPrice={(() => {
+                                                        const methodPrice = getMethodFinalPrice(pricePreview, method.code, null);
+                                                        return methodPrice === null ? null : formatCurrency(methodPrice);
+                                                    })()}
                                                     onSelect={(picked) => {
                                                         setPaymentStepInteracted(true);
                                                         setSelectedMethodCode(picked.code);
@@ -2857,7 +2890,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                 </div>
                                 <div>
                                     <small>Estimasi Harga</small>
-                                    <strong>{priceLoading ? 'Menghitung...' : formatCurrency(previewPrice)}</strong>
+                                    <strong>{displayPreviewPrice}</strong>
                                 </div>
                                 {quantityEnabled ? (
                                     <div>
@@ -3008,7 +3041,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                     method={method}
                                     selected={selectedMethodCode === method.code}
                                     onSelect={handleBangjeffPaymentSelect}
-                                    displayPrice={previewPrice}
+                                    displayPrice={getMethodFinalPrice(pricePreview, method.code, method.code === selectedMethodCode ? previewPrice : null)}
                                     requiresLogin={requiresLoginForBalancePayment && isBangjeffBalanceMethod(method)}
                                     onLoginRequired={openBangjeffLoginRequiredModal}
                                 />
@@ -3175,7 +3208,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                             <div className="order-summary order-summary--bangjeff">
                                 <div className="order-summary__row">
                                     <small className="order-summary__label">Harga</small>
-                                    <strong className="order-summary__value">{formatCurrency(selectedUnitPrice)}</strong>
+                                    <strong className="order-summary__value">{displaySummaryBase}</strong>
                                 </div>
                                 <div className="order-summary__row">
                                     <small className="order-summary__label">Jumlah Pembelian</small>
@@ -3183,12 +3216,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                 </div>
                                 <div className="order-summary__row">
                                     <small className="order-summary__label">Biaya</small>
-                                    <strong className="order-summary__value">{formatCurrency(summaryFeeAmount)}</strong>
+                                    <strong className="order-summary__value">{displaySummaryFee}</strong>
                                 </div>
                                 <div className="order-summary__divider" aria-hidden="true" />
                                 <div className="order-summary__row order-summary__row--total">
                                     <small className="order-summary__label">Total Pembayaran</small>
-                                    <strong className="order-summary__value order-summary__value--total">{priceLoading ? 'Menghitung...' : formatCurrency(previewPrice)}</strong>
+                                    <strong className="order-summary__value order-summary__value--total">{displaySummaryTotal}</strong>
                                 </div>
                             </div>
                         </>
@@ -3355,7 +3388,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                         </div>
                                         <div className="order-mobile-checkout__row">
                                             <small>Harga</small>
-                                            <strong>{formatCurrency(selectedUnitPrice)}</strong>
+                                            <strong>{displaySummaryBase}</strong>
                                         </div>
                                         <div className="order-mobile-checkout__row">
                                             <small>Jumlah Pembelian</small>
@@ -3363,11 +3396,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                         </div>
                                         <div className="order-mobile-checkout__row">
                                             <small>Biaya</small>
-                                            <strong>{formatCurrency(summaryFeeAmount)}</strong>
+                                            <strong>{displaySummaryFee}</strong>
                                         </div>
                                         <div className="order-mobile-checkout__row order-mobile-checkout__row--total">
                                             <small>Total Pembayaran</small>
-                                            <strong>{priceLoading ? 'Menghitung...' : formatCurrency(previewPrice)}</strong>
+                                            <strong>{displayPreviewPrice}</strong>
                                         </div>
                                     </div>
                                 </div>
@@ -3437,7 +3470,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                     { label: 'Item', value: selectedProduct?.name || '-' },
                     { label: 'Product', value: category.name || '-' },
                     { label: 'Payment', value: selectedMethod?.name || '-' },
-                    { label: 'Total', value: priceLoading ? 'Menghitung...' : formatCurrency(previewPrice) },
+                    { label: 'Total', value: displaySummaryTotal },
                 ]}
             />
             {isBangjeff ? bangjeffLayout : legacyLayout}

@@ -294,14 +294,38 @@ class OrderController extends Controller
                 ->first();
         }
 
+        $methodPrices = $methods->mapWithKeys(function (Method $method) use ($data, $request): array {
+            $baseAmount = max(0, (int) round((float) $data->harga));
+            $feeAmount = $this->calculateMethodFeeAmount($baseAmount, $method);
+            $amountBeforePoint = $baseAmount + $feeAmount;
+            $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
+
+            return [
+                $method->code => [
+                    'base_amount' => $baseAmount,
+                    'fee_amount' => $feeAmount,
+                    'amount_before_point' => $amountBeforePoint,
+                    'point_discount' => $pointUsage['discount'],
+                    'final_price' => max(1000, $amountBeforePoint - $pointUsage['discount']),
+                ],
+            ];
+        });
+
         $amountBeforePoint = (int) round($data->harga + $this->calculateMethodFeeAmount($data->harga, $selectedMethod));
         $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
         $selectedFinalPrice = max(1000, $amountBeforePoint - $pointUsage['discount']);
+
+        if ($selectedMethod && $methodPrices->has($selectedMethod->code)) {
+            $selectedPrice = $methodPrices->get($selectedMethod->code);
+            $selectedFinalPrice = $selectedPrice['final_price'];
+            $pointUsage['discount'] = $selectedPrice['point_discount'];
+        }
 
         return response()->json([
             'status'         => true,
             'harga'          => $data->harga,
             'methods'        => $methods,
+            'method_prices'  => $methodPrices,
             'point_info'     => $pointUsage['point_info'],
             'point_discount' => $pointUsage['discount'],
             'selected_final_price' => $selectedFinalPrice,

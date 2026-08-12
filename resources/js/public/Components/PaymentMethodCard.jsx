@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function PaymentMethodCard({ method, selected, onSelect }) {
+export default function PaymentMethodCard({ method, selected, onSelect, displayPrice = null }) {
     return (
         <button
             type="button"
@@ -13,6 +13,7 @@ export default function PaymentMethodCard({ method, selected, onSelect }) {
             <div className="payment-card__body">
                 <strong>{method.name}</strong>
                 <span>{method.group} · {method.gateway}</span>
+                {displayPrice !== null ? <small>{displayPrice}</small> : null}
             </div>
         </button>
     );

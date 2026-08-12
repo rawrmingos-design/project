@@ -5359,40 +5359,6 @@
 
         @if(in_array($kategori->tipe, ['joki', 'jokigendong', 'vilogml']))
             <script>
-                const PAYMENT_FEES = {
-                    'DANA': { percentage: 0.3, fixed: 0 },
-                    'SHOPEEPAY': { percentage: 0.025, fixed: 0 },
-                    'OVOPUSH': { percentage: 0.025, fixed: 0 },
-                    'ASTRAPAY': { percentage: 0.025, fixed: 0 },
-                    'LINKAJA': { percentage: 0.03, fixed: 0 },
-                    'GOPAY': { percentage: 0.03, fixed: 0 },
-                    'QRIS': { percentage: 0.007, fixed: 100 },
-                    'QRISREALTIME': { percentage: 0.017, fixed: 0 },
-                    'QRIS_CUSTOM': { percentage: 0.027, fixed: 0 },
-                    'BCAVA': { percentage: 0, fixed: 4200 },
-                    'BNIVA': { percentage: 0, fixed: 3500 },
-                    'MANDIRIVA': { percentage: 0, fixed: 3500 },
-                    'BSIVA': { percentage: 0, fixed: 3500 },
-                    'BNCVA': { percentage: 0, fixed: 3000 },
-                    'PERMATAVA': { percentage: 0, fixed: 2000 },
-                    'CIMBVA': { percentage: 0, fixed: 2500 },
-                    'DANAMONVA': { percentage: 0, fixed: 2500 },
-                    'ALFAMART': { percentage: 0, fixed: 3000 },
-                    'INDOMARET': { percentage: 0, fixed: 3000 },
-                    'ALFAMIDI': { percentage: 0, fixed: 3000 }
-                };
-
-                function calculatePrice(basePrice, paymentMethod, pointDiscount = 0) {
-                    if (!PAYMENT_FEES[paymentMethod]) {
-                        return Math.max(1000, basePrice - pointDiscount);
-                    }
-
-                    const fee = PAYMENT_FEES[paymentMethod];
-                    const percentageFee = basePrice * (fee.percentage || 0);
-                    const fixedFee = fee.fixed || 0;
-
-                    return Math.max(1000, basePrice + percentageFee + fixedFee - pointDiscount);
-                }
 
                 function updatePrice(qty) {
                     qty = Math.max(1, qty);
@@ -5413,26 +5379,24 @@
                             payment_method: $("input[name='paymentMethod']:checked").val()
                         },
                         success: function (response) {
-                            const basePrice = response.harga;
-                            const paymentMethod = $("input[name='paymentMethod']:checked").val();
-                            const pointDiscount = parseFloat(response.point_discount || 0);
-                            let finalPrice = calculatePrice(basePrice, paymentMethod, pointDiscount);
+                            const finalPrice = Number(response.selected_final_price || response.harga || 0);
 
-                            // Update UI
+                            // Update UI from backend-authoritative pricing.
                             $(".text-xs.font-semibold.text-warning.selected-order").text(formatToRupiah(finalPrice));
                             updateQtyDisplay(qty);
-
-                            // Update payment method prices
-                            updatePaymentMethodPrices(basePrice, pointDiscount);
+                            updatePaymentMethodPrices(response.method_prices || {});
                         }
                     });
                 }
 
-                function updatePaymentMethodPrices(basePrice, pointDiscount = 0) {
+                function updatePaymentMethodPrices(methodPrices) {
                     $('.method-list').each(function () {
                         const methodCode = $(this).attr('method-id');
-                        let finalPrice = calculatePrice(basePrice, methodCode, pointDiscount);
-                        $(this).find('.hargapembayaran').text(formatToRupiah(finalPrice));
+                        const priceData = methodPrices[methodCode];
+
+                        if (priceData && priceData.final_price !== undefined) {
+                            $(this).find('.hargapembayaran').text(formatToRupiah(Number(priceData.final_price)));
+                        }
                     });
                 }
 
@@ -5467,14 +5431,11 @@
                         },
                         success: function (t) {
                             var a = Math.max(1, parseInt($("#qty").val() || 1));
-                            const basePrice = t.harga;
-                            const paymentMethod = $("input[name='paymentMethod']:checked").val();
-                            const pointDiscount = parseFloat(t.point_discount || 0);
-                            let finalPrice = calculatePrice(basePrice, paymentMethod, pointDiscount);
+                            const finalPrice = Number(t.selected_final_price || t.harga || 0);
 
                             $(".text-xs.font-semibold.text-warning.selected-order").text(formatToRupiah(finalPrice));
                             updateQtyDisplay(a);
-                            updatePaymentMethodPrices(basePrice, pointDiscount);
+                            updatePaymentMethodPrices(t.method_prices || {});
                         }
                     });
                 });
