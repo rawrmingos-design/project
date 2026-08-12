@@ -5,7 +5,6 @@ namespace Tests\Feature\Api;
 use App\Models\AffiliateHistory;
 use App\Models\Kategori;
 use App\Models\Layanan;
-use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\PointHistory;
 use App\Models\ResellerCallbackDelivery;
@@ -103,7 +102,7 @@ class SandboxH2hApiTest extends TestCase
     public function test_sandbox_order_rejects_live_integration_key(): void
     {
         $user = User::factory()->create(['balance' => 50000]);
-        $liveIntegration = ResellerIntegration::factory()->create(['user_id' => $user->id]);
+        ResellerIntegration::factory()->create(['user_id' => $user->id]);
         $rawKey = 'testing_live_key';
         $this->createManualLayanan();
 
@@ -121,7 +120,7 @@ class SandboxH2hApiTest extends TestCase
     public function test_valid_sandbox_order_does_not_cut_balance_and_sends_sandbox_callback(): void
     {
         Http::fake([
-            'http://localhost/callback' => Http::response(['ok' => true], 200),
+            'https://sandbox-client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
         $user = User::factory()->create([
@@ -173,13 +172,13 @@ class SandboxH2hApiTest extends TestCase
     public function test_sandbox_status_and_simulate_status_are_owner_scoped_and_dispatch_final_callback_once(): void
     {
         Http::fake([
-            'http://localhost/callback' => Http::response(['ok' => true], 200),
+            'https://sandbox-client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
         $owner = User::factory()->create(['balance' => 50000]);
         $outsider = User::factory()->create(['balance' => 50000]);
         
-        $integration = $this->createSandboxIntegrationWithProfile($owner);
+        $this->createSandboxIntegrationWithProfile($owner);
         $ownerKey = 'testing_sbx_key';
         
         $outsiderIntegration = ResellerIntegration::factory()->sandbox()->create(['user_id' => $outsider->id]);
@@ -231,7 +230,7 @@ class SandboxH2hApiTest extends TestCase
     public function test_sandbox_success_does_not_trigger_affiliate_commission_or_points(): void
     {
         Http::fake([
-            'http://localhost/callback' => Http::response(['ok' => true], 200),
+            'https://sandbox-client.example/callback' => Http::response(['ok' => true], 200),
         ]);
 
         $affiliate = User::factory()->create([
@@ -245,7 +244,7 @@ class SandboxH2hApiTest extends TestCase
             'balance' => 50000,
         ]);
         
-        $integration = $this->createSandboxIntegrationWithProfile($downline);
+        $this->createSandboxIntegrationWithProfile($downline);
         $rawKey = 'testing_sbx_key';
         
         $this->createManualLayanan();
@@ -301,7 +300,7 @@ class SandboxH2hApiTest extends TestCase
         ResellerCallbackProfile::query()->create([
             'reseller_integration_id' => $integration->getKey(),
             'is_enabled' => true,
-            'callback_url' => 'http://localhost/callback',
+            'callback_url' => 'https://sandbox-client.example/callback',
             'webhook_secret' => 'sandbox-secret-001',
             'signing_algorithm' => 'sha256',
             'signature_header' => 'X-Callback-Signature',
