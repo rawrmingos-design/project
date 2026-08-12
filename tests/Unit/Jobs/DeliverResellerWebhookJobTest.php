@@ -38,14 +38,14 @@ class DeliverResellerWebhookJobTest extends TestCase
         $job = new DeliverResellerWebhookJob($delivery);
 
         // Service returns failed status — job should throw to trigger queue retry
-        $this->mock(ResellerCallbackDeliveryService::class, function (MockInterface $mock) use ($delivery) {
+        $this->mock(ResellerCallbackDeliveryService::class, function (MockInterface $mock) {
             $mock->shouldReceive('redeliver')
                  ->once()
                  ->andReturn(['status' => 'failed', 'reason' => 'Timeout']);
         });
 
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('Webhook delivery failed: Timeout');
+        $this->expectExceptionMessage('Webhook delivery failed: callback delivery did not succeed.');
 
         $job->handle(app(ResellerCallbackDeliveryService::class));
     }

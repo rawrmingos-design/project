@@ -174,7 +174,7 @@ class OutboundH2hOrderApiTest extends TestCase
         $this->assertSame('failed', $delivery->status);
         $this->assertSame(500, $delivery->last_response_status);
         $this->assertStringContainsString('HTTP 500 response', (string) $delivery->last_error);
-        $this->assertStringContainsString('upstream-fail', (string) $delivery->last_response_body);
+        $this->assertNull($delivery->last_response_body);
     }
 
     public function test_invalid_callback_url_is_blocked_and_logged_as_failed_delivery(): void
@@ -233,7 +233,7 @@ class OutboundH2hOrderApiTest extends TestCase
         $delivery = ResellerCallbackDelivery::query()->firstOrFail();
 
         $this->assertSame('failed', $delivery->status);
-        $this->assertStringContainsString('host publik', (string) $delivery->last_error);
+        $this->assertStringContainsString('localhost', (string) $delivery->last_error);
     }
 
     private function createManualLayanan(): Layanan

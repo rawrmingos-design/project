@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Public\Reseller;
 
 use App\Http\Controllers\Controller;
+use App\Support\ResellerCallbackUrlValidator;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class CredentialController extends Controller
@@ -94,6 +96,12 @@ class CredentialController extends Controller
             'url' => 'required|url',
             'generate_secret' => 'boolean',
         ]);
+
+        $mode = $request->input('mode');
+        $urlFailure = ResellerCallbackUrlValidator::failureReason($request->input('url'), $mode);
+        if ($urlFailure !== null) {
+            throw ValidationException::withMessages(['url' => $urlFailure]);
+        }
 
         $user = $request->user();
         $mode = $request->input('mode');

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Public\Reseller;
 
 use App\Http\Controllers\Controller;
-use App\Models\ResellerCallbackDelivery;
 use App\Models\ResellerCallbackProfile;
 use App\Services\ResellerCallbackDeliveryService;
 use Illuminate\Http\RedirectResponse;
@@ -82,14 +81,12 @@ class CallbackTestController extends Controller
 
         if ($result['success']) {
             return redirect()->back()->with('flash_success',
-                'Test webhook berhasil dikirim ke ' . $profile->callback_url .
-                ' — lihat log di bawah untuk detail response.'
+                'Test webhook berhasil dikirim. Lihat log di bawah untuk status response.'
             );
         }
 
         return redirect()->back()->with('flash_error',
-            'Test webhook gagal dikirim: ' . ($result['reason'] ?? 'Unknown error') .
-            '. Pastikan URL callback aktif dan bisa menerima POST request.'
+            'Test webhook gagal dikirim. Pastikan URL callback aktif dan bisa menerima POST request.'
         );
     }
 }
