@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Pembelian;
+use App\Models\Method;
 use App\Services\CheckId\CheckIdResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
@@ -147,6 +148,46 @@ class OrderControllerPointTest extends TestCase
                 'max_discount' => 10000,
             ]
         ]);
+    }
+
+    /** @test */
+    public function price_endpoint_uses_database_fee_configuration_for_each_visible_method()
+    {
+        $dana = Method::create([
+            'code' => 'DANA',
+            'name' => 'DANA',
+            'images' => 'dana.png',
+            'keterangan' => 'DANA',
+            'tipe' => 'e-walet',
+            'payment' => 'manual',
+            'fee_percent' => 3,
+            'fix_fee' => 0,
+            'statuspayment' => true,
+        ]);
+
+        $qris = Method::create([
+            'code' => 'QRIS',
+            'name' => 'QRIS',
+            'images' => 'qris.png',
+            'keterangan' => 'QRIS',
+            'tipe' => 'qris',
+            'payment' => 'manual',
+            'fee_percent' => 0.7,
+            'fix_fee' => 100,
+            'statuspayment' => true,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+            'payment_method' => $dana->code,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('method_prices.DANA.fee_amount', 600)
+            ->assertJsonPath('method_prices.DANA.final_price', 20600)
+            ->assertJsonPath("method_prices.{$qris->code}.fee_amount", 240)
+            ->assertJsonPath("method_prices.{$qris->code}.final_price", 20240)
+            ->assertJsonPath('selected_final_price', 20600);
     }
 
     /** @test */
