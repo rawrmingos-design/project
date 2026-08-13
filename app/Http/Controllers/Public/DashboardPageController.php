@@ -137,9 +137,9 @@ class DashboardPageController extends Controller
                     'avatarFallback' => $avatarFallback,
                 ],
                 'credits' => [
-                    'coinName' => 'KoinKredits',
-                    'coinSymbol' => 'Koin',
-                    'amount' => (int) ($user->point_balance ?? 0),
+                    'coinName' => 'Saldo',
+                    'coinSymbol' => 'Rp',
+                    'amount' => (int) ($user->balance ?? 0),
                     'showRedeem' => $isAffiliateActive,
                     'showTopUp' => ! $isAffiliateActive,
                 ],

@@ -101,7 +101,7 @@ export default function Dashboard({ meta, dashboard }) {
                                     <div className="public-dashboard-credits">
                                         <p className="public-dashboard-credits__label">{credits.coinName || 'KoinKredits'}</p>
                                         <p className="public-dashboard-credits__amount">
-                                            {formatNumber(credits.amount)} <strong>{credits.coinSymbol || 'Koin'}</strong>
+                                            {credits.coinSymbol === 'Rp' ? formatRupiah(credits.amount).replace(/^Rp\s*/, '') : formatNumber(credits.amount)} <strong>{credits.coinSymbol || 'Rp'}</strong>
                                         </p>
                                     </div>
                                     <div className="public-dashboard-credits__actions">

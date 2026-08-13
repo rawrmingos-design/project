@@ -72,6 +72,7 @@ class PublicInertiaSecurityAndRouteTest extends TestCase
     #[Test]
     public function recent_transaction_scope_stays_private_for_users_and_guests(): void
     {
+        /** @var User $owner */
         $owner = User::factory()->create(['username' => 'owner']);
         User::factory()->create(['username' => 'other-user']);
 
@@ -105,6 +106,93 @@ class PublicInertiaSecurityAndRouteTest extends TestCase
                 ->has('recentTransactions', 1)
                 ->where('recentTransactions.0.invoiceId', 'INV-OTHER-001')
             );
+    }
+
+    #[Test]
+    public function dashboard_uses_monetary_balance_and_preserves_affiliate_ctas(): void
+    {
+        /** @var User $user */
+        $user = User::factory()->create([
+            'username' => 'dashboard-balance-owner',
+            'balance' => 125000,
+            'point_balance' => 37,
+            'affiliate_status' => 'inactive',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/id/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Dashboard')
+                ->where('dashboard.credits.coinName', 'Saldo')
+                ->where('dashboard.credits.coinSymbol', 'Rp')
+                ->where('dashboard.credits.amount', 125000)
+                ->where('dashboard.credits.showTopUp', true)
+                ->where('dashboard.credits.showRedeem', false)
+            );
+
+        $this->setTheme('default');
+
+        $this->get('/id/dashboard')
+            ->assertOk()
+            ->assertViewIs('template.dashboard')
+            ->assertSee('Saldo')
+            ->assertSee('Rp 125.000');
+    }
+
+    #[Test]
+    public function active_affiliate_dashboard_keeps_redeem_cta_with_zero_monetary_balance(): void
+    {
+        /** @var User $user */
+        $user = User::factory()->create([
+            'username' => 'dashboard-affiliate-owner',
+            'balance' => 0,
+            'point_balance' => 250,
+            'affiliate_status' => 'active',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/id/dashboard')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('dashboard.credits.amount', 0)
+                ->where('dashboard.credits.showTopUp', false)
+                ->where('dashboard.credits.showRedeem', true)
+                ->where('dashboard.links.redeem', route('withdrawal'))
+            );
+    }
+
+    #[Test]
+    public function guest_cannot_access_dashboard(): void
+    {
+        $this->get('/id/dashboard')->assertRedirect();
+    }
+
+    #[Test]
+    public function order_pages_keep_supported_inertia_and_legacy_fallback_boundaries(): void
+    {
+        $supportedCategory = Kategori::factory()->create([
+            'kode' => 'mobile-legends',
+            'tipe' => 'game',
+        ]);
+        $unsupportedCategory = Kategori::factory()->create([
+            'kode' => 'giftskin',
+            'tipe' => 'giftskin',
+        ]);
+
+        $this->get("/id/{$supportedCategory->kode}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->component('Public/Order'));
+
+        $this->get("/id/{$unsupportedCategory->kode}")
+            ->assertOk()
+            ->assertViewIs('template.order');
+
+        $this->setTheme('default');
+
+        $this->get("/id/{$supportedCategory->kode}")
+            ->assertOk()
+            ->assertViewIs('template.order');
     }
 
     #[Test]
