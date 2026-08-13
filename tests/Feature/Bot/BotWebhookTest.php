@@ -255,7 +255,7 @@ class BotWebhookTest extends TestCase
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
             return str_contains($request['text'], 'Halaman 1/2')
-                && count($keyboard) === 5
+                && count($keyboard) === 6
                 && count($keyboard[0]) === 2
                 && $keyboard[0][0]['text'] === '🎮 Top Up 1'
                 && $callbacks->contains('menu page:2')
@@ -480,7 +480,7 @@ class BotWebhookTest extends TestCase
         ])->assertOk();
 
         $this->assertStringContainsString('1. 🎮 Top Up Games — ketik: 1', $sentMessages[0]['message']);
-        $this->assertStringContainsString('Ketik 1-1 untuk memilih.', $sentMessages[0]['message']);
+        $this->assertStringContainsString('Ketik 1-2 untuk memilih.', $sentMessages[0]['message']);
 
         $stateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890');
         $this->assertSame('categories', Cache::get($stateKey)['menu']);
@@ -643,6 +643,72 @@ class BotWebhookTest extends TestCase
 
         $telegramStateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:9876');
         $this->assertFalse(Cache::has($telegramStateKey));
+    }
+
+    public function test_telegram_leaderboard_command_renders_rankings(): void
+    {
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $this->mock(\App\Services\LeaderboardService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('rankings')->once()->andReturn([
+                'today' => [['username' => 'Ali**', 'total_harga' => 25000]],
+                'week' => [['username' => 'Budi**', 'total_harga' => 50000]],
+                'month' => [],
+            ]);
+        });
+
+        $this->postJsonTelegram([
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'leaderboard',
+                'message_id' => 111,
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            return str_contains($request->url(), 'sendMessage')
+                && str_contains($request['text'], '🏆 *LEADERBOARD*')
+                && str_contains($request['text'], 'Ali\\*\\*')
+                && str_contains($request['text'], 'Rp 25.000')
+                && str_contains($request['text'], 'Bulan Ini')
+                && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === 'menu';
+        });
+    }
+
+    public function test_fonnte_leaderboard_command_renders_rankings_without_numeric_menu_state(): void
+    {
+        Cache::flush();
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(\App\Services\LeaderboardService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('rankings')->once()->andReturn([
+                'today' => [['username' => 'Ali**', 'total_harga' => 25000]],
+                'week' => [],
+                'month' => [],
+            ]);
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => '🏆 Leaderboard',
+            'id' => 'MSG-LEADERBOARD-1',
+        ])->assertOk();
+
+        $this->assertStringContainsString('🏆 *LEADERBOARD*', $sent[0]['message']);
+        $this->assertStringContainsString('Ali\\*\\*', $sent[0]['message']);
+        $this->assertStringContainsString('Rp 25.000', $sent[0]['message']);
+        $this->assertFalse(Cache::has('bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890')));
     }
 
     public function test_telegram_status_renders_verified_payment_message_with_configured_store_name(): void
@@ -1264,6 +1330,96 @@ class BotWebhookTest extends TestCase
         $this->assertSame('', $sent[1]['message']);
     }
 
+    public function test_fonnte_invoice_does_not_include_invoice_website_link_for_qris_payment(): void
+    {
+        $tripayUrl = 'https://tripay.co.id/qr/DEV-FONNTE-LINK-1';
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($tripayUrl): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: $tripayUrl));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 QRIS user123 zone123',
+            'id' => 'MSG-QRIS-LINK-1',
+        ])->assertOk();
+
+        $this->assertStringNotContainsString('https://pay.example/inv-1', $sent[0]['message']);
+        $this->assertSame($tripayUrl, $sent[1]['url']);
+    }
+
+    public function test_fonnte_invoice_sends_generated_qris_media_from_raw_qr_payload(): void
+    {
+        $rawQris = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($rawQris): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: 'QRIS', qrPayload: $rawQris));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 QRIS user123 zone123',
+            'id' => 'MSG-QRIS-RAW-1',
+        ])->assertOk();
+
+        $this->assertStringNotContainsString($rawQris, $sent[0]['message']);
+        $this->assertStringStartsWith('https://api.qrserver.com/v1/create-qr-code/', $sent[1]['url']);
+        $this->assertStringNotContainsString('https://pay.example/inv-1', $sent[0]['message']);
+    }
+
+    public function test_fonnte_invoice_keeps_va_code_without_qris_media(): void
+    {
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: '1234567890'));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 BCAVA user123 zone123',
+            'id' => 'MSG-VA-1',
+        ])->assertOk();
+
+        $this->assertStringContainsString('Kode Bayar / VA: `1234567890`', $sent[0]['message']);
+        $this->assertNull($sent[0]['url']);
+    }
+
     public function test_telegram_invoice_hides_raw_qris_payload_and_sends_generated_qr_photo()
     {
         $rawQris = '00020101021226610014COM.GO-JEK.WWW01189360091430274901050210G1234567890303UMI51440014ID.CO.QRIS.WWW0215ID10200423000030303UMI5204541153033605802ID5910Test Store6007Jakarta6105123456304ABCD';
@@ -1390,6 +1546,7 @@ class BotWebhookTest extends TestCase
             $invoice,
             app(BotMessageFormatter::class),
             app(TelegramChannelMembershipService::class),
+            app(\App\Services\LeaderboardService::class),
         );
     }
 
@@ -1426,7 +1583,7 @@ class BotWebhookTest extends TestCase
         return 'bot:checkout-state:' . hash('sha256', $externalUserId);
     }
 
-    private function fakeInvoiceResponse(?string $qrisUrl = null, string $paymentCode = 'QRIS-1'): array
+    private function fakeInvoiceResponse(?string $qrisUrl = null, string $paymentCode = 'QRIS-1', ?string $qrPayload = null): array
     {
         return [
             'ok' => true,
@@ -1438,10 +1595,11 @@ class BotWebhookTest extends TestCase
                 'quantity' => 1,
                 'payment_url' => 'https://pay.example/inv-1',
                 'qris_url' => $qrisUrl,
-                'payment' => [
+                'payment' => array_filter([
                     'payment_code' => $paymentCode,
+                    'qr_payload' => $qrPayload,
                     'amount' => 10000,
-                ],
+                ]),
             ]),
         ];
     }

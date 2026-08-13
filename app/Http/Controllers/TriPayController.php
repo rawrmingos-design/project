@@ -52,6 +52,7 @@ class TriPayController extends Controller
             $isQrMethod = str_contains($methodCode, 'QR');
             $payCode = $response->data->pay_code ?? null;
             $qrUrl = $response->data->qr_url ?? null;
+            $qrPayload = $response->data->qr_string ?? null;
             $payUrl = $response->data->pay_url ?? null;
 
             if (! empty($payCode)) {
@@ -72,6 +73,8 @@ class TriPayController extends Controller
                 'payment_code' => $payCode,
                 'qr_url' => $qrUrl,
                 'qr_image_url' => $qrUrl,
+                'qr_payload' => $qrPayload,
+                'qr_string' => $qrPayload,
                 'pay_url' => $payUrl,
                 'payment_url' => $payUrl,
                 'reference' => $response->data->reference,
