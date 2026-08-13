@@ -101,6 +101,39 @@ XML);
             ->assertSee('/id/artikel/promo-weekly-pass', false);
     }
 
+    public function test_sitemap_cache_context_changes_when_custom_asset_changes_without_flush(): void
+    {
+        $baseUrl = rtrim((string) env('MAIN_DOMAIN_URL', config('app.url')), '/');
+        $firstAsset = $this->createXmlAsset('sitemap-main-first.xml', <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{$baseUrl}/id/price-list</loc></url>
+</urlset>
+XML);
+        $secondAsset = $this->createXmlAsset('sitemap-main-second.xml', <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{$baseUrl}/id/reviews</loc></url>
+</urlset>
+XML);
+        $settings = $this->createSettings([
+            'seo_sitemap_mode' => 'custom_upload',
+            'seo_sitemap_main_asset_id' => $firstAsset->id,
+        ]);
+
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertSee('/id/price-list', false)
+            ->assertDontSee('/id/reviews', false);
+
+        $settings->update(['seo_sitemap_main_asset_id' => $secondAsset->id]);
+
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertSee('/id/reviews', false)
+            ->assertDontSee('/id/price-list', false);
+    }
+
     public function test_sitemap_cache_context_changes_when_include_articles_changes(): void
     {
         Artikel::query()->create([

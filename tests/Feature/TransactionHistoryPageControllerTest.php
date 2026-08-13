@@ -79,6 +79,66 @@ class TransactionHistoryPageControllerTest extends TestCase
     }
 
     #[Test]
+    public function history_page_one_has_no_previous_url_and_preserves_extra_query_parameters(): void
+    {
+        /** @var User $owner */
+        $owner = User::factory()->create(['username' => 'history-query-owner']);
+        for ($index = 1; $index <= 26; $index++) {
+            $this->createTransaction('INV-QUERY-' . str_pad((string) $index, 3, '0', STR_PAD_LEFT), $owner->username);
+        }
+
+        $this->actingAs($owner)
+            ->get(route('riwayat', ['page' => 1, 'filter' => 'history']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('history.pagination.currentPage', 1)
+                ->where('history.pagination.prevPageUrl', null)
+                ->where('history.pagination.nextPageUrl', fn (?string $url) => str_contains((string) $url, 'filter=history') && str_contains((string) $url, 'page=2'))
+            );
+    }
+
+    #[Test]
+    public function empty_history_returns_zero_total_pagination_without_failing(): void
+    {
+        /** @var User $owner */
+        $owner = User::factory()->create(['username' => 'empty-history-owner']);
+
+        $this->actingAs($owner)
+            ->get(route('riwayat'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('history.transactions', [])
+                ->where('history.pagination.currentPage', 1)
+                ->where('history.pagination.lastPage', 1)
+                ->where('history.pagination.total', 0)
+                ->where('history.pagination.from', null)
+                ->where('history.pagination.to', null)
+                ->where('history.pagination.prevPageUrl', null)
+                ->where('history.pagination.nextPageUrl', null)
+            );
+    }
+
+    #[Test]
+    public function page_beyond_last_page_returns_empty_authoritative_snapshot(): void
+    {
+        /** @var User $owner */
+        $owner = User::factory()->create(['username' => 'beyond-history-owner']);
+        $other = User::factory()->create(['username' => 'beyond-history-other']);
+        $this->createTransaction('INV-BEYOND-001', $owner->username);
+        $this->createTransaction('INV-OTHER-001', $other->username);
+
+        $this->actingAs($owner)
+            ->get(route('riwayat', ['page' => 99]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('history.pagination.currentPage', 99)
+                ->where('history.pagination.lastPage', 1)
+                ->where('history.pagination.total', 1)
+                ->where('history.transactions', [])
+            );
+    }
+
+    #[Test]
     public function history_order_is_deterministic_when_created_at_values_match(): void
     {
         /** @var User $owner */
