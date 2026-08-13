@@ -27,11 +27,14 @@ class TransactionHistoryPageController extends Controller
         $user = Auth::user();
         $canShowAffiliate = ! in_array(strtolower((string) ($user->affiliate_status ?? '')), ['', 'inactive'], true);
 
-        $transactions = Pembelian::query()
+        $historyPaginator = Pembelian::query()
             ->where('username', $user->username)
-            ->latest('created_at')
-            ->limit(120)
-            ->get()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->paginate(25)
+            ->withQueryString();
+
+        $transactions = $historyPaginator->getCollection()
             ->map(function (Pembelian $transaction): array {
                 $zone = blank($transaction->zone) ? '' : '-' . trim((string) $transaction->zone);
                 $userInput = trim((string) ($transaction->user_id . $zone));
@@ -55,6 +58,16 @@ class TransactionHistoryPageController extends Controller
                 'title' => 'Riwayat Transaksi',
                 'description' => 'Menampilkan data riwayat transaksi yang telah kamu lakukan.',
                 'transactions' => $transactions,
+                'pagination' => [
+                    'currentPage' => $historyPaginator->currentPage(),
+                    'lastPage' => $historyPaginator->lastPage(),
+                    'perPage' => $historyPaginator->perPage(),
+                    'total' => $historyPaginator->total(),
+                    'from' => $historyPaginator->firstItem(),
+                    'to' => $historyPaginator->lastItem(),
+                    'prevPageUrl' => $historyPaginator->previousPageUrl(),
+                    'nextPageUrl' => $historyPaginator->nextPageUrl(),
+                ],
                 'links' => [
                     'dashboard' => route('dashboard'),
                     'transactions' => route('riwayat'),

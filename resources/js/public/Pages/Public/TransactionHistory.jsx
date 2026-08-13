@@ -14,9 +14,34 @@ function StatusBadge({ status }) {
     );
 }
 
+function HistoryPagination({ pagination }) {
+    if (!pagination || pagination.lastPage <= 1) {
+        return null;
+    }
+
+    return (
+        <nav className="public-affiliate-pagination" aria-label="Navigasi riwayat transaksi">
+            {pagination.prevPageUrl ? (
+                <a href={pagination.prevPageUrl}>Sebelumnya</a>
+            ) : (
+                <span className="is-disabled" aria-disabled="true">Sebelumnya</span>
+            )}
+            <span>
+                Halaman {pagination.currentPage || 1} / {pagination.lastPage || 1}
+            </span>
+            {pagination.nextPageUrl ? (
+                <a href={pagination.nextPageUrl}>Berikutnya</a>
+            ) : (
+                <span className="is-disabled" aria-disabled="true">Berikutnya</span>
+            )}
+        </nav>
+    );
+}
+
 export default function TransactionHistory({ meta, history }) {
     const links = history?.links || {};
     const transactions = Array.isArray(history?.transactions) ? history.transactions : [];
+    const pagination = history?.pagination || null;
 
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -69,6 +94,8 @@ export default function TransactionHistory({ meta, history }) {
                                     )}
                                 </div>
                             </section>
+
+                            <HistoryPagination pagination={pagination} />
                         </main>
                     </div>
                 </div>
