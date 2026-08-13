@@ -22,6 +22,7 @@ class BotCommandParser
             '❓ Bantuan'         => 'help',
             '❌ Batal Transaksi' => 'batal',
             '📞 Hubungi Admin'   => 'admin',
+            '🏆 Leaderboard'     => 'leaderboard',
             default              => $message,
         };
 

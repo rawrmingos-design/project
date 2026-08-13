@@ -19,7 +19,8 @@ class BotCommandHandler
         private readonly GatewayCheckIdService $checkId,
         private readonly GatewayInvoiceService $invoice,
         private readonly BotMessageFormatter $formatter,
-        private readonly TelegramChannelMembershipService $telegramMembership
+        private readonly TelegramChannelMembershipService $telegramMembership,
+        private readonly ?\App\Services\LeaderboardService $leaderboard = null
     ) {}
 
     /**
@@ -54,6 +55,7 @@ class BotCommandHandler
             return match ($command) {
                 'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
                 'menu' => $this->handleMenu($args),
+                'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
                 'pembayaran', 'metode' => $this->handlePembayaran($args),
@@ -327,7 +329,7 @@ class BotCommandHandler
         }
 
         $res = $this->invoice->createInvoice($payload, null, $context['source'], $payload);
-        return $this->formatter->formatInvoice($res);
+        return $this->formatter->formatInvoice($res, $context['source']);
     }
 
     private function handleStatus(array $args, array $context): array
@@ -352,7 +354,7 @@ class BotCommandHandler
         return $this->supportsConversationalCheckout($context)
             && in_array($command, [
                 'start', 'help', 'bantuan', 'menu', 'kategori', 'layanan', 'produk',
-                'pembayaran', 'metode', 'cekid', 'invoice', 'beli', 'status',
+                'pembayaran', 'metode', 'cekid', 'leaderboard', 'ranking', 'peringkat', 'invoice', 'beli', 'status',
             ], true);
     }
 

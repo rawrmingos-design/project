@@ -103,7 +103,7 @@ class BotMessageFormatter
 
         return [
             'text' => "*Menu Utama*\nPilih kategori layanan yang Anda inginkan:" . $this->pageSuffix($pagination),
-            'buttons' => $buttons,
+            'buttons' => [...$buttons, [$this->button('🏆 Leaderboard', 'leaderboard')]],
             'numeric_menu' => [
                 'menu' => 'categories',
                 'parent_menu' => null,
@@ -309,7 +309,7 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatInvoice(array $data): array
+    public function formatInvoice(array $data, string $source = 'telegram_gateway'): array
     {
         if (! ($data['ok'] ?? false)) {
             return [
@@ -349,7 +349,7 @@ class BotMessageFormatter
         $lines[] = 'Silakan scan QRIS atau gunakan nomor VA di atas. Pastikan transfer SESUAI NOMINAL agar sistem kami otomatis memverifikasi pesanan.';
         $buttons = [];
 
-        if ($invoiceUrl !== null) {
+        if ($invoiceUrl !== null && $source !== 'whatsapp_gateway') {
             $buttons[] = [$this->urlButton('🔗 Buka Halaman Invoice', $invoiceUrl)];
         }
 
@@ -444,20 +444,58 @@ class BotMessageFormatter
                 [
                     $this->button('🛍️ Tampilkan Menu / Produk', 'menu'),
                 ],
+                [
+                    $this->button('🏆 Leaderboard', 'leaderboard'),
+                ],
             ],
             'use_reply_keyboard' => true,
         ];
     }
 
+    public function formatLeaderboard(array $data): array
+    {
+        $sections = [
+            'today' => 'Hari Ini',
+            'week' => 'Minggu Ini',
+            'month' => 'Bulan Ini',
+        ];
+        $lines = ['🏆 *LEADERBOARD*'];
+
+        foreach ($sections as $key => $label) {
+            $lines[] = '';
+            $lines[] = "*{$label}*";
+            $rows = is_array($data[$key] ?? null) ? $data[$key] : [];
+
+            if ($rows === []) {
+                $lines[] = 'Belum ada transaksi sukses.';
+                continue;
+            }
+
+            foreach (array_values($rows) as $index => $row) {
+                $username = $this->escapeMarkdown((string) ($row['username'] ?? 'User'));
+                $total = number_format((int) ($row['total_harga'] ?? 0), 0, ',', '.');
+                $lines[] = ($index + 1) . ". {$username} — Rp {$total}";
+            }
+        }
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu')]],
+        ];
+    }
+
+    /**
+     * @return array{keyboard: array, resize_keyboard: bool, is_persistent: bool, input_field_placeholder: string}
+     */
     public function defaultReplyKeyboard(): array
     {
         $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
         $keyboard = [
             [['text' => '🛍️ Buka Menu']],
+            [['text' => '🏆 Leaderboard']],
             [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
             [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
         ];
-
         if ($adminUrl !== '') {
             $keyboard[] = [['text' => '📞 Hubungi Admin']];
         }

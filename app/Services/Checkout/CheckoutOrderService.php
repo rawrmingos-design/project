@@ -538,6 +538,7 @@ class CheckoutOrderService
                 ?? null,
             'payment_url' => $result['pay_url'] ?? null,
             'qr_image_url' => $result['qr_url'] ?? null,
+            'qr_payload' => $result['qr_payload'] ?? $result['qr_string'] ?? null,
             'amount' => $result['amount'] ?? $amount,
             'expired_at' => $result['expired_at'] ?? null,
         ];

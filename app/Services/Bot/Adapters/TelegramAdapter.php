@@ -144,6 +144,7 @@ class TelegramAdapter implements BotAdapterInterface
             $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
             $keyboard = [
                 [['text' => '🛍️ Buka Menu']],
+                [['text' => '🏆 Leaderboard']],
                 [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
                 [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
             ];
