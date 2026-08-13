@@ -97,9 +97,9 @@
 
                     <article class="public-dashboard-card public-dashboard-card--credits">
                         <div class="public-dashboard-credits">
-                            <p class="public-dashboard-credits__label">KoinKredits</p>
+                            <p class="public-dashboard-credits__label">Saldo</p>
                             <p class="public-dashboard-credits__amount">
-                                {{ number_format((int) ($dashboardUser?->balance ?? 0), 0, ',', '.') }} <strong>Koin</strong>
+                                Rp {{ number_format((int) ($dashboardUser?->balance ?? 0), 0, ',', '.') }}
                             </p>
                         </div>
                         <div class="public-dashboard-credits__actions">
