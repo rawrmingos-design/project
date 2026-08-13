@@ -4946,6 +4946,81 @@ textarea {
     margin-right: 1px;
 }
 
+.order-points {
+    display: grid;
+    gap: 10px;
+    margin-top: 16px;
+    padding: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.03);
+}
+
+.order-points--bangjeff {
+    border-color: rgba(250, 250, 249, 0.1);
+    background: rgba(250, 250, 249, 0.04);
+}
+
+.order-points__header,
+.order-points__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.order-points__header > div {
+    display: grid;
+    gap: 3px;
+}
+
+.order-points__header strong,
+.order-points__selected {
+    color: inherit;
+    font-size: 0.9rem;
+}
+
+.order-points__header small,
+.order-points__meta,
+.order-points__message {
+    color: rgba(15, 23, 42, 0.68);
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.order-points--bangjeff .order-points__header small,
+.order-points--bangjeff .order-points__meta,
+.order-points--bangjeff .order-points__message {
+    color: rgba(250, 250, 249, 0.68);
+}
+
+.order-points__range {
+    width: 100%;
+    accent-color: #f97316;
+    cursor: pointer;
+}
+
+.order-points__range:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+}
+
+.order-points__discount {
+    color: #16a34a;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.order-points--bangjeff .order-points__discount {
+    color: #86efac;
+}
+
+.order-summary__row--discount strong,
+.order-mobile-checkout__row--discount strong,
+.order-summary__discount {
+    color: #86efac;
+}
+
 .order-summary--bangjeff {
     display: grid;
     gap: 10px;
@@ -11873,6 +11948,115 @@ textarea {
 .invoice-account-card__row span:first-child {
     color: #fafaf9;
     font-weight: 600;
+}
+
+.invoice-fulfillment-card {
+    display: grid;
+    gap: 10px;
+}
+
+.invoice-fulfillment-card__grid {
+    margin-top: 0;
+}
+
+.invoice-rating-card {
+    border-radius: 14px;
+    border: 1px solid rgba(250, 250, 249, 0.14);
+    background: rgba(36, 36, 40, 0.84);
+    padding: 14px;
+}
+
+.invoice-rating-card__form {
+    display: grid;
+    gap: 10px;
+}
+
+.invoice-rating-card__title {
+    margin: 0;
+    color: #fafaf9;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.invoice-rating-card__hint {
+    margin: 4px 0 0;
+    color: rgba(248, 250, 252, 0.72);
+    font-size: 0.78rem;
+}
+
+.invoice-rating-card__stars {
+    display: flex;
+    gap: 4px;
+}
+
+.invoice-rating-card__star {
+    border: 0;
+    background: transparent;
+    color: rgba(250, 250, 249, 0.3);
+    cursor: pointer;
+    font-size: 1.65rem;
+    line-height: 1;
+    padding: 0;
+}
+
+.invoice-rating-card__star.is-selected,
+.invoice-rating-card__star:hover,
+.invoice-rating-card__star:focus-visible {
+    color: #fbbf24;
+}
+
+.invoice-rating-card textarea {
+    width: 100%;
+    border: 1px solid rgba(250, 250, 249, 0.16);
+    border-radius: 9px;
+    background: rgba(24, 24, 27, 0.8);
+    color: #fafaf9;
+    padding: 9px 10px;
+    resize: vertical;
+}
+
+.invoice-rating-card textarea:focus-visible,
+.invoice-rating-card__star:focus-visible,
+.invoice-rating-card button[type="submit"]:focus-visible {
+    outline: 2px solid rgba(251, 146, 60, 0.8);
+    outline-offset: 2px;
+}
+
+.invoice-rating-card button[type="submit"] {
+    min-height: 38px;
+    border: 0;
+    border-radius: 9px;
+    background: linear-gradient(180deg, #fb923c 0%, #f97316 100%);
+    color: #fff7ed;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.invoice-rating-card button[type="submit"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.invoice-rating-card__success,
+.invoice-rating-card__error {
+    border-radius: 9px;
+    padding: 9px 10px;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.invoice-rating-card__success {
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(20, 83, 45, 0.4);
+    color: #bbf7d0;
+}
+
+.invoice-rating-card__error {
+    margin: 0;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+    background: rgba(127, 29, 29, 0.32);
+    color: #fecaca;
 }
 
 .invoice-summary-card__head {

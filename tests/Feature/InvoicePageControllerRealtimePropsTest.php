@@ -33,6 +33,12 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/Invoice')
                 ->where('invoice.orderId', $orderId)
+                ->where('invoice.fulfillment.serviceNote', null)
+                ->where('invoice.fulfillment.transactionType', 'game')
+                ->where('invoice.fulfillment.joki', null)
+                ->where('invoice.rating.eligible', false)
+                ->where('invoice.rating.submitted', false)
+                ->where('invoice.rating.categoryName', 'Mobile Legends')
                 ->where('invoice.payment.methodCategory.label', 'QRIS')
                 ->where('invoice.payment.methodCategory.icon', 'fa-solid fa-qrcode')
                 ->where('invoice.payment.methodCategory.code', 'qris')
@@ -128,6 +134,8 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             'harga' => 50000,
             'status' => 'Pending',
             'tipe_transaksi' => 'game',
+            'voucher' => null,
+            'keterangan_sn' => null,
         ]);
 
         Pembayaran::create([
