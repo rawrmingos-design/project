@@ -6,9 +6,11 @@ import ProductCard from '../../Components/ProductCard';
 import PaymentMethodCard from '../../Components/PaymentMethodCard';
 import {
     getMethodFinalPrice,
+    getSelectedAmountBeforePoint,
     getSelectedBaseAmount,
     getSelectedFeeAmount,
     getSelectedFinalPrice,
+    getSelectedPointDiscount,
 } from '../../orderPricing';
 
 function buildDefaultFaqQuestions(appName = 'website ini') {
@@ -1307,6 +1309,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [nickname, setNickname] = useState('');
     const [pricePreview, setPricePreview] = useState(null);
     const [priceLoading, setPriceLoading] = useState(false);
+    const [usePoint, setUsePoint] = useState(0);
     const priceRequestSequenceRef = useRef(0);
     const [checkLoading, setCheckLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -1628,6 +1631,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setNickname('');
         setPricePreview(null);
         setPriceLoading(false);
+        setUsePoint(0);
         setCheckLoading(false);
         setSubmitLoading(false);
         setMessage(null);
@@ -2095,6 +2099,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 body.append('qty', String(quantity));
                 if (selectedMethodCode) body.append('payment_method', selectedMethodCode);
                 if (voucher) body.append('voucher', voucher);
+                body.append('use_point', String(usePoint));
 
                 const response = await fetch('/id/harga', {
                     method: 'POST',
@@ -2129,14 +2134,43 @@ export default function Order({ meta, category, products, packages, paymentMetho
         loadPrice();
 
         return () => controller.abort();
-    }, [category.type, quantity, selectedMethodCode, selectedProductId, voucher]);
+    }, [category.type, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
 
     useEffect(() => {
         if (selectedProductId) {
             setPricePreview(null);
             setPriceLoading(true);
         }
-    }, [quantity, selectedMethodCode, selectedProductId, voucher]);
+    }, [quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
+
+    useEffect(() => {
+        setUsePoint(0);
+    }, [authUser?.id, category.slug, selectedProductId]);
+
+    useEffect(() => {
+        if (!authUser) {
+            setUsePoint(0);
+        }
+    }, [authUser]);
+
+    useEffect(() => {
+        if (!pricePreview?.point_info) {
+            return;
+        }
+
+        const backendMaxPoints = Number(pricePreview.point_info.max_points);
+        const normalizedMaxPoints = Number.isFinite(backendMaxPoints) && backendMaxPoints > 0
+            ? Math.floor(backendMaxPoints)
+            : 0;
+        const normalizedUsePoint = Number(usePoint);
+        const boundedUsePoint = Number.isFinite(normalizedUsePoint)
+            ? Math.max(0, Math.min(Math.floor(normalizedUsePoint), normalizedMaxPoints))
+            : 0;
+
+        if (boundedUsePoint !== normalizedUsePoint) {
+            setUsePoint(boundedUsePoint);
+        }
+    }, [pricePreview, usePoint]);
 
     const handleCheckAccount = async () => {
         if (isComplexOrder || !category.requiresGameValidation) {
@@ -2388,6 +2422,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
             body.append('email', nextEmail);
         }
 
+        body.append('use_point', String(usePoint));
+
         if (isComplexOrder) {
             category.specialFields.forEach((field) => {
                 if (field.name === 'qty') {
@@ -2570,6 +2606,47 @@ export default function Order({ meta, category, products, packages, paymentMetho
         : summaryFeeAmount === null ? '—' : formatCurrency(summaryFeeAmount);
     const displaySummaryBase = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(selectedUnitPrice);
     const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
+    const pointInfo = pricePreview?.point_info || null;
+    const pointBalance = Number.isFinite(Number(pointInfo?.balance))
+        ? Math.max(0, Math.floor(Number(pointInfo.balance)))
+        : Math.max(0, Math.floor(Number(authUser?.pointBalance || 0)));
+    const maxRedeemablePoints = Number.isFinite(Number(pointInfo?.max_points))
+        ? Math.max(0, Math.floor(Number(pointInfo.max_points)))
+        : 0;
+    const pointValue = Number.isFinite(Number(pointInfo?.point_value)) ? Number(pointInfo.point_value) : 0;
+    const pointDiscountAmount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
+    const amountBeforePoint = getSelectedAmountBeforePoint(pricePreview, selectedMethodCode, null);
+    const pointControlAvailable = Boolean(authUser);
+    const pointControlReady = Boolean(pointInfo);
+    const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0 || priceLoading;
+    const pointRedemptionPanel = pointControlAvailable ? (
+        <div className={`order-points ${isBangjeff ? 'order-points--bangjeff' : ''}`}>
+            <div className="order-points__header">
+                <div>
+                    <strong>Gunakan Points</strong>
+                    <small>Saldo kamu: {pointBalance.toLocaleString('id-ID')} points</small>
+                </div>
+                <strong className="order-points__selected">{usePoint.toLocaleString('id-ID')} points</strong>
+            </div>
+            <input
+                className="order-points__range"
+                type="range"
+                min="0"
+                max={maxRedeemablePoints}
+                step="1"
+                value={Math.min(usePoint, maxRedeemablePoints)}
+                onChange={(event) => setUsePoint(Math.max(0, Math.min(Number(event.target.value) || 0, maxRedeemablePoints)))}
+                disabled={pointControlDisabled}
+                aria-label="Jumlah points yang digunakan"
+            />
+            <div className="order-points__meta">
+                <span>{pointControlReady ? `Maksimal ${maxRedeemablePoints.toLocaleString('id-ID')} points` : 'Mengambil batas redeem...'}</span>
+                {pointValue > 0 ? <span>1 point = {formatCurrency(pointValue)}</span> : null}
+            </div>
+            {pointBalance <= 0 && pointControlReady ? <small className="order-points__message">Saldo points belum tersedia.</small> : null}
+            {pointDiscountAmount > 0 ? <small className="order-points__discount">Diskon points: -{formatCurrency(pointDiscountAmount)}</small> : null}
+        </div>
+    ) : null;
     const bangjeffVariantInitialVisibleCount = 6;
     const savedAccountUid = String(savedAccountDraft?.uid || '').trim();
     const showSavedAccountQuickFill = Boolean(
@@ -2875,6 +2952,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                 </label>
                             </div>
 
+                            {pointRedemptionPanel}
+
                             <div className="order-summary">
                                 <div>
                                     <small>Layanan</small>
@@ -2892,6 +2971,18 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                     <small>Estimasi Harga</small>
                                     <strong>{displayPreviewPrice}</strong>
                                 </div>
+                                {amountBeforePoint !== null ? (
+                                    <div>
+                                        <small>Sebelum Points</small>
+                                        <strong>{formatCurrency(amountBeforePoint)}</strong>
+                                    </div>
+                                ) : null}
+                                {pointDiscountAmount > 0 ? (
+                                    <div>
+                                        <small>Diskon Points</small>
+                                        <strong className="order-summary__discount">-{formatCurrency(pointDiscountAmount)}</strong>
+                                    </div>
+                                ) : null}
                                 {quantityEnabled ? (
                                     <div>
                                         <small>Qty</small>
@@ -3141,6 +3232,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
             </BangjeffOrderPanel>
 
+            {pointRedemptionPanel}
+
             <BangjeffOrderPanel step={quantityEnabled ? '6' : '5'} title="Kode Promo">
                 <div className="order-promo order-promo--bangjeff">
                     <div className="order-promo__row order-promo__row--bangjeff">
@@ -3218,6 +3311,18 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                     <small className="order-summary__label">Biaya</small>
                                     <strong className="order-summary__value">{displaySummaryFee}</strong>
                                 </div>
+                                {amountBeforePoint !== null ? (
+                                    <div className="order-summary__row">
+                                        <small className="order-summary__label">Sebelum Points</small>
+                                        <strong className="order-summary__value">{formatCurrency(amountBeforePoint)}</strong>
+                                    </div>
+                                ) : null}
+                                {pointDiscountAmount > 0 ? (
+                                    <div className="order-summary__row order-summary__row--discount">
+                                        <small className="order-summary__label">Diskon Points</small>
+                                        <strong className="order-summary__value">-{formatCurrency(pointDiscountAmount)}</strong>
+                                    </div>
+                                ) : null}
                                 <div className="order-summary__divider" aria-hidden="true" />
                                 <div className="order-summary__row order-summary__row--total">
                                     <small className="order-summary__label">Total Pembayaran</small>
@@ -3398,6 +3503,18 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                             <small>Biaya</small>
                                             <strong>{displaySummaryFee}</strong>
                                         </div>
+                                        {amountBeforePoint !== null ? (
+                                            <div className="order-mobile-checkout__row">
+                                                <small>Sebelum Points</small>
+                                                <strong>{formatCurrency(amountBeforePoint)}</strong>
+                                            </div>
+                                        ) : null}
+                                        {pointDiscountAmount > 0 ? (
+                                            <div className="order-mobile-checkout__row order-mobile-checkout__row--discount">
+                                                <small>Diskon Points</small>
+                                                <strong>-{formatCurrency(pointDiscountAmount)}</strong>
+                                            </div>
+                                        ) : null}
                                         <div className="order-mobile-checkout__row order-mobile-checkout__row--total">
                                             <small>Total Pembayaran</small>
                                             <strong>{displayPreviewPrice}</strong>
