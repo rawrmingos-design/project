@@ -41,7 +41,8 @@ class InvoicePageController extends Controller
 
         $dataQuery = Pembelian::query()
             ->where('pembayarans.order_id', $order)
-            ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id');
+            ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
+            ->leftJoin('data_joki', 'pembelians.order_id', '=', 'data_joki.order_id');
 
         if (DB::connection()->getDriverName() === 'sqlite') {
             $dataQuery->leftJoin('methods', 'pembayarans.metode', '=', 'methods.code');
@@ -72,12 +73,25 @@ class InvoicePageController extends Controller
                 'pembelians.user_id',
                 'pembelians.zone',
                 'pembelians.nickname',
+                'pembelians.voucher',
+                'pembelians.keterangan_sn',
+                'pembelians.tipe_transaksi',
                 'pembelians.layanan',
                 'pembelians.harga AS harga_layanan',
                 'pembelians.status AS status_pembelian',
                 'pembelians.created_at',
                 'pembelians.email_pembeli',
                 'pembayarans.no_pembeli',
+                'data_joki.loginvia_joki',
+                'data_joki.nickname_joki',
+                'data_joki.request_joki',
+                'data_joki.catatan_joki',
+                'data_joki.tglmain_joki',
+                'data_joki.jambooking_joki',
+                'data_joki.qty AS joki_qty',
+                'data_joki.status_joki',
+                'data_joki.id AS joki_id',
+                'data_joki.order_id AS joki_order_id',
                 'methods.name AS metode_name',
                 'methods.tipe AS metode_tipe',
                 'methods.images AS metode_image',
@@ -134,6 +148,22 @@ class InvoicePageController extends Controller
         $orderStatusRaw = (string) ($data->status_pembelian ?? '');
         $paymentStatus = Str::lower(trim($paymentStatusRaw));
         $orderStatus = Str::lower(trim($orderStatusRaw));
+        $paymentIsSettled = in_array($paymentStatus, ['paid', 'lunas', 'success'], true);
+        $orderIsCompleted = in_array($orderStatus, ['sukses', 'success'], true);
+        $hasExistingRating = DB::table('ratings')
+            ->where('rating_id', $data->id_pembelian)
+            ->exists();
+        $serviceNote = trim((string) ($data->voucher ?: $data->keterangan_sn ?: ''));
+        $joki = $data->joki_id ? [
+            'loginVia' => (string) ($data->loginvia_joki ?? ''),
+            'nickname' => (string) ($data->nickname_joki ?? ''),
+            'request' => (string) ($data->request_joki ?? ''),
+            'note' => (string) ($data->catatan_joki ?? ''),
+            'scheduleDate' => (string) ($data->tglmain_joki ?? ''),
+            'scheduleTime' => (string) ($data->jambooking_joki ?? ''),
+            'quantity' => $data->joki_qty === null ? null : (int) $data->joki_qty,
+            'status' => (string) ($data->status_joki ?? ''),
+        ] : null;
         $methodNameLower = Str::lower(trim((string) $methodName));
         $methodTypeLower = blank($methodType) ? '' : Str::lower(Method::normalizeTipe($methodType));
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
@@ -430,6 +460,16 @@ class InvoicePageController extends Controller
                 'productName' => $productName,
                 'itemName' => (string) ($data->layanan ?? $productName),
                 'thumbnail' => $thumbnail,
+                'fulfillment' => [
+                    'serviceNote' => $serviceNote !== '' ? $serviceNote : null,
+                    'transactionType' => (string) ($data->tipe_transaksi ?? ''),
+                    'joki' => $joki,
+                ],
+                'rating' => [
+                    'eligible' => $paymentIsSettled && $orderIsCompleted,
+                    'submitted' => $hasExistingRating,
+                    'categoryName' => $productName,
+                ],
                 'account' => [
                     'nickname' => (string) ($data->nickname ?? ''),
                     'userId' => (string) ($data->user_id ?? ''),

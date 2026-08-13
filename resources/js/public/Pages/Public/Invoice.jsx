@@ -203,6 +203,11 @@ export default function Invoice({ invoice, meta }) {
     const [copyToast, setCopyToast] = useState(null);
     const [isMethodLogoBroken, setIsMethodLogoBroken] = useState(false);
     const [isQrImageBroken, setIsQrImageBroken] = useState(false);
+    const [ratingValue, setRatingValue] = useState(0);
+    const [ratingComment, setRatingComment] = useState('');
+    const [ratingState, setRatingState] = useState(invoice?.rating?.submitted ? 'submitted' : 'idle');
+    const [ratingMessage, setRatingMessage] = useState('');
+    const [ratingErrors, setRatingErrors] = useState({});
     const copyToastTimerRef = useRef(null);
     const realtimeConnectedRef = useRef(false);
     const realtimeFallbackTimerRef = useRef(null);
@@ -238,6 +243,59 @@ export default function Invoice({ invoice, meta }) {
         && paymentStatus.code === 'unpaid'
         && !isCountdownExpired,
     );
+    const ratingEligible = Boolean(invoice?.rating?.eligible);
+    const ratingSubmitted = ratingState === 'submitted';
+    const ratingBusy = ratingState === 'submitting';
+
+    const submitRating = useCallback(async (event) => {
+        event.preventDefault();
+
+        if (!ratingEligible || ratingSubmitted || ratingBusy) {
+            return;
+        }
+
+        setRatingState('submitting');
+        setRatingMessage('');
+        setRatingErrors({});
+
+        try {
+            const response = await fetch(`/id/invoices/${encodeURIComponent(invoice?.orderId || '')}`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    bintang: ratingValue,
+                    comment: ratingComment,
+                    kategori_nama: invoice?.rating?.categoryName || invoice?.productName || '',
+                }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (response.ok && payload.success) {
+                setRatingState('submitted');
+                setRatingMessage(payload.message || 'Terima kasih, ulasan kamu sudah kami simpan.');
+                return;
+            }
+
+            if (response.status === 409 && payload.already_reviewed) {
+                setRatingState('submitted');
+                setRatingMessage(payload.message || 'Review untuk transaksi ini sudah pernah dikirim.');
+                return;
+            }
+
+            setRatingState('error');
+            setRatingMessage(payload.message || 'Gagal menyimpan ulasan.');
+            setRatingErrors(payload.errors || {});
+        } catch {
+            setRatingState('error');
+            setRatingMessage('Koneksi bermasalah. Coba lagi sebentar.');
+        }
+    }, [invoice?.orderId, invoice?.productName, invoice?.rating?.categoryName, ratingComment, ratingEligible, ratingSubmitted, ratingBusy, ratingValue]);
 
     useEffect(() => {
         const events = Array.isArray(invoice?.gtmEvents) ? invoice.gtmEvents : [];
@@ -746,6 +804,43 @@ export default function Invoice({ invoice, meta }) {
                             </div>
                         </div>
 
+                        {(invoice?.fulfillment?.serviceNote || invoice?.fulfillment?.joki) ? (
+                            <div className={`invoice-card invoice-fulfillment-card invoice-animate invoice-animate-delay-2 ${isInvoiceAnimated ? 'is-visible' : ''}`}>
+                                <p className="invoice-account-card__title">Detail Pemenuhan</p>
+                                <dl className="invoice-status-grid invoice-fulfillment-card__grid">
+                                    {invoice?.fulfillment?.serviceNote ? (
+                                        <div className="invoice-status-grid__row">
+                                            <dt>Keterangan / SN</dt>
+                                            <dd>
+                                                <span>{invoice.fulfillment.serviceNote}</span>
+                                                <button type="button" className="invoice-inline-copy" onClick={() => copyText(invoice.fulfillment.serviceNote, 'Keterangan / SN')} aria-label="Salin keterangan atau SN">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="8" y="8" width="11" height="11" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M5 15V6a2 2 0 012-2h9" /></svg>
+                                                </button>
+                                            </dd>
+                                        </div>
+                                    ) : null}
+                                    {invoice?.fulfillment?.transactionType ? (
+                                        <div className="invoice-status-grid__row">
+                                            <dt>Tipe Transaksi</dt>
+                                            <dd>{invoice.fulfillment.transactionType}</dd>
+                                        </div>
+                                    ) : null}
+                                    {invoice?.fulfillment?.joki?.loginVia ? (
+                                        <div className="invoice-status-grid__row"><dt>Login Via</dt><dd>{invoice.fulfillment.joki.loginVia}</dd></div>
+                                    ) : null}
+                                    {invoice?.fulfillment?.joki?.nickname ? (
+                                        <div className="invoice-status-grid__row"><dt>Nickname</dt><dd>{invoice.fulfillment.joki.nickname}</dd></div>
+                                    ) : null}
+                                    {invoice?.fulfillment?.joki?.request ? (
+                                        <div className="invoice-status-grid__row"><dt>Request</dt><dd>{invoice.fulfillment.joki.request}</dd></div>
+                                    ) : null}
+                                    {invoice?.fulfillment?.joki?.note ? (
+                                        <div className="invoice-status-grid__row"><dt>Catatan</dt><dd>{invoice.fulfillment.joki.note}</dd></div>
+                                    ) : null}
+                                </dl>
+                            </div>
+                        ) : null}
+
                         <div className={`invoice-animate invoice-animate-delay-3 ${isInvoiceAnimated ? 'is-visible' : ''}`}>
                             <button
                                 type="button"
@@ -970,6 +1065,48 @@ export default function Invoice({ invoice, meta }) {
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     <p>{invoice.payment.hint}</p>
+                                </div>
+                            ) : null}
+
+                            {ratingEligible ? (
+                                <div className="invoice-rating-card">
+                                    {ratingSubmitted ? (
+                                        <div className="invoice-rating-card__success" role="status">{ratingMessage || 'Review untuk transaksi ini sudah pernah dikirim. Terima kasih!'}</div>
+                                    ) : (
+                                        <form onSubmit={submitRating} className="invoice-rating-card__form">
+                                            <div>
+                                                <p className="invoice-rating-card__title">Tinggalkan ulasan</p>
+                                                <p className="invoice-rating-card__hint">Rating ini membantu kami meningkatkan layanan.</p>
+                                            </div>
+                                            <div className="invoice-rating-card__stars" aria-label="Rating transaksi">
+                                                {[1, 2, 3, 4, 5].map((value) => (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        className={`invoice-rating-card__star ${value <= ratingValue ? 'is-selected' : ''}`}
+                                                        onClick={() => setRatingValue(value)}
+                                                        aria-label={`${value} bintang`}
+                                                    >
+                                                        ★
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <textarea
+                                                value={ratingComment}
+                                                onChange={(event) => setRatingComment(event.target.value)}
+                                                rows="4"
+                                                required
+                                                placeholder="Tulis review kamu di sini ..."
+                                                aria-label="Komentar ulasan"
+                                            />
+                                            {ratingErrors?.bintang?.[0] ? <p className="invoice-rating-card__error">{ratingErrors.bintang[0]}</p> : null}
+                                            {ratingErrors?.comment?.[0] ? <p className="invoice-rating-card__error">{ratingErrors.comment[0]}</p> : null}
+                                            {ratingMessage ? <p className="invoice-rating-card__error">{ratingMessage}</p> : null}
+                                            <button type="submit" disabled={ratingBusy || ratingValue < 1 || !ratingComment.trim()}>
+                                                {ratingBusy ? 'Mengirim...' : 'Kirim Ulasan'}
+                                            </button>
+                                        </form>
+                                    )}
                                 </div>
                             ) : null}
                         </div>
