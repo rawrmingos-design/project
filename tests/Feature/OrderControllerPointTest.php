@@ -268,14 +268,38 @@ class OrderControllerPointTest extends TestCase
     }
 
     /** @test */
-    public function price_endpoint_does_not_return_point_info_for_guest()
+    public function price_endpoint_does_not_return_point_info_for_guest_even_when_points_are_requested()
     {
         $response = $this->postJson(route('ajax.price'), [
             'nominal' => $this->layanan->id,
+            'use_point' => 50,
         ]);
 
-        $response->assertStatus(200);
+        $response->assertStatus(200)
+            ->assertJsonPath('point_discount', 0)
+            ->assertJsonPath('selected_final_price', 20000);
         $response->assertJsonMissing(['point_info']);
+    }
+
+    /** @test */
+    public function price_endpoint_changes_discount_and_final_price_when_points_are_requested()
+    {
+        $withoutPoints = $this->actingAs($this->user)->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+            'use_point' => 0,
+        ]);
+
+        $withPoints = $this->actingAs($this->user)->postJson(route('ajax.price'), [
+            'nominal' => $this->layanan->id,
+            'use_point' => 50,
+        ]);
+
+        $withoutPoints->assertOk()
+            ->assertJsonPath('point_discount', 0)
+            ->assertJsonPath('selected_final_price', 20000);
+        $withPoints->assertOk()
+            ->assertJsonPath('point_discount', 5000)
+            ->assertJsonPath('selected_final_price', 15000);
     }
 
     /** @test */
@@ -339,6 +363,87 @@ class OrderControllerPointTest extends TestCase
         $this->assertDatabaseHas('point_histories', [
             'user_id' => $this->user->id,
             'order_id' => $order->order_id,
+            'type' => 'redeem',
+            'points' => 50,
+        ]);
+    }
+
+    /** @test */
+    public function failed_provider_processing_restores_reserved_points_without_creating_an_order()
+    {
+        $this->mock(\App\Services\ProviderRoutingService::class, function ($mock): void {
+            $mock->shouldReceive('findBestProvider')
+                ->andReturn(null);
+        });
+
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid' => '12345678',
+            'zone' => '1234',
+            'qty' => 1,
+            'use_point' => 50,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('status', false)
+            ->assertJsonPath('error_code', 'ORDER_PROCESSING_FAILED');
+
+        $this->assertSame(100, $this->user->fresh()->point_balance);
+        $this->assertSame(100000, $this->user->fresh()->balance);
+        $this->assertDatabaseCount('pembelians', 0);
+        $this->assertDatabaseHas('point_histories', [
+            'user_id' => $this->user->id,
+            'type' => 'redeem',
+            'points' => 50,
+        ]);
+        $this->assertDatabaseHas('point_histories', [
+            'user_id' => $this->user->id,
+            'type' => 'earn',
+            'points' => 50,
+            'description' => 'Refund poin dari pembelian 86 Diamond',
+        ]);
+    }
+
+    /** @test */
+    public function repeated_successful_order_with_same_idempotency_key_deducts_points_once()
+    {
+        $this->mock(\App\Services\ProviderRoutingService::class, function ($mock): void {
+            $mock->shouldReceive('findBestProvider')
+                ->andReturn([
+                    'provider_code' => 'manual',
+                    'sku' => 'manual-123',
+                ]);
+        });
+
+        $payload = [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid' => '12345678',
+            'zone' => '1234',
+            'qty' => 1,
+            'use_point' => 50,
+        ];
+
+        $first = $this->actingAs($this->user)
+            ->withHeader('X-Idempotency-Key', 'point-order-retry-001')
+            ->postJson(route('ordered'), $payload);
+        $second = $this->actingAs($this->user)
+            ->withHeader('X-Idempotency-Key', 'point-order-retry-001')
+            ->postJson(route('ordered'), $payload);
+
+        $first->assertOk()->assertJsonPath('status', true);
+        $second->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('message', 'Order sudah diproses sebelumnya.');
+        $this->assertSame($first->json('order_id'), $second->json('order_id'));
+        $this->assertSame(50, $this->user->fresh()->point_balance);
+        $this->assertDatabaseCount('pembelians', 1);
+        $this->assertDatabaseCount('point_histories', 1);
+        $this->assertDatabaseHas('point_histories', [
+            'user_id' => $this->user->id,
             'type' => 'redeem',
             'points' => 50,
         ]);
