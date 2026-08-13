@@ -56,6 +56,26 @@ class CanonicalUrlTest extends TestCase
             ->assertSee('<meta property="og:url" content="https://istanatopup.test/id">', false);
     }
 
+    public function test_inertia_fallback_seo_contains_get_search_action_and_valid_json_ld(): void
+    {
+        $this->withoutVite();
+        $this->seedPublicSettings('bangjeff');
+
+        $content = $this->get('https://www.istanatopup.test/id')->assertOk()->getContent();
+
+        $this->assertStringContainsString('https://istanatopup.test/id/search/products?q={search_term_string}', $content);
+        $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $content);
+        $this->assertStringContainsString('<meta name="robots" content="index,follow', $content);
+
+        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
+        $this->assertNotEmpty($matches[1]);
+
+        foreach ($matches[1] as $schema) {
+            $this->assertNotNull(json_decode(trim($schema), true));
+            $this->assertSame(JSON_ERROR_NONE, json_last_error());
+        }
+    }
+
     private function seedPublicSettings(string $theme): void
     {
         SettingWeb::create([

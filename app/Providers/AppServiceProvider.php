@@ -95,6 +95,7 @@ class AppServiceProvider extends ServiceProvider
             'logo_header' => '/assets/logo/01KGSN7TWDAQXP947X0GH07TDE.webp',
             'logo_footer' => '/assets/logo/01KGSN7TXFTHQYY8T2SM6HQ6S2.png',
             'logo_favicon' => '/assets/logo/favicon.ico',
+            'order_prefik' => 'TRX',
             'warna1' => '#222222',
             'warna2' => '#d06800',
             'warna3' => '#ffa54a',

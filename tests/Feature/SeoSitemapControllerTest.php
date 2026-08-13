@@ -15,11 +15,22 @@ class SeoSitemapControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    private array $createdXmlPaths = [];
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Cache::flush();
+    }
+
+    protected function tearDown(): void
+    {
+        foreach ($this->createdXmlPaths as $path) {
+            File::delete($path);
+        }
+
+        parent::tearDown();
     }
 
     public function test_custom_sitemap_index_with_foreign_host_falls_back_to_dynamic_index(): void
@@ -35,47 +46,37 @@ class SeoSitemapControllerTest extends TestCase
 XML);
 
         $this->createSettings([
-            'seo_sitemap_enabled' => true,
             'seo_sitemap_mode' => 'custom_upload',
             'seo_sitemap_index_asset_id' => $indexAsset->id,
-            'seo_sitemap_include_categories' => true,
         ]);
 
-        $response = $this->get('/sitemap.xml');
-
-        $response->assertOk();
-        $response->assertSee('/sitemap-main.xml', false);
-        $response->assertDontSee('evil.example.com', false);
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertSee('/sitemap-main.xml', false)
+            ->assertDontSee('evil.example.com', false);
     }
 
     public function test_custom_categories_sitemap_with_admin_path_falls_back_to_dynamic_categories(): void
     {
         $this->createActiveCategory('Mobile Legends', 'mobile-legends', 'mlbb');
-
         $categoriesAsset = $this->createXmlAsset('sitemap-categories-admin.xml', <<<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>http://localhost/admin/settings</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.9</priority>
   </url>
 </urlset>
 XML);
 
         $this->createSettings([
-            'seo_sitemap_enabled' => true,
             'seo_sitemap_mode' => 'custom_upload',
-            'seo_sitemap_include_categories' => true,
             'seo_sitemap_categories_asset_id' => $categoriesAsset->id,
         ]);
 
-        $response = $this->get('/sitemap-categories.xml');
-
-        $response->assertOk();
-        $response->assertSee('/id/mlbb', false);
-        $response->assertDontSee('/admin/settings', false);
+        $this->get('/sitemap-categories.xml')
+            ->assertOk()
+            ->assertSee('/id/mlbb', false)
+            ->assertDontSee('/admin/settings', false);
     }
 
     public function test_custom_mode_without_assets_falls_back_to_dynamic_main_sitemap(): void
@@ -89,17 +90,87 @@ XML);
         ]);
 
         $this->createSettings([
-            'seo_sitemap_enabled' => true,
             'seo_sitemap_mode' => 'custom_upload',
             'seo_sitemap_include_articles' => true,
             'seo_sitemap_main_asset_id' => null,
         ]);
 
-        $response = $this->get('/sitemap-main.xml');
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertSee('/id', false)
+            ->assertSee('/id/artikel/promo-weekly-pass', false);
+    }
 
-        $response->assertOk();
-        $response->assertSee('/id', false);
-        $response->assertSee('/id/artikel/promo-weekly-pass', false);
+    public function test_sitemap_cache_context_changes_when_include_articles_changes(): void
+    {
+        Artikel::query()->create([
+            'slug' => 'cache-context-article',
+            'title' => 'Cache Context Article',
+            'status' => 'active',
+            'layout' => 'default',
+            'views' => 0,
+        ]);
+        $settings = $this->createSettings(['seo_sitemap_include_articles' => true]);
+
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertSee('/id/artikel/cache-context-article', false);
+
+        $settings->update(['seo_sitemap_include_articles' => false]);
+
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertDontSee('/id/artikel/cache-context-article', false)
+            ->assertSee('/id/price-list', false);
+    }
+
+    public function test_dynamic_sitemap_locations_are_final_public_routes_for_both_themes(): void
+    {
+        $this->withoutVite();
+        $this->withViewErrors([]);
+        $this->createActiveCategory('Mobile Legends', 'mobile-legends', 'mlbb');
+        Artikel::query()->create([
+            'slug' => 'promo-weekly-pass',
+            'title' => 'Promo Weekly Pass',
+            'status' => 'active',
+            'layout' => 'default',
+            'views' => 0,
+        ]);
+        $settings = $this->createSettings(['public_theme' => 'bangjeff']);
+
+        foreach (['bangjeff', 'default'] as $theme) {
+            $settings->update(['public_theme' => $theme]);
+            Cache::flush();
+
+            $mainXml = $this->get('/sitemap-main.xml')->assertOk()->getContent();
+            $categoryXml = $this->get('/sitemap-categories.xml')->assertOk()->getContent();
+            $locations = array_merge($this->extractSitemapLocations($mainXml), $this->extractSitemapLocations($categoryXml));
+
+            $this->assertNotEmpty($locations);
+
+            foreach ($locations as $location) {
+                $path = (string) parse_url($location, PHP_URL_PATH);
+                $this->assertNotSame('', $path);
+                if ($path === '/id/invoices') {
+                    $response = $this->get($path);
+                    $this->assertSame(200, $response->status(), "Sitemap location failed: {$location}");
+                    continue;
+                }
+
+                $response = $this->get($path);
+                $this->assertSame(200, $response->status(), "Sitemap location failed: {$location}");
+            }
+        }
+    }
+
+    private function extractSitemapLocations(string $xml): array
+    {
+        preg_match_all('/<loc>(.*?)<\/loc>/s', $xml, $matches);
+
+        return array_values(array_filter(array_map(
+            static fn (string $location): string => html_entity_decode(trim($location)),
+            $matches[1] ?? [],
+        )));
     }
 
     private function createSettings(array $overrides = []): SettingWeb
@@ -120,6 +191,7 @@ XML);
             'warna4' => '#444444',
             'paydisini_apikey' => 'dummy-paydisini',
             'order_prefik' => 'INV',
+            'public_theme' => 'default',
             'seo_robots_enabled' => true,
             'seo_sitemap_enabled' => true,
             'seo_sitemap_include_categories' => true,
@@ -133,11 +205,13 @@ XML);
 
     private function createXmlAsset(string $filename, string $xml): MediaAsset
     {
+        $filename = 'runtime-' . bin2hex(random_bytes(8)) . '-' . ltrim($filename, '/');
         $relativePath = '/assets/xml/tests/' . $filename;
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
         File::ensureDirectoryExists(dirname($absolutePath));
         File::put($absolutePath, $xml);
+        $this->createdXmlPaths[] = $absolutePath;
 
         return MediaAsset::query()->create([
             'name' => pathinfo($filename, PATHINFO_FILENAME),

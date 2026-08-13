@@ -45,7 +45,7 @@
 
         if ($schemaJson === null) {
             $siteName = trim((string) ($siteConfig['name'] ?? config('app.name')));
-            $siteUrl = url('/id');
+            $siteUrl = \App\Support\CanonicalUrl::normalize(url('/id'));
             $orgLogo = $ogImage !== '' ? $ogImage : null;
             $sameAs = [];
 
@@ -65,7 +65,7 @@
                     'inLanguage' => app()->getLocale(),
                     'potentialAction' => [
                         '@type' => 'SearchAction',
-                        'target' => url('/id/search/products') . '?q={search_term_string}',
+                        'target' => \App\Support\CanonicalUrl::normalize(url('/id/search/products')) . '?q={search_term_string}',
                         'query-input' => 'required name=search_term_string',
                     ],
                 ],

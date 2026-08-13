@@ -6,6 +6,7 @@ use App\Models\Artikel;
 use App\Models\Kategori;
 use App\Models\MediaAsset;
 use App\Models\SettingWeb;
+use App\Support\PublicThemeRegistry;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -59,7 +60,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:index:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember($this->sitemapCacheKey('index', $settings), now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled']) {
                 return $this->buildSitemapIndexXml([]);
             }
@@ -97,7 +98,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:main:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember($this->sitemapCacheKey('main', $settings), now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled']) {
                 return $this->buildUrlSetXml([]);
             }
@@ -150,7 +151,7 @@ class SeoController extends Controller
         $settings = $this->getSeoSettings();
         $cacheMinutes = $settings['sitemap_cache_minutes'];
 
-        $xml = Cache::remember('seo:sitemap:categories:v4', now()->addMinutes($cacheMinutes), function () use ($settings): string {
+        $xml = Cache::remember($this->sitemapCacheKey('categories', $settings), now()->addMinutes($cacheMinutes), function () use ($settings): string {
             if (! $settings['sitemap_enabled'] || ! $settings['sitemap_include_categories']) {
                 return $this->buildUrlSetXml([]);
             }
@@ -196,6 +197,25 @@ class SeoController extends Controller
         $baseUrl = rtrim((string) env('MAIN_DOMAIN_URL', config('app.url')), '/');
 
         return $baseUrl . '/' . ltrim($path, '/');
+    }
+
+    private function sitemapCacheKey(string $type, array $settings): string
+    {
+        $theme = PublicThemeRegistry::normalize((string) (SettingWeb::query()->value('public_theme') ?? PublicThemeRegistry::DEFAULT));
+        $baseUrl = rtrim((string) env('MAIN_DOMAIN_URL', config('app.url')), '/');
+        $context = [
+            'theme' => $theme,
+            'base_url' => $baseUrl,
+            'enabled' => $settings['sitemap_enabled'],
+            'include_categories' => $settings['sitemap_include_categories'],
+            'include_articles' => $settings['sitemap_include_articles'],
+            'mode' => $settings['sitemap_mode'],
+            'index_asset_id' => $settings['sitemap_index_asset_id'],
+            'main_asset_id' => $settings['sitemap_main_asset_id'],
+            'categories_asset_id' => $settings['sitemap_categories_asset_id'],
+        ];
+
+        return 'seo:sitemap:' . $type . ':v5:' . sha1((string) json_encode($context));
     }
 
     private function buildSitemapIndexXml(array $entries): string
