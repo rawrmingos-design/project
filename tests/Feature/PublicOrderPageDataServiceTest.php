@@ -14,6 +14,32 @@ class PublicOrderPageDataServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_category_projection_matches_account_validation_matrix(): void
+    {
+        $service = app(PublicOrderPageDataService::class);
+
+        foreach (['game', 'populer', 'voucher', 'joki', 'jokigendong', 'vilogml'] as $type) {
+            $category = Kategori::factory()->create([
+                'kode' => $type . '-category',
+                'tipe' => $type,
+                'require_user_id' => $type === 'voucher',
+            ]);
+
+            $data = $service->getData($category);
+
+            $this->assertSame($type === 'voucher', $data['category']['requireUserId']);
+            $this->assertSame(in_array($type, ['game', 'populer'], true), $data['category']['requiresGameValidation']);
+            $this->assertSame(in_array($type, ['joki', 'jokigendong', 'vilogml'], true) ? 'complex' : 'standard', $data['category']['orderMode']);
+        }
+    }
+
+    public function test_unsupported_category_is_not_supported_for_inertia(): void
+    {
+        $category = Kategori::factory()->create(['tipe' => 'giftskin']);
+
+        $this->assertFalse(app(PublicOrderPageDataService::class)->isSupportedForInertia($category));
+    }
+
     public function test_load_packages_keeps_shape_and_uses_single_catalog_query(): void
     {
         $category = Kategori::factory()->create(['kode' => 'mobile-legends']);

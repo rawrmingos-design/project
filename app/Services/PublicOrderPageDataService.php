@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Helpers\HtmlSanitizer;
 use App\Models\Kategori;
 use App\Models\Layanan;
-use App\Models\Method;
 use App\Support\CustomInputDefaults;
 use App\Support\GtmDataLayerBuilder;
 use Illuminate\Support\Carbon;
@@ -79,7 +78,7 @@ class PublicOrderPageDataService
                     'fieldDescription' => $category->deskripsi_field,
                     'requireUserId' => (bool) ($category->require_user_id ?? true),
                     'serverId' => (bool) ($category->server_id ?? false),
-                    'requiresGameValidation' => in_array($category->tipe, ['game', 'populer', 'voucher'], true),
+                    'requiresGameValidation' => in_array($category->tipe, ['game', 'populer'], true),
                     'metaTitle' => $category->meta_title,
                     'metaDescription' => $category->meta_description,
                     'schemaMarkup' => $category->schema_markup,
