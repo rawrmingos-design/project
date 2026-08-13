@@ -52,3 +52,18 @@ export function getSelectedBaseAmount(pricePreview, selectedMethodCode, fallback
         fallback,
     );
 }
+
+export function getSelectedAmountBeforePoint(pricePreview, selectedMethodCode, fallback = null) {
+    return getFinitePriceValue(
+        getMethodPrice(pricePreview, selectedMethodCode)?.amount_before_point,
+        fallback,
+    );
+}
+
+export function getSelectedPointDiscount(pricePreview, selectedMethodCode, fallback = 0) {
+    return getFinitePriceValue(
+        getMethodPrice(pricePreview, selectedMethodCode)?.point_discount
+            ?? pricePreview?.point_discount,
+        fallback,
+    );
+}

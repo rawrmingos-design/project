@@ -11,6 +11,7 @@ use App\Models\Method;
 use App\Services\CheckId\CheckIdResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -27,6 +28,8 @@ class OrderControllerPointTest extends TestCase
         parent::setUp();
 
         // OrderController fetches IP meta via ipinfo.io.
+        Cache::forget('payment_methods_price_calc_v1:main');
+
         Http::fake([
             'ipinfo.io/*' => Http::response([
                 'ip' => '127.0.0.1',
@@ -123,8 +126,19 @@ class OrderControllerPointTest extends TestCase
     /** @test */
     public function price_endpoint_returns_point_info_for_logged_in_user()
     {
+        Method::create([
+            'code' => 'MANUAL',
+            'name' => 'Manual Transfer',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer',
+            'tipe' => 'manual',
+            'payment' => 'manual',
+            'statuspayment' => true,
+        ]);
+
         $response = $this->actingAs($this->user)->postJson(route('ajax.price'), [
             'nominal' => $this->layanan->id,
+            'use_point' => 50,
         ]);
 
         $response->assertStatus(200);
@@ -135,7 +149,10 @@ class OrderControllerPointTest extends TestCase
                 'point_value',
                 'max_points',
                 'max_discount',
-            ]
+            ],
+            'method_prices',
+            'selected_final_price',
+            'point_discount',
         ]);
 
         // Harga 20000, Max percent 50% = 10000 = 100 poin
@@ -148,6 +165,66 @@ class OrderControllerPointTest extends TestCase
                 'max_discount' => 10000,
             ]
         ]);
+        $response->assertJsonPath('point_discount', 5000);
+        $response->assertJsonPath('selected_final_price', 15000);
+
+        $methodPrices = $response->json('method_prices');
+        $this->assertNotEmpty($methodPrices);
+        foreach ($methodPrices as $methodPrice) {
+            $this->assertSame(20000, $methodPrice['base_amount']);
+            $this->assertSame(5000, $methodPrice['point_discount']);
+            $this->assertSame(
+                $methodPrice['amount_before_point'] - $methodPrice['point_discount'],
+                $methodPrice['final_price'],
+            );
+        }
+    }
+
+    /** @test */
+    public function fallback_idempotency_fingerprint_changes_when_use_point_changes()
+    {
+        $this->actingAs($this->user);
+        $controller = app(\App\Http\Controllers\OrderController::class);
+        $method = new \ReflectionMethod($controller, 'buildOrderIdempotencyFingerprint');
+
+        $basePayload = [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid' => '12345678',
+            'zone' => '1234',
+            'qty' => 1,
+        ];
+        $requestWithoutPoints = \Illuminate\Http\Request::create('/id', 'POST', $basePayload + ['use_point' => 0]);
+        $requestWithPoints = \Illuminate\Http\Request::create('/id', 'POST', $basePayload + ['use_point' => 50]);
+
+        $withoutPoints = $method->invoke($controller, $requestWithoutPoints);
+        $withPoints = $method->invoke($controller, $requestWithPoints);
+
+        $this->assertNotSame($withoutPoints, $withPoints);
+    }
+
+    /** @test */
+    public function guest_fallback_idempotency_fingerprint_changes_when_use_point_changes()
+    {
+        $controller = app(\App\Http\Controllers\OrderController::class);
+        $method = new \ReflectionMethod($controller, 'buildOrderIdempotencyFingerprint');
+        $basePayload = [
+            'service' => $this->layanan->id,
+            'payment_method' => 'MANUAL',
+            'nomor' => '081234567890',
+            'qty' => 1,
+        ];
+        $requestWithoutPoints = \Illuminate\Http\Request::create('/id', 'POST', $basePayload + ['use_point' => 0]);
+        $requestWithPoints = \Illuminate\Http\Request::create('/id', 'POST', $basePayload + ['use_point' => 50]);
+        $session = app('session')->driver();
+        $requestWithoutPoints->setLaravelSession($session);
+        $requestWithPoints->setLaravelSession($session);
+
+        $withoutPoints = $method->invoke($controller, $requestWithoutPoints);
+        $withPoints = $method->invoke($controller, $requestWithPoints);
+
+        $this->assertNotSame($withoutPoints, $withPoints);
     }
 
     /** @test */

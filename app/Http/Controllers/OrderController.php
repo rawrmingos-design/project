@@ -547,6 +547,7 @@ class OrderController extends Controller
             'ktg_tipe' => (string) $request->input('ktg_tipe'),
             'qty' => (string) $request->input('qty'),
             'voucher' => (string) $request->input('voucher'),
+            'use_point' => (string) $request->input('use_point', '0'),
             'email' => (string) $request->input('email'),
         ];
 
@@ -612,6 +613,7 @@ class OrderController extends Controller
             'voucher' => 'nullable|string|max:100',
             'ktg_tipe' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255|required_without:nomor',
+            'use_point' => 'nullable|integer|min:0',
             'idempotency_key' => 'nullable|string|max:120',
         ];
 
