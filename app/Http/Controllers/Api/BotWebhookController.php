@@ -46,7 +46,7 @@ class BotWebhookController extends Controller
         $expectedToken = trim((string) config('services.fonnte.device_token'));
         $providedToken = trim((string) ($request->header('Authorization') ?: $request->input('device_token', '')));
 
-        if ($providedToken !== '' && $expectedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
+        if ($providedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
             $invalidKey = 'bot-invalid:ip:' . $request->ip();
             $invalidLimit = max(1, (int) config('rate_limits.callbacks.bot_invalid_per_minute', 20));
 
