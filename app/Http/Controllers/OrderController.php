@@ -1097,22 +1097,23 @@ class OrderController extends Controller
                 );
                 
                 if (isset($res['status']) && $res['status'] === 'Success') {
+                    $tokopayData = is_array($res['data'] ?? null) ? $res['data'] : [];
+                    $tokopayPaymentCode = $tokopayData['nomor_va']
+                        ?? $tokopayData['pay_code']
+                        ?? $tokopayData['payment_code']
+                        ?? $tokopayData['kode_bayar']
+                        ?? null;
+                    $tokopayPaymentUrl = $tokopayData['checkout_url'] ?? $tokopayData['pay_url'] ?? null;
+
                     $gatewayResult = [
                         'status' => true,
-                        'no_pembayaran' => $res['data']['nomor_va']
-                            ?? $res['data']['pay_code']
-                            ?? $res['data']['payment_code']
-                            ?? $res['data']['kode_bayar']
-                            ?? $res['data']['qr_link']
-                            ?? $res['data']['checkout_url']
-                            ?? $res['data']['pay_url']
-                            ?? null,
-                        'payment_url' => $res['data']['checkout_url'] ?? $res['data']['pay_url'] ?? null,
-                        'qr_image_url' => $res['data']['qr_link'] ?? null,
-                        'qr_payload' => $res['data']['qrString'] ?? $res['data']['qr_string'] ?? null,
-                        'reference' => $res['data']['trx_id'] ?? null,
-                        'amount' => $res['data']['total_bayar'] ?? $amount,
-                        'expired_at' => $res['data']['expired_at'] ?? $res['data']['expired_ts'] ?? null,
+                        'no_pembayaran' => $tokopayPaymentCode ?? $tokopayPaymentUrl,
+                        'payment_url' => $tokopayPaymentUrl,
+                        'qr_image_url' => $tokopayData['qr_link'] ?? null,
+                        'qr_payload' => $tokopayData['qr_string'] ?? $tokopayData['qrString'] ?? null,
+                        'reference' => $tokopayData['trx_id'] ?? null,
+                        'amount' => $tokopayData['total_bayar'] ?? $amount,
+                        'expired_at' => $tokopayData['expired_at'] ?? $tokopayData['expired_ts'] ?? null,
                     ];
                 } else {
                      $gatewayResult['msg'] = $res['error_msg'] ?? 'Gagal membuat pesanan TokoPay';

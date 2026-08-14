@@ -9,6 +9,7 @@ use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Http\Controllers\TokoPayController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -281,6 +282,79 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
         $this->assertEquals($tenant2->id, $orderB->tenant_id);
     }
 
+    public function test_tokopay_qr_response_is_normalized_for_gateway_invoice_media(): void
+    {
+        [$service] = $this->createTokopayCheckoutFixtures();
+        $qrLink = 'https://assets.tokopay.id/2023/06/TP230608ZYOF006758.png';
+        $qrString = '00020101021226670016COM.NOBUBANK.WWW01189360050300000892760214050400006914590303UME51440014ID.CO.QRIS.WWW0215ID20232586149990303UME5204549953033605405250005802ID5908TOKO PAY6009Pekanbaru61052811162550114060800801516540618TP230608ZYOF0067580703A010804POSP6304B90A';
+
+        $this->mock(TokoPayController::class, function ($mock) use ($qrLink, $qrString): void {
+            $mock->shouldReceive('createAdvanceOrder')->once()->andReturn([
+                'status' => 'Success',
+                'data' => [
+                    'qr_link' => $qrLink,
+                    'qr_string' => $qrString,
+                    'pay_url' => 'https://pay.tokopay.id/?token=xxx',
+                    'total_bayar' => 25000,
+                    'trx_id' => 'TP230608ZYOF006758',
+                ],
+            ]);
+        });
+
+        $result = app(\App\Services\Checkout\CheckoutOrderService::class)->createFromPayload([
+            'service' => $service->id,
+            'payment_method' => 'QRIS',
+            'nomor' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+        ], null, 'whatsapp_gateway', [
+            'external_user_id' => 'whatsapp:6281234567890',
+            'idempotency_key' => 'tokopay-qr-normalization',
+        ]);
+
+        $this->assertTrue($result['status']);
+        $this->assertSame('TP230608ZYOF006758', $result['payment']['reference']);
+        $this->assertSame(25000, $result['payment']['amount']);
+        $this->assertSame($qrLink, $result['payment']['qr_image_url']);
+        $this->assertSame($qrString, $result['payment']['qr_payload']);
+        $this->assertSame('https://pay.tokopay.id/?token=xxx', $result['payment']['payment_url']);
+        $this->assertSame('https://pay.tokopay.id/?token=xxx', $result['payment']['payment_code']);
+    }
+
+    public function test_tokopay_va_response_keeps_va_as_payment_code(): void
+    {
+        [$service] = $this->createTokopayCheckoutFixtures();
+
+        $this->mock(TokoPayController::class, function ($mock): void {
+            $mock->shouldReceive('createAdvanceOrder')->once()->andReturn([
+                'status' => 'Success',
+                'data' => [
+                    'nomor_va' => '8578330274425713',
+                    'pay_url' => 'https://pay.tokopay.id/?token=xxx',
+                    'total_bayar' => 20000,
+                    'trx_id' => 'T230404OTMP000001',
+                ],
+            ]);
+        });
+
+        $result = app(\App\Services\Checkout\CheckoutOrderService::class)->createFromPayload([
+            'service' => $service->id,
+            'payment_method' => 'BCAVA',
+            'nomor' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+        ], null, 'whatsapp_gateway', [
+            'external_user_id' => 'whatsapp:6281234567890',
+            'idempotency_key' => 'tokopay-va-normalization',
+        ]);
+
+        $this->assertTrue($result['status']);
+        $this->assertSame('8578330274425713', $result['payment']['payment_code']);
+        $this->assertSame('T230404OTMP000001', $result['payment']['reference']);
+        $this->assertNull($result['payment']['qr_image_url']);
+        $this->assertNull($result['payment']['qr_payload']);
+    }
+
     public function test_create_from_payload_accepts_gateway_sources_and_persists_source_metadata(): void
     {
         [$service] = $this->createManualCheckoutFixtures();
@@ -341,6 +415,48 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
         $this->assertNotSame($firstWhatsapp['order_id'], $telegram['order_id']);
 
         $this->assertSame(2, Pembelian::query()->count());
+    }
+
+    private function createTokopayCheckoutFixtures(): array
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '100 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-100',
+            'harga_member' => 10000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10000,
+            'profit_member' => 1000,
+            'profit_platinum' => 1000,
+            'profit_gold' => 1000,
+        ]);
+
+        Method::query()->create([
+            'name' => 'Tokopay QRIS',
+            'code' => 'QRIS',
+            'payment' => 'tokopay',
+            'tipe' => 'tokopay',
+            'images' => 'tokopay.png',
+            'keterangan' => 'Tokopay payment',
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+            'statuspayment' => 1,
+        ]);
+        Method::query()->create([
+            'name' => 'Tokopay VA',
+            'code' => 'BCAVA',
+            'payment' => 'tokopay',
+            'tipe' => 'tokopay',
+            'images' => 'tokopay.png',
+            'keterangan' => 'Tokopay VA',
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+            'statuspayment' => 1,
+        ]);
+
+        return [$service];
     }
 
     private function createManualCheckoutFixtures(): array

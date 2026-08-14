@@ -1391,6 +1391,106 @@ class BotWebhookTest extends TestCase
         $this->assertStringNotContainsString('https://pay.example/inv-1', $sent[0]['message']);
     }
 
+    public function test_fonnte_tokopay_qr_link_is_sent_as_media(): void
+    {
+        $qrLink = 'https://assets.tokopay.id/2023/06/TP230608ZYOF006758.png';
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($qrLink): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(
+                    paymentCode: 'QRIS',
+                    qrImageUrl: $qrLink,
+                ));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 QRIS user123 zone123',
+            'id' => 'MSG-TOKOPAY-QR-LINK',
+        ])->assertOk();
+
+        $this->assertCount(2, $sent);
+        $this->assertNull($sent[0]['url']);
+        $this->assertSame($qrLink, $sent[1]['url']);
+        $this->assertSame('', $sent[1]['message']);
+        $this->assertStringNotContainsString($qrLink, $sent[0]['message']);
+    }
+
+    public function test_fonnte_tokopay_qr_string_is_generated_as_media(): void
+    {
+        $qrString = '00020101021226670016COM.NOBUBANK.WWW01189360050300000892760214050400006914590303UME51440014ID.CO.QRIS.WWW0215ID20232586149990303UME5204549953033605405250005802ID5908TOKO PAY6009Pekanbaru61052811162550114060800801516540618TP230608ZYOF0067580703A010804POSP6304B90A';
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->times(2)
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock) use ($qrString): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(
+                    paymentCode: 'QRIS',
+                    qrPayload: $qrString,
+                ));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 QRIS user123 zone123',
+            'id' => 'MSG-TOKOPAY-QR-STRING',
+        ])->assertOk();
+
+        $this->assertCount(2, $sent);
+        $this->assertStringStartsWith('https://api.qrserver.com/v1/create-qr-code/', $sent[1]['url']);
+        $this->assertStringNotContainsString($qrString, $sent[0]['message']);
+    }
+
+    public function test_fonnte_tokopay_va_keeps_number_without_qris_media(): void
+    {
+        $sent = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sent): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $target, string $message, ?string $url = null) use (&$sent): array {
+                    $sent[] = compact('target', 'message', 'url');
+
+                    return ['success' => true];
+                });
+        });
+        $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('createInvoice')
+                ->once()
+                ->withAnyArgs()
+                ->andReturn($this->fakeInvoiceResponse(paymentCode: '8578330274425713'));
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'invoice 1 BCAVA user123 zone123',
+            'id' => 'MSG-TOKOPAY-VA',
+        ])->assertOk();
+
+        $this->assertCount(1, $sent);
+        $this->assertStringContainsString('Kode Bayar / VA: `8578330274425713`', $sent[0]['message']);
+        $this->assertNull($sent[0]['url']);
+    }
+
     public function test_fonnte_invoice_keeps_va_code_without_qris_media(): void
     {
         $sent = [];
@@ -1583,8 +1683,12 @@ class BotWebhookTest extends TestCase
         return 'bot:checkout-state:' . hash('sha256', $externalUserId);
     }
 
-    private function fakeInvoiceResponse(?string $qrisUrl = null, string $paymentCode = 'QRIS-1', ?string $qrPayload = null): array
-    {
+    private function fakeInvoiceResponse(
+        ?string $qrisUrl = null,
+        string $paymentCode = 'QRIS-1',
+        ?string $qrPayload = null,
+        ?string $qrImageUrl = null,
+    ): array {
         return [
             'ok' => true,
             'message' => 'Invoice berhasil dibuat.',
@@ -1597,6 +1701,7 @@ class BotWebhookTest extends TestCase
                 'qris_url' => $qrisUrl,
                 'payment' => array_filter([
                     'payment_code' => $paymentCode,
+                    'qr_image_url' => $qrImageUrl,
                     'qr_payload' => $qrPayload,
                     'amount' => 10000,
                 ]),

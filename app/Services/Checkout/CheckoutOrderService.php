@@ -358,6 +358,7 @@ class CheckoutOrderService
                 'amount' => $payment ? (int) $payment->harga : null,
                 'reference' => $payment?->reference,
                 'payment_code' => $payment?->no_pembayaran,
+                'provider' => $this->gatewayPaymentValue($order, 'provider'),
                 'payment_url' => $this->gatewayPaymentValue($order, 'payment_url'),
                 'qr_image_url' => $this->gatewayPaymentValue($order, 'qr_image_url'),
                 'qr_payload' => $this->gatewayPaymentValue($order, 'qr_payload'),
@@ -561,21 +562,20 @@ class CheckoutOrderService
             ]);
         }
 
-        $data = $result['data'] ?? [];
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+        $paymentCode = $data['nomor_va']
+            ?? $data['pay_code']
+            ?? $data['payment_code']
+            ?? $data['kode_bayar']
+            ?? null;
+        $paymentUrl = $data['checkout_url'] ?? $data['pay_url'] ?? null;
 
         return [
             'reference' => $data['trx_id'] ?? null,
-            'no_pembayaran' => $data['nomor_va']
-                ?? $data['pay_code']
-                ?? $data['payment_code']
-                ?? $data['kode_bayar']
-                ?? $data['qr_link']
-                ?? $data['checkout_url']
-                ?? $data['pay_url']
-                ?? null,
-            'payment_url' => $data['checkout_url'] ?? $data['pay_url'] ?? null,
+            'no_pembayaran' => $paymentCode ?? $paymentUrl,
+            'payment_url' => $paymentUrl,
             'qr_image_url' => $data['qr_link'] ?? null,
-            'qr_payload' => $data['qrString'] ?? $data['qr_string'] ?? null,
+            'qr_payload' => $data['qr_string'] ?? $data['qrString'] ?? null,
             'amount' => $data['total_bayar'] ?? $amount,
             'expired_at' => $data['expired_at'] ?? $data['expired_ts'] ?? null,
         ];
