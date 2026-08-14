@@ -103,7 +103,7 @@ class BotMessageFormatter
 
         return [
             'text' => "*Menu Utama*\nPilih kategori layanan yang Anda inginkan:" . $this->pageSuffix($pagination),
-            'buttons' => [...$buttons, [$this->button('🏆 Leaderboard', 'leaderboard')]],
+            'buttons' => [...$buttons, [$this->button('🏆 Leaderboard', 'leaderboard'), $this->button('💰 Deposit', 'deposit')]],
             'numeric_menu' => [
                 'menu' => 'categories',
                 'parent_menu' => null,
