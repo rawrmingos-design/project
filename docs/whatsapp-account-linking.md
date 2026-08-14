@@ -33,6 +33,24 @@ A number already verified for another account is rejected with a generic error. 
 - An unverified or ambiguous sender must not be authorized for WhatsApp deposits.
 - From WhatsApp, send `LINK <kode>` to consume the pending website challenge. Codes are six digits and must be sent from the same canonical number.
 - Send `STATUS_AKUN` or `📲 Status WhatsApp` to see whether the sender is linked, registered but unverified, unregistered, or unavailable. The response does not reveal account details.
+- A verified WhatsApp sender can use `RIWAYAT`, `HISTORY`, `PESANAN`, or `📜 Riwayat Order` to view up to five latest orders belonging to the linked account. Each detail request repeats owner and tenant authorization; invoice IDs are masked in the list and historical payment codes are not replayed.
+- Order history is WhatsApp-only in this phase. Telegram does not infer account ownership from a Telegram ID or username.
+- Order history uses the legacy `pembelians.username` owner field. `pembelians.user_id` remains the target game account ID and is not used for authorization. Detail buttons carry a bounded numeric order reference; the server resolves it again under the verified owner scope.
+- History pagination and detail reads are rate-limited per sender and return generic responses for unregistered, unverified, ambiguous, tenant-mismatch, or unavailable identities.
+
+## WhatsApp order history
+
+Use one of these commands after linking the WhatsApp number:
+
+- `RIWAYAT`
+- `HISTORY`
+- `PESANAN`
+- `📜 Riwayat Order`
+
+The bot shows the five latest orders with masked invoice IDs, product, date, amount, and normalized status. Select a detail entry or use the next/previous page. Detail lookup is constrained to the verified account and tenant; an invoice ID from another account is treated as unavailable. Payment codes, VA values, checkout URLs, game credentials, balances, and raw gateway metadata are not shown in history. History detail does not replay payment instructions or invoke the generic status flow.
+
+The current phase supports WhatsApp only. Telegram account linking is a separate feature and must not be inferred from Telegram usernames or IDs.
+
 - A verified sender can create a deposit with `DEPOSIT <jumlah> <metode>`, for example `DEPOSIT 15000 BCA`. The webhook message ID is required for retry-safe idempotency.
 - Deposit requests resolve the sender to the verified `User` before validating payment or calling a gateway. Unregistered, unverified, ambiguous, and tenant-mismatch senders are denied.
 - QR deposits send the payment text followed by QR media. VA and payment-code methods remain text. Website invoice URLs are not sent for QR deposits.

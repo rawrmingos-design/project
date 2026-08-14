@@ -188,7 +188,7 @@ Webhook provider dan payment harus memakai signature/secret serta kebijakan inbo
 
 ## WhatsApp account linking
 
-WhatsApp deposits require a verified number linked to the account. Open **Pengaturan**, create a linking code in the **WhatsApp Gateway** section, then send `LINK <kode>` from that number. The code is single-use and expires according to the configured challenge lifetime. See [docs/whatsapp-account-linking.md](docs/whatsapp-account-linking.md) for endpoint, security, and recovery details.
+WhatsApp deposits and personal order history require a verified number linked to the account. Open **Pengaturan**, create a linking code in the **WhatsApp Gateway** section, then send `LINK <kode>` from that number. The code is single-use and expires according to the configured challenge lifetime. After linking, use `RIWAYAT`, `HISTORY`, `PESANAN`, or `📜 Riwayat Order` in WhatsApp to view up to five latest orders owned by that account. History details use owner/tenant checks and do not replay payment codes, VA values, checkout URLs, or gateway metadata. Telegram history is out of scope until Telegram account linking exists. See [docs/whatsapp-account-linking.md](docs/whatsapp-account-linking.md) for endpoint, security, and recovery details.
 
 ## WhatsApp deposit rollout checklist
 
