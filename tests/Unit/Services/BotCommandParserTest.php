@@ -95,6 +95,27 @@ class BotCommandParserTest extends TestCase
         $this->assertSame([], $result['args']);
     }
 
+    public function test_parses_link_command_and_rejects_account_identifiers_as_arguments(): void
+    {
+        $result = $this->parser->parse('LINK 123456');
+        $this->assertSame('link', $result['command']);
+        $this->assertSame(['123456'], $result['args']);
+
+        $result = $this->parser->parse('link user@example.com');
+        $this->assertSame('link', $result['command']);
+        $this->assertSame(['user@example.com'], $result['args']);
+    }
+
+    public function test_parses_whatsapp_account_status_alias(): void
+    {
+        $result = $this->parser->parse('📲 Status WhatsApp');
+        $this->assertSame('account_status', $result['command']);
+        $this->assertSame([], $result['args']);
+
+        $result = $this->parser->parse('STATUS_AKUN');
+        $this->assertSame('status_akun', $result['command']);
+    }
+
     public function test_partial_alias_is_not_translated(): void
     {
         // Hanya teks yang persis sama yang diterjemahkan, bukan substring parsial

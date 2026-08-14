@@ -56,6 +56,15 @@ export default function Settings({ meta, settingsPage }) {
     const [disableCode, setDisableCode] = useState('');
     const [recoveryCodes, setRecoveryCodes] = useState([]);
     const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+    const initialWhatsappLink = settingsPage?.whatsappLink || {};
+    const [whatsappLink, setWhatsappLink] = useState({
+        ...initialWhatsappLink,
+        pending_challenge: initialWhatsappLink.pending_challenge || initialWhatsappLink.pendingChallenge || null,
+    });
+    const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappLink.number || profile.phone || '');
+    const [whatsappCode, setWhatsappCode] = useState('');
+    const [whatsappPassword, setWhatsappPassword] = useState('');
+    const [whatsappBusy, setWhatsappBusy] = useState(false);
 
     const showNotice = (message, tone = 'success') => {
         setNotice(message);
@@ -136,6 +145,68 @@ export default function Settings({ meta, settingsPage }) {
         }
     };
 
+    const refreshWhatsappLinkStatus = async () => {
+        try {
+            const payload = await fetch('/id/settings/whatsapp/status', {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            }).then((response) => response.json());
+            setWhatsappLink(payload?.data || {});
+        } catch (error) {
+            showNotice('Status WhatsApp tidak dapat dimuat.', 'error');
+        }
+    };
+
+    const createWhatsappLink = async () => {
+        setWhatsappBusy(true);
+        try {
+            const payload = await postJson('/id/settings/whatsapp/link', { no_wa: whatsappNumber });
+            const linkData = payload?.data || {};
+            setWhatsappLink({
+                ...linkData,
+                pending_challenge: linkData.pending_challenge || linkData.pendingChallenge || {
+                    expires_at: linkData.expires_at,
+                    expires_in_seconds: linkData.expires_in_minutes ? linkData.expires_in_minutes * 60 : null,
+                },
+            });
+            setWhatsappNumber(linkData.number || whatsappNumber);
+            setWhatsappCode(linkData.code || '');
+            showNotice(payload?.message || 'Kode linking berhasil dibuat.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setWhatsappBusy(false);
+        }
+    };
+
+    const revokeWhatsappLink = async () => {
+        setWhatsappBusy(true);
+        try {
+            const payload = await postJson('/id/settings/whatsapp/revoke', {});
+            setWhatsappLink((current) => ({ ...current, pending_challenge: null, pendingChallenge: null }));
+            setWhatsappCode('');
+            showNotice(payload?.message || 'Kode linking dibatalkan.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setWhatsappBusy(false);
+        }
+    };
+
+    const unlinkWhatsapp = async () => {
+        setWhatsappBusy(true);
+        try {
+            const payload = await postJson('/id/settings/whatsapp/unlink', { current_password: whatsappPassword });
+            setWhatsappLink({ verified: false, number: null });
+            setWhatsappPassword('');
+            setWhatsappCode('');
+            showNotice(payload?.message || 'Nomor WhatsApp dilepas.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setWhatsappBusy(false);
+        }
+    };
+
     const disableTwoFactor = async () => {
         setTwoFactorBusy(true);
         try {
@@ -155,6 +226,10 @@ export default function Settings({ meta, settingsPage }) {
             setTwoFactorBusy(false);
         }
     };
+
+    React.useEffect(() => {
+        refreshWhatsappLinkStatus();
+    }, []);
 
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -367,6 +442,57 @@ export default function Settings({ meta, settingsPage }) {
                                         </div>
                                     </div>
                                 ) : null}
+                            </section>
+
+                            <section className="public-settings-card">
+                                <h2>WhatsApp Gateway</h2>
+                                <p>Verifikasi nomor WhatsApp agar akun dapat digunakan untuk fitur deposit melalui WhatsApp gateway.</p>
+                                <div className="public-settings-form">
+                                    <label>
+                                        <span>Nomor WhatsApp</span>
+                                        <input
+                                            type="text"
+                                            value={whatsappNumber}
+                                            onChange={(event) => setWhatsappNumber(event.target.value)}
+                                            inputMode="tel"
+                                            autoComplete="tel"
+                                        />
+                                    </label>
+                                    <div className="public-settings-oauth__actions">
+                                        <button type="button" onClick={createWhatsappLink} disabled={whatsappBusy || whatsappNumber.trim() === ''}>
+                                            {whatsappBusy ? 'Memproses...' : 'Buat Kode Linking'}
+                                        </button>
+                                        <button type="button" className="is-secondary" onClick={refreshWhatsappLinkStatus} disabled={whatsappBusy}>
+                                            Cek Status
+                                        </button>
+                                    </div>
+                                    {whatsappLink.pending_challenge || whatsappLink.pendingChallenge ? (
+                                        <div className="public-settings-2fa__meta">
+                                            <p>Kirim <strong>LINK &lt;kode&gt;</strong> dari nomor WhatsApp tersebut. Kode hanya berlaku satu kali.</p>
+                                            {whatsappCode ? <code>{whatsappCode}</code> : null}
+                                            <button type="button" className="is-secondary" onClick={revokeWhatsappLink} disabled={whatsappBusy}>
+                                                Batalkan Kode
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                    <p>
+                                        Status: <strong>{whatsappLink.verified ? 'Terverifikasi' : 'Belum terverifikasi'}</strong>
+                                        {whatsappLink.number ? ` — ${whatsappLink.number}` : ''}
+                                    </p>
+                                    {whatsappLink.verified ? (
+                                        <div className="public-settings-form">
+                                            <input
+                                                type="password"
+                                                value={whatsappPassword}
+                                                onChange={(event) => setWhatsappPassword(event.target.value)}
+                                                placeholder="Kata sandi untuk unlink"
+                                            />
+                                            <button type="button" className="is-danger" onClick={unlinkWhatsapp} disabled={whatsappBusy || whatsappPassword.trim() === ''}>
+                                                Lepas WhatsApp
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </section>
 
                             <section className="public-settings-card">

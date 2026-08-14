@@ -8,15 +8,27 @@ use App\Services\Bot\Adapters\TelegramAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class BotWebhookController extends Controller
 {
     public function telegram(Request $request, TelegramAdapter $adapter): JsonResponse
     {
+        $request->attributes->set('bot_correlation_id', (string) Str::uuid());
         $secret = (string) config('services.telegram-bot-api.webhook_secret');
         $headerToken = (string) $request->header('X-Telegram-Bot-Api-Secret-Token', '');
 
         if ($secret !== '' && ! hash_equals($secret, $headerToken)) {
+            $invalidKey = 'bot-invalid:ip:' . $request->ip();
+            $invalidLimit = max(1, (int) config('rate_limits.callbacks.bot_invalid_per_minute', 20));
+
+            if (RateLimiter::tooManyAttempts($invalidKey, $invalidLimit)) {
+                return response()->json(['message' => 'Too Many Requests'], 429);
+            }
+
+            RateLimiter::hit($invalidKey, 60);
+
             Log::warning('Telegram webhook authentication failed.', [
                 'ip' => $request->ip(),
                 'secret_configured' => $secret !== '',
@@ -30,11 +42,22 @@ class BotWebhookController extends Controller
 
     public function fonnte(Request $request, FonnteAdapter $adapter): JsonResponse
     {
-        $expectedToken = (string) config('services.fonnte.device_token');
-        $providedToken = (string) ($request->header('Authorization') ?: $request->input('device_token', ''));
+        $request->attributes->set('bot_correlation_id', (string) Str::uuid());
+        $expectedToken = trim((string) config('services.fonnte.device_token'));
+        $providedToken = trim((string) ($request->header('Authorization') ?: $request->input('device_token', '')));
 
-        if ($providedToken !== '' && $expectedToken !== '' && ! hash_equals($expectedToken, $providedToken)) {
+        if ($expectedToken === '' || $providedToken === '' || ! hash_equals($expectedToken, $providedToken)) {
+            $invalidKey = 'bot-invalid:ip:' . $request->ip();
+            $invalidLimit = max(1, (int) config('rate_limits.callbacks.bot_invalid_per_minute', 20));
+
+            if (RateLimiter::tooManyAttempts($invalidKey, $invalidLimit)) {
+                return response()->json(['message' => 'Too Many Requests'], 429);
+            }
+
+            RateLimiter::hit($invalidKey, 60);
+
             Log::warning('Fonnte webhook authentication failed.', [
+                'correlation_id' => $request->attributes->get('bot_correlation_id'),
                 'ip' => $request->ip(),
                 'secret_configured' => $expectedToken !== '',
             ]);

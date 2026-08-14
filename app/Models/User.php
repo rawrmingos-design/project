@@ -33,6 +33,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         'role',
         'balance',
         'no_wa',
+        'whatsapp_verified_at',
         'otp',
         'google_id',
         'google_avatar',
@@ -74,6 +75,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'whatsapp_verified_at' => 'datetime',
         'tenant_id' => 'integer',
         'balance' => 'integer',
         'point_balance' => 'integer',

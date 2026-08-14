@@ -4,8 +4,12 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DsController as LegacySettingsController;
+use App\Models\WhatsappLinkChallenge;
 use App\Services\PublicSiteConfigService;
+use App\Services\Whatsapp\WhatsappLinkService;
+use App\Services\WhatsappNotificationService;
 use App\Support\PublicThemeRegistry;
+use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +37,13 @@ class SettingsPageController extends Controller
         }
 
         $user = Auth::user();
+        $pendingWhatsappChallenge = WhatsappLinkChallenge::query()
+            ->where('user_id', $user->getKey())
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
         $recoveryCodes = json_decode((string) ($user->two_factor_recovery_codes ?? '[]'), true);
         $recoveryCodes = is_array($recoveryCodes) ? array_values(array_filter($recoveryCodes, fn ($code) => filled($code))) : [];
 
@@ -48,6 +59,15 @@ class SettingsPageController extends Controller
                 'twoFactor' => [
                     'enabled' => filled($user->two_factor_secret),
                     'recoveryCodesCount' => count($recoveryCodes),
+                ],
+                'whatsappLink' => [
+                    'number' => $user->no_wa,
+                    'verified' => $user->whatsapp_verified_at !== null,
+                    'verifiedAt' => $user->whatsapp_verified_at?->toIso8601String(),
+                    'pendingChallenge' => $pendingWhatsappChallenge ? [
+                        'expiresAt' => $pendingWhatsappChallenge->expires_at?->toIso8601String(),
+                        'expiresInSeconds' => max(0, now()->diffInSeconds($pendingWhatsappChallenge->expires_at)),
+                    ] : null,
                 ],
                 'oauth' => [
                     'googleConnected' => filled($user->google_id ?? null),
@@ -75,6 +95,121 @@ class SettingsPageController extends Controller
         ]);
     }
 
+    public function whatsappLinkStatus(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $pendingChallenge = WhatsappLinkChallenge::query()
+            ->where('user_id', $user->getKey())
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'number' => $user->no_wa,
+                'verified' => $user->whatsapp_verified_at !== null,
+                'verified_at' => $user->whatsapp_verified_at?->toIso8601String(),
+                'pending_challenge' => $pendingChallenge ? [
+                    'expires_at' => $pendingChallenge->expires_at?->toIso8601String(),
+                    'expires_in_seconds' => max(0, now()->diffInSeconds($pendingChallenge->expires_at)),
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function createWhatsappLinkChallenge(
+        Request $request,
+        WhatsappLinkService $linkService,
+        WhatsappNotificationService $whatsappNotificationService,
+    ): JsonResponse {
+        $request->validate([
+            'no_wa' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (WhatsappNumberNormalizer::normalize((string) $value) === null) {
+                    $fail($attribute . ' harus berupa nomor Indonesia yang valid.');
+                }
+            }],
+        ]);
+
+        $user = $request->user();
+        $normalizedNumber = WhatsappNumberNormalizer::normalize((string) $request->input('no_wa'));
+
+        if ($normalizedNumber === null) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor WhatsApp tidak valid.',
+                'error_code' => 'WHATSAPP_INVALID_NUMBER',
+            ], 422);
+        }
+
+        try {
+            $result = $linkService->createChallenge($user, $normalizedNumber);
+        } catch (ValidationException) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor WhatsApp tidak dapat digunakan.',
+                'error_code' => 'WHATSAPP_NUMBER_UNAVAILABLE',
+            ], 422);
+        }
+
+        $message = sprintf(
+            "Permintaan linking akun diterima. Kirim LINK %s dari nomor ini melalui WhatsApp. Kode berlaku %d menit dan hanya dapat digunakan satu kali. Jangan bagikan kode ini.",
+            $result['code'],
+            $result['expires_in_minutes'],
+        );
+        $notification = $whatsappNotificationService->sendMessage($normalizedNumber, $message);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => ($notification['success'] ?? false)
+                ? 'Kode linking telah dikirim ke WhatsApp.'
+                : 'Kode linking dibuat. Kirim kode tersebut dari nomor WhatsApp yang didaftarkan.',
+            'data' => [
+                'number' => $normalizedNumber,
+                'code' => $result['code'],
+                'instruction' => 'Kirim LINK <kode> dari nomor WhatsApp ini.',
+                'expires_at' => $result['expires_at']->toIso8601String(),
+                'expires_in_minutes' => $result['expires_in_minutes'],
+                'notification_sent' => ($notification['success'] ?? false) === true,
+            ],
+        ]);
+    }
+
+    public function revokeWhatsappLinkChallenge(Request $request, WhatsappLinkService $linkService): JsonResponse
+    {
+        $linkService->revokeForUser($request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Kode linking dibatalkan.',
+        ]);
+    }
+
+    public function unlinkWhatsapp(Request $request, WhatsappLinkService $linkService): JsonResponse
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        if (! Hash::check((string) $request->input('current_password'), (string) $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kata sandi saat ini tidak cocok.',
+                'error_code' => 'INVALID_PASSWORD',
+            ], 422);
+        }
+
+        $linkService->unlink($user);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Nomor WhatsApp berhasil dilepas dari akun.',
+        ]);
+    }
+
     public function updateProfile(
         Request $request,
         LegacySettingsController $legacySettingsController,
@@ -88,7 +223,20 @@ class SettingsPageController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'min:3', 'max:255', 'unique:users,username,' . Auth::id()],
-            'no_wa' => ['required', 'regex:/^[0-9]{10,18}$/'],
+            'no_wa' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                $normalized = WhatsappNumberNormalizer::normalize((string) $value);
+                if ($normalized === null) {
+                    $fail($attribute . ' harus berupa nomor Indonesia yang valid.');
+                    return;
+                }
+
+                if (\App\Models\User::query()
+                    ->where('no_wa', $normalized)
+                    ->where('id', '<>', Auth::id())
+                    ->exists()) {
+                    $fail($attribute . ' telah digunakan.');
+                }
+            }],
         ], [
             'name.required' => 'Harap isi kolom nama.',
             'username.required' => 'Harap isi kolom username.',
@@ -98,9 +246,17 @@ class SettingsPageController extends Controller
         ]);
 
         $user = Auth::user();
+        $normalizedWhatsapp = WhatsappNumberNormalizer::normalize((string) $request->input('no_wa'));
+        if ($normalizedWhatsapp === null) {
+            return redirect()->back()->withErrors([
+                'no_wa' => 'Nomor WhatsApp harus berupa nomor Indonesia yang valid.',
+            ]);
+        }
+
         $user->name = trim((string) $request->input('name'));
         $user->username = trim((string) $request->input('username'));
-        $user->no_wa = trim((string) $request->input('no_wa'));
+        $user->no_wa = $normalizedWhatsapp;
+        $user->whatsapp_verified_at = null;
         $user->save();
 
         return redirect()->back()->with('success', 'Profil berhasil diperbarui.');

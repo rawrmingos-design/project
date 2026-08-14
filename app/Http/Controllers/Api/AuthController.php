@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
+use App\Support\WhatsappNumberNormalizer;
 
 class AuthController extends Controller
 {
@@ -80,7 +81,17 @@ class AuthController extends Controller
             'username' => 'required|string|min:3|unique:users,username|max:255',
             'password' => 'required|string|min:6|max:255',
             'email' => 'required|email|unique:users,email',
-            'no_wa' => 'required|numeric|unique:users,no_wa',
+            'no_wa' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                $normalized = WhatsappNumberNormalizer::normalize((string) $value);
+                if ($normalized === null) {
+                    $fail($attribute . ' harus berupa nomor Indonesia yang valid.');
+                    return;
+                }
+
+                if (User::query()->where('no_wa', $normalized)->exists()) {
+                    $fail($attribute . ' telah digunakan.');
+                }
+            }],
             'kode_referral' => 'nullable|string',
         ]);
 
@@ -92,9 +103,12 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $noWa = $request->no_wa;
-        if ($noWa[0] == '0') {
-            $noWa = '62' . substr($noWa, 1);
+        $noWa = WhatsappNumberNormalizer::normalize((string) $request->no_wa);
+        if ($noWa === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nomor WhatsApp harus berupa nomor Indonesia yang valid.',
+            ], 422);
         }
 
         do {
