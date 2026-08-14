@@ -707,6 +707,12 @@ class BotMessageFormatter
 
         // Step 3: Cek raw QR string atau checkout URL dari berbagai gateway
         $qrData = null;
+        $provider = strtolower(trim((string) data_get($invoice, 'payment.provider', '')));
+        $paymentUrl = trim((string) data_get($invoice, 'payment.payment_url', ''));
+        $paymentCodeIsTokopayUrl = $provider === 'tokopay'
+            && $paymentUrl !== ''
+            && trim($paymentCode) === $paymentUrl;
+
         foreach ([
             data_get($invoice, 'payment.qr_payload'),
             data_get($invoice, 'qr_payload'),
@@ -725,6 +731,10 @@ class BotMessageFormatter
             $paymentCode,                             // Fallback ke payment_code
         ] as $candidate) {
             $candidate = trim((string) $candidate);
+            if ($paymentCodeIsTokopayUrl && $candidate === $paymentUrl) {
+                continue;
+            }
+
             if ($candidate !== '' && ($this->isQrisPayload($candidate) || $this->isCheckoutUrl($candidate))) {
                 $qrData = $candidate;
                 break;
