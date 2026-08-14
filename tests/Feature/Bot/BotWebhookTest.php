@@ -480,7 +480,7 @@ class BotWebhookTest extends TestCase
         ])->assertOk();
 
         $this->assertStringContainsString('1. 🎮 Top Up Games — ketik: 1', $sentMessages[0]['message']);
-        $this->assertStringContainsString('Ketik 1-2 untuk memilih.', $sentMessages[0]['message']);
+        $this->assertStringContainsString('Ketik 1-3 untuk memilih.', $sentMessages[0]['message']);
 
         $stateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890');
         $this->assertSame('categories', Cache::get($stateKey)['menu']);
