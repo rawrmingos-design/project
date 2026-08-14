@@ -23,6 +23,8 @@ class BotCommandParser
             '❌ Batal Transaksi' => 'batal',
             '📞 Hubungi Admin'   => 'admin',
             '🏆 Leaderboard'     => 'leaderboard',
+            '💰 Deposit'         => 'deposit',
+            '📲 Status WhatsApp'  => 'account_status',
             default              => $message,
         };
 

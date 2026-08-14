@@ -7,7 +7,6 @@ use App\Models\User;
 use App\Models\Layanan;
 use App\Models\Kategori;
 use App\Models\Method;
-use App\Models\Pembelian;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +42,14 @@ class TransactionCreationTest extends TestCase
                     'rc'          => '00',
                     'message'     => 'Success',
                 ],
+            ], 200),
+            'api-cek-id-game-ten.vercel.app/*' => Http::response([
+                'status' => true,
+                'nickname' => 'TestNick',
+            ], 200),
+            'cekid.jasakoding.web.id/*' => Http::response([
+                'status' => true,
+                'data' => ['username' => 'TestNick'],
             ], 200),
         ]);
 

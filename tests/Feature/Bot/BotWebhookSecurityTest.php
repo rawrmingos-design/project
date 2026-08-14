@@ -101,8 +101,36 @@ class BotWebhookSecurityTest extends TestCase
             ->postJson('/api/webhooks/bot/fonnte', [], [
                 'Authorization' => 'correct-fonnte-secret',
             ]);
-            
+
         // 200 OK because empty payload results in status: ignored
-        $response->assertStatus(200); 
+        $response->assertStatus(200);
+    }
+
+    public function test_fonnte_rejects_when_configured_device_token_is_missing(): void
+    {
+        config(['services.fonnte.device_token' => '']);
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
+            ->postJson('/api/webhooks/bot/fonnte', [], [
+                'Authorization' => 'correct-fonnte-secret',
+            ]);
+
+        $response->assertStatus(401);
+    }
+
+    public function test_fonnte_rate_limits_repeated_invalid_credentials(): void
+    {
+        config(['rate_limits.callbacks.bot_invalid_per_minute' => 1]);
+
+        $server = ['REMOTE_ADDR' => '202.162.212.1'];
+        $headers = ['Authorization' => 'wrong-secret'];
+
+        $this->withServerVariables($server)
+            ->postJson('/api/webhooks/bot/fonnte', [], $headers)
+            ->assertStatus(401);
+
+        $this->withServerVariables($server)
+            ->postJson('/api/webhooks/bot/fonnte', [], $headers)
+            ->assertStatus(429);
     }
 }

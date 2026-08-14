@@ -12,6 +12,7 @@ use App\Models\Berita;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
+use App\Support\WhatsappNumberNormalizer;
 
 class RegisterController extends Controller
 {
@@ -38,7 +39,17 @@ class RegisterController extends Controller
             'password' => 'required|string|min:6|max:255',
             'passwordd' => 'required|string|min:6|same:password',
             'email' => 'required|email|max:255|unique:users,email',
-            'no_wa' => 'required|regex:/^[0-9]{10,20}$/|unique:users,no_wa',
+            'no_wa' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                $normalized = WhatsappNumberNormalizer::normalize((string) $value);
+                if ($normalized === null) {
+                    $fail($attribute . ' harus berupa nomor Indonesia yang valid.');
+                    return;
+                }
+
+                if (User::query()->where('no_wa', $normalized)->exists()) {
+                    $fail($attribute . ' telah digunakan.');
+                }
+            }],
         ];
 
         if ($this->isAuthCaptchaEnabled()) {
@@ -60,10 +71,12 @@ class RegisterController extends Controller
         // Hash password
         $hashedPassword = Hash::make($request->password);
 
-        // Sanitasi nomor WhatsApp
-        $no_wa = $request->no_wa;
-        if ($no_wa[0] == '0') {
-            $no_wa = '62' . substr($no_wa, 1);
+        // Simpan nomor WhatsApp dalam format canonical Indonesia.
+        $no_wa = WhatsappNumberNormalizer::normalize((string) $request->no_wa);
+        if ($no_wa === null) {
+            return redirect()->back()->withErrors([
+                'no_wa' => 'Nomor WhatsApp harus berupa nomor Indonesia yang valid.',
+            ])->withInput();
         }
 
         // Generate Referral Code

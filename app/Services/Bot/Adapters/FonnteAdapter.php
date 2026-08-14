@@ -5,6 +5,7 @@ namespace App\Services\Bot\Adapters;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
 use App\Services\WhatsappNotificationService;
+use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
@@ -32,7 +33,8 @@ class FonnteAdapter implements BotAdapterInterface
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:' . $sender,
             'message_id' => $messageId ? 'whatsapp:' . $messageId : null,
-            'whatsapp' => preg_replace('/\D+/', '', (string) $sender),
+            'correlation_id' => $request->attributes->get('bot_correlation_id'),
+            'whatsapp' => WhatsappNumberNormalizer::normalize((string) $sender),
         ];
         $numericMenuKey = $this->numericMenuStateKey((string) $sender);
         $numericMenuState = Cache::get($numericMenuKey);

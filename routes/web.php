@@ -191,6 +191,10 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
         Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
         Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
+        Route::get('/settings/whatsapp/status',                                      [PublicSettingsPageController::class, 'whatsappLinkStatus'])->middleware('throttle:security-settings')->name('settings.whatsapp.status');
+        Route::post('/settings/whatsapp/link',                                      [PublicSettingsPageController::class, 'createWhatsappLinkChallenge'])->middleware('throttle:security-settings')->name('settings.whatsapp.link');
+        Route::post('/settings/whatsapp/revoke',                                    [PublicSettingsPageController::class, 'revokeWhatsappLinkChallenge'])->middleware('throttle:security-settings')->name('settings.whatsapp.revoke');
+        Route::post('/settings/whatsapp/unlink',                                    [PublicSettingsPageController::class, 'unlinkWhatsapp'])->middleware('throttle:critical-security-settings')->name('settings.whatsapp.unlink');
         Route::post('/settings/change-password',                                     [PublicSettingsPageController::class, 'changePassword'])->middleware('throttle:security-settings')->name('settings.change-password');
         Route::post('/settings/api-key/regenerate',                                  [PublicSettingsPageController::class, 'regenerateApiKey'])->middleware(['not-reseller', 'throttle:critical-security-settings'])->name('settings.api-key.regenerate');
         Route::post('/settings/2fa/setup',                                           [PublicSettingsPageController::class, 'setupTwoFactor'])->middleware('throttle:security-settings')->name('settings.2fa.setup');

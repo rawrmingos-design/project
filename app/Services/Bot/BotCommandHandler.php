@@ -7,7 +7,13 @@ use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
 use App\Services\Gateway\GatewayPricingService;
 use App\Services\PaymentMethodCatalogService;
+use App\Services\Deposit\DepositService;
+use App\Services\Whatsapp\WhatsappLinkService;
+use App\Services\Whatsapp\WhatsappUserResolver;
+use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 class BotCommandHandler
@@ -20,7 +26,10 @@ class BotCommandHandler
         private readonly GatewayInvoiceService $invoice,
         private readonly BotMessageFormatter $formatter,
         private readonly TelegramChannelMembershipService $telegramMembership,
-        private readonly ?\App\Services\LeaderboardService $leaderboard = null
+        private readonly ?\App\Services\LeaderboardService $leaderboard = null,
+        private readonly ?WhatsappUserResolver $whatsappUserResolver = null,
+        private readonly ?WhatsappLinkService $whatsappLinkService = null,
+        private readonly ?DepositService $depositService = null
     ) {}
 
     /**
@@ -56,6 +65,9 @@ class BotCommandHandler
                 'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
                 'menu' => $this->handleMenu($args),
                 'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
+                'link' => $this->handleWhatsappLink($args, $context),
+                'deposit', 'topup', 'isi_saldo' => $this->handleWhatsappDeposit($args, $context),
+                'account_status', 'whatsapp_status', 'status_akun' => $this->handleWhatsappAccountStatus($context),
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
                 'pembayaran', 'metode' => $this->handlePembayaran($args),
@@ -74,11 +86,223 @@ class BotCommandHandler
                 'buttons' => [['text' => 'Kembali ke Menu', 'callback' => 'menu']]
             ];
         } catch (\Throwable $e) {
+            Log::error('Bot command handling failed.', [
+                'correlation_id' => $context['correlation_id'] ?? null,
+                'action' => $command,
+                'source' => $context['source'] ?? null,
+                'exception' => $e::class,
+            ]);
+
             return [
-                'text' => "Terjadi kesalahan internal: " . $e->getMessage(),
-                'buttons' => []
+                'text' => 'Terjadi kesalahan internal. Coba lagi nanti.',
+                'buttons' => [],
             ];
         }
+    }
+
+    private function handleWhatsappLink(array $args, array $context): array
+    {
+        if (($context['source'] ?? null) !== 'whatsapp_gateway') {
+            return [
+                'text' => 'Perintah linking hanya tersedia melalui WhatsApp gateway.',
+                'buttons' => [],
+            ];
+        }
+
+        if (RateLimiter::tooManyAttempts(
+            'bot-link:' . $this->senderFingerprint($context),
+            max(1, (int) config('rate_limits.callbacks.link_per_sender_per_minute', 5)),
+        )) {
+            return [
+                'text' => 'Terlalu banyak percobaan linking. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+        RateLimiter::hit('bot-link:' . $this->senderFingerprint($context), 60);
+
+        $sender = WhatsappNumberNormalizer::normalize((string) ($context['whatsapp'] ?? ''));
+        $code = trim((string) ($args[0] ?? ''));
+        if ($sender === null || ! preg_match('/^\d{6}$/', $code)) {
+            return [
+                'text' => 'Format salah. Gunakan: `LINK <kode>` dari nomor yang didaftarkan di website.',
+                'buttons' => [],
+            ];
+        }
+
+        $result = ($this->whatsappLinkService ?? app(WhatsappLinkService::class))
+            ->verifyChallenge($sender, $code);
+
+        Log::info('Bot WhatsApp linking attempt.', [
+            'correlation_id' => $context['correlation_id'] ?? null,
+            'action' => 'link',
+            'result' => $result['status'] ?? $result['reason'] ?? 'unknown',
+        ]);
+
+        if (($result['status'] ?? null) === 'verified') {
+            return [
+                'text' => 'Nomor WhatsApp berhasil ditautkan ke akun. Kamu sekarang dapat menggunakan fitur gateway yang memerlukan verifikasi.',
+                'buttons' => [['text' => '🔙 Kembali ke Menu', 'callback' => 'menu']],
+            ];
+        }
+
+        $message = match ($result['reason'] ?? null) {
+            'expired' => 'Kode linking sudah kedaluwarsa. Buat kode baru dari halaman Pengaturan.',
+            'max_attempts' => 'Kode linking sudah tidak dapat digunakan. Buat kode baru dari halaman Pengaturan.',
+            'not_found', 'invalid_code' => 'Kode linking tidak valid atau sudah tidak dapat digunakan.',
+            default => 'Linking belum dapat diselesaikan. Buat kode baru dari halaman Pengaturan jika diperlukan.',
+        };
+
+        return [
+            'text' => $message,
+            'buttons' => [],
+        ];
+    }
+
+    private function handleWhatsappDeposit(array $args, array $context): array
+    {
+        if (($context['source'] ?? null) !== 'whatsapp_gateway') {
+            return [
+                'text' => 'Perintah deposit melalui WhatsApp gateway saja.',
+                'buttons' => [],
+            ];
+        }
+
+        if (RateLimiter::tooManyAttempts(
+            'bot-deposit:' . $this->senderFingerprint($context),
+            max(1, (int) config('rate_limits.callbacks.deposit_per_sender_per_minute', 10)),
+        )) {
+            return [
+                'text' => 'Terlalu banyak percobaan deposit. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+        RateLimiter::hit('bot-deposit:' . $this->senderFingerprint($context), 60);
+
+        $sender = WhatsappNumberNormalizer::normalize((string) ($context['whatsapp'] ?? ''));
+        if ($sender === null) {
+            return [
+                'text' => 'Nomor WhatsApp tidak dapat diverifikasi. Coba lagi melalui webhook yang valid.',
+                'buttons' => [],
+            ];
+        }
+
+        $identity = ($this->whatsappUserResolver ?? app(WhatsappUserResolver::class))->resolve($sender);
+        if (($identity['status'] ?? null) !== WhatsappUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
+            Log::notice('Bot WhatsApp identity denied.', [
+                'correlation_id' => $context['correlation_id'] ?? null,
+                'action' => 'deposit',
+                'reason' => $identity['status'] ?? 'unknown',
+            ]);
+            $message = match ($identity['status'] ?? null) {
+                WhatsappUserResolver::STATUS_UNREGISTERED => 'Nomor WhatsApp belum terdaftar. Daftarkan akun dan selesaikan linking dari halaman Pengaturan terlebih dahulu.',
+                WhatsappUserResolver::STATUS_REGISTERED_UNVERIFIED => 'Nomor WhatsApp belum terverifikasi. Selesaikan linking dari halaman Pengaturan terlebih dahulu.',
+                WhatsappUserResolver::STATUS_AMBIGUOUS, WhatsappUserResolver::STATUS_TENANT_MISMATCH => 'Nomor WhatsApp tidak dapat dipastikan kepemilikannya. Hubungi admin melalui jalur resmi.',
+                default => 'Nomor WhatsApp belum dapat diverifikasi. Coba lagi nanti.',
+            };
+
+            return [
+                'text' => $message,
+                'buttons' => [],
+            ];
+        }
+
+        if (count($args) < 2) {
+            return [
+                'text' => 'Format deposit: `DEPOSIT <jumlah> <metode>`\nContoh: `DEPOSIT 15000 BCA`',
+                'buttons' => [],
+            ];
+        }
+
+        $messageId = filled($context['message_id'] ?? null) ? (string) $context['message_id'] : null;
+        if ($messageId === null) {
+            return [
+                'text' => 'Pesan WhatsApp tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
+                'buttons' => [],
+            ];
+        }
+
+        $amount = filter_var($args[0], FILTER_VALIDATE_INT, ['options' => ['min_range' => 10000]]);
+        $method = strtoupper(trim((string) $args[1]));
+        if ($amount === false || $method === '') {
+            return [
+                'text' => 'Jumlah minimal deposit Rp 10.000 dan metode pembayaran wajib diisi.',
+                'buttons' => [],
+            ];
+        }
+
+        $result = ($this->depositService ?? app(DepositService::class))->create($identity['user'], [
+            'jumlah' => $amount,
+            'metode' => $method,
+            'no_telfon' => $sender,
+            'source' => 'whatsapp_gateway',
+            'external_user_id' => (string) ($context['external_user_id'] ?? 'whatsapp:' . $sender),
+            'external_message_id' => $messageId,
+        ]);
+
+        if (! ($result['success'] ?? false)) {
+            return [
+                'text' => (string) ($result['message'] ?? 'Deposit tidak dapat dibuat. Coba lagi nanti.'),
+                'buttons' => [],
+            ];
+        }
+
+        $paymentCode = trim((string) ($result['payment_code'] ?? ''));
+        $qrLink = trim((string) ($result['qr_link'] ?? ''));
+        $qrPayload = trim((string) ($result['qr_payload'] ?? ''));
+        $lines = [
+            '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
+            '',
+            'Order ID: `' . $result['order_id'] . '`',
+            'Jumlah: Rp ' . number_format((int) ($result['gross_amount'] ?? $amount), 0, ',', '.'),
+        ];
+
+        if ($paymentCode !== '' && $qrLink === '' && $qrPayload === '') {
+            $lines[] = 'Kode Bayar / VA: `' . $paymentCode . '`';
+        } elseif ($qrLink !== '' || $qrPayload !== '') {
+            $lines[] = 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
+        } elseif (filled($result['checkout_url'] ?? null) || filled($result['pay_url'] ?? null)) {
+            $lines[] = 'Gunakan URL pembayaran berikut: ' . ($result['checkout_url'] ?? $result['pay_url']);
+        }
+
+        $response = [
+            'text' => implode("\n", $lines),
+            'buttons' => [],
+        ];
+
+        if ($qrLink !== '' || $qrPayload !== '') {
+            $response['photo_url'] = $qrLink !== ''
+                ? $qrLink
+                : 'https://api.qrserver.com/v1/create-qr-code/?size=512x512&margin=15&data=' . rawurlencode($qrPayload);
+        }
+
+        return $response;
+    }
+
+    private function handleWhatsappAccountStatus(array $context): array
+    {
+        if (($context['source'] ?? null) !== 'whatsapp_gateway') {
+            return [
+                'text' => 'Status akun WhatsApp hanya tersedia melalui WhatsApp gateway.',
+                'buttons' => [],
+            ];
+        }
+
+        $result = ($this->whatsappUserResolver ?? app(WhatsappUserResolver::class))
+            ->resolve($context['whatsapp'] ?? null);
+
+        $message = match ($result['status'] ?? null) {
+            WhatsappUserResolver::STATUS_LINKED => 'Nomor WhatsApp kamu sudah terverifikasi dan tertaut ke akun.',
+            WhatsappUserResolver::STATUS_REGISTERED_UNVERIFIED => 'Nomor WhatsApp terdaftar, tetapi belum terverifikasi. Selesaikan linking dari halaman Pengaturan.',
+            WhatsappUserResolver::STATUS_UNREGISTERED => 'Nomor WhatsApp belum terdaftar. Daftarkan akun terlebih dahulu, lalu mulai linking dari halaman Pengaturan.',
+            WhatsappUserResolver::STATUS_AMBIGUOUS => 'Status nomor tidak dapat dipastikan karena data akun ganda. Hubungi admin melalui jalur resmi.',
+            WhatsappUserResolver::STATUS_TENANT_MISMATCH => 'Nomor terdaftar pada konteks akun lain dan tidak dapat digunakan di sini.',
+            default => 'Status nomor WhatsApp tidak dapat diproses. Coba lagi nanti.',
+        };
+
+        return [
+            'text' => $message,
+            'buttons' => [],
+        ];
     }
 
     private function handleMenu(array $args = []): array
@@ -374,6 +598,14 @@ class BotCommandHandler
     private function checkoutStateKey(array $context): string
     {
         return 'bot:checkout-state:' . hash('sha256', (string) $context['external_user_id']);
+    }
+
+    private function senderFingerprint(array $context): string
+    {
+        $sender = WhatsappNumberNormalizer::normalize((string) ($context['whatsapp'] ?? ''));
+        $identity = $sender ?: (string) ($context['external_user_id'] ?? 'unknown');
+
+        return hash_hmac('sha256', $identity, (string) config('app.key'));
     }
 
     private function pageFromArgs(array $args): int

@@ -9,6 +9,7 @@ use App\Models\Kategori;
 use App\Models\User;
 use App\Services\PublicSiteConfigService;
 use App\Support\PublicThemeRegistry;
+use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -197,7 +198,17 @@ class AffiliatePageController extends Controller
         }
 
         $validated = $request->validate([
-            'whatsapp' => ['required', 'string', 'max:30', 'regex:/^[0-9+\-\s]{8,30}$/'],
+            'whatsapp' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                $normalized = WhatsappNumberNormalizer::normalize((string) $value);
+                if ($normalized === null) {
+                    $fail($attribute . ' harus berupa nomor Indonesia yang valid.');
+                    return;
+                }
+
+                if (User::query()->where('no_wa', $normalized)->where('id', '<>', Auth::id())->exists()) {
+                    $fail($attribute . ' telah digunakan.');
+                }
+            }],
             'promotion_channel_url' => ['required', 'url', 'max:255'],
             'notes' => ['nullable', 'string', 'max:600'],
             'agree_terms' => ['accepted'],
@@ -211,7 +222,11 @@ class AffiliatePageController extends Controller
             'agree_affiliate_policy.accepted' => 'Kamu wajib menyetujui kebijakan data affiliate.',
         ]);
 
-        $normalizedWhatsapp = preg_replace('/\D+/', '', (string) $validated['whatsapp']);
+        $normalizedWhatsapp = WhatsappNumberNormalizer::normalize((string) $validated['whatsapp']);
+        if ($normalizedWhatsapp === null) {
+            return redirect()->route('affiliate')->with('error', 'Nomor WhatsApp tidak valid.');
+        }
+
         $promotionChannelUrl = blank($validated['promotion_channel_url'] ?? null) ? null : trim((string) $validated['promotion_channel_url']);
         $submitLockKey = 'affiliate-request-submit:' . sha1(implode('|', [
             (string) $user->id,

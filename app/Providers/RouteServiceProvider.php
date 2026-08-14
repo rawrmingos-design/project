@@ -5,6 +5,7 @@ namespace App\Providers;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Http\Request;
+use App\Support\WhatsappNumberNormalizer;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
@@ -236,6 +237,36 @@ class RouteServiceProvider extends ServiceProvider
             Limit::perMinute(max(1, (int) config('rate_limits.callbacks.provider_webhook_per_minute', 240)))
                 ->by('provider-webhook:' . $this->callbackKey($request))
         );
+
+        RateLimiter::for('bot-webhook', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.bot_webhook_per_minute', 60)))
+                ->by('bot-webhook:ip:' . $request->ip())
+        );
+
+        RateLimiter::for('bot-invalid', fn (Request $request) =>
+            Limit::perMinute(max(1, (int) config('rate_limits.callbacks.bot_invalid_per_minute', 20)))
+                ->by('bot-invalid:ip:' . $request->ip())
+        );
+
+        RateLimiter::for('bot-link', function (Request $request) {
+            $sender = WhatsappNumberNormalizer::normalize(
+                (string) $request->input('sender', ''),
+            );
+            $identity = $sender ?: 'ip:' . $request->ip();
+
+            return Limit::perMinute(max(1, (int) config('rate_limits.callbacks.link_per_sender_per_minute', 5)))
+                ->by('bot-link:' . $this->fingerprint([$identity]));
+        });
+
+        RateLimiter::for('bot-deposit', function (Request $request) {
+            $sender = WhatsappNumberNormalizer::normalize(
+                (string) $request->input('sender', ''),
+            );
+            $identity = $sender ?: 'ip:' . $request->ip();
+
+            return Limit::perMinute(max(1, (int) config('rate_limits.callbacks.deposit_per_sender_per_minute', 10)))
+                ->by('bot-deposit:' . $this->fingerprint([$identity]));
+        });
 
         RateLimiter::for('public-search', fn (Request $request) =>
             Limit::perMinute(30)->by('public-search:' . $this->tenantIpKey($request))

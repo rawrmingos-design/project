@@ -186,6 +186,23 @@ Untuk pengujian sandbox tersedia endpoint sejenis di `/api/v1/sandbox`. Detail c
 
 Webhook provider dan payment harus memakai signature/secret serta kebijakan inbound whitelist yang sesuai. Jangan membuka endpoint callback ke traffic production sebelum konfigurasi tersebut diverifikasi.
 
+## WhatsApp account linking
+
+WhatsApp deposits require a verified number linked to the account. Open **Pengaturan**, create a linking code in the **WhatsApp Gateway** section, then send `LINK <kode>` from that number. The code is single-use and expires according to the configured challenge lifetime. See [docs/whatsapp-account-linking.md](docs/whatsapp-account-linking.md) for endpoint, security, and recovery details.
+
+## WhatsApp deposit rollout checklist
+
+Sebelum mengaktifkan deposit WhatsApp di production:
+
+1. Audit `users.no_wa` untuk nomor kosong, format legacy, dan duplicate canonical number.
+2. Jangan menambahkan unique index sebelum duplicate number selesai ditangani secara manual.
+3. Pastikan `FONNTE_DEVICE_TOKEN` terisi dan inbound whitelist Fonnte memakai mode `enforce`.
+4. Pastikan cache production memakai Redis agar rate limit dan idempotency lock konsisten antar worker.
+5. Jalankan migration dalam maintenance window setelah backup database.
+6. Verifikasi linking, unlink, revoked challenge, duplicate webhook, QR media, VA/payment-code text, dan tenant isolation.
+7. Monitor log berbasis correlation ID tanpa menyimpan challenge code, token, credential, atau raw sender number.
+8. Siapkan rollback aplikasi dan backup database; jangan memakai `migrate:fresh` pada database existing.
+
 ## Testing dan build
 
 ### Backend
