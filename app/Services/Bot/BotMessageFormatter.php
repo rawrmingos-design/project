@@ -447,9 +447,113 @@ class BotMessageFormatter
                 [
                     $this->button('🏆 Leaderboard', 'leaderboard'),
                 ],
+                [
+                    $this->button('📜 Riwayat Order', 'order_history'),
+                ],
             ],
             'use_reply_keyboard' => true,
         ];
+    }
+
+    /**
+     * @param array{items: array<int, array<string, mixed>>, page: int, total: int, total_pages: int} $data
+     */
+    public function formatOrderHistory(array $data): array
+    {
+        $items = is_array($data['items'] ?? null) ? $data['items'] : [];
+        if ($items === []) {
+            return [
+                'text' => '📦 *RIWAYAT ORDER*\n\nBelum ada order yang dapat ditampilkan untuk akun ini.',
+                'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu')]],
+            ];
+        }
+
+        $lines = [
+            '📦 *RIWAYAT ORDER*',
+            '',
+            'Menampilkan ' . count($items) . ' order terbaru dari akun kamu.',
+            '',
+        ];
+        $buttons = [];
+
+        foreach (array_values($items) as $index => $item) {
+            $number = $index + 1;
+            $status = $this->orderStatusLabel($item);
+            $amount = number_format((int) ($item['amount'] ?? 0), 0, ',', '.');
+            $lines[] = "{$number}. {$status} " . $this->escapeMarkdown((string) ($item['service'] ?? 'Produk'));
+            $lines[] = '   Invoice: `' . $this->escapeMarkdownCode((string) ($item['order_id'] ?? '')) . '`';
+            $lines[] = '   Tanggal: ' . $this->escapeMarkdown((string) ($item['created_at'] ?? '-'));
+            $lines[] = '   Total: Rp ' . $amount;
+            $lines[] = '   Status: ' . $this->escapeMarkdown((string) ($item['status_label'] ?? 'Unknown'));
+            $lines[] = '';
+            $buttons[] = [$this->button('Detail #' . $number, 'history detail:' . (string) ($item['reference'] ?? ''))];
+        }
+
+        $page = max(1, (int) ($data['page'] ?? 1));
+        $totalPages = max(1, (int) ($data['total_pages'] ?? 1));
+        if ($page > 1) {
+            $buttons[] = [$this->button('⬅️ Sebelumnya', 'history page:' . ($page - 1))];
+        }
+        if ($page < $totalPages) {
+            $buttons[] = [$this->button('Berikutnya ➡️', 'history page:' . ($page + 1))];
+        }
+        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu')];
+        $lines[] = "Halaman {$page}/{$totalPages}";
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => $buttons,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed>|null $data
+     */
+    public function formatOrderHistoryDetail(?array $data): array
+    {
+        if ($data === null) {
+            return [
+                'text' => 'Order tidak ditemukan atau tidak dapat ditampilkan.',
+                'buttons' => [[$this->button('📜 Kembali ke Riwayat', 'order_history')]],
+            ];
+        }
+
+        $amount = number_format((int) ($data['amount'] ?? 0), 0, ',', '.');
+        $lines = [
+            '🧾 *DETAIL ORDER*',
+            '',
+            'Invoice: `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
+            'Produk: ' . $this->escapeMarkdown((string) ($data['service'] ?? 'Produk')),
+            'Tanggal: ' . $this->escapeMarkdown((string) ($data['created_at'] ?? '-')),
+            'Total: Rp ' . $amount,
+            'Status Order: ' . $this->escapeMarkdown((string) ($data['status_label'] ?? 'Unknown')),
+        ];
+
+        if (filled($data['payment_status'] ?? null)) {
+            $lines[] = 'Status Pembayaran: ' . $this->escapeMarkdown((string) $data['payment_status']);
+        }
+
+        if (filled($data['target_game_account_id'] ?? null)) {
+            $lines[] = 'ID Game: ' . $this->escapeMarkdown((string) $data['target_game_account_id']);
+        }
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [
+                [$this->button('📜 Kembali ke Riwayat', 'order_history')],
+            ],
+        ];
+    }
+
+    private function orderStatusLabel(array $item): string
+    {
+        return match ((string) ($item['status'] ?? 'unknown')) {
+            'success' => '✅',
+            'pending' => '⏳',
+            'processing' => '⏳',
+            'failed', 'cancelled', 'expired', 'refunded' => '❌',
+            default => '⚠️',
+        };
     }
 
     public function formatLeaderboard(array $data): array
@@ -493,6 +597,7 @@ class BotMessageFormatter
         $keyboard = [
             [['text' => '🛍️ Buka Menu']],
             [['text' => '🏆 Leaderboard']],
+            [['text' => '📜 Riwayat Order']],
             [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
             [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
         ];

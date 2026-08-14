@@ -29,7 +29,8 @@ class BotCommandHandler
         private readonly ?\App\Services\LeaderboardService $leaderboard = null,
         private readonly ?WhatsappUserResolver $whatsappUserResolver = null,
         private readonly ?WhatsappLinkService $whatsappLinkService = null,
-        private readonly ?DepositService $depositService = null
+        private readonly ?DepositService $depositService = null,
+        private readonly ?\App\Services\Order\OrderHistoryService $orderHistory = null
     ) {}
 
     /**
@@ -67,6 +68,7 @@ class BotCommandHandler
                 'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
                 'link' => $this->handleWhatsappLink($args, $context),
                 'deposit', 'topup', 'isi_saldo' => $this->handleWhatsappDeposit($args, $context),
+                'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
                 'account_status', 'whatsapp_status', 'status_akun' => $this->handleWhatsappAccountStatus($context),
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
@@ -276,6 +278,70 @@ class BotCommandHandler
         }
 
         return $response;
+    }
+
+    private function handleOrderHistory(array $args, array $context): array
+    {
+        if (($context['source'] ?? null) !== 'whatsapp_gateway') {
+            return [
+                'text' => 'Riwayat order saat ini hanya tersedia melalui WhatsApp gateway.',
+                'buttons' => [],
+            ];
+        }
+
+        $key = 'bot-history:' . $this->senderFingerprint($context);
+        $limit = max(1, (int) config('rate_limits.callbacks.history_per_sender_per_minute', 10));
+        if (RateLimiter::tooManyAttempts($key, $limit)) {
+            return [
+                'text' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+        RateLimiter::hit($key, 60);
+
+        $sender = WhatsappNumberNormalizer::normalize((string) ($context['whatsapp'] ?? ''));
+        if ($sender === null) {
+            return [
+                'text' => 'Nomor WhatsApp tidak dapat diverifikasi. Coba lagi melalui webhook yang valid.',
+                'buttons' => [],
+            ];
+        }
+
+        $identity = ($this->whatsappUserResolver ?? app(WhatsappUserResolver::class))->resolve($sender);
+        if (($identity['status'] ?? null) !== WhatsappUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
+            Log::notice('Bot WhatsApp order history identity denied.', [
+                'correlation_id' => $context['correlation_id'] ?? null,
+                'action' => 'order_history',
+                'reason' => $identity['status'] ?? 'unknown',
+            ]);
+
+            return [
+                'text' => match ($identity['status'] ?? null) {
+                    WhatsappUserResolver::STATUS_UNREGISTERED => 'Nomor WhatsApp belum terdaftar. Daftarkan akun dan selesaikan linking terlebih dahulu.',
+                    WhatsappUserResolver::STATUS_REGISTERED_UNVERIFIED => 'Nomor WhatsApp belum terverifikasi. Selesaikan linking dari halaman Pengaturan terlebih dahulu.',
+                    default => 'Riwayat order belum dapat ditampilkan. Hubungi admin melalui jalur resmi.',
+                },
+                'buttons' => [],
+            ];
+        }
+
+        $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
+        $subcommand = strtolower(trim((string) ($args[0] ?? '')));
+        if ($subcommand === 'detail' && isset($args[1])) {
+            $detail = $service->findForUserByReference($identity['user'], (string) $args[1]);
+
+            return $this->formatter->formatOrderHistoryDetail($detail);
+        }
+
+        if (str_starts_with($subcommand, 'detail:')) {
+            $detail = $service->findForUserByReference($identity['user'], substr($subcommand, 7));
+
+            return $this->formatter->formatOrderHistoryDetail($detail);
+        }
+
+        return $this->formatter->formatOrderHistory(
+            $service->listForUser($identity['user'], $this->pageFromArgs($args)),
+        );
     }
 
     private function handleWhatsappAccountStatus(array $context): array
@@ -579,6 +645,7 @@ class BotCommandHandler
             && in_array($command, [
                 'start', 'help', 'bantuan', 'menu', 'kategori', 'layanan', 'produk',
                 'pembayaran', 'metode', 'cekid', 'leaderboard', 'ranking', 'peringkat', 'invoice', 'beli', 'status',
+                'order_history', 'history', 'riwayat', 'pesanan',
             ], true);
     }
 

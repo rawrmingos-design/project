@@ -24,6 +24,7 @@ class BotCommandParser
             '📞 Hubungi Admin'   => 'admin',
             '🏆 Leaderboard'     => 'leaderboard',
             '💰 Deposit'         => 'deposit',
+            '📜 Riwayat Order'    => 'order_history',
             '📲 Status WhatsApp'  => 'account_status',
             default              => $message,
         };
