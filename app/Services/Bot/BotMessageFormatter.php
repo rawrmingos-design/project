@@ -78,8 +78,12 @@ class BotMessageFormatter
     /**
      * @return array{text: string, buttons: array}
      */
-    public function formatCategories(array $data, int $page = 1): array
-    {
+    public function formatCategories(
+        array $data,
+        int $page = 1,
+        ?BotGatewayCapabilities $capabilities = null,
+    ): array {
+        $capabilities ??= BotGatewayCapabilities::forSource(null);
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
                 'text' => "Maaf, daftar tipe kategori sedang tidak tersedia.",
@@ -101,9 +105,20 @@ class BotMessageFormatter
         $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'menu', $pagination);
 
+        $capabilityButtons = [];
+        if ($capabilities->supports('leaderboard')) {
+            $capabilityButtons[] = $this->button('🏆 Leaderboard', 'leaderboard');
+        }
+        if ($capabilities->supports('deposit')) {
+            $capabilityButtons[] = $this->button('💰 Deposit', 'deposit');
+        }
+        if ($capabilityButtons !== []) {
+            $buttons[] = $capabilityButtons;
+        }
+
         return [
             'text' => "*Menu Utama*\nPilih kategori layanan yang Anda inginkan:" . $this->pageSuffix($pagination),
-            'buttons' => [...$buttons, [$this->button('🏆 Leaderboard', 'leaderboard'), $this->button('💰 Deposit', 'deposit')]],
+            'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
                 'parent_menu' => null,
@@ -436,21 +451,24 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatHelp(): array
+    public function formatHelp(?BotGatewayCapabilities $capabilities = null): array
     {
+        $capabilities ??= BotGatewayCapabilities::forSource(null);
+        $buttons = [[$this->button('🛍️ Tampilkan Menu / Produk', 'menu')]];
+
+        if ($capabilities->supports('leaderboard')) {
+            $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
+        }
+        if ($capabilities->supports('order_history')) {
+            $buttons[] = [$this->button('📜 Riwayat Order', 'order_history')];
+        }
+        if ($capabilities->supports('deposit')) {
+            $buttons[] = [$this->button('💰 Deposit', 'deposit')];
+        }
+
         return [
             'text' => "*Panduan Transaksi*\nSilahkan tekan tombol di bawah ini untuk memulai transaksi atau ketik perintah manual.",
-            'buttons' => [
-                [
-                    $this->button('🛍️ Tampilkan Menu / Produk', 'menu'),
-                ],
-                [
-                    $this->button('🏆 Leaderboard', 'leaderboard'),
-                ],
-                [
-                    $this->button('📜 Riwayat Order', 'order_history'),
-                ],
-            ],
+            'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];
     }
@@ -591,16 +609,24 @@ class BotMessageFormatter
     /**
      * @return array{keyboard: array, resize_keyboard: bool, is_persistent: bool, input_field_placeholder: string}
      */
-    public function defaultReplyKeyboard(): array
+    public function defaultReplyKeyboard(?BotGatewayCapabilities $capabilities = null): array
     {
+        $capabilities ??= BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM);
         $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
-        $keyboard = [
-            [['text' => '🛍️ Buka Menu']],
-            [['text' => '🏆 Leaderboard']],
-            [['text' => '📜 Riwayat Order']],
-            [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
-            [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
-        ];
+        $keyboard = [[['text' => '🛍️ Buka Menu']]];
+
+        if ($capabilities->supports('leaderboard')) {
+            $keyboard[] = [['text' => '🏆 Leaderboard']];
+        }
+        if ($capabilities->supports('order_history')) {
+            $keyboard[] = [['text' => '📜 Riwayat Order']];
+        }
+        if ($capabilities->supports('deposit')) {
+            $keyboard[] = [['text' => '💰 Deposit']];
+        }
+
+        $keyboard[] = [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']];
+        $keyboard[] = [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']];
         if ($adminUrl !== '') {
             $keyboard[] = [['text' => '📞 Hubungi Admin']];
         }

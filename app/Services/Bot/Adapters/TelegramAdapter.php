@@ -4,6 +4,8 @@ namespace App\Services\Bot\Adapters;
 
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
+use App\Services\Bot\BotGatewayCapabilities;
+use App\Services\Bot\BotMessageFormatter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -12,7 +14,8 @@ class TelegramAdapter implements BotAdapterInterface
 {
     public function __construct(
         private readonly BotCommandParser $parser,
-        private readonly BotCommandHandler $handler
+        private readonly BotCommandHandler $handler,
+        private readonly BotMessageFormatter $formatter,
     ) {}
 
     public function handle(Request $request): mixed
@@ -56,15 +59,18 @@ class TelegramAdapter implements BotAdapterInterface
             return response()->json(['status' => 'ignored']);
         }
 
+        $botScope = (string) config('services.telegram-bot-api.bot_scope', 'default');
         $context = [
             'source' => 'telegram_gateway',
-            'external_user_id' => 'telegram:' . $fromId,
+            'external_user_id' => 'telegram:' . $botScope . ':' . $fromId,
             'telegram_user_id' => $fromId,
-            'telegram_bot_scope' => (string) config('services.telegram-bot-api.bot_scope', 'default'),
+            'telegram_bot_scope' => $botScope,
             'telegram_chat_id' => $chatId,
+            'telegram_message_id' => $messageId,
             'telegram_update_id' => $updateId,
             'telegram_metadata' => $metadata,
-            'message_id' => 'telegram:' . $chatId . ':' . $messageId,
+            'message_id' => $messageId === null ? null : 'telegram:' . $botScope . ':' . $chatId . ':' . $messageId,
+            'correlation_id' => $request->attributes->get('bot_correlation_id'),
             'email' => $fromId . '@telegram.user',
         ];
 
@@ -116,7 +122,11 @@ class TelegramAdapter implements BotAdapterInterface
         $hasInlineButtons = ! empty($response['buttons']);
         $wantsReplyKeyboard = ! empty($response['use_reply_keyboard']);
 
-        if ($hasInlineButtons) {
+        if ($wantsReplyKeyboard) {
+            $payload['reply_markup'] = $this->formatter->defaultReplyKeyboard(
+                BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM),
+            );
+        } elseif ($hasInlineButtons) {
             // Format inline keyboard
             $keyboard = [];
             foreach ($response['buttons'] as $row) {
@@ -156,24 +166,6 @@ class TelegramAdapter implements BotAdapterInterface
 
             $payload['reply_markup'] = [
                 'inline_keyboard' => $keyboard,
-            ];
-        } elseif ($wantsReplyKeyboard) {
-            // Tidak ada inline button — gunakan reply keyboard permanen
-            $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
-            $keyboard = [
-                [['text' => '🛍️ Buka Menu']],
-                [['text' => '🏆 Leaderboard']],
-                [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']],
-                [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']],
-            ];
-            if ($adminUrl !== '') {
-                $keyboard[] = [['text' => '📞 Hubungi Admin']];
-            }
-            $payload['reply_markup'] = [
-                'keyboard' => $keyboard,
-                'resize_keyboard' => true,
-                'is_persistent' => true,
-                'input_field_placeholder' => 'Pilih aksi...',
             ];
         }
 

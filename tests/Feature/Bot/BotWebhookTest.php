@@ -32,6 +32,7 @@ class BotWebhookTest extends TestCase
         Http::preventStrayRequests();
         config(['services.telegram-bot-api.token' => 'dummy-token']);
         config(['services.telegram-bot-api.webhook_secret' => 'dummy-secret']);
+        config(['services.telegram-bot-api.deposit_enabled' => false]);
         config(['services.fonnte.device_token' => 'dummy-device-token']);
 
         // Mock inbound source policies to allow local requests
@@ -98,11 +99,86 @@ class BotWebhookTest extends TestCase
         $response->assertOk();
 
         Http::assertSent(function ($request) {
-            return str_contains($request->url(), 'sendMessage') &&
-                   $request['chat_id'] === 12345 &&
-                   str_contains($request['text'], 'Pilih kategori') &&
-                   isset($request['reply_markup']['inline_keyboard']);
+            if (! str_contains($request->url(), 'sendMessage')) {
+                return false;
+            }
+
+            $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
+
+            return $request['chat_id'] === 12345
+                && str_contains($request['text'], 'Pilih kategori')
+                && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
+                    && ($button['callback_data'] ?? null) === 'leaderboard')
+                && $buttons->doesntContain(fn (array $button): bool => ($button['text'] ?? null) === '💰 Deposit'
+                    || ($button['callback_data'] ?? null) === 'deposit');
         });
+    }
+
+    public function test_telegram_deposit_command_is_rejected_while_capability_is_disabled(): void
+    {
+        config(['services.telegram-bot-api.deposit_enabled' => false]);
+        $pricing = $this->mock(GatewayPricingService::class);
+        $invoice = $this->mock(GatewayInvoiceService::class);
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $response = $handler->handle('deposit', [], [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'telegram_user_id' => 9876,
+        ]);
+
+        $this->assertSame('Deposit belum tersedia melalui gateway ini.', $response['text']);
+        $this->assertSame([], $response['buttons']);
+    }
+
+    public function test_telegram_help_uses_shared_reply_keyboard_with_history_and_without_disabled_deposit(): void
+    {
+        config(['services.telegram-bot-api.deposit_enabled' => false]);
+        Http::fake([
+            'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $this->postJsonTelegram([
+            'message' => [
+                'chat' => ['id' => 12345],
+                'from' => ['id' => 9876],
+                'text' => 'help',
+                'message_id' => 112,
+            ],
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), 'sendMessage')) {
+                return false;
+            }
+
+            $labels = collect($request['reply_markup']['keyboard'])->flatten(1)->pluck('text');
+
+            return $labels->contains('🛍️ Buka Menu')
+                && $labels->contains('🏆 Leaderboard')
+                && $labels->contains('📜 Riwayat Order')
+                && ! $labels->contains('💰 Deposit');
+        });
+    }
+
+    public function test_telegram_capability_flag_enables_deposit_in_menu_and_reply_keyboard(): void
+    {
+        config(['services.telegram-bot-api.deposit_enabled' => true]);
+        $capabilities = \App\Services\Bot\BotGatewayCapabilities::forSource('telegram_gateway');
+        $formatter = app(BotMessageFormatter::class);
+        $menu = $formatter->formatCategories([
+            'ok' => true,
+            'data' => [['name' => 'Top Up Games', 'slug' => 'top-up-games']],
+        ], 1, $capabilities);
+        $keyboard = $formatter->defaultReplyKeyboard($capabilities);
+
+        $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');
+        $keyboardLabels = collect($keyboard['keyboard'])->flatten(1)->pluck('text');
+
+        $this->assertTrue($menuCallbacks->contains('leaderboard'));
+        $this->assertTrue($menuCallbacks->contains('deposit'));
+        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+        $this->assertTrue($keyboardLabels->contains('💰 Deposit'));
     }
 
     public function test_telegram_non_member_must_join_before_opening_menu(): void

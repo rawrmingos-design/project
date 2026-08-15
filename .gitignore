@@ -108,3 +108,4 @@ testsprite_tests\tmp\config.json
 /docs/*
 !/docs/tiktok-ads.md
 !/docs/duitku-payments.md
+!/docs/telegram-account-linking.md
