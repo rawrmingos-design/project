@@ -7,6 +7,8 @@ return [
         'link_per_sender_per_minute' => (int) env('RATE_LIMIT_LINK_PER_SENDER_PER_MINUTE', 5),
         'deposit_per_sender_per_minute' => (int) env('RATE_LIMIT_DEPOSIT_PER_SENDER_PER_MINUTE', 10),
         'history_per_sender_per_minute' => (int) env('RATE_LIMIT_HISTORY_PER_SENDER_PER_MINUTE', 10),
+        'telegram_link_per_sender_per_minute' => (int) env('RATE_LIMIT_TELEGRAM_LINK_PER_SENDER_PER_MINUTE', 5),
+        'telegram_account_per_sender_per_minute' => (int) env('RATE_LIMIT_TELEGRAM_ACCOUNT_PER_SENDER_PER_MINUTE', 10),
         'razer_per_minute' => (int) env('RATE_LIMIT_RAZER_CALLBACK_PER_MINUTE', 180),
         'supplier_per_minute' => (int) env('RATE_LIMIT_SUPPLIER_CALLBACK_PER_MINUTE', 240),
         'payment_per_minute' => (int) env('RATE_LIMIT_PAYMENT_CALLBACK_PER_MINUTE', 180),

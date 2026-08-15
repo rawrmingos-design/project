@@ -23,6 +23,8 @@ class TelegramAdapter implements BotAdapterInterface
         $chatId = null;
         $fromId = null;
         $messageId = null;
+        $metadata = [];
+        $updateId = $payload['update_id'] ?? null;
 
         // Handle Callback Query (Button clicks)
         if (isset($payload['callback_query'])) {
@@ -31,6 +33,7 @@ class TelegramAdapter implements BotAdapterInterface
             $chatId = $callback['message']['chat']['id'] ?? null;
             $fromId = $callback['from']['id'] ?? null;
             $messageId = $callback['message']['message_id'] ?? null;
+            $metadata = $callback['from'] ?? [];
 
             // Optional: answerCallbackQuery to remove loading state on button
             $this->answerCallbackQuery($callback['id'] ?? '');
@@ -42,6 +45,7 @@ class TelegramAdapter implements BotAdapterInterface
             $chatId = $message['chat']['id'] ?? null;
             $fromId = $message['from']['id'] ?? null;
             $messageId = $message['message_id'] ?? null;
+            $metadata = $message['from'] ?? [];
         }
         // Ignore others
         else {
@@ -56,6 +60,10 @@ class TelegramAdapter implements BotAdapterInterface
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:' . $fromId,
             'telegram_user_id' => $fromId,
+            'telegram_bot_scope' => (string) config('services.telegram-bot-api.bot_scope', 'default'),
+            'telegram_chat_id' => $chatId,
+            'telegram_update_id' => $updateId,
+            'telegram_metadata' => $metadata,
             'message_id' => 'telegram:' . $chatId . ':' . $messageId,
             'email' => $fromId . '@telegram.user',
         ];
@@ -120,15 +128,25 @@ class TelegramAdapter implements BotAdapterInterface
                         continue;
                     }
 
-                    $keyboardRow[] = isset($btn['url'])
-                        ? [
+                    if (isset($btn['url'])) {
+                        $keyboardRow[] = [
                             'text' => $btn['text'],
                             'url' => $btn['url'],
-                        ]
-                        : [
-                            'text' => $btn['text'],
-                            'callback_data' => substr($btn['callback'], 0, 64),
                         ];
+                        continue;
+                    }
+
+                    if (strlen($btn['callback']) > 64) {
+                        Log::warning('Telegram inline button callback exceeds Telegram limit.', [
+                            'callback_length' => strlen($btn['callback']),
+                        ]);
+                        continue;
+                    }
+
+                    $keyboardRow[] = [
+                        'text' => $btn['text'],
+                        'callback_data' => $btn['callback'],
+                    ];
                 }
 
                 if ($keyboardRow !== []) {

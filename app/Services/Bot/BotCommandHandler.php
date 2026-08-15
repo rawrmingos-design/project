@@ -10,6 +10,8 @@ use App\Services\PaymentMethodCatalogService;
 use App\Services\Deposit\DepositService;
 use App\Services\Whatsapp\WhatsappLinkService;
 use App\Services\Whatsapp\WhatsappUserResolver;
+use App\Services\Telegram\TelegramLinkService;
+use App\Services\Telegram\TelegramUserResolver;
 use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +32,9 @@ class BotCommandHandler
         private readonly ?WhatsappUserResolver $whatsappUserResolver = null,
         private readonly ?WhatsappLinkService $whatsappLinkService = null,
         private readonly ?DepositService $depositService = null,
-        private readonly ?\App\Services\Order\OrderHistoryService $orderHistory = null
+        private readonly ?\App\Services\Order\OrderHistoryService $orderHistory = null,
+        private readonly ?TelegramUserResolver $telegramUserResolver = null,
+        private readonly ?TelegramLinkService $telegramLinkService = null
     ) {}
 
     /**
@@ -63,13 +67,15 @@ class BotCommandHandler
             }
 
             return match ($command) {
-                'start', 'help', 'bantuan' => $this->formatter->formatHelp(),
+                'start' => $this->handleStart($args, $context),
+                'help', 'bantuan' => $this->formatter->formatHelp(),
                 'menu' => $this->handleMenu($args),
                 'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
-                'link' => $this->handleWhatsappLink($args, $context),
+                'link' => $this->handleLink($args, $context),
                 'deposit', 'topup', 'isi_saldo' => $this->handleWhatsappDeposit($args, $context),
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
-                'account_status', 'whatsapp_status', 'status_akun' => $this->handleWhatsappAccountStatus($context),
+                'account_status', 'whatsapp_status', 'status_akun' => $this->handleAccountStatus($context),
+                'telegram_status' => $this->handleTelegramAccountStatus($context),
                 'kategori' => $this->handleKategori($args),
                 'layanan', 'produk' => $this->handleLayanan($args),
                 'pembayaran', 'metode' => $this->handlePembayaran($args),
@@ -100,6 +106,67 @@ class BotCommandHandler
                 'buttons' => [],
             ];
         }
+    }
+
+    private function handleStart(array $args, array $context): array
+    {
+        if (($context['source'] ?? null) === 'telegram_gateway' && isset($args[0])) {
+            return $this->handleTelegramLink([$args[0]], $context);
+        }
+
+        return $this->formatter->formatHelp();
+    }
+
+    private function handleLink(array $args, array $context): array
+    {
+        return ($context['source'] ?? null) === 'telegram_gateway'
+            ? $this->handleTelegramLink($args, $context)
+            : $this->handleWhatsappLink($args, $context);
+    }
+
+    private function handleTelegramLink(array $args, array $context): array
+    {
+        if (($context['source'] ?? null) !== 'telegram_gateway') {
+            return [
+                'text' => 'Perintah linking hanya tersedia melalui gateway yang mendukung linking.',
+                'buttons' => [],
+            ];
+        }
+
+        $fingerprint = $this->senderFingerprint($context);
+        $key = 'bot-telegram-link:' . $fingerprint;
+        $limit = max(1, (int) config('rate_limits.callbacks.telegram_link_per_sender_per_minute', 5));
+        if (RateLimiter::tooManyAttempts($key, $limit)) {
+            return ['text' => 'Terlalu banyak percobaan linking. Coba lagi beberapa saat.', 'buttons' => []];
+        }
+        RateLimiter::hit($key, 60);
+
+        $token = trim((string) ($args[0] ?? ''));
+        $result = ($this->telegramLinkService ?? app(TelegramLinkService::class))->consumeChallenge(
+            $token,
+            (string) ($context['telegram_user_id'] ?? ''),
+            $context['telegram_chat_id'] ?? null,
+            $context['telegram_metadata'] ?? [],
+            (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default')),
+        );
+
+        Log::info('Bot Telegram linking attempt.', [
+            'correlation_id' => $context['correlation_id'] ?? null,
+            'action' => 'telegram_link',
+            'result' => $result['status'] ?? $result['reason'] ?? 'unknown',
+        ]);
+
+        if (($result['status'] ?? null) === 'verified') {
+            return [
+                'text' => 'Akun Telegram berhasil ditautkan. Kamu sekarang dapat melihat riwayat order akun ini.',
+                'buttons' => [['text' => '🔙 Kembali ke Menu', 'callback' => 'menu']],
+            ];
+        }
+
+        return [
+            'text' => 'Link Telegram tidak valid, sudah kedaluwarsa, sudah digunakan, atau tidak dapat diproses.',
+            'buttons' => [],
+        ];
     }
 
     private function handleWhatsappLink(array $args, array $context): array
@@ -282,6 +349,10 @@ class BotCommandHandler
 
     private function handleOrderHistory(array $args, array $context): array
     {
+        if (($context['source'] ?? null) === 'telegram_gateway') {
+            return $this->handleTelegramOrderHistory($args, $context);
+        }
+
         if (($context['source'] ?? null) !== 'whatsapp_gateway') {
             return [
                 'text' => 'Riwayat order saat ini hanya tersedia melalui WhatsApp gateway.',
@@ -342,6 +413,76 @@ class BotCommandHandler
         return $this->formatter->formatOrderHistory(
             $service->listForUser($identity['user'], $this->pageFromArgs($args)),
         );
+    }
+
+    private function handleTelegramOrderHistory(array $args, array $context): array
+    {
+        $key = 'bot-telegram-history:' . $this->senderFingerprint($context);
+        $limit = max(1, (int) config('rate_limits.callbacks.history_per_sender_per_minute', 10));
+        if (RateLimiter::tooManyAttempts($key, $limit)) {
+            return ['text' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.', 'buttons' => []];
+        }
+        RateLimiter::hit($key, 60);
+
+        $identity = ($this->telegramUserResolver ?? app(TelegramUserResolver::class))->resolve(
+            (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default')),
+            (string) ($context['telegram_user_id'] ?? ''),
+            $context['telegram_chat_id'] ?? null,
+            $context['telegram_metadata'] ?? [],
+        );
+
+        if (($identity['status'] ?? null) !== TelegramUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
+            return [
+                'text' => 'Riwayat order belum tersedia. Tautkan akun Telegram melalui Pengaturan terlebih dahulu.',
+                'buttons' => [],
+            ];
+        }
+
+        $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
+        $subcommand = strtolower(trim((string) ($args[0] ?? '')));
+        if ($subcommand === 'detail' && isset($args[1])) {
+            return $this->formatter->formatOrderHistoryDetail(
+                $service->findForUserByReference($identity['user'], (string) $args[1]),
+            );
+        }
+
+        if (str_starts_with($subcommand, 'detail:')) {
+            return $this->formatter->formatOrderHistoryDetail(
+                $service->findForUserByReference($identity['user'], substr($subcommand, 7)),
+            );
+        }
+
+        return $this->formatter->formatOrderHistory(
+            $service->listForUser($identity['user'], $this->pageFromArgs($args)),
+        );
+    }
+
+    private function handleAccountStatus(array $context): array
+    {
+        return ($context['source'] ?? null) === 'telegram_gateway'
+            ? $this->handleTelegramAccountStatus($context)
+            : $this->handleWhatsappAccountStatus($context);
+    }
+
+    private function handleTelegramAccountStatus(array $context): array
+    {
+        if (($context['source'] ?? null) !== 'telegram_gateway') {
+            return ['text' => 'Status akun Telegram hanya tersedia melalui Telegram gateway.', 'buttons' => []];
+        }
+
+        $identity = ($this->telegramUserResolver ?? app(TelegramUserResolver::class))->resolve(
+            (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default')),
+            (string) ($context['telegram_user_id'] ?? ''),
+            $context['telegram_chat_id'] ?? null,
+            $context['telegram_metadata'] ?? [],
+        );
+
+        return [
+            'text' => ($identity['status'] ?? null) === TelegramUserResolver::STATUS_LINKED
+                ? 'Akun Telegram kamu sudah tertaut dan dapat mengakses riwayat order.'
+                : 'Akun Telegram belum tertaut. Mulai linking dari halaman Pengaturan.',
+            'buttons' => [],
+        ];
     }
 
     private function handleWhatsappAccountStatus(array $context): array

@@ -76,7 +76,7 @@ class WhatsappOrderHistoryTest extends TestCase
         $this->assertStringContainsString('tidak ditemukan', strtolower($foreign['text']));
     }
 
-    public function test_unverified_sender_is_denied_and_telegram_is_explicitly_out_of_scope(): void
+    public function test_unverified_sender_is_denied_and_unlinked_telegram_is_prompted_to_link(): void
     {
         User::factory()->create([
             'no_wa' => '6281234567890',
@@ -90,6 +90,6 @@ class WhatsappOrderHistoryTest extends TestCase
         ]);
 
         $this->assertStringContainsString('belum terverifikasi', strtolower($unverified['text']));
-        $this->assertStringContainsString('hanya tersedia melalui WhatsApp', $telegram['text']);
+        $this->assertStringContainsString('tautkan akun telegram', strtolower($telegram['text']));
     }
 }

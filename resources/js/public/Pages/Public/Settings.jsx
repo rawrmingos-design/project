@@ -65,6 +65,13 @@ export default function Settings({ meta, settingsPage }) {
     const [whatsappCode, setWhatsappCode] = useState('');
     const [whatsappPassword, setWhatsappPassword] = useState('');
     const [whatsappBusy, setWhatsappBusy] = useState(false);
+    const initialTelegramLink = settingsPage?.telegramLink || {};
+    const [telegramLink, setTelegramLink] = useState({
+        ...initialTelegramLink,
+        pending_challenge: initialTelegramLink.pending_challenge || initialTelegramLink.pendingChallenge || null,
+    });
+    const [telegramPassword, setTelegramPassword] = useState('');
+    const [telegramBusy, setTelegramBusy] = useState(false);
 
     const showNotice = (message, tone = 'success') => {
         setNotice(message);
@@ -207,6 +214,62 @@ export default function Settings({ meta, settingsPage }) {
         }
     };
 
+    const refreshTelegramLinkStatus = async () => {
+        try {
+            const payload = await fetch('/id/settings/telegram/status', {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            }).then((response) => response.json());
+            setTelegramLink(payload?.data || {});
+        } catch (error) {
+            showNotice('Status Telegram tidak dapat dimuat.', 'error');
+        }
+    };
+
+    const createTelegramLink = async () => {
+        setTelegramBusy(true);
+        try {
+            const payload = await postJson('/id/settings/telegram/link', {});
+            const linkData = payload?.data || {};
+            setTelegramLink({
+                ...telegramLink,
+                ...linkData,
+                pending_challenge: linkData.pending_challenge || null,
+            });
+            showNotice(payload?.message || 'Link Telegram berhasil dibuat.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setTelegramBusy(false);
+        }
+    };
+
+    const revokeTelegramLink = async () => {
+        setTelegramBusy(true);
+        try {
+            const payload = await postJson('/id/settings/telegram/revoke', {});
+            setTelegramLink((current) => ({ ...current, pending_challenge: null, pendingChallenge: null }));
+            showNotice(payload?.message || 'Link Telegram dibatalkan.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setTelegramBusy(false);
+        }
+    };
+
+    const unlinkTelegram = async () => {
+        setTelegramBusy(true);
+        try {
+            const payload = await postJson('/id/settings/telegram/unlink', { current_password: telegramPassword });
+            setTelegramLink({ verified: false, username: null, first_name: null, last_name: null });
+            setTelegramPassword('');
+            showNotice(payload?.message || 'Telegram dilepas.', 'success');
+        } catch (error) {
+            showNotice(error.message, 'error');
+        } finally {
+            setTelegramBusy(false);
+        }
+    };
+
     const disableTwoFactor = async () => {
         setTwoFactorBusy(true);
         try {
@@ -229,6 +292,7 @@ export default function Settings({ meta, settingsPage }) {
 
     React.useEffect(() => {
         refreshWhatsappLinkStatus();
+        refreshTelegramLinkStatus();
     }, []);
 
     return (
@@ -489,6 +553,51 @@ export default function Settings({ meta, settingsPage }) {
                                             />
                                             <button type="button" className="is-danger" onClick={unlinkWhatsapp} disabled={whatsappBusy || whatsappPassword.trim() === ''}>
                                                 Lepas WhatsApp
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </section>
+
+                            <section className="public-settings-card">
+                                <h2>Telegram Gateway</h2>
+                                <p>Hubungkan Telegram dengan akun ini untuk melihat riwayat order pribadi melalui bot Telegram.</p>
+                                <div className="public-settings-form">
+                                    <div className="public-settings-oauth__actions">
+                                        <button type="button" onClick={createTelegramLink} disabled={telegramBusy || !telegramLink.botConfigured}>
+                                            {telegramBusy ? 'Memproses...' : 'Buat Link Telegram'}
+                                        </button>
+                                        <button type="button" className="is-secondary" onClick={refreshTelegramLinkStatus} disabled={telegramBusy}>
+                                            Cek Status
+                                        </button>
+                                    </div>
+                                    {telegramLink.pending_challenge || telegramLink.pendingChallenge ? (
+                                        <div className="public-settings-2fa__meta">
+                                            <p>Buka link Telegram, lalu tekan <strong>Start</strong>. Link hanya berlaku satu kali dan memiliki batas waktu.</p>
+                                            {telegramLink.launch_url ? (
+                                                <a href={telegramLink.launch_url} target="_blank" rel="noreferrer" className="public-settings-button">
+                                                    Buka Telegram
+                                                </a>
+                                            ) : null}
+                                            <button type="button" className="is-secondary" onClick={revokeTelegramLink} disabled={telegramBusy}>
+                                                Batalkan Link
+                                            </button>
+                                        </div>
+                                    ) : null}
+                                    <p>
+                                        Status: <strong>{telegramLink.verified ? 'Terhubung' : 'Belum terhubung'}</strong>
+                                        {telegramLink.username ? ` — @${telegramLink.username}` : ''}
+                                    </p>
+                                    {telegramLink.verified ? (
+                                        <div className="public-settings-form">
+                                            <input
+                                                type="password"
+                                                value={telegramPassword}
+                                                onChange={(event) => setTelegramPassword(event.target.value)}
+                                                placeholder="Kata sandi untuk unlink"
+                                            />
+                                            <button type="button" className="is-danger" onClick={unlinkTelegram} disabled={telegramBusy || telegramPassword.trim() === ''}>
+                                                Lepas Telegram
                                             </button>
                                         </div>
                                     ) : null}

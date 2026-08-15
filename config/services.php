@@ -53,6 +53,10 @@ return [
     'telegram-bot-api' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        'bot_scope' => env('TELEGRAM_BOT_SCOPE', 'default'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME', ''),
+        'link_challenge_expiry_minutes' => env('TELEGRAM_LINK_CHALLENGE_EXPIRY_MINUTES', 10),
+        'link_challenge_max_attempts' => env('TELEGRAM_LINK_CHALLENGE_MAX_ATTEMPTS', 5),
         'admin_contact_url' => env('TELEGRAM_ADMIN_CONTACT_URL', ''),
         'required_channel' => [
             'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
