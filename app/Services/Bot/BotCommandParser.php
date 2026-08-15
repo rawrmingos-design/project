@@ -26,6 +26,7 @@ class BotCommandParser
             '💰 Deposit'         => 'deposit',
             '📜 Riwayat Order'    => 'order_history',
             '📲 Status WhatsApp'  => 'account_status',
+            '📲 Status Telegram'  => 'telegram_status',
             default              => $message,
         };
 

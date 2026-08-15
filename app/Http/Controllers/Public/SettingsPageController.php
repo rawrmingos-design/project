@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\DsController as LegacySettingsController;
+use App\Models\TelegramIdentity;
+use App\Models\TelegramLinkChallenge;
 use App\Models\WhatsappLinkChallenge;
 use App\Services\PublicSiteConfigService;
+use App\Services\Telegram\TelegramLinkService;
 use App\Services\Whatsapp\WhatsappLinkService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PublicThemeRegistry;
@@ -29,6 +32,7 @@ class SettingsPageController extends Controller
     public function index(
         PublicSiteConfigService $siteConfigService,
         LegacySettingsController $legacySettingsController,
+        TelegramLinkService $telegramLinkService,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
 
@@ -44,6 +48,15 @@ class SettingsPageController extends Controller
             ->where('expires_at', '>', now())
             ->latest('id')
             ->first();
+        $pendingTelegramChallenge = TelegramLinkChallenge::query()
+            ->where('user_id', $user->getKey())
+            ->where('bot_scope', (string) config('services.telegram-bot-api.bot_scope', 'default'))
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+        $telegramIdentity = $telegramLinkService->activeIdentityForUser($user);
         $recoveryCodes = json_decode((string) ($user->two_factor_recovery_codes ?? '[]'), true);
         $recoveryCodes = is_array($recoveryCodes) ? array_values(array_filter($recoveryCodes, fn ($code) => filled($code))) : [];
 
@@ -67,6 +80,19 @@ class SettingsPageController extends Controller
                     'pendingChallenge' => $pendingWhatsappChallenge ? [
                         'expiresAt' => $pendingWhatsappChallenge->expires_at?->toIso8601String(),
                         'expiresInSeconds' => max(0, now()->diffInSeconds($pendingWhatsappChallenge->expires_at)),
+                    ] : null,
+                ],
+                'telegramLink' => [
+                    'botScope' => (string) config('services.telegram-bot-api.bot_scope', 'default'),
+                    'botConfigured' => filled(config('services.telegram-bot-api.bot_username')),
+                    'verified' => $telegramIdentity !== null,
+                    'username' => $telegramIdentity?->username,
+                    'firstName' => $telegramIdentity?->first_name,
+                    'lastName' => $telegramIdentity?->last_name,
+                    'verifiedAt' => $telegramIdentity?->verified_at?->toIso8601String(),
+                    'pendingChallenge' => $pendingTelegramChallenge ? [
+                        'expiresAt' => $pendingTelegramChallenge->expires_at?->toIso8601String(),
+                        'expiresInSeconds' => max(0, now()->diffInSeconds($pendingTelegramChallenge->expires_at)),
                     ] : null,
                 ],
                 'oauth' => [
@@ -207,6 +233,92 @@ class SettingsPageController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Nomor WhatsApp berhasil dilepas dari akun.',
+        ]);
+    }
+
+    public function telegramLinkStatus(Request $request, TelegramLinkService $linkService): JsonResponse
+    {
+        $user = $request->user();
+        $pendingChallenge = TelegramLinkChallenge::query()
+            ->where('user_id', $user->getKey())
+            ->where('bot_scope', (string) config('services.telegram-bot-api.bot_scope', 'default'))
+            ->whereNull('consumed_at')
+            ->whereNull('revoked_at')
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+        $identity = $linkService->activeIdentityForUser($user);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'verified' => $identity !== null,
+                'username' => $identity?->username,
+                'first_name' => $identity?->first_name,
+                'last_name' => $identity?->last_name,
+                'verified_at' => $identity?->verified_at?->toIso8601String(),
+                'pending_challenge' => $pendingChallenge ? [
+                    'expires_at' => $pendingChallenge->expires_at?->toIso8601String(),
+                    'expires_in_seconds' => max(0, now()->diffInSeconds($pendingChallenge->expires_at)),
+                    'launch_url' => null,
+                ] : null,
+                'bot_configured' => filled(config('services.telegram-bot-api.bot_username')),
+            ],
+        ]);
+    }
+
+    public function createTelegramLinkChallenge(Request $request, TelegramLinkService $linkService): JsonResponse
+    {
+        $result = $linkService->createChallenge($request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $result['launch_url'] !== null
+                ? 'Link Telegram berhasil dibuat. Buka link tersebut lalu tekan Start.'
+                : 'Challenge Telegram berhasil dibuat, tetapi username bot belum dikonfigurasi.',
+            'data' => [
+                'launch_url' => $result['launch_url'],
+                'expires_at' => $result['expires_at']->toIso8601String(),
+                'expires_in_minutes' => $result['expires_in_minutes'],
+                'bot_scope' => $result['bot_scope'],
+                'pending_challenge' => [
+                    'expires_at' => $result['expires_at']->toIso8601String(),
+                    'expires_in_seconds' => max(0, now()->diffInSeconds($result['expires_at'])),
+                ],
+            ],
+        ]);
+    }
+
+    public function revokeTelegramLinkChallenge(Request $request, TelegramLinkService $linkService): JsonResponse
+    {
+        $linkService->revokeForUser($request->user());
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Link Telegram yang tertunda dibatalkan.',
+        ]);
+    }
+
+    public function unlinkTelegram(Request $request, TelegramLinkService $linkService): JsonResponse
+    {
+        $request->validate([
+            'current_password' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        if (! Hash::check((string) $request->input('current_password'), (string) $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kata sandi saat ini tidak cocok.',
+                'error_code' => 'INVALID_PASSWORD',
+            ], 422);
+        }
+
+        $linkService->unlink($user);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Telegram berhasil dilepas dari akun.',
         ]);
     }
 
