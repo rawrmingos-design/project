@@ -2,10 +2,14 @@
 
 namespace App\Services\Bot;
 
+use App\Models\BotCheckoutIntent;
+use App\Models\User;
+use App\Services\Checkout\BotCheckoutIntentService;
 use App\Services\Gateway\GatewayCatalogService;
 use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
 use App\Services\Gateway\GatewayPricingService;
+use App\Services\Order\OrderHistoryNavigationStateService;
 use App\Services\PaymentMethodCatalogService;
 use App\Services\Deposit\DepositService;
 use App\Services\Whatsapp\WhatsappLinkService;
@@ -34,7 +38,8 @@ class BotCommandHandler
         private readonly ?DepositService $depositService = null,
         private readonly ?\App\Services\Order\OrderHistoryService $orderHistory = null,
         private readonly ?TelegramUserResolver $telegramUserResolver = null,
-        private readonly ?TelegramLinkService $telegramLinkService = null
+        private readonly ?TelegramLinkService $telegramLinkService = null,
+        private readonly ?OrderHistoryNavigationStateService $orderHistoryNavigation = null,
     ) {}
 
     /**
@@ -76,14 +81,24 @@ class BotCommandHandler
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
                 'account_status', 'whatsapp_status', 'status_akun' => $this->handleAccountStatus($context),
                 'telegram_status' => $this->handleTelegramAccountStatus($context),
-                'kategori' => $this->handleKategori($args),
-                'layanan', 'produk' => $this->handleLayanan($args),
-                'pembayaran', 'metode' => $this->handlePembayaran($args),
+                'kategori' => $this->handleKategori($args, $context),
+                'layanan', 'produk' => $this->handleLayanan($args, $context),
+                'pembayaran', 'metode' => $this->handlePembayaran($args, $context),
                 'harga', 'price' => $this->handleHarga($args, $context),
                 'cekid' => $this->handleCekId($args),
-                'invoice', 'beli' => $this->handleInvoice($args, $context),
+                'invoice', 'beli' => $this->handleInvoice(
+                    $args,
+                    $context,
+                ),
+                'konfirmasi', 'confirm' => $this->confirmCheckout(
+                    $args,
+                    $context,
+                ),
                 'status' => $this->handleStatus($args, $context),
-                'batal', 'cancel' => $this->cancelCheckout($context),
+                'batal', 'cancel' => $this->cancelCheckout(
+                    $context,
+                    $args,
+                ),
                 'admin' => $this->handleAdmin(),
                 default => $this->handleUnknownInput($command, $args, $context),
             };
@@ -510,21 +525,33 @@ class BotCommandHandler
         }
 
         $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
+        $user = $identity['user'];
         $subcommand = strtolower(trim((string) ($args[0] ?? '')));
         if ($subcommand === 'detail' && isset($args[1])) {
-            $detail = $service->findForUserByReference($identity['user'], (string) $args[1]);
+            $returnHandle = isset($args[2]) ? (string) $args[2] : null;
+            $returnHandle = $this->validHistoryReturnHandle(
+                $returnHandle,
+                $user,
+                'whatsapp_gateway',
+            );
 
-            return $this->formatter->formatOrderHistoryDetail($detail);
+            return $this->formatter->formatOrderHistoryDetail(
+                $service->findForUserByReference($user, (string) $args[1]),
+                $returnHandle,
+            );
         }
 
-        if (str_starts_with($subcommand, 'detail:')) {
-            $detail = $service->findForUserByReference($identity['user'], substr($subcommand, 7));
-
-            return $this->formatter->formatOrderHistoryDetail($detail);
+        if ($subcommand === 'nav' && isset($args[1])) {
+            return $this->formatOrderHistoryWindow(
+                $user,
+                'whatsapp_gateway',
+                (string) $args[1],
+            );
         }
 
-        return $this->formatter->formatOrderHistory(
-            $service->listForUser($identity['user'], $this->pageFromArgs($args)),
+        return $this->formatOrderHistoryWindow(
+            $user,
+            'whatsapp_gateway',
         );
     }
 
@@ -552,22 +579,96 @@ class BotCommandHandler
         }
 
         $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
+        $user = $identity['user'];
         $subcommand = strtolower(trim((string) ($args[0] ?? '')));
         if ($subcommand === 'detail' && isset($args[1])) {
+            $returnHandle = isset($args[2]) ? (string) $args[2] : null;
+            $returnHandle = $this->validHistoryReturnHandle(
+                $returnHandle,
+                $user,
+                'telegram_gateway',
+            );
+
             return $this->formatter->formatOrderHistoryDetail(
-                $service->findForUserByReference($identity['user'], (string) $args[1]),
+                $service->findForUserByReference($user, (string) $args[1]),
+                $returnHandle,
             );
         }
 
-        if (str_starts_with($subcommand, 'detail:')) {
-            return $this->formatter->formatOrderHistoryDetail(
-                $service->findForUserByReference($identity['user'], substr($subcommand, 7)),
+        if ($subcommand === 'nav' && isset($args[1])) {
+            return $this->formatOrderHistoryWindow(
+                $user,
+                'telegram_gateway',
+                (string) $args[1],
             );
         }
 
-        return $this->formatter->formatOrderHistory(
-            $service->listForUser($identity['user'], $this->pageFromArgs($args)),
+        return $this->formatOrderHistoryWindow(
+            $user,
+            'telegram_gateway',
         );
+    }
+
+    private function formatOrderHistoryWindow(
+        User $user,
+        string $source,
+        ?string $handle = null,
+    ): array {
+        $navigation = $this->orderHistoryNavigation
+            ?? app(OrderHistoryNavigationStateService::class);
+        $cursor = null;
+
+        if ($handle !== null) {
+            $state = $navigation->resolve($handle, $user, $source);
+            if (! $state['found']) {
+                return $this->formatter->formatOrderHistory([
+                    'items' => [],
+                    'previous_cursor' => null,
+                    'next_cursor' => null,
+                    'current_cursor' => null,
+                    'invalid_cursor' => true,
+                ]);
+            }
+
+            $cursor = $state['cursor'];
+        }
+
+        $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
+        $data = $service->listForUser($user, $cursor, $source);
+        if ($data['invalid_cursor']) {
+            return $this->formatter->formatOrderHistory($data);
+        }
+
+        $data['current_handle'] = $navigation->store(
+            $user,
+            $source,
+            $data['current_cursor'],
+        );
+        $data['previous_handle'] = $data['previous_cursor'] === null
+            ? null
+            : $navigation->store($user, $source, $data['previous_cursor']);
+        $data['next_handle'] = $data['next_cursor'] === null
+            ? null
+            : $navigation->store($user, $source, $data['next_cursor']);
+
+        return $this->formatter->formatOrderHistory($data);
+    }
+
+    private function validHistoryReturnHandle(
+        ?string $handle,
+        User $user,
+        string $source,
+    ): ?string {
+        if ($handle === null) {
+            return null;
+        }
+
+        $navigation = $this->orderHistoryNavigation
+            ?? app(OrderHistoryNavigationStateService::class);
+
+        return $navigation->resolve($handle, $user, $source)['found']
+            ? $handle
+            : null;
     }
 
     private function handleAccountStatus(array $context): array
@@ -634,7 +735,7 @@ class BotCommandHandler
         );
     }
 
-    private function handleKategori(array $args): array
+    private function handleKategori(array $args, array $context): array
     {
         $type = $args[0] ?? null;
         if (! $type) {
@@ -645,10 +746,14 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->categories(null, ['type' => $type]);
-        return $this->formatter->formatProducts($res, $this->pageFromArgs($args));
+        return $this->formatter->formatProducts(
+            $res,
+            $this->pageFromArgs($args),
+            $this->capabilities($context),
+        );
     }
 
-    private function handleLayanan(array $args): array
+    private function handleLayanan(array $args, array $context): array
     {
         $catCode = $args[0] ?? null;
         if (! $catCode) {
@@ -659,10 +764,14 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->services($catCode);
-        return $this->formatter->formatServices($res, $this->pageFromArgs($args));
+        return $this->formatter->formatServices(
+            $res,
+            $this->pageFromArgs($args),
+            $this->capabilities($context),
+        );
     }
 
-    private function handlePembayaran(array $args): array
+    private function handlePembayaran(array $args, array $context): array
     {
         $serviceId = (int) ($args[0] ?? 0);
         if ($serviceId <= 0) {
@@ -683,7 +792,13 @@ class BotCommandHandler
             ? 'layanan ' . $service['data']['category']['code']
             : null;
 
-        return $this->formatter->formatPaymentMethods(['ok' => true, 'data' => $methods], $serviceId, $this->pageFromArgs($args), $backCallback);
+        return $this->formatter->formatPaymentMethods(
+            ['ok' => true, 'data' => $methods],
+            $serviceId,
+            $this->pageFromArgs($args),
+            $backCallback,
+            $this->capabilities($context),
+        );
     }
 
     private function handleHarga(array $args, array $context): array
@@ -755,18 +870,12 @@ class BotCommandHandler
             return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
         }
 
-        $response = $this->handleInvoice([
+        return $this->createCheckoutIntent([
             (string) $state['service_id'],
             (string) $state['payment_method'],
             $uid,
             $requiresZoneId ? $zone : null,
         ], $context);
-
-        if (! str_starts_with((string) ($response['text'] ?? ''), 'Gagal membuat invoice:')) {
-            Cache::forget($this->checkoutStateKey($context));
-        }
-
-        return $response;
     }
 
     private function isValidZoneValue(string $zone, array $customInputs): bool
@@ -805,13 +914,31 @@ class BotCommandHandler
         ];
     }
 
-    private function cancelCheckout(array $context): array
-    {
+    private function cancelCheckout(
+        array $context,
+        array $args = [],
+    ): array {
+        $token = trim((string) (
+            $args[0]
+            ?? $this->checkoutStateToken($context)
+        ));
+
+        if ($token !== '') {
+            $this->checkoutIntents()->cancel(
+                $token,
+                $context,
+                null,
+            );
+        }
+
         $this->clearCheckoutState($context);
 
         return [
             'text' => 'Checkout dibatalkan.',
-            'buttons' => [['text' => '🛍️ Buka Menu', 'callback' => 'menu']],
+            'buttons' => [[
+                'text' => '🛍️ Buka Menu',
+                'callback' => 'menu',
+            ]],
         ];
     }
 
@@ -850,23 +977,39 @@ class BotCommandHandler
         return $this->formatter->formatCheckId($res);
     }
 
-    private function handleInvoice(array $args, array $context): array
-    {
+    private function handleInvoice(
+        array $args,
+        array $context,
+    ): array {
         if (count($args) < 3) {
             return [
-                'text' => "Format salah. Gunakan: `invoice <id_layanan> <kode_bayar> <uid> [zone]`",
-                'buttons' => []
+                'text' => 'Format salah. Gunakan: `invoice <id_layanan> <kode_bayar> <uid> [zone]`',
+                'buttons' => [],
+            ];
+        }
+
+        return $this->createCheckoutIntent($args, $context);
+    }
+
+    private function createCheckoutIntent(
+        array $args,
+        array $context,
+    ): array {
+        $messageId = trim(
+            (string) ($context['message_id'] ?? ''),
+        );
+        if ($messageId === '') {
+            return [
+                'text' => 'Pesan checkout tidak memiliki ID yang valid. Kirim ulang pilihan produk.',
+                'buttons' => [],
             ];
         }
 
         $payload = [
-            'service_id' => $args[0],
+            'service' => $args[0],
             'payment_method' => $args[1],
             'uid' => $args[2],
             'zone' => $args[3] ?? null,
-            'source' => $context['source'],
-            'external_user_id' => $context['external_user_id'],
-            'message_id' => $context['message_id'] ?? null,
         ];
 
         foreach (['nomor', 'whatsapp', 'email'] as $contactField) {
@@ -875,8 +1018,134 @@ class BotCommandHandler
             }
         }
 
-        $res = $this->invoice->createInvoice($payload, null, $context['source'], $payload);
-        return $this->formatter->formatInvoice($res, $context['source']);
+        $quote = $this->pricing->quote($payload, null);
+        $previousToken = $this->checkoutStateToken($context);
+        $result = $this->checkoutIntents()->create(
+            $payload,
+            $quote,
+            $context,
+            null,
+        );
+        $intent = $result['intent'];
+        $token = (string) $result['token'];
+
+        if (
+            ! $result['replayed']
+            && $previousToken !== ''
+            && ! hash_equals($previousToken, $token)
+        ) {
+            $this->checkoutIntents()->cancel(
+                $previousToken,
+                $context,
+                null,
+            );
+        }
+
+        Cache::put($this->checkoutStateKey($context), [
+            'step' => 'waiting_confirmation',
+            'intent_id' => (string) $intent->intent_id,
+            'intent_token' => $token,
+        ], $intent->expires_at);
+
+        return $this->formatter->formatCheckoutConfirmation(
+            $quote,
+            $payload,
+            $token,
+        );
+    }
+
+    private function confirmCheckout(
+        array $args,
+        array $context,
+    ): array {
+        $token = trim((string) (
+            $args[0]
+            ?? $this->checkoutStateToken($context)
+        ));
+
+        if ($token === '') {
+            return [
+                'text' => 'Token konfirmasi tidak valid. Mulai checkout kembali.',
+                'buttons' => [[
+                    'text' => '🛍️ Buka Menu',
+                    'callback' => 'menu',
+                ]],
+            ];
+        }
+
+        $claim = $this->checkoutIntents()->claim(
+            $token,
+            $context,
+            null,
+        );
+        $status = (string) ($claim['status'] ?? 'invalid');
+        $intent = $claim['intent'] ?? null;
+
+        if ($status === 'completed' && $intent instanceof BotCheckoutIntent) {
+            return $this->createInvoiceForIntent(
+                $intent,
+                $context,
+            );
+        }
+
+        if ($status === 'processing') {
+            return [
+                'text' => 'Checkout sedang diproses. Jangan kirim konfirmasi ulang.',
+                'buttons' => [],
+            ];
+        }
+
+        if ($status !== 'claimed' || ! $intent instanceof BotCheckoutIntent) {
+            return [
+                'text' => match ($status) {
+                    'expired' => 'Konfirmasi checkout sudah kedaluwarsa. Mulai checkout kembali.',
+                    BotCheckoutIntent::STATUS_CANCELLED => 'Checkout sudah dibatalkan.',
+                    BotCheckoutIntent::STATUS_REQUIRES_RECONCILIATION => 'Status checkout belum pasti dan sedang direkonsiliasi. Jangan membuat transaksi ulang.',
+                    default => 'Konfirmasi checkout tidak valid.',
+                },
+                'buttons' => [],
+            ];
+        }
+
+        return $this->createInvoiceForIntent($intent, $context);
+    }
+
+    private function createInvoiceForIntent(
+        BotCheckoutIntent $intent,
+        array $context,
+    ): array {
+        $payload = is_array($intent->payload)
+            ? $intent->payload
+            : [];
+        $payload += [
+            'intent_id' => (string) $intent->intent_id,
+            'source' => (string) $context['source'],
+            'external_user_id' => (string) $context['external_user_id'],
+            'message_id' => $context['message_id'] ?? null,
+        ];
+
+        $result = $this->invoice->createInvoice(
+            $payload,
+            null,
+            (string) $context['source'],
+            $context + [
+                'intent_id' => (string) $intent->intent_id,
+            ],
+        );
+
+        if ($result['ok'] ?? false) {
+            $this->clearCheckoutState($context);
+        }
+
+        return $this->formatter->formatInvoice(
+            $result,
+            (string) $context['source'],
+        );
+    }
+
+    private function checkoutIntents(): BotCheckoutIntentService
+    {
+        return app(BotCheckoutIntentService::class);
     }
 
     private function handleStatus(array $args, array $context): array
@@ -919,9 +1188,24 @@ class BotCommandHandler
             && filled($context['external_user_id'] ?? null);
     }
 
+    private function checkoutStateToken(array $context): string
+    {
+        $state = Cache::get($this->checkoutStateKey($context));
+
+        return is_array($state)
+            ? trim((string) ($state['intent_token'] ?? ''))
+            : '';
+    }
+
     private function checkoutStateKey(array $context): string
     {
-        return 'bot:checkout-state:' . hash('sha256', (string) $context['external_user_id']);
+        return 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
     }
 
     private function capabilities(array $context): BotGatewayCapabilities

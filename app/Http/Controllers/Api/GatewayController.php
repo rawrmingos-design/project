@@ -194,40 +194,6 @@ class GatewayController extends Controller
         return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
     }
 
-    public function createInvoice(Request $request, GatewayInvoiceService $invoices): JsonResponse
-    {
-        $validated = $request->validate([
-            'source' => ['required', 'string', 'in:whatsapp_gateway,telegram_gateway'],
-            'service' => ['required_without:service_id', 'integer'],
-            'service_id' => ['required_without:service', 'integer'],
-            'payment_method' => ['required', 'string', 'max:64'],
-            'nomor' => ['nullable', 'regex:/^[0-9]{9,16}$/', 'required_without_all:whatsapp,email'],
-            'whatsapp' => ['nullable', 'regex:/^[0-9]{9,16}$/'],
-            'email' => ['nullable', 'email', 'max:255', 'required_without_all:nomor,whatsapp'],
-            'uid' => ['nullable', 'string', 'max:50'],
-            'zone' => ['nullable', 'string', 'max:50'],
-            'nickname' => ['nullable', 'string', 'max:100'],
-            'voucher' => ['nullable', 'string', 'max:64'],
-            'ktg_tipe' => ['nullable', 'string', 'max:50'],
-            'qty' => ['nullable', 'integer', 'min:1', 'max:999'],
-            'idempotency_key' => ['nullable', 'string', 'max:255'],
-            'external_user_id' => ['nullable', 'string', 'max:255'],
-            'message_id' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $source = (string) $validated['source'];
-        unset($validated['source']);
-
-        $result = $invoices->createInvoice($validated, Auth::guard('sanctum')->user(), $source, [
-            'ip' => $request->ip(),
-            'idempotency_key' => $validated['idempotency_key'] ?? $request->headers->get('X-Idempotency-Key'),
-            'external_user_id' => $validated['external_user_id'] ?? null,
-            'message_id' => $validated['message_id'] ?? null,
-        ]);
-
-        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
-    }
-
     public function status(string $orderId, Request $request, GatewayInvoiceService $invoices): JsonResponse
     {
         $validated = $request->validate([

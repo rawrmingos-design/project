@@ -6,38 +6,101 @@ use App\Models\Pembelian;
 use App\Models\User;
 use App\Support\PembelianStatus;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class OrderHistoryService
 {
-    public const DEFAULT_PER_PAGE = 5;
+    public const TELEGRAM_LIMIT = 5;
 
-    public const MAX_PER_PAGE = 5;
+    public const WHATSAPP_LIMIT = 15;
+
+    public function __construct(
+        private readonly OrderHistoryCursorCodec $cursors,
+    ) {}
 
     /**
-     * @return array{items: array<int, array<string, mixed>>, page: int, per_page: int, total: int, total_pages: int}
+     * @return array{items: array<int, array<string, mixed>>, previous_cursor: string|null, next_cursor: string|null, current_cursor: string|null, invalid_cursor: bool}
      */
-    public function listForUser(User $user, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): array
-    {
-        $perPage = min(max(1, $perPage), self::MAX_PER_PAGE);
-        $page = max(1, $page);
-        $query = $this->ownedOrders($user)
-            ->with('pembayaran')
-            ->latest('created_at')
-            ->latest('id');
+    public function listForUser(
+        User $user,
+        ?string $cursor = null,
+        string $source = 'telegram_gateway',
+        ?int $limit = null,
+    ): array {
+        $limit = $limit ?? ($source === 'whatsapp_gateway'
+            ? self::WHATSAPP_LIMIT
+            : self::TELEGRAM_LIMIT);
+        $limit = min(max(1, $limit), self::WHATSAPP_LIMIT);
+        $decoded = null;
 
-        $total = (clone $query)->count();
-        $totalPages = max(1, (int) ceil($total / $perPage));
-        $page = min($page, $totalPages);
-        $orders = $query
-            ->forPage($page, $perPage)
-            ->get();
+        if (filled($cursor)) {
+            $decoded = $this->cursors->decode((string) $cursor, $user, $source);
+            if ($decoded === null) {
+                return [
+                    'items' => [],
+                    'previous_cursor' => null,
+                    'next_cursor' => null,
+                    'current_cursor' => null,
+                    'invalid_cursor' => true,
+                ];
+            }
+        }
+
+        $query = $this->ownedOrders($user)->with('pembayaran');
+        $direction = $decoded['direction'] ?? 'older';
+
+        if ($decoded !== null && $direction !== 'window') {
+            $this->applyBoundary($query, $decoded);
+        }
+
+        if ($direction === 'window') {
+            $this->applyWindow($query, $decoded);
+        }
+
+        if ($direction === 'newer') {
+            $query->orderBy('created_at')->orderBy('id');
+        } else {
+            $query->orderByDesc('created_at')->orderByDesc('id');
+        }
+
+        $orders = $query->limit($limit + 1)->get();
+        $hasMoreInDirection = $orders->count() > $limit;
+        $orders = $orders->take($limit);
+
+        if ($direction === 'newer') {
+            $orders = $orders->reverse()->values();
+        } else {
+            $orders = $orders->values();
+        }
+
+        $first = $orders->first();
+        $last = $orders->last();
+        $hasNewer = $first instanceof Pembelian
+            && $this->hasNewerOrder($user, $first);
+        $hasOlder = $last instanceof Pembelian
+            && $this->hasOlderOrder($user, $last);
+
+        if ($direction === 'newer' && $hasMoreInDirection) {
+            $hasNewer = true;
+        }
+        if ($direction === 'older' && $hasMoreInDirection) {
+            $hasOlder = true;
+        }
 
         return [
-            'items' => $orders->map(fn (Pembelian $order): array => $this->summary($order))->values()->all(),
-            'page' => $page,
-            'per_page' => $perPage,
-            'total' => $total,
-            'total_pages' => $totalPages,
+            'items' => $orders
+                ->map(fn (Pembelian $order): array => $this->summary($order))
+                ->all(),
+            'previous_cursor' => $hasNewer && $first instanceof Pembelian
+                ? $this->cursorFor($first, 'newer', $user, $source)
+                : null,
+            'next_cursor' => $hasOlder && $last instanceof Pembelian
+                ? $this->cursorFor($last, 'older', $user, $source)
+                : null,
+            'current_cursor' => $first instanceof Pembelian
+                ? $this->cursorFor($first, 'window', $user, $source)
+                : null,
+            'invalid_cursor' => false,
         ];
     }
 
@@ -72,6 +135,81 @@ class OrderHistoryService
             ->first();
 
         return $order instanceof Pembelian ? $this->detail($order) : null;
+    }
+
+    /**
+     * @param array{direction: string, created_at: Carbon, id: string} $cursor
+     */
+    private function applyBoundary(Builder $query, array $cursor): void
+    {
+        $operator = $cursor['direction'] === 'newer' ? '>' : '<';
+        $createdAt = $cursor['created_at'];
+        $id = $cursor['id'];
+
+        $query->where(function (Builder $boundary) use ($operator, $createdAt, $id): void {
+            $boundary
+                ->where('created_at', $operator, $createdAt)
+                ->orWhere(function (Builder $tie) use ($operator, $createdAt, $id): void {
+                    $tie->where('created_at', '=', $createdAt)
+                        ->where('id', $operator, $id);
+                });
+        });
+    }
+
+    /**
+     * @param array{direction: string, created_at: Carbon, id: string} $cursor
+     */
+    private function applyWindow(Builder $query, array $cursor): void
+    {
+        $createdAt = $cursor['created_at'];
+        $id = $cursor['id'];
+
+        $query->where(function (Builder $boundary) use ($createdAt, $id): void {
+            $boundary
+                ->where('created_at', '<', $createdAt)
+                ->orWhere(function (Builder $tie) use ($createdAt, $id): void {
+                    $tie->where('created_at', '=', $createdAt)
+                        ->where('id', '<=', $id);
+                });
+        });
+    }
+
+    private function hasNewerOrder(User $user, Pembelian $first): bool
+    {
+        return $this->ownedOrders($user)
+            ->where(function (Builder $query) use ($first): void {
+                $query->where('created_at', '>', $first->created_at)
+                    ->orWhere(function (Builder $tie) use ($first): void {
+                        $tie->where('created_at', '=', $first->created_at)
+                            ->where('id', '>', $first->getKey());
+                    });
+            })
+            ->exists();
+    }
+
+    private function hasOlderOrder(User $user, Pembelian $last): bool
+    {
+        return $this->ownedOrders($user)
+            ->where(function (Builder $query) use ($last): void {
+                $query->where('created_at', '<', $last->created_at)
+                    ->orWhere(function (Builder $tie) use ($last): void {
+                        $tie->where('created_at', '=', $last->created_at)
+                            ->where('id', '<', $last->getKey());
+                    });
+            })
+            ->exists();
+    }
+
+    private function cursorFor(
+        Pembelian $order,
+        string $direction,
+        User $user,
+        string $source,
+    ): string {
+        return $this->cursors->encode([
+            'created_at' => $order->created_at->toIso8601String(),
+            'id' => (string) $order->getKey(),
+        ], $direction, $user, $source);
     }
 
     private function ownedOrders(User $user): Builder

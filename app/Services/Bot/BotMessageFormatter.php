@@ -83,6 +83,7 @@ class BotMessageFormatter
         int $page = 1,
         ?BotGatewayCapabilities $capabilities = null,
     ): array {
+        $pageSize = $capabilities?->menuPageSize() ?? self::PAGE_SIZE;
         $capabilities ??= BotGatewayCapabilities::forSource(null);
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
@@ -91,7 +92,7 @@ class BotMessageFormatter
             ];
         }
 
-        $pagination = $this->paginate($data['data'], $page);
+        $pagination = $this->paginate($data['data'], $page, $pageSize);
         $items = [];
 
         foreach ($pagination['items'] as $type) {
@@ -99,6 +100,7 @@ class BotMessageFormatter
             $items[] = $this->button(
                 $this->categoryButtonLabel((string) ($type['name'] ?? 'Kategori'), $slug, $type['icon'] ?? null),
                 'kategori ' . $slug,
+                'content',
             );
         }
 
@@ -107,10 +109,18 @@ class BotMessageFormatter
 
         $capabilityButtons = [];
         if ($capabilities->supports('leaderboard')) {
-            $capabilityButtons[] = $this->button('🏆 Leaderboard', 'leaderboard');
+            $capabilityButtons[] = $this->button(
+                '🏆 Leaderboard',
+                'leaderboard',
+                'global_action',
+            );
         }
         if ($capabilities->supports('deposit')) {
-            $capabilityButtons[] = $this->button('💰 Deposit', 'deposit');
+            $capabilityButtons[] = $this->button(
+                '💰 Deposit',
+                'deposit',
+                'global_action',
+            );
         }
         if ($capabilityButtons !== []) {
             $buttons[] = $capabilityButtons;
@@ -127,8 +137,11 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatProducts(array $data, int $page = 1): array
-    {
+    public function formatProducts(
+        array $data,
+        int $page = 1,
+        ?BotGatewayCapabilities $capabilities = null,
+    ): array {
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
                 'text' => "Kategori tidak ditemukan atau belum ada produk.",
@@ -138,7 +151,11 @@ class BotMessageFormatter
 
         $firstType = $data['data'][0]['category_type']['name'] ?? 'Produk';
         $typeSlug = (string) ($data['data'][0]['category_type']['slug'] ?? '');
-        $pagination = $this->paginate($data['data'], $page);
+        $pagination = $this->paginate(
+            $data['data'],
+            $page,
+            $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
+        );
         $items = [];
 
         foreach ($pagination['items'] as $product) {
@@ -146,6 +163,7 @@ class BotMessageFormatter
             $items[] = $this->button(
                 $this->gameButtonLabel((string) ($product['name'] ?? 'Produk'), $code),
                 'layanan ' . $code,
+                'content',
             );
         }
 
@@ -164,8 +182,11 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatServices(array $data, int $page = 1): array
-    {
+    public function formatServices(
+        array $data,
+        int $page = 1,
+        ?BotGatewayCapabilities $capabilities = null,
+    ): array {
         if (! ($data['ok'] ?? false) || empty($data['data']['services'])) {
             return [
                 'text' => "Produk tidak ditemukan atau belum ada layanan.",
@@ -177,12 +198,20 @@ class BotMessageFormatter
         $productName = $category['name'] ?? 'Produk';
         $categoryCode = (string) ($category['code'] ?? '');
         $typeSlug = (string) ($category['category_type']['slug'] ?? '');
-        $pagination = $this->paginate($data['data']['services'], $page);
+        $pagination = $this->paginate(
+            $data['data']['services'],
+            $page,
+            $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
+        );
         $items = [];
 
         foreach ($pagination['items'] as $service) {
             $price = number_format($service['price'], 0, ',', '.');
-            $items[] = $this->button("💎 {$service['name']} · Rp {$price}", 'metode ' . $service['service_id']);
+            $items[] = $this->button(
+                "💎 {$service['name']} · Rp {$price}",
+                'metode ' . $service['service_id'],
+                'content',
+            );
         }
 
         $buttons = array_chunk($items, 2);
@@ -200,8 +229,13 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatPaymentMethods(array $data, int $serviceId, int $page = 1, ?string $backCallback = null): array
-    {
+    public function formatPaymentMethods(
+        array $data,
+        int $serviceId,
+        int $page = 1,
+        ?string $backCallback = null,
+        ?BotGatewayCapabilities $capabilities = null,
+    ): array {
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
                 'text' => "Metode pembayaran sedang tidak tersedia.",
@@ -209,11 +243,19 @@ class BotMessageFormatter
             ];
         }
 
-        $pagination = $this->paginate($data['data'], $page);
+        $pagination = $this->paginate(
+            $data['data'],
+            $page,
+            $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
+        );
         $items = [];
 
         foreach ($pagination['items'] as $method) {
-            $items[] = $this->button('💳 ' . $method['name'], "harga {$serviceId} {$method['code']}");
+            $items[] = $this->button(
+                '💳 ' . $method['name'],
+                "harga {$serviceId} {$method['code']}",
+                'content',
+            );
         }
 
         $buttons = array_chunk($items, 2);
@@ -284,6 +326,62 @@ class BotMessageFormatter
                     $this->button('🔙 Kembali', $backCallback),
                 ]]
                 : [[$this->button('🔙 Kembali', $backCallback)]],
+        ];
+    }
+
+    public function formatCheckoutConfirmation(
+        array $quote,
+        array $payload,
+        string $token,
+    ): array {
+        $data = is_array($quote['data'] ?? null)
+            ? $quote['data']
+            : $quote;
+        $uid = $this->maskedTarget(
+            (string) ($payload['uid'] ?? ''),
+        );
+        $zone = trim((string) ($payload['zone'] ?? ''));
+        $target = $zone !== '' ? $uid . ' / ' . $zone : $uid;
+        $total = number_format(
+            (int) ($data['total_amount'] ?? 0),
+            0,
+            ',',
+            '.',
+        );
+        $confirmCommand = 'konfirmasi ' . $token;
+        $cancelCommand = 'batal ' . $token;
+
+        return [
+            'text' => implode("\n", [
+                '*Konfirmasi Checkout*',
+                '',
+                'Produk: ' . $this->escapeMarkdown(
+                    (string) ($data['service_name'] ?? 'Produk'),
+                ),
+                'Metode: ' . $this->escapeMarkdown(
+                    (string) data_get(
+                        $data,
+                        'payment_method.name',
+                        'Pembayaran',
+                    ),
+                ),
+                'Tujuan: `' . $this->escapeMarkdownCode(
+                    $target,
+                ) . '`',
+                '*Total: Rp ' . $total . '*',
+                '',
+                'Pesanan belum dibuat. Konfirmasi berlaku 15 menit.',
+                'Ketik: `' . $this->escapeMarkdownCode(
+                    $confirmCommand,
+                ) . '`',
+                'Batal: `' . $this->escapeMarkdownCode(
+                    $cancelCommand,
+                ) . '`',
+            ]),
+            'buttons' => [[
+                $this->button('✅ Konfirmasi', $confirmCommand),
+                $this->button('❌ Batal', $cancelCommand),
+            ]],
         ];
     }
 
@@ -474,25 +572,45 @@ class BotMessageFormatter
     }
 
     /**
-     * @param array{items: array<int, array<string, mixed>>, page: int, total: int, total_pages: int} $data
+     * @param array{items: array<int, array<string, mixed>>, previous_cursor: string|null, next_cursor: string|null, current_cursor: string|null, invalid_cursor: bool, previous_handle?: string|null, next_handle?: string|null, current_handle?: string|null} $data
      */
     public function formatOrderHistory(array $data): array
     {
+        if ($data['invalid_cursor'] ?? false) {
+            return [
+                'text' => 'Riwayat sudah kedaluwarsa atau tidak valid. Buka riwayat terbaru.',
+                'buttons' => [[$this->button('📜 Muat Riwayat Terbaru', 'order_history')]],
+                'numeric_menu' => [
+                    'menu' => 'order_history_invalid',
+                    'parent_menu' => 'menu',
+                    'cursor' => null,
+                ],
+            ];
+        }
+
         $items = is_array($data['items'] ?? null) ? $data['items'] : [];
         if ($items === []) {
             return [
                 'text' => '📦 *RIWAYAT ORDER*\n\nBelum ada order yang dapat ditampilkan untuk akun ini.',
-                'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu')]],
+                'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu', 'back')]],
+                'numeric_menu' => [
+                    'menu' => 'order_history',
+                    'parent_menu' => 'menu',
+                    'cursor' => $data['current_handle'] ?? null,
+                ],
             ];
         }
 
         $lines = [
             '📦 *RIWAYAT ORDER*',
             '',
-            'Menampilkan ' . count($items) . ' order terbaru dari akun kamu.',
+            'Menampilkan ' . count($items) . ' order dari akun kamu.',
             '',
         ];
         $buttons = [];
+        $currentHandle = is_string($data['current_handle'] ?? null)
+            ? $data['current_handle']
+            : null;
 
         foreach (array_values($items) as $index => $item) {
             $number = $index + 1;
@@ -504,35 +622,62 @@ class BotMessageFormatter
             $lines[] = '   Total: Rp ' . $amount;
             $lines[] = '   Status: ' . $this->escapeMarkdown((string) ($item['status_label'] ?? 'Unknown'));
             $lines[] = '';
-            $buttons[] = [$this->button('Detail #' . $number, 'history detail:' . (string) ($item['reference'] ?? ''))];
+            $detailCallback = 'history detail ' . (string) ($item['reference'] ?? '');
+            if ($currentHandle !== null) {
+                $detailCallback .= ' ' . $currentHandle;
+            }
+            $buttons[] = [$this->button('Detail #' . $number, $detailCallback, 'content')];
         }
 
-        $page = max(1, (int) ($data['page'] ?? 1));
-        $totalPages = max(1, (int) ($data['total_pages'] ?? 1));
-        if ($page > 1) {
-            $buttons[] = [$this->button('⬅️ Sebelumnya', 'history page:' . ($page - 1))];
+        if (is_string($data['previous_handle'] ?? null)) {
+            $buttons[] = [$this->button(
+                '⬅️ Sebelumnya',
+                'history nav ' . $data['previous_handle'],
+                'navigation_previous',
+            )];
         }
-        if ($page < $totalPages) {
-            $buttons[] = [$this->button('Berikutnya ➡️', 'history page:' . ($page + 1))];
+        if (is_string($data['next_handle'] ?? null)) {
+            $buttons[] = [$this->button(
+                'Berikutnya ➡️',
+                'history nav ' . $data['next_handle'],
+                'navigation_next',
+            )];
         }
-        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu')];
-        $lines[] = "Halaman {$page}/{$totalPages}";
+        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu', 'back')];
 
         return [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
+            'numeric_menu' => [
+                'menu' => 'order_history',
+                'parent_menu' => 'menu',
+                'cursor' => $currentHandle,
+            ],
         ];
     }
 
     /**
      * @param array<string, mixed>|null $data
      */
-    public function formatOrderHistoryDetail(?array $data): array
-    {
+    public function formatOrderHistoryDetail(
+        ?array $data,
+        ?string $returnHandle = null,
+    ): array {
+        $returnCallback = $returnHandle === null
+            ? 'order_history'
+            : 'history nav ' . $returnHandle;
+
         if ($data === null) {
             return [
                 'text' => 'Order tidak ditemukan atau tidak dapat ditampilkan.',
-                'buttons' => [[$this->button('📜 Kembali ke Riwayat', 'order_history')]],
+                'buttons' => [[
+                    $this->button('📜 Kembali ke Riwayat', $returnCallback, 'back'),
+                ]],
+                'numeric_menu' => [
+                    'menu' => 'order_history_detail',
+                    'parent_menu' => 'order_history',
+                    'cursor' => $returnHandle,
+                ],
             ];
         }
 
@@ -557,8 +702,13 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", $lines),
-            'buttons' => [
-                [$this->button('📜 Kembali ke Riwayat', 'order_history')],
+            'buttons' => [[
+                $this->button('📜 Kembali ke Riwayat', $returnCallback, 'back'),
+            ]],
+            'numeric_menu' => [
+                'menu' => 'order_history_detail',
+                'parent_menu' => 'order_history',
+                'cursor' => $returnHandle,
             ],
         ];
     }
@@ -779,6 +929,20 @@ class BotMessageFormatter
         }
     }
 
+    private function maskedTarget(string $value): string
+    {
+        $value = trim($value);
+        $length = strlen($value);
+
+        if ($length <= 4) {
+            return str_repeat('*', $length);
+        }
+
+        return substr($value, 0, 2)
+            . str_repeat('*', max(2, $length - 4))
+            . substr($value, -2);
+    }
+
     private function escapeMarkdown(string $value): string
     {
         return str_replace(
@@ -995,14 +1159,18 @@ class BotMessageFormatter
         return trim($value, '-');
     }
 
-    private function paginate(array $items, int $page): array
-    {
+    private function paginate(
+        array $items,
+        int $page,
+        int $pageSize = self::PAGE_SIZE,
+    ): array {
+        $pageSize = max(1, $pageSize);
         $total = count($items);
-        $totalPages = max(1, (int) ceil($total / self::PAGE_SIZE));
+        $totalPages = max(1, (int) ceil($total / $pageSize));
         $currentPage = min(max(1, $page), $totalPages);
 
         return [
-            'items' => array_slice($items, ($currentPage - 1) * self::PAGE_SIZE, self::PAGE_SIZE),
+            'items' => array_slice($items, ($currentPage - 1) * $pageSize, $pageSize),
             'page' => $currentPage,
             'total_pages' => $totalPages,
             'total' => $total,
@@ -1020,11 +1188,19 @@ class BotMessageFormatter
         $row = [];
 
         if ($page > 1) {
-            $row[] = $this->button('⬅️ Prev', $baseCallback . ' page:' . ($page - 1));
+            $row[] = $this->button(
+                '⬅️ Prev',
+                $baseCallback . ' page:' . ($page - 1),
+                'navigation_previous',
+            );
         }
 
         if ($page < $totalPages) {
-            $row[] = $this->button('Next ➡️', $baseCallback . ' page:' . ($page + 1));
+            $row[] = $this->button(
+                'Next ➡️',
+                $baseCallback . ' page:' . ($page + 1),
+                'navigation_next',
+            );
         }
 
         if ($row !== []) {
@@ -1036,7 +1212,7 @@ class BotMessageFormatter
 
     private function appendBack(array $buttons, string $callback): array
     {
-        $buttons[] = [$this->button('🔙 Kembali', $callback)];
+        $buttons[] = [$this->button('🔙 Kembali', $callback, 'back')];
 
         return $buttons;
     }
@@ -1050,12 +1226,16 @@ class BotMessageFormatter
         return "\nHalaman {$pagination['page']}/{$pagination['total_pages']}";
     }
 
-    private function button(string $text, string $callback): array
-    {
-        return [
+    private function button(
+        string $text,
+        string $callback,
+        ?string $numericType = null,
+    ): array {
+        return array_filter([
             'text' => $text,
             'callback' => $this->callback($callback),
-        ];
+            'numeric_type' => $numericType,
+        ], static fn (mixed $value): bool => $value !== null);
     }
 
     private function urlButton(string $text, string $url): array
@@ -1070,6 +1250,12 @@ class BotMessageFormatter
     {
         $callback = trim(preg_replace('/\s+/', ' ', $callback) ?? $callback);
 
-        return strlen($callback) <= 64 ? $callback : substr($callback, 0, 64);
+        if (strlen($callback) > 64) {
+            throw new \InvalidArgumentException(
+                'Callback bot melebihi batas 64 byte.',
+            );
+        }
+
+        return $callback;
     }
 }

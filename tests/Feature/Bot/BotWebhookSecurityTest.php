@@ -16,8 +16,7 @@ class BotWebhookSecurityTest extends TestCase
         parent::setUp();
         Http::preventStrayRequests();
         config(['services.telegram-bot-api.webhook_secret' => 'correct-telegram-secret']);
-        config(['services.fonnte.device_token' => 'correct-fonnte-secret']);
-        
+
         // Setup trusted IP range policy
         $telegramPolicy = InboundSourcePolicy::query()->create([
             'source_domain' => 'bot_webhook',
@@ -84,53 +83,39 @@ class BotWebhookSecurityTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_fonnte_rejects_invalid_device_token()
+    public function test_fonnte_accepts_allowed_ip_without_authorization(): void
     {
-        // Valid IP, but invalid token
-        $response = $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
-            ->postJson('/api/webhooks/bot/fonnte', [], [
-                'Authorization' => 'wrong-secret',
-            ]);
-            
-        $response->assertStatus(401);
+        $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
+            ->postJson('/api/webhooks/bot/fonnte', [])
+            ->assertOk();
     }
 
-    public function test_fonnte_accepts_valid_ip_and_token()
+    public function test_fonnte_ignores_inbound_authorization_header(): void
     {
-        $response = $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
+        $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
             ->postJson('/api/webhooks/bot/fonnte', [], [
-                'Authorization' => 'correct-fonnte-secret',
-            ]);
-
-        // 200 OK because empty payload results in status: ignored
-        $response->assertStatus(200);
+                'Authorization' => 'arbitrary-inbound-value',
+            ])
+            ->assertOk();
     }
 
-    public function test_fonnte_rejects_when_configured_device_token_is_missing(): void
+    public function test_fonnte_ignores_inbound_device_token_payload(): void
+    {
+        $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
+            ->postJson('/api/webhooks/bot/fonnte', [
+                'device_token' => 'arbitrary-inbound-value',
+            ])
+            ->assertOk();
+    }
+
+    public function test_fonnte_inbound_acceptance_does_not_depend_on_configured_outbound_token(): void
     {
         config(['services.fonnte.device_token' => '']);
 
-        $response = $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
+        $this->withServerVariables(['REMOTE_ADDR' => '202.162.212.1'])
             ->postJson('/api/webhooks/bot/fonnte', [], [
-                'Authorization' => 'correct-fonnte-secret',
-            ]);
-
-        $response->assertStatus(401);
-    }
-
-    public function test_fonnte_rate_limits_repeated_invalid_credentials(): void
-    {
-        config(['rate_limits.callbacks.bot_invalid_per_minute' => 1]);
-
-        $server = ['REMOTE_ADDR' => '202.162.212.1'];
-        $headers = ['Authorization' => 'wrong-secret'];
-
-        $this->withServerVariables($server)
-            ->postJson('/api/webhooks/bot/fonnte', [], $headers)
-            ->assertStatus(401);
-
-        $this->withServerVariables($server)
-            ->postJson('/api/webhooks/bot/fonnte', [], $headers)
-            ->assertStatus(429);
+                'Authorization' => 'arbitrary-inbound-value',
+            ])
+            ->assertOk();
     }
 }

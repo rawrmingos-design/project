@@ -4,7 +4,9 @@ namespace App\Services\Checkout;
 
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
+use App\Services\Gateway\GatewayPricingService;
 use App\Services\Payments\DuitkuInvoiceService;
+use App\Models\BotCheckoutIntent;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
@@ -37,17 +39,161 @@ class CheckoutOrderService
         $source = $this->normalizeSource($source);
         $request = Request::create('/checkout/payload', 'POST', $payload);
         $this->validateApiPayload($request);
+        $intent = null;
+        $intentId = null;
+        $intentService = null;
+        $isBotCheckout = in_array(
+            $source,
+            ['whatsapp_gateway', 'telegram_gateway'],
+            true,
+        );
 
-        $idempotencyKey = $this->idempotencyKeyFromPayload($request->all(), $user, $source, $context);
-        if ($cachedOrderId = Cache::get($idempotencyKey)) {
+        if ($isBotCheckout) {
+            $intentId = trim((string) ($context['intent_id'] ?? ''));
+            if ($intentId === '') {
+                throw ValidationException::withMessages([
+                    'intent' => 'Checkout gateway harus dikonfirmasi sebelum membuat invoice.',
+                ]);
+            }
+
+            $intentService = app(BotCheckoutIntentService::class);
+        }
+
+        $idempotencyKey = $isBotCheckout
+            ? null
+            : $this->idempotencyKeyFromPayload($request->all(), $user, $source, $context);
+        if ($idempotencyKey !== null && $cachedOrderId = Cache::get($idempotencyKey)) {
             $order = Pembelian::query()->where('order_id', $cachedOrderId)->with('pembayaran')->first();
             if ($order) {
                 return $this->buildResult($order, true);
             }
         }
 
-        $order = DB::transaction(function () use ($request, $user, $source, $context): Pembelian {
-            $service = Layanan::query()
+        $providerDispatched = false;
+        $gatewayRequest = null;
+        $frozenTotal = null;
+
+        try {
+            if ($intentService && $intentId !== null) {
+                $intent = $intentService->prepareMutation(
+                    $intentId,
+                    $context + ['source' => $source],
+                    $user,
+                );
+
+                if (! $intentService->payloadMatches($intent, $request->all())) {
+                    throw ValidationException::withMessages([
+                        'intent' => 'Payload checkout tidak sesuai dengan intent yang dikonfirmasi.',
+                    ]);
+                }
+
+                if (
+                    $intent->status === BotCheckoutIntent::STATUS_COMPLETED
+                    && filled($intent->order_id)
+                ) {
+                    $completedOrder = Pembelian::query()
+                        ->where('order_id', $intent->order_id)
+                        ->with('pembayaran')
+                        ->first();
+
+                    if ($completedOrder) {
+                        return $this->buildResult($completedOrder, true);
+                    }
+
+                    throw ValidationException::withMessages([
+                        'intent' => 'Order checkout yang selesai tidak dapat ditemukan.',
+                    ]);
+                }
+
+                $currentQuote = app(
+                    GatewayPricingService::class,
+                )->quote($request->all(), $user);
+
+                if (! $intentService->quoteMatches($intent, $currentQuote)) {
+                    $intentService->expireForQuoteChange($intent);
+
+                    throw ValidationException::withMessages([
+                        'intent' => 'Harga checkout berubah. Tinjau harga terbaru dan konfirmasi ulang.',
+                    ]);
+                }
+
+                $frozenTotal = (int) data_get(
+                    $currentQuote,
+                    'data.total_amount',
+                    0,
+                );
+                $dispatchMethod = app(
+                    \App\Services\PaymentMethodCatalogService::class,
+                )->findVisibleByCode(
+                    (string) $request->input('payment_method'),
+                );
+
+                if (! $dispatchMethod) {
+                    throw ValidationException::withMessages([
+                        'payment_method' => 'Metode pembayaran tidak valid atau tidak aktif.',
+                    ]);
+                }
+
+                if (in_array(
+                    (string) $dispatchMethod->payment,
+                    ['duitku', 'tripay', 'tokopay'],
+                    true,
+                )) {
+                    $dispatchService = Layanan::query()
+                        ->whereKey($request->integer('service'))
+                        ->where('status', 'available')
+                        ->first();
+
+                    if (! $dispatchService) {
+                        throw ValidationException::withMessages([
+                            'service' => 'Layanan tidak ditemukan atau tidak tersedia.',
+                        ]);
+                    }
+
+                    $dispatchCategory = Kategori::query()
+                        ->findOrFail($dispatchService->kategori_id);
+                    $dispatchOrderType = $this->orderType(
+                        (string) $request->input(
+                            'ktg_tipe',
+                            $dispatchCategory->tipe,
+                        ),
+                    );
+                    $providerDispatched = $intentService
+                        ->markProviderDispatch($intent);
+
+                    if (! $providerDispatched) {
+                        throw ValidationException::withMessages([
+                            'intent' => 'Checkout sedang diproses atau memerlukan rekonsiliasi.',
+                        ]);
+                    }
+
+                    $gatewayRequest = $this->requestGatewayInvoice(
+                        $dispatchMethod,
+                        (string) $intent->merchant_reference,
+                        $frozenTotal,
+                        $dispatchService,
+                        $request,
+                        $user,
+                        in_array($dispatchOrderType, [
+                            'joki',
+                            'jokigendong',
+                            'vilogml',
+                        ], true),
+                    );
+                }
+            }
+
+            $order = DB::transaction(function () use (
+                $request,
+                $user,
+                $source,
+                $context,
+                $intentService,
+                &$intent,
+                $gatewayRequest,
+                $frozenTotal,
+            ): Pembelian {
+                $service = Layanan::query()
                 ->whereKey($request->integer('service'))
                 ->where('status', 'available')
                 ->lockForUpdate()
@@ -97,6 +243,17 @@ class CheckoutOrderService
 
             $feeAmount = $this->methodFee($baseAmount, $method);
             $totalAmount = max(1000, $baseAmount + $feeAmount);
+
+            if (
+                $intentService
+                && $frozenTotal !== null
+                && $totalAmount !== $frozenTotal
+            ) {
+                throw ValidationException::withMessages([
+                    'intent' => 'Harga checkout berubah sebelum order disimpan dan memerlukan rekonsiliasi.',
+                ]);
+            }
+
             $limitMessage = $this->validateMethodLimit($totalAmount, $method);
             if ($limitMessage !== null) {
                 throw ValidationException::withMessages([
@@ -104,7 +261,9 @@ class CheckoutOrderService
                 ]);
             }
 
-            $orderId = $this->generateOrderId();
+            $orderId = filled($intent?->merchant_reference)
+                ? (string) $intent->merchant_reference
+                : $this->generateOrderId();
             $paymentReference = 'API-' . $orderId;
             $expiresAt = now()->addHours($this->paymentExpiryHours($method));
             $paymentCode = $this->paymentCode($method, $orderId);
@@ -114,15 +273,17 @@ class CheckoutOrderService
             $orderType = $this->orderType((string) $request->input('ktg_tipe', $category->tipe));
             $isJoki = in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true);
 
-            $gateway = $this->requestGatewayInvoice(
-                $method,
-                $orderId,
-                $totalAmount,
-                $service,
-                $request,
-                $user,
-                $isJoki
-            );
+            $gateway = $intentService
+                ? $gatewayRequest
+                : $this->requestGatewayInvoice(
+                    $method,
+                    $orderId,
+                    $totalAmount,
+                    $service,
+                    $request,
+                    $user,
+                    $isJoki,
+                );
 
             if ($gateway !== null) {
                 $totalAmount = (int) ($gateway['amount'] ?? $totalAmount);
@@ -209,12 +370,37 @@ class CheckoutOrderService
                 ]);
             }
 
-            return $order->fresh('pembayaran');
-        });
+            if ($intentService && $intent) {
+                $intentService->markCompleted(
+                    $intent,
+                    (string) $order->order_id,
+                );
+            }
 
-        Cache::put($idempotencyKey, $order->order_id, now()->addSeconds(self::IDEMPOTENCY_TTL_SECONDS));
+                return $order->fresh('pembayaran');
+            });
 
-        return $this->buildResult($order);
+            if ($idempotencyKey !== null) {
+                Cache::put(
+                    $idempotencyKey,
+                    $order->order_id,
+                    now()->addSeconds(
+                        self::IDEMPOTENCY_TTL_SECONDS,
+                    ),
+                );
+            }
+
+            return $this->buildResult($order);
+        } catch (\Throwable $exception) {
+            if ($intentService && $intent) {
+                $intentService->markFailure(
+                    $intent,
+                    $providerDispatched,
+                );
+            }
+
+            throw $exception;
+        }
     }
 
     public function statusPayload(Pembelian $order): array

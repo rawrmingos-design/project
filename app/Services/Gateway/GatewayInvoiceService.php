@@ -29,11 +29,12 @@ class GatewayInvoiceService
         }
 
         $context = $this->normalizeContext($context + [
-            'external_user_id' => $payload['external_user_id'] ?? null,
-            'idempotency_key' => $payload['idempotency_key'] ?? null,
+            'external_user_id' => $payload['external_user_id']
+                ?? null,
             'channel' => $this->channelFromSource($source),
             'message_id' => $payload['message_id'] ?? null,
-        ], $source, $checkoutPayload);
+            'intent_id' => $payload['intent_id'] ?? null,
+        ], $source);
 
         $result = $this->checkout->createFromPayload($checkoutPayload, $user, $source, $context);
 
@@ -149,22 +150,22 @@ class GatewayInvoiceService
         }
     }
 
-    private function normalizeContext(array $context, string $source, array $payload): array
+    private function normalizeContext(array $context, string $source): array
     {
         $context['source'] = $source;
-        $context['channel'] = trim((string) ($context['channel'] ?? '')) ?: $this->channelFromSource($source);
-        $context['external_user_id'] = $this->normalizeExternalUserId($source, $context['external_user_id'] ?? null);
-
-        if (blank($context['idempotency_key'] ?? null)) {
-            $context['idempotency_key'] = hash('sha256', json_encode([
-                'source' => $source,
-                'external_user_id' => $context['external_user_id'] ?? null,
-                'service' => $payload['service'] ?? null,
-                'payment_method' => $payload['payment_method'] ?? null,
-                'uid' => $payload['uid'] ?? null,
-                'zone' => $payload['zone'] ?? null,
-            ], JSON_UNESCAPED_SLASHES));
-        }
+        $context['channel'] = trim(
+            (string) ($context['channel'] ?? ''),
+        ) ?: $this->channelFromSource($source);
+        $context['external_user_id'] = $this->normalizeExternalUserId(
+            $source,
+            $context['external_user_id'] ?? null,
+        );
+        $context['message_id'] = trim(
+            (string) ($context['message_id'] ?? ''),
+        );
+        $context['intent_id'] = trim(
+            (string) ($context['intent_id'] ?? ''),
+        );
 
         return $context;
     }
