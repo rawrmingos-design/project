@@ -44,4 +44,9 @@ final class BotGatewayCapabilities
             default => false,
         };
     }
+
+    public function menuPageSize(): int
+    {
+        return $this->source === self::SOURCE_WHATSAPP ? 15 : 8;
+    }
 }

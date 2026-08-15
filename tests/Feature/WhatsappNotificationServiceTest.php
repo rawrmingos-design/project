@@ -91,6 +91,7 @@ class WhatsappNotificationServiceTest extends TestCase
 
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://api.fonnte.com/send'
+                && $request->hasHeader('Authorization', 'fonnte-token')
                 && ($request->data()['target'] ?? null) === '085792464508'
                 && ($request->data()['message'] ?? null) === "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV-TRIPAY-001*\n└ Produk: *Mobile Legends 86 Diamonds*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya";
         });
