@@ -49,6 +49,12 @@ class TelegramUserResolver
             return ['status' => self::STATUS_UNAVAILABLE];
         }
 
+        $identityTenantId = $identity->tenant_id === null ? null : (int) $identity->tenant_id;
+        $userTenantId = $user->tenant_id === null ? null : (int) $user->tenant_id;
+        if ($identityTenantId !== $userTenantId) {
+            return ['status' => self::STATUS_CONFLICT];
+        }
+
         DB::table('telegram_identities')
             ->whereKey($identity->getKey())
             ->update(array_filter([

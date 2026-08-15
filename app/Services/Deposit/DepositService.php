@@ -46,8 +46,9 @@ class DepositService
             return $this->failure('Metode pembayaran tidak valid', 'metode');
         }
 
-        if ($source === 'whatsapp_gateway' && ($externalUserId === null || $externalMessageId === null)) {
-            return $this->failure('Identitas pesan WhatsApp tidak lengkap.', 'idempotency');
+        if (in_array($source, ['whatsapp_gateway', 'telegram_gateway'], true)
+            && ($externalUserId === null || $externalMessageId === null)) {
+            return $this->failure('Identitas pesan gateway tidak lengkap.', 'idempotency');
         }
 
         $api = DB::table('setting_webs')->where('id', 1)->first();
@@ -127,18 +128,22 @@ class DepositService
             $isReseller = strtolower(trim((string) $user->role)) === 'reseller';
             $returnUrl = (string) ($input['return_url'] ?? ($isReseller ? route('reseller.dashboard') : route('riwayat')));
 
-            $result = $this->requestGatewayInvoice(
-                gateway: $gateway,
-                paymentMethod: $paymentMethod,
-                merchantOrderId: $merchantOrderId,
-                grossAmount: $grossAmount,
-                userEmail: (string) ($user->email ?? 'user@example.com'),
-                userName: (string) ($user->name ?? $user->username),
-                username: (string) $user->username,
-                phone: $normalizedPhone ?: '08123456789',
-                settings: $api,
-                returnUrl: $returnUrl,
-            );
+            try {
+                $result = $this->requestGatewayInvoice(
+                    gateway: $gateway,
+                    paymentMethod: $paymentMethod,
+                    merchantOrderId: $merchantOrderId,
+                    grossAmount: $grossAmount,
+                    userEmail: (string) ($user->email ?? 'user@example.com'),
+                    userName: (string) ($user->name ?? $user->username),
+                    username: (string) $user->username,
+                    phone: $normalizedPhone ?: '08123456789',
+                    settings: $api,
+                    returnUrl: $returnUrl,
+                );
+            } catch (\Throwable) {
+                return $this->failure('Gagal membuat invoice via ' . ucfirst($gateway));
+            }
 
             if (! ($result['success'] ?? false)) {
                 return $this->failure('Gagal membuat invoice via ' . ucfirst($gateway));
@@ -166,6 +171,7 @@ class DepositService
                 }
 
                 $deposit = new Deposit();
+                $deposit->tenant_id = $user->tenant_id;
                 $deposit->order_id = $merchantOrderId;
                 $deposit->username = (string) $user->username;
                 $deposit->metode = $paymentMethod;
@@ -180,6 +186,7 @@ class DepositService
                 $deposit->save();
 
                 $pembayaran = new Pembayaran();
+                $pembayaran->tenant_id = $user->tenant_id;
                 $pembayaran->order_id = $merchantOrderId;
                 $pembayaran->harga = $result['amount'];
                 $pembayaran->no_pembayaran = $deposit->no_pembayaran;

@@ -68,11 +68,11 @@ class BotCommandHandler
 
             return match ($command) {
                 'start' => $this->handleStart($args, $context),
-                'help', 'bantuan' => $this->formatter->formatHelp(),
-                'menu' => $this->handleMenu($args),
+                'help', 'bantuan' => $this->formatter->formatHelp($this->capabilities($context)),
+                'menu' => $this->handleMenu($args, $context),
                 'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
                 'link' => $this->handleLink($args, $context),
-                'deposit', 'topup', 'isi_saldo' => $this->handleWhatsappDeposit($args, $context),
+                'deposit', 'topup', 'isi_saldo' => $this->handleDeposit($args, $context),
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
                 'account_status', 'whatsapp_status', 'status_akun' => $this->handleAccountStatus($context),
                 'telegram_status' => $this->handleTelegramAccountStatus($context),
@@ -114,7 +114,7 @@ class BotCommandHandler
             return $this->handleTelegramLink([$args[0]], $context);
         }
 
-        return $this->formatter->formatHelp();
+        return $this->formatter->formatHelp($this->capabilities($context));
     }
 
     private function handleLink(array $args, array $context): array
@@ -227,6 +227,22 @@ class BotCommandHandler
         ];
     }
 
+    private function handleDeposit(array $args, array $context): array
+    {
+        $capabilities = $this->capabilities($context);
+        if (! $capabilities->supports('deposit')) {
+            return [
+                'text' => 'Deposit belum tersedia melalui gateway ini.',
+                'buttons' => [],
+            ];
+        }
+
+        return match ($capabilities->source()) {
+            BotGatewayCapabilities::SOURCE_WHATSAPP => $this->handleWhatsappDeposit($args, $context),
+            BotGatewayCapabilities::SOURCE_TELEGRAM => $this->handleTelegramDeposit($args, $context),
+        };
+    }
+
     private function handleWhatsappDeposit(array $args, array $context): array
     {
         if (($context['source'] ?? null) !== 'whatsapp_gateway') {
@@ -308,6 +324,99 @@ class BotCommandHandler
             'external_message_id' => $messageId,
         ]);
 
+        return $this->formatDepositResponse($result, (int) $amount);
+    }
+
+    private function handleTelegramDeposit(array $args, array $context): array
+    {
+        $rateLimitKey = 'bot-telegram-deposit:' . $this->senderFingerprint($context);
+        if (RateLimiter::tooManyAttempts(
+            $rateLimitKey,
+            max(1, (int) config('rate_limits.callbacks.deposit_per_sender_per_minute', 10)),
+        )) {
+            return [
+                'text' => 'Terlalu banyak percobaan deposit. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+        RateLimiter::hit($rateLimitKey, 60);
+
+        $identity = ($this->telegramUserResolver ?? app(TelegramUserResolver::class))->resolve(
+            (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default')),
+            (string) ($context['telegram_user_id'] ?? ''),
+            $context['telegram_chat_id'] ?? null,
+            $context['telegram_metadata'] ?? [],
+        );
+
+        if (($identity['status'] ?? null) !== TelegramUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
+            Log::notice('Bot Telegram identity denied.', [
+                'correlation_id' => $context['correlation_id'] ?? null,
+                'action' => 'deposit',
+                'reason' => $identity['status'] ?? 'unknown',
+            ]);
+
+            return [
+                'text' => match ($identity['status'] ?? null) {
+                    TelegramUserResolver::STATUS_UNLINKED, TelegramUserResolver::STATUS_REVOKED => 'Akun Telegram belum tertaut. Tautkan akun melalui halaman Pengaturan terlebih dahulu.',
+                    default => 'Akun Telegram belum dapat diverifikasi. Coba lagi nanti atau hubungi admin melalui jalur resmi.',
+                },
+                'buttons' => [],
+            ];
+        }
+
+        if (count($args) < 2) {
+            return [
+                'text' => 'Format deposit: `DEPOSIT <jumlah> <metode>`\nContoh: `DEPOSIT 15000 BCA`',
+                'buttons' => [],
+            ];
+        }
+
+        $messageId = filled($context['message_id'] ?? null) ? (string) $context['message_id'] : null;
+        if ($messageId === null) {
+            return [
+                'text' => 'Pesan Telegram tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
+                'buttons' => [],
+            ];
+        }
+
+        $amount = filter_var($args[0], FILTER_VALIDATE_INT, ['options' => ['min_range' => 10000]]);
+        $method = strtoupper(trim((string) $args[1]));
+        if ($amount === false || $method === '') {
+            return [
+                'text' => 'Jumlah minimal deposit Rp 10.000 dan metode pembayaran wajib diisi.',
+                'buttons' => [],
+            ];
+        }
+
+        $botScope = (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default'));
+        $telegramUserId = (string) ($context['telegram_user_id'] ?? '');
+        $phone = $identity['user']->whatsapp_verified_at !== null
+            ? WhatsappNumberNormalizer::normalize((string) $identity['user']->no_wa)
+            : null;
+        $result = ($this->depositService ?? app(DepositService::class))->create($identity['user'], [
+            'jumlah' => $amount,
+            'metode' => $method,
+            'no_telfon' => $phone,
+            'source' => BotGatewayCapabilities::SOURCE_TELEGRAM,
+            'external_user_id' => 'telegram:' . $botScope . ':' . $telegramUserId,
+            'external_message_id' => $messageId,
+            'metadata' => array_filter([
+                'telegram_bot_scope' => $botScope,
+                'telegram_chat_fingerprint' => $this->externalIdentifierFingerprint(
+                    $botScope,
+                    $context['telegram_chat_id'] ?? null,
+                ),
+                'telegram_message_id' => $context['telegram_message_id'] ?? null,
+                'telegram_update_id' => $context['telegram_update_id'] ?? null,
+                'correlation_id' => $context['correlation_id'] ?? null,
+            ], static fn (mixed $value): bool => $value !== null),
+        ]);
+
+        return $this->formatDepositResponse($result, (int) $amount);
+    }
+
+    private function formatDepositResponse(array $result, int $amount): array
+    {
         if (! ($result['success'] ?? false)) {
             return [
                 'text' => (string) ($result['message'] ?? 'Deposit tidak dapat dibuat. Coba lagi nanti.'),
@@ -321,16 +430,20 @@ class BotCommandHandler
         $lines = [
             '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
             '',
-            'Order ID: `' . $result['order_id'] . '`',
+            'Order ID: `' . $this->escapeMarkdownCode((string) $result['order_id']) . '`',
             'Jumlah: Rp ' . number_format((int) ($result['gross_amount'] ?? $amount), 0, ',', '.'),
         ];
 
         if ($paymentCode !== '' && $qrLink === '' && $qrPayload === '') {
-            $lines[] = 'Kode Bayar / VA: `' . $paymentCode . '`';
+            $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
         } elseif ($qrLink !== '' || $qrPayload !== '') {
             $lines[] = 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
-        } elseif (filled($result['checkout_url'] ?? null) || filled($result['pay_url'] ?? null)) {
-            $lines[] = 'Gunakan URL pembayaran berikut: ' . ($result['checkout_url'] ?? $result['pay_url']);
+        } else {
+            $paymentUrl = $result['checkout_url'] ?? $result['pay_url'] ?? null;
+            if (filter_var($paymentUrl, FILTER_VALIDATE_URL)
+                && strtolower((string) parse_url((string) $paymentUrl, PHP_URL_SCHEME)) === 'https') {
+                $lines[] = 'Gunakan URL pembayaran berikut: ' . $paymentUrl;
+            }
         }
 
         $response = [
@@ -512,10 +625,13 @@ class BotCommandHandler
         ];
     }
 
-    private function handleMenu(array $args = []): array
+    private function handleMenu(array $args = [], array $context = []): array
     {
-        $res = $this->catalog->categoryTypes();
-        return $this->formatter->formatCategories($res, $this->pageFromArgs($args));
+        return $this->formatter->formatCategories(
+            $this->catalog->categoryTypes(),
+            $this->pageFromArgs($args),
+            $this->capabilities($context),
+        );
     }
 
     private function handleKategori(array $args): array
@@ -806,6 +922,25 @@ class BotCommandHandler
     private function checkoutStateKey(array $context): string
     {
         return 'bot:checkout-state:' . hash('sha256', (string) $context['external_user_id']);
+    }
+
+    private function capabilities(array $context): BotGatewayCapabilities
+    {
+        return BotGatewayCapabilities::forSource($context['source'] ?? null);
+    }
+
+    private function escapeMarkdownCode(string $value): string
+    {
+        return str_replace(['\\', '`'], ['\\\\', '\\`'], $value);
+    }
+
+    private function externalIdentifierFingerprint(string $scope, string|int|null $value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return hash_hmac('sha256', $scope . '|' . (string) $value, (string) config('app.key'));
     }
 
     private function senderFingerprint(array $context): string
