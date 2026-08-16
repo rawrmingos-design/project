@@ -141,7 +141,19 @@ class TelegramDepositBotTest extends TestCase
         $user = $this->linkedUser(tenantId: $tenant->id);
         $this->fakeSuccessfulGateway('T-TELEGRAM-1');
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $this->context());
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        // Step 1: deposit → amount prompt
+        $step1 = $handler->handle('deposit', [], $ctx);
+        $this->assertStringContainsString('Pilih Jumlah Deposit', $step1['text']);
+
+        // Step 2: preset 3 = 50000 → method prompt
+        $step2 = $handler->handle('3', [], $ctx);
+        $this->assertStringContainsString('Pilih Metode Pembayaran', $step2['text']);
+
+        // Step 3: pick method 1 (BCA) → deposit created
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertStringContainsString('Kode Bayar / VA', $response['text']);
         $this->assertDatabaseHas('deposits', [
@@ -170,11 +182,20 @@ class TelegramDepositBotTest extends TestCase
             $mock->shouldNotReceive('request');
         });
 
-        $invalidAmount = $this->handler()->handle('deposit', ['9999', 'BCA'], $this->context());
-        $invalidMethod = $this->handler()->handle('deposit', ['15000', 'UNKNOWN'], $this->context());
+        $ctx = $this->context();
+        $handler = $this->handler();
 
-        $this->assertStringContainsString('minimal deposit', strtolower($invalidAmount['text']));
-        $this->assertStringContainsString('metode pembayaran tidak valid', strtolower($invalidMethod['text']));
+        // Invalid amount: below minimum
+        $handler->handle('deposit', [], $ctx);
+        $invalidAmount = $handler->handle('9999', [], $ctx);
+        $this->assertStringContainsString('minimal', strtolower($invalidAmount['text']));
+
+        // Now enter valid amount, then invalid method index
+        $handler->handle('deposit', [], $ctx); // restart flow
+        $handler->handle('15000', [], $ctx);
+        $invalidMethod = $handler->handle('99', [], $ctx); // out-of-range index
+
+        $this->assertStringContainsString('tidak valid', strtolower($invalidMethod['text']));
         $this->assertDatabaseCount('deposits', 0);
     }
 
@@ -185,9 +206,16 @@ class TelegramDepositBotTest extends TestCase
             $mock->shouldNotReceive('request');
         });
 
-        $context = $this->context();
-        unset($context['message_id']);
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $context);
+        $ctx = $this->context();
+        unset($ctx['message_id']);
+        $handler = $this->handler();
+
+        // Step 1 & 2 succeed (message_id not checked until method selection)
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+
+        // Step 3: method selection fails — no message_id
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertStringContainsString('ID yang valid', $response['text']);
         $this->assertDatabaseCount('deposits', 0);
@@ -208,7 +236,12 @@ class TelegramDepositBotTest extends TestCase
             ]);
         });
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $this->context());
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertSame('https://cdn.example.test/qr/telegram.png', $response['photo_url']);
         $this->assertStringNotContainsString('tripay.co.id/checkout', $response['text']);
@@ -224,7 +257,12 @@ class TelegramDepositBotTest extends TestCase
             ]);
         });
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $this->context());
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertSame('Gagal membuat invoice via Tripay', $response['text']);
         $this->assertStringNotContainsString('provider secret error', $response['text']);
@@ -243,16 +281,24 @@ class TelegramDepositBotTest extends TestCase
         Http::fake([
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
         ]);
+
+        // Pre-seed the state machine into waiting_deposit_method via the handler
+        // so that the webhook firing text='1' triggers deposit creation.
+        $seedCtx = $this->context();
+        $seedHandler = $this->handler();
+        $seedHandler->handle('deposit', [], $seedCtx);
+        $seedHandler->handle('15000', [], $seedCtx);
+
+        $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'dummy-secret'];
         $payload = [
             'update_id' => 998877,
             'message' => [
                 'chat' => ['id' => 12345],
                 'from' => ['id' => 9876, 'username' => 'informational-only'],
-                'text' => 'deposit 15000 BCA',
+                'text' => '1',
                 'message_id' => 111,
             ],
         ];
-        $headers = ['X-Telegram-Bot-Api-Secret-Token' => 'dummy-secret'];
 
         $this->postJson('/api/webhooks/bot/telegram', $payload, $headers)->assertOk();
         $this->postJson('/api/webhooks/bot/telegram', $payload, $headers)
@@ -268,9 +314,18 @@ class TelegramDepositBotTest extends TestCase
         $this->linkedUser();
         $this->fakeSuccessfulGateway('T-TELEGRAM-DUP');
         $context = $this->context();
+        $handler = $this->handler();
 
-        $first = $this->handler()->handle('deposit', ['15000', 'BCA'], $context);
-        $second = $this->handler()->handle('deposit', ['15000', 'BCA'], $context);
+        // Navigate to deposit creation via the 3-step flow.
+        $handler->handle('deposit', [], $context);
+        $handler->handle('15000', [], $context);
+        $first = $handler->handle('1', [], $context);
+
+        // Re-seed state (state was cleared after first creation), then replay
+        // the same message_id — DepositService returns the existing deposit.
+        $handler->handle('deposit', [], $context);
+        $handler->handle('15000', [], $context);
+        $second = $handler->handle('1', [], $context);
 
         $this->assertSame($first['text'], $second['text']);
         $this->assertDatabaseCount('deposits', 1);
@@ -432,7 +487,7 @@ class TelegramDepositBotTest extends TestCase
 
         // Second deposit attempt must NOT show registration prompt again.
         // (deposit itself may fail without a tenant/tripay setup, but the key assertion is no YA/TIDAK prompt)
-        $response = $handler->handle('deposit', ['15000', 'BCA'], $ctx);
+        $response = $handler->handle('deposit', [], $ctx);
 
         $this->assertStringNotContainsString('YA', $response['text']);
         $this->assertStringNotContainsString('TIDAK', $response['text']);
@@ -443,7 +498,7 @@ class TelegramDepositBotTest extends TestCase
     {
         return [
             'source' => 'telegram_gateway',
-            'external_user_id' => 'telegram:9876',
+            'external_user_id' => 'telegram:primary:9876',
             'telegram_user_id' => 9876,
             'telegram_bot_scope' => 'primary',
             'telegram_chat_id' => 12345,

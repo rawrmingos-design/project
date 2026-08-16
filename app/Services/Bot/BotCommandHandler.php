@@ -334,40 +334,15 @@ class BotCommandHandler
             return ['text' => $message, 'buttons' => []];
         }
 
-        if (count($args) < 2) {
-            return [
-                'text' => 'Format deposit: `DEPOSIT <jumlah> <metode>`\nContoh: `DEPOSIT 15000 BCA`',
-                'buttons' => [],
-            ];
+        if ($this->supportsConversationalCheckout($context)) {
+            Cache::put(
+                $this->checkoutStateKey($context),
+                ['step' => 'waiting_deposit_amount'],
+                now()->addMinutes(15),
+            );
         }
 
-        $messageId = filled($context['message_id'] ?? null) ? (string) $context['message_id'] : null;
-        if ($messageId === null) {
-            return [
-                'text' => 'Pesan WhatsApp tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
-                'buttons' => [],
-            ];
-        }
-
-        $amount = filter_var($args[0], FILTER_VALIDATE_INT, ['options' => ['min_range' => 10000]]);
-        $method = strtoupper(trim((string) $args[1]));
-        if ($amount === false || $method === '') {
-            return [
-                'text' => 'Jumlah minimal deposit Rp 10.000 dan metode pembayaran wajib diisi.',
-                'buttons' => [],
-            ];
-        }
-
-        $result = ($this->depositService ?? app(DepositService::class))->create($identity['user'], [
-            'jumlah' => $amount,
-            'metode' => $method,
-            'no_telfon' => $sender,
-            'source' => 'whatsapp_gateway',
-            'external_user_id' => (string) ($context['external_user_id'] ?? 'whatsapp:' . $sender),
-            'external_message_id' => $messageId,
-        ]);
-
-        return $this->formatDepositResponse($result, (int) $amount);
+        return $this->formatter->formatDepositAmountPrompt();
     }
 
     private function handleTelegramDeposit(array $args, array $context): array
@@ -424,55 +399,15 @@ class BotCommandHandler
             ];
         }
 
-        if (count($args) < 2) {
-            return [
-                'text' => 'Format deposit: `DEPOSIT <jumlah> <metode>`\nContoh: `DEPOSIT 15000 BCA`',
-                'buttons' => [],
-            ];
+        if ($this->supportsConversationalCheckout($context)) {
+            Cache::put(
+                $this->checkoutStateKey($context),
+                ['step' => 'waiting_deposit_amount'],
+                now()->addMinutes(15),
+            );
         }
 
-        $messageId = filled($context['message_id'] ?? null) ? (string) $context['message_id'] : null;
-        if ($messageId === null) {
-            return [
-                'text' => 'Pesan Telegram tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
-                'buttons' => [],
-            ];
-        }
-
-        $amount = filter_var($args[0], FILTER_VALIDATE_INT, ['options' => ['min_range' => 10000]]);
-        $method = strtoupper(trim((string) $args[1]));
-        if ($amount === false || $method === '') {
-            return [
-                'text' => 'Jumlah minimal deposit Rp 10.000 dan metode pembayaran wajib diisi.',
-                'buttons' => [],
-            ];
-        }
-
-        $botScope = (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default'));
-        $telegramUserId = (string) ($context['telegram_user_id'] ?? '');
-        $phone = $identity['user']->whatsapp_verified_at !== null
-            ? WhatsappNumberNormalizer::normalize((string) $identity['user']->no_wa)
-            : null;
-        $result = ($this->depositService ?? app(DepositService::class))->create($identity['user'], [
-            'jumlah' => $amount,
-            'metode' => $method,
-            'no_telfon' => $phone,
-            'source' => BotGatewayCapabilities::SOURCE_TELEGRAM,
-            'external_user_id' => 'telegram:' . $botScope . ':' . $telegramUserId,
-            'external_message_id' => $messageId,
-            'metadata' => array_filter([
-                'telegram_bot_scope' => $botScope,
-                'telegram_chat_fingerprint' => $this->externalIdentifierFingerprint(
-                    $botScope,
-                    $context['telegram_chat_id'] ?? null,
-                ),
-                'telegram_message_id' => $context['telegram_message_id'] ?? null,
-                'telegram_update_id' => $context['telegram_update_id'] ?? null,
-                'correlation_id' => $context['correlation_id'] ?? null,
-            ], static fn (mixed $value): bool => $value !== null),
-        ]);
-
-        return $this->formatDepositResponse($result, (int) $amount);
+        return $this->formatter->formatDepositAmountPrompt();
     }
 
     private function formatDepositResponse(array $result, int $amount): array
@@ -899,6 +834,14 @@ class BotCommandHandler
 
         if (($state['step'] ?? null) === 'waiting_tg_register_email') {
             return $this->handleTgRegisterEmail($command, $context, $state);
+        }
+
+        if (($state['step'] ?? null) === 'waiting_deposit_amount') {
+            return $this->handleDepositAmountInput($command, $context, $state);
+        }
+
+        if (($state['step'] ?? null) === 'waiting_deposit_method') {
+            return $this->handleDepositMethodInput($command, $context, $state);
         }
 
         if (($state['step'] ?? null) !== 'waiting_game_id') {
@@ -1633,5 +1576,138 @@ class BotCommandHandler
         }
 
         return 1;
+    }
+
+    private function handleDepositAmountInput(?string $command, array $context, array $state): array
+    {
+        $input = trim((string) $command);
+        $amount = 0;
+
+        if ($input === '1') $amount = 10000;
+        elseif ($input === '2') $amount = 25000;
+        elseif ($input === '3') $amount = 50000;
+        elseif ($input === '4') $amount = 100000;
+        elseif ($input === '5') $amount = 250000;
+        elseif ($input === '6') $amount = 500000;
+        else {
+            $parsed = filter_var($input, FILTER_VALIDATE_INT);
+            if ($parsed !== false && $parsed >= 10000) {
+                $amount = $parsed;
+            }
+        }
+
+        if ($amount === 0) {
+            return [
+                'text' => 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
+                'buttons' => [],
+            ];
+        }
+
+        $methods = $this->payment->getVisibleMethods()->filter(fn($m) => !$m->isSaldoMethod())->values();
+
+        if ($methods->isEmpty()) {
+            \Illuminate\Support\Facades\Cache::forget($this->checkoutStateKey($context));
+            return [
+                'text' => 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
+                'buttons' => [],
+            ];
+        }
+
+        \Illuminate\Support\Facades\Cache::put(
+            $this->checkoutStateKey($context),
+            ['step' => 'waiting_deposit_method', 'amount' => $amount],
+            now()->addMinutes(15),
+        );
+
+        return $this->formatter->formatDepositMethodPrompt($methods, $amount);
+    }
+
+    private function handleDepositMethodInput(?string $command, array $context, array $state): array
+    {
+        $input = filter_var(trim((string) $command), FILTER_VALIDATE_INT);
+        $methods = $this->payment->getVisibleMethods()->filter(fn($m) => !$m->isSaldoMethod())->values();
+
+        if ($input === false || $input < 1 || $input > $methods->count()) {
+            return [
+                'text' => 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
+                'buttons' => [],
+            ];
+        }
+
+        $selectedMethod = $methods[$input - 1];
+        $amount = (int) ($state['amount'] ?? 0);
+
+        \Illuminate\Support\Facades\Cache::forget($this->checkoutStateKey($context));
+
+        $source = $context['source'] ?? null;
+        $messageId = filled($context['message_id'] ?? null) ? (string) $context['message_id'] : null;
+
+        if ($messageId === null) {
+            return [
+                'text' => 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
+                'buttons' => [],
+            ];
+        }
+
+        if ($source === \App\Services\Bot\BotGatewayCapabilities::SOURCE_WHATSAPP) {
+            $sender = \App\Support\WhatsappNumberNormalizer::normalize((string) ($context['whatsapp'] ?? ''));
+            $identity = ($this->whatsappUserResolver ?? app(\App\Services\Whatsapp\WhatsappUserResolver::class))->resolve($sender);
+            $user = $identity['user'] ?? null;
+
+            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+
+            $result = ($this->depositService ?? app(\App\Services\Deposit\DepositService::class))->create($user, [
+                'jumlah' => $amount,
+                'metode' => $selectedMethod->code,
+                'no_telfon' => $sender,
+                'source' => $source,
+                'external_user_id' => (string) ($context['external_user_id'] ?? 'whatsapp:' . $sender),
+                'external_message_id' => $messageId,
+            ]);
+
+            return $this->formatDepositResponse($result, $amount);
+        }
+
+        if ($source === \App\Services\Bot\BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            $botScope = (string) ($context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default'));
+            $telegramUserId = (string) ($context['telegram_user_id'] ?? '');
+
+            $identity = ($this->telegramUserResolver ?? app(\App\Services\Telegram\TelegramUserResolver::class))->resolve(
+                $botScope,
+                $telegramUserId,
+                $context['telegram_chat_id'] ?? null,
+                $context['telegram_metadata'] ?? [],
+            );
+            $user = $identity['user'] ?? null;
+
+            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+
+            $phone = $user->whatsapp_verified_at !== null
+                ? \App\Support\WhatsappNumberNormalizer::normalize((string) $user->no_wa)
+                : null;
+
+            $result = ($this->depositService ?? app(\App\Services\Deposit\DepositService::class))->create($user, [
+                'jumlah' => $amount,
+                'metode' => $selectedMethod->code,
+                'no_telfon' => $phone,
+                'source' => $source,
+                'external_user_id' => 'telegram:' . $botScope . ':' . $telegramUserId,
+                'external_message_id' => $messageId,
+                'metadata' => array_filter([
+                    'telegram_bot_scope' => $botScope,
+                    'telegram_chat_fingerprint' => $this->externalIdentifierFingerprint(
+                        $botScope,
+                        $context['telegram_chat_id'] ?? null,
+                    ),
+                    'telegram_message_id' => $context['telegram_message_id'] ?? null,
+                    'telegram_update_id' => $context['telegram_update_id'] ?? null,
+                    'correlation_id' => $context['correlation_id'] ?? null,
+                ], static fn (mixed $value): bool => $value !== null),
+            ]);
+
+            return $this->formatDepositResponse($result, $amount);
+        }
+
+        return ['text' => 'Gateway tidak didukung.', 'buttons' => []];
     }
 }
