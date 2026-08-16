@@ -3,6 +3,7 @@
 namespace App\Services\Bot;
 
 use App\Models\BotCheckoutIntent;
+use App\Models\TelegramIdentity;
 use App\Models\User;
 use App\Services\Checkout\BotCheckoutIntentService;
 use App\Services\Gateway\GatewayCatalogService;
@@ -391,17 +392,34 @@ class BotCommandHandler
         );
 
         if (($identity['status'] ?? null) !== TelegramUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
+            $status = $identity['status'] ?? null;
+
+            // Unlinked / Revoked: initiate Telegram registration state machine
+            if ($status === TelegramUserResolver::STATUS_UNLINKED || $status === TelegramUserResolver::STATUS_REVOKED) {
+                if ($this->supportsConversationalCheckout($context)) {
+                    Cache::put(
+                        $this->checkoutStateKey($context),
+                        [
+                            'step' => 'waiting_tg_register_confirm',
+                            'telegram_user_id' => $context['telegram_user_id'] ?? '',
+                            'telegram_bot_scope' => $context['telegram_bot_scope'] ?? config('services.telegram-bot-api.bot_scope', 'default'),
+                            'telegram_chat_id' => $context['telegram_chat_id'] ?? null,
+                        ],
+                        now()->addMinutes(15),
+                    );
+                }
+
+                return $this->formatter->formatTgRegisterPrompt();
+            }
+
             Log::notice('Bot Telegram identity denied.', [
                 'correlation_id' => $context['correlation_id'] ?? null,
                 'action' => 'deposit',
-                'reason' => $identity['status'] ?? 'unknown',
+                'reason' => $status ?? 'unknown',
             ]);
 
             return [
-                'text' => match ($identity['status'] ?? null) {
-                    TelegramUserResolver::STATUS_UNLINKED, TelegramUserResolver::STATUS_REVOKED => 'Akun Telegram belum tertaut. Tautkan akun melalui halaman Pengaturan terlebih dahulu.',
-                    default => 'Akun Telegram belum dapat diverifikasi. Coba lagi nanti atau hubungi admin melalui jalur resmi.',
-                },
+                'text' => 'Akun Telegram belum dapat diverifikasi. Coba lagi nanti atau hubungi admin melalui jalur resmi.',
                 'buttons' => [],
             ];
         }
@@ -871,6 +889,18 @@ class BotCommandHandler
             return $this->handleWaRegisterEmail($command, $context, $state);
         }
 
+        if (($state['step'] ?? null) === 'waiting_tg_register_confirm') {
+            return $this->handleTgRegisterConfirm($command, $context, $state);
+        }
+
+        if (($state['step'] ?? null) === 'waiting_tg_register_username') {
+            return $this->handleTgRegisterUsername($command, $context, $state);
+        }
+
+        if (($state['step'] ?? null) === 'waiting_tg_register_email') {
+            return $this->handleTgRegisterEmail($command, $context, $state);
+        }
+
         if (($state['step'] ?? null) !== 'waiting_game_id') {
             return [
                 'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
@@ -1038,6 +1068,164 @@ class BotCommandHandler
         ]);
 
         return $this->formatter->formatWaRegisterSuccess(
+            $username,
+            $password,
+            rtrim((string) config('app.url'), '/'),
+        );
+    }
+
+    /**
+     * Handle the waiting_tg_register_confirm step (user replies YA or TIDAK).
+     */
+    private function handleTgRegisterConfirm(?string $command, array $context, array $state): array
+    {
+        if ($command === 'tidak') {
+            Cache::forget($this->checkoutStateKey($context));
+
+            return ['text' => 'Oke, pendaftaran dibatalkan.', 'buttons' => []];
+        }
+
+        if ($command === 'ya') {
+            Cache::put(
+                $this->checkoutStateKey($context),
+                [
+                    'step'               => 'waiting_tg_register_username',
+                    'telegram_user_id'   => $state['telegram_user_id'] ?? '',
+                    'telegram_bot_scope' => $state['telegram_bot_scope'] ?? 'default',
+                    'telegram_chat_id'   => $state['telegram_chat_id'] ?? null,
+                    'attempt_count'      => 0,
+                ],
+                now()->addMinutes(15),
+            );
+
+            return $this->formatter->formatTgRegisterUsernamePrompt();
+        }
+
+        // Unrecognised input while in confirm step — re-show prompt.
+        return $this->formatter->formatTgRegisterPrompt();
+    }
+
+    /**
+     * Handle the waiting_tg_register_username step.
+     */
+    private function handleTgRegisterUsername(?string $command, array $context, array $state): array
+    {
+        $attemptCount = (int) ($state['attempt_count'] ?? 0);
+        $maxAttempts  = 3;
+        $username     = trim((string) $command);
+
+        // Validation: 4-20 chars, alphanumeric only.
+        if (! preg_match('/^[a-zA-Z0-9]{4,20}$/', $username)) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+                return ['text' => 'Terlalu banyak percobaan. Pendaftaran dibatalkan.', 'buttons' => []];
+            }
+            Cache::put($this->checkoutStateKey($context), array_merge($state, ['attempt_count' => $newCount]), now()->addMinutes(15));
+            return $this->formatter->formatTgRegisterUsernameRetry($maxAttempts - $newCount, 'invalid');
+        }
+
+        // Check if username exists.
+        if (User::where('username', $username)->exists()) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+                return ['text' => 'Terlalu banyak percobaan. Pendaftaran dibatalkan.', 'buttons' => []];
+            }
+            Cache::put($this->checkoutStateKey($context), array_merge($state, ['attempt_count' => $newCount]), now()->addMinutes(15));
+            return $this->formatter->formatTgRegisterUsernameRetry($maxAttempts - $newCount, 'taken');
+        }
+
+        // Valid & unique! Move to email step.
+        Cache::put(
+            $this->checkoutStateKey($context),
+            [
+                'step'               => 'waiting_tg_register_email',
+                'telegram_user_id'   => $state['telegram_user_id'] ?? '',
+                'telegram_bot_scope' => $state['telegram_bot_scope'] ?? 'default',
+                'telegram_chat_id'   => $state['telegram_chat_id'] ?? null,
+                'tg_username'        => $username,
+                'attempt_count'      => 0,
+            ],
+            now()->addMinutes(15),
+        );
+
+        return $this->formatter->formatTgRegisterEmailPrompt();
+    }
+
+    /**
+     * Handle the waiting_tg_register_email step.
+     */
+    private function handleTgRegisterEmail(?string $command, array $context, array $state): array
+    {
+        $attemptCount = (int) ($state['attempt_count'] ?? 0);
+        $maxAttempts  = 3;
+        $username     = $state['tg_username'] ?? '';
+
+        $autoSkip  = $attemptCount >= $maxAttempts;
+        $inputSkip = $command === 'skip';
+
+        if ($autoSkip || $inputSkip) {
+            Cache::forget($this->checkoutStateKey($context));
+            return $this->createTelegramAccount($state, null, $username);
+        }
+
+        $email = trim((string) $command);
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+                return $this->createTelegramAccount($state, null, $username);
+            }
+            Cache::put($this->checkoutStateKey($context), array_merge($state, ['attempt_count' => $newCount]), now()->addMinutes(15));
+            return $this->formatter->formatTgRegisterEmailRetry($maxAttempts - $newCount, 'invalid');
+        }
+
+        if (User::where('email', $email)->exists()) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+                return $this->createTelegramAccount($state, null, $username);
+            }
+            Cache::put($this->checkoutStateKey($context), array_merge($state, ['attempt_count' => $newCount]), now()->addMinutes(15));
+            return $this->formatter->formatTgRegisterEmailRetry($maxAttempts - $newCount, 'duplicate');
+        }
+
+        Cache::forget($this->checkoutStateKey($context));
+        return $this->createTelegramAccount($state, $email, $username);
+    }
+
+    /**
+     * Create a new User account and TelegramIdentity, returning the success message.
+     */
+    private function createTelegramAccount(array $state, ?string $email, string $username): array
+    {
+        $password = Str::password(12, symbols: false);
+
+        $user = User::create([
+            'username'             => $username,
+            'name'                 => $username,
+            'email'                => $email ?? ($username . '@tg.bot'),
+            'role'                 => 'Member',
+            'password'             => bcrypt($password),
+        ]);
+
+        TelegramIdentity::create([
+            'user_id'          => $user->id,
+            'tenant_id'        => $user->tenant_id,
+            'bot_scope'        => $state['telegram_bot_scope'] ?? 'default',
+            'telegram_user_id' => $state['telegram_user_id'] ?? '',
+            'chat_id'          => $state['telegram_chat_id'] ?? null,
+            'username'         => null,
+        ]);
+
+        Log::notice('Bot Telegram account created.', [
+            'username'         => $username,
+            'telegram_user_id' => $state['telegram_user_id'] ?? '',
+        ]);
+
+        return $this->formatter->formatTgRegisterSuccess(
             $username,
             $password,
             rtrim((string) config('app.url'), '/'),

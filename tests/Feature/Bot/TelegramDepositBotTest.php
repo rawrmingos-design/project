@@ -84,6 +84,8 @@ class TelegramDepositBotTest extends TestCase
         $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $this->context());
 
         $this->assertStringContainsString('belum tertaut', strtolower($response['text']));
+        $this->assertStringContainsString('YA', $response['text']);
+        $this->assertStringContainsString('TIDAK', $response['text']);
         $this->assertDatabaseCount('deposits', 0);
     }
 
@@ -97,6 +99,8 @@ class TelegramDepositBotTest extends TestCase
         $response = $this->handler()->handle('deposit', ['15000', 'BCA'], $this->context());
 
         $this->assertStringContainsString('belum tertaut', strtolower($response['text']));
+        $this->assertStringContainsString('YA', $response['text']);
+        $this->assertStringContainsString('TIDAK', $response['text']);
         $this->assertDatabaseCount('deposits', 0);
     }
 
@@ -302,6 +306,105 @@ class TelegramDepositBotTest extends TestCase
                 'expired_at' => time() + 3600,
             ]);
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Telegram auto-registration tests
+    // -------------------------------------------------------------------------
+
+    public function test_unlinked_telegram_user_can_cancel_registration(): void
+    {
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        // Step 1: deposit triggers prompt
+        $handler->handle('deposit', [], $ctx);
+
+        // Step 2: TIDAK cancels.
+        $response = $handler->handle('tidak', [], $ctx);
+
+        $this->assertStringContainsString('dibatalkan', strtolower($response['text']));
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_unlinked_telegram_user_can_skip_email_and_account_is_created(): void
+    {
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $handler->handle('myuser123', [], $ctx);
+        $response = $handler->handle('skip', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+        $this->assertStringContainsString('myuser123', $response['text']);
+
+        $user = User::where('username', 'myuser123')->first();
+        $this->assertNotNull($user);
+        $this->assertStringEndsWith('@tg.bot', $user->email);
+
+        $identity = \App\Models\TelegramIdentity::where('user_id', $user->id)->first();
+        $this->assertNotNull($identity);
+        $this->assertSame('9876', $identity->telegram_user_id);
+    }
+
+    public function test_unlinked_telegram_user_can_register_with_email(): void
+    {
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $handler->handle('myuser123', [], $ctx);
+        $response = $handler->handle('test@example.com', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+
+        $user = User::where('username', 'myuser123')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('test@example.com', $user->email);
+    }
+
+    public function test_telegram_username_validation_and_uniqueness(): void
+    {
+        User::factory()->create(['username' => 'takenuser']);
+
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+
+        // Invalid format
+        $response = $handler->handle('bad name', [], $ctx);
+        $this->assertStringContainsString('tidak valid', strtolower($response['text']));
+
+        // Taken username
+        $response = $handler->handle('takenuser', [], $ctx);
+        $this->assertStringContainsString('sudah digunakan', strtolower($response['text']));
+
+        // Valid username
+        $response = $handler->handle('gooduser123', [], $ctx);
+        $this->assertStringContainsString('diterima', strtolower($response['text']));
+        $this->assertStringContainsString('email', strtolower($response['text']));
+    }
+
+    public function test_telegram_username_retry_max_three_then_cancel(): void
+    {
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+
+        $handler->handle('bad name1', [], $ctx); // attempt 1
+        $handler->handle('bad name2', [], $ctx); // attempt 2
+        // Third invalid attempt hits max — cancel.
+        $response = $handler->handle('bad name3', [], $ctx);
+
+        $this->assertStringContainsString('dibatalkan', strtolower($response['text']));
+        $this->assertDatabaseCount('users', 0);
     }
 
     private function context(): array

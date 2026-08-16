@@ -1365,4 +1365,135 @@ class BotMessageFormatter
             'buttons' => [],
         ];
     }
+
+    /**
+     * Prompt shown to an unlinked Telegram sender when they attempt deposit.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterPrompt(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '⚠️ *Akun Telegram belum tertaut.*',
+                '',
+                'Untuk melakukan deposit, kamu perlu membuat akun baru.',
+                '',
+                'Ketik *YA* untuk daftar sekarang, atau *TIDAK* untuk batalkan.',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Prompt asking for a custom username during Telegram registration.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterUsernamePrompt(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '📝 *Pendaftaran Akun*',
+                '',
+                'Ketik username yang ingin kamu gunakan.',
+                '',
+                '_Contoh: fahmi123_',
+                '_Catatan: Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter)._',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Retry prompt shown when the provided username is invalid or already taken.
+     *
+     * @param  int  $attemptsLeft  Number of attempts remaining.
+     * @param  string  $reason     'invalid' or 'taken'
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterUsernameRetry(int $attemptsLeft, string $reason): array
+    {
+        $reasonText = $reason === 'taken'
+            ? 'Username sudah digunakan. Silakan pilih username lain.'
+            : 'Username tidak valid. Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter).';
+
+        return [
+            'text' => implode("\n", [
+                "❌ {$reasonText}",
+                '',
+                "Ketik username baru. (Sisa percobaan: {$attemptsLeft})",
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Prompt asking for optional email during Telegram registration.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterEmailPrompt(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '✅ *Username diterima.*',
+                '',
+                'Mau daftarkan email? Ketik alamat email kamu, atau ketik *SKIP* untuk lewati.',
+                '',
+                '_Email bersifat opsional dan bisa ditambahkan nanti via website._',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Retry prompt shown when the provided email is invalid or already used.
+     *
+     * @param  int  $attemptsLeft  Number of attempts remaining before auto-SKIP.
+     * @param  string  $reason     'duplicate' or 'invalid'
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterEmailRetry(int $attemptsLeft, string $reason): array
+    {
+        $reasonText = $reason === 'duplicate'
+            ? 'Email sudah digunakan oleh akun lain.'
+            : 'Format email tidak valid.';
+
+        return [
+            'text' => implode("\n", [
+                "❌ {$reasonText}",
+                '',
+                "Coba email lain, atau ketik *SKIP* untuk lewati. (Sisa percobaan: {$attemptsLeft})",
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Success message sent after Telegram auto-registration completes.
+     *
+     * @param  string  $username   Provided username.
+     * @param  string  $password   Plain-text password — sent ONCE, never cached.
+     * @param  string  $appUrl     Value of config('app.url').
+     * @return array{text: string, buttons: array}
+     */
+    public function formatTgRegisterSuccess(string $username, string $password, string $appUrl): array
+    {
+        return [
+            'text' => implode("\n", [
+                '🎉 *Akun berhasil dibuat dan dihubungkan ke Telegram!*',
+                '',
+                "Username: `{$username}`",
+                "Password: `{$password}`",
+                '',
+                '⚠️ _Simpan password ini sekarang, tidak akan dikirim ulang._',
+                '',
+                "Reset password: {$appUrl}/forgot-password",
+                '',
+                'Silakan ulangi perintah *deposit* untuk melanjutkan.',
+            ]),
+            'buttons' => [],
+        ];
+    }
 }
