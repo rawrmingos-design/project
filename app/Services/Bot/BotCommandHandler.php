@@ -1059,6 +1059,7 @@ class BotCommandHandler
             'no_wa'                => $waNumber,
             'email'                => $email ?? ($username . '@wa.bot'),
             'role'                 => 'Member',
+            'balance'              => 0,
             'password'             => bcrypt($password),
             'whatsapp_verified_at' => now(),
         ]);
@@ -1208,6 +1209,7 @@ class BotCommandHandler
             'name'                 => $username,
             'email'                => $email ?? ($username . '@tg.bot'),
             'role'                 => 'Member',
+            'balance'              => 0,
             'password'             => bcrypt($password),
         ]);
 
