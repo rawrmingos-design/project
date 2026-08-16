@@ -25,6 +25,16 @@ class FonnteAdapter implements BotAdapterInterface
         private readonly WhatsappNotificationService $waService
     ) {}
 
+    private function isConversationalInputState(?string $step): bool
+    {
+        return in_array($step, [
+            'waiting_game_id',
+            'waiting_confirmation',
+            'waiting_deposit_amount',
+            'waiting_deposit_method',
+        ], true);
+    }
+
     public function handle(Request $request): mixed
     {
         $sender = $request->input('sender');
@@ -49,12 +59,8 @@ class FonnteAdapter implements BotAdapterInterface
         $checkoutStep = is_array($checkoutState)
             ? (string) ($checkoutState['step'] ?? '')
             : '';
-        $inConversationalCheckout = in_array($checkoutStep, [
-            'waiting_game_id',
-            'waiting_confirmation',
-        ], true);
 
-        if ($selection !== null && $inConversationalCheckout) {
+        if ($selection !== null && $this->isConversationalInputState($checkoutStep)) {
             $selection = null;
         }
 

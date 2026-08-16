@@ -33,6 +33,7 @@ class BotWebhookTest extends TestCase
         config(['services.telegram-bot-api.token' => 'dummy-token']);
         config(['services.telegram-bot-api.webhook_secret' => 'dummy-secret']);
         config(['services.telegram-bot-api.deposit_enabled' => false]);
+        config(['services.telegram-bot-api.order_enabled' => true]);
         config(['services.fonnte.device_token' => 'dummy-device-token']);
 
         // Mock inbound source policies to allow local requests

@@ -1603,22 +1603,22 @@ class BotCommandHandler
     private function handleDepositAmountInput(?string $command, array $context, array $state): array
     {
         $input = trim((string) $command);
-        $amount = 0;
-
-        if ($input === '1') $amount = 10000;
-        elseif ($input === '2') $amount = 25000;
-        elseif ($input === '3') $amount = 50000;
-        elseif ($input === '4') $amount = 100000;
-        elseif ($input === '5') $amount = 250000;
-        elseif ($input === '6') $amount = 500000;
-        else {
-            $parsed = filter_var($input, FILTER_VALIDATE_INT);
-            if ($parsed !== false && $parsed >= 10000) {
-                $amount = $parsed;
-            }
-        }
+        $amount = match ($input) {
+            '1' => 10000,
+            '2' => 25000,
+            '3' => 50000,
+            '4' => 100000,
+            '5' => 250000,
+            '6' => 500000,
+            default => 0,
+        };
 
         if ($amount === 0) {
+            $digits = preg_replace('/\D+/', '', $input);
+            $amount = $digits !== '' ? (int) $digits : 0;
+        }
+
+        if ($amount < 10000) {
             return [
                 'text' => 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
                 'buttons' => [],
