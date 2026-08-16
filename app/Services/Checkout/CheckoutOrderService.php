@@ -48,7 +48,7 @@ class CheckoutOrderService
             true,
         );
 
-        if ($isBotCheckout) {
+        if ($isBotCheckout && ($context['require_bot_intent'] ?? true)) {
             $intentId = trim((string) ($context['intent_id'] ?? ''));
             if ($intentId === '') {
                 throw ValidationException::withMessages([
@@ -59,7 +59,7 @@ class CheckoutOrderService
             $intentService = app(BotCheckoutIntentService::class);
         }
 
-        $idempotencyKey = $isBotCheckout
+        $idempotencyKey = ($isBotCheckout && ($context['require_bot_intent'] ?? true))
             ? null
             : $this->idempotencyKeyFromPayload($request->all(), $user, $source, $context);
         if ($idempotencyKey !== null && $cachedOrderId = Cache::get($idempotencyKey)) {
@@ -845,7 +845,20 @@ class CheckoutOrderService
 
         $externalUserId = trim((string) ($context['external_user_id'] ?? ''));
 
-        return preg_match('/^telegram:\d+$/', $externalUserId) === 1 ? $externalUserId : null;
+        if ($externalUserId === '') {
+            return null;
+        }
+
+        // Accept already-prefixed form or raw numeric Telegram ID.
+        if (preg_match('/^telegram:\d+$/', $externalUserId) === 1) {
+            return $externalUserId;
+        }
+
+        if (preg_match('/^\d+$/', $externalUserId) === 1) {
+            return 'telegram:' . $externalUserId;
+        }
+
+        return null;
     }
 
     private function normalizeSource(string $source): string

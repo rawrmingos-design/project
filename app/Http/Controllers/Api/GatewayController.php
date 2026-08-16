@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Method;
 use App\Models\Voucher;
+use App\Services\Checkout\CheckoutOrderService;
 use App\Services\Gateway\GatewayCatalogService;
 use App\Services\Gateway\GatewayCheckIdService;
 use App\Services\Gateway\GatewayInvoiceService;
@@ -204,5 +205,26 @@ class GatewayController extends Controller
         $result = $invoices->status($orderId, Auth::guard('sanctum')->user(), $validated);
 
         return response()->json($result, ($result['ok'] ?? false) ? 200 : 404);
+    }
+
+    public function createInvoice(Request $request, CheckoutOrderService $checkout): JsonResponse
+    {
+        $source = (string) $request->input('source', 'api_v2');
+        $context = [
+            'ip'                 => $request->ip(),
+            'idempotency_key'    => $request->headers->get('X-Idempotency-Key'),
+            'external_user_id'   => $request->input('external_user_id') ?: null,
+            'intent_id'          => $request->input('intent_id'),
+            'require_bot_intent' => false, // public API endpoint — no bot confirmation step
+        ];
+
+        $result = $checkout->createFromPayload(
+            $request->except(['source', 'external_user_id', 'intent_id']),
+            Auth::guard('sanctum')->user(),
+            $source,
+            $context,
+        );
+
+        return response()->json(['ok' => true, 'data' => $result]);
     }
 }

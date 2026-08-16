@@ -164,6 +164,7 @@ Route::prefix('gateway')->middleware('tenant.resolve')->group(function () {
     Route::post('/vouchers/validate', [GatewayController::class, 'validateVoucher'])->middleware('throttle:public-voucher');
     Route::post('/price', [GatewayController::class, 'price'])->middleware('throttle:public-order-price');
     Route::post('/check-id', [GatewayController::class, 'checkId'])->middleware('throttle:public-account-check');
+    Route::post('/invoices', [GatewayController::class, 'createInvoice'])->middleware('throttle:public-invoice-create');
     Route::get('/invoices/{order_id}', [GatewayController::class, 'status'])->middleware('throttle:public-status');
 });
 
