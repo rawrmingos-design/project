@@ -1496,4 +1496,58 @@ class BotMessageFormatter
             'buttons' => [],
         ];
     }
+
+    public function formatDepositAmountPrompt(): array
+    {
+        return [
+            'text' => implode("
+", [
+                '💰 *Pilih Jumlah Deposit*',
+                '',
+                'Silakan pilih nominal deposit (balas angkanya saja):',
+                '1. Rp 10.000',
+                '2. Rp 25.000',
+                '3. Rp 50.000',
+                '4. Rp 100.000',
+                '5. Rp 250.000',
+                '6. Rp 500.000',
+                '',
+                'Atau ketik nominal deposit yang kamu inginkan (minimal Rp 10.000).'
+            ]),
+            'buttons' => [],
+            'numeric_menu' => [
+                'menu' => 'deposit_amounts',
+                'parent_menu' => 'menu',
+                'page' => 1,
+            ],
+        ];
+    }
+
+    public function formatDepositMethodPrompt(\Illuminate\Support\Collection $methods, int $amount): array
+    {
+        $lines = [
+            '💳 *Pilih Metode Pembayaran*',
+            '',
+            'Jumlah: Rp ' . number_format($amount, 0, ',', '.'),
+            '',
+            'Silakan pilih metode pembayaran (balas angkanya saja):',
+        ];
+
+        $idx = 1;
+        foreach ($methods as $method) {
+            $lines[] = $idx . '. ' . $method->name;
+            $idx++;
+        }
+
+        return [
+            'text' => implode("
+", $lines),
+            'buttons' => [],
+            'numeric_menu' => [
+                'menu' => 'deposit_methods',
+                'parent_menu' => 'deposit',
+                'page' => 1,
+            ],
+        ];
+    }
 }

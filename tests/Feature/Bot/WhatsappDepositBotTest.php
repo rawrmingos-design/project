@@ -98,13 +98,25 @@ class WhatsappDepositBotTest extends TestCase
             ]);
         });
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        $ctx = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:message-3',
             'message_id' => 'whatsapp:message-3',
             'whatsapp' => '6281234567890',
-        ]);
+        ];
+        $handler = $this->handler();
+
+        // Step 1: deposit → amount prompt
+        $step1 = $handler->handle('deposit', [], $ctx);
+        $this->assertStringContainsString('Pilih Jumlah Deposit', $step1['text']);
+
+        // Step 2: custom amount → method prompt
+        $step2 = $handler->handle('15000', [], $ctx);
+        $this->assertStringContainsString('Pilih Metode Pembayaran', $step2['text']);
+
+        // Step 3: pick method 1 (BCA) → deposit created
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertStringContainsString('Kode Bayar / VA', $response['text']);
         $this->assertDatabaseHas('deposits', [
@@ -122,11 +134,22 @@ class WhatsappDepositBotTest extends TestCase
             'whatsapp_verified_at' => now(),
         ]);
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        // Context deliberately missing message_id / external_message_id.
+        $ctx = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:6281234567890',
             'whatsapp' => '6281234567890',
-        ]);
+        ];
+        $handler = $this->handler();
+
+        // Step 1: deposit → amount prompt (message_id not needed yet)
+        $handler->handle('deposit', [], $ctx);
+
+        // Step 2: amount → method prompt
+        $handler->handle('15000', [], $ctx);
+
+        // Step 3: pick method → should fail: no message_id
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertStringContainsString('ID yang valid', $response['text']);
         $this->assertDatabaseCount('deposits', 0);
@@ -151,13 +174,18 @@ class WhatsappDepositBotTest extends TestCase
             ]);
         });
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        $ctx = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:qr-link-1',
             'message_id' => 'whatsapp:qr-link-1',
             'whatsapp' => '6281234567890',
-        ]);
+        ];
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertArrayHasKey('photo_url', $response);
         $this->assertSame('https://cdn.example.test/qr/transaction.png', $response['photo_url']);
@@ -182,13 +210,18 @@ class WhatsappDepositBotTest extends TestCase
             ]);
         });
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        $ctx = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:qr-payload-1',
             'message_id' => 'whatsapp:qr-payload-1',
             'whatsapp' => '6281234567890',
-        ]);
+        ];
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $response = $handler->handle('1', [], $ctx);
 
         $this->assertStringStartsWith(
             'https://api.qrserver.com/v1/create-qr-code/?size=512x512&margin=15&data=',
@@ -214,15 +247,24 @@ class WhatsappDepositBotTest extends TestCase
             ]);
         });
 
-        $context = [
+        $ctx = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:duplicate-1',
             'message_id' => 'whatsapp:duplicate-1',
             'whatsapp' => '6281234567890',
         ];
-        $first = $this->handler()->handle('deposit', ['15000', 'BCA'], $context);
-        $second = $this->handler()->handle('deposit', ['15000', 'BCA'], $context);
+        $handler = $this->handler();
+
+        // Navigate to deposit creation (message_id idempotency key is 'whatsapp:duplicate-1').
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $first = $handler->handle('1', [], $ctx);
+
+        // Re-seed state then replay same message_id — DepositService returns existing deposit.
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('15000', [], $ctx);
+        $second = $handler->handle('1', [], $ctx);
 
         $this->assertSame($first['text'], $second['text']);
         $this->assertDatabaseCount('deposits', 1);
@@ -392,7 +434,7 @@ class WhatsappDepositBotTest extends TestCase
     public function test_unregistered_sender_is_denied_before_gateway_work(): void
     {
         // Unregistered sender now gets a registration prompt, not a hard deny.
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        $response = $this->handler()->handle('deposit', [], [
             'source'              => 'whatsapp_gateway',
             'external_user_id'   => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:message-1',
@@ -410,7 +452,7 @@ class WhatsappDepositBotTest extends TestCase
         // Unverified sender now gets auto-verified, not a hard deny.
         User::factory()->create(['no_wa' => '6281234567890']);
 
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+        $response = $this->handler()->handle('deposit', [], [
             'source'              => 'whatsapp_gateway',
             'external_user_id'   => 'whatsapp:6281234567890',
             'external_message_id' => 'whatsapp:message-2',
