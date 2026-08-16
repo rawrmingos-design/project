@@ -80,36 +80,6 @@ class WhatsappDepositBotTest extends TestCase
         );
     }
 
-    public function test_unregistered_sender_is_denied_before_gateway_work(): void
-    {
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
-            'source' => 'whatsapp_gateway',
-            'external_user_id' => 'whatsapp:6281234567890',
-            'external_message_id' => 'whatsapp:message-1',
-            'message_id' => 'whatsapp:message-1',
-            'whatsapp' => '6281234567890',
-        ]);
-
-        $this->assertStringContainsString('belum terdaftar', strtolower($response['text']));
-        $this->assertDatabaseCount('deposits', 0);
-    }
-
-    public function test_registered_unverified_sender_is_denied(): void
-    {
-        User::factory()->create(['no_wa' => '6281234567890']);
-
-        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
-            'source' => 'whatsapp_gateway',
-            'external_user_id' => 'whatsapp:6281234567890',
-            'external_message_id' => 'whatsapp:message-2',
-            'message_id' => 'whatsapp:message-2',
-            'whatsapp' => '6281234567890',
-        ]);
-
-        $this->assertStringContainsString('belum terverifikasi', strtolower($response['text']));
-        $this->assertDatabaseCount('deposits', 0);
-    }
-
     public function test_verified_sender_creates_deposit_for_resolved_user(): void
     {
         User::factory()->create([
@@ -257,5 +227,194 @@ class WhatsappDepositBotTest extends TestCase
         $this->assertSame($first['text'], $second['text']);
         $this->assertDatabaseCount('deposits', 1);
         $this->assertDatabaseCount('pembayarans', 1);
+    }
+
+    // -------------------------------------------------------------------------
+    // WhatsApp auto-registration tests
+    // -------------------------------------------------------------------------
+
+    private function waContext(string $number = '6281234567890', string $msgSuffix = 'reg-1'): array
+    {
+        return [
+            'source'              => 'whatsapp_gateway',
+            'external_user_id'    => "whatsapp:{$number}",
+            'external_message_id' => "whatsapp:{$msgSuffix}",
+            'message_id'          => "whatsapp:{$msgSuffix}",
+            'whatsapp'            => $number,
+        ];
+    }
+
+    public function test_unregistered_user_sees_registration_prompt_on_deposit(): void
+    {
+        $response = $this->handler()->handle('deposit', [], $this->waContext());
+
+        $this->assertStringContainsString('YA', $response['text']);
+        $this->assertStringContainsString('TIDAK', $response['text']);
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_unregistered_user_can_cancel_registration(): void
+    {
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        // Step 1: deposit triggers prompt and sets state.
+        $handler->handle('deposit', [], $ctx);
+
+        // Step 2: TIDAK cancels.
+        $response = $handler->handle('tidak', [], $ctx);
+
+        $this->assertStringContainsString('dibatalkan', strtolower($response['text']));
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_unregistered_user_can_skip_email_and_account_is_created(): void
+    {
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $response = $handler->handle('skip', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+        $this->assertStringContainsString('wa_6281234567890', $response['text']);
+
+        $user = \App\Models\User::where('no_wa', '6281234567890')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('wa_6281234567890', $user->username);
+        $this->assertStringEndsWith('@wa.bot', $user->email); // synthetic placeholder when skipped
+        $this->assertNotNull($user->whatsapp_verified_at);
+    }
+
+    public function test_unregistered_user_can_register_with_email(): void
+    {
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $response = $handler->handle('user@example.com', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+
+        $user = \App\Models\User::where('no_wa', '6281234567890')->first();
+        $this->assertNotNull($user);
+        $this->assertSame('user@example.com', $user->email);
+        $this->assertNotNull($user->whatsapp_verified_at);
+    }
+
+    public function test_duplicate_email_triggers_retry_prompt(): void
+    {
+        // Pre-existing user with that email.
+        User::factory()->create(['email' => 'taken@example.com']);
+
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $response = $handler->handle('taken@example.com', [], $ctx);
+
+        $this->assertStringContainsString('sudah digunakan', strtolower($response['text']));
+        // Still only 1 user (the pre-existing one).
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_invalid_email_format_triggers_retry_prompt(): void
+    {
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $response = $handler->handle('not-an-email', [], $ctx);
+
+        $this->assertStringContainsString('tidak valid', strtolower($response['text']));
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_email_retry_max_three_then_auto_skip(): void
+    {
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $handler->handle('bad1', [], $ctx); // attempt 1
+        $handler->handle('bad2', [], $ctx); // attempt 2
+        // Third invalid attempt hits max — auto-SKIP.
+        $response = $handler->handle('bad3', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+
+        $user = \App\Models\User::where('no_wa', '6281234567890')->first();
+        $this->assertNotNull($user);
+        $this->assertStringEndsWith('@wa.bot', $user->email); // synthetic placeholder, no real email provided
+    }
+
+    public function test_registered_unverified_user_is_auto_verified_on_deposit(): void
+    {
+        User::factory()->create(['no_wa' => '6281234567890']); // no whatsapp_verified_at
+
+        $response = $this->handler()->handle('deposit', [], $this->waContext());
+
+        $this->assertStringContainsString('berhasil diverifikasi', strtolower($response['text']));
+
+        $user = \App\Models\User::where('no_wa', '6281234567890')->first();
+        $this->assertNotNull($user->whatsapp_verified_at);
+        $this->assertDatabaseCount('deposits', 0);
+    }
+
+    public function test_username_collision_gets_suffix(): void
+    {
+        // Pre-seed the deterministic username.
+        User::factory()->create(['username' => 'wa_6281234567890']);
+
+        $ctx = $this->waContext();
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $response = $handler->handle('skip', [], $ctx);
+
+        $this->assertStringContainsString('berhasil dibuat', strtolower($response['text']));
+
+        $newUser = \App\Models\User::where('no_wa', '6281234567890')->first();
+        $this->assertNotNull($newUser);
+        $this->assertStringStartsWith('wa_6281234567890_', $newUser->username);
+    }
+
+    public function test_unregistered_sender_is_denied_before_gateway_work(): void
+    {
+        // Unregistered sender now gets a registration prompt, not a hard deny.
+        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+            'source'              => 'whatsapp_gateway',
+            'external_user_id'   => 'whatsapp:6281234567890',
+            'external_message_id' => 'whatsapp:message-1',
+            'message_id'          => 'whatsapp:message-1',
+            'whatsapp'            => '6281234567890',
+        ]);
+
+        $this->assertStringContainsString('YA', $response['text']);
+        $this->assertStringContainsString('TIDAK', $response['text']);
+        $this->assertDatabaseCount('deposits', 0);
+    }
+
+    public function test_registered_unverified_sender_is_denied(): void
+    {
+        // Unverified sender now gets auto-verified, not a hard deny.
+        User::factory()->create(['no_wa' => '6281234567890']);
+
+        $response = $this->handler()->handle('deposit', ['15000', 'BCA'], [
+            'source'              => 'whatsapp_gateway',
+            'external_user_id'   => 'whatsapp:6281234567890',
+            'external_message_id' => 'whatsapp:message-2',
+            'message_id'          => 'whatsapp:message-2',
+            'whatsapp'            => '6281234567890',
+        ]);
+
+        $this->assertStringContainsString('berhasil diverifikasi', strtolower($response['text']));
+        $this->assertDatabaseCount('deposits', 0);
     }
 }

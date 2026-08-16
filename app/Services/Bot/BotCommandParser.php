@@ -27,6 +27,9 @@ class BotCommandParser
             '📜 Riwayat Order'    => 'order_history',
             '📲 Status WhatsApp'  => 'account_status',
             '📲 Status Telegram'  => 'telegram_status',
+            'YA'                 => 'ya',
+            'TIDAK'              => 'tidak',
+            'SKIP'               => 'skip',
             default              => $message,
         };
 
