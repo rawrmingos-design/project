@@ -411,6 +411,34 @@ class TelegramDepositBotTest extends TestCase
         $this->assertDatabaseCount('users', 0);
     }
 
+    public function test_newly_registered_telegram_user_is_not_prompted_to_register_again(): void
+    {
+        $ctx = $this->context();
+        $handler = $this->handler();
+
+        // Complete registration flow.
+        $handler->handle('deposit', [], $ctx);
+        $handler->handle('ya', [], $ctx);
+        $handler->handle('myuser123', [], $ctx);
+        $handler->handle('skip', [], $ctx);
+
+        // Bug #1 regression: verified_at and linked_at must be set on the created identity.
+        $user = User::where('username', 'myuser123')->first();
+        $this->assertNotNull($user);
+        $identity = \App\Models\TelegramIdentity::where('user_id', $user->id)->first();
+        $this->assertNotNull($identity, 'TelegramIdentity must exist after registration');
+        $this->assertNotNull($identity->verified_at, 'verified_at must be set — otherwise resolver returns STATUS_REVOKED and registration loops');
+        $this->assertNotNull($identity->linked_at, 'linked_at must be set');
+
+        // Second deposit attempt must NOT show registration prompt again.
+        // (deposit itself may fail without a tenant/tripay setup, but the key assertion is no YA/TIDAK prompt)
+        $response = $handler->handle('deposit', ['15000', 'BCA'], $ctx);
+
+        $this->assertStringNotContainsString('YA', $response['text']);
+        $this->assertStringNotContainsString('TIDAK', $response['text']);
+        $this->assertStringNotContainsString('belum tertaut', strtolower($response['text']));
+    }
+
     private function context(): array
     {
         return [
