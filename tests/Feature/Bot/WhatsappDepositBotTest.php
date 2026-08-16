@@ -80,6 +80,68 @@ class WhatsappDepositBotTest extends TestCase
         );
     }
 
+    public function test_conversational_deposit_preset_nominal(): void
+    {
+        User::factory()->create(['no_wa' => '6281234567890', 'whatsapp_verified_at' => now()]);
+        $ctx = $this->waContext('6281234567890', 'msg-preset');
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+        $step2 = $handler->handle('1', [], $ctx);
+
+        $this->assertStringContainsString('Pilih Metode Pembayaran', $step2['text']);
+        $this->assertStringContainsString('Rp 10.000', $step2['text']);
+    }
+
+    public function test_conversational_deposit_custom_nominal_formats(): void
+    {
+        User::factory()->create(['no_wa' => '6281234567890', 'whatsapp_verified_at' => now()]);
+        $ctx = $this->waContext('6281234567890', 'msg-custom');
+        $handler = $this->handler();
+
+        $formats = ['15000', '15.000', 'Rp 15.000', 'Rp. 15.000'];
+
+        foreach ($formats as $input) {
+            \Illuminate\Support\Facades\Cache::forget($this->checkoutStateKey($ctx));
+            $handler->handle('deposit', [], $ctx);
+            $step2 = $handler->handle($input, [], $ctx);
+
+            $this->assertStringContainsString('Pilih Metode Pembayaran', $step2['text'], "Failed for format: $input");
+            $this->assertStringContainsString('Rp 15.000', $step2['text'], "Failed for format: $input");
+        }
+    }
+
+    public function test_invalid_nominal_maintains_state(): void
+    {
+        User::factory()->create(['no_wa' => '6281234567890', 'whatsapp_verified_at' => now()]);
+        $ctx = $this->waContext('6281234567890', 'msg-invalid');
+        $handler = $this->handler();
+
+        $handler->handle('deposit', [], $ctx);
+
+        // Invalid inputs
+        $invalid1 = $handler->handle('9999', [], $ctx);
+        $this->assertStringContainsString('Nominal tidak valid', $invalid1['text']);
+
+        $invalid2 = $handler->handle('abc', [], $ctx);
+        $this->assertStringContainsString('Nominal tidak valid', $invalid2['text']);
+
+        // State is maintained, valid input now succeeds
+        $step2 = $handler->handle('15000', [], $ctx);
+        $this->assertStringContainsString('Pilih Metode Pembayaran', $step2['text']);
+    }
+
+    private function checkoutStateKey(array $context): string
+    {
+        return 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
+    }
+
     public function test_verified_sender_creates_deposit_for_resolved_user(): void
     {
         User::factory()->create([
