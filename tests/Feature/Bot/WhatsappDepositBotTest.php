@@ -283,6 +283,8 @@ class WhatsappDepositBotTest extends TestCase
         $user = \App\Models\User::where('no_wa', '6281234567890')->first();
         $this->assertNotNull($user);
         $this->assertSame('wa_6281234567890', $user->username);
+        $this->assertSame(0, $user->balance);
+        $this->assertSame('Member', $user->role);
         $this->assertStringEndsWith('@wa.bot', $user->email); // synthetic placeholder when skipped
         $this->assertNotNull($user->whatsapp_verified_at);
     }
@@ -301,6 +303,8 @@ class WhatsappDepositBotTest extends TestCase
         $user = \App\Models\User::where('no_wa', '6281234567890')->first();
         $this->assertNotNull($user);
         $this->assertSame('user@example.com', $user->email);
+        $this->assertSame(0, $user->balance);
+        $this->assertSame('Member', $user->role);
         $this->assertNotNull($user->whatsapp_verified_at);
     }
 

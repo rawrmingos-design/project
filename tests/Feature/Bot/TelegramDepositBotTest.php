@@ -342,6 +342,8 @@ class TelegramDepositBotTest extends TestCase
 
         $user = User::where('username', 'myuser123')->first();
         $this->assertNotNull($user);
+        $this->assertSame(0, $user->balance);
+        $this->assertSame('Member', $user->role);
         $this->assertStringEndsWith('@tg.bot', $user->email);
 
         $identity = \App\Models\TelegramIdentity::where('user_id', $user->id)->first();
@@ -363,6 +365,8 @@ class TelegramDepositBotTest extends TestCase
 
         $user = User::where('username', 'myuser123')->first();
         $this->assertNotNull($user);
+        $this->assertSame(0, $user->balance);
+        $this->assertSame('Member', $user->role);
         $this->assertSame('test@example.com', $user->email);
     }
 
