@@ -58,6 +58,7 @@ return [
         'link_challenge_expiry_minutes' => env('TELEGRAM_LINK_CHALLENGE_EXPIRY_MINUTES', 10),
         'link_challenge_max_attempts' => env('TELEGRAM_LINK_CHALLENGE_MAX_ATTEMPTS', 5),
         'deposit_enabled' => env('TELEGRAM_DEPOSIT_ENABLED', false),
+        'order_enabled' => env('BOT_ORDER_ENABLED', false),
         'admin_contact_url' => env('TELEGRAM_ADMIN_CONTACT_URL', ''),
         'required_channel' => [
             'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
