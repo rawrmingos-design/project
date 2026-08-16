@@ -20,6 +20,7 @@ use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class BotCommandHandler
@@ -287,23 +288,49 @@ class BotCommandHandler
         }
 
         $identity = ($this->whatsappUserResolver ?? app(WhatsappUserResolver::class))->resolve($sender);
+
+        // Auto-verify: user exists but whatsapp_verified_at is null — set it now.
+        if (($identity['status'] ?? null) === WhatsappUserResolver::STATUS_REGISTERED_UNVERIFIED) {
+            /** @var \App\Models\User|null $unverifiedUser */
+            $unverifiedUser = User::where('no_wa', $sender)->first();
+            if ($unverifiedUser !== null) {
+                $unverifiedUser->whatsapp_verified_at = now();
+                $unverifiedUser->save();
+                Log::notice('Bot WhatsApp auto-verified on deposit.', [
+                    'correlation_id' => $context['correlation_id'] ?? null,
+                ]);
+            }
+
+            return $this->formatter->formatWaAutoVerified();
+        }
+
+        // Unregistered: initiate two-step registration state machine.
+        if (($identity['status'] ?? null) === WhatsappUserResolver::STATUS_UNREGISTERED) {
+            if ($this->supportsConversationalCheckout($context)) {
+                Cache::put(
+                    $this->checkoutStateKey($context),
+                    ['step' => 'waiting_wa_register_confirm', 'wa_number' => $sender],
+                    now()->addMinutes(15),
+                );
+            }
+
+            return $this->formatter->formatWaRegisterPrompt();
+        }
+
+        // Ambiguous / tenant mismatch / unavailable — fail closed.
         if (($identity['status'] ?? null) !== WhatsappUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
             Log::notice('Bot WhatsApp identity denied.', [
                 'correlation_id' => $context['correlation_id'] ?? null,
                 'action' => 'deposit',
                 'reason' => $identity['status'] ?? 'unknown',
             ]);
+
             $message = match ($identity['status'] ?? null) {
-                WhatsappUserResolver::STATUS_UNREGISTERED => 'Nomor WhatsApp belum terdaftar. Daftarkan akun dan selesaikan linking dari halaman Pengaturan terlebih dahulu.',
-                WhatsappUserResolver::STATUS_REGISTERED_UNVERIFIED => 'Nomor WhatsApp belum terverifikasi. Selesaikan linking dari halaman Pengaturan terlebih dahulu.',
                 WhatsappUserResolver::STATUS_AMBIGUOUS, WhatsappUserResolver::STATUS_TENANT_MISMATCH => 'Nomor WhatsApp tidak dapat dipastikan kepemilikannya. Hubungi admin melalui jalur resmi.',
                 default => 'Nomor WhatsApp belum dapat diverifikasi. Coba lagi nanti.',
             };
 
-            return [
-                'text' => $message,
-                'buttons' => [],
-            ];
+            return ['text' => $message, 'buttons' => []];
         }
 
         if (count($args) < 2) {
@@ -835,6 +862,15 @@ class BotCommandHandler
             ? Cache::get($this->checkoutStateKey($context))
             : null;
 
+        // Registration state machine — must be checked before waiting_game_id.
+        if (($state['step'] ?? null) === 'waiting_wa_register_confirm') {
+            return $this->handleWaRegisterConfirm($command, $context, $state);
+        }
+
+        if (($state['step'] ?? null) === 'waiting_wa_register_email') {
+            return $this->handleWaRegisterEmail($command, $context, $state);
+        }
+
         if (($state['step'] ?? null) !== 'waiting_game_id') {
             return [
                 'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
@@ -876,6 +912,136 @@ class BotCommandHandler
             $uid,
             $requiresZoneId ? $zone : null,
         ], $context);
+    }
+
+    /**
+     * Handle the waiting_wa_register_confirm step (user replies YA or TIDAK).
+     */
+    private function handleWaRegisterConfirm(?string $command, array $context, array $state): array
+    {
+        if ($command === 'tidak') {
+            Cache::forget($this->checkoutStateKey($context));
+
+            return ['text' => 'Oke, pendaftaran dibatalkan.', 'buttons' => []];
+        }
+
+        if ($command === 'ya') {
+            Cache::put(
+                $this->checkoutStateKey($context),
+                [
+                    'step'          => 'waiting_wa_register_email',
+                    'wa_number'     => $state['wa_number'] ?? '',
+                    'attempt_count' => 0,
+                ],
+                now()->addMinutes(15),
+            );
+
+            return $this->formatter->formatWaRegisterEmailPrompt();
+        }
+
+        // Unrecognised input while in confirm step — re-show prompt.
+        return $this->formatter->formatWaRegisterPrompt();
+    }
+
+    /**
+     * Handle the waiting_wa_register_email step (user provides email or SKIP).
+     */
+    private function handleWaRegisterEmail(?string $command, array $context, array $state): array
+    {
+        $waNumber     = (string) ($state['wa_number'] ?? '');
+        $attemptCount = (int) ($state['attempt_count'] ?? 0);
+        $maxAttempts  = 3;
+
+        $autoSkip  = $attemptCount >= $maxAttempts;
+        $inputSkip = $command === 'skip';
+
+        if ($autoSkip || $inputSkip) {
+            Cache::forget($this->checkoutStateKey($context));
+
+            return $this->createWhatsappAccount($waNumber, null);
+        }
+
+        // Treat the raw input as an email address candidate.
+        $email = trim((string) $command);
+
+        // Validate format.
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+
+                return $this->createWhatsappAccount($waNumber, null);
+            }
+            Cache::put(
+                $this->checkoutStateKey($context),
+                array_merge($state, ['attempt_count' => $newCount]),
+                now()->addMinutes(15),
+            );
+
+            return $this->formatter->formatWaRegisterEmailRetry($maxAttempts - $newCount, 'invalid');
+        }
+
+        // Validate uniqueness.
+        if (User::where('email', $email)->exists()) {
+            $newCount = $attemptCount + 1;
+            if ($newCount >= $maxAttempts) {
+                Cache::forget($this->checkoutStateKey($context));
+
+                return $this->createWhatsappAccount($waNumber, null);
+            }
+            Cache::put(
+                $this->checkoutStateKey($context),
+                array_merge($state, ['attempt_count' => $newCount]),
+                now()->addMinutes(15),
+            );
+
+            return $this->formatter->formatWaRegisterEmailRetry($maxAttempts - $newCount, 'duplicate');
+        }
+
+        Cache::forget($this->checkoutStateKey($context));
+
+        return $this->createWhatsappAccount($waNumber, $email);
+    }
+
+    /**
+     * Create a new User account from a WhatsApp number and return the success message.
+     * Password is generated here, sent once in the reply, and never stored in cache or logs.
+     */
+    private function createWhatsappAccount(string $waNumber, ?string $email): array
+    {
+        // Generate deterministic base username; handle uniqueness collisions.
+        $base      = 'wa_' . $waNumber;
+        $username  = $base;
+
+        if (User::where('username', $username)->exists()) {
+            $username = $base . '_' . strtolower(Str::random(4));
+            // Second collision is astronomically unlikely; loop once more to be safe.
+            if (User::where('username', $username)->exists()) {
+                $username = $base . '_' . strtolower(Str::random(4));
+            }
+        }
+
+        $password = Str::password(12, symbols: false);
+
+        User::create([
+            'username'             => $username,
+            'name'                 => $username,
+            'no_wa'                => $waNumber,
+            'email'                => $email ?? ($username . '@wa.bot'),
+            'role'                 => 'Member',
+            'password'             => bcrypt($password),
+            'whatsapp_verified_at' => now(),
+        ]);
+
+        Log::notice('Bot WhatsApp account created.', [
+            'username' => $username,
+        ]);
+
+        return $this->formatter->formatWaRegisterSuccess(
+            $username,
+            $password,
+            rtrim((string) config('app.url'), '/'),
+        );
     }
 
     private function isValidZoneValue(string $zone, array $customInputs): bool

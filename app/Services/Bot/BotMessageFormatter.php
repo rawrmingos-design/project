@@ -1258,4 +1258,111 @@ class BotMessageFormatter
 
         return $callback;
     }
+
+    /**
+     * Prompt shown to an unregistered WhatsApp sender when they attempt deposit.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatWaRegisterPrompt(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '⚠️ *Nomor WhatsApp kamu belum terdaftar.*',
+                '',
+                'Untuk melakukan deposit, kamu perlu membuat akun terlebih dahulu.',
+                '',
+                'Ketik *YA* untuk daftar sekarang, atau *TIDAK* untuk batalkan.',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Prompt asking for optional email during WhatsApp registration.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatWaRegisterEmailPrompt(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '📧 *Pendaftaran Akun*',
+                '',
+                'Mau daftarkan email? Ketik alamat email kamu, atau ketik *SKIP* untuk lewati.',
+                '',
+                '_Email bersifat opsional dan bisa ditambahkan nanti via website._',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Retry prompt shown when the provided email is invalid or already used.
+     *
+     * @param  int  $attemptsLeft  Number of attempts remaining before auto-SKIP.
+     * @param  string  $reason     'duplicate' or 'invalid'
+     * @return array{text: string, buttons: array}
+     */
+    public function formatWaRegisterEmailRetry(int $attemptsLeft, string $reason): array
+    {
+        $reasonText = $reason === 'duplicate'
+            ? 'Email sudah digunakan oleh akun lain.'
+            : 'Format email tidak valid.';
+
+        return [
+            'text' => implode("\n", [
+                "❌ {$reasonText}",
+                '',
+                "Coba email lain, atau ketik *SKIP* untuk lewati. (Sisa percobaan: {$attemptsLeft})",
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Success message sent after WhatsApp auto-registration completes.
+     *
+     * @param  string  $username   Generated username (wa_628xxx).
+     * @param  string  $password   Plain-text password — sent ONCE, never cached.
+     * @param  string  $appUrl     Value of config('app.url').
+     * @return array{text: string, buttons: array}
+     */
+    public function formatWaRegisterSuccess(string $username, string $password, string $appUrl): array
+    {
+        return [
+            'text' => implode("\n", [
+                '🎉 *Akun berhasil dibuat!*',
+                '',
+                "Username: `{$username}`",
+                "Password: `{$password}`",
+                '',
+                '⚠️ _Simpan password ini sekarang, tidak akan dikirim ulang._',
+                '',
+                "Reset password: {$appUrl}/forgot-password",
+                '',
+                'Silakan ulangi perintah *deposit* untuk melanjutkan.',
+            ]),
+            'buttons' => [],
+        ];
+    }
+
+    /**
+     * Message shown when an unverified WhatsApp account is auto-verified on deposit.
+     *
+     * @return array{text: string, buttons: array}
+     */
+    public function formatWaAutoVerified(): array
+    {
+        return [
+            'text' => implode("\n", [
+                '✅ *Nomor WhatsApp berhasil diverifikasi!*',
+                '',
+                'Akun kamu ditemukan dan nomor WhatsApp sudah terhubung.',
+                '',
+                'Silakan ulangi perintah *deposit* untuk melanjutkan.',
+            ]),
+            'buttons' => [],
+        ];
+    }
 }
