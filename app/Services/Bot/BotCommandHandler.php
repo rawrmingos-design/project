@@ -83,24 +83,33 @@ class BotCommandHandler
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
                 'account_status', 'whatsapp_status', 'status_akun' => $this->handleAccountStatus($context),
                 'telegram_status' => $this->handleTelegramAccountStatus($context),
-                'kategori' => $this->handleKategori($args, $context),
-                'layanan', 'produk' => $this->handleLayanan($args, $context),
-                'pembayaran', 'metode' => $this->handlePembayaran($args, $context),
-                'harga', 'price' => $this->handleHarga($args, $context),
-                'cekid' => $this->handleCekId($args),
-                'invoice', 'beli' => $this->handleInvoice(
-                    $args,
-                    $context,
-                ),
-                'konfirmasi', 'confirm' => $this->confirmCheckout(
-                    $args,
-                    $context,
-                ),
-                'status' => $this->handleStatus($args, $context),
-                'batal', 'cancel' => $this->cancelCheckout(
-                    $context,
-                    $args,
-                ),
+                'kategori' => $this->capabilities($context)->supports('order')
+                    ? $this->handleKategori($args, $context)
+                    : $this->orderDisabled(),
+                'layanan', 'produk' => $this->capabilities($context)->supports('order')
+                    ? $this->handleLayanan($args, $context)
+                    : $this->orderDisabled(),
+                'pembayaran', 'metode' => $this->capabilities($context)->supports('order')
+                    ? $this->handlePembayaran($args, $context)
+                    : $this->orderDisabled(),
+                'harga', 'price' => $this->capabilities($context)->supports('order')
+                    ? $this->handleHarga($args, $context)
+                    : $this->orderDisabled(),
+                'cekid' => $this->capabilities($context)->supports('order')
+                    ? $this->handleCekId($args)
+                    : $this->orderDisabled(),
+                'invoice', 'beli' => $this->capabilities($context)->supports('order')
+                    ? $this->handleInvoice($args, $context)
+                    : $this->orderDisabled(),
+                'konfirmasi', 'confirm' => $this->capabilities($context)->supports('order')
+                    ? $this->confirmCheckout($args, $context)
+                    : $this->orderDisabled(),
+                'status' => $this->capabilities($context)->supports('order')
+                    ? $this->handleStatus($args, $context)
+                    : $this->orderDisabled(),
+                'batal', 'cancel' => $this->capabilities($context)->supports('order')
+                    ? $this->cancelCheckout($context, $args)
+                    : $this->orderDisabled(),
                 'admin' => $this->handleAdmin(),
                 default => $this->handleUnknownInput($command, $args, $context),
             };
@@ -408,6 +417,14 @@ class BotCommandHandler
         }
 
         return $this->formatter->formatDepositAmountPrompt();
+    }
+
+    private function orderDisabled(): array
+    {
+        return [
+            'text' => 'Fitur order belum tersedia melalui bot saat ini. Silakan order melalui website.',
+            'buttons' => [],
+        ];
     }
 
     private function formatDepositResponse(array $result, int $amount): array
@@ -850,6 +867,11 @@ class BotCommandHandler
                 'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']],
                 'use_reply_keyboard' => true,
             ];
+        }
+
+        if (! $this->capabilities($context)->supports('order')) {
+            Cache::forget($this->checkoutStateKey($context));
+            return $this->orderDisabled();
         }
 
         $service = $this->catalog->serviceById((int) $state['service_id']);

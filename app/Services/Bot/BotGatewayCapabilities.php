@@ -38,6 +38,7 @@ final class BotGatewayCapabilities
     {
         return match ($capability) {
             'leaderboard', 'order_history', 'menu', 'help', 'cancel' => true,
+            'order' => (bool) config('services.telegram-bot-api.order_enabled', false),
             'deposit' => $this->source === self::SOURCE_WHATSAPP
                 || ($this->source === self::SOURCE_TELEGRAM
                     && (bool) config('services.telegram-bot-api.deposit_enabled', false)),
