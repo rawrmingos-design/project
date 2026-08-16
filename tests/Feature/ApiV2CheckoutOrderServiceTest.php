@@ -310,6 +310,7 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
         ], null, 'whatsapp_gateway', [
             'external_user_id' => 'whatsapp:6281234567890',
             'idempotency_key' => 'tokopay-qr-normalization',
+            'require_bot_intent' => false,
         ]);
 
         $this->assertTrue($result['status']);
@@ -346,6 +347,7 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
         ], null, 'whatsapp_gateway', [
             'external_user_id' => 'whatsapp:6281234567890',
             'idempotency_key' => 'tokopay-va-normalization',
+            'require_bot_intent' => false,
         ]);
 
         $this->assertTrue($result['status']);
@@ -372,6 +374,7 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
                 'ip' => '203.0.113.10',
                 'external_user_id' => $source . ':user-1',
                 'idempotency_key' => $source . ':message-1',
+                'require_bot_intent' => false,
             ]);
 
             $this->assertTrue($result['status']);
@@ -402,12 +405,15 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
 
         $firstWhatsapp = $checkout->createFromPayload($payload, null, 'whatsapp_gateway', [
             'external_user_id' => 'wa:user-1',
+            'require_bot_intent' => false,
         ]);
         $secondWhatsapp = $checkout->createFromPayload($payload, null, 'whatsapp_gateway', [
             'external_user_id' => 'wa:user-1',
+            'require_bot_intent' => false,
         ]);
         $telegram = $checkout->createFromPayload($payload, null, 'telegram_gateway', [
             'external_user_id' => 'tg:user-1',
+            'require_bot_intent' => false,
         ]);
 
         $this->assertSame($firstWhatsapp['order_id'], $secondWhatsapp['order_id']);
