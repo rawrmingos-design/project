@@ -1053,16 +1053,35 @@ class BotCommandHandler
 
         $password = Str::password(12, symbols: false);
 
-        User::create([
-            'username'             => $username,
-            'name'                 => $username,
-            'no_wa'                => $waNumber,
-            'email'                => $email ?? ($username . '@wa.bot'),
-            'role'                 => 'Member',
-            'balance'              => 0,
-            'password'             => bcrypt($password),
-            'whatsapp_verified_at' => now(),
-        ]);
+        try {
+            User::create([
+                'username'             => $username,
+                'name'                 => $username,
+                'no_wa'                => $waNumber,
+                'email'                => $email ?? ($username . '@wa.bot'),
+                'role'                 => 'Member',
+                'balance'              => 0,
+                'password'             => bcrypt($password),
+                'whatsapp_verified_at' => now(),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), '1062') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                // Race condition: username taken between check and insert — retry once with new suffix.
+                $username = $base . '_' . strtolower(Str::random(4));
+                User::create([
+                    'username'             => $username,
+                    'name'                 => $username,
+                    'no_wa'                => $waNumber,
+                    'email'                => $email ?? ($username . '@wa.bot'),
+                    'role'                 => 'Member',
+                    'balance'              => 0,
+                    'password'             => bcrypt($password),
+                    'whatsapp_verified_at' => now(),
+                ]);
+            } else {
+                throw $e;
+            }
+        }
 
         Log::notice('Bot WhatsApp account created.', [
             'username' => $username,
@@ -1204,14 +1223,26 @@ class BotCommandHandler
     {
         $password = Str::password(12, symbols: false);
 
-        $user = User::create([
-            'username'             => $username,
-            'name'                 => $username,
-            'email'                => $email ?? ($username . '@tg.bot'),
-            'role'                 => 'Member',
-            'balance'              => 0,
-            'password'             => bcrypt($password),
-        ]);
+        try {
+            $user = User::create([
+                'username'             => $username,
+                'name'                 => $username,
+                'email'                => $email ?? ($username . '@tg.bot'),
+                'role'                 => 'Member',
+                'balance'              => 0,
+                'password'             => bcrypt($password),
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), '1062') || str_contains($e->getMessage(), 'Duplicate entry')) {
+                // Race condition: username taken between check and insert.
+                // State is already cleared — user must restart registration with a different username.
+                return [
+                    'text'    => 'Username sudah digunakan oleh pendaftar lain. Silakan ulangi perintah deposit dan pilih username berbeda.',
+                    'buttons' => [],
+                ];
+            }
+            throw $e;
+        }
 
         TelegramIdentity::create([
             'user_id'          => $user->id,
@@ -1220,6 +1251,8 @@ class BotCommandHandler
             'telegram_user_id' => $state['telegram_user_id'] ?? '',
             'chat_id'          => $state['telegram_chat_id'] ?? null,
             'username'         => null,
+            'linked_at'        => now(),
+            'verified_at'      => now(),
         ]);
 
         Log::notice('Bot Telegram account created.', [
