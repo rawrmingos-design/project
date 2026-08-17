@@ -862,6 +862,13 @@ class BotCommandHandler
         }
 
         if (($state['step'] ?? null) !== 'waiting_game_id') {
+            if (!$this->capabilities($context)->supports('order')) {
+                // When bot order is disabled, the bot should silently ignore unrecognized commands
+                // instead of returning "Perintah tidak dikenali". This allows human admins to answer
+                // the unrecognized messages manually without the bot interfering.
+                return ['status' => 'ignored'];
+            }
+
             return [
                 'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
                 'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']],
