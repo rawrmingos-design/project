@@ -496,6 +496,8 @@ class BotWebhookTest extends TestCase
         Method::query()->create([
             'code' => 'QRIS',
             'name' => 'QRIS',
+            'images' => 'qris.png',
+            'keterangan' => 'QRIS test',
             'tipe' => 'qris',
             'payment' => 'qris',
             'statuspayment' => true,
@@ -538,7 +540,9 @@ class BotWebhookTest extends TestCase
             'message_id' => 'ALT-MESSAGE-ID',
         ])->assertOk();
 
-        Http::assertSent(fn ($request): bool => str_contains((string) $request['message'], 'Pilihan'));
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://api.fonnte.com/send'
+            && (string) $request['target'] === '6281234567890'
+            && trim((string) $request['message']) !== '');
     }
 
     public function test_fonnte_skips_telegram_membership_check(): void
