@@ -1167,12 +1167,13 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         Toggle::make('bot_order_wa_enabled')
                             ->label('Terima Order via WhatsApp')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp ini.')
-                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && ($get('wa_provider') ?? 'fonnte') === 'fonnte')
                             ->columnSpanFull(),
 
                         Toggle::make('use_separate_bot_wa')
                             ->label('Gunakan Nomor Berbeda untuk Bot Order')
                             ->helperText('Aktifkan jika ingin bot order menggunakan nomor Fonnte yang berbeda dari nomor notifikasi sistem utama.')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && ($get('wa_provider') ?? 'fonnte') === 'fonnte')
                             ->live()
                             ->columnSpanFull(),
 
@@ -1181,7 +1182,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->password()
                             ->revealable()
                             ->helperText('Token dari akun Fonnte khusus untuk bot order.')
-                            ->visible(fn ($get) => (bool) $get('use_separate_bot_wa')),
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('wa_bot_number')
                             ->label('Nomor Device Bot Order')
@@ -1189,7 +1190,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->prefix('+62')
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor WhatsApp untuk bot order (opsional, untuk pencatatan).')
-                            ->visible(fn ($get) => (bool) $get('use_separate_bot_wa')),
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
@@ -1238,6 +1239,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
+                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false))
                             ->columnSpanFull(),
                     ])
                     ->collapsible()
