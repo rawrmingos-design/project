@@ -76,13 +76,19 @@ function serve() {
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.writeFileSync(databasePath, '');
 
-    run(php, [
+    const migrateArgs = [
         'artisan',
         'migrate:fresh',
         '--force',
         '--seed',
         '--seeder=Database\\Seeders\\E2EBrowserSeeder',
-    ]);
+    ];
+
+    if (process.env.E2E_SKIP_SCHEMA_DUMP === '1') {
+        migrateArgs.push('--schema-path=/dev/null');
+    }
+
+    run(php, migrateArgs);
 
     const child = spawn(php, ['artisan', 'serve', '--host=127.0.0.1', `--port=${port}`], {
         cwd: root,
@@ -124,12 +130,22 @@ switch (mode) {
         break;
     case 'app':
         buildAssets();
-        runPlaywright(['tests/e2e/homepage-popup.spec.js']);
+        runPlaywright([
+            'tests/e2e/homepage-popup.spec.js',
+            'tests/e2e/storefront-order.spec.js',
+            'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/member-settings.spec.js',
+        ]);
         break;
     case 'all':
         buildAssets();
         runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
-        runPlaywright(['tests/e2e/homepage-popup.spec.js']);
+        runPlaywright([
+            'tests/e2e/homepage-popup.spec.js',
+            'tests/e2e/storefront-order.spec.js',
+            'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/member-settings.spec.js',
+        ]);
         break;
     default:
         console.error(`Unknown E2E mode: ${mode}`);
