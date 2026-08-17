@@ -7,6 +7,8 @@ use App\Models\CustomInput;
 use App\Models\Kategori;
 use App\Models\InboundSourcePolicy;
 use App\Models\Layanan;
+use App\Models\Method;
+use App\Models\User;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\TelegramChannelMembershipService;
@@ -480,6 +482,63 @@ class BotWebhookTest extends TestCase
                 && $backRow[0]['text'] === '🔙 Kembali'
                 && $backRow[0]['callback_data'] === 'kategori top-up-games';
         });
+    }
+
+    public function test_fonnte_deposit_accepts_payload_without_message_id(): void
+    {
+        Cache::flush();
+
+        $user = User::factory()->create([
+            'no_wa' => '6281234567890',
+            'whatsapp_verified_at' => now(),
+        ]);
+
+        Method::query()->create([
+            'code' => 'QRIS',
+            'name' => 'QRIS',
+            'tipe' => 'qris',
+            'payment' => 'qris',
+            'statuspayment' => true,
+        ]);
+
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('sendMessage')->andReturn(['success' => true]);
+        });
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'deposit',
+        ])->assertOk();
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => '15000',
+        ])->assertOk();
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => '1',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('deposits', [
+            'user_id' => $user->id,
+            'external_user_id' => 'whatsapp:6281234567890',
+        ]);
+    }
+
+    public function test_fonnte_accepts_alternate_message_id_keys(): void
+    {
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true]),
+        ]);
+
+        $this->postJsonFonnte([
+            'sender' => '6281234567890',
+            'message' => 'menu',
+            'message_id' => 'ALT-MESSAGE-ID',
+        ])->assertOk();
+
+        Http::assertSent(fn ($request): bool => str_contains((string) $request['message'], 'Pilihan'));
     }
 
     public function test_fonnte_skips_telegram_membership_check(): void

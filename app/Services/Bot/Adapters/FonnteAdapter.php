@@ -46,7 +46,7 @@ class FonnteAdapter implements BotAdapterInterface
     {
         $sender = $request->input('sender');
         $text = $request->input('message', '');
-        $messageId = $request->input('id');
+        $messageId = $this->resolveMessageId($request, (string) $sender, (string) $text);
 
         if (! $sender || $text === '') {
             return response()->json(['status' => 'ignored']);
@@ -55,7 +55,7 @@ class FonnteAdapter implements BotAdapterInterface
         $context = [
             'source' => 'whatsapp_gateway',
             'external_user_id' => 'whatsapp:' . $sender,
-            'message_id' => $messageId ? 'whatsapp:' . $messageId : null,
+            'message_id' => 'whatsapp:' . $messageId,
             'correlation_id' => $request->attributes->get('bot_correlation_id'),
             'whatsapp' => WhatsappNumberNormalizer::normalize((string) $sender),
         ];
@@ -135,6 +135,31 @@ class FonnteAdapter implements BotAdapterInterface
         return response()->json([
             'status' => true,
         ]);
+    }
+
+    /**
+     * Fonnte normally sends `id`, but older/device-specific payloads can omit
+     * it or use a different key. Deposit creation requires a stable external
+     * message ID for idempotency, so derive one instead of rejecting the flow.
+     */
+    private function resolveMessageId(Request $request, string $sender, string $text): string
+    {
+        foreach (['id', 'message_id', 'messageId'] as $key) {
+            $value = trim((string) $request->input($key, ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        $timestamp = trim((string) $request->input('timestamp', ''));
+        $correlationId = trim((string) $request->attributes->get('bot_correlation_id', ''));
+
+        return 'fallback-' . hash('sha256', implode('|', [
+            $sender,
+            $text,
+            $timestamp,
+            $correlationId,
+        ]));
     }
 
     /**
