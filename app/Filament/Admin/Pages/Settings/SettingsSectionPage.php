@@ -1228,13 +1228,15 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->label('Bot Token')
                             ->password()
                             ->revealable()
-                            ->helperText('Token bot Telegram dari @BotFather. Kosongkan jika mengambil dari file .env.'),
+                            ->helperText('Token bot Telegram dari @BotFather. Kosongkan jika mengambil dari file .env.')
+                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
 
                         TextInput::make('telegram_webhook_secret')
                             ->label('Webhook Secret')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).'),
+                            ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).')
+                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
 
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
