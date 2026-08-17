@@ -106,6 +106,11 @@ class FonnteAdapter implements BotAdapterInterface
 
         $parsed = $this->parser->parse((string) $text);
         $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
+
+        if (($response['status'] ?? null) === 'ignored') {
+            return response()->json(['status' => 'ignored']);
+        }
+
         [$replyText, $newNumericMenuState] = $this->renderResponse($response);
         $sendResult = $this->sendMessage($sender, $replyText);
 

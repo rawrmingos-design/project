@@ -77,6 +77,10 @@ class TelegramAdapter implements BotAdapterInterface
         $parsed = $this->parser->parse($text);
         $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
 
+        if (($response['status'] ?? null) === 'ignored') {
+            return response()->json(['status' => 'ignored']);
+        }
+
         $this->sendReply($chatId, $response);
 
         return response()->json(['status' => 'ok']);
