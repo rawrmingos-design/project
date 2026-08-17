@@ -13,6 +13,8 @@ class SettingWeb extends Model
 
     protected $hidden = [
         'tiktok_access_token_encrypted',
+        'telegram_bot_token',
+        'telegram_webhook_secret',
     ];
 
     protected $casts = [
@@ -48,6 +50,8 @@ class SettingWeb extends Model
         'seo_sitemap_main_asset_id' => 'integer',
         'seo_sitemap_categories_asset_id' => 'integer',
         'pwa_icon_generated_at' => 'datetime',
+        'bot_order_wa_enabled' => 'boolean',
+        'bot_order_tg_enabled' => 'boolean',
     ];
 
     public function setTiktokAccessTokenAttribute(mixed $value): void

@@ -222,6 +222,17 @@ class AppServiceProvider extends ServiceProvider
                         'captcha.sitekey' => $config->captcha_site_key ?: env('NOCAPTCHA_SITEKEY'),
                         'captcha.secret' => $config->captcha_secret ?: env('NOCAPTCHA_SECRET'),
                     ]);
+
+                    if (!empty($config->telegram_bot_token)) {
+                        config(['services.telegram-bot-api.token' => $config->telegram_bot_token]);
+                    }
+                    if (!empty($config->telegram_webhook_secret)) {
+                        config(['services.telegram-bot-api.webhook_secret' => $config->telegram_webhook_secret]);
+                    }
+
+                    // Override bot order flags if set in DB
+                    config(['services.telegram-bot-api.order_enabled' => (bool) $config->bot_order_tg_enabled]);
+                    config(['bot.order_wa_enabled' => (bool) $config->bot_order_wa_enabled]);
                 }
             } catch (\Exception $e) {
                 // Fallback to default config when database is unavailable.

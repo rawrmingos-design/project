@@ -19,6 +19,7 @@ class NotificationsSettings extends SettingsSectionPage
     {
         return [
             'Konfigurasi WhatsApp',
+            'Konfigurasi Telegram',
             'Konfigurasi Email',
             'Channel Notifikasi',
         ];
@@ -34,6 +35,10 @@ class NotificationsSettings extends SettingsSectionPage
             'nomor_admin',
             'wa_key',
             'wa_number',
+            'bot_order_wa_enabled',
+            'telegram_bot_token',
+            'telegram_webhook_secret',
+            'bot_order_tg_enabled',
             'easywa_email',
             'easywa_secret_key',
             'easywa_send_type',
