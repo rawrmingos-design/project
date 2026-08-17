@@ -1164,6 +1164,12 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Nomor WhatsApp yang terhubung di Fonnte.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
+                        Toggle::make('bot_order_wa_enabled')
+                            ->label('Terima Order via WhatsApp')
+                            ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp ini.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte')
+                            ->columnSpanFull(),
+
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
                             ->helperText('Email akun EasyWA.')
@@ -1191,6 +1197,30 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('whatsapp-configuration')),
+
+                Section::make('Konfigurasi Telegram')
+                    ->description('Atur integrasi bot Telegram untuk notifikasi dan pemesanan.')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('telegram_bot_token')
+                            ->label('Bot Token')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Token bot Telegram dari @BotFather. Kosongkan jika mengambil dari file .env.'),
+
+                        TextInput::make('telegram_webhook_secret')
+                            ->label('Webhook Secret')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).'),
+
+                        Toggle::make('bot_order_tg_enabled')
+                            ->label('Terima Order via Telegram')
+                            ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
 
                 Section::make('Konfigurasi Email')
                     ->description('Atur SMTP yang dipakai sistem untuk mengirim email otomatis.')
@@ -1483,6 +1513,14 @@ abstract class SettingsSectionPage extends Page implements HasForms
         
         $data = $settings?->toArray() ?? [];
 
+        // telegram_bot_token and telegram_webhook_secret are in $hidden so toArray()
+        // excludes them. Load them explicitly via getRawOriginal so the form can
+        // pre-fill the password fields (they are rendered as revealable passwords).
+        if ($settings) {
+            $data['telegram_bot_token'] ??= $settings->getRawOriginal('telegram_bot_token');
+            $data['telegram_webhook_secret'] ??= $settings->getRawOriginal('telegram_webhook_secret');
+        }
+
         $data['mail_mailer'] ??= env('MAIL_MAILER', 'smtp');
         $data['mail_host'] ??= env('MAIL_HOST', 'smtp.mailgun.org');
         $data['mail_port'] ??= env('MAIL_PORT', 587);
@@ -1651,6 +1689,14 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
         if (empty($data['captcha_secret']) && !empty($settings->captcha_secret)) {
             $data['captcha_secret'] = $settings->captcha_secret;
+        }
+
+        if (empty($data['telegram_bot_token']) && !empty($settings->getRawOriginal('telegram_bot_token'))) {
+            $data['telegram_bot_token'] = $settings->getRawOriginal('telegram_bot_token');
+        }
+
+        if (empty($data['telegram_webhook_secret']) && !empty($settings->getRawOriginal('telegram_webhook_secret'))) {
+            $data['telegram_webhook_secret'] = $settings->getRawOriginal('telegram_webhook_secret');
         }
 
         $this->stripMediaFormOnlyFields($data);

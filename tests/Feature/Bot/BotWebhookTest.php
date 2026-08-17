@@ -34,7 +34,18 @@ class BotWebhookTest extends TestCase
         config(['services.telegram-bot-api.webhook_secret' => 'dummy-secret']);
         config(['services.telegram-bot-api.deposit_enabled' => false]);
         config(['services.telegram-bot-api.order_enabled' => true]);
+        config(['bot.order_wa_enabled' => true]);
         config(['services.fonnte.device_token' => 'dummy-device-token']);
+
+        // Seed setting_webs so AppServiceProvider DB override sets order flags correctly.
+        // Without this, AppServiceProvider reads bot_order_tg_enabled=false from DB
+        // during HTTP requests, overriding the config() calls above.
+        \Illuminate\Support\Facades\DB::table('setting_webs')->insertOrIgnore([
+            'id' => 1,
+            'judul_web' => 'Test Store',
+            'bot_order_tg_enabled' => 1,
+            'bot_order_wa_enabled' => 1,
+        ]);
 
         // Mock inbound source policies to allow local requests
         InboundSourcePolicy::query()->create([
