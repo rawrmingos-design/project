@@ -88,7 +88,7 @@ class WhatsappNotificationService
     /**
      * Send raw message via Fonnte API.
      */
-    public function sendMessage(string $target, string $message, ?string $url = null): array
+    public function sendMessage(string $target, string $message, ?string $url = null, ?string $customToken = null): array
     {
         try {
             $api = SettingWeb::first();
@@ -97,6 +97,27 @@ class WhatsappNotificationService
                 Log::error('WhatsappNotificationService: Missing setting_webs configuration.');
 
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
+            }
+
+            // If a custom token is provided, bypass EasyWA and force Fonnte with the custom token
+            // This allows the bot order gateway to use Fonnte while the system uses EasyWA
+            if ($customToken !== null) {
+                $payload = [
+                    'target' => $target,
+                    'message' => $message,
+                ];
+
+                if ($url !== null) {
+                    $payload['url'] = $url;
+                }
+
+                $response = Http::withHeaders([
+                    'Authorization' => $customToken,
+                ])->asForm()
+                    ->timeout(30)
+                    ->post('https://api.fonnte.com/send', $payload);
+
+                return $this->normalizeFonnteResponse($response);
             }
 
             $provider = strtolower(trim((string) ($api->wa_provider ?? 'fonnte')));
