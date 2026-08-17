@@ -17,12 +17,17 @@ class NotificationsSettings extends SettingsSectionPage
      */
     protected function getVisibleSectionHeadings(): ?array
     {
-        return [
+        $headings = [
             'Konfigurasi WhatsApp',
-            'Konfigurasi Telegram',
             'Konfigurasi Email',
             'Channel Notifikasi',
         ];
+
+        if (env('BOT_ORDER_ENABLED', false)) {
+            array_splice($headings, 1, 0, ['Konfigurasi Telegram']);
+        }
+
+        return $headings;
     }
 
     /**
