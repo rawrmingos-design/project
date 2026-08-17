@@ -15,6 +15,7 @@ class SettingWeb extends Model
         'tiktok_access_token_encrypted',
         'telegram_bot_token',
         'telegram_webhook_secret',
+        'wa_bot_key',
     ];
 
     protected $casts = [
@@ -52,6 +53,7 @@ class SettingWeb extends Model
         'pwa_icon_generated_at' => 'datetime',
         'bot_order_wa_enabled' => 'boolean',
         'bot_order_tg_enabled' => 'boolean',
+        'use_separate_bot_wa' => 'boolean',
     ];
 
     public function setTiktokAccessTokenAttribute(mixed $value): void

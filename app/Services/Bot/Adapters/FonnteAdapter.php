@@ -35,6 +35,13 @@ class FonnteAdapter implements BotAdapterInterface
         ], true);
     }
 
+    private function sendMessage(string $sender, string $message, ?string $url = null): array
+    {
+        $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
+
+        return $this->waService->sendMessage($sender, $message, $url, $customToken);
+    }
+
     public function handle(Request $request): mixed
     {
         $sender = $request->input('sender');
@@ -66,7 +73,7 @@ class FonnteAdapter implements BotAdapterInterface
 
         if ($selection !== null) {
             if (! is_array($numericMenuState)) {
-                $this->waService->sendMessage(
+                $this->sendMessage(
                     $sender,
                     $this->expiredMenuReply(),
                 );
@@ -76,7 +83,7 @@ class FonnteAdapter implements BotAdapterInterface
 
             if (! $this->validNumericMenuState($numericMenuState)) {
                 Cache::forget($numericMenuKey);
-                $this->waService->sendMessage(
+                $this->sendMessage(
                     $sender,
                     $this->expiredMenuReply(),
                 );
@@ -86,7 +93,7 @@ class FonnteAdapter implements BotAdapterInterface
 
             $entry = $numericMenuState['entries'][(string) $selection] ?? null;
             if (! $this->validNumericEntry($selection, $entry)) {
-                $this->waService->sendMessage(
+                $this->sendMessage(
                     $sender,
                     $this->invalidSelectionReply($numericMenuState),
                 );
@@ -100,12 +107,12 @@ class FonnteAdapter implements BotAdapterInterface
         $parsed = $this->parser->parse((string) $text);
         $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
         [$replyText, $newNumericMenuState] = $this->renderResponse($response);
-        $sendResult = $this->waService->sendMessage($sender, $replyText);
+        $sendResult = $this->sendMessage($sender, $replyText);
 
         $photoUrl = $response['photo_url'] ?? null;
 
         if (is_string($photoUrl) && trim($photoUrl) !== '') {
-            $this->waService->sendMessage($sender, '', $photoUrl);
+            $this->sendMessage($sender, '', $photoUrl);
         }
 
         if ($sendResult['success'] ?? false) {

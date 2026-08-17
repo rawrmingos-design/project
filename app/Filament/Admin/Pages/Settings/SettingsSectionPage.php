@@ -1170,6 +1170,27 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte')
                             ->columnSpanFull(),
 
+                        Toggle::make('use_separate_bot_wa')
+                            ->label('Gunakan Nomor Berbeda untuk Bot Order')
+                            ->helperText('Aktifkan jika ingin bot order menggunakan nomor Fonnte yang berbeda dari nomor notifikasi sistem utama.')
+                            ->live()
+                            ->columnSpanFull(),
+
+                        TextInput::make('wa_bot_key')
+                            ->label('Token Fonnte Bot Order')
+                            ->password()
+                            ->revealable()
+                            ->helperText('Token dari akun Fonnte khusus untuk bot order.')
+                            ->visible(fn ($get) => (bool) $get('use_separate_bot_wa')),
+
+                        TextInput::make('wa_bot_number')
+                            ->label('Nomor Device Bot Order')
+                            ->tel()
+                            ->prefix('+62')
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
+                            ->helperText('Nomor WhatsApp untuk bot order (opsional, untuk pencatatan).')
+                            ->visible(fn ($get) => (bool) $get('use_separate_bot_wa')),
+
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
                             ->helperText('Email akun EasyWA.')
@@ -1519,6 +1540,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
         if ($settings) {
             $data['telegram_bot_token'] ??= $settings->getRawOriginal('telegram_bot_token');
             $data['telegram_webhook_secret'] ??= $settings->getRawOriginal('telegram_webhook_secret');
+            $data['wa_bot_key'] ??= $settings->getRawOriginal('wa_bot_key');
         }
 
         $data['mail_mailer'] ??= env('MAIL_MAILER', 'smtp');
@@ -1697,6 +1719,10 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
         if (empty($data['telegram_webhook_secret']) && !empty($settings->getRawOriginal('telegram_webhook_secret'))) {
             $data['telegram_webhook_secret'] = $settings->getRawOriginal('telegram_webhook_secret');
+        }
+
+        if (empty($data['wa_bot_key']) && !empty($settings->getRawOriginal('wa_bot_key'))) {
+            $data['wa_bot_key'] = $settings->getRawOriginal('wa_bot_key');
         }
 
         $this->stripMediaFormOnlyFields($data);
