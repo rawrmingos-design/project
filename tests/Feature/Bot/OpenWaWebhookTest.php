@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Bot;
 
+use App\Models\InboundSourcePolicy;
 use App\Services\Bot\Adapters\OpenWaAdapter;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,6 +14,44 @@ use Mockery;
 class OpenWaWebhookTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Setup OpenWA whitelist policy (same as production seeder)
+        $policy = InboundSourcePolicy::query()->create([
+            'source_domain' => 'bot_webhook',
+            'source_name' => 'openwa',
+            'mode' => 'enforce',
+            'is_active' => true,
+        ]);
+        $policy->entries()->create([
+            'value_type' => 'ipv4',
+            'value' => '103.31.205.166',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_openwa_route_rejects_unauthorized_ip(): void
+    {
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '8.8.8.8'])
+            ->postJson('/api/webhooks/bot/openwa', []);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_openwa_route_accepts_allowed_ip(): void
+    {
+        $this->mock(WhatsappNotificationService::class, function (Mockery\MockInterface $mock): void {
+            $mock->shouldReceive('sendMessage')->once();
+        });
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '103.31.205.166'])
+            ->postJson('/api/webhooks/bot/openwa', $this->openwaPayload());
+
+        $response->assertStatus(200);
+    }
 
     private function openwaPayload(array $overrides = []): array
     {

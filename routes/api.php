@@ -109,6 +109,9 @@ Route::prefix('webhooks/bot')->middleware('throttle:bot-webhook')->group(functio
     Route::post('/fonnte', [BotWebhookController::class, 'fonnte'])
         ->middleware('inbound.whitelist:bot_webhook,fonnte,enforce')
         ->name('webhooks.bot.fonnte');
+    Route::post('/openwa', [BotWebhookController::class, 'openwa'])
+        ->middleware('inbound.whitelist:bot_webhook,openwa,enforce')
+        ->name('webhooks.bot.openwa');
 });
 
 Route::prefix('auth')->group(function () {
