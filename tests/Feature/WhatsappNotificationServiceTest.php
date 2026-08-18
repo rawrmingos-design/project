@@ -501,6 +501,10 @@ class WhatsappNotificationServiceTest extends TestCase
             'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
         ]);
 
+        // AppServiceProvider boot() runs before this test creates SettingWeb,
+        // so bot.openwa_session_id must be set explicitly for the URL to match.
+        config(['bot.openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5']);
+
         Http::fake([
             'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text' => Http::response([
                 'messageId' => '3EB060FDB39ACF6367C42E',
@@ -529,6 +533,8 @@ class WhatsappNotificationServiceTest extends TestCase
             'wa_key' => 'fonnte-token',
             'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
         ]);
+
+        config(['bot.openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5']);
 
         Http::fake([
             'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text' => Http::response([
