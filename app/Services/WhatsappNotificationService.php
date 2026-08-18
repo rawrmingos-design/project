@@ -99,28 +99,48 @@ class WhatsappNotificationService
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
 
-            // If a custom token is provided, bypass EasyWA and force Fonnte with the custom token
-            // This allows the bot order gateway to use Fonnte while the system uses EasyWA
+            // If a custom token is provided, bypass EasyWA and force the provider with the custom token
+            // This allows the bot order gateway to use its own device (OpenWA) while the system uses another provider
             if ($customToken !== null) {
+                // Custom token for bot order = OpenWA API key
                 $payload = [
-                    'target' => $target,
-                    'message' => $message,
+                    'chatId' => $this->toOpenWaChatId($target),
+                    'text' => $message,
                 ];
 
-                if ($url !== null) {
-                    $payload['url'] = $url;
-                }
-
                 $response = Http::withHeaders([
-                    'Authorization' => $customToken,
-                ])->asForm()
+                    'Authorization' => 'Bearer ' . $customToken,
+                    'Accept' => 'application/json',
+                ])->asJson()
                     ->timeout(30)
-                    ->post('https://api.fonnte.com/send', $payload);
+                    ->post('https://wagateway.jasakoding.web.id/api/messages/send-text', $payload);
 
-                return $this->normalizeFonnteResponse($response);
+                return $this->normalizeOpenWaResponse($response);
             }
 
             $provider = strtolower(trim((string) ($api->wa_provider ?? 'fonnte')));
+
+            if ($provider === 'openwa') {
+                if (! $api->wa_key) {
+                    Log::error('WhatsappNotificationService: Missing OpenWA configuration.');
+
+                    return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
+                }
+
+                $payload = [
+                    'chatId' => $this->toOpenWaChatId($target),
+                    'text' => $message,
+                ];
+
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $api->wa_key,
+                    'Accept' => 'application/json',
+                ])->asJson()
+                    ->timeout(30)
+                    ->post('https://wagateway.jasakoding.web.id/api/messages/send-text', $payload);
+
+                return $this->normalizeOpenWaResponse($response);
+            }
 
             if ($provider === 'easywa') {
                 return $this->sendViaEasyWa($api, $target, $message);
@@ -153,6 +173,44 @@ class WhatsappNotificationService
 
             return ['success' => false, 'message' => 'System Error.'];
         }
+    }
+
+    private function toOpenWaChatId(string $target): string
+    {
+        $digits = preg_replace('/\D+/', '', $target) ?? '';
+
+        return $digits . '@s.whatsapp.net';
+    }
+
+    private function normalizeOpenWaResponse(Response $response): array
+    {
+        $decoded = json_decode($response->body(), true);
+
+        if (! is_array($decoded)) {
+            return [
+                'success' => $response->successful(),
+                'message' => $response->successful()
+                    ? 'OpenWA request processed.'
+                    : 'OpenWA HTTP ' . $response->status(),
+                'response' => $response->body(),
+                'provider' => 'openwa',
+                'http_status' => $response->status(),
+            ];
+        }
+
+        $status = (bool) ($decoded['status'] ?? false);
+        $messageId = (string) ($decoded['messageId'] ?? ($decoded['message_id'] ?? ''));
+
+        return [
+            'success' => $response->successful() && $status !== false,
+            'message' => $response->successful()
+                ? 'OpenWA request processed.'
+                : 'OpenWA HTTP ' . $response->status(),
+            'response' => $decoded,
+            'provider' => 'openwa',
+            'http_status' => $response->status(),
+            'message_id' => $messageId,
+        ];
     }
 
     public function sendTestMessage(string $target, string $message): array
