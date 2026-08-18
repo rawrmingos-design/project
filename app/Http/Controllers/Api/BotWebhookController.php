@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\Bot\Adapters\FonnteAdapter;
+use App\Services\Bot\Adapters\OpenWaAdapter;
 use App\Services\Bot\Adapters\TelegramAdapter;
 use App\Services\Telegram\TelegramUpdateReplayGuard;
 use Illuminate\Http\JsonResponse;
@@ -49,6 +50,13 @@ class BotWebhookController extends Controller
     }
 
     public function fonnte(Request $request, FonnteAdapter $adapter): JsonResponse
+    {
+        $request->attributes->set('bot_correlation_id', (string) Str::uuid());
+
+        return $adapter->handle($request);
+    }
+
+    public function openwa(Request $request, OpenWaAdapter $adapter): JsonResponse
     {
         $request->attributes->set('bot_correlation_id', (string) Str::uuid());
 

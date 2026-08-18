@@ -59,5 +59,30 @@ class InboundWhitelistBotWebhookSeeder extends Seeder
                 ]
             );
         }
+
+        // 3. OpenWA Webhook Policy (self-hosted gateway on Server 1)
+        $openwaPolicy = InboundSourcePolicy::updateOrCreate(
+            ['source_domain' => 'bot_webhook', 'source_name' => 'openwa'],
+            [
+                'mode' => 'enforce',
+                'is_active' => true,
+                'description' => 'OpenWA self-hosted WhatsApp gateway (Server 1)',
+            ]
+        );
+
+        $openwaIps = [
+            '103.31.205.166' => 'OpenWA Server 1 (wagateway.jasakoding.web.id)',
+        ];
+
+        foreach ($openwaIps as $ip => $label) {
+            $openwaPolicy->entries()->updateOrCreate(
+                ['value' => $ip],
+                [
+                    'value_type' => 'ipv4',
+                    'label' => $label,
+                    'is_active' => true,
+                ]
+            );
+        }
     }
 }

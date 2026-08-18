@@ -112,3 +112,4 @@ testsprite_tests\tmp\config.json
 !/docs/plans/
 !/docs/plans/fonnte/
 !/docs/plans/fonnte/*.md
+.hermes/
