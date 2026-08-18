@@ -99,6 +99,14 @@ class WhatsappNotificationService
                 return ['success' => false, 'message' => 'Konfigurasi WA belum lengkap.'];
             }
 
+            Log::debug('WhatsappNotificationService::sendMessage', [
+                'target' => $target,
+                'text_len' => strlen($message),
+                'custom_token' => $customToken !== null,
+                'provider' => $api->wa_provider ?? 'fonnte',
+                'session_id' => config('bot.openwa_session_id'),
+            ]);
+
             // If a custom token is provided, bypass EasyWA and force the provider with the custom token
             // This allows the bot order gateway to use its own device (OpenWA) while the system uses another provider
             if ($customToken !== null) {

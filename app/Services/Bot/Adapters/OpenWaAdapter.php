@@ -9,6 +9,7 @@ use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -57,6 +58,14 @@ class OpenWaAdapter implements BotAdapterInterface
     private function sendMessage(string $sender, string $message, ?string $url = null): array
     {
         $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
+
+        Log::debug('OpenWaAdapter::sendMessage', [
+            'sender' => $sender,
+            'text_len' => strlen($message),
+            'use_separate_bot_wa' => config('bot.use_separate_bot_wa'),
+            'custom_token_set' => $customToken !== null,
+            'openwa_session_id' => config('bot.openwa_session_id'),
+        ]);
 
         return $this->waService->sendMessage($sender, $message, $url, $customToken);
     }
