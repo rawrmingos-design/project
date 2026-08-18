@@ -503,8 +503,8 @@ class WhatsappNotificationServiceTest extends TestCase
 
         Http::fake([
             'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text' => Http::response([
-                'success' => true,
-                'waMessageId' => 'openwa-msg-1',
+                'messageId' => '3EB060FDB39ACF6367C42E',
+                'timestamp' => 1787070472,
             ], 200),
         ]);
 

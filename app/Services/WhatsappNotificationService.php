@@ -198,13 +198,12 @@ class WhatsappNotificationService
             ];
         }
 
-        // OpenWA returns {success: true} on 2xx; failures are non-2xx status codes.
-        // MessageActionResponseDto: "Always true — a failure is reported as a non-2xx status".
-        $status = (bool) ($decoded['success'] ?? false);
+        // OpenWA returns {"messageId": "...", "timestamp": N} on 2xx — no success flag.
+        // A failure is reported as a non-2xx status, so 2xx always means success.
         $messageId = (string) ($decoded['messageId'] ?? ($decoded['message_id'] ?? ($decoded['waMessageId'] ?? '')));
 
         return [
-            'success' => $response->successful() && $status !== false,
+            'success' => $response->successful(),
             'message' => $response->successful()
                 ? 'OpenWA request processed.'
                 : 'OpenWA HTTP ' . $response->status(),
