@@ -502,8 +502,8 @@ class WhatsappNotificationServiceTest extends TestCase
 
         Http::fake([
             'https://wagateway.jasakoding.web.id/api/messages/send-text' => Http::response([
-                'status' => true,
-                'messageId' => 'openwa-msg-1',
+                'success' => true,
+                'waMessageId' => 'openwa-msg-1',
             ], 200),
         ]);
 
