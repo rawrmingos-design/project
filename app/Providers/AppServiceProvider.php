@@ -229,6 +229,12 @@ class AppServiceProvider extends ServiceProvider
                     if (!empty($config->telegram_webhook_secret)) {
                         config(['services.telegram-bot-api.webhook_secret' => $config->telegram_webhook_secret]);
                     }
+                    if (!empty($config->telegram_channel_id)) {
+                        config(['services.telegram-bot-api.required_channel.id' => $config->telegram_channel_id]);
+                    }
+                    if (!empty($config->telegram_channel_url)) {
+                        config(['services.telegram-bot-api.required_channel.url' => $config->telegram_channel_url]);
+                    }
 
                     // Override bot order flags if set in DB
                     config(['services.telegram-bot-api.order_enabled' => (bool) $config->bot_order_tg_enabled]);
