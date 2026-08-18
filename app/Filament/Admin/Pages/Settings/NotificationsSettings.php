@@ -44,6 +44,8 @@ class NotificationsSettings extends SettingsSectionPage
             'use_separate_bot_wa',
             'wa_bot_key',
             'wa_bot_number',
+            'openwa_session_id',
+            'openwa_webhook_secret',
             'telegram_bot_token',
             'telegram_webhook_secret',
             'bot_order_tg_enabled',

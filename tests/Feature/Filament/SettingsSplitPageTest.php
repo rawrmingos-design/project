@@ -223,6 +223,66 @@ class SettingsSplitPageTest extends AdminTestCase
         Http::assertNothingSent();
     }
 
+    public function test_notifications_settings_saves_openwa_provider_fields(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings([
+            'wa_provider' => 'fonnte',
+        ]);
+
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'openwa',
+                'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+                'openwa_webhook_secret' => 'test-openwa-secret',
+                'mail_mailer' => 'smtp',
+            ])
+            ->call('save');
+
+        $settings = SettingWeb::query()->findOrFail(1);
+        $this->assertSame('openwa', $settings->wa_provider);
+        $this->assertSame('f802a400-0cf5-4c28-b7b0-aa30c169aee5', $settings->openwa_session_id);
+        $this->assertSame('test-openwa-secret', $settings->openwa_webhook_secret);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_notifications_settings_openwa_fields_visible_when_provider_is_openwa(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings([
+            'wa_provider' => 'openwa',
+            'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+        ]);
+
+        // BOT_ORDER_ENABLED gates visibility of bot order toggles.
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->assertFormFieldExists('wa_provider')
+            ->assertFormFieldExists('openwa_session_id')
+            ->assertFormFieldExists('openwa_webhook_secret')
+            ->assertFormFieldExists('bot_order_wa_enabled')
+            ->assertFormFieldExists('use_separate_bot_wa')
+            ->assertFormSet([
+                'wa_provider' => 'openwa',
+                'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+            ]);
+
+        Http::assertNothingSent();
+    }
+
     public function test_seo_tracking_settings_saves_encrypted_tiktok_credentials_and_preserves_blank_token(): void
     {
         /** @var User $admin */
