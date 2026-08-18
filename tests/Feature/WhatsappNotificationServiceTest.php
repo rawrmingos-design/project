@@ -498,10 +498,11 @@ class WhatsappNotificationServiceTest extends TestCase
             'wa_provider' => 'openwa',
             'wa_key' => 'openwa-token',
             'wa_number' => '6287780901780',
+            'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
         ]);
 
         Http::fake([
-            'https://wagateway.jasakoding.web.id/api/messages/send-text' => Http::response([
+            'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text' => Http::response([
                 'success' => true,
                 'waMessageId' => 'openwa-msg-1',
             ], 200),
@@ -514,7 +515,7 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->assertSame('openwa', $result['provider']);
 
         Http::assertSent(function ($request): bool {
-            return $request->url() === 'https://wagateway.jasakoding.web.id/api/messages/send-text'
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text'
                 && $request->hasHeader('Authorization', 'Bearer openwa-token')
                 && ($request->data()['chatId'] ?? null) === '085792464508@s.whatsapp.net'
                 && ($request->data()['text'] ?? null) === 'Halo dari OpenWA';
@@ -526,10 +527,11 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->createSettings([
             'wa_provider' => 'fonnte',
             'wa_key' => 'fonnte-token',
+            'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
         ]);
 
         Http::fake([
-            'https://wagateway.jasakoding.web.id/api/messages/send-text' => Http::response([
+            'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text' => Http::response([
                 'success' => true,
             ], 200),
         ]);
@@ -541,7 +543,7 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->assertSame('openwa', $result['provider']);
 
         Http::assertSent(function ($request): bool {
-            return $request->url() === 'https://wagateway.jasakoding.web.id/api/messages/send-text'
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text'
                 && $request->hasHeader('Authorization', 'Bearer custom-openwa-key');
         });
     }

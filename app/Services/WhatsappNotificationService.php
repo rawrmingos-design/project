@@ -113,7 +113,7 @@ class WhatsappNotificationService
                     'Accept' => 'application/json',
                 ])->asJson()
                     ->timeout(30)
-                    ->post('https://wagateway.jasakoding.web.id/api/messages/send-text', $payload);
+                    ->post('https://wagateway.jasakoding.web.id/api/sessions/' . config('bot.openwa_session_id') . '/messages/send-text', $payload);
 
                 return $this->normalizeOpenWaResponse($response);
             }
@@ -137,7 +137,7 @@ class WhatsappNotificationService
                     'Accept' => 'application/json',
                 ])->asJson()
                     ->timeout(30)
-                    ->post('https://wagateway.jasakoding.web.id/api/messages/send-text', $payload);
+                    ->post('https://wagateway.jasakoding.web.id/api/sessions/' . config('bot.openwa_session_id') . '/messages/send-text', $payload);
 
                 return $this->normalizeOpenWaResponse($response);
             }
