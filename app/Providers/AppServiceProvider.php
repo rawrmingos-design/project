@@ -7,6 +7,7 @@ use View;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 
 use App\Models\Pembelian;
@@ -250,6 +251,10 @@ class AppServiceProvider extends ServiceProvider
                 }
             } catch (\Exception $e) {
                 // Fallback to default config when database is unavailable.
+                Log::warning('AppServiceProvider: DB config load failed, using defaults.', [
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
             }
         }
 
