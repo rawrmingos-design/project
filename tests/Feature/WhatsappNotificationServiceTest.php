@@ -491,4 +491,58 @@ class WhatsappNotificationServiceTest extends TestCase
             'wa_key' => 'fonnte-token',
         ], $overrides));
     }
+
+    public function test_openwa_provider_sends_to_openwa_api(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'openwa',
+            'wa_key' => 'openwa-token',
+            'wa_number' => '6287780901780',
+        ]);
+
+        Http::fake([
+            'https://wagateway.jasakoding.web.id/api/messages/send-text' => Http::response([
+                'status' => true,
+                'messageId' => 'openwa-msg-1',
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)
+            ->sendTestMessage('085792464508', 'Halo dari OpenWA');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('openwa', $result['provider']);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/messages/send-text'
+                && $request->hasHeader('Authorization', 'Bearer openwa-token')
+                && ($request->data()['chatId'] ?? null) === '085792464508@s.whatsapp.net'
+                && ($request->data()['text'] ?? null) === 'Halo dari OpenWA';
+        });
+    }
+
+    public function test_openwa_provider_custom_token_uses_bot_key(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+        ]);
+
+        Http::fake([
+            'https://wagateway.jasakoding.web.id/api/messages/send-text' => Http::response([
+                'status' => true,
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)
+            ->sendMessage('085792464508', 'Halo bot', null, 'custom-openwa-key');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('openwa', $result['provider']);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/messages/send-text'
+                && $request->hasHeader('Authorization', 'Bearer custom-openwa-key');
+        });
+    }
 }
