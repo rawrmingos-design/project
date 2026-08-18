@@ -244,6 +244,8 @@ class AppServiceProvider extends ServiceProvider
                         'bot.use_separate_bot_wa' => (bool) ($config->use_separate_bot_wa ?? false),
                         'bot.wa_bot_key' => $config->wa_bot_key ?? null,
                         'bot.wa_bot_number' => $config->wa_bot_number ?? null,
+                        'bot.openwa_session_id' => $config->openwa_session_id ?? null,
+                        'bot.openwa_webhook_secret' => $config->openwa_webhook_secret ?? null,
                     ]);
                 }
             } catch (\Exception $e) {
