@@ -198,8 +198,10 @@ class WhatsappNotificationService
             ];
         }
 
-        $status = (bool) ($decoded['status'] ?? false);
-        $messageId = (string) ($decoded['messageId'] ?? ($decoded['message_id'] ?? ''));
+        // OpenWA returns {success: true} on 2xx; failures are non-2xx status codes.
+        // MessageActionResponseDto: "Always true — a failure is reported as a non-2xx status".
+        $status = (bool) ($decoded['success'] ?? false);
+        $messageId = (string) ($decoded['messageId'] ?? ($decoded['message_id'] ?? ($decoded['waMessageId'] ?? '')));
 
         return [
             'success' => $response->successful() && $status !== false,
