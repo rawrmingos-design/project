@@ -1136,11 +1136,12 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->options([
                                 'fonnte' => 'Fonnte',
                                 'easywa' => 'EasyWA',
+                                'openwa' => 'OpenWA (Self-Hosted)',
                             ])
                             ->default('fonnte')
                             ->native(false)
                             ->live()
-                            ->helperText('Pilih provider yang sedang dipakai.'),
+                            ->helperText('Pilih provider yang sedang dipakai. OpenWA adalah gateway WhatsApp self-hosted di Server 1 (wagateway.jasakoding.web.id).'),
 
                         TextInput::make('nomor_admin')
                             ->label('Nomor WhatsApp Admin')
@@ -1167,13 +1168,13 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         Toggle::make('bot_order_wa_enabled')
                             ->label('Terima Order via WhatsApp')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp ini.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && ($get('wa_provider') ?? 'fonnte') === 'fonnte')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && in_array($get('wa_provider') ?? 'fonnte', ['fonnte', 'openwa'], true))
                             ->columnSpanFull(),
 
                         Toggle::make('use_separate_bot_wa')
                             ->label('Gunakan Nomor Berbeda untuk Bot Order')
-                            ->helperText('Aktifkan jika ingin bot order menggunakan nomor Fonnte yang berbeda dari nomor notifikasi sistem utama.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && ($get('wa_provider') ?? 'fonnte') === 'fonnte')
+                            ->helperText('Aktifkan jika ingin bot order menggunakan nomor/gateway berbeda dari nomor notifikasi sistem utama.')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && in_array($get('wa_provider') ?? 'fonnte', ['fonnte', 'openwa'], true))
                             ->live()
                             ->columnSpanFull(),
 
@@ -1191,6 +1192,21 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor WhatsApp untuk bot order (opsional, untuk pencatatan).')
                             ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+
+                        TextInput::make('openwa_session_id')
+                            ->label('OpenWA Session ID')
+                            ->placeholder('f802a400-0cf5-4c28-b7b0-aa30c169aee5')
+                            ->helperText('UUID session OpenWA yang dipakai untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'openwa')
+                            ->columnSpanFull(),
+
+                        TextInput::make('openwa_webhook_secret')
+                            ->label('OpenWA Webhook Secret')
+                            ->password()
+                            ->revealable()
+                            ->helperText('HMAC secret untuk verifikasi signature webhook (opsional). Kosongkan jika tidak dipakai.')
+                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'openwa')
+                            ->columnSpanFull(),
 
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
@@ -1555,6 +1571,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
             $data['telegram_bot_token'] ??= $settings->getRawOriginal('telegram_bot_token');
             $data['telegram_webhook_secret'] ??= $settings->getRawOriginal('telegram_webhook_secret');
             $data['wa_bot_key'] ??= $settings->getRawOriginal('wa_bot_key');
+            $data['openwa_webhook_secret'] ??= $settings->getRawOriginal('openwa_webhook_secret');
         }
 
         $data['mail_mailer'] ??= env('MAIL_MAILER', 'smtp');
