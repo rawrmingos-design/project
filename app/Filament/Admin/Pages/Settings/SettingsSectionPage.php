@@ -1238,6 +1238,16 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).')
                             ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
 
+                        TextInput::make('telegram_channel_id')
+                            ->label('Channel ID')
+                            ->helperText('ID channel yang wajib diikuti (contoh: @channelku). Kosongkan jika mengambil dari file .env.')
+                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+
+                        TextInput::make('telegram_channel_url')
+                            ->label('Channel URL')
+                            ->helperText('URL invite channel (contoh: https://t.me/channelku). Kosongkan jika mengambil dari file .env.')
+                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
