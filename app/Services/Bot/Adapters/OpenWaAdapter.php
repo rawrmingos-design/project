@@ -55,6 +55,17 @@ class OpenWaAdapter implements BotAdapterInterface
         ], true);
     }
 
+    /**
+     * True when the active numeric menu is the checkout confirmation menu
+     * (Konfirmasi/Batal). In that state, a numeric selection (1 = confirm,
+     * 2 = cancel) must NOT be suppressed by the conversational-input guard.
+     */
+    private function isCheckoutConfirmationMenu(mixed $numericMenuState): bool
+    {
+        return is_array($numericMenuState)
+            && ($numericMenuState['menu'] ?? null) === 'checkout_confirmation';
+    }
+
     private function sendMessage(string $sender, string $message, ?string $url = null): array
     {
         $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
@@ -143,7 +154,11 @@ class OpenWaAdapter implements BotAdapterInterface
             ? (string) ($checkoutState['step'] ?? '')
             : '';
 
-        if ($selection !== null && $this->isConversationalInputState($checkoutStep)) {
+        if (
+            $selection !== null
+            && $this->isConversationalInputState($checkoutStep)
+            && ! $this->isCheckoutConfirmationMenu($numericMenuState)
+        ) {
             $selection = null;
         }
 
