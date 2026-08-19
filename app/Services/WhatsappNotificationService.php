@@ -190,16 +190,18 @@ class WhatsappNotificationService
 
     /**
      * Pick the OpenWA endpoint: send-image when a media URL is provided,
-     * otherwise send-text. Handles both custom-token (bot order) and
-     * provider=openwa (notifications) paths.
+     * otherwise send-text. Returns the full URL.
      */
     private function openWaEndpoint(string $fallback, ?string $url): string
     {
-        $endpoint = trim((string) $url);
-
-        return ($endpoint !== '' && filter_var($endpoint, FILTER_VALIDATE_URL) !== false)
+        $endpoint = (trim((string) $url) !== '' && filter_var(trim((string) $url), FILTER_VALIDATE_URL) !== false)
             ? 'send-image'
             : $fallback;
+
+        return 'https://wagateway.jasakoding.web.id/api/sessions/'
+            . config('bot.openwa_session_id')
+            . '/messages/'
+            . $endpoint;
     }
 
     /**
