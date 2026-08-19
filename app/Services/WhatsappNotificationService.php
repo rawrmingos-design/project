@@ -198,8 +198,15 @@ class WhatsappNotificationService
             ? 'send-image'
             : $fallback;
 
+        // Worker queue = console context → config('bot.openwa_session_id') kosong
+        // (AppServiceProvider skip saat runningInConsole). Fallback ke DB.
+        $sessionId = (string) config('bot.openwa_session_id');
+        if ($sessionId === '') {
+            $sessionId = (string) (SettingWeb::query()->value('openwa_session_id') ?? '');
+        }
+
         return 'https://wagateway.jasakoding.web.id/api/sessions/'
-            . config('bot.openwa_session_id')
+            . $sessionId
             . '/messages/'
             . $endpoint;
     }
