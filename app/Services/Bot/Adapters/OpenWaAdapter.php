@@ -67,12 +67,28 @@ class OpenWaAdapter implements BotAdapterInterface
             'openwa_session_id' => config('bot.openwa_session_id'),
         ]);
 
-        return $this->waService->sendMessage($sender, $message, $url, $customToken);
+        $result = $this->waService->sendMessage($sender, $message, $url, $customToken);
+
+        Log::debug('OpenWaAdapter::sendMessage result', [
+            'success' => $result['success'] ?? null,
+            'message' => $result['message'] ?? null,
+            'http_status' => $result['http_status'] ?? null,
+            'message_id' => $result['message_id'] ?? null,
+            'sender' => $sender,
+        ]);
+
+        return $result;
     }
 
     public function handle(Request $request): mixed
     {
         $payload = json_decode((string) $request->getContent(), true);
+
+        Log::debug('OpenWaAdapter::handle', [
+            'payload_json' => json_encode($payload),
+            'has_content' => strlen((string) $request->getContent()),
+            'route' => $request->path(),
+        ]);
 
         if (! is_array($payload)) {
             return response()->json(['status' => 'ignored']);
