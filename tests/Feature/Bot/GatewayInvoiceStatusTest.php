@@ -23,6 +23,7 @@ class GatewayInvoiceStatusTest extends TestCase
             'nickname' => 'Player',
             'layanan' => '100 Diamond',
             'harga' => 10500,
+            'profit' => 500,
             'provider_order_id' => '',
             'status' => 'Pending',
             'log' => json_encode(['source' => 'whatsapp_gateway_checkout']),
