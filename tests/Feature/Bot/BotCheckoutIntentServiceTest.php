@@ -177,6 +177,29 @@ class BotCheckoutIntentServiceTest extends TestCase
         $this->assertSame('ORDER-1', $replay['intent']->order_id);
     }
 
+    public function test_derived_nomor_alias_matches_fingerprint(): void
+    {
+        $service = app(BotCheckoutIntentService::class);
+        $created = $service->create(
+            $this->payload(['whatsapp' => '6281234567890']),
+            $this->quote(),
+            $this->context(),
+        );
+
+        // CheckoutOrderService::validateApiPayload derives `nomor` from
+        // `whatsapp` via orderPhone() and merges it into the request. The
+        // canonical payload must treat `nomor` as an alias of `whatsapp`
+        // so the confirmation fingerprint still matches.
+        $confirmPayload = $created['intent']->payload + [
+            'nomor' => '6281234567890',
+            'intent_id' => $created['intent']->intent_id,
+        ];
+
+        $this->assertTrue(
+            $service->payloadMatches($created['intent'], $confirmPayload),
+        );
+    }
+
     private function payload(array $overrides = []): array
     {
         return array_replace([

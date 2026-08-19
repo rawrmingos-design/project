@@ -347,22 +347,10 @@ class BotCheckoutIntentService
 
     public function payloadMatches(BotCheckoutIntent $intent, array $payload): bool
     {
-        $matches = hash_equals(
+        return hash_equals(
             (string) $intent->payload_fingerprint,
             $this->fingerprint($this->canonicalPayload($payload)),
         );
-
-        if (! $matches) {
-            \Illuminate\Support\Facades\Log::warning('BotCheckoutIntentService::payloadMatches mismatch', [
-                'intent_id' => $intent->intent_id,
-                'stored_fp' => $intent->payload_fingerprint,
-                'incoming_fp' => $this->fingerprint($this->canonicalPayload($payload)),
-                'stored_payload' => $intent->payload,
-                'incoming_payload' => $payload,
-            ]);
-        }
-
-        return $matches;
     }
 
     private function findByOrigin(
@@ -467,6 +455,17 @@ class BotCheckoutIntentService
             && ! array_key_exists('service', $payload)
         ) {
             $payload['service'] = $payload['service_id'];
+        }
+
+        // `nomor` is derived by CheckoutOrderService::validateApiPayload from
+        // `whatsapp` (orderPhone()), so treat it as an alias: when both are
+        // present, drop `nomor` so the fingerprint matches the intent that
+        // was created without the derived key.
+        if (
+            array_key_exists('whatsapp', $payload)
+            && array_key_exists('nomor', $payload)
+        ) {
+            unset($payload['nomor']);
         }
 
         foreach ($keys as $key) {
