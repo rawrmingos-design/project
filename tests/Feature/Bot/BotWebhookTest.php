@@ -120,7 +120,7 @@ class BotWebhookTest extends TestCase
             $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
 
             return $request['chat_id'] === 12345
-                && str_contains($request['text'], 'Pilih kategori')
+                && str_contains($request['text'], '🏠 *Menu Utama*')
                 && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
                     && ($button['callback_data'] ?? null) === 'leaderboard')
                 && $buttons->doesntContain(fn (array $button): bool => ($button['text'] ?? null) === '💰 Deposit'
@@ -628,7 +628,7 @@ class BotWebhookTest extends TestCase
         ])->assertOk();
 
         $this->assertStringStartsWith('Pilihan tidak valid. Gunakan nomor yang tercantum pada menu aktif.', $sentMessages[2]['message']);
-        $this->assertStringContainsString('Daftar Produk Top Up Games', $sentMessages[2]['message']);
+        $this->assertStringContainsString('🎮 *Pilih Game* · Top Up Games', $sentMessages[2]['message']);
         $this->assertStringNotContainsString('Perintah tidak dikenali', $sentMessages[2]['message']);
         $this->assertSame('products', Cache::get($stateKey)['menu']);
     }
@@ -846,7 +846,7 @@ class BotWebhookTest extends TestCase
             'id' => 'MSG-LONG-COMMAND',
         ])->assertOk();
 
-        $this->assertStringContainsString('Daftar Produk Top Up Games', (string) $sentMessage);
+        $this->assertStringContainsString('🎮 *Pilih Game* · Top Up Games', (string) $sentMessage);
 
         Http::fake([
             'https://api.telegram.org/botdummy-token/sendMessage' => Http::response(['ok' => true]),
@@ -889,7 +889,7 @@ class BotWebhookTest extends TestCase
 
         Http::assertSent(function ($request): bool {
             return str_contains($request->url(), 'sendMessage')
-                && str_contains($request['text'], '🏆 *LEADERBOARD*')
+                && str_contains($request['text'], '🏆 *Leaderboard*')
                 && str_contains($request['text'], 'Ali\\*\\*')
                 && str_contains($request['text'], 'Rp 25.000')
                 && str_contains($request['text'], 'Bulan Ini')
@@ -924,7 +924,7 @@ class BotWebhookTest extends TestCase
             'id' => 'MSG-LEADERBOARD-1',
         ])->assertOk();
 
-        $this->assertStringContainsString('🏆 *LEADERBOARD*', $sent[0]['message']);
+        $this->assertStringContainsString('🏆 *Leaderboard*', $sent[0]['message']);
         $this->assertStringContainsString('Ali\\*\\*', $sent[0]['message']);
         $this->assertStringContainsString('Rp 25.000', $sent[0]['message']);
         $this->assertFalse(Cache::has('bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890')));
@@ -947,7 +947,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("✅ *Pembayaran Berhasil*\n\nPesanan kamu sedang diproses.\n\n💎 Mobile \\*Legends\\*\n👤 Player\n\n🧾 `INV\\_\\[123\\]`", $response['text']);
+        $this->assertSame("✅ *Pembayaran Berhasil*\n\nPesanan kamu sedang diproses.\n\n💎 Mobile \\*Legends\\*\n👤 Player\n\n🧾 `INV_[123]`", $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
@@ -977,7 +977,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("⏳ *Menunggu Pembayaran*\n\n💎 Mobile \\*Legends\\*\n💰 *Rp 12.500*\n🧾 `INV\\_\\[123\\]`\n\n💳 Metode: *BCA\\_VA*\nKetik `status` untuk cek pembayaran.", $response['text']);
+        $this->assertSame("⏳ *Menunggu Pembayaran*\n\n💎 Mobile \\*Legends\\*\n💰 *Rp 12.500*\n🧾 `INV_[123]`\n\n💳 Metode: *BCA\\_VA*\nKetik `status` untuk cek pembayaran.", $response['text']);
     }
 
     public function test_telegram_status_hides_qris_payload_for_unpaid_payment(): void
@@ -1015,7 +1015,9 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("❌ *PEMBAYARAN EXPIRED*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ No. Invoice: *INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n💡 Pesanan telah kadaluarsa. Silakan lakukan pembayaran ulang agar token AI dapat digunakan kembali.", $response['text']);
+        $this->assertStringContainsString('❌ *Pembayaran Kadaluarsa*', $response['text']);
+        $this->assertStringContainsString('💎 Mobile \\*Legends\\*', $response['text']);
+        $this->assertStringContainsString('🧾 `INV_[123]`', $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
         $this->assertStringNotContainsString('*Status Pesanan*', $response['text']);
     }
@@ -1031,7 +1033,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertStringContainsString('❌ *PEMBAYARAN EXPIRED*', $response['text']);
+        $this->assertStringContainsString('❌ *Pembayaran Kadaluarsa*', $response['text']);
         $this->assertStringContainsString('├ No. Invoice: *INV-123*', $response['text']);
         $this->assertStringContainsString('└ Produk: *Mobile Legends*', $response['text']);
     }
