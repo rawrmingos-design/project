@@ -371,17 +371,16 @@ class BotMessageFormatter
                 '*Total: Rp ' . $total . '*',
                 '',
                 'Pesanan belum dibuat. Konfirmasi berlaku 15 menit.',
-                'Ketik: `' . $this->escapeMarkdownCode(
-                    $confirmCommand,
-                ) . '`',
-                'Batal: `' . $this->escapeMarkdownCode(
-                    $cancelCommand,
-                ) . '`',
+                'Pilih 1 untuk konfirmasi atau 2 untuk batal.',
             ]),
             'buttons' => [[
-                $this->button('✅ Konfirmasi', $confirmCommand),
-                $this->button('❌ Batal', $cancelCommand),
+                $this->button('✅ Konfirmasi', $confirmCommand, 'content'),
+                $this->button('❌ Batal', $cancelCommand, 'content'),
             ]],
+            'numeric_menu' => [
+                'menu' => 'checkout_confirmation',
+                'parent_menu' => 'menu',
+            ],
         ];
     }
 
