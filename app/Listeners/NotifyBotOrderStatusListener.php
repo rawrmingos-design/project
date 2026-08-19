@@ -64,11 +64,11 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         }
 
         // 3) Anti-spam: event bisa dispatch berulang (callback berulang/poller).
+        //    Cache hanya di-set SETELAH kirim sukses — kalau gagal, event berikutnya retry.
         $cacheKey = 'bot:notif:' . $orderId . ':' . $transition;
         if (Cache::has($cacheKey)) {
             return;
         }
-        Cache::put($cacheKey, true, now()->addHours(24));
 
         $senderDigits = preg_replace('/\D+/', '', (string) $purchase->pembayaran->no_pembeli);
         if ($senderDigits === '') {
@@ -93,8 +93,10 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         ];
 
         try {
+            $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
+
             $response = app(WhatsappNotificationService::class)
-                ->sendMessage($target, app(BotMessageFormatter::class)->formatStatus($payload)['text']);
+                ->sendMessage($target, app(BotMessageFormatter::class)->formatStatus($payload)['text'], null, $customToken);
 
             if (! ($response['success'] ?? false)) {
                 Log::warning('NotifyBotOrderStatus: gagal kirim notif', [
@@ -102,6 +104,8 @@ class NotifyBotOrderStatusListener implements ShouldQueue
                     'transition' => $transition,
                     'response' => $response,
                 ]);
+            } else {
+                Cache::put($cacheKey, true, now()->addHours(24));
             }
         } catch (\Throwable $e) {
             Log::error('NotifyBotOrderStatus: exception kirim notif', [
