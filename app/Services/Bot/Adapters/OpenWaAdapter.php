@@ -96,8 +96,14 @@ class OpenWaAdapter implements BotAdapterInterface
         $key = is_array($data['key'] ?? null) ? $data['key'] : [];
         $message = is_array($data['message'] ?? null) ? $data['message'] : [];
 
-        $sender = (string) ($key['remoteJid'] ?? '');
-        $text = $this->extractText($message);
+        // OpenWA v2+ sends a FLAT payload: data.from + data.body (+ data.type),
+        // NOT the nested Baileys shape (data.key.remoteJid + data.message.conversation).
+        // Support both shapes for robustness.
+        $flatFrom = is_string($data['from'] ?? null) ? $data['from'] : '';
+        $flatBody = is_string($data['body'] ?? null) ? $data['body'] : '';
+
+        $sender = (string) ($key['remoteJid'] ?? ($flatFrom !== '' ? $flatFrom : ''));
+        $text = $flatBody !== '' ? trim($flatBody) : $this->extractText($message);
 
         Log::debug('OpenWaAdapter::handle debug', [
             'sender' => $sender,
@@ -115,7 +121,7 @@ class OpenWaAdapter implements BotAdapterInterface
         // Normalize sender: "6281234567890@s.whatsapp.net" -> "6281234567890"
         $sender = preg_replace('/@.*$/', '', $sender) ?? $sender;
 
-        $messageId = (string) ($key['id'] ?? '');
+        $messageId = (string) ($key['id'] ?? ($data['id'] ?? ''));
         $messageId = $messageId !== ''
             ? $messageId
             : $this->fallbackMessageId($payload, $sender, $text);
