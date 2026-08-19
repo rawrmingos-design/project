@@ -39,6 +39,7 @@ class GatewayInvoiceStatusTest extends TestCase
         Pembayaran::create([
             'order_id' => $order->order_id,
             'harga' => 10500,
+            'no_pembayaran' => 'TEST-VA-001',
             'no_pembeli' => '6285792464508',
             'status' => 'Belum Lunas',
             'metode' => 'QRIS',
