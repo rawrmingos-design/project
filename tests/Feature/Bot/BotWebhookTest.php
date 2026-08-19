@@ -951,6 +951,25 @@ class BotWebhookTest extends TestCase
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
+    public function test_telegram_status_renders_success_order_with_top_up_berhasil_title(): void
+    {
+        $response = app(BotMessageFormatter::class)->formatStatus([
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV-456',
+                'product' => 'Mobile Legends',
+                'nickname' => 'Player',
+                'amount' => 10000,
+                'status' => 'Sukses',
+                'payment' => ['status' => 'Lunas'],
+                'sn' => 'SN-123456789',
+            ],
+        ]);
+
+        $this->assertSame("✅ *Top Up Berhasil!*\n\nPesanan sudah masuk ke akun kamu 🎉\n\n💎 Mobile Legends\n👤 Player\n🔑 SN: `SN-123456789`\n\n🧾 `INV-456`", $response['text']);
+        $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
+    }
+
     public function test_telegram_status_renders_unpaid_payment_details(): void
     {
         config([
