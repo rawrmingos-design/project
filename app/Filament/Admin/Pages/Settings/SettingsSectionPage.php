@@ -1124,7 +1124,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
                 // WhatsApp Integration
                 Section::make('Konfigurasi WhatsApp')
-                    ->description('Atur provider dan akun WhatsApp untuk notifikasi otomatis.')
+                    ->description('Provider untuk NOTIFIKASI otomatis (invoice, deposit, status transaksi, dll). Terpisah dari gateway bot order di bawah.')
                     ->headerActions([
                         $this->makeSendTestWhatsappAction(),
                         $this->makeCheckWhatsappStatusAction(),
@@ -1132,7 +1132,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->columns(3)
                     ->schema([
                         Select::make('wa_provider')
-                            ->label('Provider WhatsApp')
+                            ->label('Provider WhatsApp Notifikasi')
                             ->options([
                                 'fonnte' => 'Fonnte',
                                 'easywa' => 'EasyWA',
@@ -1141,7 +1141,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->default('fonnte')
                             ->native(false)
                             ->live()
-                            ->helperText('Pilih provider yang sedang dipakai. OpenWA adalah gateway WhatsApp self-hosted di Server 1 (wagateway.jasakoding.web.id).'),
+                            ->helperText('Provider untuk mengirim NOTIFIKASI (invoice, deposit, dll). Bebas pilih — tidak memengaruhi gateway bot order.'),
 
                         TextInput::make('nomor_admin')
                             ->label('Nomor WhatsApp Admin')
@@ -1149,36 +1149,36 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->prefix('+62')
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor utama admin untuk menerima notifikasi sistem.'),
-                            
+
                         TextInput::make('wa_key')
-                            ->label('Token Fonnte')
+                            ->label('Token Fonnte (Notifikasi)')
                             ->password()
                             ->revealable()
-                            ->helperText('Isi jika provider yang dipakai adalah Fonnte.')
+                            ->helperText('Token Fonnte untuk mengirim notifikasi. Isi jika provider notifikasi = Fonnte.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
                         TextInput::make('wa_number')
-                            ->label('Nomor Device Fonnte')
+                            ->label('Nomor Device Fonnte (Notifikasi)')
                             ->tel()
                             ->prefix('+62')
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
-                            ->helperText('Nomor WhatsApp yang terhubung di Fonnte.')
+                            ->helperText('Nomor WhatsApp pengirim notifikasi (terhubung di Fonnte).')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
                         TextInput::make('easywa_email')
-                            ->label('Email EasyWA')
-                            ->helperText('Email akun EasyWA.')
+                            ->label('Email EasyWA (Notifikasi)')
+                            ->helperText('Email akun EasyWA untuk mengirim notifikasi.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
 
                         TextInput::make('easywa_secret_key')
-                            ->label('Secret Key EasyWA')
+                            ->label('Secret Key EasyWA (Notifikasi)')
                             ->password()
                             ->revealable()
-                            ->helperText('Secret key dari dashboard EasyWA.')
+                            ->helperText('Secret key dari dashboard EasyWA (untuk notifikasi).')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'easywa'),
 
                         Select::make('easywa_send_type')
-                            ->label('Mode Kirim EasyWA')
+                            ->label('Mode Kirim EasyWA (Notifikasi)')
                             ->options([
                                 'sync' => 'Langsung',
                                 'async' => 'Antrian',
@@ -1195,27 +1195,27 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
                 // Bot Order WhatsApp — separate from notification provider.
                 Section::make('Konfigurasi Bot Order WhatsApp')
-                    ->description('Atur gateway khusus untuk bot order WhatsApp. Bot order SELALU menggunakan OpenWA self-hosted, terpisah dari provider notifikasi di atas.')
+                    ->description('Gateway khusus BOT ORDER (pelanggan chat untuk order produk). WAJIB OpenWA self-hosted — terpisah dari provider notifikasi di atas.')
                     ->columns(3)
                     ->schema([
                         Toggle::make('bot_order_wa_enabled')
                             ->label('Terima Order via WhatsApp')
-                            ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp bot.')
+                            ->helperText('Aktifkan agar pelanggan bisa order produk langsung lewat chat WhatsApp bot (alur: menu → kategori → layanan → invoice).')
                             ->visible(fn () => config('bot.order_enabled', false))
                             ->columnSpanFull(),
 
                         Toggle::make('use_separate_bot_wa')
                             ->label('Gunakan Gateway Berbeda untuk Bot Order')
-                            ->helperText('Aktifkan jika bot order memakai gateway terpisah dari notifikasi. Jika NONAKTIF, bot order mengikuti provider notifikasi (wa_provider).')
+                            ->helperText('ON = bot order pakai gateway OpenWA sendiri (isi API Key + Session ID di bawah). OFF = bot order ikut provider notifikasi (wa_provider).')
                             ->visible(fn () => config('bot.order_enabled', false))
                             ->live()
                             ->columnSpanFull(),
 
                         TextInput::make('wa_bot_key')
-                            ->label('API Key OpenWA Bot Order')
+                            ->label('API Key OpenWA (Bot Order)')
                             ->password()
                             ->revealable()
-                            ->helperText('API key OpenWA (format owa_k1_...) untuk autentikasi pengiriman pesan bot order. Wajib jika pakai gateway terpisah.')
+                            ->helperText('API key OpenWA (format owa_k1_...) dari Server 1 untuk kirim pesan bot order. WAJIB jika "Gunakan Gateway Berbeda" aktif.')
                             ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa'))
                             ->columnSpanFull(),
 
@@ -1224,20 +1224,20 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->tel()
                             ->prefix('+62')
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
-                            ->helperText('Nomor WhatsApp yang dipakai bot order (nomor device OpenWA).')
+                            ->helperText('Nomor WhatsApp yang melayani bot order (nomor device OpenWA).')
                             ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('openwa_session_id')
-                            ->label('OpenWA Session ID')
+                            ->label('OpenWA Session ID (Bot Order)')
                             ->placeholder('f802a400-0cf5-4c28-b7b0-aa30c169aee5')
-                            ->helperText('UUID session OpenWA yang dipakai untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id.')
+                            ->helperText('UUID session OpenWA untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id (halaman Sessions).')
                             ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('openwa_webhook_secret')
-                            ->label('OpenWA Webhook Secret')
+                            ->label('OpenWA Webhook Secret (Bot Order)')
                             ->password()
                             ->revealable()
-                            ->helperText('HMAC secret untuk verifikasi signature webhook masuk (harus sama dengan secret yang di-set di webhook OpenWA). Kosongkan jika tidak dipakai.')
+                            ->helperText('Secret untuk verifikasi tanda tangan (signature) webhook dari OpenWA. Harus sama dengan yang di-set di webhook OpenWA. Kosongkan jika tidak dipakai.')
                             ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
                     ])
                     ->collapsible()
