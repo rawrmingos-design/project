@@ -515,6 +515,8 @@ class WhatsappNotificationServiceTest extends TestCase
         $result = app(WhatsappNotificationService::class)
             ->sendTestMessage('085792464508', 'Halo dari OpenWA');
 
+        fwrite(STDERR, 'DEBUG openwa provider result: ' . json_encode($result) . PHP_EOL);
+
         $this->assertTrue($result['success']);
         $this->assertSame('openwa', $result['provider']);
 
