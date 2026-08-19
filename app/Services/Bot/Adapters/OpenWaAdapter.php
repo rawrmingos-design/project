@@ -99,6 +99,15 @@ class OpenWaAdapter implements BotAdapterInterface
         $sender = (string) ($key['remoteJid'] ?? '');
         $text = $this->extractText($message);
 
+        Log::debug('OpenWaAdapter::handle debug', [
+            'sender' => $sender,
+            'text' => $text,
+            'event' => $payload['event'] ?? null,
+            'message_keys' => array_keys($message),
+            'has_message' => is_array($data['message'] ?? null),
+            'payload_json' => json_encode($payload),
+        ]);
+
         if ($sender === '' || $text === '') {
             return response()->json(['status' => 'ignored']);
         }
@@ -167,6 +176,13 @@ class OpenWaAdapter implements BotAdapterInterface
 
         $parsed = $this->parser->parse($text);
         $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
+
+        Log::debug('OpenWaAdapter::handle debug response', [
+            'sender' => $sender,
+            'command' => $parsed['command'],
+            'status' => $response['status'] ?? null,
+            'text_len' => strlen((string) ($response['text'] ?? '')),
+        ]);
 
         if (($response['status'] ?? null) === 'ignored') {
             return response()->json(['status' => 'ignored']);
