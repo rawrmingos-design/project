@@ -142,4 +142,43 @@ class OpenWaWebhookTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
     }
+
+    public function test_openwa_webhook_rejects_invalid_signature(): void
+    {
+        config(['bot.openwa_webhook_secret' => 'test-secret-123']);
+
+        $adapter = app(OpenWaAdapter::class);
+        $payload = $this->openwaPayload();
+        $request = Request::create('/api/webhooks/bot/openwa', 'POST', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_OPENWA_SIGNATURE' => 'sha256=deadbeef',
+        ], json_encode($payload));
+
+        $response = $adapter->handle($request);
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame('forbidden', json_decode($response->getContent(), true)['status'] ?? null);
+    }
+
+    public function test_openwa_webhook_accepts_valid_signature(): void
+    {
+        config(['bot.openwa_webhook_secret' => 'test-secret-123']);
+
+        $this->mock(WhatsappNotificationService::class, function (Mockery\MockInterface $mock): void {
+            $mock->shouldReceive('sendMessage')->once();
+        });
+
+        $adapter = app(OpenWaAdapter::class);
+        $payload = $this->openwaPayload();
+        $body = json_encode($payload);
+        $signature = 'sha256=' . hash_hmac('sha256', $body, 'test-secret-123');
+        $request = Request::create('/api/webhooks/bot/openwa', 'POST', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_OPENWA_SIGNATURE' => $signature,
+        ], $body);
+
+        $response = $adapter->handle($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
 }
