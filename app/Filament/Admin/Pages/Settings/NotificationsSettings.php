@@ -25,6 +25,7 @@ class NotificationsSettings extends SettingsSectionPage
 
         if (env('BOT_ORDER_ENABLED', false)) {
             array_splice($headings, 1, 0, ['Konfigurasi Telegram']);
+            array_splice($headings, 1, 0, ['Konfigurasi Bot Order WhatsApp']);
         }
 
         return $headings;

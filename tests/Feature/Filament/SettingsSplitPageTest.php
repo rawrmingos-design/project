@@ -259,7 +259,7 @@ class SettingsSplitPageTest extends AdminTestCase
         $this->actingAs($admin);
 
         $this->createTrackingSettings([
-            'wa_provider' => 'openwa',
+            'wa_provider' => 'fonnte',
             'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
         ]);
 
@@ -269,14 +269,20 @@ class SettingsSplitPageTest extends AdminTestCase
 
         Http::fake();
 
+        // Bot order fields are visible independently of wa_provider (notification provider).
         Livewire::test(NotificationsSettings::class)
             ->assertFormFieldExists('wa_provider')
-            ->assertFormFieldExists('openwa_session_id')
-            ->assertFormFieldExists('openwa_webhook_secret')
             ->assertFormFieldExists('bot_order_wa_enabled')
             ->assertFormFieldExists('use_separate_bot_wa')
+            ->fillForm([
+                'use_separate_bot_wa' => true,
+            ])
+            ->assertFormFieldExists('wa_bot_key')
+            ->assertFormFieldExists('wa_bot_number')
+            ->assertFormFieldExists('openwa_session_id')
+            ->assertFormFieldExists('openwa_webhook_secret')
             ->assertFormSet([
-                'wa_provider' => 'openwa',
+                'wa_provider' => 'fonnte',
                 'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
             ]);
 
