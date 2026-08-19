@@ -93,7 +93,13 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         ];
 
         try {
-            $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
+            // Worker queue = console context → AppServiceProvider TIDAK set config('bot.*')
+            // (boot() di-skip saat runningInConsole). Baca langsung dari DB biar
+            // self-contained dan tidak bergantung pada web-runtime config.
+            $setting = \App\Models\SettingWeb::first();
+            $customToken = ($setting && $setting->use_separate_bot_wa)
+                ? (string) $setting->wa_bot_key
+                : null;
 
             $response = app(WhatsappNotificationService::class)
                 ->sendMessage($target, app(BotMessageFormatter::class)->formatStatus($payload)['text'], null, $customToken);
