@@ -1075,9 +1075,9 @@ class BotWebhookTest extends TestCase
         $retry = $handler->handle('12345', [], $context);
 
         $this->assertStringContainsString('🎮 *Masukkan Game\\_ID*', $quote['text']);
-        $this->assertStringContainsString('`UID <Server ID>`', $quote['text']);
+        $this->assertStringContainsString('`UID <Server\\_ID>`', $quote['text']);
         $this->assertStringContainsString('🎮 *Masukkan Game\\_ID*', $retry['text']);
-        $this->assertStringContainsString('`UID <Server ID>`', $retry['text']);
+        $this->assertStringContainsString('`UID <Server\\_ID>`', $retry['text']);
     }
 
     public function test_telegram_checkout_uses_current_service_zone_requirement()
