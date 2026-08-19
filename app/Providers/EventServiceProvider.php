@@ -20,6 +20,9 @@ class EventServiceProvider extends ServiceProvider
         \App\Events\TransactionSuccess::class => [
             \App\Listeners\AwardPointsListener::class,
         ],
+        \App\Events\InvoiceStatusUpdated::class => [
+            \App\Listeners\NotifyBotOrderStatusListener::class,
+        ],
     ];
 
     /**
