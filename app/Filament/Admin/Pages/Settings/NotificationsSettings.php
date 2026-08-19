@@ -23,7 +23,7 @@ class NotificationsSettings extends SettingsSectionPage
             'Channel Notifikasi',
         ];
 
-        if (env('BOT_ORDER_ENABLED', false)) {
+        if (config('bot.order_enabled', env('BOT_ORDER_ENABLED', false))) {
             array_splice($headings, 1, 0, ['Konfigurasi Telegram']);
             array_splice($headings, 1, 0, ['Konfigurasi Bot Order WhatsApp']);
         }
