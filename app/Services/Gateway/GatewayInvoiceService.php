@@ -88,6 +88,29 @@ class GatewayInvoiceService
         ];
     }
 
+    public function latestForSender(string $source, string $externalUserId): ?Pembelian
+    {
+        $source = $this->normalizeSource($source);
+        $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+        $senderDigits = preg_replace('/\D+/', '', $externalUserId);
+
+        if ($senderDigits === '') {
+            return null;
+        }
+
+        $query = Pembelian::query()
+            ->where('traffic_source', $source)
+            ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
+                $query->where('no_pembeli', $senderDigits);
+            })
+            ->when($this->tenantContext->id() !== null, function (Builder $query): void {
+                $query->where('tenant_id', $this->tenantContext->id());
+            })
+            ->latest('created_at');
+
+        return $query->first();
+    }
+
     private function authorizeStatusLookup(Pembelian $order, ?User $user, array $context): void
     {
         if ($user) {
@@ -143,11 +166,25 @@ class GatewayInvoiceService
         $gatewayContext = is_array($metadata) ? ($metadata['gateway_context'] ?? []) : [];
         $storedExternalUserId = $this->normalizeExternalUserId($source, $gatewayContext['external_user_id'] ?? null);
 
-        if (! is_array($gatewayContext) || ! hash_equals($storedExternalUserId, $externalUserId)) {
-            throw ValidationException::withMessages([
-                'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
-            ]);
+        if (is_array($gatewayContext) && hash_equals($storedExternalUserId, $externalUserId)) {
+            return;
         }
+
+        // Fallback: gateway_context may be lost when the order log is
+        // overwritten by provider dispatch results. For WhatsApp, the
+        // buyer's phone (pembayaran.no_pembeli) is a stable sender identity.
+        if ($source === 'whatsapp_gateway') {
+            $noPembeli = preg_replace('/\D+/', '', (string) ($order->pembayaran?->no_pembeli ?? ''));
+            $senderDigits = preg_replace('/\D+/', '', $externalUserId);
+
+            if ($noPembeli !== '' && $senderDigits !== '' && hash_equals($noPembeli, $senderDigits)) {
+                return;
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'order_id' => 'Invoice tidak dapat diakses oleh sender ini.',
+        ]);
     }
 
     private function normalizeContext(array $context, string $source): array

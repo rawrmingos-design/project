@@ -1511,14 +1511,30 @@ class BotCommandHandler
 
     private function handleStatus(array $args, array $context): array
     {
-        if (count($args) < 1) {
+        $orderId = '';
+
+        if (count($args) >= 1) {
+            $orderId = trim((string) $args[0]);
+        } elseif (($context['source'] ?? null) === 'whatsapp_gateway') {
+            // `status` tanpa order ID → cek order terakhir sender
+            $order = $this->invoice->latestForSender(
+                (string) $context['source'],
+                (string) ($context['external_user_id'] ?? ''),
+            );
+
+            if ($order) {
+                $orderId = (string) $order->order_id;
+            }
+        }
+
+        if ($orderId === '') {
             return [
-                'text' => "Format salah. Gunakan: `status <order_id>`",
-                'buttons' => []
+                'text' => "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",
+                'buttons' => [],
             ];
         }
 
-        $res = $this->invoice->status($args[0], null, [
+        $res = $this->invoice->status($orderId, null, [
             'source' => $context['source'],
             'external_user_id' => $context['external_user_id'],
         ]);
