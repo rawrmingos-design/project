@@ -232,6 +232,7 @@ class OpenWaWebhookTest extends TestCase
     public function test_openwa_numeric_confirmation_selection_not_suppressed_in_waiting_confirmation(): void
     {
         Cache::flush();
+        config(['bot.order_wa_enabled' => true]);
 
         // Seed checkout state (waiting_confirmation) + active numeric menu
         // (checkout_confirmation) for sender 6285792464508.
@@ -277,11 +278,14 @@ class OpenWaWebhookTest extends TestCase
             $mock->shouldReceive('sendMessage')
                 ->once()
                 ->withArgs(function (string $target, string $message) {
-                    // Adapter replies with confirmation prompt again if intent
-                    // claim fails — key assertion: it must NOT be 'ignored'
-                    // and must contain the checkout header (handler ran).
+                    // Key assertion: numeric selection "1" must NOT be
+                    // suppressed by the conversational-input guard — the
+                    // handler receives 'konfirmasi tok-123'. The intent
+                    // 'tok-123' does not exist, so the handler replies
+                    // 'Konfirmasi checkout tidak valid' — proving the
+                    // konfirmasi command was actually invoked.
                     $this->assertSame('6285792464508', $target);
-                    $this->assertStringContainsString('Konfirmasi Checkout', $message);
+                    $this->assertStringContainsString('Konfirmasi checkout tidak valid', $message);
 
                     return true;
                 });
