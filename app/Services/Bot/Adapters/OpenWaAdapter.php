@@ -257,10 +257,10 @@ class OpenWaAdapter implements BotAdapterInterface
 
         if ($numericMenu === null) {
             if ($items !== []) {
-                $replyText .= "\n\n*Pilihan:*";
+                $replyText .= "\n\n";
 
                 foreach ($items as $item) {
-                    $replyText .= "\n{$item['label']}\n👉 Ketik: `{$item['command']}`";
+                    $replyText .= "\n{$item['label']}";
                 }
             }
 
@@ -272,15 +272,14 @@ class OpenWaAdapter implements BotAdapterInterface
             return [$this->appendUrlButtons($replyText, $response['buttons'] ?? []), null];
         }
 
-        $replyText .= "\n\n*Pilihan:*";
+        $replyText .= "\n\n";
         foreach ($entryLines as $line) {
             $replyText .= "\n{$line}";
         }
-        foreach ($actionLines as $line) {
-            $replyText .= "\n{$line}";
+        if ($actionLines !== []) {
+            $replyText .= "\n\n" . implode("\n", $actionLines);
         }
         $replyText = $this->appendUrlButtons($replyText, $response['buttons'] ?? []);
-        $replyText .= "\n\nKetik nomor pilihan di atas.";
         $createdAt = now();
 
         return [$replyText, [
@@ -361,7 +360,7 @@ class OpenWaAdapter implements BotAdapterInterface
             };
 
             if ($type === 'global_action') {
-                $actionLines[] = $item['label'] . ' — ketik: `' . $item['command'] . '`';
+                $actionLines[] = $item['label'] . ' — Ketik `' . $item['command'] . '`';
                 continue;
             }
 
@@ -374,7 +373,7 @@ class OpenWaAdapter implements BotAdapterInterface
                 'label' => $item['label'],
                 'command' => $item['command'],
             ];
-            $entryLines[] = "{$number}. {$item['label']} — ketik: {$number}";
+            $entryLines[] = "{$number}. {$item['label']}";
         }
 
         return [$entries, $entryLines, $actionLines];

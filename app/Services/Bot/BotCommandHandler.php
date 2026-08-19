@@ -870,7 +870,7 @@ class BotCommandHandler
             }
 
             return [
-                'text' => "Perintah tidak dikenali.\nSilahkan gunakan menu utama.",
+                'text' => "Perintah tidak dikenali.\nKetik `menu` untuk mulai.",
                 'buttons' => [['text' => 'Buka Menu', 'callback' => 'menu']],
                 'use_reply_keyboard' => true,
             ];
@@ -886,7 +886,7 @@ class BotCommandHandler
             Cache::forget($this->checkoutStateKey($context));
 
             return [
-                'text' => 'Layanan sudah tidak tersedia. Silahkan mulai transaksi kembali.',
+                'text' => 'Layanan sudah tidak tersedia. Mulai transaksi kembali.',
                 'buttons' => [['text' => '🛍️ Buka Menu', 'callback' => 'menu']],
             ];
         }
