@@ -192,6 +192,11 @@ class WhatsappNotificationService
 
     private function normalizeOpenWaResponse(Response $response): array
     {
+        Log::debug('WhatsappNotificationService::normalizeOpenWaResponse', [
+            'http_status' => $response->status(),
+            'body' => $response->body(),
+        ]);
+
         $decoded = json_decode($response->body(), true);
 
         if (! is_array($decoded)) {
