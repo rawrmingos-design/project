@@ -9,6 +9,7 @@ use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -67,6 +68,23 @@ class OpenWaAdapter implements BotAdapterInterface
 
         if (! is_array($payload)) {
             return response()->json(['status' => 'ignored']);
+        }
+
+        $secret = (string) (config('bot.openwa_webhook_secret') ?? '');
+
+        // When a webhook secret is configured, require a valid HMAC-SHA256 signature.
+        if ($secret !== '') {
+            $signature = (string) $request->header('X-OpenWA-Signature', '');
+            $expected = 'sha256=' . hash_hmac('sha256', (string) $request->getContent(), $secret);
+
+            if (! hash_equals($expected, $signature)) {
+                Log::warning('OpenWaAdapter: invalid webhook signature.', [
+                    'sender' => (string) ($payload['data']['key']['remoteJid'] ?? ''),
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json(['status' => 'forbidden'], 403);
+            }
         }
 
         // Only process inbound message events.
