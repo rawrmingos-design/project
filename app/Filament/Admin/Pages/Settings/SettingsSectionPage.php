@@ -1165,49 +1165,6 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Nomor WhatsApp yang terhubung di Fonnte.')
                             ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'fonnte'),
 
-                        Toggle::make('bot_order_wa_enabled')
-                            ->label('Terima Order via WhatsApp')
-                            ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp ini.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && in_array($get('wa_provider') ?? 'fonnte', ['fonnte', 'openwa'], true))
-                            ->columnSpanFull(),
-
-                        Toggle::make('use_separate_bot_wa')
-                            ->label('Gunakan Nomor Berbeda untuk Bot Order')
-                            ->helperText('Aktifkan jika ingin bot order menggunakan nomor/gateway berbeda dari nomor notifikasi sistem utama.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && in_array($get('wa_provider') ?? 'fonnte', ['fonnte', 'openwa'], true))
-                            ->live()
-                            ->columnSpanFull(),
-
-                        TextInput::make('wa_bot_key')
-                            ->label('Token Fonnte Bot Order')
-                            ->password()
-                            ->revealable()
-                            ->helperText('Token dari akun Fonnte khusus untuk bot order.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
-
-                        TextInput::make('wa_bot_number')
-                            ->label('Nomor Device Bot Order')
-                            ->tel()
-                            ->prefix('+62')
-                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
-                            ->helperText('Nomor WhatsApp untuk bot order (opsional, untuk pencatatan).')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
-
-                        TextInput::make('openwa_session_id')
-                            ->label('OpenWA Session ID')
-                            ->placeholder('f802a400-0cf5-4c28-b7b0-aa30c169aee5')
-                            ->helperText('UUID session OpenWA yang dipakai untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id.')
-                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'openwa')
-                            ->columnSpanFull(),
-
-                        TextInput::make('openwa_webhook_secret')
-                            ->label('OpenWA Webhook Secret')
-                            ->password()
-                            ->revealable()
-                            ->helperText('HMAC secret untuk verifikasi signature webhook (opsional). Kosongkan jika tidak dipakai.')
-                            ->visible(fn ($get) => ($get('wa_provider') ?? 'fonnte') === 'openwa')
-                            ->columnSpanFull(),
-
                         TextInput::make('easywa_email')
                             ->label('Email EasyWA')
                             ->helperText('Email akun EasyWA.')
@@ -1235,6 +1192,57 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->collapsible()
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('whatsapp-configuration')),
+
+                // Bot Order WhatsApp — separate from notification provider.
+                Section::make('Konfigurasi Bot Order WhatsApp')
+                    ->description('Atur gateway khusus untuk bot order WhatsApp. Bot order SELALU menggunakan OpenWA self-hosted, terpisah dari provider notifikasi di atas.')
+                    ->columns(3)
+                    ->schema([
+                        Toggle::make('bot_order_wa_enabled')
+                            ->label('Terima Order via WhatsApp')
+                            ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp bot.')
+                            ->visible(fn () => env('BOT_ORDER_ENABLED', false))
+                            ->columnSpanFull(),
+
+                        Toggle::make('use_separate_bot_wa')
+                            ->label('Gunakan Gateway Berbeda untuk Bot Order')
+                            ->helperText('Aktifkan jika bot order memakai gateway terpisah dari notifikasi. Jika NONAKTIF, bot order mengikuti provider notifikasi (wa_provider).')
+                            ->visible(fn () => env('BOT_ORDER_ENABLED', false))
+                            ->live()
+                            ->columnSpanFull(),
+
+                        TextInput::make('wa_bot_key')
+                            ->label('API Key OpenWA Bot Order')
+                            ->password()
+                            ->revealable()
+                            ->helperText('API key OpenWA (format owa_k1_...) untuk autentikasi pengiriman pesan bot order. Wajib jika pakai gateway terpisah.')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa'))
+                            ->columnSpanFull(),
+
+                        TextInput::make('wa_bot_number')
+                            ->label('Nomor WhatsApp Bot Order')
+                            ->tel()
+                            ->prefix('+62')
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
+                            ->helperText('Nomor WhatsApp yang dipakai bot order (nomor device OpenWA).')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+
+                        TextInput::make('openwa_session_id')
+                            ->label('OpenWA Session ID')
+                            ->placeholder('f802a400-0cf5-4c28-b7b0-aa30c169aee5')
+                            ->helperText('UUID session OpenWA yang dipakai untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id.')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+
+                        TextInput::make('openwa_webhook_secret')
+                            ->label('OpenWA Webhook Secret')
+                            ->password()
+                            ->revealable()
+                            ->helperText('HMAC secret untuk verifikasi signature webhook masuk (harus sama dengan secret yang di-set di webhook OpenWA). Kosongkan jika tidak dipakai.')
+                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+                    ])
+                    ->collapsible()
+                    ->collapsed()
+                    ->extraAttributes($this->onboardingSectionAttributes('bot-order-configuration')),
 
                 Section::make('Konfigurasi Telegram')
                     ->description('Atur integrasi bot Telegram untuk notifikasi dan pemesanan.')
