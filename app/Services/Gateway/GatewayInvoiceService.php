@@ -138,10 +138,21 @@ class GatewayInvoiceService
                 $query->where('tenant_id', $this->tenantContext->id());
             })
             ->where(function (Builder $query): void {
-                $query->whereHas('pembayaran', function (Builder $query): void {
-                    $query->where('status', '!=', 'Lunas');
+                // Aktif = pembayaran belum final ATAU order belum final.
+                // Final payment: Lunas / Expired / Kadaluarsa / Gagal / Batal
+                // Final order:   Sukses / Selesai / Gagal / Batal / Cancel / Expired
+                $query->where(function (Builder $query): void {
+                    $query->whereHas('pembayaran', function (Builder $query): void {
+                        $query->whereNotIn('status', ['Lunas', 'Expired', 'Kadaluarsa', 'Gagal', 'Batal', 'Cancel']);
+                    })
+                    ->orWhereNull('pembayaran.status');
                 })
-                ->orWhereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
+                ->orWhere(function (Builder $query): void {
+                    $query->whereHas('pembayaran', function (Builder $query): void {
+                        $query->where('status', 'Lunas');
+                    })
+                    ->whereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
+                });
             })
             ->latest('created_at')
             ->limit($limit)
