@@ -266,7 +266,8 @@ class BotCheckoutIntentService
             }
 
             if ($intent->status === BotCheckoutIntent::STATUS_PROCESSING && blank($intent->merchant_reference)) {
-                $intent->merchant_reference = 'BOT' . now()->format('ymdHis') . Str::upper(Str::random(8));
+                $prefix = \App\Models\SettingWeb::query()->value('order_prefik') ?: 'TRX';
+                $intent->merchant_reference = $prefix . now()->format('ymdHis') . Str::upper(Str::random(8));
                 $intent->save();
             }
 
