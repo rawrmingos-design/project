@@ -998,7 +998,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertStringContainsString('Buka invoice yang telah dibuat untuk scan QRIS', $response['text']);
+        $this->assertStringContainsString('💳 Metode: *QRIS*', $response['text']);
         $this->assertStringNotContainsString($qrisPayload, $response['text']);
     }
 
@@ -1034,8 +1034,8 @@ class BotWebhookTest extends TestCase
         ]);
 
         $this->assertStringContainsString('❌ *Pembayaran Kadaluarsa*', $response['text']);
-        $this->assertStringContainsString('├ No. Invoice: *INV-123*', $response['text']);
-        $this->assertStringContainsString('└ Produk: *Mobile Legends*', $response['text']);
+        $this->assertStringContainsString('🧾 `INV-123`', $response['text']);
+        $this->assertStringContainsString('💎 Mobile Legends', $response['text']);
     }
 
     public function test_telegram_checkout_mentions_configured_zone_field_on_quote_and_retry()
@@ -1074,10 +1074,10 @@ class BotWebhookTest extends TestCase
         $quote = $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
         $retry = $handler->handle('12345', [], $context);
 
-        $this->assertStringContainsString('Game\\_ID', $quote['text']);
-        $this->assertStringContainsString('Server\\_ID', $quote['text']);
-        $this->assertStringContainsString('Game\\_ID', $retry['text']);
-        $this->assertStringContainsString('Server\\_ID', $retry['text']);
+        $this->assertStringContainsString('🎮 *Masukkan Game\\_ID*', $quote['text']);
+        $this->assertStringContainsString('`UID <Server ID>`', $quote['text']);
+        $this->assertStringContainsString('🎮 *Masukkan Game\\_ID*', $retry['text']);
+        $this->assertStringContainsString('`UID <Server ID>`', $retry['text']);
     }
 
     public function test_telegram_checkout_uses_current_service_zone_requirement()
@@ -1368,7 +1368,7 @@ class BotWebhookTest extends TestCase
         Http::assertSent(fn ($request): bool => str_contains(
             $request->url(),
             'sendMessage',
-        ) && str_contains($request['text'], 'Konfirmasi Checkout'));
+        ) && str_contains($request['text'], '🧾 *Cek Pesanan*'));
     }
 
     public function test_duplicate_invoice_origin_replays_awaiting_confirmation_intent(): void
@@ -1450,11 +1450,10 @@ class BotWebhookTest extends TestCase
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === 'https://provider.example/qris/INV-1.png'
                 && str_contains($request['caption'], '⏳ *Menunggu Pembayaran*')
-                && str_contains($request['caption'], 'No. Invoice: `INV-1`')
-                && str_contains($request['caption'], 'Produk: Mobile Legends (Top Up Games)')
-                && str_contains($request['caption'], 'Jumlah: x1')
-                && str_contains($request['caption'], 'Total Tagihan: Rp 10.000 (Termasuk Admin)')
-                && str_contains($request['caption'], 'Silakan scan QRIS atau gunakan nomor VA di atas.')
+                && str_contains($request['caption'], '🧾 `INV-1`')
+                && str_contains($request['caption'], '💎 Mobile Legends (Top Up Games)')
+                && str_contains($request['caption'], '💰 *Rp 10.000*')
+                && str_contains($request['caption'], 'Ketik `status` untuk cek pembayaran.')
                 && ! str_contains($request['caption'], 'Kode Bayar / VA')
                 && ! str_contains($request['caption'], 'Link Pembayaran:')
                 && $keyboard[0][0]['text'] === '🔗 Buka Halaman Invoice'
