@@ -265,7 +265,7 @@ class OpenWaWebhookTest extends TestCase
                     'command' => 'batal tok-123',
                 ],
             ],
-            'rendered_text' => '1. ✅ Konfirmasi — ketik: 1',
+            'rendered_text' => '1. ✅ Konfirmasi',
             'created_at' => now()->toISOString(),
             'expires_at' => now()->addMinutes(5)->toISOString(),
         ], now()->addMinutes(5));

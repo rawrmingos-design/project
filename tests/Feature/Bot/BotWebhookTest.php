@@ -344,7 +344,7 @@ class BotWebhookTest extends TestCase
             $keyboard = $request['reply_markup']['inline_keyboard'];
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
-            return str_contains($request['text'], 'Halaman 1/2')
+            return str_contains($request['text'], '· 1/2')
                 && count($keyboard) === 6
                 && count($keyboard[0]) === 2
                 && $keyboard[0][0]['text'] === '🎮 Top Up 1'
@@ -596,9 +596,9 @@ class BotWebhookTest extends TestCase
             'id' => 'MSG-NUMERIC-1',
         ])->assertOk();
 
-        $this->assertStringContainsString('1. 🎮 Top Up Games — ketik: 1', $sentMessages[0]['message']);
-        $this->assertStringContainsString('Ketik nomor pilihan di atas.', $sentMessages[0]['message']);
-        $this->assertStringContainsString('🏆 Leaderboard — ketik: `leaderboard`', $sentMessages[0]['message']);
+        $this->assertStringContainsString('1. 🎮 Top Up Games', $sentMessages[0]['message']);
+        $this->assertStringContainsString('🏆 Leaderboard — Ketik `leaderboard`', $sentMessages[0]['message']);
+        $this->assertStringNotContainsString('Ketik nomor pilihan di atas.', $sentMessages[0]['message']);
 
         $stateKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281234567890');
         $state = Cache::get($stateKey);
@@ -614,12 +614,12 @@ class BotWebhookTest extends TestCase
             'id' => 'MSG-NUMERIC-2',
         ])->assertOk();
 
-        $this->assertStringContainsString('Daftar Produk Top Up Games', $sentMessages[1]['message']);
-        $this->assertStringContainsString('1. ⚔️ Mobile Legends — ketik: 1', $sentMessages[1]['message']);
+        $this->assertStringContainsString('🎮 *Pilih Game* · Top Up Games', $sentMessages[1]['message']);
+        $this->assertStringContainsString('1. ⚔️ Mobile Legends', $sentMessages[1]['message']);
         $this->assertSame('products', Cache::get($stateKey)['menu']);
         $this->assertSame('layanan mlbb', Cache::get($stateKey)['entries']['1']['command']);
         $this->assertSame('menu', Cache::get($stateKey)['entries']['0']['command']);
-        $this->assertStringContainsString('0. 🔙 Kembali — ketik: 0', $sentMessages[1]['message']);
+        $this->assertStringContainsString('0. 🔙 Kembali', $sentMessages[1]['message']);
 
         $this->postJsonFonnte([
             'sender' => '6281234567890',
@@ -686,8 +686,8 @@ class BotWebhookTest extends TestCase
         $this->assertSame(2, $pageTwoState['page']);
         $this->assertSame('kategori top-up-16', $pageTwoState['entries']['1']['command']);
         $this->assertSame('menu page:1', $pageTwoState['entries']['98']['command']);
-        $this->assertStringContainsString('Halaman 2/2', $sentMessages[1]['message']);
-        $this->assertStringContainsString('1. 🎮 Top Up 16 — ketik: 1', $sentMessages[1]['message']);
+        $this->assertStringContainsString('· 2/2', $sentMessages[1]['message']);
+        $this->assertStringContainsString('1. 🎮 Top Up 16', $sentMessages[1]['message']);
         $this->assertStringContainsString('98. ⬅️ Prev', $sentMessages[1]['message']);
     }
 
@@ -947,7 +947,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV\\_\\[123\\]*\n└ Produk: *Mobile \\*Legends\\**\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya", $response['text']);
+        $this->assertSame("✅ *Pembayaran Berhasil*\n\nPesanan kamu sedang diproses.\n\n💎 Mobile \\*Legends\\*\n👤 Player\n\n🧾 `INV\\_\\[123\\]`", $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
@@ -977,7 +977,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("⏳ *MENUNGGU PEMBAYARAN*\n\nTerima kasih telah berbelanja di Z\\_Vault \\*Store\\*.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV\\_\\[123\\]*\n├ Produk: *Mobile \\*Legends\\**\n├ Total Tagihan: *Rp 12.500*\n└ Metode: *BCA\\_VA*\n\n💳 Kode Bayar / VA: *12345\\_678*\n⏰ Bayar sebelum: *30/07/2026 13:00*\n\n⚠️ Selesaikan pembayaran agar pesanan diproses otomatis.", $response['text']);
+        $this->assertSame("⏳ *Menunggu Pembayaran*\n\n💎 Mobile \\*Legends\\*\n💰 *Rp 12.500*\n🧾 `INV\\_\\[123\\]`\n\n💳 Metode: *BCA\\_VA*\nKetik `status` untuk cek pembayaran.", $response['text']);
     }
 
     public function test_telegram_status_hides_qris_payload_for_unpaid_payment(): void
@@ -1113,7 +1113,7 @@ class BotWebhookTest extends TestCase
         $success = $handler->handle('12345', ['6789'], $context);
 
         $this->assertStringContainsString('UID <Server ID>', $invalid['text']);
-        $this->assertSame('*Konfirmasi Checkout*', strtok($success['text'], "\n"));
+        $this->assertSame('🧾 *Cek Pesanan*', strtok($success['text'], "\n"));
         $this->assertSame(
             'waiting_confirmation',
             Cache::get($this->checkoutStateKey('telegram:9876'))['step'],
@@ -1157,7 +1157,7 @@ class BotWebhookTest extends TestCase
         $success = $handler->handle('12345', ['asia', 'tenggara'], $context);
 
         $this->assertStringContainsString('Asia Tenggara: `asia tenggara`', $quote['text']);
-        $this->assertSame('*Konfirmasi Checkout*', strtok($success['text'], "\n"));
+        $this->assertSame('🧾 *Cek Pesanan*', strtok($success['text'], "\n"));
     }
 
     public function test_telegram_checkout_uses_zoneless_resolver_rule()
@@ -1193,7 +1193,7 @@ class BotWebhookTest extends TestCase
         $handler->handle('harga', [(string) $service->id, 'QRIS'], $context);
         $success = $handler->handle('12345', [], $context);
 
-        $this->assertSame('*Konfirmasi Checkout*', strtok($success['text'], "\n"));
+        $this->assertSame('🧾 *Cek Pesanan*', strtok($success['text'], "\n"));
     }
 
     public function test_telegram_checkout_state_creates_invoice_from_uid_and_zone_reply()
@@ -1242,8 +1242,8 @@ class BotWebhookTest extends TestCase
         $confirmation = $handler->handle('12345', ['6789'], $context);
         $state = Cache::get($this->checkoutStateKey('telegram:9876'));
 
-        $this->assertStringContainsString('Silahkan balas pesan ini dengan User ID dan Server ID', $quote['text']);
-        $this->assertSame('*Konfirmasi Checkout*', strtok($confirmation['text'], "\n"));
+        $this->assertStringContainsString('🎮 *Masukkan User ID*', $quote['text']);
+        $this->assertSame('🧾 *Cek Pesanan*', strtok($confirmation['text'], "\n"));
         $this->assertSame('waiting_confirmation', $state['step']);
 
         $invoiceResponse = $handler->handle(
@@ -1252,7 +1252,7 @@ class BotWebhookTest extends TestCase
             $context + ['message_id' => 'telegram:12345:112'],
         );
 
-        $this->assertSame('*⏳ MENUNGGU PEMBAYARAN*', strtok($invoiceResponse['text'], "\n"));
+        $this->assertSame('⏳ *Menunggu Pembayaran*', strtok($invoiceResponse['text'], "\n"));
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 
@@ -1447,7 +1447,7 @@ class BotWebhookTest extends TestCase
 
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === 'https://provider.example/qris/INV-1.png'
-                && str_contains($request['caption'], '⏳ MENUNGGU PEMBAYARAN')
+                && str_contains($request['caption'], '⏳ *Menunggu Pembayaran*')
                 && str_contains($request['caption'], 'No. Invoice: `INV-1`')
                 && str_contains($request['caption'], 'Produk: Mobile Legends (Top Up Games)')
                 && str_contains($request['caption'], 'Jumlah: x1')

@@ -127,7 +127,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => "*Menu Utama*\nPilih kategori layanan yang Anda inginkan:" . $this->pageSuffix($pagination),
+            'text' => '🏠 *Menu Utama*' . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
@@ -172,7 +172,7 @@ class BotMessageFormatter
         $buttons = $this->appendBack($buttons, 'menu');
 
         return [
-            'text' => "*Daftar Produk {$firstType}*\nSilahkan pilih produk:" . $this->pageSuffix($pagination),
+            'text' => '🎮 *Pilih Game* · ' . $firstType . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'products',
@@ -219,7 +219,7 @@ class BotMessageFormatter
         $buttons = $this->appendBack($buttons, $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu');
 
         return [
-            'text' => "*Layanan {$productName}*\nPilih nominal yang ingin dibeli:" . $this->pageSuffix($pagination),
+            'text' => '💎 *' . $productName . '*' . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'services',
@@ -266,7 +266,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => "*Pilih Metode Pembayaran:*" . $this->pageSuffix($pagination),
+            'text' => '💳 *Pilih Pembayaran*' . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'payments',
@@ -293,18 +293,22 @@ class BotMessageFormatter
         $backCallback = 'layanan ' . ($d['category_code'] ?? '');
 
         $lines = [
-            "*Konfirmasi Pesanan*",
-            "Layanan: {$d['service_name']} ({$d['category_name']})",
-            "Metode: {$d['payment_method']['name']}",
-            "Harga: Rp {$base}",
+            '🧾 *Cek Pesanan*',
+            '',
+            '💎 ' . $this->escapeMarkdown((string) $d['service_name']),
+            '👤 ' . $this->escapeMarkdown((string) ($d['category_name'] ?? '')),
+            '💳 ' . $this->escapeMarkdown((string) ($d['payment_method']['name'] ?? 'Pembayaran')),
+            '',
+            'Harga       Rp ' . $base,
         ];
 
         if ($d['discount'] > 0) {
-            $lines[] = "Diskon: -Rp {$discount}";
+            $lines[] = 'Diskon      -Rp ' . $discount;
         }
 
-        $lines[] = "Biaya Admin: Rp {$fee}";
-        $lines[] = "*Total Bayar: Rp {$total}*";
+        $lines[] = 'Admin       Rp ' . $fee;
+        $lines[] = '──────────────';
+        $lines[] = '*Total      Rp ' . $total . '*';
 
         if ($isConversationalCheckout) {
             $lines[] = '';
@@ -313,9 +317,9 @@ class BotMessageFormatter
                 $d['custom_inputs'] ?? [],
             )];
         } else {
-            $lines[] = "\nKetik ID Game Anda:";
-            $lines[] = "`invoice {$d['service_id']} {$d['payment_method']['code']} <UID> [Zone_ID]`";
-            $lines[] = "\nContoh: invoice {$d['service_id']} {$d['payment_method']['code']} 1234567 1234";
+            $lines[] = '';
+            $lines[] = 'Kirim: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' <UID> [Zone_ID]`';
+            $lines[] = 'Contoh: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' 1234567 1234`';
         }
 
         return [
@@ -342,6 +346,16 @@ class BotMessageFormatter
         );
         $zone = trim((string) ($payload['zone'] ?? ''));
         $target = $zone !== '' ? $uid . ' / ' . $zone : $uid;
+        $serviceName = $this->escapeMarkdown(
+            (string) ($data['service_name'] ?? 'Produk'),
+        );
+        $methodName = $this->escapeMarkdown(
+            (string) data_get(
+                $data,
+                'payment_method.name',
+                'Pembayaran',
+            ),
+        );
         $total = number_format(
             (int) ($data['total_amount'] ?? 0),
             0,
@@ -353,29 +367,20 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", [
-                '*Konfirmasi Checkout*',
+                '🧾 *Cek Pesanan*',
                 '',
-                'Produk: ' . $this->escapeMarkdown(
-                    (string) ($data['service_name'] ?? 'Produk'),
-                ),
-                'Metode: ' . $this->escapeMarkdown(
-                    (string) data_get(
-                        $data,
-                        'payment_method.name',
-                        'Pembayaran',
-                    ),
-                ),
-                'Tujuan: `' . $this->escapeMarkdownCode(
-                    $target,
-                ) . '`',
-                '*Total: Rp ' . $total . '*',
+                '💎 ' . $serviceName,
+                '👤 `' . $this->escapeMarkdownCode($target) . '`',
+                '💳 ' . $methodName,
                 '',
-                'Pesanan belum dibuat. Konfirmasi berlaku 15 menit.',
-                'Pilih 1 untuk konfirmasi atau 2 untuk batal.',
+                '*Total      Rp ' . $total . '*',
+                '',
+                'Konfirmasi berlaku 15 menit.',
             ]),
             'buttons' => [[
                 $this->button('✅ Konfirmasi', $confirmCommand, 'content'),
                 $this->button('❌ Batal', $cancelCommand, 'content'),
+                $this->button('Batal Checkout', 'batal', 'back'),
             ]],
             'numeric_menu' => [
                 'menu' => 'checkout_confirmation',
@@ -416,7 +421,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => "*ID Valid!*\nNickname: {$data['data']['nickname']}",
+            'text' => "✅ *ID Valid*\n👤 Nickname: {$data['data']['nickname']}",
             'buttons' => [],
         ];
     }
@@ -443,22 +448,23 @@ class BotMessageFormatter
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
         $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode) || $this->isQrisPayload($qrPayload);
         $lines = [
-            '*⏳ MENUNGGU PEMBAYARAN*',
+            '⏳ *Menunggu Pembayaran*',
             '',
-            'No. Invoice: `' . $this->escapeMarkdownCode($orderId) . '`',
-            "Produk: {$serviceName} ({$categoryName})",
-            "Jumlah: x{$quantity}",
-            "Total Tagihan: Rp {$amount} (Termasuk Admin)",
+            '💎 ' . $this->escapeMarkdown($serviceName . ' (' . $categoryName . ')'),
+            '💰 *Rp ' . $amount . '*',
+            '🧾 `' . $this->escapeMarkdownCode($orderId) . '`',
         ];
 
         if (! $isQrPayment && $paymentCode !== '') {
             $lines[] = '';
-            $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
+            $lines[] = '💳 Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
         }
 
         $lines[] = '';
-        $lines[] = '⚠️ *PENTING:*';
-        $lines[] = 'Silakan scan QRIS atau gunakan nomor VA di atas. Pastikan transfer SESUAI NOMINAL agar sistem kami otomatis memverifikasi pesanan.';
+        $lines[] = $isQrPayment
+            ? 'Scan QRIS untuk membayar.'
+            : 'Selesaikan pembayaran agar pesanan diproses otomatis.';
+        $lines[] = 'Ketik `status` untuk cek pembayaran.';
         $buttons = [];
 
         if ($invoiceUrl !== null && $source !== 'whatsapp_gateway') {
@@ -494,19 +500,17 @@ class BotMessageFormatter
             $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
             $orderId = $this->escapeMarkdown((string) ($d['order_id'] ?? ''));
             $product = $this->escapeMarkdown((string) ($d['product'] ?? 'Produk'));
+            $nickname = $this->escapeMarkdown((string) ($d['nickname'] ?? ''));
 
             return [
                 'text' => implode("\n", [
-                    '✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*',
+                    '✅ *Pembayaran Berhasil*',
                     '',
-                    "Terima kasih telah berbelanja di {$storeName}.",
+                    'Pesanan kamu sedang diproses.',
                     '',
-                    '🧾 *RINCIAN TRANSAKSI*',
-                    "├ Nomor Invoice: *{$orderId}*",
-                    "└ Produk: *{$product}*",
+                    '💎 ' . $product . ($nickname !== '' ? "\n👤 " . $nickname : ''),
                     '',
-                    '🔐 Jika ada kendala hubungi admin utama:',
-                    'chat admin @mings dan kirimkan id pesanan nya',
+                    '🧾 `' . $this->escapeMarkdownCode((string) ($d['order_id'] ?? '')) . '`',
                 ]),
                 'buttons' => [
                     [
@@ -564,7 +568,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => "*Panduan Transaksi*\nSilahkan tekan tombol di bawah ini untuk memulai transaksi atau ketik perintah manual.",
+            'text' => "*Panduan Transaksi*\nKetik `menu` untuk mulai, atau pilih aksi di bawah.",
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];
@@ -601,9 +605,7 @@ class BotMessageFormatter
         }
 
         $lines = [
-            '📦 *RIWAYAT ORDER*',
-            '',
-            'Menampilkan ' . count($items) . ' order dari akun kamu.',
+            '📦 *Riwayat Order*',
             '',
         ];
         $buttons = [];
@@ -616,10 +618,7 @@ class BotMessageFormatter
             $status = $this->orderStatusLabel($item);
             $amount = number_format((int) ($item['amount'] ?? 0), 0, ',', '.');
             $lines[] = "{$number}. {$status} " . $this->escapeMarkdown((string) ($item['service'] ?? 'Produk'));
-            $lines[] = '   Invoice: `' . $this->escapeMarkdownCode((string) ($item['order_id'] ?? '')) . '`';
-            $lines[] = '   Tanggal: ' . $this->escapeMarkdown((string) ($item['created_at'] ?? '-'));
-            $lines[] = '   Total: Rp ' . $amount;
-            $lines[] = '   Status: ' . $this->escapeMarkdown((string) ($item['status_label'] ?? 'Unknown'));
+            $lines[] = '   `' . $this->escapeMarkdownCode((string) ($item['order_id'] ?? '')) . '` · Rp ' . $amount . ' · ' . $this->escapeMarkdown((string) ($item['created_at'] ?? '-'));
             $lines[] = '';
             $detailCallback = 'history detail ' . (string) ($item['reference'] ?? '');
             if ($currentHandle !== null) {
@@ -730,7 +729,7 @@ class BotMessageFormatter
             'week' => 'Minggu Ini',
             'month' => 'Bulan Ini',
         ];
-        $lines = ['🏆 *LEADERBOARD*'];
+        $lines = ['🏆 *Leaderboard*'];
 
         foreach ($sections as $key => $label) {
             $lines[] = '';
@@ -802,8 +801,8 @@ class BotMessageFormatter
 
         if (! $requiresZoneId) {
             return [
-                "Silahkan balas pesan ini dengan {$userLabelText} Anda.",
-                "{$userLabelText}: " . $this->escapeMarkdown($userPlaceholder),
+                '🎮 *Masukkan ' . $userLabelText . '*',
+                '',
                 'Format: `UID`',
                 'Contoh: `12345`',
             ];
@@ -813,13 +812,13 @@ class BotMessageFormatter
         $zonePlaceholder = trim((string) ($zoneInput['placeholder'] ?? 'Masukkan Server ID')) ?: 'Masukkan Server ID';
         $zoneLabelText = $this->escapeMarkdown($zoneLabel);
 
-        $lines[] = "Silahkan balas pesan ini dengan {$userLabelText} dan {$zoneLabelText}.";
-        $lines[] = "{$userLabelText}: " . $this->escapeMarkdown($userPlaceholder);
-        $lines[] = "{$zoneLabelText}: " . $this->escapeMarkdown($zonePlaceholder);
+        $lines[] = '🎮 *Masukkan ' . $userLabelText . '*';
+        $lines[] = '';
         $lines[] = 'Format: `UID <' . $this->escapeMarkdownCode($zoneLabel) . '>`';
         $lines[] = 'Contoh: `12345 6789`';
 
         if (($zoneInput['is_select'] ?? false) && ! empty($zoneInput['options']) && is_array($zoneInput['options'])) {
+            $lines[] = '';
             $lines[] = "Pilihan {$zoneLabelText}:";
 
             foreach ($zoneInput['options'] as $option) {
@@ -849,15 +848,12 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", [
-                '❌ *PEMBAYARAN EXPIRED*',
+                '❌ *Pembayaran Kadaluarsa*',
                 '',
-                "Terima kasih telah berbelanja di {$storeName}.",
+                '💎 ' . $product,
+                '🧾 `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
                 '',
-                '🧾 *RINCIAN TRANSAKSI*',
-                "├ No. Invoice: *{$orderId}*",
-                "└ Produk: *{$product}*",
-                '',
-                '💡 Pesanan telah kadaluarsa. Silakan lakukan pembayaran ulang agar token AI dapat digunakan kembali.',
+                'Silakan buat pesanan ulang.',
             ]),
             'buttons' => [
                 [
@@ -870,41 +866,22 @@ class BotMessageFormatter
     private function formatUnpaidStatus(array $data): array
     {
         $payment = is_array($data['payment'] ?? null) ? $data['payment'] : [];
-        $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
         $orderId = $this->escapeMarkdown((string) ($data['order_id'] ?? ''));
         $product = $this->escapeMarkdown((string) ($data['product'] ?? 'Produk'));
         $amount = is_numeric($payment['amount'] ?? null) ? (int) $payment['amount'] : (int) ($data['amount'] ?? 0);
         $method = $this->escapeMarkdown(trim((string) ($payment['method'] ?? '')) ?: 'Pembayaran');
-        $paymentCode = trim((string) ($payment['payment_code'] ?? ''));
-        $expiresAt = $this->paymentExpiryLabel($payment['expires_at'] ?? null);
-
-        $paymentLine = $paymentCode === '' || $this->isQrisPayload($paymentCode) || filter_var($paymentCode, FILTER_VALIDATE_URL)
-            ? '💳 Pembayaran: *Buka invoice yang telah dibuat untuk scan QRIS atau melanjutkan pembayaran.*'
-            : '💳 Kode Bayar / VA: *' . $this->escapeMarkdown($paymentCode) . '*';
-
-        $lines = [
-            '⏳ *MENUNGGU PEMBAYARAN*',
-            '',
-            "Terima kasih telah berbelanja di {$storeName}.",
-            '',
-            '🧾 *RINCIAN TRANSAKSI*',
-            "├ Nomor Invoice: *{$orderId}*",
-            "├ Produk: *{$product}*",
-            '├ Total Tagihan: *Rp ' . number_format($amount, 0, ',', '.') . '*',
-            "└ Metode: *{$method}*",
-            '',
-            $paymentLine,
-        ];
-
-        if ($expiresAt !== null) {
-            $lines[] = "⏰ Bayar sebelum: *{$expiresAt}*";
-        }
-
-        $lines[] = '';
-        $lines[] = '⚠️ Selesaikan pembayaran agar pesanan diproses otomatis.';
 
         return [
-            'text' => implode("\n", $lines),
+            'text' => implode("\n", [
+                '⏳ *Menunggu Pembayaran*',
+                '',
+                '💎 ' . $product,
+                '💰 *Rp ' . number_format($amount, 0, ',', '.') . '*',
+                '🧾 `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
+                '',
+                '💳 Metode: *' . $method . '*',
+                'Ketik `status` untuk cek pembayaran.',
+            ]),
             'buttons' => [
                 [
                     $this->button('🔙 Kembali ke Menu', 'menu'),
@@ -1222,7 +1199,7 @@ class BotMessageFormatter
             return '';
         }
 
-        return "\nHalaman {$pagination['page']}/{$pagination['total_pages']}";
+        return " · {$pagination['page']}/{$pagination['total_pages']}";
     }
 
     private function button(
