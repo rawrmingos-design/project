@@ -347,10 +347,22 @@ class BotCheckoutIntentService
 
     public function payloadMatches(BotCheckoutIntent $intent, array $payload): bool
     {
-        return hash_equals(
+        $matches = hash_equals(
             (string) $intent->payload_fingerprint,
             $this->fingerprint($this->canonicalPayload($payload)),
         );
+
+        if (! $matches) {
+            \Illuminate\Support\Facades\Log::warning('BotCheckoutIntentService::payloadMatches mismatch', [
+                'intent_id' => $intent->intent_id,
+                'stored_fp' => $intent->payload_fingerprint,
+                'incoming_fp' => $this->fingerprint($this->canonicalPayload($payload)),
+                'stored_payload' => $intent->payload,
+                'incoming_payload' => $payload,
+            ]);
+        }
+
+        return $matches;
     }
 
     private function findByOrigin(
