@@ -497,21 +497,38 @@ class BotMessageFormatter
         $paymentStatus = strtolower(trim((string) data_get($d, 'payment.status')));
 
         if ($paymentStatus === 'lunas') {
-            $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
             $orderId = $this->escapeMarkdown((string) ($d['order_id'] ?? ''));
             $product = $this->escapeMarkdown((string) ($d['product'] ?? 'Produk'));
             $nickname = $this->escapeMarkdown((string) ($d['nickname'] ?? ''));
+            $sn = trim((string) ($d['sn'] ?? ''));
+            $orderStatus = strtolower(trim((string) ($d['status'] ?? '')));
+            $isComplete = in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true);
+
+            $lines = [
+                $isComplete
+                    ? '✅ *Top Up Berhasil!*'
+                    : '✅ *Pembayaran Berhasil*',
+                '',
+            ];
+
+            if ($isComplete) {
+                $lines[] = 'Pesanan sudah masuk ke akun kamu 🎉';
+            } else {
+                $lines[] = 'Pesanan kamu sedang diproses.';
+            }
+
+            $lines[] = '';
+            $lines[] = '💎 ' . $product . ($nickname !== '' ? "\n👤 " . $nickname : '');
+
+            if ($sn !== '') {
+                $lines[] = '🔑 SN: `' . $this->escapeMarkdownCode($sn) . '`';
+            }
+
+            $lines[] = '';
+            $lines[] = '🧾 `' . $this->escapeMarkdownCode((string) ($d['order_id'] ?? '')) . '`';
 
             return [
-                'text' => implode("\n", [
-                    '✅ *Pembayaran Berhasil*',
-                    '',
-                    'Pesanan kamu sedang diproses.',
-                    '',
-                    '💎 ' . $product . ($nickname !== '' ? "\n👤 " . $nickname : ''),
-                    '',
-                    '🧾 `' . $this->escapeMarkdownCode((string) ($d['order_id'] ?? '')) . '`',
-                ]),
+                'text' => implode("\n", $lines),
                 'buttons' => [
                     [
                         $this->button('🔙 Kembali ke Menu', 'menu'),
