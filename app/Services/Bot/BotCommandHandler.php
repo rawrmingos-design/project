@@ -3,6 +3,7 @@
 namespace App\Services\Bot;
 
 use App\Models\BotCheckoutIntent;
+use App\Models\Pembelian;
 use App\Models\TelegramIdentity;
 use App\Models\User;
 use App\Services\Checkout\BotCheckoutIntentService;
@@ -1517,7 +1518,24 @@ class BotCommandHandler
             $orderId = trim((string) $args[0]);
         } elseif (($context['source'] ?? null) === 'whatsapp_gateway') {
             // `status` tanpa order ID → cek order terakhir sender
-            $order = $this->invoice->latestForSender(
+            $orders = $this->invoice->activeOrdersForSender(
+                (string) $context['source'],
+                (string) ($context['external_user_id'] ?? ''),
+            );
+
+            if ($orders->count() > 1) {
+                return $this->formatter->formatActiveOrders(
+                    $orders->map(fn (Pembelian $order): array => [
+                        'order_id' => (string) $order->order_id,
+                        'product' => (string) ($order->layanan ?? 'Produk'),
+                        'amount' => (int) $order->harga,
+                        'payment_status' => (string) ($order->pembayaran?->status ?? ''),
+                        'order_status' => (string) $order->status,
+                    ]),
+                );
+            }
+
+            $order = $orders->first() ?? $this->invoice->latestForSender(
                 (string) $context['source'],
                 (string) ($context['external_user_id'] ?? ''),
             );
