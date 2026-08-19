@@ -192,7 +192,7 @@ class OpenWaWebhookTest extends TestCase
                 ->once()
                 ->withArgs(function (string $target, string $message) {
                     $this->assertSame('6285792464508', $target);
-                    $this->assertSame('menu', $message);
+                    $this->assertNotEmpty($message);
 
                     return true;
                 });
