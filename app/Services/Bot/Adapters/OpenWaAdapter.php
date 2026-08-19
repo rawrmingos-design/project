@@ -9,7 +9,6 @@ use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -59,36 +58,12 @@ class OpenWaAdapter implements BotAdapterInterface
     {
         $customToken = config('bot.use_separate_bot_wa') ? config('bot.wa_bot_key') : null;
 
-        Log::debug('OpenWaAdapter::sendMessage', [
-            'sender' => $sender,
-            'text_len' => strlen($message),
-            'use_separate_bot_wa' => config('bot.use_separate_bot_wa'),
-            'custom_token_set' => $customToken !== null,
-            'openwa_session_id' => config('bot.openwa_session_id'),
-        ]);
-
-        $result = $this->waService->sendMessage($sender, $message, $url, $customToken);
-
-        Log::debug('OpenWaAdapter::sendMessage result', [
-            'success' => $result['success'] ?? null,
-            'message' => $result['message'] ?? null,
-            'http_status' => $result['http_status'] ?? null,
-            'message_id' => $result['message_id'] ?? null,
-            'sender' => $sender,
-        ]);
-
-        return $result;
+        return $this->waService->sendMessage($sender, $message, $url, $customToken);
     }
 
     public function handle(Request $request): mixed
     {
         $payload = json_decode((string) $request->getContent(), true);
-
-        Log::debug('OpenWaAdapter::handle', [
-            'payload_json' => json_encode($payload),
-            'has_content' => strlen((string) $request->getContent()),
-            'route' => $request->path(),
-        ]);
 
         if (! is_array($payload)) {
             return response()->json(['status' => 'ignored']);
