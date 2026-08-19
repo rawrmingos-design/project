@@ -129,6 +129,14 @@ jobs:
           key: composer-browser-${{ hashFiles('composer.lock') }}
           restore-keys: composer-browser-
 
+      - name: 🎭 Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
       - name: 📁 Prepare required directories
         run: |
           mkdir -p bootstrap/cache
