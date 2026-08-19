@@ -102,4 +102,31 @@ class GatewayInvoiceStatusTest extends TestCase
 
         $this->assertNull($latest);
     }
+
+    public function test_active_orders_for_sender_filters_expired_and_success(): void
+    {
+        // Expired (lama) — harus TIDAK masuk daftar aktif
+        $this->createOrder([
+            'order_id' => 'BOT-TEST-EXP',
+            'status' => 'Expired',
+        ])->pembayaran()->update(['status' => 'Expired']);
+
+        // Lunas + Sukses (tuntas) — harus TIDAK masuk daftar aktif
+        $this->createOrder([
+            'order_id' => 'BOT-TEST-DONE',
+            'status' => 'Sukses',
+        ])->pembayaran()->update(['status' => 'Lunas']);
+
+        // Belum Lunas (aktif) — harus MASUK
+        $this->createOrder([
+            'order_id' => 'BOT-TEST-ACTIVE',
+            'status' => 'Pending',
+        ]);
+
+        $service = app(GatewayInvoiceService::class);
+        $orders = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:6285792464508');
+
+        $this->assertCount(1, $orders);
+        $this->assertSame('BOT-TEST-ACTIVE', $orders->first()->order_id);
+    }
 }

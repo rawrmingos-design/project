@@ -144,8 +144,7 @@ class GatewayInvoiceService
                 $query->where(function (Builder $query): void {
                     $query->whereHas('pembayaran', function (Builder $query): void {
                         $query->whereNotIn('status', ['Lunas', 'Expired', 'Kadaluarsa', 'Gagal', 'Batal', 'Cancel']);
-                    })
-                    ->orWhereNull('pembayaran.status');
+                    });
                 })
                 ->orWhere(function (Builder $query): void {
                     $query->whereHas('pembayaran', function (Builder $query): void {
