@@ -113,7 +113,10 @@ class WhatsappNotificationService
                     'Accept' => 'application/json',
                 ])->asJson()
                     ->timeout(30)
-                    ->post('https://wagateway.jasakoding.web.id/api/sessions/' . config('bot.openwa_session_id') . '/messages/send-text', $payload);
+                    ->post(
+                        $this->openWaEndpoint('send-text', $url),
+                        $this->withMediaUrl($payload, $url)
+                    );
 
                 return $this->normalizeOpenWaResponse($response);
             }
@@ -137,7 +140,10 @@ class WhatsappNotificationService
                     'Accept' => 'application/json',
                 ])->asJson()
                     ->timeout(30)
-                    ->post('https://wagateway.jasakoding.web.id/api/sessions/' . config('bot.openwa_session_id') . '/messages/send-text', $payload);
+                    ->post(
+                        $this->openWaEndpoint('send-text', $url),
+                        $this->withMediaUrl($payload, $url)
+                    );
 
                 return $this->normalizeOpenWaResponse($response);
             }
@@ -180,6 +186,38 @@ class WhatsappNotificationService
         $digits = preg_replace('/\D+/', '', $target) ?? '';
 
         return $digits . '@s.whatsapp.net';
+    }
+
+    /**
+     * Pick the OpenWA endpoint: send-image when a media URL is provided,
+     * otherwise send-text. Handles both custom-token (bot order) and
+     * provider=openwa (notifications) paths.
+     */
+    private function openWaEndpoint(string $fallback, ?string $url): string
+    {
+        $endpoint = trim((string) $url);
+
+        return ($endpoint !== '' && filter_var($endpoint, FILTER_VALIDATE_URL) !== false)
+            ? 'send-image'
+            : $fallback;
+    }
+
+    /**
+     * OpenWA send-image expects { chatId, url, caption } (or base64) — when a
+     * media URL is present, move the text into `caption` and add `url`;
+     * otherwise return the payload unchanged for send-text.
+     */
+    private function withMediaUrl(array $payload, ?string $url): array
+    {
+        $mediaUrl = trim((string) $url);
+
+        if ($mediaUrl !== '' && filter_var($mediaUrl, FILTER_VALIDATE_URL) !== false) {
+            $payload['caption'] = (string) ($payload['text'] ?? '');
+            unset($payload['text']);
+            $payload['url'] = $mediaUrl;
+        }
+
+        return $payload;
     }
 
     private function normalizeOpenWaResponse(Response $response): array
