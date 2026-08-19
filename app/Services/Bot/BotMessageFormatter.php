@@ -569,6 +569,46 @@ class BotMessageFormatter
         ];
     }
 
+    /**
+     * @param iterable<int, array{order_id: string, product: string, amount: int, payment_status: string, order_status: string}> $orders
+     */
+    public function formatActiveOrders(iterable $orders): array
+    {
+        $lines = [
+            '📦 *Pesanan Aktif*',
+            '',
+        ];
+        $number = 1;
+
+        foreach ($orders as $order) {
+            $paymentStatus = strtolower(trim((string) ($order['payment_status'] ?? '')));
+            $orderStatus = strtolower(trim((string) ($order['order_status'] ?? '')));
+            $paymentLabel = $paymentStatus === 'lunas'
+                ? 'Lunas'
+                : 'Menunggu Pembayaran';
+            $orderLabel = in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai'], true)
+                ? 'Diproses'
+                : 'Diproses';
+
+            $lines[] = $number . '. `' . $this->escapeMarkdownCode((string) ($order['order_id'] ?? '')) . '`';
+            $lines[] = '   💎 ' . $this->escapeMarkdown((string) ($order['product'] ?? 'Produk'))
+                . ' · ' . $paymentLabel . ' · ' . $orderLabel;
+            $number++;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Ketik `status <invoice>` untuk detail.';
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [
+                [
+                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                ],
+            ],
+        ];
+    }
+
     public function formatHelp(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(null);

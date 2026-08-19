@@ -111,6 +111,43 @@ class GatewayInvoiceService
         return $query->first();
     }
 
+    /**
+     * Order milik sender yang masih "aktif" (belum selesai/tuntas):
+     * pembayaran belum lunas, atau order status masih proses/sukses-belum-selesai.
+     * Dipakai handler `status` tanpa argumen untuk menampilkan daftar pilihan.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Pembelian>
+     */
+    public function activeOrdersForSender(string $source, string $externalUserId, int $limit = 5): \Illuminate\Database\Eloquent\Collection
+    {
+        $source = $this->normalizeSource($source);
+        $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+        $senderDigits = preg_replace('/\D+/', '', $externalUserId);
+
+        if ($senderDigits === '') {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return Pembelian::query()
+            ->with('pembayaran')
+            ->where('traffic_source', $source)
+            ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
+                $query->where('no_pembeli', $senderDigits);
+            })
+            ->when($this->tenantContext->id() !== null, function (Builder $query): void {
+                $query->where('tenant_id', $this->tenantContext->id());
+            })
+            ->where(function (Builder $query): void {
+                $query->whereHas('pembayaran', function (Builder $query): void {
+                    $query->where('status', '!=', 'Lunas');
+                })
+                ->orWhereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
+            })
+            ->latest('created_at')
+            ->limit($limit)
+            ->get();
+    }
+
     private function authorizeStatusLookup(Pembelian $order, ?User $user, array $context): void
     {
         if ($user) {
