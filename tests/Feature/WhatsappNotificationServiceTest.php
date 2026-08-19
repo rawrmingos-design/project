@@ -553,4 +553,69 @@ class WhatsappNotificationServiceTest extends TestCase
                 && $request->hasHeader('Authorization', 'Bearer custom-openwa-key');
         });
     }
+
+    public function test_openwa_provider_sends_image_when_url_provided(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'openwa',
+            'wa_key' => 'openwa-token',
+            'wa_number' => '6287780901780',
+            'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+        ]);
+
+        config(['bot.openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5']);
+
+        Http::fake([
+            'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image' => Http::response([
+                'messageId' => 'IMG-001',
+                'timestamp' => 1787070472,
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)
+            ->sendMessage('085792464508', 'Silakan scan QRIS', 'https://cdn.example.test/qr/transaksi.png');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('openwa', $result['provider']);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image'
+                && $request->hasHeader('Authorization', 'Bearer openwa-token')
+                && ($request->data()['chatId'] ?? null) === '085792464508@s.whatsapp.net'
+                && ($request->data()['url'] ?? null) === 'https://cdn.example.test/qr/transaksi.png'
+                && ($request->data()['caption'] ?? null) === 'Silakan scan QRIS'
+                && ! isset($request->data()['text']);
+        });
+    }
+
+    public function test_openwa_custom_token_sends_image_when_url_provided(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+            'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+        ]);
+
+        config(['bot.openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5']);
+
+        Http::fake([
+            'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image' => Http::response([
+                'messageId' => 'IMG-002',
+                'timestamp' => 1787070472,
+            ], 200),
+        ]);
+
+        $result = app(WhatsappNotificationService::class)
+            ->sendMessage('085792464508', 'Scan QRIS ini', 'https://cdn.example.test/qr/bot-order.png', 'custom-openwa-key');
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('openwa', $result['provider']);
+
+        Http::assertSent(function ($request): bool {
+            return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image'
+                && $request->hasHeader('Authorization', 'Bearer custom-openwa-key')
+                && ($request->data()['url'] ?? null) === 'https://cdn.example.test/qr/bot-order.png'
+                && ($request->data()['caption'] ?? null) === 'Scan QRIS ini';
+        });
+    }
 }
