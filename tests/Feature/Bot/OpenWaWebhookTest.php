@@ -181,4 +181,51 @@ class OpenWaWebhookTest extends TestCase
 
         $this->assertSame(200, $response->getStatusCode());
     }
+
+    public function test_openwa_webhook_flat_payload_shape(): void
+    {
+        Cache::flush();
+
+        // OpenWA v2+ sends FLAT data: {from, body, type, id} — not nested Baileys shape.
+        $this->mock(WhatsappNotificationService::class, function (Mockery\MockInterface $mock): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->withArgs(function (string $target, string $message) {
+                    $this->assertSame('6285792464508', $target);
+                    $this->assertSame('menu', $message);
+
+                    return true;
+                });
+        });
+
+        $adapter = app(OpenWaAdapter::class);
+        $payload = [
+            'event' => 'message.received',
+            'timestamp' => '2026-08-19T06:05:01.891Z',
+            'sessionId' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
+            'idempotencyKey' => 'msg_flat_v1',
+            'deliveryId' => 'dlv_flat_001',
+            'data' => [
+                'id' => 'AC659A0084CC1FF1EB4020B4E312B6DF',
+                'from' => '6285792464508@c.us',
+                'to' => '6287780901780@c.us',
+                'chatId' => '6285792464508@c.us',
+                'body' => 'menu',
+                'type' => 'text',
+                'timestamp' => 1787119501,
+                'fromMe' => false,
+                'isGroup' => false,
+                'kind' => 'individual',
+                'isStatusBroadcast' => false,
+                'contact' => ['pushName' => 'miii'],
+            ],
+        ];
+        $request = Request::create('/api/webhooks/bot/openwa', 'POST', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+        ], json_encode($payload));
+
+        $response = $adapter->handle($request);
+
+        $this->assertSame(200, $response->getStatusCode());
+    }
 }
