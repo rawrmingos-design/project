@@ -240,6 +240,7 @@ class AppServiceProvider extends ServiceProvider
                     // Override bot order flags if set in DB
                     config(['services.telegram-bot-api.order_enabled' => (bool) $config->bot_order_tg_enabled]);
                     config(['bot.order_wa_enabled' => (bool) $config->bot_order_wa_enabled]);
+                    config(['bot.order_enabled' => (bool) env('BOT_ORDER_ENABLED', false)]);
 
                     config([
                         'bot.use_separate_bot_wa' => (bool) ($config->use_separate_bot_wa ?? false),

@@ -1201,13 +1201,13 @@ abstract class SettingsSectionPage extends Page implements HasForms
                         Toggle::make('bot_order_wa_enabled')
                             ->label('Terima Order via WhatsApp')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui chat WhatsApp bot.')
-                            ->visible(fn () => env('BOT_ORDER_ENABLED', false))
+                            ->visible(fn () => config('bot.order_enabled', false))
                             ->columnSpanFull(),
 
                         Toggle::make('use_separate_bot_wa')
                             ->label('Gunakan Gateway Berbeda untuk Bot Order')
                             ->helperText('Aktifkan jika bot order memakai gateway terpisah dari notifikasi. Jika NONAKTIF, bot order mengikuti provider notifikasi (wa_provider).')
-                            ->visible(fn () => env('BOT_ORDER_ENABLED', false))
+                            ->visible(fn () => config('bot.order_enabled', false))
                             ->live()
                             ->columnSpanFull(),
 
@@ -1216,7 +1216,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->password()
                             ->revealable()
                             ->helperText('API key OpenWA (format owa_k1_...) untuk autentikasi pengiriman pesan bot order. Wajib jika pakai gateway terpisah.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa'))
+                            ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa'))
                             ->columnSpanFull(),
 
                         TextInput::make('wa_bot_number')
@@ -1225,20 +1225,20 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->prefix('+62')
                             ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizePhoneNumber($state))
                             ->helperText('Nomor WhatsApp yang dipakai bot order (nomor device OpenWA).')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+                            ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('openwa_session_id')
                             ->label('OpenWA Session ID')
                             ->placeholder('f802a400-0cf5-4c28-b7b0-aa30c169aee5')
                             ->helperText('UUID session OpenWA yang dipakai untuk bot order. Lihat di dashboard wagateway.jasakoding.web.id.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+                            ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
 
                         TextInput::make('openwa_webhook_secret')
                             ->label('OpenWA Webhook Secret')
                             ->password()
                             ->revealable()
                             ->helperText('HMAC secret untuk verifikasi signature webhook masuk (harus sama dengan secret yang di-set di webhook OpenWA). Kosongkan jika tidak dipakai.')
-                            ->visible(fn ($get) => env('BOT_ORDER_ENABLED', false) && (bool) $get('use_separate_bot_wa')),
+                            ->visible(fn ($get) => config('bot.order_enabled', false) && (bool) $get('use_separate_bot_wa')),
                     ])
                     ->collapsible()
                     ->collapsed()
@@ -1253,29 +1253,29 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->password()
                             ->revealable()
                             ->helperText('Token bot Telegram dari @BotFather. Kosongkan jika mengambil dari file .env.')
-                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         TextInput::make('telegram_webhook_secret')
                             ->label('Webhook Secret')
                             ->password()
                             ->revealable()
                             ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).')
-                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         TextInput::make('telegram_channel_id')
                             ->label('Channel ID')
                             ->helperText('ID channel yang wajib diikuti (contoh: @channelku). Kosongkan jika mengambil dari file .env.')
-                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         TextInput::make('telegram_channel_url')
                             ->label('Channel URL')
                             ->helperText('URL invite channel (contoh: https://t.me/channelku). Kosongkan jika mengambil dari file .env.')
-                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false)),
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
-                            ->visible(fn () => (bool) env('BOT_ORDER_ENABLED', false))
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
                     ])
                     ->collapsible()

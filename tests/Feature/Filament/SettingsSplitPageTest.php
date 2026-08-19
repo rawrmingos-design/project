@@ -233,11 +233,16 @@ class SettingsSplitPageTest extends AdminTestCase
             'wa_provider' => 'fonnte',
         ]);
 
+        // Bot order fields are gated by BOT_ORDER_ENABLED; enable it so openwa fields are visible & saved.
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+
         Http::fake();
 
         Livewire::test(NotificationsSettings::class)
             ->fillForm([
                 'wa_provider' => 'openwa',
+                'use_separate_bot_wa' => true,
                 'openwa_session_id' => 'f802a400-0cf5-4c28-b7b0-aa30c169aee5',
                 'openwa_webhook_secret' => 'test-openwa-secret',
                 'mail_mailer' => 'smtp',
@@ -274,9 +279,7 @@ class SettingsSplitPageTest extends AdminTestCase
             ->assertFormFieldExists('wa_provider')
             ->assertFormFieldExists('bot_order_wa_enabled')
             ->assertFormFieldExists('use_separate_bot_wa')
-            ->fillForm([
-                'use_separate_bot_wa' => true,
-            ])
+            ->set('data.use_separate_bot_wa', true)
             ->assertFormFieldExists('wa_bot_key')
             ->assertFormFieldExists('wa_bot_number')
             ->assertFormFieldExists('openwa_session_id')
