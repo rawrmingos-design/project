@@ -2289,7 +2289,18 @@
                             <p class="text-sm">{{ $data->layanan }}</p>
                             <div>
 
-                                @if ($data->tipe_transaksi == 'joki')
+                                @if ($data->tipe_transaksi == 'vilogml')
+                                    <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
+                                        <div class="grid grid-cols-3 gap-4 pb-2">
+                                            <div class="text-white print:text-slate-800">Username :</div>
+                                            <div class="col-span-2"><p class="break-words">********</p></div>
+                                        </div>
+                                        <div class="grid grid-cols-3 gap-4 pb-2">
+                                            <div class="text-white print:text-slate-800">Password :</div>
+                                            <div class="col-span-2"><p class="break-words">********</p></div>
+                                        </div>
+                                    </div>
+                                @elseif ($data->tipe_transaksi == 'joki')
                                     <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">Email :</div>
