@@ -894,6 +894,12 @@ class BotCommandHandler
 
         $category = $service['data']['category'];
         $requiresZoneId = (bool) ($category['requires_zone_id'] ?? false);
+
+        // At destination input, `0` means back to payment selection. Handle it
+        // before parsing the value as a UID.
+        if ($command === '0' && $args === []) {
+            return $this->handlePembayaran([(string) $state['service_id']], $context);
+        }
         $customInputs = is_array($category['custom_inputs'] ?? null) ? $category['custom_inputs'] : [];
         $input = trim(implode(' ', array_filter([$command, ...$args], fn ($value) => $value !== null && $value !== '')));
         $parts = preg_split('/\s+/', $input) ?: [];
