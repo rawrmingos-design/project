@@ -1314,7 +1314,7 @@ class BotWebhookTest extends TestCase
 
         $backToPayment = $handler->handle('0', [], $context);
         $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
-        $this->assertStringContainsString('123', $backToPayment['text'] ?? '');
+        $this->assertStringContainsString('harga 123 QRIS', json_encode($backToPayment['buttons']));
     }
 
     public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()
