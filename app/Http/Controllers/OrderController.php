@@ -629,15 +629,26 @@ class OrderController extends Controller
                 'catatan_joki' => 'required',
             ];
         } elseif ($isJokiMode) {
+            $serviceCategoryCode = Layanan::query()
+                ->join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
+                ->where('layanans.id', $request->service)
+                ->value('kategoris.kode');
+            $isRobloxViaLogin = $serviceCategoryCode === 'roblox-via-login';
+
             $rules += [
                 'email_joki' => 'required|string|max:255',
                 'password_joki' => 'required|string|max:255',
-                'loginvia_joki' => 'required|string|max:255',
-                'nickname_joki' => 'required|string|max:255',
-                'request_joki' => 'required|string|max:255',
-                'catatan_joki' => 'required|string|max:255',
                 'qty' => ($forConfirmation ? 'nullable' : 'required') . '|integer|min:1|max:30',
             ];
+
+            if (! $isRobloxViaLogin) {
+                $rules += [
+                    'loginvia_joki' => 'required|string|max:255',
+                    'nickname_joki' => 'required|string|max:255',
+                    'request_joki' => 'required|string|max:255',
+                    'catatan_joki' => 'required|string|max:255',
+                ];
+            }
         } else {
             $requireUserId = true;
             $layanan = Layanan::query()

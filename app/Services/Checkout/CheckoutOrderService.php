@@ -474,14 +474,25 @@ class CheckoutOrderService
                 'catatan_joki' => ['required', 'string', 'max:255'],
             ];
         } elseif ($isJokiMode) {
+            $serviceCategoryCode = Layanan::query()
+                ->join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
+                ->where('layanans.id', $request->input('service'))
+                ->value('kategoris.kode');
+            $isRobloxViaLogin = $serviceCategoryCode === 'roblox-via-login';
+
             $rules += [
                 'email_joki' => ['required', 'string', 'max:255'],
                 'password_joki' => ['required', 'string', 'max:255'],
-                'loginvia_joki' => ['required', 'string', 'max:255'],
-                'nickname_joki' => ['required', 'string', 'max:255'],
-                'request_joki' => ['required', 'string', 'max:255'],
-                'catatan_joki' => ['required', 'string', 'max:255'],
             ];
+
+            if (! $isRobloxViaLogin) {
+                $rules += [
+                    'loginvia_joki' => ['required', 'string', 'max:255'],
+                    'nickname_joki' => ['required', 'string', 'max:255'],
+                    'request_joki' => ['required', 'string', 'max:255'],
+                    'catatan_joki' => ['required', 'string', 'max:255'],
+                ];
+            }
         } else {
             $rules['uid'] = ['required', 'string', 'max:50'];
         }
