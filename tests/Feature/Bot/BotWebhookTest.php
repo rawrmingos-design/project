@@ -1267,9 +1267,6 @@ class BotWebhookTest extends TestCase
         $this->assertSame('🧾 *Cek Pesanan*', strtok($confirmation['text'], "\n"));
         $this->assertSame('waiting_confirmation', $state['step']);
 
-        $backToPayment = $handler->handle('0', [], $context);
-        $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
-
         $invoiceResponse = $handler->handle(
             'konfirmasi',
             [$state['intent_token']],
@@ -1278,6 +1275,35 @@ class BotWebhookTest extends TestCase
 
         $this->assertSame('⏳ *Menunggu Pembayaran*', strtok($invoiceResponse['text'], "\n"));
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
+    }
+
+    public function test_telegram_checkout_zero_at_uid_input_returns_to_payment_selection()
+    {
+        Cache::flush();
+        $this->createConversationService('mobile-legends', true, 123);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('quote')
+                ->once()
+                ->withArgs(fn (array $payload, $user) => $user === null)
+                ->andReturn($this->fakePriceQuote(requiresZoneId: true));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class);
+        $handler = $this->makeBotCommandHandler($pricing, $invoice);
+
+        $handler->handle('harga', ['123', 'QRIS'], $context);
+        $state = Cache::get($this->checkoutStateKey('telegram:9876'));
+        $this->assertSame('waiting_game_id', $state['step']);
+
+        $backToPayment = $handler->handle('0', [], $context);
+        $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
+        $this->assertStringContainsString('123', $backToPayment['text'] ?? '');
     }
 
     public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()
