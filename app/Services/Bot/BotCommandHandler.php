@@ -905,6 +905,10 @@ class BotCommandHandler
         $parts = preg_split('/\s+/', $input) ?: [];
         $uid = trim((string) array_shift($parts));
         $zone = trim(implode(' ', $parts));
+        $userInputSpec = is_array($customInputs['user_id'] ?? null) ? $customInputs['user_id'] : [];
+        $userLabel = strtolower(trim((string) ($userInputSpec['label'] ?? '')));
+        $userPlaceholder = strtolower(trim((string) ($userInputSpec['placeholder'] ?? '')));
+        $isEmailInput = str_contains($userLabel, 'email') || str_contains($userPlaceholder, 'email');
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
         if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
@@ -912,6 +916,10 @@ class BotCommandHandler
         }
 
         if ($requiresZoneId && ! $this->isValidZoneValue($zone, $customInputs)) {
+            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+        }
+
+        if ($isEmailInput && filter_var($uid, FILTER_VALIDATE_EMAIL) === false) {
             return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
         }
 
@@ -939,7 +947,7 @@ class BotCommandHandler
             (string) $state['payment_method'],
             $uid,
             $requiresZoneId ? $zone : null,
-        ], $context, (string) ($checkResult['data']['nickname'] ?? ''));
+        ], $context, (string) ($checkResult['data']['nickname'] ?? ''), $isEmailInput ? 'Email' : 'UID');
     }
 
     /**
@@ -1382,6 +1390,7 @@ class BotCommandHandler
         array $args,
         array $context,
         string $nickname = '',
+        string $inputLabel = 'UID',
     ): array {
         $messageId = trim(
             (string) ($context['message_id'] ?? ''),
@@ -1398,6 +1407,7 @@ class BotCommandHandler
             'payment_method' => $args[1],
             'uid' => $args[2],
             'zone' => $args[3] ?? null,
+            'input_label' => $inputLabel,
         ];
 
         if ($nickname !== '') {
@@ -1443,6 +1453,7 @@ class BotCommandHandler
             $quote,
             $payload,
             $token,
+            $inputLabel,
         );
     }
 

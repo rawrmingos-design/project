@@ -347,6 +347,7 @@ class BotMessageFormatter
         );
         $zone = trim((string) ($payload['zone'] ?? ''));
         $target = $zone !== '' ? $uid . ' / ' . $zone : $uid;
+        $inputLabel = trim((string) ($payload['input_label'] ?? 'UID')) ?: 'UID';
         $nickname = trim((string) ($payload['nickname'] ?? ''));
         $serviceName = $this->escapeMarkdown(
             (string) ($data['service_name'] ?? 'Produk'),
@@ -372,7 +373,7 @@ class BotMessageFormatter
                 '🧾 *Cek Pesanan*',
                 '',
                 '💎 ' . $serviceName,
-                '👤 `' . $this->escapeMarkdownCode($target) . '`',
+                '👤 ' . $this->escapeMarkdown($inputLabel) . ': `' . $this->escapeMarkdownCode($target) . '`',
                 ...($nickname !== '' ? ['🏷️ Nickname: ' . $this->escapeMarkdown($nickname)] : []),
                 '💳 ' . $methodName,
                 '',
@@ -859,14 +860,16 @@ class BotMessageFormatter
         $userLabel = trim((string) ($userInput['label'] ?? 'User ID')) ?: 'User ID';
         $userPlaceholder = trim((string) ($userInput['placeholder'] ?? 'Masukkan User ID')) ?: 'Masukkan User ID';
         $userLabelText = $this->escapeMarkdown($userLabel);
+        $isEmail = str_contains(strtolower($userLabel), 'email')
+            || str_contains(strtolower($userPlaceholder), 'email');
         $lines = [];
 
         if (! $requiresZoneId) {
             return [
-                '🎮 *Masukkan ' . $userLabelText . '*',
+                ($isEmail ? '📧' : '🎮') . ' *Masukkan ' . $userLabelText . '*',
                 '',
-                'Format: `UID`',
-                'Contoh: `12345`',
+                $isEmail ? 'Format: `email@contoh.com`' : 'Format: `UID`',
+                $isEmail ? 'Contoh: `nama@email.com`' : 'Contoh: `12345`',
             ];
         }
 
