@@ -401,7 +401,7 @@ class ApiCheckControllerTest extends TestCase
         $this->assertSame(200, $result['status']['code']);
         $this->assertSame('Valorant Self Hosted Nick', $result['data']['username']);
 
-        Http::assertSentCount(3);
+        Http::assertSentCount(1);
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'v1.apigames.id'));
         Http::assertSent(function ($request) {
             parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
