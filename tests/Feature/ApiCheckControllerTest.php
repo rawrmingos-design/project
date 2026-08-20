@@ -291,7 +291,7 @@ class ApiCheckControllerTest extends TestCase
         Http::assertSentCount(3);
     }
 
-    public function test_selfhosted_runs_after_apigames_failure_and_before_digiflazz(): void
+    public function test_selfhosted_runs_before_other_checkers_and_before_digiflazz(): void
     {
         $this->seedApiGamesSettings();
         $this->enableSelfHostedCheckId();
@@ -327,7 +327,8 @@ class ApiCheckControllerTest extends TestCase
         $this->assertSame(200, $result['status']['code']);
         $this->assertSame('Self Hosted Nick', $result['data']['username']);
 
-        Http::assertSentCount(4);
+        // Self-hosted dipanggil pertama — hanya 1 request, yang lain tidak disentuh.
+        Http::assertSentCount(1);
         Http::assertSent(function ($request) {
             if (! str_starts_with($request->url(), 'https://cekid.jasakoding.web.id/api/check?')) {
                 return false;

@@ -66,8 +66,8 @@ return [
             'enabled' => env('CHECK_ID_SELFHOSTED_ENABLED', false),
             'base_url' => env('CHECK_ID_SELFHOSTED_BASE_URL', 'https://cekid.jasakoding.web.id'),
             'api_key' => env('CHECK_ID_SELFHOSTED_API_KEY', '53db9e79b903742d8cbd8eb2417148be2b7df1a7ed8acdcffbe894d9ef435af1'),
-            'timeout' => env('CHECK_ID_SELFHOSTED_TIMEOUT', 5),
-            'connect_timeout' => env('CHECK_ID_SELFHOSTED_CONNECT_TIMEOUT', 3),
+            'timeout' => env('CHECK_ID_SELFHOSTED_TIMEOUT', 12),
+            'connect_timeout' => env('CHECK_ID_SELFHOSTED_CONNECT_TIMEOUT', 5),
         ],
     ],
 
