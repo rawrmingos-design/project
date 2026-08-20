@@ -87,6 +87,19 @@ class ApiCheckController extends Controller
         $cacheKey = "check_id_v2_{$parsedGame}_{$user_id}_{$zone_id}";
 
         $result = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($parsedGame, $user_id, $zone_id) {
+            // Self-hosted API is the preferred checker. It owns the live provider
+            // metadata and avoids waiting on unrelated external APIs first.
+            if ($this->selfHostedCircuitOpen($parsedGame)) {
+                $selfHostedResult = $this->failedResult('Self-hosted check ID circuit is cooling down.', true);
+            } else {
+                $selfHostedResult = $this->connectSelfHosted($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+                $this->recordSelfHostedCircuit($parsedGame, $selfHostedResult);
+            }
+
+            if ($this->isSuccessfulResult($selfHostedResult)) {
+                return $selfHostedResult;
+            }
+
             // Primary free API
             $primaryResult = $this->connectPrimary([
                 'game'    => $parsedGame,
@@ -114,13 +127,6 @@ class ApiCheckController extends Controller
                 return $apiGamesResult;
             }
 
-            // Self-hosted API fallback — setelah ApiGames.
-            $selfHostedResult = $this->connectSelfHosted($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
-
-            if ($this->isSuccessfulResult($selfHostedResult)) {
-                return $selfHostedResult;
-            }
-
             Log::warning('ApiCheckController:check - All providers failed.', [
                 'primary_response'    => $primaryResult,
                 'velixs_response'     => $velixsResult,
@@ -139,6 +145,12 @@ class ApiCheckController extends Controller
                 ($failedProvider['unavailable'] ?? false) === true,
             );
         });
+
+        // Jangan menyimpan kegagalan provider; request berikutnya harus bisa mencoba
+        // lagi setelah circuit cooldown, bukan menerima error lama 10 menit.
+        if (($result['unavailable'] ?? false) === true) {
+            Cache::forget($cacheKey);
+        }
 
         if ($this->isSuccessfulResult($result)) {
             $nickname = $result['nickname'] ?? null;
@@ -222,13 +234,41 @@ class ApiCheckController extends Controller
         }
     }
 
+    private function selfHostedCircuitKey(string $game): string
+    {
+        return 'check_id_circuit:selfhosted:' . md5($game);
+    }
+
+    private function selfHostedCircuitOpen(string $game): bool
+    {
+        return Cache::has($this->selfHostedCircuitKey($game) . ':open');
+    }
+
+    private function recordSelfHostedCircuit(string $game, array $result): void
+    {
+        $key = $this->selfHostedCircuitKey($game);
+        $hardFailure = ($result['unavailable'] ?? false) === true;
+
+        if (! $hardFailure) {
+            Cache::forget($key . ':failures');
+            Cache::forget($key . ':open');
+            return;
+        }
+
+        $failures = (int) Cache::increment($key . ':failures');
+        Cache::put($key . ':failures', $failures, now()->addMinutes(2));
+
+        if ($failures >= 2) {
+            Cache::put($key . ':open', true, now()->addSeconds(30));
+        }
+    }
+
     private function connectPrimary(array $params): array
     {
-        $defaultUrl = 'https://api-cek-id-game-ten.vercel.app/api/check-id-game';
-        $url = trim((string) config('providers.check_id.primary_url', $defaultUrl));
+        $url = trim((string) config('providers.check_id.primary_url', 'https://api-cek-id-game-ten.vercel.app/api/check-id-game'));
 
         if ($url === '') {
-            $url = $defaultUrl;
+            $url = 'https://api-cek-id-game-ten.vercel.app/api/check-id-game';
         }
 
         $payload = [
