@@ -1307,6 +1307,49 @@ class BotWebhookTest extends TestCase
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 
+    public function test_telegram_checkout_blocks_invalid_game_account_before_creating_intent(): void
+    {
+        Cache::flush();
+        $this->createConversationService('mobile-legends', true, 123);
+        $context = [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'message_id' => 'telegram:12345:111',
+            'email' => '9876@telegram.user',
+        ];
+
+        $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            // Quote hanya dipanggil saat state harga, bukan untuk UID.
+            $mock->shouldReceive('quote')->once()->andReturn($this->fakePriceQuote(requiresZoneId: true));
+        });
+        $invoice = $this->mock(GatewayInvoiceService::class, function (MockInterface $mock): void {
+            $mock->shouldNotReceive('createInvoice');
+        });
+        $checkId = $this->mock(GatewayCheckIdService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('check')->once()->withArgs(function (array $payload): bool {
+                return ($payload['category_code'] ?? '') === 'mobile-legends'
+                    && (int) ($payload['service_id'] ?? 0) === 123
+                    && ($payload['uid'] ?? '') === '12345'
+                    && ($payload['zone'] ?? null) === '6789';
+            })->andReturn([
+                'ok' => false,
+                'error_code' => 'CHECK_ID_FAILED',
+                'message' => 'User ID tidak ditemukan.',
+                'data' => ['skip_check' => false, 'valid' => false, 'uid' => '12345', 'nickname' => null],
+            ]);
+        });
+        $handler = $this->makeBotCommandHandler($pricing, $invoice, $checkId);
+
+        $handler->handle('harga', ['123', 'QRIS'], $context);
+        $blocked = $handler->handle('12345', ['6789'], $context);
+
+        $this->assertStringContainsString('User ID tidak ditemukan', $blocked['text']);
+        $this->assertDatabaseCount('bot_checkout_intents', 0);
+        // State tetap waiting_game_id agar user bisa perbaiki UID.
+        $state = Cache::get($this->checkoutStateKey('telegram:9876'));
+        $this->assertSame('waiting_game_id', $state['step']);
+    }
+
     public function test_telegram_membership_denial_blocks_input_and_clears_checkout_state(): void
     {
         Cache::flush();
@@ -2075,13 +2118,24 @@ class BotWebhookTest extends TestCase
         ]);
     }
 
-    private function makeBotCommandHandler(GatewayPricingService $pricing, GatewayInvoiceService $invoice): BotCommandHandler
+    private function makeBotCommandHandler(
+        GatewayPricingService $pricing,
+        GatewayInvoiceService $invoice,
+        ?GatewayCheckIdService $checkId = null,
+    ): BotCommandHandler
     {
+        $checkId ??= $this->mock(GatewayCheckIdService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('check')->andReturn([
+                'ok' => true,
+                'data' => ['skip_check' => false, 'valid' => true, 'nickname' => 'QA Player'],
+            ]);
+        });
+
         return new BotCommandHandler(
             app(GatewayCatalogService::class),
             app(PaymentMethodCatalogService::class),
             $pricing,
-            app(GatewayCheckIdService::class),
+            $checkId,
             $invoice,
             app(BotMessageFormatter::class),
             app(TelegramChannelMembershipService::class),
