@@ -1281,6 +1281,15 @@ class BotWebhookTest extends TestCase
     {
         Cache::flush();
         $this->createConversationService('mobile-legends', true, 123);
+        Method::query()->create([
+            'name' => 'QRIS',
+            'code' => 'QRIS',
+            'payment' => 'duitku',
+            'tipe' => 'qris',
+            'statuspayment' => 1,
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+        ]);
         $context = [
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:9876',
