@@ -1286,6 +1286,7 @@ class BotWebhookTest extends TestCase
             'code' => 'QRIS',
             'payment' => 'duitku',
             'tipe' => 'qris',
+            'images' => '/images/qris.png',
             'statuspayment' => 1,
             'fee_percent' => 0,
             'fix_fee' => 0,
