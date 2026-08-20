@@ -3301,11 +3301,11 @@
                         @elseif(in_array($kategori->tipe, ['vilogml']))
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
                                 <div>
-                                    <label for="email_joki" class="block text-xs font-medium text-white pb-2">Email</label>
+                                    <label for="email_joki" class="block text-xs font-medium text-white pb-2">{{ $kategori->kode === 'roblox-via-login' ? 'Username' : 'Email' }}</label>
                                     <div class="flex flex-col items-start">
                                         <input
                                             class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                            type="email" id="email_joki" name="email_joki" placeholder="Ketikan Email" required />
+                                            type="text" id="email_joki" name="email_joki" placeholder="{{ $kategori->kode === 'roblox-via-login' ? 'Masukkan Username Roblox' : 'Ketikan Email' }}" required />
                                     </div>
                                 </div>
                                 <div>
@@ -3317,44 +3317,19 @@
                                             required />
                                     </div>
                                 </div>
+                                @if($kategori->kode !== 'roblox-via-login')
                                 <div>
                                     <label for="loginvia_joki" class="block text-xs font-medium text-white pb-2">Login Via</label>
                                     <select id="loginvia_joki" name="loginvia_joki"
-                                        class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                        required>
+                                        class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 text-xs text-murky-800" required>
                                         <option value="" disabled selected>Login Via</option>
-                                        <option value="moonton">Moonton (Rekomendasi)</option>
-                                        <option value="vk">VK</option>
-                                        <option value="tiktok">Tiktok</option>
-                                        <option value="facebook">Facebook</option>
+                                        <option value="moonton">Moonton (Rekomendasi)</option><option value="vk">VK</option><option value="tiktok">Tiktok</option><option value="facebook">Facebook</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="nickname_joki" class="block text-xs font-medium text-white pb-2">User ID</label>
-                                    <div class="flex flex-col items-start">
-                                        <input
-                                            class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                            type="text" id="nickname_joki" name="nickname_joki" placeholder="Ketikan User ID"
-                                            required />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="request_joki" class="block text-xs font-medium text-white pb-2">Server ID</label>
-                                    <div class="flex flex-col items-start">
-                                        <input
-                                            class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                            type="text" id="request_joki" name="request_joki" placeholder="Ketikan Server ID"
-                                            required />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="catatan_joki" class="block text-xs font-medium text-white pb-2">Catatan</label>
-                                    <div class="flex flex-col items-start">
-                                        <input
-                                            class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent focus:bg-white"
-                                            type="text" id="catatan_joki" name="catatan_joki" placeholder="Catatan" required />
-                                    </div>
-                                </div>
+                                <div><label for="nickname_joki" class="block text-xs font-medium text-white pb-2">User ID</label><input class="PhoneInputInput w-full rounded-md bg-murky-200 px-3 py-2 text-xs text-murky-800" type="text" id="nickname_joki" name="nickname_joki" placeholder="Ketikan User ID" required /></div>
+                                <div><label for="request_joki" class="block text-xs font-medium text-white pb-2">Server ID</label><input class="PhoneInputInput w-full rounded-md bg-murky-200 px-3 py-2 text-xs text-murky-800" type="text" id="request_joki" name="request_joki" placeholder="Ketikan Server ID" required /></div>
+                                <div><label for="catatan_joki" class="block text-xs font-medium text-white pb-2">Catatan</label><input class="PhoneInputInput w-full rounded-md bg-murky-200 px-3 py-2 text-xs text-murky-800" type="text" id="catatan_joki" name="catatan_joki" placeholder="Catatan" required /></div>
+                                @endif
                             </div>
 
 
