@@ -72,6 +72,7 @@ class CheckoutOrderService
         $providerDispatched = false;
         $gatewayRequest = null;
         $frozenTotal = null;
+        $frozenGatewayAmount = null;
 
         try {
             if ($intentService && $intentId !== null) {
@@ -122,6 +123,11 @@ class CheckoutOrderService
                     'data.total_amount',
                     0,
                 );
+                $frozenGatewayAmount = (int) data_get(
+                    $currentQuote,
+                    'data.gateway_amount',
+                    $frozenTotal,
+                );
                 $dispatchMethod = app(
                     \App\Services\PaymentMethodCatalogService::class,
                 )->findVisibleByCode(
@@ -170,7 +176,7 @@ class CheckoutOrderService
                     $gatewayRequest = $this->requestGatewayInvoice(
                         $dispatchMethod,
                         (string) $intent->merchant_reference,
-                        $frozenTotal,
+                        $frozenGatewayAmount ?? $frozenTotal,
                         $dispatchService,
                         $request,
                         $user,
@@ -243,6 +249,12 @@ class CheckoutOrderService
 
             $feeAmount = $this->methodFee($baseAmount, $method);
             $totalAmount = max(1000, $baseAmount + $feeAmount);
+
+            // Bot checkout sudah mengunci total dari quote, termasuk fee customer
+            // Tripay. Jangan hitung ulang menjadi gateway amount di sini.
+            if ($intentService && $frozenTotal !== null) {
+                $totalAmount = $frozenTotal;
+            }
 
             if (
                 $intentService

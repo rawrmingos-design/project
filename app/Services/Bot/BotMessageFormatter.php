@@ -287,7 +287,8 @@ class BotMessageFormatter
 
         $d = $data['data'];
         $base = number_format($d['base_amount'], 0, ',', '.');
-        $fee = number_format($d['payment_fee'], 0, ',', '.');
+        $feeAmount = (int) ($d['payment_fee'] ?? 0) + (int) ($d['gateway_fee'] ?? 0);
+        $fee = number_format($feeAmount, 0, ',', '.');
         $total = number_format($d['total_amount'], 0, ',', '.');
         $discount = number_format($d['discount'], 0, ',', '.');
         $backCallback = 'layanan ' . ($d['category_code'] ?? '');
