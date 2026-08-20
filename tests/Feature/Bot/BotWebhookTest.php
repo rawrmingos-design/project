@@ -1267,6 +1267,9 @@ class BotWebhookTest extends TestCase
         $this->assertSame('🧾 *Cek Pesanan*', strtok($confirmation['text'], "\n"));
         $this->assertSame('waiting_confirmation', $state['step']);
 
+        $backToPayment = $handler->handle('0', [], $context);
+        $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
+
         $invoiceResponse = $handler->handle(
             'konfirmasi',
             [$state['intent_token']],
