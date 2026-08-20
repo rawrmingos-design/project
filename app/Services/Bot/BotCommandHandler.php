@@ -909,6 +909,25 @@ class BotCommandHandler
             return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
         }
 
+        // Validate the destination before creating a checkout intent. This keeps
+        // invalid game accounts from reaching payment/invoice creation.
+        $checkResult = $this->checkId->check([
+            'category_code' => (string) ($category['code'] ?? $state['category_code'] ?? ''),
+            'service_id' => (int) $state['service_id'],
+            'uid' => $uid,
+            'zone' => $requiresZoneId ? $zone : null,
+        ]);
+
+        if (! ($checkResult['ok'] ?? false)) {
+            $failure = $this->formatter->formatCheckId($checkResult);
+            $failure['buttons'] = [[
+                ['text' => '❌ Batal', 'callback' => 'batal'],
+                ['text' => '🔙 Kembali', 'callback' => $backCallback],
+            ]];
+
+            return $failure;
+        }
+
         return $this->createCheckoutIntent([
             (string) $state['service_id'],
             (string) $state['payment_method'],
