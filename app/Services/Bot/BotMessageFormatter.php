@@ -347,6 +347,7 @@ class BotMessageFormatter
         );
         $zone = trim((string) ($payload['zone'] ?? ''));
         $target = $zone !== '' ? $uid . ' / ' . $zone : $uid;
+        $nickname = trim((string) ($payload['nickname'] ?? ''));
         $serviceName = $this->escapeMarkdown(
             (string) ($data['service_name'] ?? 'Produk'),
         );
@@ -372,6 +373,7 @@ class BotMessageFormatter
                 '',
                 '💎 ' . $serviceName,
                 '👤 `' . $this->escapeMarkdownCode($target) . '`',
+                ...($nickname !== '' ? ['🏷️ Nickname: ' . $this->escapeMarkdown($nickname)] : []),
                 '💳 ' . $methodName,
                 '',
                 '*Total      Rp ' . $total . '*',
