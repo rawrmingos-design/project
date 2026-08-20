@@ -939,7 +939,7 @@ class BotCommandHandler
             (string) $state['payment_method'],
             $uid,
             $requiresZoneId ? $zone : null,
-        ], $context);
+        ], $context, (string) ($checkResult['data']['nickname'] ?? ''));
     }
 
     /**
@@ -1381,6 +1381,7 @@ class BotCommandHandler
     private function createCheckoutIntent(
         array $args,
         array $context,
+        string $nickname = '',
     ): array {
         $messageId = trim(
             (string) ($context['message_id'] ?? ''),
@@ -1398,6 +1399,10 @@ class BotCommandHandler
             'uid' => $args[2],
             'zone' => $args[3] ?? null,
         ];
+
+        if ($nickname !== '') {
+            $payload['nickname'] = $nickname;
+        }
 
         foreach (['nomor', 'whatsapp', 'email'] as $contactField) {
             if (filled($context[$contactField] ?? null)) {
