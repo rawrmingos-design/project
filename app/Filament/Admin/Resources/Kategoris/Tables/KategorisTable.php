@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Kategoris\Tables;
 
 use App\Filament\Admin\Resources\Kategoris\KategoriResource;
 use App\Models\Kategori;
+use App\Services\PublicUploadUrlService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -38,8 +39,13 @@ class KategorisTable
 
                 ImageColumn::make('thumbnail')
                     ->label('Thumbnail')
-                    ->disk(config('uploads.disk', 'assets'))
-                    ->visibility('public')
+                    ->getStateUsing(function (Kategori $record): ?string {
+                        return app(PublicUploadUrlService::class)->url(
+                            $record->getRawOriginal('thumbnail') ?: $record->thumbnail,
+                            config('uploads.disk', 'assets'),
+                            config('uploads.placeholder'),
+                        );
+                    })
                     ->width(40)
                     ->height(40)
                     ->circular(),
