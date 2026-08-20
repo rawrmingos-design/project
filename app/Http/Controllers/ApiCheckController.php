@@ -167,7 +167,10 @@ class ApiCheckController extends Controller
 
         Cache::forget($cacheKey);
 
-        return ['status' => ['code' => 404, 'message' => $errorMessage]];
+        return [
+            'status' => ['code' => 404, 'message' => $errorMessage],
+            'unavailable' => ($result['unavailable'] ?? false) === true,
+        ];
     }
 
     /**
@@ -367,7 +370,7 @@ class ApiCheckController extends Controller
                 ]);
 
             if (! $response->successful()) {
-                return $this->failedResult('Self-hosted check ID API returned a non-200 response.');
+                return $this->failedResult('Self-hosted check ID API returned a non-200 response.', true);
             }
 
             return $this->normalizeSelfHostedResponse($response->json());
@@ -378,7 +381,7 @@ class ApiCheckController extends Controller
                 'game' => $slug,
             ]);
 
-            return $this->failedResult('Self-hosted check ID API request failed.');
+            return $this->failedResult('Self-hosted check ID API request failed.', true);
         }
     }
 
@@ -505,11 +508,12 @@ class ApiCheckController extends Controller
         ];
     }
 
-    private function failedResult(string $message): array
+    private function failedResult(string $message, bool $unavailable = false): array
     {
         return [
             'status'  => false,
             'message' => $message,
+            'unavailable' => $unavailable,
         ];
     }
 

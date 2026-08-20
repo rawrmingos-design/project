@@ -54,13 +54,18 @@ class GatewayCheckIdService
         $statusCode = (int) ($result['status']['code'] ?? 0);
         $nickname = (string) ($result['data']['username'] ?? '');
         $valid = $skipCheck ? null : ($statusCode === 200 && $nickname !== '');
+        $unavailable = ($result['unavailable'] ?? false) === true;
 
         return [
             'ok' => $skipCheck || $valid,
-            'error_code' => $skipCheck || $valid ? null : 'CHECK_ID_FAILED',
+            'error_code' => $skipCheck || $valid ? null : ($unavailable ? 'CHECK_ID_UNAVAILABLE' : 'CHECK_ID_FAILED'),
             'message' => $skipCheck
                 ? 'Produk ini tidak membutuhkan cek ID.'
-                : ($valid ? 'User ID valid.' : (string) ($result['status']['message'] ?? 'User ID tidak ditemukan.')),
+                : ($valid
+                    ? 'User ID valid.'
+                    : ($unavailable
+                        ? 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.'
+                        : 'User ID tidak ditemukan atau tidak valid.')),
             'data' => [
                 'skip_check' => $skipCheck,
                 'valid' => $valid,

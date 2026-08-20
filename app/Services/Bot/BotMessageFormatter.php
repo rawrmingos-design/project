@@ -409,7 +409,9 @@ class BotMessageFormatter
     {
         if (! ($data['ok'] ?? false)) {
             return [
-                'text' => "Gagal cek ID: " . ($data['message'] ?? 'Tidak ditemukan'),
+                'text' => ($data['error_code'] ?? '') === 'CHECK_ID_UNAVAILABLE'
+                    ? 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.'
+                    : "ID tidak valid: " . ($data['message'] ?? 'User ID tidak ditemukan atau tidak valid.'),
                 'buttons' => [],
             ];
         }
