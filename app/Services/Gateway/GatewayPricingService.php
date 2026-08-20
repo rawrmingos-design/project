@@ -2,6 +2,7 @@
 
 namespace App\Services\Gateway;
 
+use App\Http\Controllers\TriPayController;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
@@ -40,7 +41,13 @@ class GatewayPricingService
         $discount = $this->resolveVoucherDiscount($baseAmount, $payload);
         $amountAfterDiscount = max(0, $baseAmount - $discount);
         $feeAmount = $this->methodFee($amountAfterDiscount, $method);
-        $totalAmount = max(1000, $amountAfterDiscount + $feeAmount);
+        // Tripay menambah fee sisi customer di atas jumlah yang diterima merchant
+        // (lihat response create: amount_received = 1157, amount = 1916, fee_customer = 759).
+        // Kita hitung dua nilai: gateway_amount = yang dikirim ke Tripay (diterima merchant),
+        // total_amount = yang benar-benar dibayar customer (harus konsisten di semua tampilan).
+        $gatewayAmount = max(1000, $amountAfterDiscount + $feeAmount);
+        $gatewayCustomerFee = $this->gatewayCustomerFee($gatewayAmount, $method);
+        $totalAmount = $gatewayAmount + $gatewayCustomerFee;
 
         $limitMessage = $this->validateMethodLimit($totalAmount, $method);
         if ($limitMessage !== null) {
@@ -64,6 +71,8 @@ class GatewayPricingService
                 'discount' => $discount,
                 'amount_after_discount' => $amountAfterDiscount,
                 'payment_fee' => $feeAmount,
+                'gateway_fee' => $gatewayCustomerFee,
+                'gateway_amount' => $gatewayAmount,
                 'total_amount' => $totalAmount,
                 'payment_method' => [
                     'code' => (string) $method->code,
@@ -73,6 +82,20 @@ class GatewayPricingService
                 'flash_sale_applied' => $this->isFlashSaleActive($service),
             ],
         ];
+    }
+
+    private function gatewayCustomerFee(int $gatewayAmount, Method $method): int
+    {
+        if ((string) $method->payment !== 'tripay') {
+            return 0;
+        }
+
+        try {
+            return max(0, (int) app(TriPayController::class)->customerFee($gatewayAmount, (string) $method->code));
+        } catch (\Throwable) {
+            // Fee API gagal: fallback aman, quote tetap bisa ditampilkan.
+            return 0;
+        }
     }
 
     private function requiresZoneId(Kategori $category): bool
