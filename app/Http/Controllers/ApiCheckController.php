@@ -128,12 +128,15 @@ class ApiCheckController extends Controller
                 'selfhosted_response' => $selfHostedResult,
             ]);
 
+            $failedProvider = $selfHostedResult['message'] !== null
+                ? $selfHostedResult
+                : ($apiGamesResult['message'] !== null
+                    ? $apiGamesResult
+                    : ($velixsResult['message'] !== null ? $velixsResult : $primaryResult));
+
             return $this->failedResult(
-                $selfHostedResult['message']
-                    ?? $apiGamesResult['message']
-                    ?? $velixsResult['message']
-                    ?? $primaryResult['message']
-                    ?? 'User not found.'
+                $failedProvider['message'] ?? 'User not found.',
+                ($failedProvider['unavailable'] ?? false) === true,
             );
         });
 
@@ -168,8 +171,9 @@ class ApiCheckController extends Controller
         Cache::forget($cacheKey);
 
         return [
-            'status' => ['code' => 404, 'message' => $errorMessage],
+            'status'     => ['code' => 404, 'message' => $errorMessage],
             'unavailable' => ($result['unavailable'] ?? false) === true,
+            'message'     => $errorMessage,
         ];
     }
 
