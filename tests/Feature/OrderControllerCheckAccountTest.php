@@ -27,6 +27,7 @@ class OrderControllerCheckAccountTest extends TestCase
             $kategori = Kategori::factory()->create([
                 'kode' => $type . '-category',
                 'tipe' => $type,
+                'require_user_id' => true,
             ]);
 
             $result = app(CheckIdResolver::class)->resolveForCategory($kategori, 'CUSTOM_UID', null);
@@ -44,6 +45,7 @@ class OrderControllerCheckAccountTest extends TestCase
             $category = Kategori::factory()->create([
                 'kode' => $type . '-endpoint',
                 'tipe' => $type,
+                'require_user_id' => true,
             ]);
 
             $this->postJson('/ajax/check-account', [
@@ -64,6 +66,7 @@ class OrderControllerCheckAccountTest extends TestCase
             $category = Kategori::factory()->create([
                 'kode' => $type . '-endpoint',
                 'tipe' => $type,
+                'require_user_id' => true,
             ]);
 
             $this->postJson('/ajax/check-account', [
@@ -73,6 +76,25 @@ class OrderControllerCheckAccountTest extends TestCase
                 ->assertStatus(200)
                 ->assertJsonMissingPath('skip_check');
         }
+
+        Http::assertNothingSent();
+    }
+
+    public function test_check_account_skips_game_category_when_user_id_is_not_required(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'optional-user-id',
+            'tipe' => 'populer',
+            'require_user_id' => false,
+        ]);
+
+        $this->postJson('/ajax/check-account', [
+            'uid' => 'CUSTOM_UID',
+            'kategori_kode' => $category->kode,
+        ])
+            ->assertOk()
+            ->assertJsonPath('status.code', 204)
+            ->assertJsonPath('skip_check', true);
 
         Http::assertNothingSent();
     }
