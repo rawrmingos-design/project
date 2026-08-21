@@ -86,7 +86,7 @@ class InvoiceController extends Controller
         abort_if(! $data, 404);
 
         $layanan = Layanan::query()
-            ->with('kategori:id,nama,thumbnail')
+            ->with('kategori:id,nama,kode,thumbnail')
             ->where('layanan', $data->layanan)
             ->first();
 

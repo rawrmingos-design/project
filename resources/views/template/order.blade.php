@@ -729,7 +729,7 @@
                         @endphp
                         @if($kategori->field_2 !== null && $kategori->tipe !== 'vilogml')
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
-                                @if($kategori->require_user_id ?? true)
+                                @if(($kategori->require_user_id ?? true) || $kategori->kode === 'roblox-via-login')
                                     <div>
                                         <label for="user_id"
                                             class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
@@ -852,7 +852,7 @@
 
 
                         @else
-                            @if($kategori->require_user_id ?? true)
+                            @if(($kategori->require_user_id ?? true) || $kategori->kode === 'roblox-via-login')
                                 <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
                                     <div>
                                         <label for="user_id"
@@ -1706,7 +1706,7 @@
                         @endphp
                         @if($kategori->field_2 !== null && $kategori->tipe !== 'vilogml')
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
-                                @if($kategori->require_user_id ?? true)
+                                @if(($kategori->require_user_id ?? true) || $kategori->kode === 'roblox-via-login')
                                     <div>
                                         <label for="user_id"
                                             class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>
@@ -3283,7 +3283,7 @@
                         @endphp
                         @if($kategori->field_2 !== null && $kategori->tipe !== 'vilogml')
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
-                                @if($kategori->require_user_id ?? true)
+                                @if(($kategori->require_user_id ?? true) || $kategori->kode === 'roblox-via-login')
                                     <div>
                                         <label for="user_id"
                                             class="block text-xs font-medium text-white pb-2">{{ $field1Values[0] }}</label>

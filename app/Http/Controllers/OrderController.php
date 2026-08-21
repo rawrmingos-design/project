@@ -617,6 +617,17 @@ class OrderController extends Controller
             'idempotency_key' => 'nullable|string|max:120',
         ];
 
+        $serviceCategoryCode = Layanan::query()
+            ->join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
+            ->where('layanans.id', $request->service)
+            ->value('kategoris.kode');
+        $isRobloxViaLogin = $serviceCategoryCode === 'roblox-via-login';
+
+        if ($isRobloxViaLogin) {
+            $rules['uid'] = 'required|string|max:255';
+            $rules['zone'] = 'required|string|max:255';
+        }
+
         $isJokiGendong = $request->ktg_tipe === 'jokigendong';
         $isJokiMode = in_array($request->ktg_tipe, ['joki', 'vilogml'], true);
 
