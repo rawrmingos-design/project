@@ -21,7 +21,14 @@ class EditMediaAsset extends EditRecord
                 ->color('danger')
                 ->requiresConfirmation()
                 ->modalHeading('Hapus file permanen?')
-                ->modalDescription('File Manager akan menghapus record database dan file fisik dari disk server jika file berada di folder asset yang dikelola. Optimized image variants juga ikut dihapus. Jika asset masih dipakai produk/kategori/banner, tampilan terkait bisa broken. Action ini tidak bisa di-undo.')
+                ->modalDescription(function (): string {
+                    $references = app(MediaAssetDeletionService::class)->references($this->record);
+                    $usage = collect($references)->pluck('label')->implode("\n- ");
+
+                    return $usage !== ''
+                        ? "PERINGATAN: file ini masih dipakai oleh:\n- {$usage}\n\nSetelah dikonfirmasi, referensi tersebut akan dikosongkan, lalu file dan variants dihapus. Action ini tidak bisa di-undo."
+                        : 'File ini tidak sedang dipakai oleh kategori, produk, banner, atau konfigurasi yang terdeteksi. Setelah dikonfirmasi, file dan variants dihapus permanen. Action ini tidak bisa di-undo.';
+                })
                 ->modalSubmitActionLabel('Ya, hapus permanen')
                 ->action(function (MediaAssetDeletionService $deletionService): void {
                     $result = $deletionService->delete($this->record);

@@ -196,7 +196,7 @@ class MediaAssetsTable
                         ->color('danger')
                         ->requiresConfirmation()
                         ->modalHeading('Hapus file permanen?')
-                        ->modalDescription('File Manager akan menghapus record database dan file fisik dari disk server jika file berada di folder asset yang dikelola. Optimized image variants juga ikut dihapus. Jika asset masih dipakai produk/kategori/banner, tampilan terkait bisa broken. Action ini tidak bisa di-undo.')
+                        ->modalDescription('File yang dipilih akan dihapus permanen. Jika masih dipakai kategori, produk, banner, atau konfigurasi, referensinya ikut dikosongkan sebelum file dihapus. Periksa pemakaian tiap file pada halaman edit sebelum melanjutkan. Action ini tidak bisa di-undo.')
                         ->modalSubmitActionLabel('Ya, hapus permanen')
                         ->action(function ($records, MediaAssetDeletionService $deletionService): void {
                             $summary = [
@@ -204,6 +204,7 @@ class MediaAssetsTable
                                 'files_deleted' => 0,
                                 'files_skipped' => 0,
                                 'variants_deleted' => 0,
+                                'references_cleared' => 0,
                             ];
 
                             foreach ($records as $record) {
@@ -213,11 +214,12 @@ class MediaAssetsTable
                                 $summary['files_deleted'] += $result['file_deleted'] ? 1 : 0;
                                 $summary['files_skipped'] += $result['file_skipped'] ? 1 : 0;
                                 $summary['variants_deleted'] += count($result['variants_deleted'] ?? []);
+                                $summary['references_cleared'] += (int) ($result['references_cleared'] ?? 0);
                             }
 
                             Notification::make()
                                 ->title('File berhasil dihapus permanen')
-                                ->body("Records: {$summary['records']}, files deleted: {$summary['files_deleted']}, files skipped: {$summary['files_skipped']}, variants deleted: {$summary['variants_deleted']}")
+                                ->body("Records: {$summary['records']}, references cleared: {$summary['references_cleared']}, files deleted: {$summary['files_deleted']}, files skipped: {$summary['files_skipped']}, variants deleted: {$summary['variants_deleted']}")
                                 ->success()
                                 ->send();
                         })

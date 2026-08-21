@@ -3,21 +3,99 @@
 namespace App\Services;
 
 use App\Models\MediaAsset;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaAssetDeletionService
 {
     /**
-     * Delete a MediaAsset record and, when safe, its physical public file.
+     * Return legacy database references that point to this asset path.
+     *
+     * @return array<int, array{table:string,column:string,id:int,label:string}>
+     */
+    public function references(MediaAsset $asset): array
+    {
+        $path = ltrim((string) $asset->resolveRelativePath(), '/');
+        if ($path === '') {
+            return [];
+        }
+
+        $targets = [
+            ['table' => 'kategoris', 'column' => 'thumbnail', 'label' => 'Kategori thumbnail', 'name' => 'nama'],
+            ['table' => 'kategoris', 'column' => 'banner', 'label' => 'Kategori banner', 'name' => 'nama'],
+            ['table' => 'layanans', 'column' => 'product_logo', 'label' => 'Produk logo', 'name' => 'layanan'],
+            ['table' => 'paket_layanans', 'column' => 'product_logo', 'label' => 'Paket produk logo', 'name' => 'layanan_id'],
+            ['table' => 'artikels', 'column' => 'thumbnail', 'label' => 'Artikel thumbnail', 'name' => 'title'],
+            ['table' => 'beritas', 'column' => 'path', 'label' => 'Banner/berita', 'name' => 'judul'],
+            ['table' => 'methods', 'column' => 'images', 'label' => 'Metode pembayaran', 'name' => 'name'],
+            ['table' => 'setting_webs', 'column' => 'logo_favicon', 'label' => 'Logo favicon', 'name' => 'judul_web'],
+            ['table' => 'setting_webs', 'column' => 'logo_header', 'label' => 'Logo header', 'name' => 'judul_web'],
+            ['table' => 'setting_webs', 'column' => 'logo_footer', 'label' => 'Logo footer', 'name' => 'judul_web'],
+        ];
+
+        $references = [];
+        foreach ($targets as $target) {
+            if (! DB::getSchemaBuilder()->hasTable($target['table'])) {
+                continue;
+            }
+
+            $rows = DB::table($target['table'])
+                ->select('id', $target['name'])
+                ->where($target['column'], ltrim($path, '/'))
+                ->orWhere($target['column'], '/' . ltrim($path, '/'))
+                ->get();
+
+            foreach ($rows as $row) {
+                $references[] = [
+                    'table' => $target['table'],
+                    'column' => $target['column'],
+                    'id' => (int) $row->id,
+                    'label' => $target['label'] . ': ' . (string) ($row->{$target['name']} ?? $row->id),
+                ];
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * Clear legacy references before deleting the physical asset.
+     */
+    public function clearReferences(MediaAsset $asset): int
+    {
+        $path = ltrim((string) $asset->resolveRelativePath(), '/');
+        if ($path === '') {
+            return 0;
+        }
+
+        $cleared = 0;
+        foreach ($this->references($asset) as $reference) {
+            $cleared += DB::table($reference['table'])
+                ->where('id', $reference['id'])
+                ->where(function ($query) use ($reference, $path): void {
+                    $query->where($reference['column'], $path)
+                        ->orWhere($reference['column'], '/' . $path);
+                })
+                ->update([$reference['column'] => null]);
+        }
+
+        return $cleared;
+    }
+
+    /**
+     * Delete a MediaAsset record and its physical public file.
      */
     public function delete(MediaAsset $asset): array
     {
         $absolutePath = $asset->resolveAbsolutePath();
         $relativePath = $asset->resolveRelativePath();
+        $references = $this->references($asset);
 
         $result = [
             'asset_deleted' => false,
+            'references_found' => $references,
+            'references_cleared' => 0,
             'file_deleted' => false,
             'file_skipped' => false,
             'file_path' => $relativePath,
@@ -25,6 +103,8 @@ class MediaAssetDeletionService
             'variants_deleted' => [],
             'variants_skipped' => [],
         ];
+
+        $result['references_cleared'] = $this->clearReferences($asset);
 
         if ($absolutePath && $this->isDeletablePublicFile($absolutePath, $asset)) {
             $variantResult = app(OptimizedImageService::class)->deleteVariants($relativePath);
