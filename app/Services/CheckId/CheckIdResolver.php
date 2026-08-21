@@ -213,7 +213,8 @@ class CheckIdResolver
         $categoryCode = $this->normalizeCode($resolvedCategory?->kode ?? (string) $category);
         $categoryType = strtolower(trim((string) ($resolvedCategory?->tipe ?? 'game')));
 
-        if (! in_array($categoryType, ['game', 'populer'], true)) {
+        if (! in_array($categoryType, ['game', 'populer'], true)
+            || ($resolvedCategory !== null && ! (bool) $resolvedCategory->require_user_id)) {
             return [
                 'status' => ['code' => 204, 'message' => 'Account validation skipped'],
                 'skip_check' => true,

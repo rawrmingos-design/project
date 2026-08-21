@@ -751,7 +751,8 @@ $(document).ready(function () {
     }
 
     function canCheckAccount(kategoriTipe) {
-        return ["game", "populer"].includes(kategoriTipe);
+        return ["game", "populer"].includes(kategoriTipe)
+            && window.requireUserId !== false;
     }
 
     $("#user_id, #zone").on("blur keyup", function () {
