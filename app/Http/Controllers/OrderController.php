@@ -1422,7 +1422,7 @@ class OrderController extends Controller
             'service' => 'nullable|integer',
         ]);
 
-        $kategori = Kategori::select('id', 'kode', 'tipe')
+        $kategori = Kategori::select('id', 'kode', 'tipe', 'require_user_id')
             ->where('kode', $request->kategori_kode)
             ->first();
 
