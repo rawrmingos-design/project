@@ -4800,6 +4800,7 @@
     <script>
         window.csrfToken = "{{ csrf_token() }}";
         window.kategoriKode = "{{ $kategori->kode }}";
+        window.requireUserId = @json((bool) ($kategori->require_user_id ?? true));
         window.routes = {
             confirmationPrice: "{{ route('ajax.price') }}",
             confirmationUrl: "{{ route('ajax.confirmation') }}",
