@@ -766,6 +766,28 @@
                                 @endif
                             </div>
 
+                        @elseif($kategori->tipe === 'vilogml')
+                            <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
+                                <div>
+                                    <label for="email_joki" class="block text-xs font-medium text-white pb-2">Username Roblox</label>
+                                    <div class="flex flex-col items-start">
+                                        <input
+                                            class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent"
+                                            type="text" id="email_joki" name="email_joki" placeholder="Ketikan Username Roblox"
+                                            required />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="password_joki" class="block text-xs font-medium text-white pb-2">Password Roblox</label>
+                                    <div class="flex flex-col items-start">
+                                        <input
+                                            class="PhoneInputInput relative block w-full appearance-none rounded-md border-0 bg-murky-200 px-3 py-2 text-xs text-murky-800 placeholder-murky-800 focus:z-10 focus:border-transparent focus:outline-none focus:ring-transparent"
+                                            type="password" id="password_joki" name="password_joki" placeholder="Ketikan Password Roblox"
+                                            required />
+                                    </div>
+                                </div>
+                            </div>
+
                         @elseif(in_array($kategori->tipe, ['joki']))
                             <div class="grid grid-cols-2 gap-4 p-4 sm:px-6 sm:pb-4">
                                 <div>
