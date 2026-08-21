@@ -22,12 +22,13 @@ class ApplicationSubmissionTest extends TestCase
         parent::setUp();
 
         $this->disableCaptchaForTests();
+        config(['reseller_documents.public_directory' => 'assets/reseller-documents-testing/' . env('TEST_TOKEN', 'single')]);
     }
 
     protected function tearDown(): void
     {
         foreach ($this->createdUserIds as $userId) {
-            $directory = public_path("assets/reseller-documents/{$userId}");
+            $directory = public_path('assets/reseller-documents-testing/' . env('TEST_TOKEN', 'single') . "/{$userId}");
 
             if (File::isDirectory($directory)) {
                 File::deleteDirectory($directory);
