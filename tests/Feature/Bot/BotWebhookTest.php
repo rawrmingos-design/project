@@ -582,7 +582,7 @@ class BotWebhookTest extends TestCase
                 'no_pembeli' => $sender,
                 'status' => 'Lunas',
                 'metode' => 'qris',
-                'jumlah' => 10000,
+                'harga' => 10000,
                 'unique_code' => 0,
             ]);
         }
