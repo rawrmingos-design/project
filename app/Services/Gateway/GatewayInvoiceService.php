@@ -158,6 +158,37 @@ class GatewayInvoiceService
             ->get();
     }
 
+    /**
+     * Order terakhir milik sender tanpa filter status (semua status).
+     * Dipakai handler `status` tanpa argumen ketika tidak ada order
+     * aktif: user tetap melihat riwayat singkat miliknya.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Pembelian>
+     */
+    public function recentOrdersForSender(string $source, string $externalUserId, int $limit = 5): \Illuminate\Database\Eloquent\Collection
+    {
+        $source = $this->normalizeSource($source);
+        $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+        $senderDigits = preg_replace('/\D+/', '', $externalUserId);
+
+        if ($senderDigits === '') {
+            return new \Illuminate\Database\Eloquent\Collection();
+        }
+
+        return Pembelian::query()
+            ->with('pembayaran')
+            ->where('traffic_source', $source)
+            ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
+                $query->where('no_pembeli', $senderDigits);
+            })
+            ->when($this->tenantContext->id() !== null, function (Builder $query): void {
+                $query->where('tenant_id', $this->tenantContext->id());
+            })
+            ->latest('created_at')
+            ->limit($limit)
+            ->get();
+    }
+
     private function authorizeStatusLookup(Pembelian $order, ?User $user, array $context): void
     {
         if ($user) {
