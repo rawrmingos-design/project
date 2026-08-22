@@ -543,9 +543,11 @@ class BotMessageFormatter
             ];
 
             if ($isComplete) {
-                $lines[] = 'Pesanan sudah masuk ke akun kamu 🎉';
+                $lines[] = 'Pesanan sudah berhasil diproses dan masuk ke akun kamu 🎉';
             } else {
-                $lines[] = 'Pesanan kamu sedang diproses.';
+                $lines[] = 'Pesanan kamu sudah diterima dan sedang diproses.';
+                $lines[] = '';
+                $lines[] = 'Kami akan mengirimkan notifikasi setelah top up selesai.';
             }
 
             $lines[] = '';
@@ -557,6 +559,13 @@ class BotMessageFormatter
 
             $lines[] = '';
             $lines[] = '🧾 `' . $this->escapeMarkdownCode((string) ($d['order_id'] ?? '')) . '`';
+
+            if ($isComplete) {
+                $storeName = trim((string) config('app.name', 'Store')) ?: 'Store';
+                $lines[] = '';
+                $lines[] = 'Terima kasih sudah berbelanja di *' . $this->escapeMarkdown($storeName) . '*.';
+                $lines[] = 'Butuh produk lain? Cek katalog kami kapan saja.';
+            }
 
             return [
                 'text' => implode("\n", $lines),

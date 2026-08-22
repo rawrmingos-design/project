@@ -1028,12 +1028,14 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("✅ *Pembayaran Berhasil*\n\nPesanan kamu sedang diproses.\n\n💎 Mobile \\*Legends\\*\n👤 Player\n\n🧾 `INV_[123]`", $response['text']);
+        $this->assertSame("✅ *Pembayaran Berhasil*\n\nPesanan kamu sudah diterima dan sedang diproses.\n\nKami akan mengirimkan notifikasi setelah top up selesai.\n\n💎 Mobile \\*Legends\\*\n👤 Player\n\n🧾 `INV_[123]`", $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
     public function test_telegram_status_renders_success_order_with_top_up_berhasil_title(): void
     {
+        config(['app.name' => 'Z_Vault *Store*']);
+
         $response = app(BotMessageFormatter::class)->formatStatus([
             'ok' => true,
             'data' => [
@@ -1047,7 +1049,7 @@ class BotWebhookTest extends TestCase
             ],
         ]);
 
-        $this->assertSame("✅ *Top Up Berhasil!*\n\nPesanan sudah masuk ke akun kamu 🎉\n\n💎 Mobile Legends\n👤 Player\n🔑 SN: `SN-123456789`\n\n🧾 `INV-456`", $response['text']);
+        $this->assertSame("✅ *Top Up Berhasil!*\n\nPesanan sudah berhasil diproses dan masuk ke akun kamu 🎉\n\n💎 Mobile Legends\n👤 Player\n🔑 SN: `SN-123456789`\n\n🧾 `INV-456`\n\nTerima kasih sudah berbelanja di *Z\\_Vault \\*Store\\**.\nButuh produk lain? Cek katalog kami kapan saja.", $response['text']);
         $this->assertSame('🔙 Kembali ke Menu', $response['buttons'][0][0]['text']);
     }
 
