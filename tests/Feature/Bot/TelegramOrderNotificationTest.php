@@ -64,10 +64,17 @@ class TelegramOrderNotificationTest extends TestCase
             'judul_web' => 'Test Store',
             'deskripsi_web' => 'Test description',
             'keywords' => 'topup,test',
+            'url_wa' => 'https://wa.me/628123456789',
+            'url_ig' => 'https://instagram.com/test',
+            'url_tiktok' => 'https://tiktok.com/@test',
+            'url_youtube' => 'https://youtube.com/@test',
+            'url_fb' => 'https://facebook.com/test',
+            'topupindo_api' => 'dummy-api',
             'warna1' => '#123456',
             'warna2' => '#222222',
             'warna3' => '#333333',
             'warna4' => '#654321',
+            'paydisini_apikey' => 'dummy-paydisini',
             'order_prefik' => 'INV',
         ], $overrides));
     }
