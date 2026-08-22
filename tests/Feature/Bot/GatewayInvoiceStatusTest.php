@@ -182,7 +182,10 @@ class GatewayInvoiceStatusTest extends TestCase
             'order_id' => 'TG-LEGACY-001',
             'gateway_principal' => '',
         ]);
-        $legacy->update(['gateway_principal' => null]);
+        $legacy->update([
+            'gateway_principal' => null,
+            'email_pembeli' => '98765@telegram.user',
+        ]);
 
         $service = app(GatewayInvoiceService::class);
         $recent = $service->recentOrdersForSender('telegram_gateway', 'telegram:98765');
