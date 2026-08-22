@@ -42,13 +42,16 @@ class BotWebhookTest extends TestCase
         // Seed setting_webs so AppServiceProvider DB override sets order flags correctly.
         // Without this, AppServiceProvider reads bot_order_tg_enabled=false from DB
         // during HTTP requests, overriding the config() calls above.
-        \Illuminate\Support\Facades\DB::table('setting_webs')->insertOrIgnore([
-            'id' => 1,
-            'judul_web' => 'Test Store',
-            'nomor_admin' => '628123456789',
-            'bot_order_tg_enabled' => 1,
-            'bot_order_wa_enabled' => 1,
-        ]);
+        \Illuminate\Support\Facades\DB::table('setting_webs')->updateOrInsert(
+            ['id' => 1],
+            [
+                'judul_web' => 'Test Store',
+                'nomor_admin' => '628123456789',
+                'bot_order_tg_enabled' => 1,
+                'bot_order_wa_enabled' => 1,
+            ],
+        );
+        config(['app.name' => 'Test Store']);
 
         // Mock inbound source policies to allow local requests
         InboundSourcePolicy::query()->create([
