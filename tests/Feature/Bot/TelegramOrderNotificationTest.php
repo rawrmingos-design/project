@@ -53,10 +53,29 @@ class TelegramOrderNotificationTest extends TestCase
         return $order;
     }
 
+    /**
+     * Fixture SettingWeb dengan semua kolom NOT NULL yang wajib
+     * (judul_web, deskripsi_web, keywords, warna1-4, order_prefik).
+     */
+    private function createSetting(array $overrides = []): SettingWeb
+    {
+        return SettingWeb::query()->create(array_merge([
+            'id' => 1,
+            'judul_web' => 'Test Store',
+            'deskripsi_web' => 'Test description',
+            'keywords' => 'topup,test',
+            'warna1' => '#123456',
+            'warna2' => '#222222',
+            'warna3' => '#333333',
+            'warna4' => '#654321',
+            'order_prefik' => 'INV',
+        ], $overrides));
+    }
+
     public function test_telegram_order_sends_proactive_notification_on_success(): void
     {
         config(['services.telegram-bot-api.token' => null]);
-        SettingWeb::query()->create(['judul_web' => 'Test Store', 'deskripsi_web' => 'Test description', 'telegram_bot_token' => 'TEST-TG-TOKEN']);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
 
         Cache::flush();
         Http::fake([
@@ -87,7 +106,7 @@ class TelegramOrderNotificationTest extends TestCase
     public function test_whatsapp_orders_do_not_hit_telegram_api(): void
     {
         config(['services.telegram-bot-api.token' => null]);
-        SettingWeb::query()->create(['judul_web' => 'Test Store', 'deskripsi_web' => 'Test description', 'telegram_bot_token' => 'TEST-TG-TOKEN']);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
 
         Cache::flush();
         Http::fake();
@@ -131,7 +150,7 @@ class TelegramOrderNotificationTest extends TestCase
     public function test_notification_skipped_when_telegram_token_missing(): void
     {
         config(['services.telegram-bot-api.token' => null]);
-        SettingWeb::query()->create(['judul_web' => 'Test Store', 'deskripsi_web' => 'Test description', 'telegram_bot_token' => null]);
+        $this->createSetting(['telegram_bot_token' => null]);
 
         Cache::flush();
         Http::fake();
@@ -151,7 +170,7 @@ class TelegramOrderNotificationTest extends TestCase
     public function test_non_lunas_payment_is_not_notified(): void
     {
         config(['services.telegram-bot-api.token' => null]);
-        SettingWeb::query()->create(['judul_web' => 'Test Store', 'deskripsi_web' => 'Test description', 'telegram_bot_token' => 'TEST-TG-TOKEN']);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
 
         Cache::flush();
         Http::fake();
