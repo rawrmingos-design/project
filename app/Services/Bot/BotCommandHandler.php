@@ -1557,12 +1557,15 @@ class BotCommandHandler
 
         if (count($args) >= 1) {
             $orderId = trim((string) $args[0]);
-        } elseif (($context['source'] ?? null) === 'whatsapp_gateway') {
-            // `status` tanpa order ID → cek order terakhir sender
-            $orders = $this->invoice->activeOrdersForSender(
-                (string) $context['source'],
-                (string) ($context['external_user_id'] ?? ''),
-            );
+        } elseif (
+            ($context['source'] ?? null) === 'whatsapp_gateway'
+            || ($context['source'] ?? null) === 'telegram_gateway'
+        ) {
+            // `status` tanpa order ID → cek order milik sender.
+            $source = (string) $context['source'];
+            $externalUserId = (string) ($context['external_user_id'] ?? '');
+
+            $orders = $this->invoice->activeOrdersForSender($source, $externalUserId);
 
             if ($orders->count() > 1) {
                 return $this->formatter->formatActiveOrders(
@@ -1581,7 +1584,7 @@ class BotCommandHandler
             }
         }
 
-        if ($orderId === '' && ($context['source'] ?? null) === 'whatsapp_gateway') {
+        if ($orderId === '' && in_array(($context['source'] ?? null), ['whatsapp_gateway', 'telegram_gateway'], true)) {
             // Tidak ada order aktif: tampilkan ringkasan N order
             // terakhir milik sender (semua status) supaya user tidak
             // perlu hafal order ID untuk melihat statusnya.
