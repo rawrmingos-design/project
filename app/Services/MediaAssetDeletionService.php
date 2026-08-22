@@ -27,7 +27,9 @@ class MediaAssetDeletionService
             ['table' => 'layanans', 'column' => 'product_logo', 'label' => 'Produk logo', 'name' => 'layanan'],
             ['table' => 'paket_layanans', 'column' => 'product_logo', 'label' => 'Paket produk logo', 'name' => 'layanan_id'],
             ['table' => 'artikels', 'column' => 'thumbnail', 'label' => 'Artikel thumbnail', 'name' => 'title'],
-            ['table' => 'beritas', 'column' => 'path', 'label' => 'Banner/berita', 'name' => 'judul'],
+            // Skema beritas beda antar-deployment (istanatopup punya judul,
+            // egymarket tidak). Fallback ke tipe kalau judul tidak ada.
+            ['table' => 'beritas', 'column' => 'path', 'label' => 'Banner/berita', 'name' => 'judul', 'fallback_name' => 'tipe'],
             ['table' => 'methods', 'column' => 'images', 'label' => 'Metode pembayaran', 'name' => 'name'],
             ['table' => 'setting_webs', 'column' => 'logo_favicon', 'label' => 'Logo favicon', 'name' => 'judul_web'],
             ['table' => 'setting_webs', 'column' => 'logo_header', 'label' => 'Logo header', 'name' => 'judul_web'],
@@ -36,12 +38,22 @@ class MediaAssetDeletionService
 
         $references = [];
         foreach ($targets as $target) {
-            if (! DB::getSchemaBuilder()->hasTable($target['table'])) {
+            $schema = DB::getSchemaBuilder();
+            if (! $schema->hasTable($target['table']) || ! $schema->hasColumn($target['table'], $target['column'])) {
                 continue;
             }
 
-            $rows = DB::table($target['table'])
-                ->select('id', $target['name'])
+            $nameColumn = $schema->hasColumn($target['table'], $target['name'])
+                ? $target['name']
+                : ($target['fallback_name'] ?? null);
+
+            if ($nameColumn === null || ! $schema->hasColumn($target['table'], $nameColumn)) {
+                $rows = DB::table($target['table'])->select('id');
+            } else {
+                $rows = DB::table($target['table'])->select('id', $nameColumn);
+            }
+
+            $rows = $rows
                 ->where($target['column'], ltrim($path, '/'))
                 ->orWhere($target['column'], '/' . ltrim($path, '/'))
                 ->get();
@@ -51,7 +63,7 @@ class MediaAssetDeletionService
                     'table' => $target['table'],
                     'column' => $target['column'],
                     'id' => (int) $row->id,
-                    'label' => $target['label'] . ': ' . (string) ($row->{$target['name']} ?? $row->id),
+                    'label' => $target['label'] . ': ' . (string) ($row->{$nameColumn} ?? $row->id),
                 ];
             }
         }

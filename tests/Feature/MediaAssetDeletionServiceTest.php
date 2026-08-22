@@ -159,20 +159,38 @@ class MediaAssetDeletionServiceTest extends TestCase
                 'updated_at' => now(),
             ]);
 
+            // Berita memakai asset sebagai banner — skema beritas TIDAK
+            // punya kolom judul (egymarket), label harus fallback ke tipe
+            // dan query tidak boleh 42S22 Unknown column.
+            $beritaId = DB::table('beritas')->insertGetId([
+                'path' => '/' . $relativePath,
+                'tipe' => 'banner_game',
+                'deskripsi' => 'Banner promo',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             $result = app(MediaAssetDeletionService::class)->delete($asset);
 
             // Referensi ditemukan dan dikosongkan sebelum file dihapus.
             $this->assertTrue($result['asset_deleted']);
             $this->assertTrue($result['file_deleted']);
-            $this->assertSame(3, $result['references_cleared']);
+            $this->assertSame(4, $result['references_cleared']);
 
             $foundTables = collect($result['references_found'])->pluck('table')->all();
             $this->assertContains('kategoris', $foundTables);
             $this->assertContains('layanans', $foundTables);
+            $this->assertContains('beritas', $foundTables);
+
+            // Label berita fallback ke tipe karena kolom judul tidak ada.
+            $beritaLabel = collect($result['references_found'])
+                ->firstWhere('table', 'beritas')['label'] ?? '';
+            $this->assertStringContainsString('banner_game', $beritaLabel);
 
             $this->assertNull(DB::table('kategoris')->where('id', $kategoriId)->value('thumbnail'));
             $this->assertNull(DB::table('kategoris')->where('id', $kategoriId)->value('banner'));
             $this->assertNull(DB::table('layanans')->where('id', $layananId)->value('product_logo'));
+            $this->assertNull(DB::table('beritas')->where('id', $beritaId)->value('path'));
 
             // Row lain tidak boleh ikut dikosongkan.
             $this->assertSame(
