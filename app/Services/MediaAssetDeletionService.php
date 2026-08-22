@@ -61,8 +61,14 @@ class MediaAssetDeletionService
 
     /**
      * Clear legacy references before deleting the physical asset.
+     *
+     * $references opsional: snapshot hasil references() yang sama
+     * dipakai ulang supaya tidak ada jeda baca kedua (TOCTOU) antara
+     * daftar referensi dan proses pengosongannya. Update tetap
+     * di-guard where(column = path) sehingga snapshot basi tidak
+     * pernah mengosongkan kolom yang sudah tidak menunjuk asset ini.
      */
-    public function clearReferences(MediaAsset $asset): int
+    public function clearReferences(MediaAsset $asset, ?array $references = null): int
     {
         $path = ltrim((string) $asset->resolveRelativePath(), '/');
         if ($path === '') {
@@ -70,7 +76,7 @@ class MediaAssetDeletionService
         }
 
         $cleared = 0;
-        foreach ($this->references($asset) as $reference) {
+        foreach ($references ?? $this->references($asset) as $reference) {
             $cleared += DB::table($reference['table'])
                 ->where('id', $reference['id'])
                 ->where(function ($query) use ($reference, $path): void {
@@ -85,11 +91,18 @@ class MediaAssetDeletionService
 
     /**
      * Delete a MediaAsset record and its physical public file.
+     *
+     * Referensi legacy dihitung SEKALI lalu dipakai ulang, dan
+     * pengosongan referensi + penghapusan record dibungkus transaksi
+     * supaya konsisten (file fisik tetap dihapus setelah commit).
      */
     public function delete(MediaAsset $asset): array
     {
         $absolutePath = $asset->resolveAbsolutePath();
         $relativePath = $asset->resolveRelativePath();
+
+        // Satu snapshot referensi untuk semua langkah — tidak ada
+        // pembacaan kedua yang bisa melihat data berubah (TOCTOU).
         $references = $this->references($asset);
 
         $result = [
@@ -104,7 +117,17 @@ class MediaAssetDeletionService
             'variants_skipped' => [],
         ];
 
-        $result['references_cleared'] = $this->clearReferences($asset);
+        DB::transaction(function () use ($asset, $references, &$result): void {
+            $result['references_cleared'] = $this->clearReferences($asset, $references);
+
+            foreach ($asset->media as $media) {
+                $media->delete();
+                $result['media_deleted']++;
+            }
+
+            $asset->delete();
+        });
+        $result['asset_deleted'] = true;
 
         if ($absolutePath && $this->isDeletablePublicFile($absolutePath, $asset)) {
             $variantResult = app(OptimizedImageService::class)->deleteVariants($relativePath);
@@ -119,14 +142,6 @@ class MediaAssetDeletionService
         } elseif ($absolutePath) {
             $result['file_skipped'] = true;
         }
-
-        foreach ($asset->media as $media) {
-            $media->delete();
-            $result['media_deleted']++;
-        }
-
-        $asset->delete();
-        $result['asset_deleted'] = true;
 
         return $result;
     }
