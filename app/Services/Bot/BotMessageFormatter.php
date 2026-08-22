@@ -612,10 +612,10 @@ class BotMessageFormatter
     /**
      * @param iterable<int, array{order_id: string, product: string, amount: int, payment_status: string, order_status: string}> $orders
      */
-    public function formatActiveOrders(iterable $orders): array
+    public function formatActiveOrders(iterable $orders, string $title = '📦 *Pesanan Aktif*'): array
     {
         $lines = [
-            '📦 *Pesanan Aktif*',
+            $title,
             '',
         ];
         $number = 1;
@@ -623,12 +623,21 @@ class BotMessageFormatter
         foreach ($orders as $order) {
             $paymentStatus = strtolower(trim((string) ($order['payment_status'] ?? '')));
             $orderStatus = strtolower(trim((string) ($order['order_status'] ?? '')));
-            $paymentLabel = $paymentStatus === 'lunas'
-                ? 'Lunas'
-                : 'Menunggu Pembayaran';
-            $orderLabel = in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai'], true)
-                ? 'Diproses'
-                : 'Diproses';
+
+            $paymentLabel = match (true) {
+                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) => 'Lunas',
+                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) => 'Expired',
+                default => 'Menunggu Pembayaran',
+            };
+
+            // Daftar recent memuat semua status, jadi label harus
+            // menggambarkan status asli — bukan selalu "Diproses".
+            $orderLabel = match (true) {
+                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) => 'Sukses',
+                in_array($orderStatus, ['gagal', 'failed'], true) => 'Gagal',
+                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) => 'Expired',
+                default => 'Diproses',
+            };
 
             $lines[] = $number . '. `' . $this->escapeMarkdownCode((string) ($order['order_id'] ?? '')) . '`';
             $lines[] = '   💎 ' . $this->escapeMarkdown((string) ($order['product'] ?? 'Produk'))

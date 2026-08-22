@@ -1602,6 +1602,7 @@ class BotCommandHandler
                         'payment_status' => (string) ($order->pembayaran?->status ?? ''),
                         'order_status' => (string) $order->status,
                     ]),
+                    '📦 *Pesanan Terakhirmu*',
                 );
             }
         }
