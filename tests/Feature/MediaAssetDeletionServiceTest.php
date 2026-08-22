@@ -170,6 +170,19 @@ class MediaAssetDeletionServiceTest extends TestCase
                 'updated_at' => now(),
             ]);
 
+            // Metode pembayaran memakai asset juga — kolom images NOT NULL
+            // (skema legacy), harus dikosongkan ke '' bukan NULL.
+            $metodeId = DB::table('methods')->insertGetId([
+                'name' => 'QRIS Test',
+                'images' => '/' . $relativePath,
+                'code' => 'QRIS-TEST',
+                'keterangan' => 'Metode test',
+                'tipe' => 'qris',
+                'payment' => 'qris',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
             $result = app(MediaAssetDeletionService::class)->delete($asset);
 
             // Referensi ditemukan dan dikosongkan sebelum file dihapus.
@@ -191,6 +204,11 @@ class MediaAssetDeletionServiceTest extends TestCase
             $this->assertNull(DB::table('kategoris')->where('id', $kategoriId)->value('banner'));
             $this->assertNull(DB::table('layanans')->where('id', $layananId)->value('product_logo'));
             $this->assertNull(DB::table('beritas')->where('id', $beritaId)->value('path'));
+
+            // Kolom NOT NULL dikosongkan ke '' (bukan NULL) supaya lolos
+            // constraint skema legacy egymarket/istanatopup.
+            $this->assertSame('', DB::table('methods')->where('id', $metodeId)->value('images'));
+            $this->assertSame(5, $result['references_cleared']);
 
             // Row lain tidak boleh ikut dikosongkan.
             $this->assertSame(

@@ -88,14 +88,23 @@ class MediaAssetDeletionService
         }
 
         $cleared = 0;
+        $schema = DB::getSchemaBuilder();
         foreach ($references ?? $this->references($asset) as $reference) {
+            // Legacy deployments differ: some image columns are NOT NULL
+            // (e.g. egymarket.kategoris.thumbnail and methods.images).
+            // Empty string is the safe cleared value for those schemas;
+            // nullable columns keep using NULL.
+            $column = collect($schema->getColumns($reference['table']))
+                ->firstWhere('name', $reference['column']);
+            $clearValue = ($column['nullable'] ?? true) ? null : '';
+
             $cleared += DB::table($reference['table'])
                 ->where('id', $reference['id'])
                 ->where(function ($query) use ($reference, $path): void {
                     $query->where($reference['column'], $path)
                         ->orWhere($reference['column'], '/' . $path);
                 })
-                ->update([$reference['column'] => null]);
+                ->update([$reference['column'] => $clearValue]);
         }
 
         return $cleared;
