@@ -571,6 +571,7 @@ class BotWebhookTest extends TestCase
                 'username' => 'Anonim',
                 'layanan' => 'Diamond Test ' . $index,
                 'harga' => 10000,
+                'profit' => 500,
                 'user_id' => '12345',
                 'zone' => '1234',
                 'status' => 'Sukses',
