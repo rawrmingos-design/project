@@ -122,6 +122,20 @@ class GatewayInvoiceService
     {
         $source = $this->normalizeSource($source);
         $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+
+        if ($source === 'telegram_gateway') {
+            // Aktif untuk Telegram: principal cocok DAN order belum
+            // final. Pembayaran Telegram tidak memakai no_pembeli,
+            // jadi filter status cukup dari kolom order.
+            return $this->recentOrdersForTelegramPrincipal($externalUserId, $limit)
+                ->filter(fn (Pembelian $order): bool => ! in_array(
+                    strtolower(trim((string) $order->status)),
+                    ['sukses', 'success', 'selesai', 'gagal', 'batal', 'cancel', 'expired'],
+                    true,
+                ))
+                ->values();
+        }
+
         $senderDigits = preg_replace('/\D+/', '', $externalUserId);
 
         if ($senderDigits === '') {
@@ -169,6 +183,11 @@ class GatewayInvoiceService
     {
         $source = $this->normalizeSource($source);
         $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+
+        if ($source === 'telegram_gateway') {
+            return $this->recentOrdersForTelegramPrincipal($externalUserId, $limit);
+        }
+
         $senderDigits = preg_replace('/\D+/', '', $externalUserId);
 
         if ($senderDigits === '') {
@@ -180,6 +199,35 @@ class GatewayInvoiceService
             ->where('traffic_source', $source)
             ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
                 $query->where('no_pembeli', $senderDigits);
+            })
+            ->when($this->tenantContext->id() !== null, function (Builder $query): void {
+                $query->where('tenant_id', $this->tenantContext->id());
+            })
+            ->latest('created_at')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Recent orders untuk sender Telegram. Identitas primer adalah
+     * gateway_principal (telegram:<id>); order lama sebelum kolom
+     * principal ada masih memakai email legacy telegram:<id>@telegram.user.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Pembelian>
+     */
+    private function recentOrdersForTelegramPrincipal(string $principal, int $limit): \Illuminate\Database\Eloquent\Collection
+    {
+        $legacyEmail = $this->telegramEmailForPrincipal($principal);
+
+        return Pembelian::query()
+            ->with('pembayaran')
+            ->where('traffic_source', 'telegram_gateway')
+            ->where(function (Builder $query) use ($principal, $legacyEmail): void {
+                $query->where('gateway_principal', $principal);
+
+                if ($legacyEmail !== null) {
+                    $query->orWhere('email_pembeli', $legacyEmail);
+                }
             })
             ->when($this->tenantContext->id() !== null, function (Builder $query): void {
                 $query->where('tenant_id', $this->tenantContext->id());

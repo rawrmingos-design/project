@@ -129,4 +129,88 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->assertCount(1, $orders);
         $this->assertSame('BOT-TEST-ACTIVE', $orders->first()->order_id);
     }
+
+    private function createTelegramOrder(array $overrides = []): Pembelian
+    {
+        return Pembelian::create(array_merge([
+            'order_id' => 'TG-TEST-001',
+            'username' => 'Anonim',
+            'user_id' => '12345',
+            'zone' => '',
+            'nickname' => 'Player',
+            'layanan' => '100 Diamond',
+            'harga' => 10500,
+            'profit' => 500,
+            'provider_order_id' => '',
+            'status' => 'Pending',
+            'log' => json_encode(['source' => 'telegram_gateway_checkout']),
+            'traffic_source' => 'telegram_gateway',
+            'gateway_principal' => 'telegram:98765',
+            'email_pembeli' => '98765@telegram.user',
+            'tipe_transaksi' => 'game',
+            'active_layanan_id' => 1,
+            'active_provider_code' => 'manual',
+            'active_provider_sku' => 'manual',
+            'environment' => 'live',
+            'is_sandbox' => false,
+        ], $overrides));
+    }
+
+    public function test_recent_orders_for_sender_matches_telegram_principal(): void
+    {
+        $this->createTelegramOrder(['order_id' => 'TG-TEST-001', 'status' => 'Sukses']);
+        $this->createTelegramOrder(['order_id' => 'TG-TEST-002', 'status' => 'Expired']);
+        // Order WhatsApp dengan no_pembeli sama pun tidak boleh bocor.
+        $waOrder = $this->createOrder(['order_id' => 'WA-NOT-TG']);
+        $waOrder->pembayaran()->update(['no_pembeli' => '98765']);
+
+        $service = app(GatewayInvoiceService::class);
+
+        $recent = $service->recentOrdersForSender('telegram_gateway', 'telegram:98765');
+        $this->assertCount(2, $recent);
+        $this->assertSame('TG-TEST-002', $recent->first()->order_id);
+
+        // Bentuk raw numeric juga dinormalisasi ke principal yang sama.
+        $recentRaw = $service->recentOrdersForSender('telegram_gateway', '98765');
+        $this->assertCount(2, $recentRaw);
+    }
+
+    public function test_recent_orders_for_sender_falls_back_to_legacy_telegram_email(): void
+    {
+        // Order lama sebelum kolom gateway_principal ada.
+        $legacy = $this->createTelegramOrder([
+            'order_id' => 'TG-LEGACY-001',
+            'gateway_principal' => '',
+        ]);
+        $legacy->update(['gateway_principal' => null]);
+
+        $service = app(GatewayInvoiceService::class);
+        $recent = $service->recentOrdersForSender('telegram_gateway', 'telegram:98765');
+
+        $this->assertCount(1, $recent);
+        $this->assertSame('TG-LEGACY-001', $recent->first()->order_id);
+    }
+
+    public function test_active_orders_for_sender_filters_final_statuses_on_telegram(): void
+    {
+        $this->createTelegramOrder(['order_id' => 'TG-ACT-001', 'status' => 'Pending']);
+        $this->createTelegramOrder(['order_id' => 'TG-DONE-001', 'status' => 'Sukses']);
+        $this->createTelegramOrder(['order_id' => 'TG-EXP-001', 'status' => 'Expired']);
+
+        $service = app(GatewayInvoiceService::class);
+        $active = $service->activeOrdersForSender('telegram_gateway', 'telegram:98765');
+
+        $this->assertCount(1, $active);
+        $this->assertSame('TG-ACT-001', $active->first()->order_id);
+    }
+
+    public function test_recent_orders_never_leak_between_telegram_principals(): void
+    {
+        $this->createTelegramOrder();
+
+        $service = app(GatewayInvoiceService::class);
+        $other = $service->recentOrdersForSender('telegram_gateway', 'telegram:11111');
+
+        $this->assertCount(0, $other);
+    }
 }
