@@ -6,6 +6,7 @@ use App\Models\MediaAsset;
 use App\Services\MediaAssetDeletionService;
 use App\Services\MediaAssetFolderSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -97,6 +98,93 @@ class MediaAssetDeletionServiceTest extends TestCase
         } finally {
             File::delete($absolutePath);
             File::delete($variantAbsolutePath);
+        }
+    }
+
+    public function test_it_clears_legacy_references_before_deleting_asset(): void
+    {
+        $relativePath = 'assets/product_logo/test-clear-ref.png';
+        $absolutePath = public_path($relativePath);
+
+        File::ensureDirectoryExists(dirname($absolutePath));
+        File::put($absolutePath, 'fake image contents');
+
+        try {
+            $asset = MediaAsset::query()->create([
+                'name' => 'test-clear-ref',
+                'folder' => 'produk',
+                'path' => '/' . $relativePath,
+            ]);
+
+            // Satu kategori memakai asset ini di dua kolom dengan format
+            // path berbeda (dengan/tanpa leading slash).
+            $kategoriId = DB::table('kategoris')->insertGetId([
+                'nama' => 'Kategori Terpakai',
+                'sub_nama' => 'kategori-terpakai',
+                'status' => 'active',
+                'tipe' => 'game',
+                'thumbnail' => '/' . $relativePath,
+                'banner' => $relativePath,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Produk lain memakai asset yang sama sebagai logo.
+            $layananId = DB::table('layanans')->insertGetId([
+                'kategori_id' => (string) $kategoriId,
+                'layanan' => 'Produk Terpakai',
+                'provider_id' => 'PRV-1',
+                'harga' => 10000,
+                'harga_member' => 10000,
+                'harga_platinum' => 10000,
+                'harga_gold' => 10000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'status' => 'active',
+                'provider' => 'manual',
+                'product_logo' => $relativePath,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Row lain yang TIDAK memakai asset — tidak boleh tersentuh.
+            $kategoriLainId = DB::table('kategoris')->insertGetId([
+                'nama' => 'Kategori Lain',
+                'sub_nama' => 'kategori-lain',
+                'status' => 'active',
+                'tipe' => 'game',
+                'thumbnail' => 'assets/product_logo/lain.png',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $result = app(MediaAssetDeletionService::class)->delete($asset);
+
+            // Referensi ditemukan dan dikosongkan sebelum file dihapus.
+            $this->assertTrue($result['asset_deleted']);
+            $this->assertTrue($result['file_deleted']);
+            $this->assertSame(3, $result['references_cleared']);
+
+            $foundTables = collect($result['references_found'])->pluck('table')->all();
+            $this->assertContains('kategoris', $foundTables);
+            $this->assertContains('layanans', $foundTables);
+
+            $this->assertNull(DB::table('kategoris')->where('id', $kategoriId)->value('thumbnail'));
+            $this->assertNull(DB::table('kategoris')->where('id', $kategoriId)->value('banner'));
+            $this->assertNull(DB::table('layanans')->where('id', $layananId)->value('product_logo'));
+
+            // Row lain tidak boleh ikut dikosongkan.
+            $this->assertSame(
+                'assets/product_logo/lain.png',
+                DB::table('kategoris')->where('id', $kategoriLainId)->value('thumbnail'),
+            );
+
+            // Asset dan file fisik benar-benar hilang.
+            $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
+            $this->assertFalse(File::exists($absolutePath));
+        } finally {
+            File::delete($absolutePath);
         }
     }
 }
