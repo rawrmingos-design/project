@@ -579,11 +579,11 @@ class BotWebhookTest extends TestCase
             ]);
             \App\Models\Pembayaran::query()->create([
                 'order_id' => $orderId,
+                'no_pembayaran' => 'PAY-' . $orderId,
                 'no_pembeli' => $sender,
                 'status' => 'Lunas',
                 'metode' => 'qris',
-                'harga' => 10000,
-                'unique_code' => 0,
+                'harga' => '10000',
             ]);
         }
 
