@@ -1576,21 +1576,15 @@ class BotCommandHandler
                 );
             }
 
-            $order = $orders->first() ?? $this->invoice->latestForSender(
-                (string) $context['source'],
-                (string) ($context['external_user_id'] ?? ''),
-            );
-
-            if ($order) {
-                $orderId = (string) $order->order_id;
+            if ($orders->count() === 1) {
+                $orderId = (string) $orders->first()->order_id;
             }
         }
 
         if ($orderId === '' && ($context['source'] ?? null) === 'whatsapp_gateway') {
-            // Tidak ada order aktif maupun order terakhir yang bisa
-            // dijadikan detail: tampilkan ringkasan N order terakhir
-            // milik sender (semua status) supaya tidak perlu hafal
-            // order ID.
+            // Tidak ada order aktif: tampilkan ringkasan N order
+            // terakhir milik sender (semua status) supaya user tidak
+            // perlu hafal order ID untuk melihat statusnya.
             $recent = $this->invoice->recentOrdersForSender(
                 (string) $context['source'],
                 (string) ($context['external_user_id'] ?? ''),
