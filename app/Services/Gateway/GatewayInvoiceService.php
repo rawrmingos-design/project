@@ -145,8 +145,14 @@ class GatewayInvoiceService
         return Pembelian::query()
             ->with('pembayaran')
             ->where('traffic_source', $source)
-            ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
-                $query->where('no_pembeli', $senderDigits);
+            ->where(function (Builder $query) use ($senderDigits): void {
+                // Identitas WA setara: no_pembeli di pembayaran (checkout
+                // normal), ATAU gateway_principal / legacy email untuk
+                // order manual-joki yang tidak punya row pembayaran.
+                $query->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
+                    $query->where('no_pembeli', $senderDigits);
+                })->orWhere('gateway_principal', 'whatsapp:' . $senderDigits)
+                    ->orWhere('email_pembeli', $senderDigits . '@whatsapp.user');
             })
             ->when($this->tenantContext->id() !== null, function (Builder $query): void {
                 $query->where('tenant_id', $this->tenantContext->id());
@@ -159,12 +165,16 @@ class GatewayInvoiceService
                     $query->whereHas('pembayaran', function (Builder $query): void {
                         $query->whereNotIn('status', ['Lunas', 'Expired', 'Kadaluarsa', 'Gagal', 'Batal', 'Cancel']);
                     });
-                })
-                ->orWhere(function (Builder $query): void {
+                })->orWhere(function (Builder $query): void {
+                    // Tanpa row pembayaran (manual/joki): keaktifan
+                    // dinilai dari status order saja.
+                    $query->whereDoesntHave('pembayaran')
+                        ->whereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
+                })->orWhere(function (Builder $query): void {
                     $query->whereHas('pembayaran', function (Builder $query): void {
                         $query->where('status', 'Lunas');
                     })
-                    ->whereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
+                        ->whereNotIn('status', ['Sukses', 'Selesai', 'Gagal', 'Batal', 'Cancel', 'Expired']);
                 });
             })
             ->latest('created_at')
@@ -197,8 +207,14 @@ class GatewayInvoiceService
         return Pembelian::query()
             ->with('pembayaran')
             ->where('traffic_source', $source)
-            ->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
-                $query->where('no_pembeli', $senderDigits);
+            ->where(function (Builder $query) use ($senderDigits): void {
+                // Identitas WA setara: no_pembeli di pembayaran (checkout
+                // normal), ATAU gateway_principal / legacy email untuk
+                // order manual-joki yang tidak punya row pembayaran.
+                $query->whereHas('pembayaran', function (Builder $query) use ($senderDigits): void {
+                    $query->where('no_pembeli', $senderDigits);
+                })->orWhere('gateway_principal', 'whatsapp:' . $senderDigits)
+                    ->orWhere('email_pembeli', $senderDigits . '@whatsapp.user');
             })
             ->when($this->tenantContext->id() !== null, function (Builder $query): void {
                 $query->where('tenant_id', $this->tenantContext->id());
@@ -300,11 +316,28 @@ class GatewayInvoiceService
         // overwritten by provider dispatch results. For WhatsApp, the
         // buyer's phone (pembayaran.no_pembeli) is a stable sender identity.
         if ($source === 'whatsapp_gateway') {
-            $noPembeli = preg_replace('/\D+/', '', (string) ($order->pembayaran?->no_pembeli ?? ''));
             $senderDigits = preg_replace('/\D+/', '', $externalUserId);
 
-            if ($noPembeli !== '' && $senderDigits !== '' && hash_equals($noPembeli, $senderDigits)) {
-                return;
+            if ($senderDigits !== '') {
+                // Order manual/joki tidak punya row pembayaran; cocokkan
+                // lewat gateway_principal / legacy email sebagai gantinya.
+                $storedPrincipal = trim((string) $order->gateway_principal);
+                if ($storedPrincipal !== '' && hash_equals($storedPrincipal, 'whatsapp:' . $senderDigits)) {
+                    return;
+                }
+
+                if (hash_equals(
+                    strtolower(trim((string) $order->email_pembeli)),
+                    strtolower($senderDigits . '@whatsapp.user'),
+                )) {
+                    return;
+                }
+
+                $noPembeli = preg_replace('/\D+/', '', (string) ($order->pembayaran?->no_pembeli ?? ''));
+
+                if ($noPembeli !== '' && hash_equals($noPembeli, $senderDigits)) {
+                    return;
+                }
             }
         }
 

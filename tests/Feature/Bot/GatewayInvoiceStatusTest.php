@@ -130,6 +130,90 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->assertSame('BOT-TEST-ACTIVE', $orders->first()->order_id);
     }
 
+    /**
+     * Order manual/joki tidak memiliki row pembayaran. Identitasnya
+     * tersimpan di gateway_principal / email legacy — harus tetap
+     * terlihat di daftar dan bisa diakses per-ID oleh pemiliknya.
+     */
+    private function createWaOrderWithoutPayment(array $overrides = []): Pembelian
+    {
+        $order = $this->createOrder(array_merge([
+            'status' => 'Sukses',
+            'gateway_principal' => 'whatsapp:6285792464508',
+            'email_pembeli' => '6285792464508@whatsapp.user',
+        ], $overrides));
+
+        $order->pembayaran()->delete();
+
+        return $order;
+    }
+
+    public function test_recent_orders_include_whatsapp_orders_without_payment_row(): void
+    {
+        $this->createOrder(['order_id' => 'WA-WITH-PAY', 'status' => 'Sukses']);
+        $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-1']);
+        $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-2', 'status' => 'Pending']);
+
+        $service = app(GatewayInvoiceService::class);
+        $recent = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:6285792464508');
+
+        $ids = $recent->pluck('order_id')->all();
+        $this->assertContains('WA-WITH-PAY', $ids);
+        $this->assertContains('WA-NO-PAY-1', $ids);
+        $this->assertContains('WA-NO-PAY-2', $ids);
+
+        // Order milik sender lain (no_pembeli beda, tanpa principal)
+        // tetap tidak bocor.
+        $other = $this->createOrder([
+            'order_id' => 'WA-OTHER-SENDER',
+            'gateway_principal' => 'whatsapp:6281111111111',
+            'email_pembeli' => '6281111111111@whatsapp.user',
+        ]);
+        $other->pembayaran()->update(['no_pembeli' => '6281111111111']);
+
+        $again = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:6285792464508');
+        $this->assertNotContains('WA-OTHER-SENDER', $again->pluck('order_id')->all());
+    }
+
+    public function test_active_orders_treat_paymentless_pending_order_as_active(): void
+    {
+        $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-ACTIVE', 'status' => 'Pending']);
+        $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-DONE', 'status' => 'Sukses']);
+
+        $service = app(GatewayInvoiceService::class);
+        $active = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:6285792464508');
+
+        $this->assertCount(1, $active);
+        $this->assertSame('WA-NO-PAY-ACTIVE', $active->first()->order_id);
+    }
+
+    public function test_status_allows_owner_access_to_paymentless_whatsapp_order(): void
+    {
+        $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-ID']);
+
+        $service = app(GatewayInvoiceService::class);
+
+        // Log sudah ditimpa hasil provider (gateway_context hilang),
+        // tanpa row pembayaran — otorisasi lewat gateway_principal.
+        $order = \App\Models\Pembelian::where('order_id', 'WA-NO-PAY-ID')->first();
+        $order->update(['log' => json_encode(['result' => ['success' => true]])]);
+
+        $result = $service->status('WA-NO-PAY-ID', null, [
+            'source' => 'whatsapp_gateway',
+            'external_user_id' => 'whatsapp:6285792464508',
+        ]);
+
+        $this->assertTrue($result['ok']);
+
+        // Sender lain tetap ditolak.
+        $this->expectException(ValidationException::class);
+
+        $service->status('WA-NO-PAY-ID', null, [
+            'source' => 'whatsapp_gateway',
+            'external_user_id' => 'whatsapp:6281111111111',
+        ]);
+    }
+
     private function createTelegramOrder(array $overrides = []): Pembelian
     {
         return Pembelian::create(array_merge([
