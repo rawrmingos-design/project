@@ -1347,6 +1347,14 @@ class BotWebhookTest extends TestCase
         $this->assertStringContainsString('🎮 *Masukkan User ID*', $quote['text']);
         $this->assertSame('🧾 *Cek Pesanan*', strtok($confirmation['text'], "\n"));
         $this->assertSame('waiting_confirmation', $state['step']);
+        $this->assertStringNotContainsString('Batal Checkout', $confirmation['text']);
+
+        $confirmationButtons = collect($confirmation['buttons'] ?? [])
+            ->flatMap(fn ($row): array => is_array($row) ? $row : [$row])
+            ->pluck('text')
+            ->filter()
+            ->all();
+        $this->assertSame(['✅ Konfirmasi', '❌ Batal'], $confirmationButtons);
 
         $invoiceResponse = $handler->handle(
             'konfirmasi',

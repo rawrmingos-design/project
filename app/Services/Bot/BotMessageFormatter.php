@@ -405,11 +405,12 @@ class BotMessageFormatter
                 '',
                 'Konfirmasi berlaku 15 menit.',
             ]),
-            'buttons' => [[
-                $this->button('✅ Konfirmasi', $confirmCommand, 'content'),
-                $this->button('❌ Batal', $cancelCommand, 'content'),
-                $this->button('Batal Checkout', 'batal', 'back'),
-            ]],
+            'buttons' => [
+                [
+                    $this->button('✅ Konfirmasi', $confirmCommand, 'content'),
+                    $this->button('❌ Batal', $cancelCommand, 'content'),
+                ],
+            ],
             'numeric_menu' => [
                 'menu' => 'checkout_confirmation',
                 'parent_menu' => 'menu',
