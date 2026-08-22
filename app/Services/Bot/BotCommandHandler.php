@@ -1586,6 +1586,29 @@ class BotCommandHandler
             }
         }
 
+        if ($orderId === '' && ($context['source'] ?? null) === 'whatsapp_gateway') {
+            // Tidak ada order aktif maupun order terakhir yang bisa
+            // dijadikan detail: tampilkan ringkasan N order terakhir
+            // milik sender (semua status) supaya tidak perlu hafal
+            // order ID.
+            $recent = $this->invoice->recentOrdersForSender(
+                (string) $context['source'],
+                (string) ($context['external_user_id'] ?? ''),
+            );
+
+            if ($recent->isNotEmpty()) {
+                return $this->formatter->formatActiveOrders(
+                    $recent->map(fn (Pembelian $order): array => [
+                        'order_id' => (string) $order->order_id,
+                        'product' => (string) ($order->layanan ?? 'Produk'),
+                        'amount' => (int) $order->harga,
+                        'payment_status' => (string) ($order->pembayaran?->status ?? ''),
+                        'order_status' => (string) $order->status,
+                    ]),
+                );
+            }
+        }
+
         if ($orderId === '') {
             return [
                 'text' => "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",

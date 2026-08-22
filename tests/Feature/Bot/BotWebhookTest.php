@@ -553,6 +553,65 @@ class BotWebhookTest extends TestCase
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'getChatMember'));
     }
 
+    public function test_fonnte_status_without_order_id_lists_recent_orders_of_sender(): void
+    {
+        Cache::flush();
+        Http::fake([
+            'https://api.fonnte.com/send' => Http::response(['status' => true]),
+        ]);
+
+        $sender = '6281234567890';
+
+        // Dua order LAMA yang sudah final (sukses) — tidak masuk
+        // kriteria activeOrdersForSender, tapi harus tetap tampil di
+        // ringkasan recent.
+        foreach (['RECENT-OLD-1', 'RECENT-OLD-2'] as $index => $orderId) {
+            $order = \App\Models\Pembelian::query()->create([
+                'order_id' => $orderId,
+                'username' => 'Anonim',
+                'layanan' => 'Diamond Test ' . $index,
+                'harga' => 10000,
+                'user_id' => '12345',
+                'zone' => '1234',
+                'status' => 'Sukses',
+                'traffic_source' => 'whatsapp_gateway',
+            ]);
+            \App\Models\Pembayaran::query()->create([
+                'order_id' => $orderId,
+                'no_pembeli' => $sender,
+                'status' => 'Lunas',
+                'metode' => 'qris',
+                'jumlah' => 10000,
+                'unique_code' => 0,
+            ]);
+        }
+
+        $sentMessages = [];
+        $this->mock(WhatsappNotificationService::class, function (MockInterface $mock) use (&$sentMessages): void {
+            $mock->shouldReceive('sendMessage')
+                ->once()
+                ->andReturnUsing(function (string $target, string $message) use (&$sentMessages): array {
+                    $sentMessages[] = compact('target', 'message');
+
+                    return ['success' => true];
+                });
+        });
+
+        $response = $this->postJsonFonnte([
+            'sender' => $sender,
+            'message' => 'status',
+            'id' => 'MSG-STATUS-RECENT',
+        ]);
+
+        $response->assertOk();
+
+        $this->assertCount(1, $sentMessages);
+        $text = $sentMessages[0]['message'];
+        $this->assertStringContainsString('Pesanan Aktif', $text);
+        $this->assertStringContainsString('RECENT-OLD-1', $text);
+        $this->assertStringContainsString('RECENT-OLD-2', $text);
+    }
+
     public function test_fonnte_adapter_handles_layanan_command_and_appends_fallback_buttons()
     {
         Http::fake();
