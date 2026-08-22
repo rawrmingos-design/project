@@ -608,9 +608,11 @@ class BotWebhookTest extends TestCase
 
         $this->assertCount(1, $sentMessages);
         $text = $sentMessages[0]['message'];
-        $this->assertStringContainsString('Pesanan Aktif', $text);
+        $this->assertStringContainsString('Pesanan Terakhirmu', $text);
+        $this->assertStringNotContainsString('Pesanan Aktif', $text);
         $this->assertStringContainsString('RECENT-OLD-1', $text);
         $this->assertStringContainsString('RECENT-OLD-2', $text);
+        $this->assertStringContainsString('Lunas · Sukses', $text);
     }
 
     public function test_fonnte_adapter_handles_layanan_command_and_appends_fallback_buttons()
