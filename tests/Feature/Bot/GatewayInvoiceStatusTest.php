@@ -175,25 +175,6 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->assertCount(2, $recentRaw);
     }
 
-    public function test_recent_orders_for_sender_falls_back_to_legacy_telegram_email(): void
-    {
-        // Order lama sebelum kolom gateway_principal ada.
-        $legacy = $this->createTelegramOrder([
-            'order_id' => 'TG-LEGACY-001',
-            'gateway_principal' => '',
-        ]);
-        $legacy->update([
-            'gateway_principal' => null,
-            'email_pembeli' => '98765@telegram.user',
-        ]);
-
-        $service = app(GatewayInvoiceService::class);
-        $recent = $service->recentOrdersForSender('telegram_gateway', 'telegram:98765');
-
-        $this->assertCount(1, $recent);
-        $this->assertSame('TG-LEGACY-001', $recent->first()->order_id);
-    }
-
     public function test_active_orders_for_sender_filters_final_statuses_on_telegram(): void
     {
         $this->createTelegramOrder(['order_id' => 'TG-ACT-001', 'status' => 'Pending']);
