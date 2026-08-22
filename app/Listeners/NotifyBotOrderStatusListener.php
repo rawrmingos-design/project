@@ -8,6 +8,7 @@ use App\Services\Bot\BotMessageFormatter;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class NotifyBotOrderStatusListener implements ShouldQueue
@@ -35,8 +36,8 @@ class NotifyBotOrderStatusListener implements ShouldQueue
             return;
         }
 
-        // Hanya bot order (WA gateway) yang dapat notifikasi proaktif.
-        if ($purchase->traffic_source !== 'whatsapp_gateway') {
+        // Hanya bot order gateway (WA/Telegram) yang dapat notifikasi.
+        if (! in_array($purchase->traffic_source, ['whatsapp_gateway', 'telegram_gateway'], true)) {
             return;
         }
 
@@ -70,15 +71,6 @@ class NotifyBotOrderStatusListener implements ShouldQueue
             return;
         }
 
-        $senderDigits = preg_replace('/\D+/', '', (string) $purchase->pembayaran->no_pembeli);
-        if ($senderDigits === '') {
-            Log::warning('NotifyBotOrderStatus: no_pembeli kosong, tidak bisa kirim notif', ['order_id' => $orderId]);
-
-            return;
-        }
-
-        $target = $senderDigits . '@s.whatsapp.net';
-
         $payload = [
             'ok' => true,
             'data' => [
@@ -93,25 +85,8 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         ];
 
         try {
-            // Worker queue = console context → AppServiceProvider TIDAK set config('bot.*')
-            // (boot() di-skip saat runningInConsole). Baca langsung dari DB biar
-            // self-contained dan tidak bergantung pada web-runtime config.
-            $setting = \App\Models\SettingWeb::first();
-            $customToken = ($setting && $setting->use_separate_bot_wa)
-                ? (string) $setting->wa_bot_key
-                : null;
-
-            $response = app(WhatsappNotificationService::class)
-                ->sendMessage($target, app(BotMessageFormatter::class)->formatStatus($payload)['text'], null, $customToken);
-
-            if (! ($response['success'] ?? false)) {
-                Log::warning('NotifyBotOrderStatus: gagal kirim notif', [
-                    'order_id' => $orderId,
-                    'transition' => $transition,
-                    'response' => $response,
-                ]);
-            } else {
-                Cache::put($cacheKey, true, now()->addHours(24));
+            if ($purchase->traffic_source === 'whatsapp_gateway') {
+                $this->notifyWhatsapp($purchase, $orderId, $transition, $cacheKey, $payload);
             }
         } catch (\Throwable $e) {
             Log::error('NotifyBotOrderStatus: exception kirim notif', [
@@ -119,6 +94,94 @@ class NotifyBotOrderStatusListener implements ShouldQueue
                 'transition' => $transition,
                 'error' => $e->getMessage(),
             ]);
+        }
+
+        $this->notifyTelegram($purchase, $orderId, $transition, $cacheKey, $payload);
+    }
+
+    private function notifyWhatsapp(Pembelian $purchase, string $orderId, string $transition, string $cacheKey, array $payload): void
+    {
+        $senderDigits = preg_replace('/\D+/', '', (string) $purchase->pembayaran->no_pembeli);
+        if ($senderDigits === '') {
+            Log::warning('NotifyBotOrderStatus: no_pembeli kosong, tidak bisa kirim notif', ['order_id' => $orderId]);
+
+            return;
+        }
+
+        $target = $senderDigits . '@s.whatsapp.net';
+
+        // Worker queue = console context → AppServiceProvider TIDAK set config('bot.*')
+        // (boot() di-skip saat runningInConsole). Baca langsung dari DB biar
+        // self-contained dan tidak bergantung pada web-runtime config.
+        $setting = \App\Models\SettingWeb::first();
+        $customToken = ($setting && $setting->use_separate_bot_wa)
+            ? (string) $setting->wa_bot_key
+            : null;
+
+        $response = app(WhatsappNotificationService::class)
+            ->sendMessage($target, app(BotMessageFormatter::class)->formatStatus($payload)['text'], null, $customToken);
+
+        if (! ($response['success'] ?? false)) {
+            Log::warning('NotifyBotOrderStatus: gagal kirim notif', [
+                'order_id' => $orderId,
+                'transition' => $transition,
+                'response' => $response,
+            ]);
+        } else {
+            Cache::put($cacheKey, true, now()->addHours(24));
+        }
+    }
+
+    /**
+     * Notifikasi proaktif untuk order Telegram. Identitas penerima
+     * adalah gateway_principal (telegram:<id>) — chat_id bot pribadi
+     * bernilai sama dengan user ID. Anti-spam memakai cache key yang
+     * sama dengan jalur WA supaya satu transisi hanya dikirim sekali
+     * lintas channel.
+     */
+    private function notifyTelegram(Pembelian $purchase, string $orderId, string $transition, string $cacheKey, array $payload): void
+    {
+        if ($purchase->traffic_source !== 'telegram_gateway') {
+            return;
+        }
+
+        // Worker queue = console context → AppServiceProvider TIDAK set
+        // config('services.telegram-bot-api.token'). Baca langsung dari DB.
+        $token = optional(\App\Models\SettingWeb::first())->telegram_bot_token;
+
+        if (! $token) {
+            Log::warning('NotifyBotOrderStatus: token Telegram kosong, notif dilewati', ['order_id' => $orderId]);
+
+            return;
+        }
+
+        if (! Cache::has($cacheKey)) {
+            try {
+                $response = Http::timeout(10)->post(
+                    "https://api.telegram.org/bot{$token}/sendMessage",
+                    [
+                        'chat_id' => str_replace('telegram:', '', (string) $purchase->gateway_principal),
+                        'text' => app(BotMessageFormatter::class)->formatStatus($payload)['text'],
+                        'parse_mode' => 'Markdown',
+                    ],
+                );
+
+                if ($response->successful() && ($response->json('ok') ?? false)) {
+                    Cache::put($cacheKey, true, now()->addHours(24));
+                } else {
+                    Log::warning('NotifyBotOrderStatus: gagal kirim notif Telegram', [
+                        'order_id' => $orderId,
+                        'transition' => $transition,
+                        'response' => $response->json(),
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('NotifyBotOrderStatus: exception kirim notif Telegram', [
+                    'order_id' => $orderId,
+                    'transition' => $transition,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }
