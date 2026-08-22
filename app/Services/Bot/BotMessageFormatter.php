@@ -2,6 +2,8 @@
 
 namespace App\Services\Bot;
 
+use App\Models\SettingWeb;
+
 class BotMessageFormatter
 {
     private const PAGE_SIZE = 8;
@@ -20,6 +22,28 @@ class BotMessageFormatter
         'wallet' => '💳',
         'streaming' => '🎬',
     ];
+
+    private function storeIntro(): string
+    {
+        $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
+        $settings = SettingWeb::query()->first();
+        // setting_webs currently stores the support WhatsApp number in nomor_admin.
+        $adminNumber = trim((string) ($settings?->nomor_admin ?: $settings?->wa_number));
+
+        $lines = [
+            "Selamat datang di {$storeName}.",
+            '',
+            'Gunakan menu dengan membalas angka yang tersedia.',
+            'Gunakan kata hanya jika diperlukan, misalnya: `deposit`, `leaderboard`, atau `cek status`.',
+        ];
+
+        if ($adminNumber !== '') {
+            $lines[] = '';
+            $lines[] = "Jika ada kendala, hubungi admin: {$adminNumber}";
+        }
+
+        return implode("\n", $lines);
+    }
 
     private const GAME_EMOJIS = [
         'mobile-legends' => '⚔️',
@@ -127,7 +151,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => '🏠 *Menu Utama*' . $this->pageSuffix($pagination),
+            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
@@ -631,7 +655,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => "*Panduan Transaksi*\nKetik `menu` untuk mulai, atau pilih aksi di bawah.",
+            'text' => $this->storeIntro() . "\n\n*Panduan Transaksi*\nKetik `menu` untuk mulai, atau pilih aksi di bawah.",
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];

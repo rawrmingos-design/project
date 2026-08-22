@@ -45,6 +45,7 @@ class BotWebhookTest extends TestCase
         \Illuminate\Support\Facades\DB::table('setting_webs')->insertOrIgnore([
             'id' => 1,
             'judul_web' => 'Test Store',
+            'nomor_admin' => '628123456789',
             'bot_order_tg_enabled' => 1,
             'bot_order_wa_enabled' => 1,
         ]);
@@ -120,6 +121,9 @@ class BotWebhookTest extends TestCase
             $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
 
             return $request['chat_id'] === 12345
+                && str_contains($request['text'], 'Selamat datang di Test Store.')
+                && str_contains($request['text'], 'Gunakan menu dengan membalas angka yang tersedia.')
+                && str_contains($request['text'], 'Jika ada kendala, hubungi admin: 628123456789')
                 && str_contains($request['text'], '🏠 *Menu Utama*')
                 && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
                     && ($button['callback_data'] ?? null) === 'leaderboard')
