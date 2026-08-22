@@ -188,7 +188,7 @@ class MediaAssetDeletionServiceTest extends TestCase
             // Referensi ditemukan dan dikosongkan sebelum file dihapus.
             $this->assertTrue($result['asset_deleted']);
             $this->assertTrue($result['file_deleted']);
-            $this->assertSame(4, $result['references_cleared']);
+            $this->assertSame(5, $result['references_cleared']);
 
             $foundTables = collect($result['references_found'])->pluck('table')->all();
             $this->assertContains('kategoris', $foundTables);
