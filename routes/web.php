@@ -71,6 +71,8 @@ use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
 Route::get('/site.webmanifest', PwaManifestController::class)->name('pwa.manifest');
+Route::get('/.well-known/assetlinks.json', \App\Http\Controllers\DigitalAssetLinksController::class)
+    ->name('digital.asset.links');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 Route::get('/sitemap-main.xml', [SeoController::class, 'sitemapMain'])->name('seo.sitemap.main');
 Route::get('/sitemap-categories.xml', [SeoController::class, 'sitemapCategories'])->name('seo.sitemap.categories');
