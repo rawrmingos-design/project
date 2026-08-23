@@ -24,6 +24,9 @@ class DigitalAssetLinksTest extends TestCase
         'url_tiktok' => 'https://tiktok.com/@test',
         'url_youtube' => 'https://youtube.com/@test',
         'url_fb' => 'https://facebook.com/test',
+        'topupindo_api' => 'dummy-api',
+        'paydisini_apikey' => 'dummy-paydisini',
+        'order_prefik' => 'INV',
     ];
 
     private function createSetting(array $overrides = []): SettingWeb
