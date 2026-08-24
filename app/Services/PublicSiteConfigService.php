@@ -51,7 +51,7 @@ class PublicSiteConfigService
         }
 
         $merged = array_merge($defaults, $settings?->toArray() ?? []);
-        $merged['public_theme'] = PublicThemeRegistry::normalize($merged['public_theme'] ?? null);
+        $merged['public_theme'] = PublicThemeRegistry::resolveForEnvironment($merged['public_theme'] ?? null);
 
         return (object) $merged;
     }
@@ -59,7 +59,7 @@ class PublicSiteConfigService
     public function sharedProps(): array
     {
         $settings = $this->getSettings();
-        $theme = PublicThemeRegistry::normalize($settings->public_theme ?? null);
+        $theme = PublicThemeRegistry::resolveForEnvironment($settings->public_theme ?? null);
         $authUser = Auth::user();
         $socials = [
             'whatsapp' => $this->normalizeExternalUrl($settings->url_wa),
