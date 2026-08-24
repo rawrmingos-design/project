@@ -188,6 +188,9 @@
     width: 100%;
     max-width: none;
 }
+.public-app--istanatopup .public-footer__visual--wave {
+    background: #0d0d0d; /* wave default #19191c bikin strip beda warna */
+}
 .public-app--istanatopup .public-footer h3,
 .public-app--istanatopup .public-footer strong {
     color: var(--ist-text);
