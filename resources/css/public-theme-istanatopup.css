@@ -120,6 +120,49 @@
 .public-app--istanatopup .public-main--hero-bleed {
     padding-top: 16px;
 }
+.public-app--istanatopup .hero--storefront {
+    background: transparent;
+}
+.public-app--istanatopup .hero-storefront__backdrop {
+    display: none; /* bersihkan meteor/gradient default — mockup polos */
+}
+.public-app--istanatopup .hero-swiper-react__image {
+    border-radius: var(--ist-radius);
+    border: 1px solid var(--ist-border);
+}
+
+/* ---------- Flash sale ---------- */
+.public-app--istanatopup .flashsale-card--bangjeff {
+    background: linear-gradient(160deg, var(--ist-surface) 0%, var(--ist-surface-alt) 100%);
+    border-color: rgba(249, 115, 22, 0.35);
+    border-radius: var(--ist-radius);
+}
+.public-app--istanatopup .flashsale-card__discount {
+    background: var(--ist-accent);
+    color: #fff;
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-weight: 800;
+}
+.public-app--istanatopup .flashsale-heading__countdown span {
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-accent-soft);
+    border-radius: 8px;
+}
+
+/* ---------- Trending section (khusus istanatopup) ---------- */
+.public-app--istanatopup .product-grid--trending-storefront {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (min-width: 760px) {
+    .public-app--istanatopup .product-grid--trending-storefront {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
 
 /* ---------- Footer ---------- */
 .public-app--istanatopup .public-footer--storefront {

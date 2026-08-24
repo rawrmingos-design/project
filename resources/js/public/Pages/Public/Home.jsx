@@ -185,8 +185,8 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     <div className="storefront-heading">
                         <div>
                             <h2 className="storefront-heading__title">
-                                <span className="storefront-heading__icon">🔥</span>
-                                {activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
+                                <span className="storefront-heading__icon">✨</span>
+                                {activeThemeKey === 'istanatopup' ? 'FAVORIT' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
                             </h2>
                             <p className="storefront-heading__subtitle">
                                 {activeThemeKey === 'bangjeff'
@@ -202,6 +202,28 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         ))}
                     </div>
                 </section>
+
+                {activeThemeKey === 'istanatopup' && categoryTabs.length ? (
+                    <section className="public-section public-section--storefront public-section--trending">
+                        <div className="storefront-heading">
+                            <div>
+                                <h2 className="storefront-heading__title">
+                                    <span className="storefront-heading__icon">🔥</span>
+                                    TRENDING
+                                </h2>
+                                <p className="storefront-heading__subtitle">
+                                    Produk yang sedang banyak dicari pemain.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="product-grid product-grid--storefront product-grid--trending-storefront">
+                            {(categoryTabs[0]?.items ?? []).slice(0, 8).map((item) => (
+                                <ProductCard key={`trend-${item.id}`} item={item} variant="poster" showPrice={false} />
+                            ))}
+                        </div>
+                    </section>
+                ) : null}
 
                 <section className="public-section public-section--storefront public-section--tabs">
                     <div className="storefront-tabs">
