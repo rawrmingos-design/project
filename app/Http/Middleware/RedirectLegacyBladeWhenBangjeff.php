@@ -91,7 +91,7 @@ class RedirectLegacyBladeWhenBangjeff
             fn (): string => (string) (SettingWeb::query()->select('public_theme')->find(1)?->public_theme ?? PublicThemeRegistry::DEFAULT)
         );
 
-        return PublicThemeRegistry::normalize($theme);
+        return PublicThemeRegistry::resolveForEnvironment($theme);
     }
 
     private function normalizeHost(string $value): string
