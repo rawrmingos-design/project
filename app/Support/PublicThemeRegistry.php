@@ -6,12 +6,14 @@ class PublicThemeRegistry
 {
     public const DEFAULT = 'default';
     public const BANGJEFF = 'bangjeff';
+    public const ISTANATOPUP = 'istanatopup';
 
     public static function options(): array
     {
         return [
             self::DEFAULT => 'Default (Blade Legacy)',
             self::BANGJEFF => 'Bangjeff (Inertia)',
+            self::ISTANATOPUP => 'IstanaTopup (Inertia)',
         ];
     }
 

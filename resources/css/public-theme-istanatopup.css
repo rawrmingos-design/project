@@ -1,0 +1,143 @@
+/* ============================================================
+   IstanaTopup theme — scoped under .public-app--istanatopup
+   Palette from client mockup (Bangjeff-inspired dark):
+   bg #121212 · surface #1A1A1A/#1F1F1F · border #262626
+   primary #3D79F2 · accent #F97316 → #FB923C
+   text #FFFFFF/#E5E5E8 · muted #9C9C9C · font Plus Jakarta Sans
+   Mobile-first; breakpoints only add layout changes.
+   ============================================================ */
+
+.public-app--istanatopup {
+    --ist-bg: #121212;
+    --ist-surface: #1a1a1a;
+    --ist-surface-alt: #1f1f1f;
+    --ist-border: #262626;
+    --ist-text: #ffffff;
+    --ist-text-soft: #e5e5e8;
+    --ist-muted: #9c9c9c;
+    --ist-faint: #6e6e73;
+    --ist-primary: var(--public-color-primary, #3d79f2);
+    --ist-accent: var(--public-color-accent, #f97316);
+    --ist-accent-soft: var(--public-color-highlight, #fb923c);
+    --ist-radius: 16px;
+
+    background: var(--ist-bg);
+    color: var(--ist-text-soft);
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.public-app--istanatopup a { color: inherit; text-decoration: none; }
+
+/* ---------- Main shell ---------- */
+.public-app--istanatopup .public-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 16px 48px;
+}
+
+/* ---------- Navbar ---------- */
+.public-app--istanatopup .public-navbar--storefront {
+    background: rgba(18, 18, 18, 0.92);
+    border-bottom: 1px solid var(--ist-border);
+    backdrop-filter: blur(10px);
+}
+.public-app--istanatopup .public-navbar__link,
+.public-app--istanatopup .public-navbar__text-link,
+.public-app--istanatopup .public-navbar__compact-account {
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-navbar__link:hover,
+.public-app--istanatopup .public-navbar__text-link:hover,
+.public-app--istanatopup .public-navbar__compact-account:hover {
+    color: var(--ist-text);
+}
+.public-app--istanatopup .public-brand--storefront .public-brand__logo {
+    border-radius: 10px;
+}
+.public-app--istanatopup .public-search input {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text);
+    border-radius: 999px;
+}
+.public-app--istanatopup .public-search input:focus {
+    border-color: var(--ist-primary);
+    outline: none;
+}
+.public-app--istanatopup .public-search input::placeholder,
+.public-app--istanatopup .public-search__icon {
+    color: var(--ist-faint);
+}
+
+/* ---------- Buttons ---------- */
+.public-app--istanatopup .public-button {
+    background: linear-gradient(135deg, var(--ist-accent) 0%, var(--ist-accent-soft) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-button:hover { filter: brightness(1.08); }
+.public-app--istanatopup .public-button--ghost {
+    background: transparent;
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text-soft);
+}
+
+/* ---------- Section headings ---------- */
+.public-app--istanatopup .storefront-heading__title,
+.public-app--istanatopup .journal-heading h2,
+.public-app--istanatopup .storefront-tabs__nav button {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--ist-text);
+}
+.public-app--istanatopup .storefront-tabs__nav button.is-active {
+    color: var(--ist-accent-soft);
+}
+
+/* ---------- Cards ---------- */
+.public-app--istanatopup .public-card,
+.public-app--istanatopup .storefront-game-card,
+.public-app--istanatopup .journal-card,
+.public-app--istanatopup .flashsale-card {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: var(--ist-radius);
+    box-shadow: none;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.public-app--istanatopup .public-card:hover,
+.public-app--istanatopup .storefront-game-card:hover,
+.public-app--istanatopup .journal-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(61, 121, 242, 0.55);
+}
+
+/* ---------- Hero / banner ---------- */
+.public-app--istanatopup .public-main--hero-bleed {
+    padding-top: 16px;
+}
+
+/* ---------- Footer ---------- */
+.public-app--istanatopup .public-footer--storefront {
+    background: #0d0d0d;
+    border-top: 1px solid var(--ist-border);
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-footer h3,
+.public-app--istanatopup .public-footer strong {
+    color: var(--ist-text);
+}
+
+/* ---------- Mobile bottom-nav friendly spacing ---------- */
+@media (max-width: 760px) {
+    .public-app--istanatopup .public-main {
+        padding: 0 12px 84px; /* ruang buat bottom tab bar */
+    }
+    .public-app--istanatopup .storefront-heading__title {
+        font-size: 1.05rem;
+    }
+}
