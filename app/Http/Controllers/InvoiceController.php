@@ -290,6 +290,7 @@ class InvoiceController extends Controller
             'expiredIso' => $expired->toIso8601String(),
             'namas' => $nama,
             'thumbnails' => $thumbnail,
+            'kategori' => $kategori,
             'metode_name' => $methodName,
             'metode_category_label' => (string) ($data->metode_category_label ?? ''),
             'metode_category_icon' => (string) ($data->metode_category_icon ?? ''),
