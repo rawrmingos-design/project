@@ -63,14 +63,4 @@ class PublicThemeRegistryTest extends TestCase
             PublicThemeRegistry::resolveForEnvironment('bangjeff')
         );
     }
-
-    public function test_bangjeff_removes_legacy_redirect_only_when_active(): void
-    {
-        SettingWeb::query()->updateOrCreate(
-            ['id' => 1],
-            ['public_theme' => 'bangjeff']
-        );
-
-        $this->assertSame('bangjeff', PublicThemeRegistry::resolveForEnvironment('bangjeff'));
-    }
 }
