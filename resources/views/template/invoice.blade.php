@@ -2289,7 +2289,7 @@
                             <p class="text-sm">{{ $data->layanan }}</p>
                             <div>
 
-                                @if ($data->tipe_transaksi == 'vilogml')
+                                @if ($kategori?->kode === 'roblox-via-login' || $data->tipe_transaksi == 'vilogml')
                                     <div class="mt-8 text-sm font-medium text-murky-200 print:text-slate-800">
                                         <div class="grid grid-cols-3 gap-4 pb-2">
                                             <div class="text-white print:text-slate-800">Username :</div>
