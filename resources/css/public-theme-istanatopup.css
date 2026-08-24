@@ -32,7 +32,16 @@
 .public-app--istanatopup .public-main {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 16px 48px;
+    padding: 0 0 48px;
+}
+/* Konten section tetap ber-margin lewat shell, hero bebas full-bleed */
+.public-app--istanatopup .public-shell {
+    width: min(calc(100% - 32px), 1200px);
+}
+@media (max-width: 760px) {
+    .public-app--istanatopup .public-shell {
+        width: calc(100% - 20px);
+    }
 }
 
 /* ---------- Navbar ---------- */
@@ -166,9 +175,18 @@
 
 /* ---------- Footer ---------- */
 .public-app--istanatopup .public-footer--storefront {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
     background: #0d0d0d;
     border-top: 1px solid var(--ist-border);
     color: var(--ist-muted);
+}
+.public-app--istanatopup .public-footer__visual,
+.public-app--istanatopup .public-footer__inner--storefront {
+    width: 100%;
+    max-width: none;
 }
 .public-app--istanatopup .public-footer h3,
 .public-app--istanatopup .public-footer strong {
@@ -178,7 +196,7 @@
 /* ---------- Mobile bottom-nav friendly spacing ---------- */
 @media (max-width: 760px) {
     .public-app--istanatopup .public-main {
-        padding: 0 12px 84px; /* ruang buat bottom tab bar */
+        padding: 0 0 84px; /* ruang buat bottom tab bar */
     }
     .public-app--istanatopup .storefront-heading__title {
         font-size: 1.05rem;
