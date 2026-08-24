@@ -44,7 +44,8 @@ class PublicThemeRegistryTest extends TestCase
 
     public function test_preview_only_theme_falls_back_to_default_on_production(): void
     {
-        config(['app.env' => 'production']);
+        // Swap env resolver: aplikasi menganggap dirinya di production.
+        app()->detectEnvironment(fn () => 'production');
 
         $this->assertTrue(app()->environment('production'));
         $this->assertSame(
@@ -53,12 +54,22 @@ class PublicThemeRegistryTest extends TestCase
         );
     }
 
+    public function test_bangjeff_still_resolves_on_production(): void
+    {
+        app()->detectEnvironment(fn () => 'production');
+
+        $this->assertSame(
+            'bangjeff',
+            PublicThemeRegistry::resolveForEnvironment('bangjeff')
+        );
+    }
+
     public function test_bangjeff_removes_legacy_redirect_only_when_active(): void
     {
-        SettingWeb::query()->forceFill([
-            'id' => 1,
-            'public_theme' => 'bangjeff',
-        ])->save();
+        SettingWeb::query()->updateOrCreate(
+            ['id' => 1],
+            ['public_theme' => 'bangjeff']
+        );
 
         $this->assertSame('bangjeff', PublicThemeRegistry::resolveForEnvironment('bangjeff'));
     }
