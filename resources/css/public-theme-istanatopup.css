@@ -173,6 +173,39 @@
     }
 }
 
+/* ---------- Artikel (Index + Show) ---------- */
+.public-app--istanatopup .public-article-page {
+    background: transparent;
+}
+.public-app--istanatopup .public-article-hero__tag,
+.public-app--istanatopup .public-article-card__cta {
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-article-card {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: var(--ist-radius);
+    overflow: hidden;
+}
+.public-app--istanatopup .public-article-card:hover {
+    border-color: rgba(61, 121, 242, 0.55);
+}
+.public-app--istanatopup .public-article-section__header h2,
+.public-app--istanatopup .public-article-empty-hero h1 {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.public-app--istanatopup .public-article-pagination__button {
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text);
+    border-radius: 10px;
+}
+.public-app--istanatopup .public-article-pagination__button.is-disabled {
+    opacity: 0.4;
+}
+
 /* ---------- Footer ---------- */
 .public-app--istanatopup .public-footer--storefront {
     width: 100%;
