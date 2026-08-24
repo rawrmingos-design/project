@@ -4,7 +4,7 @@ import Navbar from '../Components/Navbar';
 import Footer from '../Components/Footer';
 import LiveSalesToast from '../Components/LiveSalesToast';
 import { resolveTheme } from '../themeRegistry';
-import '../../css/public-theme-istanatopup.css';
+import '../../../css/public-theme-istanatopup.css';
 
 export default function PublicLayout({ children, meta = {}, mainClassName = '' }) {
     const { siteConfig, theme, featureFlags } = usePage().props;
