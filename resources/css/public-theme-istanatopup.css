@@ -34,13 +34,22 @@
     margin: 0 auto;
     padding: 0 0 48px;
 }
-/* Konten section tetap ber-margin lewat shell, hero bebas full-bleed */
+/*
+ * Shell spacing mengikuti Bangjeff:
+ * desktop 32px, tablet 24px, mobile 16px.
+ * Hero tetap full-bleed; hanya body section yang memakai shell.
+ */
 .public-app--istanatopup .public-shell {
-    width: min(calc(100% - 32px), 1200px);
+    width: min(calc(100% - 32px), 1280px);
 }
-@media (max-width: 760px) {
+@media (max-width: 960px) {
     .public-app--istanatopup .public-shell {
-        width: calc(100% - 20px);
+        width: min(calc(100% - 24px), 1280px);
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-shell {
+        width: min(calc(100% - 16px), 1280px);
     }
 }
 
@@ -166,7 +175,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
-@media (min-width: 760px) {
+@media (min-width: 768px) and (max-width: 960px) {
+    .public-app--istanatopup .product-grid--trending-storefront {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+}
+@media (min-width: 961px) {
     .public-app--istanatopup .product-grid--trending-storefront {
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 16px;
