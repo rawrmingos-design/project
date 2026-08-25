@@ -166,18 +166,13 @@ export default function Footer() {
 
             <footer className="public-footer public-footer--storefront">
                 <div className="public-footer__inner public-footer__inner--storefront">
-                    <FooterSeoDescription html={siteConfig.footerDescriptionHtml} />
+                    {!isIstanaTopup ? <FooterSeoDescription html={siteConfig.footerDescriptionHtml} /> : null}
 
                     <div className={`public-footer__layout ${isBangjeff || isIstanaTopup ? 'public-footer__layout--bangjeff' : ''}`}>
                         {isBangjeff || isIstanaTopup ? (
                             <div className={`public-footer__intro public-footer__intro--bangjeff ${isIstanaTopup ? 'public-footer__intro--istanatopup' : ''}`}>
                                 <div className="public-footer__brand-block">
                                     <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
-                                    {isIstanaTopup ? (
-                                        <p className="public-footer__brand-description">
-                                            {siteConfig.description || `${siteConfig.name} - Top up game murah & legal 24 jam.`}
-                                        </p>
-                                    ) : null}
                                 </div>
 
                                 {socialLinks.length ? (
