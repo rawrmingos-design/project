@@ -197,7 +197,7 @@ class PublicSiteConfigService
         $tenancyEnabled = ! (bool) config('tenancy.disabled', true);
         $docsUrl = $this->docsUrl();
 
-        $columns = $theme === 'bangjeff'
+        $columns = in_array($theme, ['bangjeff', 'istanatopup'], true)
             ? [
                 [
                     'title' => 'Partnership',

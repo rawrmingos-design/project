@@ -627,27 +627,134 @@
     opacity: 0.4;
 }
 
-/* ---------- Footer ---------- */
+/* ---------- Footer — exact mockup structure ---------- */
+/* Reference: f-wave 70px, footer bg2 #1A1A1A, grid 1.6fr/1fr/1fr/1fr gap 30px */
 .public-app--istanatopup .public-footer--storefront {
-    width: 100%;
-    max-width: none;
-    margin-left: 0;
-    margin-right: 0;
-    background: #0d0d0d;
-    border-top: 1px solid var(--ist-border);
-    color: var(--ist-muted);
+    background: var(--ist-surface);
+    border-top: 0;
 }
-.public-app--istanatopup .public-footer__visual,
+.public-app--istanatopup .public-footer__visual {
+    height: 70px;
+    margin-top: 40px;
+}
+.public-app--istanatopup .public-footer__visual--wave,
+.public-app--istanatopup .public-footer__visual .public-footer__wave svg path {
+    color: var(--ist-surface);
+}
+.public-app--istanatopup .public-footer__visual--wave { background: transparent; }
+.public-app--istanatopup .public-footer__wave--back svg path { fill: var(--ist-surface); }
+.public-app--istanatopup .public-footer__wave--front svg path { fill: var(--ist-bg); }
 .public-app--istanatopup .public-footer__inner--storefront {
-    width: 100%;
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+}
+.public-app--istanatopup .public-footer__layout {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 30px;
+    padding: 14px 0 30px;
+    align-items: start;
+}
+.public-app--istanatopup .public-footer__layout--bangjeff {
+    width: auto;
+    gap: 30px;
+}
+.public-app--istanatopup .public-footer__intro--istanatopup {
+    width: auto;
     max-width: none;
+    text-align: left;
+    margin: 0;
+    padding-top: 10px;
 }
-.public-app--istanatopup .public-footer__visual--wave {
-    background: #0d0d0d; /* wave default #19191c bikin strip beda warna */
+.public-app--istanatopup .public-footer__brand-block {
+    display: block;
 }
-.public-app--istanatopup .public-footer h3,
-.public-app--istanatopup .public-footer strong {
-    color: var(--ist-text);
+.public-app--istanatopup .public-footer__brand-logo {
+    height: 40px;
+    object-position: left center;
+}
+.public-app--istanatopup .public-footer__brand-description {
+    max-width: 320px;
+    margin: 12px 0 0;
+    color: var(--ist-muted);
+    font-size: 12.5px;
+    line-height: 1.65;
+}
+.public-app--istanatopup .public-footer__social-row {
+    gap: 9px;
+    margin-top: 18px;
+}
+.public-app--istanatopup .public-footer__social-link {
+    width: 36px;
+    height: 36px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-muted);
+    transition: color .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .public-footer__social-link:hover {
+    color: var(--ist-accent);
+    border-color: var(--ist-accent);
+}
+/* Mockup social icons are monochrome outlines — neutralize brand fills */
+.public-app--istanatopup .public-footer__social-link--instagram,
+.public-app--istanatopup .public-footer__social-link--tiktok,
+.public-app--istanatopup .public-footer__social-link--facebook,
+.public-app--istanatopup .public-footer__social-link--youtube {
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .public-footer__grid {
+    display: contents; /* columns become direct grid items of the layout */
+}
+.public-app--istanatopup .public-footer__column h3 {
+    color: var(--ist-accent);
+    font-size: 13.5px;
+    font-weight: 800;
+    white-space: normal;
+}
+.public-app--istanatopup .public-footer__column h3::after {
+    display: none;
+}
+.public-app--istanatopup .public-footer__column ul {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.public-app--istanatopup .public-footer__column a {
+    color: var(--ist-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-footer__column a:hover {
+    color: var(--ist-text-soft);
+}
+.public-app--istanatopup .public-footer__bottom {
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+    margin-top: 0;
+    padding: 16px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ist-muted);
+    border-top: 1px solid var(--ist-border);
+    text-align: left;
+}
+.public-app--istanatopup .public-footer__bottom p {
+    margin: 0;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .public-footer__layout { grid-template-columns: 1fr 1fr; }
+    .public-app--istanatopup .public-footer__intro--istanatopup { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-footer__layout { grid-template-columns: 1fr; }
+    .public-app--istanatopup .public-footer__bottom {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 
 /* ---------- Mobile bottom-nav friendly spacing ---------- */
