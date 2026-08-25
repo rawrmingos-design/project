@@ -78,6 +78,16 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
                 <meta name="keywords" content={meta.keywords || siteConfig.keywords} />
                 <meta name="robots" content={meta.robots || 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'} />
                 <link rel="canonical" href={canonicalUrl} />
+                {activeTheme.key === 'istanatopup' ? (
+                    <>
+                        <link rel="preconnect" href="https://fonts.googleapis.com" />
+                        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                        <link
+                            rel="stylesheet"
+                            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,800&display=swap"
+                        />
+                    </>
+                ) : null}
                 <meta property="og:title" content={meta.title || siteConfig.name} />
                 <meta property="og:description" content={meta.description || siteConfig.description} />
                 <meta property="og:url" content={canonicalUrl} />
