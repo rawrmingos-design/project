@@ -106,7 +106,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                 {activeThemeKey === 'istanatopup' && siteConfig?.name ? (
                     <div className="ist-site-intro">
                         <h1>{siteConfig.name}</h1>
-                        <p>{siteConfig.description}</p>
+                        <p>No #1 top up game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.</p>
                     </div>
                 ) : null}
                 {flashsaleItems.length ? (
@@ -195,9 +195,11 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                 {activeThemeKey === 'istanatopup' ? 'FAVORIT' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
                             </h2>
                             <p className="storefront-heading__subtitle">
-                                {activeThemeKey === 'bangjeff'
-                                    ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
-                                    : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
+                                {activeThemeKey === 'istanatopup'
+                                    ? 'Berikut adalah beberapa produk yang terakhir kamu beli.'
+                                    : activeThemeKey === 'bangjeff'
+                                        ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
+                                        : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
                             </p>
                         </div>
                     </div>
@@ -226,7 +228,9 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     TRENDING
                                 </h2>
                                 <p className="storefront-heading__subtitle">
-                                    Produk yang sedang banyak dicari pemain.
+                                    {activeThemeKey === 'istanatopup'
+                                        ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
+                                        : 'Produk yang sedang banyak dicari pemain.'}
                                 </p>
                             </div>
                         </div>
@@ -248,6 +252,12 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                 ) : null}
 
                 <section className="public-section public-section--storefront public-section--tabs">
+                    <div className="storefront-heading ist-products-heading">
+                        <div>
+                            <h2 className="storefront-heading__title">Semua Produk</h2>
+                            <p className="storefront-heading__subtitle">Pilih kategori lalu klik produk untuk mulai top up.</p>
+                        </div>
+                    </div>
                     <div className="storefront-tabs">
                         <div className="storefront-tabs__nav">
                             {categoryTabs.map((group, index) => (
@@ -285,8 +295,9 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         <div className="journal-heading__copy">
                             <h2>ARTIKEL TERBARU &amp; BERITA GAME</h2>
                             <p>
-                                Dapatkan informasi terbaru seputar dunia game! Temukan panduan lengkap untuk meningkatkan pengalaman bermain,
-                                serta berita terkini mengenai promo, update top-up, dan komunitas gamer.
+                                {activeThemeKey === 'istanatopup'
+                                    ? 'Dapatkan informasi terbaru seputar dunia game! Panduan lengkap, berita promo, update top-up, dan komunitas gamer.'
+                                    : 'Dapatkan informasi terbaru seputar dunia game! Temukan panduan lengkap untuk meningkatkan pengalaman bermain, serta berita terkini mengenai promo, update top-up, dan komunitas gamer.'}
                             </p>
                         </div>
                     </div>
