@@ -124,10 +124,17 @@ export default function Footer() {
     return (
         <>
             <div
-                className={`public-footer__visual ${useImageFooterVisual ? 'public-footer__visual--image' : 'public-footer__visual--wave'}`}
+                className={`public-footer__visual ${isIstanaTopup ? 'public-footer__visual--reference' : useImageFooterVisual ? 'public-footer__visual--image' : 'public-footer__visual--wave'}`}
                 aria-hidden="true"
             >
-                {useImageFooterVisual ? (
+                {isIstanaTopup ? (
+                    <svg className="public-footer__wave-svg" viewBox="0 0 1440 70" preserveAspectRatio="none">
+                        <path
+                            fill="currentColor"
+                            d="M0,70 L0,40 C240,0 480,0 720,35 C960,70 1200,70 1440,30 L1440,70 Z"
+                        />
+                    </svg>
+                ) : useImageFooterVisual ? (
                     <img
                         src={siteConfig.logoFooter}
                         alt=""
