@@ -57,6 +57,7 @@ export default function Footer() {
     const year = new Date().getFullYear();
     const [hasFooterVisual, setHasFooterVisual] = useState(Boolean(siteConfig.logoFooter));
     const isBangjeff = theme?.key === 'bangjeff';
+    const isIstanaTopup = theme?.key === 'istanatopup';
     const useImageFooterVisual = hasFooterVisual;
     const footerBrandLogo = siteConfig.assetAudit?.logoHeader?.path || siteConfig.logoHeader || siteConfig.favicon || '/assets/logo/favicon.webp';
 
@@ -160,11 +161,16 @@ export default function Footer() {
                 <div className="public-footer__inner public-footer__inner--storefront">
                     <FooterSeoDescription html={siteConfig.footerDescriptionHtml} />
 
-                    <div className={`public-footer__layout ${isBangjeff ? 'public-footer__layout--bangjeff' : ''}`}>
-                        {isBangjeff ? (
-                            <div className="public-footer__intro public-footer__intro--bangjeff">
+                    <div className={`public-footer__layout ${isBangjeff || isIstanaTopup ? 'public-footer__layout--bangjeff' : ''}`}>
+                        {isBangjeff || isIstanaTopup ? (
+                            <div className={`public-footer__intro public-footer__intro--bangjeff ${isIstanaTopup ? 'public-footer__intro--istanatopup' : ''}`}>
                                 <div className="public-footer__brand-block">
                                     <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
+                                    {isIstanaTopup ? (
+                                        <p className="public-footer__brand-description">
+                                            {siteConfig.description || `${siteConfig.name} - Top up game murah & legal 24 jam.`}
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 {socialLinks.length ? (
@@ -179,7 +185,7 @@ export default function Footer() {
                             </div>
                         ) : null}
 
-                        <div className={`public-footer__grid ${isBangjeff ? 'public-footer__grid--bangjeff' : ''}`}>
+                    <div className={`public-footer__grid ${isBangjeff ? 'public-footer__grid--bangjeff' : ''} ${isIstanaTopup ? 'public-footer__grid--istanatopup' : ''}`}>
                             {footerColumns.map((column) => (
                                 <div key={column.title} className="public-footer__column">
                                     <h3>{column.title}</h3>
