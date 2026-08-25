@@ -168,8 +168,11 @@
 }
 
 /* ---------- FAVORIT: 2 kartu per row di mobile/tablet (wrap) ---------- */
+/* (max-width:640px) di public-app.css memaksa 1 kolom — override
+   dengan specificity sama + posisi file lebih akhir tidak cukup karena
+   file theme diimport duluan; pakai selector ganda biar menang. */
 @media (max-width: 960px) {
-    .public-app--istanatopup .product-grid--popular-storefront {
+    .public-app--istanatopup .product-grid--popular-storefront.product-grid--popular-storefront {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
     }
