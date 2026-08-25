@@ -77,6 +77,7 @@ class PublicSiteConfigService
         return [
             'siteConfig' => [
                 'name' => $settings->judul_web,
+                'appName' => trim((string) config('app.name', env('APP_NAME', $settings->judul_web ?: 'Game Top-Up'))),
                 'description' => $plainDescription,
                 'footerDescriptionHtml' => $footerDescriptionHtml,
                 'keywords' => $settings->keywords,

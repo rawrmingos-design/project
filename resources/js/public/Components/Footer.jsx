@@ -173,6 +173,11 @@ export default function Footer() {
                             <div className={`public-footer__intro public-footer__intro--bangjeff ${isIstanaTopup ? 'public-footer__intro--istanatopup' : ''}`}>
                                 <div className="public-footer__brand-block">
                                     <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
+                                    {isIstanaTopup ? (
+                                        <p className="public-footer__brand-description">
+                                            No #1 supplier top up game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 {socialLinks.length ? (
@@ -182,6 +187,34 @@ export default function Footer() {
                                                 {item.icon}
                                             </a>
                                         ))}
+                                    </div>
+                                ) : null}
+
+                                {isIstanaTopup ? (
+                                    <div className="public-footer__app">
+                                        <h5>Download {(siteConfig.appName || siteConfig.name || 'Game Top-Up').toUpperCase()} Mobile App on:</h5>
+                                        <button
+                                            type="button"
+                                            className="public-footer__app-badge"
+                                            onClick={async () => {
+                                                const promptEvent = window.__istPwaInstallPrompt;
+                                                if (promptEvent) {
+                                                    window.__istPwaInstallPrompt = null;
+                                                    await promptEvent.prompt();
+                                                } else {
+                                                    window.location.href = '/site.webmanifest';
+                                                }
+                                            }}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                                <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                                                <path d="M11 18.5h2" />
+                                            </svg>
+                                            <span>
+                                                <small>PWA siap install</small>
+                                                Install Aplikasi Web
+                                            </span>
+                                        </button>
                                     </div>
                                 ) : null}
                             </div>
