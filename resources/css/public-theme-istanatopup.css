@@ -53,6 +53,87 @@
     }
 }
 
+/* ---------- Mockup homepage: site intro + horizontal game cards ---------- */
+.public-app--istanatopup .ist-site-intro {
+    text-align: center;
+    padding: 24px 0 0;
+}
+.public-app--istanatopup .ist-site-intro h1 {
+    margin: 0;
+    color: var(--ist-text);
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .ist-site-intro p {
+    max-width: 720px;
+    margin: 8px auto 0;
+    color: var(--ist-muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+.public-app--istanatopup .ist-hgrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.public-app--istanatopup .ist-hcard {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+    padding: 13px 15px;
+    color: var(--ist-text);
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    text-decoration: none;
+    transition: transform .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .ist-hcard:hover {
+    transform: translateY(-2px);
+    border-color: rgba(61, 121, 242, .7);
+}
+.public-app--istanatopup .ist-hcard__art {
+    display: grid;
+    flex: 0 0 58px;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    overflow: hidden;
+    background: var(--ist-surface-alt);
+    border-radius: 12px;
+}
+.public-app--istanatopup .ist-hcard__art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.public-app--istanatopup .hc-txt {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+.public-app--istanatopup .hc-txt b,
+.public-app--istanatopup .hc-txt span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.public-app--istanatopup .hc-txt b { font-size: .9rem; }
+.public-app--istanatopup .hc-txt span { color: var(--ist-muted); font-size: .75rem; }
+@media (max-width: 1000px) {
+    .public-app--istanatopup .ist-hgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .ist-hgrid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .public-app--istanatopup .ist-hcard { gap: 9px; padding: 10px; }
+    .public-app--istanatopup .ist-hcard__art { flex-basis: 48px; width: 48px; height: 48px; }
+    .public-app--istanatopup .hc-txt b { font-size: .78rem; }
+}
+
 /* ---------- Navbar ---------- */
 .public-app--istanatopup .public-navbar--storefront {
     background: rgba(18, 18, 18, 0.92);
@@ -179,6 +260,57 @@
 }
 
 /* ---------- Flash sale ---------- */
+/* Mockup: rail scroll manual (bukan marquee), kartu 228px, bar 7px */
+.public-app--istanatopup .flashsale-rail--marquee .flashsale-rail__track {
+    animation: none;
+    width: max-content;
+}
+.public-app--istanatopup .flashsale-rail--marquee {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 4px 2px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .18) transparent;
+}
+.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar {
+    height: 4px;
+}
+.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .14);
+    border-radius: 99px;
+}
+.public-app--istanatopup .flashsale-card--bangjeff {
+    flex: 0 0 228px;
+    width: 228px;
+    min-height: 0;
+    scroll-snap-align: start;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    padding: 14px 14px 12px;
+    color: var(--ist-text);
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .flashsale-card--bangjeff {
+        flex-basis: 200px;
+        width: 200px;
+    }
+}
+.public-app--istanatopup .flashsale-card__headline strong { font-size: .84rem; }
+.public-app--istanatopup .flashsale-card__game {
+    color: var(--ist-muted);
+    font-size: .72rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .flashsale-card__price span { font-size: .95rem; }
+.public-app--istanatopup .flashsale-card__price small {
+    margin-left: 6px;
+    color: var(--ist-muted);
+    font-style: italic;
+    text-decoration: line-through;
+}
 .public-app--istanatopup .flashsale-card--bangjeff {
     background: linear-gradient(160deg, var(--ist-surface) 0%, var(--ist-surface-alt) 100%);
     border-color: rgba(249, 115, 22, 0.35);
