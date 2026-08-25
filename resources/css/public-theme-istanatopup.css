@@ -438,8 +438,49 @@
     text-transform: uppercase;
     color: var(--ist-text);
 }
+.public-app--istanatopup .storefront-tabs__nav {
+    display: flex;
+    gap: 9px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+}
+.public-app--istanatopup .storefront-tabs__nav::-webkit-scrollbar {
+    display: none;
+}
+.public-app--istanatopup .storefront-tabs__nav button {
+    flex: none;
+    min-height: 38px;
+    padding: 9px 20px;
+    border: 1px solid var(--ist-border);
+    border-radius: 999px;
+    background: var(--ist-surface);
+    color: var(--ist-muted);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .storefront-tabs__nav button:hover {
+    color: var(--ist-text);
+    border-color: var(--ist-text-soft);
+}
 .public-app--istanatopup .storefront-tabs__nav button.is-active {
-    color: var(--ist-accent-soft);
+    background: var(--ist-accent);
+    border-color: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .ist-products-heading .storefront-heading__title {
+    text-transform: none;
+    letter-spacing: 0;
+}
+.public-app--istanatopup .ist-products-heading .storefront-heading__subtitle {
+    text-transform: none;
 }
 
 /* ---------- Cards ---------- */
