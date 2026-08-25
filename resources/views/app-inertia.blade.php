@@ -92,6 +92,14 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="{{ $themeColor }}">
     <meta name="robots" content="{{ $robots }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="{{ $siteConfig['appName'] ?? $siteConfig['name'] ?? config('app.name') }}">
+    <meta name="apple-mobile-web-app-title" content="{{ $siteConfig['name'] ?? config('app.name') }}">
+    <link rel="manifest" href="{{ route('pwa.manifest') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('assets/pwa/apple-touch-icon.png') }}">
+    <meta name="format-detection" content="telephone=no">
 
     @if($description !== '')
         <meta name="description" content="{{ $description }}">
@@ -177,5 +185,15 @@
         'trackingPlacement' => 'body',
     ])
     @inertia
+    <script>
+        // Register the PWA service worker so the footer install button can trigger beforeinstallprompt.
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function (error) {
+                    console.debug('Service worker registration failed:', error);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
