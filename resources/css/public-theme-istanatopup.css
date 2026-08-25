@@ -134,6 +134,129 @@
     .public-app--istanatopup .hc-txt b { font-size: .78rem; }
 }
 
+/* ---------- Header — exact Bangjeff mockup rhythm ---------- */
+.public-app--istanatopup .public-navbar--storefront {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(26, 26, 26, .96);
+    border-bottom: 0;
+    backdrop-filter: none;
+}
+.public-app--istanatopup .public-navbar__top {
+    background: var(--ist-surface);
+    border-bottom: 0;
+}
+.public-app--istanatopup .public-navbar__bottom {
+    background: var(--ist-surface);
+    border-top: 1px solid var(--ist-border);
+    border-bottom: 1px solid var(--ist-border);
+}
+.public-app--istanatopup .public-navbar__inner {
+    width: min(calc(100% - 32px), 1280px);
+}
+.public-app--istanatopup .public-navbar__inner--top {
+    min-height: 60px;
+    gap: 20px;
+}
+.public-app--istanatopup .public-navbar__inner--bottom {
+    min-height: 48px;
+    gap: 16px;
+}
+.public-app--istanatopup .public-brand--storefront .public-brand__logo {
+    height: 40px;
+    border-radius: 0;
+}
+.public-app--istanatopup .public-search {
+    flex: 1;
+    min-width: 0;
+}
+.public-app--istanatopup .public-search input {
+    height: 38px;
+    padding: 0 42px 0 16px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    border-radius: 9px;
+    font-size: .82rem;
+}
+.public-app--istanatopup .public-navbar__links--storefront {
+    gap: 4px;
+    align-items: stretch;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.public-app--istanatopup .public-navbar__links--storefront::-webkit-scrollbar { display: none; }
+.public-app--istanatopup .public-navbar__link {
+    height: 48px;
+    flex: 0 0 auto;
+    gap: 7px;
+    padding: 0 14px;
+    color: var(--ist-muted);
+    font-size: .84rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-navbar__link::after {
+    bottom: 0;
+    height: 2px;
+    background: transparent;
+}
+.public-app--istanatopup .public-navbar__link.is-active,
+.public-app--istanatopup .public-navbar__link:hover {
+    color: var(--ist-accent-soft);
+}
+.public-app--istanatopup .public-navbar__link.is-active::after,
+.public-app--istanatopup .public-navbar__link:hover::after {
+    background: var(--ist-accent);
+}
+.public-app--istanatopup .public-navbar__link-icon svg,
+.public-app--istanatopup .public-navbar__text-link-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.public-app--istanatopup .public-locale-pill {
+    display: inline-flex;
+    width: auto;
+    height: 32px;
+    gap: 8px;
+    padding: 0 10px 0 7px;
+    border-radius: 8px;
+    border-color: var(--ist-border);
+    background: transparent;
+}
+.public-app--istanatopup .public-locale-pill__text {
+    display: inline-flex;
+    color: var(--ist-text);
+    font-size: .78rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-mobile-icon--accent {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-navbar__bottom-actions {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+.public-app--istanatopup .public-navbar__text-link--storefront {
+    color: var(--ist-muted);
+    font-weight: 700;
+}
+.public-app--istanatopup .public-navbar__text-link--storefront:hover { color: var(--ist-accent-soft); }
+@media (max-width: 960px) {
+    .public-app--istanatopup .public-navbar__inner { width: min(calc(100% - 24px), 1280px); }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-navbar__inner { width: calc(100% - 32px); }
+    .public-app--istanatopup .public-navbar__inner--top { min-height: 60px; gap: 10px; }
+    .public-app--istanatopup .public-brand--storefront .public-brand__logo { height: 30px; }
+    .public-app--istanatopup .public-navbar__top-actions { gap: 8px; }
+    .public-app--istanatopup .public-navbar__bottom { display: none; }
+    .public-app--istanatopup .public-mobile-icon { display: inline-flex; }
+}
+
 /* ---------- Navbar ---------- */
 .public-app--istanatopup .public-navbar--storefront {
     background: rgba(18, 18, 18, 0.92);
