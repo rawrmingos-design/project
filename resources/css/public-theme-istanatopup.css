@@ -144,9 +144,35 @@
 .public-app--istanatopup .hero-storefront__backdrop {
     display: none; /* bersihkan meteor/gradient default — mockup polos */
 }
+/* Banner hampir full-width: sisi kecil, gambar utuh tanpa crop */
+.public-app--istanatopup .hero-storefront__container {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+@media (min-width: 1024px) {
+    .public-app--istanatopup .hero-storefront__container {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+.public-app--istanatopup .hero-swiper-react,
+.public-app--istanatopup .hero-swiper-react .swiper-slide {
+    background: #101013;
+    border-radius: 14px;
+}
 .public-app--istanatopup .hero-swiper-react__image {
-    border-radius: var(--ist-radius);
+    aspect-ratio: 16 / 9;      /* lebih tinggi dari 16/6 → gak gepeng */
+    object-fit: contain;       /* tampilkan utuh, gak kepotong */
+    border-radius: 14px;
     border: 1px solid var(--ist-border);
+}
+
+/* ---------- FAVORIT: 2 kartu per row di mobile/tablet (wrap) ---------- */
+@media (max-width: 960px) {
+    .public-app--istanatopup .product-grid--popular-storefront {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
 }
 
 /* ---------- Flash sale ---------- */
