@@ -645,8 +645,16 @@
 .public-app--istanatopup .public-footer__wave--back svg path { fill: var(--ist-surface); }
 .public-app--istanatopup .public-footer__wave--front svg path { fill: var(--ist-bg); }
 .public-app--istanatopup .public-footer__inner--storefront {
+    width: 100%;
+    max-width: none;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-footer__layout,
+.public-app--istanatopup .public-footer__bottom {
     width: min(calc(100% - 36px), 1200px);
     max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
 }
 .public-app--istanatopup .public-footer__layout {
     display: grid;
@@ -729,8 +737,6 @@
     color: var(--ist-text-soft);
 }
 .public-app--istanatopup .public-footer__bottom {
-    width: min(calc(100% - 36px), 1200px);
-    max-width: 1200px;
     margin-top: 0;
     padding: 16px 0;
     display: flex;
