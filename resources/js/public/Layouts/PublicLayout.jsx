@@ -9,7 +9,11 @@ import '../../../css/public-theme-istanatopup.css';
 export default function PublicLayout({ children, meta = {}, mainClassName = '' }) {
     const { siteConfig, theme, featureFlags } = usePage().props;
     const activeTheme = resolveTheme(theme?.key);
-    const palette = activeTheme.tokens.colors || siteConfig.colors;
+    // Theme tokens are defaults; setting_webs colors remain the runtime source of truth.
+    const palette = {
+        ...(activeTheme.tokens.colors || {}),
+        ...(siteConfig.colors || {}),
+    };
     const shouldRenderLiveSalesToast = featureFlags?.liveSalesEnabled;
     const normalizeCanonicalUrl = (url) => {
         if (typeof window === 'undefined') {
@@ -64,6 +68,13 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
         '--public-color-secondary': palette.secondary,
         '--public-color-accent': palette.accent,
         '--public-color-highlight': palette.highlight,
+        '--ist-bg': activeTheme.tokens.background || '#121212',
+        '--ist-surface': palette.secondary || activeTheme.tokens.surface || '#1A1A1A',
+        '--ist-surface-alt': activeTheme.tokens.surfaceAlt || palette.secondary || '#1F1F1F',
+        '--ist-border': activeTheme.tokens.border || '#2F2F2F',
+        '--ist-text': '#FFFFFF',
+        '--ist-text-soft': '#F5F5F5',
+        '--ist-muted': activeTheme.tokens.textMuted || '#9C9C9C',
         '--public-radius-shell': activeTheme.tokens.radius,
         '--public-shell-width': activeTheme.tokens.shellMaxWidth,
         '--public-card-shadow': activeTheme.tokens.cardShadow,
