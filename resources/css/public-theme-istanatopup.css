@@ -702,6 +702,45 @@
     gap: 9px;
     margin-top: 18px;
 }
+/* Reference f-app: heading + PWA install badge */
+.public-app--istanatopup .public-footer__app {
+    margin-top: 18px;
+}
+.public-app--istanatopup .public-footer__app h5 {
+    color: var(--ist-text);
+    font-size: 12.5px;
+    font-weight: 800;
+    margin-bottom: 9px;
+}
+.public-app--istanatopup .public-footer__app-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    border-radius: 11px;
+    color: var(--ist-text);
+    font-size: 12.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color .15s ease;
+}
+.public-app--istanatopup .public-footer__app-badge:hover {
+    border-color: var(--ist-accent);
+}
+.public-app--istanatopup .public-footer__app-badge svg {
+    width: 20px;
+    height: 20px;
+    color: var(--ist-accent);
+    flex: none;
+}
+.public-app--istanatopup .public-footer__app-badge small {
+    display: block;
+    color: var(--ist-muted);
+    font-size: 10.5px;
+    font-weight: 600;
+}
 .public-app--istanatopup .public-footer__social-link {
     width: 36px;
     height: 36px;
