@@ -103,6 +103,12 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                 <HeroBanner banners={banners} />
             </div>
             <div className="public-shell">
+                {activeThemeKey === 'istanatopup' && siteConfig?.name ? (
+                    <div className="ist-site-intro">
+                        <h1>{siteConfig.name}</h1>
+                        <p>{siteConfig.description}</p>
+                    </div>
+                ) : null}
                 {flashsaleItems.length ? (
                     <section className="public-section public-section--storefront public-section--flashsale">
                         <div className="storefront-heading storefront-heading--flashsale">
@@ -196,9 +202,17 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         </div>
                     </div>
 
-                    <div className="product-grid product-grid--storefront product-grid--popular-storefront">
+                    <div className="product-grid product-grid--storefront product-grid--popular-storefront ist-hgrid">
                         {featuredCategories.map((item) => (
-                            <ProductCard key={item.id} item={item} variant="storefront" showPrice={false} />
+                            <Link key={item.id} href={`/id/${item.slug}`} className="ist-hcard">
+                                <span className="ist-hcard__art">
+                                    <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                </span>
+                                <span className="hc-txt">
+                                    <b>{item.name}</b>
+                                    <span>{item.subtitle}</span>
+                                </span>
+                            </Link>
                         ))}
                     </div>
                 </section>
@@ -217,9 +231,17 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             </div>
                         </div>
 
-                        <div className="product-grid product-grid--storefront product-grid--trending-storefront">
+                        <div className="product-grid product-grid--storefront product-grid--trending-storefront ist-hgrid">
                             {(categoryTabs[0]?.items ?? []).slice(0, 8).map((item) => (
-                                <ProductCard key={`trend-${item.id}`} item={item} variant="poster" showPrice={false} />
+                                <Link key={`trend-${item.id}`} href={`/id/${item.slug}`} className="ist-hcard">
+                                    <span className="ist-hcard__art">
+                                        <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                    </span>
+                                    <span className="hc-txt">
+                                        <b>{item.name}</b>
+                                        <span>{item.subtitle}</span>
+                                    </span>
+                                </Link>
                             ))}
                         </div>
                     </section>
