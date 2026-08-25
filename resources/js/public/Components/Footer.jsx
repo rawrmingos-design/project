@@ -175,7 +175,7 @@ export default function Footer() {
                                     <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
                                     {isIstanaTopup ? (
                                         <p className="public-footer__brand-description">
-                                            No #1 supplier top up game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.
+                                            No #1 supplier {siteConfig.appName || siteConfig.name || 'top up'} game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.
                                         </p>
                                     ) : null}
                                 </div>
