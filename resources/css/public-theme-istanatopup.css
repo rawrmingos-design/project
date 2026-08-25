@@ -637,6 +637,16 @@
     height: 70px;
     margin-top: 40px;
 }
+/* Reference wave: single SVG, fill = footer surface (#1A1A1A), body shows page bg */
+.public-app--istanatopup .public-footer__visual--reference {
+    color: var(--ist-surface);
+    background: transparent;
+}
+.public-app--istanatopup .public-footer__visual--reference .public-footer__wave-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
 .public-app--istanatopup .public-footer__visual--wave,
 .public-app--istanatopup .public-footer__visual .public-footer__wave svg path {
     color: var(--ist-surface);
