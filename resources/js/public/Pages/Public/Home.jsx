@@ -21,12 +21,11 @@ function getCountdownParts(expiresAt) {
     }
 
     const totalSeconds = Math.floor(diff / 1000);
-    const days = String(Math.floor(totalSeconds / 86400)).padStart(2, '0');
-    const hours = String(Math.floor((totalSeconds % 86400) / 3600)).padStart(2, '0');
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
 
-    return { days, hours, minutes, seconds };
+    return { hours, minutes, seconds };
 }
 
 function formatArticleDate(value) {
@@ -55,7 +54,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
     const articleItems = Array.isArray(articles) ? articles : [];
     const activeGroup = categoryTabs[activeCategoryTab] || categoryTabs[0] || null;
     const flashsaleMarqueeItems = useMemo(
-        () => flashsaleItems,
+        () => (flashsaleItems.length ? [...flashsaleItems, ...flashsaleItems] : []),
         [flashsaleItems],
     );
     const flashsaleDeadline = useMemo(() => {
@@ -121,10 +120,11 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     </h2>
                                     {flashsaleCountdown ? (
                                         <div className="flashsale-heading__countdown" aria-label="Countdown flash sale">
-                                            <span>{flashsaleCountdown.days}h</span>
-                                            <span>{flashsaleCountdown.hours}j</span>
-                                            <span>{flashsaleCountdown.minutes}m</span>
-                                            <span>{flashsaleCountdown.seconds}d</span>
+                                            <span>{flashsaleCountdown.hours}</span>
+                                            <b>:</b>
+                                            <span>{flashsaleCountdown.minutes}</span>
+                                            <b>:</b>
+                                            <span>{flashsaleCountdown.seconds}</span>
                                         </div>
                                     ) : null}
                                 </div>
@@ -178,7 +178,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                                     <span className="flashsale-card__footer-pill flashsale-card__footer-pill--accent">
                                                         {discountPercent ? `-Rp ${new Intl.NumberFormat('id-ID').format(savingsAmount)}` : 'Promo aktif'}
                                                     </span>
-                                                    <span className="flashsale-card__footer-pill">Flash sale</span>
+                                                    <span className="flashsale-card__footer-pill">⚡ Pengiriman INSTAN</span>
                                                 </div>
                                             </div>
                                         </Link>
