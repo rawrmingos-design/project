@@ -548,10 +548,15 @@
 }
 
 /* ---------- Flash sale ---------- */
-/* Mockup: rail scroll manual (bukan marquee), kartu 228px, bar 7px */
+/* Referensi: rail marquee otomatis, kartu 228px, bar 7px */
 .public-app--istanatopup .flashsale-rail--marquee .flashsale-rail__track {
-    animation: none;
     width: max-content;
+    animation: storefront-marquee 34s linear infinite;
+    will-change: transform;
+}
+.public-app--istanatopup .flashsale-rail--marquee:hover .flashsale-rail__track,
+.public-app--istanatopup .flashsale-rail--marquee:focus-within .flashsale-rail__track {
+    animation-play-state: paused;
 }
 .public-app--istanatopup .flashsale-rail--marquee {
     display: flex;
@@ -630,6 +635,83 @@
     border: 1px solid var(--ist-border);
     color: var(--ist-accent-soft);
     border-radius: 8px;
+}
+.public-app--istanatopup .storefront-heading--flashsale {
+    margin-bottom: 10px;
+}
+.public-app--istanatopup .storefront-heading--flashsale .storefront-heading__title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 4px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.public-app--istanatopup .storefront-heading--flashsale .storefront-heading__subtitle {
+    margin-top: 3px;
+    color: var(--ist-muted);
+    font-size: 13px;
+}
+.public-app--istanatopup .flashsale-heading__row {
+    width: 100%;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: nowrap;
+}
+.public-app--istanatopup .flashsale-heading__countdown {
+    margin-left: auto;
+    flex-shrink: 0;
+    gap: 6px;
+}
+.public-app--istanatopup .flashsale-heading__countdown span {
+    min-width: 34px;
+    height: auto;
+    min-height: 26px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.public-app--istanatopup .flashsale-heading__countdown b {
+    color: var(--ist-muted);
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1;
+}
+.public-app--istanatopup .flashsale-card--bangjeff:hover {
+    transform: translateY(-4px);
+    border-color: var(--ist-accent);
+}
+.public-app--istanatopup .flashsale-card__footer-pill {
+    font-size: 10.5px;
+    font-weight: 800;
+}
+.public-app--istanatopup .flashsale-card__footer-pill--accent {
+    background: transparent;
+    border: 1px solid var(--ist-accent);
+    color: var(--ist-accent);
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-section--flashsale {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    .public-app--istanatopup .flashsale-heading__row {
+        gap: 8px;
+    }
+    .public-app--istanatopup .flashsale-heading__countdown {
+        gap: 4px;
+    }
+    .public-app--istanatopup .flashsale-heading__countdown span {
+        min-width: 30px;
+        padding-left: 5px;
+        padding-right: 5px;
+        font-size: 12px;
+    }
 }
 
 /* ---------- Trending section (khusus istanatopup) ---------- */
