@@ -721,8 +721,12 @@
     padding: 26px 0 30px; /* mockup f-main: 14px top terlalu mepet di React (logo 40px) */
     align-items: start;
 }
-.public-app--istanatopup .public-footer__layout--bangjeff {
-    width: auto;
+.public-app--istanatopup .public-footer__layout.public-footer__layout--bangjeff {
+    /* Modifier base lama mengubah width menjadi auto dan menghapus inset mobile. */
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
     gap: 30px;
 }
 .public-app--istanatopup .public-footer__intro--istanatopup {
