@@ -21,11 +21,12 @@ function getCountdownParts(expiresAt) {
     }
 
     const totalSeconds = Math.floor(diff / 1000);
-    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+    const days = String(Math.floor(totalSeconds / 86400)).padStart(2, '0');
+    const hours = String(Math.floor((totalSeconds % 86400) / 3600)).padStart(2, '0');
     const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
     const seconds = String(totalSeconds % 60).padStart(2, '0');
 
-    return { hours, minutes, seconds };
+    return { days, hours, minutes, seconds };
 }
 
 function formatArticleDate(value) {
@@ -54,7 +55,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
     const articleItems = Array.isArray(articles) ? articles : [];
     const activeGroup = categoryTabs[activeCategoryTab] || categoryTabs[0] || null;
     const flashsaleMarqueeItems = useMemo(
-        () => (flashsaleItems.length ? [...flashsaleItems, ...flashsaleItems] : []),
+        () => flashsaleItems,
         [flashsaleItems],
     );
     const flashsaleDeadline = useMemo(() => {
@@ -120,9 +121,10 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     </h2>
                                     {flashsaleCountdown ? (
                                         <div className="flashsale-heading__countdown" aria-label="Countdown flash sale">
-                                            <span>{flashsaleCountdown.hours}</span>
-                                            <span>{flashsaleCountdown.minutes}</span>
-                                            <span>{flashsaleCountdown.seconds}</span>
+                                            <span>{flashsaleCountdown.days}h</span>
+                                            <span>{flashsaleCountdown.hours}j</span>
+                                            <span>{flashsaleCountdown.minutes}m</span>
+                                            <span>{flashsaleCountdown.seconds}d</span>
                                         </div>
                                     ) : null}
                                 </div>
