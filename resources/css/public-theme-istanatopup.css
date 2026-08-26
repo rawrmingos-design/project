@@ -862,3 +862,26 @@
         font-size: 1.05rem;
     }
 }
+
+/* ---------- "Semua Produk" grid density (user spec) ----------
+   Desktop ≥1000px: 6 per row · Tablet ≤1000px: 4 · Mobile ≤640px: 3.
+   Doubled class beats later base media-query rules (cascade pitfall). */
+.public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    justify-content: stretch;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        column-gap: 12px;
+        row-gap: 16px;
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        column-gap: 10px;
+        row-gap: 14px;
+    }
+}
