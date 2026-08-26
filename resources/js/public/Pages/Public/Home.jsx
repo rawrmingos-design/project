@@ -251,7 +251,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </section>
                 ) : null}
 
-                <section className="public-section public-section--storefront public-section--tabs">
+                <section className="public-section public-section--storefront public-section--tabs ist-products-section">
                     <div className="storefront-heading ist-products-heading">
                         <div>
                             <h2 className="storefront-heading__title">Semua Produk</h2>
