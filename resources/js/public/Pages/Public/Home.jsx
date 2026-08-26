@@ -313,10 +313,12 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                         </div>
                                     </Link>
                                     <div className="article-card__body article-card__body--journal">
-                                        <div className="article-card__meta">
-                                            <span>Redaksi</span>
+                                        <span className="ist-article__category">Artikel</span>
+                                        <h3>{article.title}</h3>
+                                        {article.excerpt ? <p>{article.excerpt}</p> : null}
+                                        <div className="ist-article__date">
+                                            Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
                                         </div>
-                                        <p>{article.title}</p>
                                     </div>
                                 </article>
                             ))}

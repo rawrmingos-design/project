@@ -222,7 +222,7 @@ class PublicHomePageDataService
     {
         return Artikel::query()
             ->where('status', 'active')
-            ->select(['id', 'slug', 'title', 'thumbnail', 'created_at', 'views'])
+            ->select(['id', 'slug', 'title', 'content', 'thumbnail', 'created_at', 'views'])
             ->latest()
             ->take(3)
             ->get()
@@ -231,6 +231,7 @@ class PublicHomePageDataService
                 'slug' => $article->slug,
                 'title' => $article->title,
                 'thumbnail' => '/' . ltrim((string) $article->thumbnail, '/'),
+                'excerpt' => trim(HtmlSanitizer::toPlainText($article->content ?? '', 120)),
                 'publishedAt' => optional($article->created_at)?->toDateString(),
                 'views' => (int) ($article->views ?? 0),
             ])
