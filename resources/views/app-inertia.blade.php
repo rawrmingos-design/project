@@ -189,7 +189,7 @@
         // Register the PWA service worker so the footer install button can trigger beforeinstallprompt.
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function () {
-                navigator.serviceWorker.register('/sw.js').catch(function (error) {
+                navigator.serviceWorker.register('/sw.js?v=3').catch(function (error) {
                     console.debug('Service worker registration failed:', error);
                 });
             });
