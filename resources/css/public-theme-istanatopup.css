@@ -672,6 +672,11 @@
 
 /* ---------- Footer — exact mockup structure ---------- */
 /* Reference: f-wave 70px, footer bg2 #1A1A1A, grid 1.6fr/1fr/1fr/1fr gap 30px */
+.public-app--istanatopup .public-footer {
+    color: var(--ist-muted);
+    font-size: 13px; /* mockup: footer{font-size:13px} */
+    line-height: 1.55;
+}
 .public-app--istanatopup .public-footer--storefront {
     background: var(--ist-surface);
     border-top: 0;
@@ -713,7 +718,7 @@
     display: grid;
     grid-template-columns: 1.6fr 1fr 1fr 1fr;
     gap: 30px;
-    padding: 14px 0 30px;
+    padding: 26px 0 30px; /* mockup f-main: 14px top terlalu mepet di React (logo 40px) */
     align-items: start;
 }
 .public-app--istanatopup .public-footer__layout--bangjeff {
@@ -739,7 +744,7 @@
     margin: 12px 0 0;
     color: var(--ist-muted);
     font-size: 12.5px;
-    line-height: 1.65;
+    line-height: 1.6;
 }
 .public-app--istanatopup .public-footer__social-row {
     gap: 9px;
@@ -818,12 +823,12 @@
 .public-app--istanatopup .public-footer__column ul {
     display: flex;
     flex-direction: column;
-    gap: 9px;
+    gap: 8px;
 }
 .public-app--istanatopup .public-footer__column a {
     color: var(--ist-muted);
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.5;
 }
 .public-app--istanatopup .public-footer__column a:hover {
     color: var(--ist-text-soft);
@@ -848,7 +853,11 @@
     .public-app--istanatopup .public-footer__intro--istanatopup { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
-    .public-app--istanatopup .public-footer__layout { grid-template-columns: 1fr; }
+    .public-app--istanatopup .public-footer__layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding-top: 22px;
+    }
     .public-app--istanatopup .public-footer__bottom {
         flex-direction: column;
         align-items: flex-start;
