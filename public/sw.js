@@ -1,4 +1,6 @@
-const CACHE_VERSION = 'v2';
+// Uploaded public images must always reflect the origin after File Manager
+// deletes. Keep them out of the static cache; old v2 is removed on activate.
+const CACHE_VERSION = 'v3';
 const CACHE_PREFIX = 'storefront-pwa';
 const OFFLINE_CACHE = `${CACHE_PREFIX}-offline-${CACHE_VERSION}`;
 const STATIC_CACHE = `${CACHE_PREFIX}-static-${CACHE_VERSION}`;
@@ -16,7 +18,7 @@ const PRECACHE_URLS = [
     '/assets/js/oo324ddod2323sd2dd.js',
 ];
 
-const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|map|png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|eot)$/i;
+const STATIC_ASSET_PATTERN = /\.(?:css|js|mjs|map|woff|woff2|ttf|eot)$/i;
 const NETWORK_ONLY_PREFIXES = [
     '/admin',
     '/filament',
