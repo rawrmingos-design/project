@@ -28,12 +28,9 @@
 
 /* Reference HTML uses Plus Jakarta Sans globally: 400, 600, 700, 800 + italic 800. */
 .public-app--istanatopup,
-.public-app--istanatopup *,
-.public-app--istanatopup input,
-.public-app--istanatopup button,
-.public-app--istanatopup textarea,
-.public-app--istanatopup select {
-    font-family: var(--public-font-family, 'Plus Jakarta Sans'), system-ui, sans-serif;
+.public-app--istanatopup * {
+    /* public-app.css has deeper component font rules; this theme owns all type. */
+    font-family: var(--public-font-family, 'Plus Jakarta Sans'), system-ui, sans-serif !important;
 }
 
 .public-app--istanatopup a { color: inherit; text-decoration: none; }
