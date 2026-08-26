@@ -887,3 +887,81 @@
         row-gap: 14px;
     }
 }
+
+/* Artikel terbaru mengikuti struktur kartu .post pada mockup */
+.public-app--istanatopup .article-grid--bangjeff-news {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    overflow: visible;
+    padding: 0;
+}
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal {
+    min-width: 0;
+    flex: initial;
+    overflow: hidden;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    transition: transform .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal:hover,
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal:focus-within {
+    transform: translateY(-3px);
+    border-color: var(--ist-accent);
+    box-shadow: none;
+}
+.public-app--istanatopup .article-card--journal .article-card__image-link img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 8.5;
+    object-fit: cover;
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .article-card--journal .article-card__overlay {
+    display: none;
+}
+.public-app--istanatopup .article-card__body--journal {
+    display: block;
+    padding: 14px 15px 16px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .article-card__body--journal .ist-article__category {
+    display: block;
+    color: var(--ist-accent);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .article-card__body--journal h3 {
+    margin: 6px 0;
+    color: var(--ist-text);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .article-card__body--journal p {
+    margin: 0;
+    color: var(--ist-muted);
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.45;
+}
+.public-app--istanatopup .article-card__body--journal .ist-article__date {
+    margin-top: 10px;
+    color: var(--ist-muted);
+    font-size: 11px;
+    line-height: 1.3;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .article-grid--bangjeff-news {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .article-grid--bangjeff-news {
+        grid-template-columns: 1fr;
+    }
+}
