@@ -28,6 +28,7 @@
 
 /* Reference HTML uses Plus Jakarta Sans globally: 400, 600, 700, 800 + italic 800. */
 .public-app--istanatopup,
+.public-app--istanatopup *,
 .public-app--istanatopup input,
 .public-app--istanatopup button,
 .public-app--istanatopup textarea,
@@ -527,9 +528,13 @@
     background: #101013;
     border-radius: 14px;
 }
+/* Banner: gambar memenuhi kotak (full-bleed dalam frame).
+   Upload banner rasio ~16/9 supaya tidak ter-crop; artwork landscape
+   ekstrem akan terpotong sisi kiri/kanan oleh object-fit cover. */
 .public-app--istanatopup .hero-swiper-react__image {
-    aspect-ratio: 16 / 9;      /* lebih tinggi dari 16/6 → gak gepeng */
-    object-fit: contain;       /* tampilkan utuh, gak kepotong */
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    object-position: center;
     border-radius: 14px;
     border: 1px solid var(--ist-border);
 }
