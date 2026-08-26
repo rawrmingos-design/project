@@ -562,6 +562,12 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, .18) transparent;
 }
+.public-app--istanatopup .public-section--flashsale {
+    padding: 18px 20px 20px;
+    border-radius: 14px;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+}
 .public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar {
     height: 4px;
 }
@@ -580,6 +586,14 @@
     padding: 14px 14px 12px;
     color: var(--ist-text);
 }
+.public-app--istanatopup .flashsale-card__content { gap: 8px; }
+.public-app--istanatopup .flashsale-card__headline strong { font-size: 12.5px; line-height: 1.3; }
+.public-app--istanatopup .flashsale-card__discount { font-size: 10.5px; padding: 3px 7px; }
+.public-app--istanatopup .flashsale-card__price--bangjeff span { font-size: 15.5px; }
+.public-app--istanatopup .flashsale-card__price--bangjeff small { font-size: 11.5px; }
+.public-app--istanatopup .flashsale-card__progress { height: 7px; }
+.public-app--istanatopup .flashsale-card__stock small,
+.public-app--istanatopup .flashsale-card__stock small strong { font-size: 10.5px; }
 @media (max-width: 640px) {
     .public-app--istanatopup .flashsale-card--bangjeff {
         flex-basis: 200px;

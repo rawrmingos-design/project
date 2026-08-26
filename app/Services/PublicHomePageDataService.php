@@ -192,6 +192,7 @@ class PublicHomePageDataService
                 'kategoris.kode AS kode_game',
                 'kategoris.nama AS kategori_nama',
                 'layanans.judul_flash_sale',
+                'layanans.layanan',
                 'layanans.harga',
                 'layanans.harga_flash_sale',
                 'layanans.stock_flash_sale',
@@ -205,7 +206,7 @@ class PublicHomePageDataService
             ->get()
             ->map(fn ($item) => [
                 'id' => $item->id,
-                'title' => $item->judul_flash_sale ?: $item->kategori_nama,
+                'title' => $item->layanan ?: ($item->judul_flash_sale ?: $item->kategori_nama),
                 'category' => $item->kategori_nama,
                 'slug' => $item->kode_game,
                 'thumbnail' => '/' . ltrim((string) $item->gmr_thumb, '/'),
