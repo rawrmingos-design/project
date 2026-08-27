@@ -222,7 +222,9 @@ class TransactionLookupPageController extends Controller
         return [
             'invoiceId' => (string) ($pembelian->display_order_id ?: $pembelian->order_id),
             'invoiceUrl' => route('pembelian', ['order' => $pembelian->order_id]),
-            'createdAt' => optional($pembelian->created_at)->timezone(config('app.timezone'))->format('d-m-Y H:i:s'),
+            'createdAt' => $pembelian->created_at
+                ? $pembelian->created_at->timezone(config('app.timezone'))->format('d-m-Y H:i:s')
+                : '-',
             'phone' => (string) ($payment->no_pembeli ?? '-'),
             'price' => (int) round((float) ($pembelian->harga ?? 0)),
             'status' => $this->mapTransactionStatus(
