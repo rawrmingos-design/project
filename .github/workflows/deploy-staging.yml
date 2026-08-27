@@ -22,7 +22,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: production-deploy
+  group: staging-deploy
   cancel-in-progress: true
 
 env:
@@ -215,7 +215,7 @@ jobs:
     name: 🚀 Deploy to VPS
     runs-on: ubuntu-24.04
     needs: build   # Hanya jalan jika build berhasil
-    environment: production   # Butuh approval manual (opsional)
+    environment: staging      # Environment staging; tidak memakai protection production
 
     steps:
       - name: 📥 Checkout code (untuk docker-compose.yml)
@@ -266,7 +266,7 @@ jobs:
       - name: 📢 Notify deploy success (opsional — Telegram/Discord)
         if: success()
         run: |
-          echo "Deploy berhasil ke production 🚀"
+          echo "Deploy berhasil ke staging 🚀"
           # Uncomment untuk kirim notif ke Telegram:
           # curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
           #   -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
