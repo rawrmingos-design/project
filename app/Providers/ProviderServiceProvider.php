@@ -44,6 +44,13 @@ class ProviderServiceProvider extends ServiceProvider
                     ->withoutOverlapping();
             }
 
+            // Poll paid, non-final Digiflazz orders when a callback is delayed or missed.
+            if (config('providers.digiflazz.status_polling_enabled', true)) {
+                $schedule->job(new \App\Jobs\SyncProviderOrderStatusesJob('digiflazz'), 'digiflazz')
+                    ->everyMinute()
+                    ->withoutOverlapping();
+            }
+
             // Auto refresh provider balances (near real-time dashboard)
             if (config('providers.balance.auto_refresh', true)) {
                 $schedule->job(\App\Jobs\SyncActiveProviderBalancesJob::class, 'default')
