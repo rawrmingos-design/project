@@ -46,7 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path($isTest ? 'admin' : '');
 
-        $adminDomain = env('FILAMENT_ADMIN_DOMAIN');
+        $adminDomain = config('app.filament_admin_domain');
         if (! empty($adminDomain) && ! $isTest) {
             $panel = $panel->domain($adminDomain);
         }

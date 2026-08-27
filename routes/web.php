@@ -105,7 +105,7 @@ Route::get('/wip', function () {
 });
 
 $publicHost = parse_url((string) config('app.url'), PHP_URL_HOST);
-$adminHostRaw = trim((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+$adminHostRaw = trim((string) config('app.filament_admin_domain', ''));
 $adminHost = $adminHostRaw;
 
 if ($adminHost !== '' && str_contains($adminHost, '://')) {
@@ -437,7 +437,7 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
 
     // Read lazily at request time so test suite app-instance overrides (putenv) are respected
     $lazyPublicHost  = parse_url((string) config('app.url'), PHP_URL_HOST);
-    $lazyAdminRaw    = trim((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+    $lazyAdminRaw    = trim((string) config('app.filament_admin_domain', ''));
     $lazyAdminHost   = $lazyAdminRaw;
 
     if ($lazyAdminHost !== '' && str_contains($lazyAdminHost, '://')) {

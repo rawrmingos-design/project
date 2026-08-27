@@ -52,7 +52,7 @@ class AppServiceProvider extends ServiceProvider
     private function registerLivewireUpdateRoutes(): void
     {
         Livewire::setUpdateRoute(function ($handle) {
-            $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+            $adminDomain = $this->normalizeHost((string) config('app.filament_admin_domain', ''));
 
             if ($adminDomain !== '') {
                 Route::domain($adminDomain)
@@ -122,7 +122,7 @@ class AppServiceProvider extends ServiceProvider
 
         if (!app()->runningInConsole()) {
             // Prevent accidental cross-domain assets when ASSET_URL is set in server env.
-            $adminDomain = (string) env('FILAMENT_ADMIN_DOMAIN', '');
+            $adminDomain = (string) config('app.filament_admin_domain', '');
             if ($adminDomain !== '' && strcasecmp(request()->getHost(), $adminDomain) === 0) {
                 config(['app.asset_url' => null]);
                 // Force Filament disk previews to same-origin on admin subdomain.
