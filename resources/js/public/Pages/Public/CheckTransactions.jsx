@@ -124,18 +124,20 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                 <div className="public-shell">
                     <div className="public-history-hero">
                         <div className="public-history-hero__inner">
-                            <h1 className="public-history-hero__title">Cek Invoice Kamu dengan Mudah dan Cepat</h1>
-                            <p className="public-history-hero__description">Lihat detail pembelian kamu menggunakan nomor Invoice.</p>
+                            <h1 className="public-history-hero__title">Cek Transaksi</h1>
+                            <p className="public-history-hero__description">
+                                Lacak status pesananmu di sini. Masukkan nomor invoice yang dikirim setelah pembayaran untuk melihat detail transaksi.
+                            </p>
 
                             <form className="public-history-search-card" onSubmit={handleSubmit}>
-                                <h2 className="public-history-search-card__title">Cari detail pembelian kamu disini</h2>
+                                <h2 className="public-history-search-card__title">Cari Transaksi</h2>
 
                                 <div className="public-history-search-card__field">
                                     <input
                                         type="text"
                                         value={invoiceId}
                                         onChange={(event) => setInvoiceId(event.target.value)}
-                                        placeholder="Masukkan nomor Invoice Kamu (Contoh: BJXXXXXXXXXXXXXX)"
+                                        placeholder="Contoh: INV-20260723-8F2K1"
                                         aria-label="Masukkan nomor invoice"
                                         autoComplete="off"
                                         maxLength={80}
@@ -149,9 +151,12 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
 
                                 <button type="submit" className="public-history-search-card__submit" disabled={isSubmitting}>
                                     <SearchInvoiceIcon />
-                                    <span>{isSubmitting ? 'Mencari...' : 'Cari Invoice'}</span>
+                                    <span>{isSubmitting ? 'Mencari...' : 'Cari Transaksi'}</span>
                                 </button>
                             </form>
+                            <p className="public-history-search-card__hint">
+                                Riwayat lengkap semua transaksi bisa dilihat setelah login di menu akun.
+                            </p>
                         </div>
                     </div>
 
