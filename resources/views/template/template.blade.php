@@ -1257,9 +1257,9 @@
 
                     function setPromptCopy() {
                         if (isStandalone) {
-                            eyebrow.textContent = 'PWA Notification';
-                            title.textContent = 'Aktifkan notifikasi promo & update';
-                            body.textContent = 'Izinkan notifikasi agar promo terbaru dan info penting bisa langsung masuk ke device yang sudah install PWA.';
+                            eyebrow.textContent = 'Notifikasi IstanaTopup';
+                            title.textContent = 'Aktifkan notifikasi di aplikasi';
+                            body.textContent = 'Izinkan notifikasi agar status pesanan, pembayaran, promo, dan info penting langsung masuk ke aplikasi IstanaTopup.';
                             return;
                         }
 
