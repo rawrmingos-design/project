@@ -1423,3 +1423,92 @@
 .public-app--istanatopup .public-history-page--istanatopup .invoice-badge {
     font-family: var(--public-font-family), system-ui, sans-serif !important;
 }
+
+/* Reference typography and spacing parity for transaction lookup. */
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+    margin-top: 4px;
+    max-width: 640px;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+    margin-top: 22px;
+    padding: 16px;
+    gap: 10px;
+    border-radius: 14px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+    height: 44px;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+    min-height: 44px;
+    margin-top: 0;
+    padding: 11px 24px;
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__hint {
+    margin-top: 10px;
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+    padding: 24px 0 20px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header {
+    margin-bottom: 22px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header p {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table thead th {
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td strong,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table__invoice-link {
+    font-weight: 700;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+        font-size: 24px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+        font-size: 13.5px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        margin-top: 22px;
+        padding: 16px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+        padding-top: 24px;
+    }
+}
