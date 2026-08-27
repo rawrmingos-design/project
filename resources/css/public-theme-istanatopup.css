@@ -1074,3 +1074,218 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* IstanaTopup transaction lookup body: reference-matched, theme-scoped. */
+.public-app--istanatopup .public-history-page--istanatopup {
+    padding: 34px 0 10px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__inner {
+    max-width: none;
+    align-items: flex-start;
+    gap: 0;
+    padding: 0;
+    text-align: left;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+    max-width: 680px;
+    margin-top: 4px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .84rem;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+    width: 100%;
+    max-width: none;
+    margin-top: 22px;
+    padding: 16px;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__title {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .88rem;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+    height: 44px;
+    padding: 0 44px 0 14px;
+    border: 1px solid var(--ist-border);
+    border-radius: 10px;
+    background: var(--ist-bg);
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .82rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input::placeholder {
+    color: var(--ist-muted);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input:focus {
+    border-color: var(--ist-accent);
+    box-shadow: 0 0 0 3px var(--ist-accent-soft);
+    background: var(--ist-bg);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field-icon {
+    color: var(--ist-muted);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+    min-height: 42px;
+    margin-top: 12px;
+    border-radius: 10px;
+    background: var(--ist-accent);
+    box-shadow: none;
+    color: #fff;
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .84rem;
+    font-weight: 800;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+    padding: 34px 0 20px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header {
+    max-width: none;
+    margin: 0 0 16px;
+    text-align: left;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header h2 {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header p {
+    margin: 4px 0 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .8rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-shell,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card {
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table {
+    min-width: 760px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table th,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table td {
+    border-color: var(--ist-border);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table thead th {
+    color: var(--ist-text-soft);
+    font-size: .72rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td {
+    color: var(--ist-text);
+    font-size: .8rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table__invoice-link {
+    color: var(--ist-accent);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card {
+    display: grid;
+    gap: 6px;
+    padding: 22px;
+    color: var(--ist-muted);
+    font-size: .82rem;
+    line-height: 1.5;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card strong {
+    color: var(--ist-text);
+    font-size: .9rem;
+}
+
+@media (min-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 1.6fr) auto;
+        align-items: end;
+        gap: 10px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__title {
+        grid-column: 1 / -1;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field {
+        margin-top: 0;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        width: auto;
+        min-width: 142px;
+        margin-top: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup {
+        padding-top: 24px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+        font-size: 1.25rem;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+        font-size: .78rem;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        margin-top: 18px;
+        padding: 13px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+        padding-top: 28px;
+    }
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .invoice-badge {
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
