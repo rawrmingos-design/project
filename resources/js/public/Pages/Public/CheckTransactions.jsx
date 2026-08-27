@@ -119,7 +119,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                 document.querySelector('.public-history-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 0);
         } catch (error) {
-            setLookupError('Terjadi kesalahan saat mencari invoice. Silakan coba lagi.');
+            setLookupError(`Terjadi kesalahan saat mencari ${searchType === 'whatsapp' ? 'nomor WhatsApp' : 'invoice'}. Silakan coba lagi.`);
         } finally {
             setIsSubmitting(false);
         }
@@ -135,11 +135,10 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                         <div className="public-history-hero__inner">
                             <h1 className="public-history-hero__title">Cek Transaksi</h1>
                             <p className="public-history-hero__description">
-                                Lacak status pesananmu di sini. Masukkan nomor invoice yang dikirim setelah pembayaran untuk melihat detail transaksi.
+                                Lacak status pesananmu di sini. Masukkan nomor invoice yang dikirim ke WhatsApp/email setelah pembayaran, atau cari dengan nomor WhatsApp yang dipakai saat memesan.
                             </p>
 
                             <form className="public-history-search-card" onSubmit={handleSubmit}>
-                                <h2 className="public-history-search-card__title">Cari Transaksi</h2>
 
                                 <label className="public-history-search-card__select-wrap">
                                     <span className="sr-only">Jenis pencarian</span>
