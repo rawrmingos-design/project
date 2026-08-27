@@ -120,7 +120,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
 
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
-            <section className="public-history-page public-history-page--bangjeff">
+            <section className="public-history-page public-history-page--bangjeff public-history-page--istanatopup">
                 <div className="public-shell">
                     <div className="public-history-hero">
                         <div className="public-history-hero__inner">
