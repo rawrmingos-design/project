@@ -1,0 +1,6 @@
+# Production-only compose override.
+# The base docker-compose.yml on the production host keeps its
+# production-specific mounts, ports, and services.
+services:
+  app:
+    image: ghcr.io/rawrmingos-design/laravel-topup:${IMAGE_TAG}
