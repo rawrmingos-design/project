@@ -1133,6 +1133,14 @@
     line-height: 1.4;
 }
 
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__hint {
+    margin: 10px 2px 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .76rem;
+    line-height: 1.5;
+}
+
 .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
     height: 44px;
     padding: 0 44px 0 14px;
