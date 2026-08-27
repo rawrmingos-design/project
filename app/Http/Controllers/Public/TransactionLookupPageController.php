@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
 use App\Services\PublicSiteConfigService;
 use App\Support\PublicThemeRegistry;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,10 +55,13 @@ class TransactionLookupPageController extends Controller
     {
         $validated = $request->validate([
             'id' => ['required', 'string', 'max:80'],
+            'type' => ['nullable', 'in:invoice,whatsapp'],
         ]);
 
-        $invoiceId = trim((string) $validated['id']);
-        $cacheKey = self::LOOKUP_CACHE_KEY_PREFIX . sha1(strtolower($invoiceId));
+        $lookupType = (string) ($validated['type'] ?? 'invoice');
+        $queryValue = trim((string) $validated['id']);
+        $invoiceId = $queryValue;
+        $cacheKey = self::LOOKUP_CACHE_KEY_PREFIX . sha1($lookupType . ':' . strtolower($queryValue));
         $cachedOrderId = Cache::get($cacheKey);
         $orderId = null;
 
@@ -66,11 +70,33 @@ class TransactionLookupPageController extends Controller
         } elseif ($cachedOrderId === self::LOOKUP_CACHE_MISS_SENTINEL) {
             $orderId = null;
         } else {
-            $order = Pembelian::query()
-                ->select(['order_id'])
-                ->where('order_id', $invoiceId)
-                ->orWhere('display_order_id', $invoiceId)
-                ->first();
+            $orderQuery = Pembelian::query()
+                ->select(['order_id']);
+
+            if ($lookupType === 'whatsapp') {
+                $phoneDigits = preg_replace('/\D+/', '', $queryValue);
+
+                if ($phoneDigits === '') {
+                    $orderQuery->whereRaw('1 = 0');
+                } else {
+                    $phoneVariants = [$phoneDigits];
+                    if (str_starts_with($phoneDigits, '62')) {
+                        $phoneVariants[] = '0' . substr($phoneDigits, 2);
+                    } elseif (str_starts_with($phoneDigits, '0')) {
+                        $phoneVariants[] = '62' . substr($phoneDigits, 1);
+                    }
+
+                    $orderQuery->whereHas('pembayaran', function (Builder $query) use ($phoneVariants): void {
+                        $query->whereIn('no_pembeli', array_values(array_unique($phoneVariants)));
+                    })->latest('created_at');
+                }
+            } else {
+                $orderQuery
+                    ->where('order_id', $invoiceId)
+                    ->orWhere('display_order_id', $invoiceId);
+            }
+
+            $order = $orderQuery->first();
 
             if ($order?->order_id) {
                 $orderId = (string) $order->order_id;
