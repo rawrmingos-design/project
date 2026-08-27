@@ -1,7 +1,7 @@
 # =====================================================
 # GitHub Actions — CI/CD Laravel Topup Game
 # =====================================================
-# Trigger : Push ke branch "main" atau "master"
+# Trigger : Manual dari branch "production" saja
 # Pipeline :
 #   1. Test  → jalankan PHPUnit / Pest
 #   2. Build → build Docker image & push ke GHCR
@@ -13,13 +13,10 @@ name: Deploy to Production
 on:
   workflow_dispatch:
     inputs:
-      target_client:
-        description: 'Pilih Client Target Deploy'
+      confirm_target:
+        description: 'Ketik ISTANATOPUP untuk mengunci target production'
         required: true
-        type: choice
-        options:
-          - client1
-          - client2
+        type: string
 
 permissions:
   contents: read
@@ -35,12 +32,23 @@ env:
 
 jobs:
 
+  guard:
+    name: 🔒 Validate production ref and target
+    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/production' && github.event.inputs.confirm_target == 'ISTANATOPUP'
+    steps:
+      - name: ✅ Target validated
+        run: |
+          echo "Production ref: ${{ github.ref }}"
+          echo "Target: IstanaTopup"
+
   # ===================================================
   # JOB 1: Test
   # ===================================================
   test:
     name: 🧪 Run Tests
     runs-on: ubuntu-24.04
+    needs: guard
 
     services:
       mysql:
@@ -104,6 +112,7 @@ jobs:
   browser-tests:
     name: 🌐 Run Browser Tests
     runs-on: ubuntu-24.04
+    needs: guard
 
     steps:
       - name: 📥 Checkout code
@@ -194,8 +203,7 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=raw,value=sha-${{ github.sha }}
 
       - name: ⚡ Setup Docker Buildx (cache support)
         uses: docker/setup-buildx-action@v4
@@ -235,23 +243,23 @@ jobs:
       - name: 📤 Sync deploy files to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_HOST || secrets.CLIENT2_VPS_HOST }}
-          username: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_USER || secrets.CLIENT2_VPS_USER }}
-          key: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_SSH_KEY || secrets.CLIENT2_VPS_SSH_KEY }}
-          port: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_PORT || secrets.CLIENT2_VPS_PORT || 22 }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           source: "docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
-          target: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_APP_PATH || secrets.CLIENT2_VPS_APP_PATH }}
+          target: ${{ secrets.VPS_APP_PATH }}
           overwrite: true
 
       - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_HOST || secrets.CLIENT2_VPS_HOST }}
-          username: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_USER || secrets.CLIENT2_VPS_USER }}
-          key: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_SSH_KEY || secrets.CLIENT2_VPS_SSH_KEY }}
-          port: ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_PORT || secrets.CLIENT2_VPS_PORT || 22 }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           script: |
-            cd ${{ github.event.inputs.target_client == 'client1' && secrets.CLIENT1_VPS_APP_PATH || secrets.CLIENT2_VPS_APP_PATH }}
+            cd ${{ secrets.VPS_APP_PATH }}
 
             if [ -d .git ]; then
               git fetch origin ${{ github.ref_name }} \
@@ -261,7 +269,7 @@ jobs:
             fi
 
             export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-            export IMAGE_TAG="latest"
+            export IMAGE_TAG="sha-${{ github.sha }}"
             export GHCR_USERNAME="${{ github.actor }}"
             export GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
