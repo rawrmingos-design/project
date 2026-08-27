@@ -74,6 +74,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
     const [invoiceId, setInvoiceId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lookupError, setLookupError] = useState('');
+    const [searchedTransactions, setSearchedTransactions] = useState([]);
     const emptyStateDescription = recentTransactionsScope?.key === 'auth-user'
         ? 'Belum ada transaksi pada akun ini. Setelah kamu melakukan top up saat login, riwayatnya akan muncul di sini.'
         : 'Belum ada transaksi yang tersimpan di browser ini. Setelah kamu top up dari perangkat ini, riwayatnya akan muncul di sini.';
@@ -106,20 +107,25 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
 
             const payload = await response.json().catch(() => ({}));
 
-            if (!response.ok || !payload?.status || !payload?.redirect_url) {
+            if (!response.ok || !payload?.status || !payload?.transaction) {
                 setLookupError(payload?.message || (searchType === 'whatsapp'
                     ? 'Nomor WhatsApp tidak ditemukan. Periksa kembali lalu coba lagi.'
                     : 'Nomor invoice tidak ditemukan. Periksa kembali lalu coba lagi.'));
                 return;
             }
 
-            window.location.assign(payload.redirect_url);
+            setSearchedTransactions([payload.transaction]);
+            window.setTimeout(() => {
+                document.querySelector('.public-history-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 0);
         } catch (error) {
             setLookupError('Terjadi kesalahan saat mencari invoice. Silakan coba lagi.');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const displayedTransactions = searchedTransactions.length ? searchedTransactions : recentTransactions;
 
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -182,11 +188,12 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
 
                     <div className="public-history-table-section">
                         <header className="public-history-table-section__header">
+                            {searchedTransactions.length ? <span className="public-history-table-section__result-label">Hasil pencarian</span> : null}
                             <h2>{recentTransactionsScope?.title || 'Transaksi Terakhir'}</h2>
                             <p>{recentTransactionsScope?.description || 'Gunakan nomor invoice untuk melihat detail transaksi kamu.'}</p>
                         </header>
 
-                        {recentTransactions.length ? (
+                        {(searchedTransactions.length || recentTransactions.length) ? (
                             <div className="public-history-table-shell">
                                 <table className="public-history-table">
                                     <thead>
@@ -199,7 +206,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {recentTransactions.map((transaction) => (
+                                        {displayedTransactions.map((transaction) => (
                                             <tr key={transaction.invoiceId}>
                                                 <td>{transaction.createdAt || '-'}</td>
                                                 <td>

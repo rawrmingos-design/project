@@ -96,7 +96,7 @@ class TransactionLookupPageController extends Controller
                     ->orWhere('display_order_id', $invoiceId);
             }
 
-            $order = $orderQuery->first();
+            $order = $orderQuery->with('pembayaran')->first();
 
             if ($order?->order_id) {
                 $orderId = (string) $order->order_id;
@@ -124,6 +124,7 @@ class TransactionLookupPageController extends Controller
                 'status' => true,
                 'message' => 'Invoice ditemukan.',
                 'redirect_url' => $redirectUrl,
+                'transaction' => $this->formatTransactionRow($order),
             ]);
         }
 
@@ -208,20 +209,27 @@ class TransactionLookupPageController extends Controller
             ->map(function (Pembelian $pembelian): array {
                 $payment = $pembelian->pembayaran;
 
-                return [
-                    'invoiceId' => (string) ($pembelian->display_order_id ?: $pembelian->order_id),
-                    'invoiceUrl' => route('pembelian', ['order' => $pembelian->order_id]),
-                    'createdAt' => optional($pembelian->created_at)->timezone(config('app.timezone'))->format('d-m-Y H:i:s'),
-                    'phone' => (string) ($payment->no_pembeli ?? '-'),
-                    'price' => (int) round((float) ($pembelian->harga ?? 0)),
-                    'status' => $this->mapTransactionStatus(
-                        (string) ($pembelian->status ?? ''),
-                        (string) ($payment->status ?? '')
-                    ),
-                ];
+                return $this->formatTransactionRow($pembelian);
             })
             ->values()
             ->all();
+    }
+
+    private function formatTransactionRow(Pembelian $pembelian): array
+    {
+        $payment = $pembelian->pembayaran;
+
+        return [
+            'invoiceId' => (string) ($pembelian->display_order_id ?: $pembelian->order_id),
+            'invoiceUrl' => route('pembelian', ['order' => $pembelian->order_id]),
+            'createdAt' => optional($pembelian->created_at)->timezone(config('app.timezone'))->format('d-m-Y H:i:s'),
+            'phone' => (string) ($payment->no_pembeli ?? '-'),
+            'price' => (int) round((float) ($pembelian->harga ?? 0)),
+            'status' => $this->mapTransactionStatus(
+                (string) ($pembelian->status ?? ''),
+                (string) ($payment->status ?? '')
+            ),
+        ];
     }
 
     private function mapTransactionStatus(string $orderStatusRaw, string $paymentStatusRaw): array

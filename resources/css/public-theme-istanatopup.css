@@ -1215,6 +1215,17 @@
     text-align: left;
 }
 
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header .public-history-table-section__result-label {
+    display: inline-block;
+    margin-bottom: 5px;
+    color: var(--ist-accent);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
 .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header h2 {
     color: var(--ist-text);
     font-family: var(--public-font-family), system-ui, sans-serif !important;
