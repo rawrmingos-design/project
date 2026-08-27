@@ -104,7 +104,8 @@ class OrderProcessingService
 
     protected function resolveProviderReference(Pembelian $pembelian): string
     {
-        if ($this->dispatchMode === 'retry_status') {
+        if ($this->dispatchMode === 'retry_status'
+            && strtolower(trim((string) $pembelian->active_provider_code)) === 'digiflazz') {
             $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
             if ($providerOrderId !== '') {
                 return $providerOrderId;

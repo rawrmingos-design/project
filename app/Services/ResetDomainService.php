@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\SendPembelianToProviderJob;
 use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Pembelian;
@@ -157,14 +156,6 @@ class ResetDomainService
 
             return $lockedPembelian->fresh(['activeLayanan', 'pembayaran']);
         }, 3);
-
-        DB::afterCommit(function () use ($resetPembelian, $requestedBy): void {
-            SendPembelianToProviderJob::dispatch(
-                (int) $resetPembelian->getKey(),
-                $requestedBy,
-                'auto',
-            );
-        });
 
         return $resetPembelian;
     }
