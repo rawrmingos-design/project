@@ -247,7 +247,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          source: "docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
+          source: "docker-compose.production.yml,docker/scripts/deploy-vps.sh,docker/scripts/post-deploy-app.sh"
           target: ${{ secrets.VPS_APP_PATH }}
           overwrite: true
 
@@ -270,6 +270,8 @@ jobs:
 
             export IMAGE_NAME="${{ env.IMAGE_NAME }}"
             export IMAGE_TAG="sha-${{ github.sha }}"
+            export COMPOSE_FILE="docker-compose.yml"
+            export COMPOSE_OVERRIDE="docker-compose.production.yml"
             export GHCR_USERNAME="${{ github.actor }}"
             export GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
