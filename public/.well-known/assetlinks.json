@@ -4,7 +4,8 @@
     "namespace": "android_app",
     "package_name": "com.istanatopup.app",
     "sha256_cert_fingerprints": [
-      "2A:B3:C2:30:EC:35:BB:CB:DF:71:25:E7:58:1A:8F:AA:87:B2:78:E7:8B:B1:D9:F1:47:9B:02:CB:BF:2C:9A:4E"
+      "2A:B3:C2:30:EC:35:BB:CB:DF:71:25:E7:58:1A:8F:AA:87:B2:78:E7:8B:B1:D9:F1:47:9B:02:CB:BF:2C:9A:4E",
+      "20:16:B9:1F:25:A7:06:59:19:43:64:D0:9F:32:85:2F:75:8B:8D:B8:76:AB:30:91:1A:5E:01:1F:30:10:CE:32"
     ]
   }
 }]
