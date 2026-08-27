@@ -70,6 +70,7 @@ function InvoiceInputIcon() {
 }
 
 export default function CheckTransactions({ meta, recentTransactions = [], recentTransactionsScope }) {
+    const [searchType, setSearchType] = useState('invoice');
     const [invoiceId, setInvoiceId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lookupError, setLookupError] = useState('');
@@ -80,10 +81,10 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const trimmedInvoiceId = invoiceId.trim();
-        if (!trimmedInvoiceId || isSubmitting) {
-            if (!trimmedInvoiceId) {
-                setLookupError('Masukkan nomor invoice terlebih dahulu.');
+        const trimmedQuery = invoiceId.trim();
+        if (!trimmedQuery || isSubmitting) {
+            if (!trimmedQuery) {
+                setLookupError(searchType === 'whatsapp' ? 'Masukkan nomor WhatsApp terlebih dahulu.' : 'Masukkan nomor invoice terlebih dahulu.');
             }
             return;
         }
@@ -92,7 +93,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
         setLookupError('');
 
         try {
-            const response = await fetch('/id/cari', {
+                const response = await fetch('/id/cari', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -100,13 +101,15 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                 },
-                body: JSON.stringify({ id: trimmedInvoiceId }),
+                body: JSON.stringify({ id: trimmedQuery, type: searchType }),
             });
 
             const payload = await response.json().catch(() => ({}));
 
             if (!response.ok || !payload?.status || !payload?.redirect_url) {
-                setLookupError(payload?.message || 'Nomor invoice tidak ditemukan. Periksa kembali lalu coba lagi.');
+                setLookupError(payload?.message || (searchType === 'whatsapp'
+                    ? 'Nomor WhatsApp tidak ditemukan. Periksa kembali lalu coba lagi.'
+                    : 'Nomor invoice tidak ditemukan. Periksa kembali lalu coba lagi.'));
                 return;
             }
 
@@ -132,14 +135,31 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                             <form className="public-history-search-card" onSubmit={handleSubmit}>
                                 <h2 className="public-history-search-card__title">Cari Transaksi</h2>
 
+                                <label className="public-history-search-card__select-wrap">
+                                    <span className="sr-only">Jenis pencarian</span>
+                                    <select
+                                        value={searchType}
+                                        onChange={(event) => {
+                                            setSearchType(event.target.value);
+                                            setInvoiceId('');
+                                            setLookupError('');
+                                        }}
+                                        aria-label="Jenis pencarian"
+                                    >
+                                        <option value="invoice">Nomor Invoice</option>
+                                        <option value="whatsapp">Nomor WhatsApp</option>
+                                    </select>
+                                </label>
+
                                 <div className="public-history-search-card__field">
                                     <input
-                                        type="text"
+                                        type={searchType === 'whatsapp' ? 'tel' : 'text'}
                                         value={invoiceId}
                                         onChange={(event) => setInvoiceId(event.target.value)}
-                                        placeholder="Contoh: INV-20260723-8F2K1"
-                                        aria-label="Masukkan nomor invoice"
+                                        placeholder={searchType === 'whatsapp' ? 'Contoh: 081234567890' : 'Contoh: INV-20260723-8F2K1'}
+                                        aria-label={searchType === 'whatsapp' ? 'Masukkan nomor WhatsApp' : 'Masukkan nomor invoice'}
                                         autoComplete="off"
+                                        inputMode={searchType === 'whatsapp' ? 'tel' : 'text'}
                                         maxLength={80}
                                     />
                                     <span className="public-history-search-card__field-icon">
