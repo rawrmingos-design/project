@@ -19,7 +19,7 @@ class CheckRole
     public function handle(Request $request, Closure $next)
     {
         if (! Auth::check()) {
-            $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+            $adminDomain = $this->normalizeHost((string) config('app.filament_admin_domain', ''));
             $requestHost = $this->normalizeHost((string) $request->getHost());
 
             if ($adminDomain !== '' && $requestHost !== '' && strcasecmp($requestHost, $adminDomain) === 0) {
@@ -37,7 +37,7 @@ class CheckRole
             return $next($request);
         }
 
-        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+        $adminDomain = $this->normalizeHost((string) config('app.filament_admin_domain', ''));
         $requestHost = $this->normalizeHost((string) $request->getHost());
 
         if ($adminDomain !== '' && $requestHost !== '' && strcasecmp($requestHost, $adminDomain) === 0) {

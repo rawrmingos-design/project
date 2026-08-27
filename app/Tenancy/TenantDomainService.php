@@ -197,7 +197,7 @@ class TenantDomainService
         $platformHost = $appUrl ? strtolower(parse_url($appUrl, PHP_URL_HOST) ?? '') : '';
 
         // Get admin domain
-        $adminDomain = strtolower(trim((string) env('FILAMENT_ADMIN_DOMAIN')));
+        $adminDomain = strtolower(trim((string) config('app.filament_admin_domain')));
 
         // Get docs domain
         $docsDomain = strtolower(trim((string) env('DOCS_DOMAIN')));
