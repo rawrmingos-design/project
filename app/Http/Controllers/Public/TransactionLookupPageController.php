@@ -64,6 +64,7 @@ class TransactionLookupPageController extends Controller
         $cacheKey = self::LOOKUP_CACHE_KEY_PREFIX . sha1($lookupType . ':' . strtolower($queryValue));
         $cachedOrderId = Cache::get($cacheKey);
         $orderId = null;
+        $order = null;
 
         if (is_string($cachedOrderId) && $cachedOrderId !== '' && $cachedOrderId !== self::LOOKUP_CACHE_MISS_SENTINEL) {
             $orderId = $cachedOrderId;
@@ -106,7 +107,14 @@ class TransactionLookupPageController extends Controller
             }
         }
 
-        if (! $orderId) {
+        if ($orderId && ! $order) {
+            $order = Pembelian::query()
+                ->with('pembayaran')
+                ->where('order_id', $orderId)
+                ->first();
+        }
+
+        if (! $orderId || ! $order) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => false,
