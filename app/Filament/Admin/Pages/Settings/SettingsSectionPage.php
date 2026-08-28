@@ -78,7 +78,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->options(PublicThemeRegistry::options())
                             ->default(PublicThemeRegistry::DEFAULT)
                             ->native(false)
-                            ->helperText('Pilih tampilan halaman publik yang aktif.'),
+                            ->helperText('Pilih tampilan halaman publik yang aktif. Tema berstatus preview hanya bisa dipakai di server percobaan.'),
                             
                         RichEditor::make('deskripsi_web')
                             ->label('Deskripsi Website')
@@ -1767,6 +1767,24 @@ abstract class SettingsSectionPage extends Page implements HasForms
         $this->stripMediaFormOnlyFields($data);
 
         $data = $this->filterStateByWhitelist($data);
+
+        // Guardrail: theme preview-only tidak boleh aktif di production.
+        if (
+            app()->environment('production') &&
+            in_array(
+                PublicThemeRegistry::normalize($data['public_theme'] ?? null),
+                PublicThemeRegistry::PREVIEW_ONLY_THEMES,
+                true
+            )
+        ) {
+            Notification::make()
+                ->title('Tema belum tersedia')
+                ->body('Tema ini masih dalam tahap pengembangan dan belum bisa diaktifkan di production.')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         // Update all fields
         $settings->fill($data);

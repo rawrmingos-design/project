@@ -103,6 +103,12 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                 <HeroBanner banners={banners} />
             </div>
             <div className="public-shell">
+                {activeThemeKey === 'istanatopup' && siteConfig?.name ? (
+                    <div className="ist-site-intro">
+                        <h1>{siteConfig.name}</h1>
+                        <p>No #1 top up game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.</p>
+                    </div>
+                ) : null}
                 {flashsaleItems.length ? (
                     <section className="public-section public-section--storefront public-section--flashsale">
                         <div className="storefront-heading storefront-heading--flashsale">
@@ -115,7 +121,9 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     {flashsaleCountdown ? (
                                         <div className="flashsale-heading__countdown" aria-label="Countdown flash sale">
                                             <span>{flashsaleCountdown.hours}</span>
+                                            <b>:</b>
                                             <span>{flashsaleCountdown.minutes}</span>
+                                            <b>:</b>
                                             <span>{flashsaleCountdown.seconds}</span>
                                         </div>
                                     ) : null}
@@ -170,7 +178,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                                     <span className="flashsale-card__footer-pill flashsale-card__footer-pill--accent">
                                                         {discountPercent ? `-Rp ${new Intl.NumberFormat('id-ID').format(savingsAmount)}` : 'Promo aktif'}
                                                     </span>
-                                                    <span className="flashsale-card__footer-pill">Flash sale</span>
+                                                    <span className="flashsale-card__footer-pill">⚡ Pengiriman INSTAN</span>
                                                 </div>
                                             </div>
                                         </Link>
@@ -185,25 +193,73 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     <div className="storefront-heading">
                         <div>
                             <h2 className="storefront-heading__title">
-                                <span className="storefront-heading__icon">🔥</span>
-                                {activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
+                                <span className="storefront-heading__icon">✨</span>
+                                {activeThemeKey === 'istanatopup' ? 'FAVORIT' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
                             </h2>
                             <p className="storefront-heading__subtitle">
-                                {activeThemeKey === 'bangjeff'
-                                    ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
-                                    : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
+                                {activeThemeKey === 'istanatopup'
+                                    ? 'Berikut adalah beberapa produk yang terakhir kamu beli.'
+                                    : activeThemeKey === 'bangjeff'
+                                        ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
+                                        : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
                             </p>
                         </div>
                     </div>
 
-                    <div className="product-grid product-grid--storefront product-grid--popular-storefront">
+                    <div className="product-grid product-grid--storefront product-grid--popular-storefront ist-hgrid">
                         {featuredCategories.map((item) => (
-                            <ProductCard key={item.id} item={item} variant="storefront" showPrice={false} />
+                            <Link key={item.id} href={`/id/${item.slug}`} className="ist-hcard">
+                                <span className="ist-hcard__art">
+                                    <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                </span>
+                                <span className="hc-txt">
+                                    <b>{item.name}</b>
+                                    <span>{item.subtitle}</span>
+                                </span>
+                            </Link>
                         ))}
                     </div>
                 </section>
 
-                <section className="public-section public-section--storefront public-section--tabs">
+                {activeThemeKey === 'istanatopup' && categoryTabs.length ? (
+                    <section className="public-section public-section--storefront public-section--trending">
+                        <div className="storefront-heading">
+                            <div>
+                                <h2 className="storefront-heading__title">
+                                    <span className="storefront-heading__icon">🔥</span>
+                                    TRENDING
+                                </h2>
+                                <p className="storefront-heading__subtitle">
+                                    {activeThemeKey === 'istanatopup'
+                                        ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
+                                        : 'Produk yang sedang banyak dicari pemain.'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="product-grid product-grid--storefront product-grid--trending-storefront ist-hgrid">
+                            {(categoryTabs[0]?.items ?? []).slice(0, 8).map((item) => (
+                                <Link key={`trend-${item.id}`} href={`/id/${item.slug}`} className="ist-hcard">
+                                    <span className="ist-hcard__art">
+                                        <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                    </span>
+                                    <span className="hc-txt">
+                                        <b>{item.name}</b>
+                                        <span>{item.subtitle}</span>
+                                    </span>
+                                </Link>
+                            ))}
+                        </div>
+                    </section>
+                ) : null}
+
+                <section className="public-section public-section--storefront public-section--tabs ist-products-section">
+                    <div className="storefront-heading ist-products-heading">
+                        <div>
+                            <h2 className="storefront-heading__title">Semua Produk</h2>
+                            <p className="storefront-heading__subtitle">Pilih kategori lalu klik produk untuk mulai top up.</p>
+                        </div>
+                    </div>
                     <div className="storefront-tabs">
                         <div className="storefront-tabs__nav">
                             {categoryTabs.map((group, index) => (
@@ -241,8 +297,9 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         <div className="journal-heading__copy">
                             <h2>ARTIKEL TERBARU &amp; BERITA GAME</h2>
                             <p>
-                                Dapatkan informasi terbaru seputar dunia game! Temukan panduan lengkap untuk meningkatkan pengalaman bermain,
-                                serta berita terkini mengenai promo, update top-up, dan komunitas gamer.
+                                {activeThemeKey === 'istanatopup'
+                                    ? 'Dapatkan informasi terbaru seputar dunia game! Panduan lengkap, berita promo, update top-up, dan komunitas gamer.'
+                                    : 'Dapatkan informasi terbaru seputar dunia game! Temukan panduan lengkap untuk meningkatkan pengalaman bermain, serta berita terkini mengenai promo, update top-up, dan komunitas gamer.'}
                             </p>
                         </div>
                     </div>
@@ -258,10 +315,12 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                         </div>
                                     </Link>
                                     <div className="article-card__body article-card__body--journal">
-                                        <div className="article-card__meta">
-                                            <span>Redaksi</span>
+                                        <span className="ist-article__category">Artikel</span>
+                                        <h3>{article.title}</h3>
+                                        {article.excerpt ? <p>{article.excerpt}</p> : null}
+                                        <div className="ist-article__date">
+                                            Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
                                         </div>
-                                        <p>{article.title}</p>
                                     </div>
                                 </article>
                             ))}

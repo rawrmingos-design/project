@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Http\Controllers\DigiFlazzController;
 use App\Libraries\Provider\ElitediasProvider;
 use App\Libraries\Provider\GameShopProvider;
 use App\Libraries\Provider\StrleyaShopProvider;
 use App\Libraries\Provider\YezzpayProvider;
 use App\Models\Pembelian;
+use App\Services\ProviderStatusUpdateService;
+use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -15,17 +18,28 @@ class ProviderOrderStatusSyncService
     public function sync(string $provider): array
     {
         $provider = strtolower(trim($provider));
-        $client = $this->providerClient($provider);
+        $statusUpdater = app(ProviderStatusUpdateService::class);
+        $client = $provider === 'digiflazz' ? null : $this->providerClient($provider);
         $updated = 0;
         $failed = 0;
 
         Pembelian::query()
-            ->where('status', 'Proses')
-            ->where('provider', $provider)
+            ->with(['activeLayanan', 'pembayaran'])
+            ->whereIn('status', PembelianStatus::pendingLabels())
+            ->where('active_provider_code', $provider)
+            ->whereNotNull('provider_order_id')
+            ->whereHas('pembayaran', fn ($query) => $query->whereIn('status', ['Lunas', 'PAID', 'Paid', 'Success']))
             ->orderBy('id')
-            ->chunkById(100, function ($orders) use ($client, $provider, &$updated, &$failed): void {
+            ->chunkById(100, function ($orders) use ($client, $provider, $statusUpdater, &$updated, &$failed): void {
                 foreach ($orders as $order) {
-                    $response = $client->status($order->provider_order_id);
+                    $response = $provider === 'digiflazz'
+                        ? (new DigiFlazzController())->status(
+                            (string) $order->provider_order_id,
+                            (string) $order->active_provider_sku,
+                            (string) $order->user_id,
+                            (string) $order->zone,
+                        )
+                        : $client->status($order->provider_order_id);
                     $status = $this->normalizedStatus($provider, $response);
 
                     if ($status === null) {
@@ -35,19 +49,18 @@ class ProviderOrderStatusSyncService
                             'pembelian_id' => $order->id,
                             'response_type' => get_debug_type($response),
                         ]);
-
                         continue;
                     }
 
-                    $order->update([
-                        'status' => $status,
-                        'log' => json_encode([
-                            'provider' => $provider,
-                            'order_id' => $order->provider_order_id,
-                            'status' => $status,
-                            'response' => $response,
-                        ], JSON_PRETTY_PRINT),
-                    ]);
+                    $statusUpdater->apply($order, [
+                        'success' => true,
+                        'order_status' => $status,
+                        'transaction_id' => $order->provider_order_id,
+                        'provider_status' => $status,
+                        'message' => data_get($response, 'data.message', ''),
+                        'sn' => data_get($response, 'data.sn', ''),
+                        'raw' => $response,
+                    ], 'provider_status_polling');
                     $updated++;
                 }
             });
@@ -74,6 +87,7 @@ class ProviderOrderStatusSyncService
 
         $rawStatus = match ($provider) {
             'gameshop' => $response['data']['status'] ?? null,
+            'digiflazz' => $response['data']['status'] ?? null,
             'yezzpay' => $response['data']['order_status'] ?? null,
             default => $response['order_status'] ?? null,
         };
@@ -84,6 +98,12 @@ class ProviderOrderStatusSyncService
                 '5' => 'Sukses',
                 '6', '0' => 'Gagal',
                 '1', '2', '3', '4' => 'Proses',
+                default => null,
+            },
+            'digiflazz' => match ($status) {
+                'success', 'sukses' => 'Sukses',
+                'failed', 'gagal', 'error', 'cancelled', 'canceled' => 'Gagal',
+                'pending', 'proses', 'processing' => 'Proses',
                 default => null,
             },
             'strleyashop' => match ($status) {

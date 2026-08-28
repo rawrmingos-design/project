@@ -51,7 +51,7 @@ class PublicSiteConfigService
         }
 
         $merged = array_merge($defaults, $settings?->toArray() ?? []);
-        $merged['public_theme'] = PublicThemeRegistry::normalize($merged['public_theme'] ?? null);
+        $merged['public_theme'] = PublicThemeRegistry::resolveForEnvironment($merged['public_theme'] ?? null);
 
         return (object) $merged;
     }
@@ -59,7 +59,7 @@ class PublicSiteConfigService
     public function sharedProps(): array
     {
         $settings = $this->getSettings();
-        $theme = PublicThemeRegistry::normalize($settings->public_theme ?? null);
+        $theme = PublicThemeRegistry::resolveForEnvironment($settings->public_theme ?? null);
         $authUser = Auth::user();
         $socials = [
             'whatsapp' => $this->normalizeExternalUrl($settings->url_wa),
@@ -77,6 +77,7 @@ class PublicSiteConfigService
         return [
             'siteConfig' => [
                 'name' => $settings->judul_web,
+                'appName' => trim((string) config('app.name', env('APP_NAME', $settings->judul_web ?: 'Game Top-Up'))),
                 'description' => $plainDescription,
                 'footerDescriptionHtml' => $footerDescriptionHtml,
                 'keywords' => $settings->keywords,
@@ -197,7 +198,7 @@ class PublicSiteConfigService
         $tenancyEnabled = ! (bool) config('tenancy.disabled', true);
         $docsUrl = $this->docsUrl();
 
-        $columns = $theme === 'bangjeff'
+        $columns = in_array($theme, ['bangjeff', 'istanatopup'], true)
             ? [
                 [
                     'title' => 'Partnership',

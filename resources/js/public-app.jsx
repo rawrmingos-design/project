@@ -8,6 +8,10 @@ createInertiaApp({
         return pages[`./public/Pages/${name}.jsx`];
     },
     setup({ el, App, props }) {
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            window.__istPwaInstallPrompt = event;
+        });
         const root = createRoot(el);
         root.render(<App {...props} />);
     },

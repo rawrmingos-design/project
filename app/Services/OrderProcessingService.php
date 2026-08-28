@@ -104,6 +104,14 @@ class OrderProcessingService
 
     protected function resolveProviderReference(Pembelian $pembelian): string
     {
+        if ($this->dispatchMode === 'retry_status'
+            && strtolower(trim((string) $pembelian->active_provider_code)) === 'digiflazz') {
+            $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
+            if ($providerOrderId !== '') {
+                return $providerOrderId;
+            }
+        }
+
         $reference = trim((string) ($pembelian->active_attempt_reference ?: $pembelian->display_order_id));
 
         return $reference !== '' ? $reference : $pembelian->order_id;
@@ -197,8 +205,10 @@ class OrderProcessingService
         switch ($providerCode) {
             case 'digiflazz':
                 $digiflazz = new DigiFlazzController($credentials);
-                $response = $digiflazz->order($uid, $zone, $sku, $providerReference);
-
+                $isRetryStatusMode = $this->dispatchMode === 'retry_status';
+                $response = $isRetryStatusMode
+                    ? $digiflazz->status($providerReference, $sku, $uid, $zone)
+                    : $digiflazz->order($uid, $zone, $sku, $providerReference);
 
                 $responseData = $response['data'] ?? [];
                 $providerStatus = $responseData['status'] ?? null;

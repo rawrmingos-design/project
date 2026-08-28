@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
 use App\Services\PublicSiteConfigService;
 use App\Support\PublicThemeRegistry;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,23 +55,49 @@ class TransactionLookupPageController extends Controller
     {
         $validated = $request->validate([
             'id' => ['required', 'string', 'max:80'],
+            'type' => ['nullable', 'in:invoice,whatsapp'],
         ]);
 
-        $invoiceId = trim((string) $validated['id']);
-        $cacheKey = self::LOOKUP_CACHE_KEY_PREFIX . sha1(strtolower($invoiceId));
+        $lookupType = (string) ($validated['type'] ?? 'invoice');
+        $queryValue = trim((string) $validated['id']);
+        $invoiceId = $queryValue;
+        $cacheKey = self::LOOKUP_CACHE_KEY_PREFIX . sha1($lookupType . ':' . strtolower($queryValue));
         $cachedOrderId = Cache::get($cacheKey);
         $orderId = null;
+        $order = null;
 
         if (is_string($cachedOrderId) && $cachedOrderId !== '' && $cachedOrderId !== self::LOOKUP_CACHE_MISS_SENTINEL) {
             $orderId = $cachedOrderId;
         } elseif ($cachedOrderId === self::LOOKUP_CACHE_MISS_SENTINEL) {
             $orderId = null;
         } else {
-            $order = Pembelian::query()
-                ->select(['order_id'])
-                ->where('order_id', $invoiceId)
-                ->orWhere('display_order_id', $invoiceId)
-                ->first();
+            $orderQuery = Pembelian::query()
+                ->select(['order_id']);
+
+            if ($lookupType === 'whatsapp') {
+                $phoneDigits = preg_replace('/\D+/', '', $queryValue);
+
+                if ($phoneDigits === '') {
+                    $orderQuery->whereRaw('1 = 0');
+                } else {
+                    $phoneVariants = [$phoneDigits];
+                    if (str_starts_with($phoneDigits, '62')) {
+                        $phoneVariants[] = '0' . substr($phoneDigits, 2);
+                    } elseif (str_starts_with($phoneDigits, '0')) {
+                        $phoneVariants[] = '62' . substr($phoneDigits, 1);
+                    }
+
+                    $orderQuery->whereHas('pembayaran', function (Builder $query) use ($phoneVariants): void {
+                        $query->whereIn('no_pembeli', array_values(array_unique($phoneVariants)));
+                    })->latest('created_at');
+                }
+            } else {
+                $orderQuery
+                    ->where('order_id', $invoiceId)
+                    ->orWhere('display_order_id', $invoiceId);
+            }
+
+            $order = $orderQuery->with('pembayaran')->first();
 
             if ($order?->order_id) {
                 $orderId = (string) $order->order_id;
@@ -80,7 +107,14 @@ class TransactionLookupPageController extends Controller
             }
         }
 
-        if (! $orderId) {
+        if ($orderId && ! $order) {
+            $order = Pembelian::query()
+                ->with('pembayaran')
+                ->where('order_id', $orderId)
+                ->first();
+        }
+
+        if (! $orderId || ! $order) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'status' => false,
@@ -98,6 +132,7 @@ class TransactionLookupPageController extends Controller
                 'status' => true,
                 'message' => 'Invoice ditemukan.',
                 'redirect_url' => $redirectUrl,
+                'transaction' => $this->formatTransactionRow($order),
             ]);
         }
 
@@ -182,20 +217,29 @@ class TransactionLookupPageController extends Controller
             ->map(function (Pembelian $pembelian): array {
                 $payment = $pembelian->pembayaran;
 
-                return [
-                    'invoiceId' => (string) ($pembelian->display_order_id ?: $pembelian->order_id),
-                    'invoiceUrl' => route('pembelian', ['order' => $pembelian->order_id]),
-                    'createdAt' => optional($pembelian->created_at)->timezone(config('app.timezone'))->format('d-m-Y H:i:s'),
-                    'phone' => (string) ($payment->no_pembeli ?? '-'),
-                    'price' => (int) round((float) ($pembelian->harga ?? 0)),
-                    'status' => $this->mapTransactionStatus(
-                        (string) ($pembelian->status ?? ''),
-                        (string) ($payment->status ?? '')
-                    ),
-                ];
+                return $this->formatTransactionRow($pembelian);
             })
             ->values()
             ->all();
+    }
+
+    private function formatTransactionRow(Pembelian $pembelian): array
+    {
+        $payment = $pembelian->pembayaran;
+
+        return [
+            'invoiceId' => (string) ($pembelian->display_order_id ?: $pembelian->order_id),
+            'invoiceUrl' => route('pembelian', ['order' => $pembelian->order_id]),
+            'createdAt' => $pembelian->created_at
+                ? $pembelian->created_at->timezone(config('app.timezone'))->format('d-m-Y H:i:s')
+                : '-',
+            'phone' => (string) ($payment->no_pembeli ?? '-'),
+            'price' => (int) round((float) ($pembelian->harga ?? 0)),
+            'status' => $this->mapTransactionStatus(
+                (string) ($pembelian->status ?? ''),
+                (string) ($payment->status ?? '')
+            ),
+        ];
     }
 
     private function mapTransactionStatus(string $orderStatusRaw, string $paymentStatusRaw): array

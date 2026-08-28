@@ -70,9 +70,11 @@ function InvoiceInputIcon() {
 }
 
 export default function CheckTransactions({ meta, recentTransactions = [], recentTransactionsScope }) {
+    const [searchType, setSearchType] = useState('invoice');
     const [invoiceId, setInvoiceId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [lookupError, setLookupError] = useState('');
+    const [searchedTransactions, setSearchedTransactions] = useState([]);
     const emptyStateDescription = recentTransactionsScope?.key === 'auth-user'
         ? 'Belum ada transaksi pada akun ini. Setelah kamu melakukan top up saat login, riwayatnya akan muncul di sini.'
         : 'Belum ada transaksi yang tersimpan di browser ini. Setelah kamu top up dari perangkat ini, riwayatnya akan muncul di sini.';
@@ -80,11 +82,14 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
     const handleSubmit = async (event) => {
         event.preventDefault();
 
-        const trimmedInvoiceId = invoiceId.trim();
-        if (!trimmedInvoiceId || isSubmitting) {
-            if (!trimmedInvoiceId) {
-                setLookupError('Masukkan nomor invoice terlebih dahulu.');
-            }
+        const trimmedQuery = invoiceId.trim();
+        if (isSubmitting) {
+            return;
+        }
+
+        if (!trimmedQuery) {
+            setLookupError('');
+            setSearchedTransactions([]);
             return;
         }
 
@@ -92,7 +97,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
         setLookupError('');
 
         try {
-            const response = await fetch('/id/cari', {
+                const response = await fetch('/id/cari', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -100,44 +105,69 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                 },
-                body: JSON.stringify({ id: trimmedInvoiceId }),
+                body: JSON.stringify({ id: trimmedQuery, type: searchType }),
             });
 
             const payload = await response.json().catch(() => ({}));
 
-            if (!response.ok || !payload?.status || !payload?.redirect_url) {
-                setLookupError(payload?.message || 'Nomor invoice tidak ditemukan. Periksa kembali lalu coba lagi.');
+            if (!response.ok || !payload?.status || !payload?.transaction) {
+                setLookupError(payload?.message || (searchType === 'whatsapp'
+                    ? 'Nomor WhatsApp tidak ditemukan. Periksa kembali lalu coba lagi.'
+                    : 'Nomor invoice tidak ditemukan. Periksa kembali lalu coba lagi.'));
                 return;
             }
 
-            window.location.assign(payload.redirect_url);
+            setSearchedTransactions([payload.transaction]);
+            window.setTimeout(() => {
+                document.querySelector('.public-history-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 0);
         } catch (error) {
-            setLookupError('Terjadi kesalahan saat mencari invoice. Silakan coba lagi.');
+            setLookupError(`Terjadi kesalahan saat mencari ${searchType === 'whatsapp' ? 'nomor WhatsApp' : 'invoice'}. Silakan coba lagi.`);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    const displayedTransactions = searchedTransactions.length ? searchedTransactions : recentTransactions;
+
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
-            <section className="public-history-page public-history-page--bangjeff">
+            <section className="public-history-page public-history-page--bangjeff public-history-page--istanatopup">
                 <div className="public-shell">
                     <div className="public-history-hero">
                         <div className="public-history-hero__inner">
-                            <h1 className="public-history-hero__title">Cek Invoice Kamu dengan Mudah dan Cepat</h1>
-                            <p className="public-history-hero__description">Lihat detail pembelian kamu menggunakan nomor Invoice.</p>
+                            <h1 className="public-history-hero__title">Cek Transaksi</h1>
+                            <p className="public-history-hero__description">
+                                Lacak status pesananmu di sini. Masukkan nomor invoice yang dikirim ke WhatsApp/email setelah pembayaran, atau cari dengan nomor WhatsApp yang dipakai saat memesan.
+                            </p>
 
                             <form className="public-history-search-card" onSubmit={handleSubmit}>
-                                <h2 className="public-history-search-card__title">Cari detail pembelian kamu disini</h2>
+
+                                <label className="public-history-search-card__select-wrap">
+                                    <span className="sr-only">Jenis pencarian</span>
+                                    <select
+                                        value={searchType}
+                                        onChange={(event) => {
+                                            setSearchType(event.target.value);
+                                            setInvoiceId('');
+                                            setLookupError('');
+                                        }}
+                                        aria-label="Jenis pencarian"
+                                    >
+                                        <option value="invoice">Nomor Invoice</option>
+                                        <option value="whatsapp">Nomor WhatsApp</option>
+                                    </select>
+                                </label>
 
                                 <div className="public-history-search-card__field">
                                     <input
-                                        type="text"
+                                        type={searchType === 'whatsapp' ? 'tel' : 'text'}
                                         value={invoiceId}
                                         onChange={(event) => setInvoiceId(event.target.value)}
-                                        placeholder="Masukkan nomor Invoice Kamu (Contoh: BJXXXXXXXXXXXXXX)"
-                                        aria-label="Masukkan nomor invoice"
+                                        placeholder={searchType === 'whatsapp' ? 'Contoh: 081234567890' : 'Contoh: INV-20260723-8F2K1'}
+                                        aria-label={searchType === 'whatsapp' ? 'Masukkan nomor WhatsApp' : 'Masukkan nomor invoice'}
                                         autoComplete="off"
+                                        inputMode={searchType === 'whatsapp' ? 'tel' : 'text'}
                                         maxLength={80}
                                     />
                                     <span className="public-history-search-card__field-icon">
@@ -149,19 +179,23 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
 
                                 <button type="submit" className="public-history-search-card__submit" disabled={isSubmitting}>
                                     <SearchInvoiceIcon />
-                                    <span>{isSubmitting ? 'Mencari...' : 'Cari Invoice'}</span>
+                                    <span>{isSubmitting ? 'Mencari...' : 'Cari Transaksi'}</span>
                                 </button>
                             </form>
+                            <p className="public-history-search-card__hint">
+                                Riwayat lengkap semua transaksi bisa dilihat setelah login di menu akun.
+                            </p>
                         </div>
                     </div>
 
                     <div className="public-history-table-section">
                         <header className="public-history-table-section__header">
+                            {searchedTransactions.length ? <span className="public-history-table-section__result-label">Hasil pencarian</span> : null}
                             <h2>{recentTransactionsScope?.title || 'Transaksi Terakhir'}</h2>
                             <p>{recentTransactionsScope?.description || 'Gunakan nomor invoice untuk melihat detail transaksi kamu.'}</p>
                         </header>
 
-                        {recentTransactions.length ? (
+                        {(searchedTransactions.length || recentTransactions.length) ? (
                             <div className="public-history-table-shell">
                                 <table className="public-history-table">
                                     <thead>
@@ -174,7 +208,7 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {recentTransactions.map((transaction) => (
+                                        {displayedTransactions.map((transaction) => (
                                             <tr key={transaction.invoiceId}>
                                                 <td>{transaction.createdAt || '-'}</td>
                                                 <td>

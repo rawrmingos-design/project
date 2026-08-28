@@ -57,6 +57,7 @@ export default function Footer() {
     const year = new Date().getFullYear();
     const [hasFooterVisual, setHasFooterVisual] = useState(Boolean(siteConfig.logoFooter));
     const isBangjeff = theme?.key === 'bangjeff';
+    const isIstanaTopup = theme?.key === 'istanatopup';
     const useImageFooterVisual = hasFooterVisual;
     const footerBrandLogo = siteConfig.assetAudit?.logoHeader?.path || siteConfig.logoHeader || siteConfig.favicon || '/assets/logo/favicon.webp';
 
@@ -123,10 +124,17 @@ export default function Footer() {
     return (
         <>
             <div
-                className={`public-footer__visual ${useImageFooterVisual ? 'public-footer__visual--image' : 'public-footer__visual--wave'}`}
+                className={`public-footer__visual ${isIstanaTopup ? 'public-footer__visual--reference' : useImageFooterVisual ? 'public-footer__visual--image' : 'public-footer__visual--wave'}`}
                 aria-hidden="true"
             >
-                {useImageFooterVisual ? (
+                {isIstanaTopup ? (
+                    <svg className="public-footer__wave-svg" viewBox="0 0 1440 70" preserveAspectRatio="none">
+                        <path
+                            fill="currentColor"
+                            d="M0,70 L0,40 C240,0 480,0 720,35 C960,70 1200,70 1440,30 L1440,70 Z"
+                        />
+                    </svg>
+                ) : useImageFooterVisual ? (
                     <img
                         src={siteConfig.logoFooter}
                         alt=""
@@ -158,13 +166,18 @@ export default function Footer() {
 
             <footer className="public-footer public-footer--storefront">
                 <div className="public-footer__inner public-footer__inner--storefront">
-                    <FooterSeoDescription html={siteConfig.footerDescriptionHtml} />
+                    {!isIstanaTopup ? <FooterSeoDescription html={siteConfig.footerDescriptionHtml} /> : null}
 
-                    <div className={`public-footer__layout ${isBangjeff ? 'public-footer__layout--bangjeff' : ''}`}>
-                        {isBangjeff ? (
-                            <div className="public-footer__intro public-footer__intro--bangjeff">
+                    <div className={`public-footer__layout ${isBangjeff || isIstanaTopup ? 'public-footer__layout--bangjeff' : ''}`}>
+                        {isBangjeff || isIstanaTopup ? (
+                            <div className={`public-footer__intro public-footer__intro--bangjeff ${isIstanaTopup ? 'public-footer__intro--istanatopup' : ''}`}>
                                 <div className="public-footer__brand-block">
                                     <img src={footerBrandLogo} alt={`${siteConfig.name} logo`} className="public-footer__brand-logo" />
+                                    {isIstanaTopup ? (
+                                        <p className="public-footer__brand-description">
+                                            No #1 supplier {siteConfig.appName || siteConfig.name || 'top up'} game &amp; voucher terlaris, murah, aman legal 100% buka 24 jam dengan channel pembayaran terlengkap Indonesia.
+                                        </p>
+                                    ) : null}
                                 </div>
 
                                 {socialLinks.length ? (
@@ -176,10 +189,38 @@ export default function Footer() {
                                         ))}
                                     </div>
                                 ) : null}
+
+                                {isIstanaTopup ? (
+                                    <div className="public-footer__app">
+                                        <h5>Download {(siteConfig.appName || siteConfig.name || 'Game Top-Up').toUpperCase()} Mobile App on:</h5>
+                                        <button
+                                            type="button"
+                                            className="public-footer__app-badge"
+                                            onClick={async () => {
+                                                const promptEvent = window.__istPwaInstallPrompt;
+                                                if (promptEvent) {
+                                                    window.__istPwaInstallPrompt = null;
+                                                    await promptEvent.prompt();
+                                                } else {
+                                                    window.location.href = '/site.webmanifest';
+                                                }
+                                            }}
+                                        >
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                                <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                                                <path d="M11 18.5h2" />
+                                            </svg>
+                                            <span>
+                                                <small>PWA siap install</small>
+                                                Install Aplikasi Web
+                                            </span>
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
                         ) : null}
 
-                        <div className={`public-footer__grid ${isBangjeff ? 'public-footer__grid--bangjeff' : ''}`}>
+                    <div className={`public-footer__grid ${isBangjeff ? 'public-footer__grid--bangjeff' : ''} ${isIstanaTopup ? 'public-footer__grid--istanatopup' : ''}`}>
                             {footerColumns.map((column) => (
                                 <div key={column.title} className="public-footer__column">
                                     <h3>{column.title}</h3>

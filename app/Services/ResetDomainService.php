@@ -73,7 +73,7 @@ class ResetDomainService
         $pembelianId = (int) $pembelian->getKey();
         $candidateId = $candidate instanceof ProviderPath ? (int) $candidate->getKey() : ($candidate !== null ? (int) $candidate : null);
 
-        return DB::transaction(function () use ($pembelianId, $candidateId, $requestedBy, $reason): Pembelian {
+        $resetPembelian = DB::transaction(function () use ($pembelianId, $candidateId, $requestedBy, $reason): Pembelian {
             $lockedPembelian = Pembelian::query()
                 ->with(['activeLayanan.provider_paths', 'pembayaran'])
                 ->lockForUpdate()
@@ -145,6 +145,7 @@ class ResetDomainService
                 'profit' => $nextProfit,
                 'active_attempt_token' => null,
                 'active_attempt_reference' => $nextAttemptReference,
+                'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
                 'reset_status' => 'requested',
                 'reset_requested_by' => $requestedBy,
                 'reset_requested_at' => now(),
@@ -155,6 +156,8 @@ class ResetDomainService
 
             return $lockedPembelian->fresh(['activeLayanan', 'pembayaran']);
         }, 3);
+
+        return $resetPembelian;
     }
 
     public function updateResetDetails(

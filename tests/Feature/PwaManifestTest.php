@@ -117,7 +117,8 @@ class PwaManifestTest extends TestCase
         $sw = file_get_contents(public_path('sw.js'));
 
         $this->assertIsString($sw);
-        $this->assertStringContainsString("const CACHE_VERSION = 'v2';", $sw);
+        $this->assertStringContainsString("const CACHE_VERSION = 'v3';", $sw);
+        $this->assertStringContainsString("/\\.(?:css|js|mjs|map|woff|woff2|ttf|eot)$/i", $sw);
         $this->assertStringContainsString("'/admin'", $sw);
         $this->assertStringContainsString("'/filament'", $sw);
         $this->assertStringContainsString("'/api'", $sw);
