@@ -28,6 +28,11 @@ class Kernel extends ConsoleKernel
              ->withoutOverlapping()
              ->onOneServer();
 
+         $schedule->command('notifications:recover-stale --minutes=15')
+             ->everyFiveMinutes()
+             ->withoutOverlapping()
+             ->onOneServer();
+
          $schedule->command('model:prune', [
              '--model' => [\Illuminate\Notifications\DatabaseNotification::class],
          ])->daily();
