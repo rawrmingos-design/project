@@ -15,6 +15,7 @@ class InvoiceNotificationDispatcher
     public const TRANSITION_PAYMENT_PAID = 'payment_paid';
     public const TRANSITION_PROVIDER_SUCCESS = 'provider_success';
     public const TRANSITION_PROVIDER_FAILED = 'provider_failed';
+    public const TRANSITION_PAYMENT_FAILED = 'payment_failed';
 
     /**
      * Create idempotent delivery intents and dispatch their jobs after commit.
@@ -87,7 +88,7 @@ class InvoiceNotificationDispatcher
     {
         return match ($transition) {
             self::TRANSITION_PROVIDER_SUCCESS => 'transaction_success',
-            self::TRANSITION_PROVIDER_FAILED => 'transaction_failed',
+            self::TRANSITION_PROVIDER_FAILED, self::TRANSITION_PAYMENT_FAILED => 'transaction_failed',
             self::TRANSITION_PAYMENT_PENDING, self::TRANSITION_PAYMENT_PAID => 'transaction_pending',
             default => throw new \InvalidArgumentException('Unsupported invoice notification transition: ' . $transition),
         };
