@@ -199,6 +199,12 @@ class PembelianObserver
             return;
         }
 
+        // A reset request is queued after the transaction commit. Preserve this
+        // state until the provider dispatch job actually starts processing it.
+        if ($pembelian->normalizedResetStatus() === 'requested') {
+            return;
+        }
+
         $nextResetStatus = match ($currentStatus) {
             PembelianStatus::SUCCESS => 'completed',
             PembelianStatus::FAILED => 'failed',
