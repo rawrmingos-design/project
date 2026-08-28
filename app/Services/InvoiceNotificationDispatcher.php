@@ -8,6 +8,7 @@ use App\Models\Pembelian;
 use App\Models\SettingWeb;
 use App\Support\PembelianNotificationHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InvoiceNotificationDispatcher
 {
@@ -75,9 +76,27 @@ class InvoiceNotificationDispatcher
             $deliveries[] = $delivery;
 
             if ($delivery->wasRecentlyCreated) {
-                DB::afterCommit(static function () use ($delivery): void {
-                    SendInvoiceNotificationJob::dispatch($delivery->getKey());
-                });
+                try {
+                    DB::afterCommit(static function () use ($delivery): void {
+                        try {
+                            SendInvoiceNotificationJob::dispatch($delivery->getKey());
+                        } catch (\Throwable $exception) {
+                            Log::error('invoice_notification.job_failed', [
+                                'delivery_id' => $delivery->getKey(),
+                                'order_id' => $delivery->order_id,
+                                'channel' => $delivery->channel,
+                                'error' => $exception->getMessage(),
+                            ]);
+                        }
+                    });
+                } catch (\Throwable $exception) {
+                    Log::error('invoice_notification.dispatch_failed', [
+                        'delivery_id' => $delivery->getKey(),
+                        'order_id' => $delivery->order_id,
+                        'channel' => $delivery->channel,
+                        'error' => $exception->getMessage(),
+                    ]);
+                }
             }
         }
 
