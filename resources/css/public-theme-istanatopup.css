@@ -452,6 +452,22 @@
     border-radius: 14px;
     background: var(--ist-surface);
 }
+.public-app--istanatopup .public-drawer__link--toggle {
+    width: 100%;
+    border: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+.public-app--istanatopup .public-drawer__icon--chevron {
+    transition: transform 180ms ease;
+}
+.public-app--istanatopup .public-drawer__icon--chevron.is-open {
+    transform: rotate(180deg);
+}
 .public-app--istanatopup .public-search__list {
     display: flex;
     flex-direction: column;
