@@ -291,6 +291,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/leaderboard',                                                   PublicLeaderboardPageController::class)->middleware('throttle:public-api-expensive-read')->name('leaderboardd');
     Route::get('/terms-and-condition',                                           [PublicLegalPageController::class, 'terms'])->name('terms');
     Route::get('/privacy-policy',                                                [PublicLegalPageController::class, 'privacyPolicy'])->name('policy');
+    Route::get('/account-deletion',                                              [PublicLegalPageController::class, 'accountDeletion'])->name('account.deletion');
     Route::get('/policy',                                                        [PublicLegalPageController::class, 'privacy'])->name('privacy');
     Route::get('/affiliate/program-terms',                                       [PublicLegalPageController::class, 'affiliateProgramTerms'])->name('affiliate.program.terms');
     Route::get('/sign-in',                                                       [LoginController::class, 'create'])->name('login');
