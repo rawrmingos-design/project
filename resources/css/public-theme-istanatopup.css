@@ -637,10 +637,12 @@
     display: flex;
     gap: 14px;
     overflow-x: auto;
-    padding: 4px 2px 12px;
+    padding: 4px 2px 4px;
     scroll-snap-type: x proximity;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, .18) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
 }
 .public-app--istanatopup .public-section--flashsale {
     padding: 18px 20px 20px;
@@ -649,11 +651,9 @@
     border: 1px solid var(--ist-border);
 }
 .public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar {
-    height: 4px;
-}
-.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, .14);
-    border-radius: 99px;
+    display: none;
+    width: 0;
+    height: 0;
 }
 .public-app--istanatopup .flashsale-card--bangjeff {
     flex: 0 0 228px;
