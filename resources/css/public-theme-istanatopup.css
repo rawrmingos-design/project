@@ -623,24 +623,99 @@
 }
 
 /* ---------- Flash sale ---------- */
+/* Keep long product names, prices, and promo labels inside each card. */
+.public-app--istanatopup .public-section--flashsale .flashsale-card--bangjeff {
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__content,
+.public-app--istanatopup .public-section--flashsale .flashsale-card__headline,
+.public-app--istanatopup .public-section--flashsale .flashsale-card__summary,
+.public-app--istanatopup .public-section--flashsale .flashsale-card__details,
+.public-app--istanatopup .public-section--flashsale .flashsale-card__footer {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__headline strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__price {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__price span,
+.public-app--istanatopup .public-section--flashsale .flashsale-card__price small {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__footer {
+    flex-wrap: wrap;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card__footer-pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    text-align: center;
+}
+
+/* Force Flash Sale typography over legacy public-app selectors. */
+.public-app--istanatopup .public-section--flashsale,
+.public-app--istanatopup .public-section--flashsale .storefront-heading,
+.public-app--istanatopup .public-section--flashsale .storefront-heading__title,
+.public-app--istanatopup .public-section--flashsale .storefront-heading__subtitle,
+.public-app--istanatopup .public-section--flashsale .flashsale-heading__countdown,
+.public-app--istanatopup .public-section--flashsale .flashsale-card {
+    font-family: var(--public-font-family), 'Plus Jakarta Sans', system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card * {
+    font-family: inherit;
+}
+
+/* Legacy pattern: duplicate one set, then move exactly half the track. */
+@keyframes istanatopup-marquee {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(calc(-50% - 5px), 0, 0);
+    }
+}
+
 /* Referensi: rail marquee otomatis, kartu 228px, bar 7px */
 .public-app--istanatopup .flashsale-rail--marquee .flashsale-rail__track {
+    display: flex;
+    gap: 10px;
     width: max-content;
-    animation: storefront-marquee 34s linear infinite;
+    animation: istanatopup-marquee 45s linear infinite;
     will-change: transform;
+    backface-visibility: hidden;
 }
 .public-app--istanatopup .flashsale-rail--marquee:hover .flashsale-rail__track,
 .public-app--istanatopup .flashsale-rail--marquee:focus-within .flashsale-rail__track {
     animation-play-state: paused;
 }
 .public-app--istanatopup .flashsale-rail--marquee {
-    display: flex;
-    gap: 14px;
-    overflow-x: auto;
-    padding: 4px 2px 12px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, .18) transparent;
+    position: relative;
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    padding: 4px 2px 4px;
 }
 .public-app--istanatopup .public-section--flashsale {
     padding: 18px 20px 20px;
@@ -649,11 +724,9 @@
     border: 1px solid var(--ist-border);
 }
 .public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar {
-    height: 4px;
-}
-.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, .14);
-    border-radius: 99px;
+    display: none;
+    width: 0;
+    height: 0;
 }
 .public-app--istanatopup .flashsale-card--bangjeff {
     flex: 0 0 228px;
@@ -729,10 +802,21 @@
     font-size: 13px;
 }
 .public-app--istanatopup .flashsale-heading__row {
+    display: flex;
     width: 100%;
+    align-items: center;
     justify-content: space-between;
     gap: 14px;
     flex-wrap: nowrap;
+}
+
+.public-app--istanatopup .flashsale-heading__row .storefront-heading__title {
+    min-width: 0;
+}
+
+.public-app--istanatopup .flashsale-heading__countdown {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 .public-app--istanatopup .flashsale-heading__countdown {
     margin-left: auto;
@@ -1510,5 +1594,48 @@
     }
     .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
         padding-top: 24px;
+    }
+
+    /* Keep the lookup body inside the viewport on narrow phones. */
+    .public-app--istanatopup .public-history-page--istanatopup,
+    .public-app--istanatopup .public-history-page--istanatopup .public-shell,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__inner {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+        max-width: 100%;
+        box-sizing: border-box;
+        font-size: 13px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-shell {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table {
+        min-width: 640px;
     }
 }

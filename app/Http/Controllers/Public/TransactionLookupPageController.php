@@ -72,7 +72,15 @@ class TransactionLookupPageController extends Controller
             $orderId = null;
         } else {
             $orderQuery = Pembelian::query()
-                ->select(['order_id']);
+                ->select([
+                    'id',
+                    'order_id',
+                    'display_order_id',
+                    'created_at',
+                    'updated_at',
+                    'harga',
+                    'status',
+                ]);
 
             if ($lookupType === 'whatsapp') {
                 $phoneDigits = preg_replace('/\D+/', '', $queryValue);
