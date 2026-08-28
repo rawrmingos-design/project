@@ -10,9 +10,8 @@ use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\Deposit;
 use App\Models\User;
-use App\Services\EmailNotificationService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Services\OrderProcessingService;
-use App\Services\WhatsappNotificationService;
 use App\Services\PublicOrderPushNotificationService;
 use App\Support\PembelianStatus;
 use App\Events\InvoiceStatusUpdated;
@@ -200,11 +199,25 @@ class TokoPayCallbackController extends Controller
         }
     }
 
+    private function dispatchInvoiceNotificationSafely(Pembelian $pembelian, string $transition): void
+    {
+        try {
+            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                $pembelian->fresh(),
+                $transition,
+            );
+        } catch (\Throwable $exception) {
+            Log::error('Tokopay invoice notification dispatch failed', [
+                'order_id' => $pembelian->order_id,
+                'transition' => $transition,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function processPembelian(Pembelian $pembelian, Pembayaran $invoice): void
     {
         $orderProcessor = app(OrderProcessingService::class);
-        $waService = app(WhatsappNotificationService::class);
-        $emailService = app(EmailNotificationService::class);
 
         $result = $orderProcessor->process($pembelian);
         $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
@@ -220,26 +233,10 @@ class TokoPayCallbackController extends Controller
             ]);
             InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
-            $waService->sendNotification($invoice->no_pembeli, 'transaction_failed', [
-                'nickname' => $pembelian->nickname,
-                'order_id' => $pembelian->order_id,
-                'product' => $pembelian->layanan,
-                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                'reason' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-            ]);
-
-            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
-            if ($recipientEmail) {
-                $emailService->sendTransactionEmail($recipientEmail, [
-                    'order_id' => $pembelian->order_id,
-                    'product' => $pembelian->layanan,
-                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                    'status' => PembelianStatus::apiStatusCode($providerStatus),
-                    'nickname' => $pembelian->nickname,
-                    'sn' => $snValue,
-                    'note' => trim((string) ($result['message'] ?? '')) ?: 'Transaksi gagal dari provider.',
-                ]);
-            }
+            $this->dispatchInvoiceNotificationSafely(
+                $pembelian,
+                InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
+            );
 
             return;
         }
@@ -261,37 +258,14 @@ class TokoPayCallbackController extends Controller
                 PollSufPaymentStatusJob::dispatchIfNeeded($freshPembelian, $providerOrderId, $providerStatus);
             }
 
-            $notificationSlug = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                ? 'transaction_success'
-                : 'transaction_pending';
-
             if (PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS) {
                 $this->sendOrderSuccessPushNotification($pembelian);
+                $transition = InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS;
+            } else {
+                $transition = InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID;
             }
 
-            $waService->sendNotification($invoice->no_pembeli, $notificationSlug, [
-                'nickname' => $pembelian->nickname,
-                'order_id' => $pembelian->order_id,
-                'product' => $pembelian->layanan,
-                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                'sn' => $snValue,
-                'status' => PembelianStatus::label($providerStatus),
-            ]);
-
-            $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
-            if ($recipientEmail) {
-                $emailService->sendTransactionEmail($recipientEmail, [
-                    'order_id' => $pembelian->order_id,
-                    'product' => $pembelian->layanan,
-                    'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                    'status' => PembelianStatus::apiStatusCode($providerStatus),
-                    'nickname' => $pembelian->nickname,
-                    'sn' => $snValue,
-                    'note' => PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS
-                        ? 'Terima kasih telah berbelanja.'
-                        : 'Pesanan sedang menunggu respon provider.',
-                ]);
-            }
+            $this->dispatchInvoiceNotificationSafely($pembelian, $transition);
 
             return;
         }
@@ -302,24 +276,9 @@ class TokoPayCallbackController extends Controller
         ]);
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
-        $waService->sendNotification($invoice->no_pembeli, 'transaction_pending', [
-            'nickname' => $pembelian->nickname,
-            'order_id' => $pembelian->order_id,
-            'product' => $pembelian->layanan,
-            'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-            'status' => 'Menunggu Provider',
-        ]);
-
-        $recipientEmail = $pembelian->email_pembeli ?? ($pembelian->user->email ?? null);
-        if ($recipientEmail) {
-            $emailService->sendTransactionEmail($recipientEmail, [
-                'order_id' => $pembelian->order_id,
-                'product' => $pembelian->layanan,
-                'amount' => 'Rp ' . number_format($pembelian->harga, 0, ',', '.'),
-                'status' => PembelianStatus::apiStatusCode(PembelianStatus::PENDING),
-                'nickname' => $pembelian->nickname,
-                'note' => 'Pesanan sedang menunggu respon provider.',
-            ]);
-        }
+        $this->dispatchInvoiceNotificationSafely(
+            $pembelian,
+            InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID,
+        );
     }
 }
