@@ -240,7 +240,10 @@ export default function Footer() {
 
                     <div className="public-footer__bottom">
                         <p>© {year} {siteConfig.name}. All rights reserved.</p>
-                        {!isBangjeff ? <p>{siteConfig.name} - Top up game murah & legal 24 jam.</p> : null}
+                        <p>
+                            <a href="/id/account-deletion">Penghapusan Akun</a>
+                            {!isBangjeff ? <> · {siteConfig.name} - Top up game murah & legal 24 jam.</> : null}
+                        </p>
                     </div>
                 </div>
             </footer>
