@@ -65,6 +65,52 @@ class WhatsappNotificationServiceTest extends TestCase
         $this->assertSame('token invalid', $result['reason']);
     }
 
+    public function test_inactive_transaction_template_does_not_call_provider(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+        ]);
+
+        WhatsappTemplate::query()->create([
+            'slug' => 'transaction_pending',
+            'name' => 'Transaksi Pending',
+            'details' => null,
+            'content' => 'Pending',
+            'is_active' => false,
+        ]);
+
+        Http::fake();
+
+        $result = app(WhatsappNotificationService::class)->sendNotification(
+            '085792464508',
+            'transaction_pending',
+            ['order_id' => 'INV-INACTIVE-WA-001'],
+        );
+
+        $this->assertFalse($result['success']);
+        Http::assertNothingSent();
+    }
+
+    public function test_missing_transaction_template_does_not_call_provider(): void
+    {
+        $this->createSettings([
+            'wa_provider' => 'fonnte',
+            'wa_key' => 'fonnte-token',
+        ]);
+
+        Http::fake();
+
+        $result = app(WhatsappNotificationService::class)->sendNotification(
+            '085792464508',
+            'transaction_pending',
+            ['order_id' => 'INV-MISSING-WA-001'],
+        );
+
+        $this->assertFalse($result['success']);
+        Http::assertNothingSent();
+    }
+
     public function test_transaction_success_notification_renders_verified_payment_message(): void
     {
         $this->createSettings([

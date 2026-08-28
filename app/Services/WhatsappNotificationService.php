@@ -62,9 +62,19 @@ class WhatsappNotificationService
         // 1. Get Template
         $template = WhatsappTemplate::where('slug', $templateSlug)->where('is_active', true)->first();
 
-        if (!$template) {
-            Log::warning("WhatsappNotificationService: Template '$templateSlug' not found or inactive.");
-            return ['success' => false, 'message' => 'Template not found or inactive'];
+        if (! $template) {
+            Log::error('invoice_notification.template_unavailable', [
+                'channel' => 'whatsapp',
+                'order_id' => (string) ($data['order_id'] ?? 'unknown'),
+                'template_slug' => $templateSlug,
+            ]);
+
+            return [
+                'success' => false,
+                'provider' => null,
+                'error_code' => 'template_unavailable',
+                'message' => 'Template not found or inactive',
+            ];
         }
 
         // 2. Replace Variables

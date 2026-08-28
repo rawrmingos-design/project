@@ -41,26 +41,26 @@ class EmailNotificationService
                 $slug = 'transaction_failed';
             }
 
-            // Fetch Template
             $template = \App\Models\EmailTemplate::where('slug', $slug)->where('is_active', true)->first();
-            
-            $subject = null;
-            $content = null;
 
-            if ($template) {
-                $subject = $template->subject;
-                $content = $template->content;
+            if (! $template) {
+                Log::error('invoice_notification.template_unavailable', [
+                    'channel' => 'email',
+                    'order_id' => (string) ($data['order_id'] ?? 'unknown'),
+                    'template_slug' => $slug,
+                ]);
 
-                // Replace variables
-                foreach ($data as $key => $value) {
-                    if (is_string($value) || is_numeric($value)) {
-                        $subject = str_replace('{' . $key . '}', $value, $subject);
-                        $content = str_replace('{' . $key . '}', $value, $content);
-                    }
+                return false;
+            }
+
+            $subject = (string) $template->subject;
+            $content = (string) $template->content;
+
+            foreach ($data as $key => $value) {
+                if (is_string($value) || is_numeric($value)) {
+                    $subject = str_replace('{' . $key . '}', (string) $value, $subject);
+                    $content = str_replace('{' . $key . '}', (string) $value, $content);
                 }
-                // Also replace {nickname} if not in data but in data (it should be)
-                // Just in case, replace any remaining tags with empty or keep them?
-                // Keeping them is better for debugging.
             }
 
             Mail::to($email)->send(new TransactionMail($data, $subject, $content));
