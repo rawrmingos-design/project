@@ -623,26 +623,36 @@
 }
 
 /* ---------- Flash sale ---------- */
+/* Legacy pattern: duplicate one set, then move exactly half the track. */
+@keyframes istanatopup-marquee {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        transform: translate3d(calc(-50% - 5px), 0, 0);
+    }
+}
+
 /* Referensi: rail marquee otomatis, kartu 228px, bar 7px */
 .public-app--istanatopup .flashsale-rail--marquee .flashsale-rail__track {
+    display: flex;
+    gap: 10px;
     width: max-content;
-    animation: storefront-marquee 34s linear infinite;
+    animation: istanatopup-marquee 45s linear infinite;
     will-change: transform;
+    backface-visibility: hidden;
 }
 .public-app--istanatopup .flashsale-rail--marquee:hover .flashsale-rail__track,
 .public-app--istanatopup .flashsale-rail--marquee:focus-within .flashsale-rail__track {
     animation-play-state: paused;
 }
 .public-app--istanatopup .flashsale-rail--marquee {
-    display: flex;
-    gap: 14px;
-    overflow-x: auto;
+    position: relative;
+    display: block;
+    width: 100%;
+    overflow: hidden;
     padding: 4px 2px 4px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
 }
 .public-app--istanatopup .public-section--flashsale {
     padding: 18px 20px 20px;
