@@ -142,23 +142,79 @@ class LegalPageController extends Controller
     private function defaultTermsHtml(string $siteName, string $siteUrl): string
     {
         return <<<HTML
-            <h2>1. Penerimaan Ketentuan</h2>
-            <p>Dengan mengakses dan menggunakan layanan {$siteName}, kamu dianggap telah membaca dan menyetujui seluruh syarat yang berlaku di platform ini.</p>
-            <h2>2. Akun dan Keamanan</h2>
-            <p>Pengguna wajib menjaga kerahasiaan akun, data login, serta aktivitas transaksi. Segala aktivitas dari akun dianggap sebagai tanggung jawab pemilik akun.</p>
-            <h2>3. Penggunaan Layanan</h2>
+            <p>Selamat datang di {$siteName}. Syarat &amp; Ketentuan ini mengatur penggunaan aplikasi dan situs kami di <a href="{$siteUrl}">{$siteName}</a> ("Layanan"). Dengan mendaftar, mengakses, atau melakukan transaksi melalui Layanan, Anda dianggap telah membaca, memahami, dan menyetujui seluruh ketentuan di bawah ini. Jika Anda tidak setuju, mohon untuk tidak menggunakan Layanan.</p>
+
+            <h2>1. Definisi</h2>
             <ul>
-                <li>Pengguna wajib memasukkan data transaksi dengan benar.</li>
-                <li>Dilarang menggunakan layanan untuk aktivitas melanggar hukum.</li>
-                <li>Dilarang menyalahgunakan sistem, API, atau infrastruktur platform.</li>
+                <li><strong>"Kami"</strong> berarti {$siteName} sebagai penyedia layanan.</li>
+                <li><strong>"Pengguna"</strong> berarti setiap orang yang mengakses atau bertransaksi melalui Layanan.</li>
+                <li><strong>"Produk"</strong> berarti produk digital yang kami jual, termasuk top up game, voucher, pulsa, paket data, token listrik, dan pembayaran tagihan (PPOB).</li>
             </ul>
-            <h2>4. Transaksi dan Pembayaran</h2>
-            <p>Transaksi diproses sesuai metode pembayaran yang dipilih. Harga, biaya admin, dan status transaksi mengikuti data real-time pada sistem saat checkout.</p>
-            <h2>5. Pengembalian Dana</h2>
-            <p>Kebijakan refund mengikuti ketentuan operasional platform. Dalam kondisi tertentu, penyelesaian dapat dilakukan dalam bentuk saldo internal sesuai kebijakan layanan.</p>
-            <h2>6. Perubahan Ketentuan</h2>
-            <p>{$siteName} berhak memperbarui syarat layanan sewaktu-waktu. Versi terbaru akan ditampilkan pada halaman ini.</p>
-            <p><strong>Halaman utama:</strong> <a href="{$siteUrl}">{$siteUrl}</a></p>
+
+            <h2>2. Akun Pengguna</h2>
+            <ul>
+                <li>Pengguna bertanggung jawab menjaga kerahasiaan akun dan kata sandinya.</li>
+                <li>Segala aktivitas yang terjadi melalui akun menjadi tanggung jawab pemilik akun.</li>
+                <li>Data yang didaftarkan harus benar, akurat, dan milik Pengguna sendiri.</li>
+                <li>Kami berhak menangguhkan atau menutup akun yang terindikasi melakukan penyalahgunaan atau penipuan.</li>
+            </ul>
+
+            <h2>3. Produk dan Layanan</h2>
+            <ul>
+                <li>Seluruh Produk yang kami jual bersifat digital dan diproses secara otomatis.</li>
+                <li>Ketersediaan dan harga Produk dapat berubah sewaktu-waktu tanpa pemberitahuan terlebih dahulu.</li>
+                <li>Kami berhak menolak atau membatalkan pesanan apabila terjadi kesalahan sistem, gangguan penyedia, kelangkaan stok, atau indikasi kecurangan.</li>
+            </ul>
+
+            <h2>4. Proses Transaksi dan Pengiriman</h2>
+            <ul>
+                <li>Pesanan akan diproses setelah pembayaran diterima dan terverifikasi.</li>
+                <li>Produk dikirim secara otomatis ke tujuan yang Anda masukkan (misalnya ID game atau nomor tujuan).</li>
+                <li>Waktu proses umumnya instan, namun dapat tertunda karena gangguan pada sistem kami maupun penyedia produk. Dalam hal tertunda, pesanan akan tetap diproses atau dikembalikan sesuai ketentuan di bawah.</li>
+            </ul>
+
+            <h2>5. Tanggung Jawab Data Tujuan (PENTING)</h2>
+            <ul>
+                <li>Pengguna <strong>wajib memastikan kebenaran</strong> data tujuan yang dimasukkan, seperti ID game, server, nomor telepon, atau nomor pelanggan, <strong>sebelum</strong> menyelesaikan pembayaran.</li>
+                <li>Kesalahan input data tujuan yang dilakukan oleh Pengguna <strong>sepenuhnya menjadi tanggung jawab Pengguna</strong> dan <strong>tidak dapat dijadikan dasar pengembalian dana (refund)</strong>, karena Produk telah terkirim ke tujuan yang dimasukkan.</li>
+                <li>Kami tidak bertanggung jawab atas kerugian akibat kesalahan input data oleh Pengguna.</li>
+            </ul>
+
+            <h2>6. Pembayaran</h2>
+            <ul>
+                <li>Pembayaran dilakukan melalui metode yang tersedia (QRIS, transfer bank, e-wallet, dan lainnya).</li>
+                <li>Pembayaran diproses oleh penyedia payment gateway pihak ketiga; kami tidak menyimpan data kartu atau kredensial pembayaran Anda.</li>
+                <li>Pesanan yang belum dibayar dalam batas waktu yang ditentukan akan otomatis dibatalkan.</li>
+            </ul>
+
+            <h2>7. Pengembalian Dana dan Komplain</h2>
+            <ul>
+                <li>Pengembalian dana hanya dapat dilakukan apabila kegagalan disebabkan oleh sistem kami, misalnya pembayaran berhasil namun Produk tidak terkirim, sedangkan data tujuan sudah benar.</li>
+                <li>Pengembalian dana <strong>tidak berlaku</strong> untuk kesalahan input data tujuan oleh Pengguna.</li>
+                <li>Komplain wajib disampaikan sesegera mungkin dengan menyertakan bukti transaksi (nomor invoice, tanggal, dan data tujuan) melalui kontak resmi kami.</li>
+                <li>Pengembalian dana yang disetujui akan diproses ke metode/rekening asal atau saldo akun, sesuai kondisi.</li>
+            </ul>
+
+            <h2>8. Larangan Penyalahgunaan</h2>
+            <p>Pengguna dilarang menggunakan Layanan untuk aktivitas melanggar hukum, penipuan, pencucian uang, penggunaan metode pembayaran yang bukan haknya, atau upaya merusak sistem kami. Pelanggaran dapat berakibat penutupan akun dan/atau pelaporan kepada pihak berwenang.</p>
+
+            <h2>9. Hak Kekayaan Intelektual</h2>
+            <p>Seluruh merek, logo, dan konten pada Layanan adalah milik {$siteName}. Pengguna tidak diperkenankan menyalin, memperbanyak, atau menggunakannya tanpa izin tertulis dari kami.</p>
+
+            <h2>10. Batasan Tanggung Jawab</h2>
+            <p>Layanan disediakan "sebagaimana adanya". Sepanjang diizinkan oleh hukum yang berlaku, kami tidak bertanggung jawab atas kerugian tidak langsung yang timbul dari penggunaan Layanan, termasuk gangguan yang berada di luar kendali kami seperti gangguan penyedia produk, jaringan, atau sistem pembayaran.</p>
+
+            <h2>11. Perubahan Ketentuan</h2>
+            <p>Kami dapat memperbarui Syarat &amp; Ketentuan ini sewaktu-waktu. Perubahan berlaku sejak dipublikasikan pada halaman ini. Penggunaan Layanan secara berkelanjutan dianggap sebagai persetujuan terhadap ketentuan yang diperbarui.</p>
+
+            <h2>12. Hukum yang Berlaku</h2>
+            <p>Syarat &amp; Ketentuan ini diatur dan ditafsirkan berdasarkan hukum Republik Indonesia. Segala sengketa akan diupayakan diselesaikan secara musyawarah terlebih dahulu.</p>
+
+            <h2>13. Hubungi Kami</h2>
+            <ul>
+                <li>WhatsApp: <a href="https://wa.me/6285123031674">+62 851-2303-1674</a></li>
+                <li>Website: <a href="{$siteUrl}">{$siteName}</a></li>
+            </ul>
         HTML;
     }
 
