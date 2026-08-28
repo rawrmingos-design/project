@@ -452,25 +452,85 @@
     border-radius: 14px;
     background: var(--ist-surface);
 }
+.public-app--istanatopup .public-drawer__link--toggle {
+    width: 100%;
+    border: 0;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+.public-app--istanatopup .public-drawer__icon--chevron {
+    transition: transform 180ms ease;
+}
+.public-app--istanatopup .public-drawer__icon--chevron.is-open {
+    transform: rotate(180deg);
+}
+.public-app--istanatopup .public-search__list {
+    display: flex;
+    flex-direction: column;
+}
 .public-app--istanatopup .public-search-item {
-    grid-template-columns: 48px minmax(0, 1fr);
-    gap: 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    gap: 12px;
     padding: 8px 12px;
+    box-sizing: border-box;
+    color: var(--ist-text);
+    text-decoration: none;
+}
+.public-app--istanatopup .public-search-item:hover,
+.public-app--istanatopup .public-search-item:focus-visible {
+    background: var(--ist-surface-alt);
+    outline: none;
 }
 .public-app--istanatopup .public-search-item img {
+    flex: 0 0 48px;
     width: 48px;
     height: 48px;
-    border-radius: 10px;
+    border-radius: 12px;
+    object-fit: cover;
+}
+.public-app--istanatopup .public-search-item__copy {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    overflow: hidden;
+    white-space: nowrap;
 }
 .public-app--istanatopup .public-search-item__copy strong {
+    min-width: 0;
+    overflow: hidden;
     color: var(--ist-text);
     font-family: var(--public-font-family), system-ui, sans-serif !important;
     font-size: .82rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .public-app--istanatopup .public-search-item__copy small {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
     color: var(--ist-muted);
     font-family: var(--public-font-family), system-ui, sans-serif !important;
     font-size: .7rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.public-app--istanatopup .public-search-item__copy small::before {
+    content: '•';
+    margin-right: 8px;
+    color: var(--ist-faint);
 }
 .public-app--istanatopup .public-search__status,
 .public-app--istanatopup .public-search__empty {

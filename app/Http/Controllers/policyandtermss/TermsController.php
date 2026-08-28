@@ -23,6 +23,14 @@ class TermsController extends Controller
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
         ]);
     }
+
+    public function accountDeletion()
+    {
+        return view('template.privacyandterms.accountdeletion', [
+            'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
+            'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
+        ]);
+    }
     
     public function privacy()
     {
