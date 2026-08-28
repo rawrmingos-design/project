@@ -1511,4 +1511,47 @@
     .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
         padding-top: 24px;
     }
+
+    /* Keep the lookup body inside the viewport on narrow phones. */
+    .public-app--istanatopup .public-history-page--istanatopup,
+    .public-app--istanatopup .public-history-page--istanatopup .public-shell,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__inner {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+        max-width: 100%;
+        box-sizing: border-box;
+        font-size: 13px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-shell {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table {
+        min-width: 640px;
+    }
 }
