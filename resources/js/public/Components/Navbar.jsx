@@ -138,6 +138,7 @@ export default function Navbar() {
     const currentUrl = page.url || '';
     const activeThemeKey = theme?.key || 'default';
     const isBangjeffTheme = activeThemeKey === 'bangjeff';
+    const isStorefrontModernTheme = isBangjeffTheme || activeThemeKey === 'istanatopup';
     const [menuOpen, setMenuOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [legacyResultsHtml, setLegacyResultsHtml] = useState('');
@@ -175,7 +176,7 @@ export default function Navbar() {
     };
 
     const mainLinks = useMemo(() => {
-        if (activeThemeKey === 'bangjeff') {
+        if (isStorefrontModernTheme) {
             return [
                 { label: 'Topup', href: '/id', icon: 'home' },
                 { label: 'Cek Transaksi', href: '/id/invoices', icon: 'search' },
@@ -192,7 +193,7 @@ export default function Navbar() {
             { label: 'Leaderboard', href: '/id/leaderboard', icon: 'leaderboard' },
             { label: 'Kalkulator', href: '/id/calculator/winrate', icon: 'calculator', children: calculatorMenuItems },
         ];
-    }, [activeThemeKey, calculatorMenuItems]);
+    }, [isStorefrontModernTheme, calculatorMenuItems]);
 
     const accountLinks = authUser ? [
         { label: 'Dashboard', href: '/id/dashboard', icon: 'dashboard' },
@@ -263,7 +264,7 @@ export default function Navbar() {
             setSearchRequested(false);
 
             try {
-                if (isBangjeffTheme) {
+                if (isStorefrontModernTheme) {
                     const response = await fetch(`/id/search/products?q=${encodeURIComponent(trimmedQuery)}`, {
                         method: 'GET',
                         headers: {
@@ -305,7 +306,7 @@ export default function Navbar() {
                 setLegacyResultsHtml(await response.text());
             } catch (error) {
                 if (error.name !== 'AbortError') {
-                    if (isBangjeffTheme) {
+                    if (isStorefrontModernTheme) {
                         setSearchItems([]);
                         setSearchRequested(true);
                     } else {
@@ -321,10 +322,10 @@ export default function Navbar() {
             controller.abort();
             window.clearTimeout(timeout);
         };
-    }, [isBangjeffTheme, query]);
+    }, [isStorefrontModernTheme, query]);
 
-    const showBangjeffSearchDropdown = isBangjeffTheme && query.trim().length >= 2 && (searchLoading || searchRequested);
-    const showLegacySearchDropdown = !isBangjeffTheme && Boolean(legacyResultsHtml);
+    const showBangjeffSearchDropdown = isStorefrontModernTheme && query.trim().length >= 2 && (searchLoading || searchRequested);
+    const showLegacySearchDropdown = !isStorefrontModernTheme && Boolean(legacyResultsHtml);
     const hasSearchQuery = query.trim().length > 0;
 
     const clearSearch = () => {
@@ -444,12 +445,12 @@ export default function Navbar() {
                                 onClick={() => setMobileSearchOpen((current) => !current)}
                                 aria-label="Buka pencarian"
                             >
-                                {iconFor(isBangjeffTheme ? 'search-simple' : 'search')}
+                                {iconFor(isStorefrontModernTheme ? 'search-simple' : 'search')}
                             </button>
 
                             <button type="button" className="public-locale-pill" aria-label="Bahasa Indonesia">
                                 <span className="public-locale-pill__flag" />
-                                {isBangjeffTheme ? <span className="public-locale-pill__text">ID / IDR</span> : null}
+                                {isStorefrontModernTheme ? <span className="public-locale-pill__text">ID / IDR</span> : null}
                             </button>
 
                             {isBangjeffTheme && authUser ? (
@@ -535,7 +536,7 @@ export default function Navbar() {
                                     placeholder="Cari Game atau Voucher"
                                     aria-label="Cari produk"
                                 />
-                                <span className="public-search__icon">{iconFor(isBangjeffTheme ? 'search-simple' : 'search')}</span>
+                                <span className="public-search__icon">{iconFor(isStorefrontModernTheme ? 'search-simple' : 'search')}</span>
                                 <button
                                     type="button"
                                     className={`public-search__clear ${hasSearchQuery ? 'is-visible' : ''}`}

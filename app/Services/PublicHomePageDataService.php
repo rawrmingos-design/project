@@ -192,6 +192,7 @@ class PublicHomePageDataService
                 'kategoris.kode AS kode_game',
                 'kategoris.nama AS kategori_nama',
                 'layanans.judul_flash_sale',
+                'layanans.layanan',
                 'layanans.harga',
                 'layanans.harga_flash_sale',
                 'layanans.stock_flash_sale',
@@ -205,7 +206,7 @@ class PublicHomePageDataService
             ->get()
             ->map(fn ($item) => [
                 'id' => $item->id,
-                'title' => $item->judul_flash_sale ?: $item->kategori_nama,
+                'title' => $item->layanan ?: ($item->judul_flash_sale ?: $item->kategori_nama),
                 'category' => $item->kategori_nama,
                 'slug' => $item->kode_game,
                 'thumbnail' => '/' . ltrim((string) $item->gmr_thumb, '/'),
@@ -222,7 +223,7 @@ class PublicHomePageDataService
     {
         return Artikel::query()
             ->where('status', 'active')
-            ->select(['id', 'slug', 'title', 'thumbnail', 'created_at', 'views'])
+            ->select(['id', 'slug', 'title', 'content', 'thumbnail', 'created_at', 'views'])
             ->latest()
             ->take(3)
             ->get()
@@ -231,6 +232,7 @@ class PublicHomePageDataService
                 'slug' => $article->slug,
                 'title' => $article->title,
                 'thumbnail' => '/' . ltrim((string) $article->thumbnail, '/'),
+                'excerpt' => trim(HtmlSanitizer::toPlainText($article->content ?? '', 120)),
                 'publishedAt' => optional($article->created_at)?->toDateString(),
                 'views' => (int) ($article->views ?? 0),
             ])

@@ -369,6 +369,9 @@ class ViewPembelian extends ViewRecord
                             $data['reason'] ?? null,
                         );
 
+                        SendPembelianToProviderJob::dispatch($this->record->getKey(), Auth::id(), 'auto');
+                        ProviderDispatchTracker::markQueued($this->record->getKey());
+
                         Notification::make()
                             ->title('Invoice reset queued successfully')
                             ->body('Display invoice aktif berubah ke ' . $this->record->display_order_id . ' dan siap dikirim ke provider ' . $this->getCurrentProviderLabel() . '.')

@@ -1,0 +1,1514 @@
+/* ============================================================
+   IstanaTopup theme — scoped under .public-app--istanatopup
+   Palette from client mockup (Bangjeff-inspired dark):
+   bg #121212 · surface #1A1A1A/#1F1F1F · border #262626
+   primary #3D79F2 · accent #F97316 → #FB923C
+   text #FFFFFF/#E5E5E8 · muted #9C9C9C · font Plus Jakarta Sans
+   Mobile-first; breakpoints only add layout changes.
+   ============================================================ */
+
+.public-app--istanatopup {
+    --ist-bg: #121212;
+    --ist-surface: #1a1a1a;
+    --ist-surface-alt: #1f1f1f;
+    --ist-border: #262626;
+    --ist-text: #ffffff;
+    --ist-text-soft: #e5e5e8;
+    --ist-muted: #9c9c9c;
+    --ist-faint: #6e6e73;
+    --ist-primary: var(--public-color-primary, #3d79f2);
+    --ist-accent: var(--public-color-accent, #f97316);
+    --ist-accent-soft: var(--public-color-highlight, #fb923c);
+    --ist-radius: 16px;
+
+    background: var(--ist-bg);
+    color: var(--ist-text-soft);
+    font-family: var(--public-font-family, 'Plus Jakarta Sans'), system-ui, sans-serif;
+}
+
+/* Reference HTML uses Plus Jakarta Sans globally: 400, 600, 700, 800 + italic 800. */
+.public-app--istanatopup,
+.public-app--istanatopup * {
+    /* public-app.css has deeper component font rules; this theme owns all type. */
+    font-family: var(--public-font-family, 'Plus Jakarta Sans'), system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup a { color: inherit; text-decoration: none; }
+
+/* ---------- Main shell ---------- */
+.public-app--istanatopup .public-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 0 48px;
+}
+/*
+ * Shell spacing mengikuti Bangjeff:
+ * desktop 32px, tablet 24px, mobile 16px.
+ * Hero tetap full-bleed; hanya body section yang memakai shell.
+ */
+.public-app--istanatopup .public-shell {
+    width: min(calc(100% - 32px), 1280px);
+}
+@media (max-width: 960px) {
+    .public-app--istanatopup .public-shell {
+        width: min(calc(100% - 24px), 1280px);
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-shell {
+        width: min(calc(100% - 16px), 1280px);
+    }
+}
+
+/* ---------- Mockup homepage: site intro + horizontal game cards ---------- */
+.public-app--istanatopup .ist-site-intro {
+    text-align: center;
+    padding: 24px 0 0;
+}
+.public-app--istanatopup .ist-site-intro h1 {
+    margin: 0;
+    color: var(--ist-text);
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .ist-site-intro p {
+    max-width: 720px;
+    margin: 8px auto 0;
+    color: var(--ist-muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+.public-app--istanatopup .ist-hgrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.public-app--istanatopup .ist-hcard {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-width: 0;
+    padding: 13px 15px;
+    color: var(--ist-text);
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    text-decoration: none;
+    transition: transform .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .ist-hcard:hover {
+    transform: translateY(-2px);
+    border-color: rgba(61, 121, 242, .7);
+}
+.public-app--istanatopup .ist-hcard__art {
+    display: grid;
+    flex: 0 0 58px;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    overflow: hidden;
+    background: var(--ist-surface-alt);
+    border-radius: 12px;
+}
+.public-app--istanatopup .ist-hcard__art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.public-app--istanatopup .hc-txt {
+    display: grid;
+    min-width: 0;
+    gap: 4px;
+}
+.public-app--istanatopup .hc-txt b,
+.public-app--istanatopup .hc-txt span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.public-app--istanatopup .hc-txt b { font-size: .9rem; }
+.public-app--istanatopup .hc-txt span { color: var(--ist-muted); font-size: .75rem; }
+@media (max-width: 1000px) {
+    .public-app--istanatopup .ist-hgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .ist-hgrid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .public-app--istanatopup .ist-hcard { gap: 9px; padding: 10px; }
+    .public-app--istanatopup .ist-hcard__art { flex-basis: 48px; width: 48px; height: 48px; }
+    .public-app--istanatopup .hc-txt b { font-size: .78rem; }
+}
+
+/* ---------- Header — exact Bangjeff mockup rhythm ---------- */
+/* Reference values: .wrap max-width 1200px + 18px side padding,
+   top row 60px, nav row 48px. */
+.public-app--istanatopup .public-navbar__inner {
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+}
+.public-app--istanatopup .public-navbar__inner--top {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
+    min-height: 60px;
+    padding: 0;
+    gap: 20px;
+}
+.public-app--istanatopup .public-navbar__inner--bottom {
+    display: flex;
+    min-height: 48px;
+    padding: 0;
+    gap: 4px;
+}
+.public-app--istanatopup .public-navbar__top {
+    border-bottom: 0;
+}
+.public-app--istanatopup .public-navbar__bottom {
+    border-top: 1px solid var(--ist-border);
+    border-bottom: 1px solid var(--ist-border);
+} 
+.public-app--istanatopup .public-brand--storefront .public-brand__logo {
+    height: 40px;
+    border-radius: 0;
+}
+.public-app--istanatopup .public-search input {
+    width: 100%;
+    height: 42px;
+    padding: 0 16px 0 42px;
+    background: var(--ist-bg);
+    border: 1px solid var(--ist-border);
+    border-radius: 10px;
+    font-size: 13.5px;
+}
+.public-app--istanatopup .public-search__icon {
+    left: 14px;
+    width: 16px;
+    height: 16px;
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-navbar__link {
+    height: 48px;
+    padding: 0 14px;
+    gap: 7px;
+    color: var(--ist-muted);
+    font-size: 13.5px;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-navbar__link.is-active::after {
+    left: 12px;
+    right: 12px;
+    bottom: -1px;
+    height: 2.5px;
+    border-radius: 2px 2px 0 0;
+}
+.public-app--istanatopup .public-navbar__bottom-actions {
+    margin-left: auto;
+}
+.public-app--istanatopup .public-locale-pill {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    gap: 8px;
+}
+.public-app--istanatopup .public-locale-pill__flag {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--ist-border);
+}
+.public-app--istanatopup .public-locale-pill__text {
+    color: var(--ist-text);
+    font-size: 13px;
+    font-weight: 700;
+}
+/* Mockup nav remains horizontally scrollable on mobile. */
+@media (max-width: 1000px) {
+    .public-app--istanatopup .public-navbar__inner {
+        width: min(calc(100% - 36px), 1200px);
+    }
+    .public-app--istanatopup .public-locale-pill { display: none; }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-navbar__inner,
+    .public-app--istanatopup .public-navbar__inner--top {
+        width: calc(100% - 36px);
+    }
+    .public-app--istanatopup .public-navbar__inner--top {
+        min-height: 60px;
+        gap: 10px;
+    }
+    .public-app--istanatopup .public-brand--storefront .public-brand__logo { height: 30px; }
+    .public-app--istanatopup .public-navbar__bottom { display: block; }
+    .public-app--istanatopup .public-navbar__links--storefront.public-navbar__links--storefront {
+        display: flex;
+        overflow-x: auto;
+        gap: 4px;
+    }
+    .public-app--istanatopup .public-navbar__link {
+        white-space: nowrap;
+        padding: 0 10px;
+    }
+    .public-app--istanatopup .public-navbar__bottom-actions { display: none; }
+}
+
+/* ---------- Header — modern component additions ---------- */
+.public-app--istanatopup .public-navbar--storefront {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(26, 26, 26, .96);
+    border-bottom: 0;
+    backdrop-filter: none;
+}
+.public-app--istanatopup .public-navbar__top {
+    background: var(--ist-surface);
+    border-bottom: 0;
+}
+.public-app--istanatopup .public-navbar__bottom {
+    background: var(--ist-surface);
+    border-top: 1px solid var(--ist-border);
+    border-bottom: 1px solid var(--ist-border);
+}
+.public-app--istanatopup .public-navbar__inner {
+    width: min(calc(100% - 32px), 1280px);
+}
+.public-app--istanatopup .public-navbar__inner--top {
+    min-height: 60px;
+    gap: 20px;
+}
+.public-app--istanatopup .public-navbar__inner--bottom {
+    min-height: 48px;
+    gap: 16px;
+}
+.public-app--istanatopup .public-brand--storefront .public-brand__logo {
+    height: 40px;
+    border-radius: 0;
+}
+.public-app--istanatopup .public-search {
+    flex: 1;
+    min-width: 0;
+}
+.public-app--istanatopup .public-search input {
+    height: 38px;
+    padding: 0 42px 0 16px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    border-radius: 9px;
+    font-size: .82rem;
+}
+.public-app--istanatopup .public-navbar__links--storefront {
+    gap: 4px;
+    align-items: stretch;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.public-app--istanatopup .public-navbar__links--storefront::-webkit-scrollbar { display: none; }
+.public-app--istanatopup .public-navbar__link {
+    height: 48px;
+    flex: 0 0 auto;
+    gap: 7px;
+    padding: 0 14px;
+    color: var(--ist-muted);
+    font-size: .84rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-navbar__link::after {
+    bottom: 0;
+    height: 2px;
+    background: transparent;
+}
+.public-app--istanatopup .public-navbar__link.is-active,
+.public-app--istanatopup .public-navbar__link:hover {
+    color: var(--ist-accent-soft);
+}
+.public-app--istanatopup .public-navbar__link.is-active::after,
+.public-app--istanatopup .public-navbar__link:hover::after {
+    background: var(--ist-accent);
+}
+.public-app--istanatopup .public-navbar__link-icon svg,
+.public-app--istanatopup .public-navbar__text-link-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.public-app--istanatopup .public-locale-pill {
+    display: inline-flex;
+    width: auto;
+    height: 32px;
+    gap: 8px;
+    padding: 0 10px 0 7px;
+    border-radius: 8px;
+    border-color: var(--ist-border);
+    background: transparent;
+}
+.public-app--istanatopup .public-locale-pill__text {
+    display: inline-flex;
+    color: var(--ist-text);
+    font-size: .78rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-mobile-icon--accent {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-navbar__bottom-actions {
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+.public-app--istanatopup .public-navbar__text-link--storefront {
+    color: var(--ist-muted);
+    font-weight: 700;
+}
+.public-app--istanatopup .public-navbar__text-link--storefront:hover { color: var(--ist-accent-soft); }
+@media (max-width: 960px) {
+    .public-app--istanatopup .public-navbar__inner { width: min(calc(100% - 24px), 1280px); }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-navbar__inner { width: calc(100% - 32px); }
+    .public-app--istanatopup .public-navbar__inner--top { min-height: 60px; gap: 10px; }
+    .public-app--istanatopup .public-brand--storefront .public-brand__logo { height: 30px; }
+    .public-app--istanatopup .public-navbar__top-actions { gap: 8px; }
+    .public-app--istanatopup .public-navbar__bottom { display: none; }
+    .public-app--istanatopup .public-mobile-icon { display: inline-flex; }
+}
+
+/* ---------- Navbar ---------- */
+.public-app--istanatopup .public-navbar--storefront {
+    background: rgba(18, 18, 18, 0.92);
+    border-bottom: 1px solid var(--ist-border);
+    backdrop-filter: blur(10px);
+}
+.public-app--istanatopup .public-navbar__link,
+.public-app--istanatopup .public-navbar__text-link,
+.public-app--istanatopup .public-navbar__compact-account {
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-navbar__link:hover,
+.public-app--istanatopup .public-navbar__text-link:hover,
+.public-app--istanatopup .public-navbar__compact-account:hover {
+    color: var(--ist-text);
+}
+.public-app--istanatopup .public-brand--storefront .public-brand__logo {
+    border-radius: 10px;
+}
+.public-app--istanatopup .public-search input {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text);
+    border-radius: 999px;
+}
+
+/* Header search alignment fix: reserve space for both icons. */
+.public-app--istanatopup .public-search--desktop,
+.public-app--istanatopup .public-search--mobile {
+    position: relative;
+    min-width: 0;
+    isolation: isolate;
+}
+.public-app--istanatopup .public-search--desktop input,
+.public-app--istanatopup .public-search--mobile input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0 42px 0 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.public-app--istanatopup .public-search--desktop .public-search__icon,
+.public-app--istanatopup .public-search--mobile .public-search__icon {
+    left: 14px;
+    z-index: 1;
+    width: 16px;
+    height: 16px;
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-search__clear {
+    right: 12px;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    color: var(--ist-muted);
+}
+.public-app--istanatopup .public-search__clear:hover,
+.public-app--istanatopup .public-search__clear:focus-visible {
+    color: var(--ist-text);
+}
+.public-app--istanatopup .public-search__results {
+    z-index: 60;
+    border: 1px solid var(--ist-border);
+    background: var(--ist-surface);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, .28);
+}
+.public-app--istanatopup .public-search__results--bangjeff {
+    max-height: 340px;
+    padding: 8px 0;
+    border-radius: 14px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-search-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 12px;
+}
+.public-app--istanatopup .public-search-item img {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+}
+.public-app--istanatopup .public-search-item__copy strong {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .82rem;
+}
+.public-app--istanatopup .public-search-item__copy small {
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .7rem;
+}
+.public-app--istanatopup .public-search__status,
+.public-app--istanatopup .public-search__empty {
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
+.public-app--istanatopup .public-search input:focus {
+    border-color: var(--ist-primary);
+    outline: none;
+}
+.public-app--istanatopup .public-search input::placeholder,
+.public-app--istanatopup .public-search__icon {
+    color: var(--ist-faint);
+}
+
+/* ---------- Buttons ---------- */
+.public-app--istanatopup .public-button {
+    background: linear-gradient(135deg, var(--ist-accent) 0%, var(--ist-accent-soft) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+}
+.public-app--istanatopup .public-button:hover { filter: brightness(1.08); }
+.public-app--istanatopup .public-button--ghost {
+    background: transparent;
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text-soft);
+}
+
+/* ---------- Section headings ---------- */
+.public-app--istanatopup .storefront-heading__title,
+.public-app--istanatopup .journal-heading h2,
+.public-app--istanatopup .storefront-tabs__nav button {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    color: var(--ist-text);
+}
+.public-app--istanatopup .storefront-tabs__nav {
+    display: flex;
+    gap: 9px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+}
+.public-app--istanatopup .storefront-tabs__nav::-webkit-scrollbar {
+    display: none;
+}
+.public-app--istanatopup .storefront-tabs__nav button {
+    flex: none;
+    min-height: 38px;
+    padding: 9px 20px;
+    border: 1px solid var(--ist-border);
+    border-radius: 999px;
+    background: var(--ist-surface);
+    color: var(--ist-muted);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .storefront-tabs__nav button:hover {
+    color: var(--ist-text);
+    border-color: var(--ist-text-soft);
+}
+.public-app--istanatopup .storefront-tabs__nav button.is-active {
+    background: var(--ist-accent);
+    border-color: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .ist-products-heading .storefront-heading__title {
+    text-transform: none;
+    letter-spacing: 0;
+}
+.public-app--istanatopup .ist-products-heading .storefront-heading__subtitle {
+    text-transform: none;
+}
+
+/* ---------- Cards ---------- */
+.public-app--istanatopup .public-card,
+.public-app--istanatopup .storefront-game-card,
+.public-app--istanatopup .journal-card,
+.public-app--istanatopup .flashsale-card {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: var(--ist-radius);
+    box-shadow: none;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.public-app--istanatopup .public-card:hover,
+.public-app--istanatopup .storefront-game-card:hover,
+.public-app--istanatopup .journal-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(61, 121, 242, 0.55);
+}
+
+/* ---------- Hero / banner ---------- */
+.public-app--istanatopup .public-main--hero-bleed {
+    padding-top: 16px;
+}
+.public-app--istanatopup .hero--storefront {
+    background: transparent;
+}
+.public-app--istanatopup .hero-storefront__backdrop {
+    display: none; /* bersihkan meteor/gradient default — mockup polos */
+}
+/* Banner hampir full-width: sisi kecil, gambar utuh tanpa crop */
+.public-app--istanatopup .hero-storefront__container {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+@media (min-width: 1024px) {
+    .public-app--istanatopup .hero-storefront__container {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+}
+.public-app--istanatopup .hero-swiper-react,
+.public-app--istanatopup .hero-swiper-react .swiper-slide {
+    background: #101013;
+    border-radius: 14px;
+}
+/* Banner: gambar memenuhi kotak (full-bleed dalam frame).
+   Upload banner rasio ~16/9 supaya tidak ter-crop; artwork landscape
+   ekstrem akan terpotong sisi kiri/kanan oleh object-fit cover. */
+.public-app--istanatopup .hero-swiper-react__image {
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 14px;
+    border: 1px solid var(--ist-border);
+}
+
+/* ---------- FAVORIT: 2 kartu per row di mobile/tablet (wrap) ---------- */
+/* (max-width:640px) di public-app.css memaksa 1 kolom — override
+   dengan specificity sama + posisi file lebih akhir tidak cukup karena
+   file theme diimport duluan; pakai selector ganda biar menang. */
+@media (max-width: 960px) {
+    .public-app--istanatopup .product-grid--popular-storefront.product-grid--popular-storefront {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+}
+
+/* ---------- Flash sale ---------- */
+/* Referensi: rail marquee otomatis, kartu 228px, bar 7px */
+.public-app--istanatopup .flashsale-rail--marquee .flashsale-rail__track {
+    width: max-content;
+    animation: storefront-marquee 34s linear infinite;
+    will-change: transform;
+}
+.public-app--istanatopup .flashsale-rail--marquee:hover .flashsale-rail__track,
+.public-app--istanatopup .flashsale-rail--marquee:focus-within .flashsale-rail__track {
+    animation-play-state: paused;
+}
+.public-app--istanatopup .flashsale-rail--marquee {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding: 4px 2px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, .18) transparent;
+}
+.public-app--istanatopup .public-section--flashsale {
+    padding: 18px 20px 20px;
+    border-radius: 14px;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+}
+.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar {
+    height: 4px;
+}
+.public-app--istanatopup .flashsale-rail--marquee::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, .14);
+    border-radius: 99px;
+}
+.public-app--istanatopup .flashsale-card--bangjeff {
+    flex: 0 0 228px;
+    width: 228px;
+    min-height: 0;
+    scroll-snap-align: start;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    padding: 14px 14px 12px;
+    color: var(--ist-text);
+}
+.public-app--istanatopup .flashsale-card__content { gap: 8px; }
+.public-app--istanatopup .flashsale-card__headline strong { font-size: 12.5px; line-height: 1.3; }
+.public-app--istanatopup .flashsale-card__discount { font-size: 10.5px; padding: 3px 7px; }
+.public-app--istanatopup .flashsale-card__price--bangjeff span { font-size: 15.5px; }
+.public-app--istanatopup .flashsale-card__price--bangjeff small { font-size: 11.5px; }
+.public-app--istanatopup .flashsale-card__progress { height: 7px; }
+.public-app--istanatopup .flashsale-card__stock small,
+.public-app--istanatopup .flashsale-card__stock small strong { font-size: 10.5px; }
+@media (max-width: 640px) {
+    .public-app--istanatopup .flashsale-card--bangjeff {
+        flex-basis: 200px;
+        width: 200px;
+    }
+}
+.public-app--istanatopup .flashsale-card__headline strong { font-size: .84rem; }
+.public-app--istanatopup .flashsale-card__game {
+    color: var(--ist-muted);
+    font-size: .72rem;
+    font-weight: 700;
+}
+.public-app--istanatopup .flashsale-card__price span { font-size: .95rem; }
+.public-app--istanatopup .flashsale-card__price small {
+    margin-left: 6px;
+    color: var(--ist-muted);
+    font-style: italic;
+    text-decoration: line-through;
+}
+.public-app--istanatopup .flashsale-card--bangjeff {
+    background: linear-gradient(160deg, var(--ist-surface) 0%, var(--ist-surface-alt) 100%);
+    border-color: rgba(249, 115, 22, 0.35);
+    border-radius: var(--ist-radius);
+}
+.public-app--istanatopup .flashsale-card__discount {
+    background: var(--ist-accent);
+    color: #fff;
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-weight: 800;
+}
+.public-app--istanatopup .flashsale-heading__countdown span {
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-accent-soft);
+    border-radius: 8px;
+}
+.public-app--istanatopup .storefront-heading--flashsale {
+    margin-bottom: 10px;
+}
+.public-app--istanatopup .storefront-heading--flashsale .storefront-heading__title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 4px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.public-app--istanatopup .storefront-heading--flashsale .storefront-heading__subtitle {
+    margin-top: 3px;
+    color: var(--ist-muted);
+    font-size: 13px;
+}
+.public-app--istanatopup .flashsale-heading__row {
+    width: 100%;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: nowrap;
+}
+.public-app--istanatopup .flashsale-heading__countdown {
+    margin-left: auto;
+    flex-shrink: 0;
+    gap: 6px;
+}
+.public-app--istanatopup .flashsale-heading__countdown span {
+    min-width: 34px;
+    height: auto;
+    min-height: 26px;
+    padding: 5px 8px;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 13.5px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.public-app--istanatopup .flashsale-heading__countdown b {
+    color: var(--ist-muted);
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1;
+}
+.public-app--istanatopup .flashsale-card--bangjeff:hover {
+    transform: translateY(-4px);
+    border-color: var(--ist-accent);
+}
+.public-app--istanatopup .flashsale-card__footer-pill {
+    font-size: 10.5px;
+    font-weight: 800;
+}
+.public-app--istanatopup .flashsale-card__footer-pill--accent {
+    background: transparent;
+    border: 1px solid var(--ist-accent);
+    color: var(--ist-accent);
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-section--flashsale {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+    .public-app--istanatopup .flashsale-heading__row {
+        gap: 8px;
+    }
+    .public-app--istanatopup .flashsale-heading__countdown {
+        gap: 4px;
+    }
+    .public-app--istanatopup .flashsale-heading__countdown span {
+        min-width: 30px;
+        padding-left: 5px;
+        padding-right: 5px;
+        font-size: 12px;
+    }
+}
+
+/* ---------- Trending section (khusus istanatopup) ---------- */
+.public-app--istanatopup .product-grid--trending-storefront {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (min-width: 768px) and (max-width: 960px) {
+    .public-app--istanatopup .product-grid--trending-storefront {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+}
+@media (min-width: 961px) {
+    .public-app--istanatopup .product-grid--trending-storefront {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+    }
+}
+
+/* ---------- Artikel (Index + Show) ---------- */
+.public-app--istanatopup .public-article-page {
+    background: transparent;
+}
+.public-app--istanatopup .public-article-hero__tag,
+.public-app--istanatopup .public-article-card__cta {
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-article-card {
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: var(--ist-radius);
+    overflow: hidden;
+}
+.public-app--istanatopup .public-article-card:hover {
+    border-color: rgba(61, 121, 242, 0.55);
+}
+.public-app--istanatopup .public-article-section__header h2,
+.public-app--istanatopup .public-article-empty-hero h1 {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.public-app--istanatopup .public-article-pagination__button {
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-text);
+    border-radius: 10px;
+}
+.public-app--istanatopup .public-article-pagination__button.is-disabled {
+    opacity: 0.4;
+}
+
+/* ---------- Footer — exact mockup structure ---------- */
+/* Reference: f-wave 70px, footer bg2 #1A1A1A, grid 1.6fr/1fr/1fr/1fr gap 30px */
+.public-app--istanatopup .public-footer {
+    color: var(--ist-muted);
+    font-size: 13px; /* mockup: footer{font-size:13px} */
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-footer--storefront {
+    background: var(--ist-surface);
+    border-top: 0;
+}
+.public-app--istanatopup .public-footer__visual {
+    height: 70px;
+    margin-top: 40px;
+}
+/* Reference wave: single SVG, fill = footer surface (#1A1A1A), body shows page bg */
+.public-app--istanatopup .public-footer__visual--reference {
+    color: var(--ist-surface);
+    background: transparent;
+}
+.public-app--istanatopup .public-footer__visual--reference .public-footer__wave-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+.public-app--istanatopup .public-footer__visual--wave,
+.public-app--istanatopup .public-footer__visual .public-footer__wave svg path {
+    color: var(--ist-surface);
+}
+.public-app--istanatopup .public-footer__visual--wave { background: transparent; }
+.public-app--istanatopup .public-footer__wave--back svg path { fill: var(--ist-surface); }
+.public-app--istanatopup .public-footer__wave--front svg path { fill: var(--ist-bg); }
+.public-app--istanatopup .public-footer__inner--storefront {
+    width: 100%;
+    max-width: none;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-footer__layout,
+.public-app--istanatopup .public-footer__bottom {
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.public-app--istanatopup .public-footer__layout {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
+    gap: 30px;
+    padding: 26px 0 30px; /* mockup f-main: 14px top terlalu mepet di React (logo 40px) */
+    align-items: start;
+}
+.public-app--istanatopup .public-footer__layout.public-footer__layout--bangjeff {
+    /* Modifier base lama mengubah width menjadi auto dan menghapus inset mobile. */
+    width: min(calc(100% - 36px), 1200px);
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    gap: 30px;
+}
+.public-app--istanatopup .public-footer__intro--istanatopup {
+    width: auto;
+    max-width: none;
+    text-align: left;
+    margin: 0;
+    padding-top: 10px;
+}
+.public-app--istanatopup .public-footer__brand-block {
+    display: block;
+}
+.public-app--istanatopup .public-footer__brand-logo {
+    height: 40px;
+    object-position: left center;
+}
+.public-app--istanatopup .public-footer__brand-description {
+    max-width: 320px;
+    margin: 12px 0 0;
+    color: var(--ist-muted);
+    font-size: 12.5px;
+    line-height: 1.6;
+}
+.public-app--istanatopup .public-footer__social-row {
+    gap: 9px;
+    margin-top: 18px;
+}
+/* Reference f-app: heading + PWA install badge */
+.public-app--istanatopup .public-footer__app {
+    margin-top: 18px;
+}
+.public-app--istanatopup .public-footer__app h5 {
+    color: var(--ist-text);
+    font-size: 12.5px;
+    font-weight: 800;
+    margin-bottom: 9px;
+}
+.public-app--istanatopup .public-footer__app-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    border-radius: 11px;
+    color: var(--ist-text);
+    font-size: 12.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color .15s ease;
+}
+.public-app--istanatopup .public-footer__app-badge:hover {
+    border-color: var(--ist-accent);
+}
+.public-app--istanatopup .public-footer__app-badge svg {
+    width: 20px;
+    height: 20px;
+    color: var(--ist-accent);
+    flex: none;
+}
+.public-app--istanatopup .public-footer__app-badge small {
+    display: block;
+    color: var(--ist-muted);
+    font-size: 10.5px;
+    font-weight: 600;
+}
+.public-app--istanatopup .public-footer__social-link {
+    width: 36px;
+    height: 36px;
+    background: var(--ist-surface-alt);
+    border: 1px solid var(--ist-border);
+    color: var(--ist-muted);
+    transition: color .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .public-footer__social-link:hover {
+    color: var(--ist-accent);
+    border-color: var(--ist-accent);
+}
+/* Mockup social icons are monochrome outlines — neutralize brand fills */
+.public-app--istanatopup .public-footer__social-link--instagram,
+.public-app--istanatopup .public-footer__social-link--tiktok,
+.public-app--istanatopup .public-footer__social-link--facebook,
+.public-app--istanatopup .public-footer__social-link--youtube {
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .public-footer__grid {
+    display: contents; /* columns become direct grid items of the layout */
+}
+.public-app--istanatopup .public-footer__column h3 {
+    color: var(--ist-accent);
+    font-size: 13.5px;
+    font-weight: 800;
+    white-space: normal;
+}
+.public-app--istanatopup .public-footer__column h3::after {
+    display: none;
+}
+.public-app--istanatopup .public-footer__column ul {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.public-app--istanatopup .public-footer__column a {
+    color: var(--ist-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.public-app--istanatopup .public-footer__column a:hover {
+    color: var(--ist-text-soft);
+}
+.public-app--istanatopup .public-footer__bottom {
+    margin-top: 0;
+    padding: 16px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ist-muted);
+    border-top: 1px solid var(--ist-border);
+    text-align: left;
+}
+.public-app--istanatopup .public-footer__bottom p {
+    margin: 0;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .public-footer__layout { grid-template-columns: 1fr 1fr; }
+    .public-app--istanatopup .public-footer__intro--istanatopup { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-footer__layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding-top: 22px;
+    }
+    .public-app--istanatopup .public-footer__bottom {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* ---------- Mobile bottom-nav friendly spacing ---------- */
+@media (max-width: 760px) {
+    .public-app--istanatopup .public-main {
+        padding: 0 0 84px; /* ruang buat bottom tab bar */
+    }
+    .public-app--istanatopup .storefront-heading__title {
+        font-size: 1.05rem;
+    }
+}
+
+/* ---------- "Semua Produk" grid density (user spec) ----------
+   Desktop ≥1000px: 6 per row · Tablet ≤1000px: 4 · Mobile ≤640px: 3.
+   Doubled class beats later base media-query rules (cascade pitfall). */
+.public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    justify-content: stretch;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        column-gap: 12px;
+        row-gap: 16px;
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .ist-products-section .product-grid--poster-storefront.product-grid--poster-storefront {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        column-gap: 10px;
+        row-gap: 14px;
+    }
+}
+
+/* Artikel terbaru mengikuti struktur kartu .post pada mockup */
+.public-app--istanatopup .article-grid--bangjeff-news {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    overflow: visible;
+    padding: 0;
+}
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal {
+    min-width: 0;
+    flex: initial;
+    overflow: hidden;
+    background: var(--ist-surface);
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    transition: transform .15s ease, border-color .15s ease;
+}
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal:hover,
+.public-app--istanatopup .article-grid--bangjeff-news .article-card--journal:focus-within {
+    transform: translateY(-3px);
+    border-color: var(--ist-accent);
+    box-shadow: none;
+}
+.public-app--istanatopup .article-card--journal .article-card__image-link img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 8.5;
+    object-fit: cover;
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .article-card--journal .article-card__overlay {
+    display: none;
+}
+.public-app--istanatopup .article-card__body--journal {
+    display: block;
+    padding: 14px 15px 16px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .article-card__body--journal .ist-article__category {
+    display: block;
+    color: var(--ist-accent);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .article-card__body--journal h3 {
+    margin: 6px 0;
+    color: var(--ist-text);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .article-card__body--journal p {
+    margin: 0;
+    color: var(--ist-muted);
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.45;
+}
+.public-app--istanatopup .article-card__body--journal .ist-article__date {
+    margin-top: 10px;
+    color: var(--ist-muted);
+    font-size: 11px;
+    line-height: 1.3;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .article-grid--bangjeff-news {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .article-grid--bangjeff-news {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* IstanaTopup transaction lookup body: reference-matched, theme-scoped. */
+.public-app--istanatopup .public-history-page--istanatopup {
+    padding: 34px 0 10px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__inner {
+    max-width: none;
+    align-items: flex-start;
+    gap: 0;
+    padding: 0;
+    text-align: left;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 1.5rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+    max-width: 680px;
+    margin-top: 4px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .84rem;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+    width: 100%;
+    max-width: none;
+    margin-top: 22px;
+    padding: 16px;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 2fr);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field {
+    min-width: 0;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select {
+    width: 100%;
+    height: 44px;
+    padding: 0 34px 0 14px;
+    border: 1px solid var(--ist-border);
+    border-radius: 10px;
+    background: var(--ist-bg);
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .82rem;
+    outline: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select:focus {
+    border-color: var(--ist-accent);
+    box-shadow: 0 0 0 3px var(--ist-accent-soft);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__title {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .88rem;
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__hint {
+    margin: 10px 2px 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .76rem;
+    line-height: 1.5;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+    height: 44px;
+    padding: 0 44px 0 14px;
+    border: 1px solid var(--ist-border);
+    border-radius: 10px;
+    background: var(--ist-bg);
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .82rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input::placeholder {
+    color: var(--ist-muted);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input:focus {
+    border-color: var(--ist-accent);
+    box-shadow: 0 0 0 3px var(--ist-accent-soft);
+    background: var(--ist-bg);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field-icon {
+    color: var(--ist-muted);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+    min-height: 42px;
+    margin-top: 12px;
+    border-radius: 10px;
+    background: var(--ist-accent);
+    box-shadow: none;
+    color: #fff;
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .84rem;
+    font-weight: 800;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+    padding: 34px 0 20px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header {
+    max-width: none;
+    margin: 0 0 16px;
+    text-align: left;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header .public-history-table-section__result-label {
+    display: inline-block;
+    margin-bottom: 5px;
+    color: var(--ist-accent);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header h2 {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 1.08rem;
+    font-weight: 800;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header p {
+    margin: 4px 0 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: .8rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-shell,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card {
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    box-shadow: none;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table {
+    min-width: 760px;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table th,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table td {
+    border-color: var(--ist-border);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table thead th {
+    color: var(--ist-text-soft);
+    font-size: .72rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td {
+    color: var(--ist-text);
+    font-size: .8rem;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table__invoice-link {
+    color: var(--ist-accent);
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card {
+    display: grid;
+    gap: 6px;
+    padding: 22px;
+    color: var(--ist-muted);
+    font-size: .82rem;
+    line-height: 1.5;
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .public-history-empty-card strong {
+    color: var(--ist-text);
+    font-size: .9rem;
+}
+
+@media (min-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 5fr) minmax(0, 2fr);
+        align-items: end;
+        gap: 10px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__title {
+        grid-column: 1 / -1;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field {
+        margin-top: 0;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        width: auto;
+        min-width: 142px;
+        margin-top: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup {
+        padding-top: 24px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+        font-size: 1.25rem;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+        font-size: .78rem;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        display: block;
+        margin-top: 18px;
+        padding: 13px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field,
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__title + .public-history-search-card__select-wrap {
+        margin-top: 12px;
+    }
+
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+        padding-top: 28px;
+    }
+}
+
+.public-app--istanatopup .public-history-page--istanatopup .invoice-badge {
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
+
+/* Reference typography and spacing parity for transaction lookup. */
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+    margin-top: 4px;
+    max-width: 640px;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+    margin-top: 22px;
+    padding: 16px;
+    gap: 10px;
+    border-radius: 14px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__select-wrap select,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__field input {
+    height: 44px;
+    font-size: 13.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__submit {
+    min-height: 44px;
+    margin-top: 0;
+    padding: 11px 24px;
+    font-size: 13.5px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-search-card__hint {
+    margin-top: 10px;
+    font-size: 12.5px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+    padding: 24px 0 20px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header {
+    margin-bottom: 22px;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table-section__header p {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table thead th {
+    font-size: 11.5px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table tbody td strong,
+.public-app--istanatopup .public-history-page--istanatopup .public-history-table__invoice-link {
+    font-weight: 700;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__title {
+        font-size: 24px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__description {
+        font-size: 13.5px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card {
+        margin-top: 22px;
+        padding: 16px;
+    }
+    .public-app--istanatopup .public-history-page--istanatopup .public-history-table-section {
+        padding-top: 24px;
+    }
+}
