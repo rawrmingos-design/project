@@ -623,6 +623,20 @@
 }
 
 /* ---------- Flash sale ---------- */
+/* Force Flash Sale typography over legacy public-app selectors. */
+.public-app--istanatopup .public-section--flashsale,
+.public-app--istanatopup .public-section--flashsale .storefront-heading,
+.public-app--istanatopup .public-section--flashsale .storefront-heading__title,
+.public-app--istanatopup .public-section--flashsale .storefront-heading__subtitle,
+.public-app--istanatopup .public-section--flashsale .flashsale-heading__countdown,
+.public-app--istanatopup .public-section--flashsale .flashsale-card {
+    font-family: var(--public-font-family), 'Plus Jakarta Sans', system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup .public-section--flashsale .flashsale-card * {
+    font-family: inherit;
+}
+
 /* Legacy pattern: duplicate one set, then move exactly half the track. */
 @keyframes istanatopup-marquee {
     from {
