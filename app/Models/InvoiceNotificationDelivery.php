@@ -42,5 +42,14 @@ class InvoiceNotificationDelivery extends Model
         'locked_at' => 'datetime',
         'sent_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $delivery): void {
+            $delivery->status ??= self::STATUS_PENDING;
+            $delivery->attempts ??= 0;
+            $delivery->invoice_version ??= 0;
+        });
+    }
 }
 
