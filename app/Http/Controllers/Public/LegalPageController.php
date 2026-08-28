@@ -164,21 +164,59 @@ class LegalPageController extends Controller
 
     private function defaultPrivacyHtml(string $siteName): string
     {
+        $siteUrl = url('/id');
+
         return <<<HTML
-            <h2>1. Informasi yang Dikumpulkan</h2>
-            <p>Kami dapat mengumpulkan data akun, data transaksi, data perangkat, serta data komunikasi yang kamu kirim saat menggunakan layanan {$siteName}.</p>
-            <h2>2. Tujuan Penggunaan Data</h2>
+            <p>Kebijakan Privasi ini menjelaskan bagaimana {$siteName} ("kami") mengumpulkan, menggunakan, dan melindungi informasi Anda saat Anda menggunakan aplikasi dan situs kami di <a href="{$siteUrl}">{$siteName}</a> (secara bersama disebut "Layanan"). Dengan menggunakan Layanan, Anda menyetujui praktik dalam kebijakan ini.</p>
+
+            <h2>1. Informasi yang Kami Kumpulkan</h2>
             <ul>
-                <li>Memproses transaksi dan verifikasi akun.</li>
-                <li>Meningkatkan kualitas layanan dan keamanan sistem.</li>
-                <li>Memberikan dukungan pelanggan dan notifikasi penting.</li>
+                <li><strong>Informasi akun:</strong> nama, alamat email, dan nomor telepon yang Anda berikan saat mendaftar atau bertransaksi.</li>
+                <li><strong>Data transaksi:</strong> riwayat pesanan, jenis produk, nominal, serta data tujuan seperti ID game atau nomor tujuan top up.</li>
+                <li><strong>Informasi pembayaran:</strong> pembayaran diproses oleh penyedia payment gateway pihak ketiga. Kami <strong>tidak menyimpan</strong> nomor kartu atau kredensial pembayaran Anda di server kami.</li>
+                <li><strong>Data perangkat dan log:</strong> alamat IP, jenis perangkat/browser, dan aktivitas penggunaan untuk keamanan serta pencegahan penipuan.</li>
+                <li><strong>Data analitik:</strong> kami menggunakan Google Analytics dan Google Tag Manager untuk memahami cara Layanan digunakan. Layanan pihak ketiga ini dapat mengumpulkan data melalui cookie sesuai kebijakan privasi masing-masing.</li>
+                <li><strong>Cookie:</strong> digunakan untuk menjaga sesi login dan meningkatkan pengalaman penggunaan Layanan.</li>
             </ul>
-            <h2>3. Perlindungan Data</h2>
-            <p>Kami menerapkan langkah teknis dan operasional untuk melindungi data pengguna dari akses tidak sah, perubahan, atau kebocoran data.</p>
-            <h2>4. Data Pihak Ketiga</h2>
-            <p>Dalam proses transaksi, data tertentu dapat dibagikan terbatas ke mitra pembayaran atau provider yang diperlukan untuk menyelesaikan layanan.</p>
-            <h2>5. Retensi dan Hak Pengguna</h2>
-            <p>Data disimpan selama dibutuhkan untuk operasional, kepatuhan, dan keamanan. Pengguna dapat menghubungi tim support untuk permintaan koreksi data sesuai kebijakan yang berlaku.</p>
+
+            <h2>2. Cara Kami Menggunakan Informasi</h2>
+            <ul>
+                <li>Memproses dan menyelesaikan pesanan serta transaksi Anda.</li>
+                <li>Menyediakan layanan pelanggan dan menanggapi pertanyaan.</li>
+                <li>Menjaga keamanan akun dan mencegah aktivitas penipuan.</li>
+                <li>Mengirim notifikasi terkait transaksi dan pembaruan layanan.</li>
+                <li>Menganalisis dan meningkatkan Layanan kami.</li>
+                <li>Mematuhi kewajiban hukum yang berlaku.</li>
+            </ul>
+
+            <h2>3. Pembagian Informasi</h2>
+            <p>Kami tidak menjual data pribadi Anda. Kami hanya membagikan informasi seperlunya kepada:</p>
+            <ul>
+                <li>Penyedia payment gateway untuk memproses pembayaran Anda.</li>
+                <li>Penyedia atau distributor produk untuk memenuhi pesanan top up atau tagihan Anda.</li>
+                <li>Penyedia analitik seperti Google, sesuai dengan <a href="https://policies.google.com/privacy">kebijakan privasi Google</a>.</li>
+                <li>Pihak berwenang apabila diwajibkan oleh hukum yang berlaku.</li>
+            </ul>
+
+            <h2>4. Keamanan Data</h2>
+            <p>Kami menerapkan langkah keamanan yang wajar untuk melindungi data Anda, termasuk enkripsi pada jalur transmisi. Namun, tidak ada metode penyimpanan atau transmisi elektronik yang sepenuhnya aman.</p>
+
+            <h2>5. Hak Anda</h2>
+            <p>Anda berhak mengakses, memperbarui, atau meminta penghapusan data pribadi dan akun Anda. Untuk menggunakan hak tersebut, silakan hubungi kami melalui kontak yang tersedia di bawah.</p>
+
+            <h2>6. Anak-anak</h2>
+            <p>Layanan ini ditujukan untuk pengguna berusia 13 tahun ke atas dan tidak diperuntukkan bagi anak-anak. Kami tidak dengan sengaja mengumpulkan data dari anak di bawah umur.</p>
+
+            <h2>7. Perubahan Kebijakan</h2>
+            <p>Kami dapat memperbarui Kebijakan Privasi ini dari waktu ke waktu. Perubahan akan dipublikasikan di halaman ini dengan mencantumkan tanggal pembaruan terbaru.</p>
+
+            <h2>8. Hubungi Kami</h2>
+            <p>Jika ada pertanyaan mengenai Kebijakan Privasi ini, hubungi kami melalui:</p>
+            <ul>
+                <li><strong>WhatsApp:</strong> <a href="https://wa.me/6285123031674">+62 851-2303-1674</a></li>
+                <li><strong>Email:</strong> support@istanatopup.com</li>
+                <li><strong>Website:</strong> <a href="{$siteUrl}">{$siteName}</a></li>
+            </ul>
         HTML;
     }
 
