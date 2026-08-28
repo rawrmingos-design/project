@@ -83,10 +83,13 @@ export default function CheckTransactions({ meta, recentTransactions = [], recen
         event.preventDefault();
 
         const trimmedQuery = invoiceId.trim();
-        if (!trimmedQuery || isSubmitting) {
-            if (!trimmedQuery) {
-                setLookupError(searchType === 'whatsapp' ? 'Masukkan nomor WhatsApp terlebih dahulu.' : 'Masukkan nomor invoice terlebih dahulu.');
-            }
+        if (isSubmitting) {
+            return;
+        }
+
+        if (!trimmedQuery) {
+            setLookupError('');
+            setSearchedTransactions([]);
             return;
         }
 
