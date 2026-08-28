@@ -729,10 +729,21 @@
     font-size: 13px;
 }
 .public-app--istanatopup .flashsale-heading__row {
+    display: flex;
     width: 100%;
+    align-items: center;
     justify-content: space-between;
     gap: 14px;
     flex-wrap: nowrap;
+}
+
+.public-app--istanatopup .flashsale-heading__row .storefront-heading__title {
+    min-width: 0;
+}
+
+.public-app--istanatopup .flashsale-heading__countdown {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 .public-app--istanatopup .flashsale-heading__countdown {
     margin-left: auto;
