@@ -140,6 +140,7 @@ export default function Navbar() {
     const isBangjeffTheme = activeThemeKey === 'bangjeff';
     const isStorefrontModernTheme = isBangjeffTheme || activeThemeKey === 'istanatopup';
     const [menuOpen, setMenuOpen] = useState(false);
+    const [drawerCalculatorOpen, setDrawerCalculatorOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [legacyResultsHtml, setLegacyResultsHtml] = useState('');
     const [searchItems, setSearchItems] = useState([]);
@@ -224,6 +225,12 @@ export default function Navbar() {
 
         return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
     };
+
+    useEffect(() => {
+        if (currentUrl.startsWith('/id/calculator/')) {
+            setDrawerCalculatorOpen(true);
+        }
+    }, [currentUrl]);
 
     useEffect(() => {
         const handleNavigationStart = () => {
@@ -678,22 +685,29 @@ export default function Navbar() {
                         if (hasChildren) {
                             return (
                                 <div key={item.label} className="public-drawer__submenu-group">
-                                    <Link href={item.href} className={`public-drawer__link ${parentActive ? 'is-active' : ''}`} onClick={() => setMenuOpen(false)}>
+                                    <button
+                                        type="button"
+                                        className={`public-drawer__link public-drawer__link--toggle ${parentActive ? 'is-active' : ''}`}
+                                        aria-expanded={drawerCalculatorOpen}
+                                        onClick={() => setDrawerCalculatorOpen((current) => !current)}
+                                    >
                                         <span>{item.label}</span>
-                                        <span className="public-drawer__icon">{iconFor(item.icon)}</span>
-                                    </Link>
-                                    <div className="public-drawer__submenu-items">
-                                        {item.children.map((child) => (
-                                            <Link
-                                                key={child.href}
-                                                href={child.href}
-                                                className={`public-drawer__submenu-link ${isActive(child.href) ? 'is-active' : ''}`}
-                                                onClick={() => setMenuOpen(false)}
-                                            >
-                                                <span>{child.label}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
+                                        <span className={`public-drawer__icon public-drawer__icon--chevron ${drawerCalculatorOpen ? 'is-open' : ''}`}>{iconFor('chevron')}</span>
+                                    </button>
+                                    {drawerCalculatorOpen ? (
+                                        <div className="public-drawer__submenu-items">
+                                            {item.children.map((child) => (
+                                                <Link
+                                                    key={child.href}
+                                                    href={child.href}
+                                                    className={`public-drawer__submenu-link ${isActive(child.href) ? 'is-active' : ''}`}
+                                                    onClick={() => setMenuOpen(false)}
+                                                >
+                                                    <span>{child.label}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : null}
                                 </div>
                             );
                         }
