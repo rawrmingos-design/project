@@ -219,7 +219,8 @@ class OrderProcessingService
 
                 $isPending = in_array($providerStatus, ['pending', 'proses', 'processing'], true) || $providerRc === '03';
                 $isSuccess = in_array($providerStatus, ['success', 'sukses'], true) || $providerRc === '00';
-                $isFailed = in_array($providerStatus, ['gagal', 'failed', 'error', 'canceled', 'cancelled'], true);
+                $isFailed = in_array($providerStatus, ['gagal', 'failed', 'error', 'canceled', 'cancelled'], true)
+                    || $providerRc === '02';
 
                 if ($isPending || $isSuccess) {
                     $normalizedStatus = $isSuccess ? 'Sukses' : 'Processing';

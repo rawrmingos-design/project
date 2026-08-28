@@ -103,7 +103,7 @@ class ProviderOrderStatusSyncService
             },
             'digiflazz' => match (true) {
                 in_array($status, ['success', 'sukses'], true) || $rc === '00' => 'Sukses',
-                in_array($status, ['failed', 'gagal', 'error', 'cancelled', 'canceled'], true) => 'Gagal',
+                in_array($status, ['failed', 'gagal', 'error', 'cancelled', 'canceled'], true) || $rc === '02' => 'Gagal',
                 in_array($status, ['pending', 'proses', 'processing'], true) || $rc === '03' => 'Proses',
                 default => null,
             },
