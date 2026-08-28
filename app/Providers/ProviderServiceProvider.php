@@ -46,7 +46,7 @@ class ProviderServiceProvider extends ServiceProvider
 
             // Poll paid, non-final Digiflazz orders when a callback is delayed or missed.
             if (config('providers.digiflazz.status_polling_enabled', true)) {
-                $schedule->job(new \App\Jobs\SyncProviderOrderStatusesJob('digiflazz'), 'digiflazz')
+                $schedule->job(new \App\Jobs\SyncProviderOrderStatusesJob('digiflazz'), 'default')
                     ->everyMinute()
                     ->withoutOverlapping();
             }

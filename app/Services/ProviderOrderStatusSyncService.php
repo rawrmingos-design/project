@@ -92,6 +92,7 @@ class ProviderOrderStatusSyncService
             default => $response['order_status'] ?? null,
         };
         $status = strtolower(trim((string) $rawStatus));
+        $rc = trim((string) data_get($response, 'data.rc', ''));
 
         return match ($provider) {
             'gameshop' => match ($status) {
@@ -100,10 +101,10 @@ class ProviderOrderStatusSyncService
                 '1', '2', '3', '4' => 'Proses',
                 default => null,
             },
-            'digiflazz' => match ($status) {
-                'success', 'sukses' => 'Sukses',
-                'failed', 'gagal', 'error', 'cancelled', 'canceled' => 'Gagal',
-                'pending', 'proses', 'processing' => 'Proses',
+            'digiflazz' => match (true) {
+                in_array($status, ['success', 'sukses'], true) || $rc === '00' => 'Sukses',
+                in_array($status, ['failed', 'gagal', 'error', 'cancelled', 'canceled'], true) => 'Gagal',
+                in_array($status, ['pending', 'proses', 'processing'], true) || $rc === '03' => 'Proses',
                 default => null,
             },
             'strleyashop' => match ($status) {
