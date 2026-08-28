@@ -96,6 +96,7 @@ class InvoiceNotificationDispatcherTest extends TestCase
             'warna3' => '#333333',
             'warna4' => '#444444',
             'paydisini_apikey' => 'paydisini-test-key',
+            'order_prefik' => 'INV',
             'wa_provider' => 'fonnte',
             'wa_key' => 'fonnte-token',
             'invoice_notify_via_whatsapp' => true,
