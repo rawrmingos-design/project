@@ -210,14 +210,19 @@ class OrderProcessingService
                     ? $digiflazz->status($providerReference, $sku, $uid, $zone)
                     : $digiflazz->order($uid, $zone, $sku, $providerReference);
 
-                $responseData = $response['data'] ?? [];
-                $providerStatus = $responseData['status'] ?? null;
+                $responseData = is_array($response['data'] ?? null) ? $response['data'] : [];
+                $providerStatus = strtolower(trim((string) ($responseData['status'] ?? '')));
+                $providerRc = trim((string) ($responseData['rc'] ?? ''));
                 $providerRefId = $responseData['ref_id'] ?? $providerReference;
                 $providerMessage = trim((string) ($responseData['message'] ?? ''));
                 $providerSn = trim((string) ($responseData['sn'] ?? ''));
 
-                if (in_array($providerStatus, ['Pending', 'Sukses', 'Success'], true)) {
-                    $normalizedStatus = $providerStatus === 'Success' ? 'Sukses' : $providerStatus;
+                $isPending = in_array($providerStatus, ['pending', 'proses', 'processing'], true) || $providerRc === '03';
+                $isSuccess = in_array($providerStatus, ['success', 'sukses'], true) || $providerRc === '00';
+                $isFailed = in_array($providerStatus, ['gagal', 'failed', 'error', 'canceled', 'cancelled'], true);
+
+                if ($isPending || $isSuccess) {
+                    $normalizedStatus = $isSuccess ? 'Sukses' : 'Processing';
 
                     $result['success'] = true;
                     $result['order_status'] = $normalizedStatus;
@@ -226,10 +231,10 @@ class OrderProcessingService
                     $result['message'] = $providerMessage !== ''
                         ? $providerMessage
                         : 'Order accepted by Digiflazz status: ' . $normalizedStatus;
-                } elseif (in_array($providerStatus, ['Gagal', 'Failed', 'Error', 'Canceled', 'Cancelled'], true)) {
+                } elseif ($isFailed) {
                     // Definitive provider failure. Keep success=false so callers can decide flow,
                     // but pass normalized failed status for consumers that sync final status immediately.
-                    $result['order_status'] = in_array($providerStatus, ['Canceled', 'Cancelled'], true) ? 'Batal' : 'Gagal';
+                    $result['order_status'] = in_array($providerStatus, ['canceled', 'cancelled'], true) ? 'Batal' : 'Gagal';
                     $result['transaction_id'] = $providerRefId;
                     $result['sn'] = $providerSn !== '' ? $providerSn : null;
                     $result['message'] = $providerMessage !== ''
