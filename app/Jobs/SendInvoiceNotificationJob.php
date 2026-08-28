@@ -77,18 +77,24 @@ class SendInvoiceNotificationJob implements ShouldQueue
             return;
         }
 
+        $errorCode = is_array($result) ? ($result['error_code'] ?? null) : null;
         $message = is_array($result)
             ? (string) ($result['message'] ?? 'Notification provider rejected delivery.')
             : 'Email provider rejected delivery.';
+        $permanent = in_array($errorCode, ['template_unavailable', 'recipient_invalid'], true);
 
         $delivery->forceFill([
             'status' => InvoiceNotificationDelivery::STATUS_FAILED,
             'locked_at' => null,
             'last_error' => mb_substr($message, 0, 2000),
-            'next_attempt_at' => now()->addSeconds($this->backoffForAttempt((int) $delivery->attempts)),
+            'next_attempt_at' => $permanent
+                ? null
+                : now()->addSeconds($this->backoffForAttempt((int) $delivery->attempts)),
         ])->save();
 
-        throw new \RuntimeException($message);
+        if (! $permanent) {
+            throw new \RuntimeException($message);
+        }
     }
 
     private function send(
