@@ -276,8 +276,8 @@ class TriPayCallbackController extends Controller
 
             app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
-            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
-                $pembelian->fresh(),
+            $this->dispatchInvoiceNotificationSafely(
+                $pembelian,
                 InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
             );
 
@@ -306,10 +306,7 @@ class TriPayCallbackController extends Controller
                 $transition = InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID;
             }
 
-            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
-                $pembelian->fresh(),
-                $transition,
-            );
+            $this->dispatchInvoiceNotificationSafely($pembelian, $transition);
 
             return;
         }
@@ -321,8 +318,8 @@ class TriPayCallbackController extends Controller
         ]);
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
-        app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
-            $pembelian->fresh(),
+        $this->dispatchInvoiceNotificationSafely(
+            $pembelian,
             InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID,
         );
     }
@@ -342,10 +339,26 @@ class TriPayCallbackController extends Controller
 
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
 
-        app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
-            $pembelian->fresh(),
+        $this->dispatchInvoiceNotificationSafely(
+            $pembelian,
             InvoiceNotificationDispatcher::TRANSITION_PAYMENT_FAILED,
         );
+    }
+
+    private function dispatchInvoiceNotificationSafely(Pembelian $pembelian, string $transition): void
+    {
+        try {
+            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                $pembelian->fresh(),
+                $transition,
+            );
+        } catch (\Throwable $exception) {
+            Log::error('Tripay invoice notification dispatch failed', [
+                'order_id' => $pembelian->order_id,
+                'transition' => $transition,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function failureReasonFromCallbackStatus(string $callbackStatus): string
