@@ -9,16 +9,6 @@ function NavIcon({ children }) {
     );
 }
 
-function SocialDrawerIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M7 17 17 7" />
-            <path d="M9 7h8v8" />
-            <path d="M17 13v4a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h4" />
-        </svg>
-    );
-}
-
 function iconFor(type) {
     switch (type) {
         case 'home':
@@ -140,6 +130,7 @@ export default function Navbar() {
     const isBangjeffTheme = activeThemeKey === 'bangjeff';
     const isStorefrontModernTheme = isBangjeffTheme || activeThemeKey === 'istanatopup';
     const [menuOpen, setMenuOpen] = useState(false);
+    const [drawerCalculatorOpen, setDrawerCalculatorOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [legacyResultsHtml, setLegacyResultsHtml] = useState('');
     const [searchItems, setSearchItems] = useState([]);
@@ -202,14 +193,6 @@ export default function Navbar() {
         ...(authUser?.canShowAffiliate ? [{ label: 'Afiliasi', href: '/id/affiliate', icon: 'user' }] : []),
         { label: 'Pengaturan', href: '/id/settings', icon: 'user' },
     ] : [];
-    const drawerSocialLinks = [
-        { key: 'whatsapp', label: 'WhatsApp', href: safeSiteConfig?.socials?.whatsapp },
-        { key: 'instagram', label: 'Instagram', href: safeSiteConfig?.socials?.instagram },
-        { key: 'tiktok', label: 'TikTok', href: safeSiteConfig?.socials?.tiktok },
-        { key: 'facebook', label: 'Facebook', href: safeSiteConfig?.socials?.facebook },
-        { key: 'youtube', label: 'YouTube', href: safeSiteConfig?.socials?.youtube },
-    ].filter((item) => item.href);
-
     const isActive = (href) => {
         const currentPath = normalizePath(currentUrl);
         const targetPath = normalizePath(href);
@@ -224,6 +207,12 @@ export default function Navbar() {
 
         return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`);
     };
+
+    useEffect(() => {
+        if (currentUrl.startsWith('/id/calculator/')) {
+            setDrawerCalculatorOpen(true);
+        }
+    }, [currentUrl]);
 
     useEffect(() => {
         const handleNavigationStart = () => {
@@ -678,22 +667,29 @@ export default function Navbar() {
                         if (hasChildren) {
                             return (
                                 <div key={item.label} className="public-drawer__submenu-group">
-                                    <Link href={item.href} className={`public-drawer__link ${parentActive ? 'is-active' : ''}`} onClick={() => setMenuOpen(false)}>
+                                    <button
+                                        type="button"
+                                        className={`public-drawer__link public-drawer__link--toggle ${parentActive ? 'is-active' : ''}`}
+                                        aria-expanded={drawerCalculatorOpen}
+                                        onClick={() => setDrawerCalculatorOpen((current) => !current)}
+                                    >
                                         <span>{item.label}</span>
-                                        <span className="public-drawer__icon">{iconFor(item.icon)}</span>
-                                    </Link>
-                                    <div className="public-drawer__submenu-items">
-                                        {item.children.map((child) => (
-                                            <Link
-                                                key={child.href}
-                                                href={child.href}
-                                                className={`public-drawer__submenu-link ${isActive(child.href) ? 'is-active' : ''}`}
-                                                onClick={() => setMenuOpen(false)}
-                                            >
-                                                <span>{child.label}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
+                                        <span className={`public-drawer__icon public-drawer__icon--chevron ${drawerCalculatorOpen ? 'is-open' : ''}`}>{iconFor('chevron')}</span>
+                                    </button>
+                                    {drawerCalculatorOpen ? (
+                                        <div className="public-drawer__submenu-items">
+                                            {item.children.map((child) => (
+                                                <Link
+                                                    key={child.href}
+                                                    href={child.href}
+                                                    className={`public-drawer__submenu-link ${isActive(child.href) ? 'is-active' : ''}`}
+                                                    onClick={() => setMenuOpen(false)}
+                                                >
+                                                    <span>{child.label}</span>
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    ) : null}
                                 </div>
                             );
                         }
@@ -751,16 +747,6 @@ export default function Navbar() {
                     </div>
                 )}
 
-                {drawerSocialLinks.length ? (
-                    <div className="public-drawer__section public-drawer__section--social">
-                        {drawerSocialLinks.map((item) => (
-                            <a key={item.key} href={item.href} className="public-drawer__link" target="_blank" rel="noreferrer" onClick={() => setMenuOpen(false)}>
-                                <span>{item.label}</span>
-                                <span className="public-drawer__icon"><SocialDrawerIcon /></span>
-                            </a>
-                        ))}
-                    </div>
-                ) : null}
             </aside>
         </>
     );

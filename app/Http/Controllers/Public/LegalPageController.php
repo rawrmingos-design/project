@@ -86,12 +86,75 @@ class LegalPageController extends Controller
         ]);
     }
 
+    public function accountDeletion(
+        Request $request,
+        PublicSiteConfigService $siteConfigService,
+        LegacyTermsController $legacyTermsController,
+    ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
+        $settings = $siteConfigService->getSettings();
+        $siteName = (string) ($settings->judul_web ?? 'ISTANATOPUP');
+        $whatsappUrl = 'https://wa.me/6285123031674';
+        $whatsappLabel = '+62 851-2303-1674';
+
+        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+            return $legacyTermsController->accountDeletion();
+        }
+
+        return Inertia::render('Public/Legal', [
+            'legal' => [
+                'badge' => 'Legal',
+                'title' => 'Penghapusan Akun',
+                'subtitle' => "Cara meminta penghapusan akun dan data terkait di {$siteName}.",
+                'updatedAt' => '28 Agu 2026',
+                'contentHtml' => $this->accountDeletionHtml($siteName, $whatsappUrl, $whatsappLabel),
+            ],
+            'meta' => [
+                'title' => "Penghapusan Akun - {$siteName}",
+                'description' => "Informasi cara meminta penghapusan akun {$siteName}.",
+                'keywords' => "penghapusan akun, account deletion, {$siteName}",
+                'canonical' => url('/id/account-deletion'),
+                'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
+            ],
+        ]);
+    }
+
     public function privacy(
         Request $request,
         PublicSiteConfigService $siteConfigService,
         LegacyTermsController $legacyTermsController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         return $this->privacyPolicy($request, $siteConfigService, $legacyTermsController);
+    }
+
+    private function accountDeletionHtml(string $siteName, string $whatsappUrl, string $whatsappLabel): string
+    {
+        return <<<HTML
+            <p>Halaman ini menjelaskan cara pengguna {$siteName} meminta penghapusan akun beserta data pribadi yang terkait. Kami menghormati hak Anda untuk menghapus data Anda dari Layanan kami di <a href="https://istanatopup.com">{$siteName}</a>.</p>
+
+            <h2>Cara Meminta Penghapusan Akun</h2>
+            <p>Untuk mengajukan penghapusan akun, ikuti langkah berikut:</p>
+            <ol>
+                <li>Hubungi kami melalui WhatsApp resmi di nomor <a href="{$whatsappUrl}">{$whatsappLabel}</a>.</li>
+                <li>Sampaikan permintaan penghapusan akun dengan menyertakan <strong>alamat email atau nomor telepon</strong> yang terdaftar pada akun Anda sebagai verifikasi kepemilikan.</li>
+                <li>Tim kami akan memverifikasi identitas Anda dan memproses permintaan.</li>
+            </ol>
+            <p><a class="public-legal-action" href="{$whatsappUrl}">Ajukan lewat WhatsApp</a></p>
+
+            <h2>Data yang Dihapus dan Disimpan</h2>
+            <p>Setelah permintaan diverifikasi, kami akan menghapus data pribadi berikut:</p>
+            <ul>
+                <li>Informasi akun: nama, alamat email, dan nomor telepon.</li>
+                <li>Data profil dan preferensi akun Anda.</li>
+            </ul>
+            <p>Sebagian data mungkin <strong>tetap disimpan untuk jangka waktu terbatas</strong> sesuai kewajiban hukum, akuntansi, dan pencegahan penipuan:</p>
+            <table><thead><tr><th>Jenis data</th><th>Keterangan</th></tr></thead><tbody><tr><td>Catatan transaksi</td><td>Disimpan sesuai ketentuan hukum yang berlaku, lalu dihapus atau dianonimkan setelah periode tersebut berakhir.</td></tr></tbody></table>
+
+            <h2>Waktu Pemrosesan</h2>
+            <p>Permintaan penghapusan akun umumnya diproses dalam beberapa hari kerja setelah identitas Anda terverifikasi.</p>
+
+            <h2>Hubungi Kami</h2>
+            <ul><li>WhatsApp: <a href="{$whatsappUrl}">{$whatsappLabel}</a></li><li>Website: <a href="https://istanatopup.com">istanatopup.com</a></li></ul>
+        HTML;
     }
 
     public function affiliateProgramTerms(
