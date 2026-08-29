@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\InvoiceStatusUpdated;
 use App\Models\Pembayaran;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Models\Pembelian;
 use App\Models\User;
 use App\Support\PembelianStatus;
@@ -92,6 +93,28 @@ class ProviderStatusUpdateService
 
         if ($transitioned) {
             InvoiceStatusUpdated::dispatchForOrder($orderId);
+
+            $fresh = $pembelian->fresh();
+            if (! $fresh) {
+                return $transitioned;
+            }
+
+            $transition = match (PembelianStatus::normalize($fresh->status)) {
+                PembelianStatus::SUCCESS => InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS,
+                PembelianStatus::FAILED, PembelianStatus::CANCELLED => InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
+                default => InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PENDING,
+            };
+
+            try {
+                app(InvoiceNotificationDispatcher::class)->dispatchForTransition($fresh, $transition);
+            } catch (\Throwable $exception) {
+                Log::error('Provider status invoice notification dispatch failed', [
+                    'order_id' => $orderId,
+                    'source' => $source,
+                    'transition' => $transition,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
         }
 
         return $transitioned;
