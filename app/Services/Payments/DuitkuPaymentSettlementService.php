@@ -7,7 +7,7 @@ use App\Models\Deposit;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\User;
-use App\Services\EmailNotificationService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Services\OrderProcessingService;
 use App\Services\PointService;
 use App\Services\PublicOrderPushNotificationService;
@@ -20,7 +20,6 @@ class DuitkuPaymentSettlementService
     public function __construct(
         private readonly OrderProcessingService $orderProcessor,
         private readonly WhatsappNotificationService $whatsappService,
-        private readonly EmailNotificationService $emailService,
     ) {
     }
 
@@ -155,34 +154,19 @@ class DuitkuPaymentSettlementService
 
     private function notifyPurchaseResult(Pembayaran $payment, Pembelian $order, string $providerStatus, string $snValue): void
     {
-        $isSuccess = PembelianStatus::normalize($providerStatus) === PembelianStatus::SUCCESS;
-        $notificationSlug = $isSuccess ? 'transaction_success' : 'transaction_pending';
+        $normalizedStatus = PembelianStatus::normalize($providerStatus);
+        $transition = match ($normalizedStatus) {
+            PembelianStatus::SUCCESS => InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS,
+            PembelianStatus::FAILED, PembelianStatus::CANCELLED => InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
+            default => InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID,
+        };
 
-        $this->runSafely('purchase_whatsapp_notification', function () use ($payment, $order, $providerStatus, $snValue, $notificationSlug): void {
-            $this->whatsappService->sendNotification($payment->no_pembeli, $notificationSlug, [
-                'nickname' => $order->nickname,
-                'order_id' => $payment->order_id,
-                'product' => $order->layanan,
-                'amount' => 'Rp ' . number_format((int) $order->harga, 0, ',', '.'),
-                'sn' => $snValue,
-                'status' => PembelianStatus::label($providerStatus),
-            ]);
+        $this->runSafely('purchase_notification_dispatch', function () use ($order, $transition): void {
+            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                $order->fresh(),
+                $transition,
+            );
         }, $payment->order_id);
-
-        $recipientEmail = $order->email_pembeli ?? ($order->user?->email ?? null);
-        if ($recipientEmail) {
-            $this->runSafely('purchase_email_notification', function () use ($recipientEmail, $payment, $order, $providerStatus, $snValue): void {
-                $this->emailService->sendTransactionEmail($recipientEmail, [
-                    'order_id' => $payment->order_id,
-                    'product' => $order->layanan,
-                    'amount' => 'Rp ' . number_format((int) $order->harga, 0, ',', '.'),
-                    'status' => PembelianStatus::apiStatusCode($providerStatus),
-                    'nickname' => $order->nickname,
-                    'sn' => $snValue,
-                    'note' => 'Harap simpan invoice ini untuk verifikasi transaksi.',
-                ]);
-            }, $payment->order_id);
-        }
     }
 
     private function runSafely(string $context, callable $callback, string $orderId): void

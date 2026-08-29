@@ -7,7 +7,9 @@ use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
 use App\Models\User;
+use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
+use App\Services\WhatsappNotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -135,6 +137,75 @@ class TriPayCallbackControllerTest extends TestCase
         $this->assertDatabaseHas('pembelians', [
             'order_id' => 'INV-TRIPAY-ERR-001',
             'status' => 'Pending',
+        ]);
+    }
+
+    public function test_paid_callback_keeps_order_and_payment_when_invoice_notifications_fail(): void
+    {
+        $settings = $this->createSettings();
+
+        $order = Pembelian::query()->create([
+            'order_id' => 'INV-TRIPAY-NOTIF-001',
+            'username' => 'guest',
+            'layanan' => 'Mobile Legends 5 Diamond',
+            'harga' => 12000,
+            'profit' => 1000,
+            'user_id' => '12345',
+            'zone' => '2001',
+            'status' => 'Pending',
+            'email_pembeli' => 'buyer@example.com',
+        ]);
+
+        Pembayaran::query()->create([
+            'order_id' => $order->order_id,
+            'harga' => '12000',
+            'no_pembayaran' => 'TRIPAY-VA-003',
+            'no_pembeli' => '081234567892',
+            'status' => 'Belum Lunas',
+            'metode' => 'TRIPAY',
+            'reference' => 'TRIPAY-REF-003',
+        ]);
+
+        $processor = Mockery::mock(OrderProcessingService::class);
+        $processor->shouldReceive('process')->once()->andReturn([
+            'success' => true,
+            'transaction_id' => 'TRIPAY-PROVIDER-003',
+            'order_status' => 'Pending',
+            'sn' => 'Sedang Diproses',
+        ]);
+        $this->app->instance(OrderProcessingService::class, $processor);
+
+        $wa = Mockery::mock(WhatsappNotificationService::class);
+        $wa->shouldReceive('sendNotification')->andReturn(['success' => false, 'message' => 'provider unavailable']);
+        $this->app->instance(WhatsappNotificationService::class, $wa);
+
+        $email = Mockery::mock(EmailNotificationService::class);
+        $email->shouldReceive('sendTransactionEmail')->andReturn(false);
+        $this->app->instance(EmailNotificationService::class, $email);
+
+        $payload = [
+            'reference' => 'TRIPAY-REF-003',
+            'merchant_ref' => $order->order_id,
+            'status' => 'PAID',
+            'total_amount' => 12000,
+        ];
+        $signature = hash_hmac('sha256', json_encode($payload), $settings->tripay_private_key);
+
+        $this->withHeaders([
+            'X-CALLBACK-SIGNATURE' => $signature,
+            'X-CALLBACK-EVENT' => 'payment_status',
+        ])->postJson('/wejizy/tripay/callback', $payload)
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('pembayarans', [
+            'order_id' => $order->order_id,
+            'status' => 'Lunas',
+        ]);
+        $this->assertDatabaseHas('pembelians', [
+            'order_id' => $order->order_id,
+            'status' => 'Pending',
+            'provider_order_id' => 'TRIPAY-PROVIDER-003',
         ]);
     }
 

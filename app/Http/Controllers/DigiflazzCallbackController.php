@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
-use App\Services\EmailNotificationService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Services\PointService;
-use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -123,8 +122,6 @@ class DigiflazzCallbackController extends Controller
                 $invoice,
                 $payment,
                 $incomingStatus,
-                $messageValue,
-                $snOrMessage,
                 $statusTransitioned,
             );
 
@@ -157,8 +154,6 @@ class DigiflazzCallbackController extends Controller
         Pembelian $invoice,
         ?Pembayaran $payment,
         string $incomingStatus,
-        string $messageValue,
-        string $snOrMessage,
         bool $statusTransitioned
     ): void {
         try {
@@ -171,11 +166,6 @@ class DigiflazzCallbackController extends Controller
                 return;
             }
 
-            $waService = app(WhatsappNotificationService::class);
-            $emailService = app(EmailNotificationService::class);
-            $targetWa = $payment?->no_pembeli ?: ($invoice->user->no_wa ?? null);
-            $targetEmail = $invoice->email_pembeli ?? ($invoice->user->email ?? null);
-
             if ($incomingStatus === PembelianStatus::FAILED || $incomingStatus === PembelianStatus::CANCELLED) {
                 app(PointService::class)->refundRedeemedPoints($invoice);
 
@@ -186,58 +176,41 @@ class DigiflazzCallbackController extends Controller
                     ]);
                 }
 
-                if ($targetWa) {
-                    $waService->sendNotification($targetWa, 'transaction_failed', [
-                        'nickname' => $invoice->nickname,
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'reason' => $messageValue !== '' ? $messageValue : 'Transaksi dibatalkan oleh provider.',
-                    ]);
-                }
-
-                if ($targetEmail) {
-                    $emailService->sendTransactionEmail($targetEmail, [
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
-                        'nickname' => $invoice->nickname,
-                        'note' => $messageValue !== '' ? $messageValue : 'Transaksi dibatalkan oleh provider.',
-                    ]);
-                }
+                $this->dispatchInvoiceNotificationSafely(
+                    $invoice,
+                    InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
+                );
 
                 return;
             }
 
             if ($incomingStatus === PembelianStatus::SUCCESS) {
-                if ($targetWa) {
-                    $waService->sendNotification($targetWa, 'transaction_success', [
-                        'nickname' => $invoice->nickname,
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'sn' => $snOrMessage,
-                    ]);
-                }
-
-                if ($targetEmail) {
-                    $emailService->sendTransactionEmail($targetEmail, [
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
-                        'nickname' => $invoice->nickname,
-                        'sn' => $snOrMessage,
-                        'note' => 'Terima kasih telah berbelanja.',
-                    ]);
-                }
+                $this->dispatchInvoiceNotificationSafely(
+                    $invoice,
+                    InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS,
+                );
             }
         } catch (\Throwable $e) {
             Log::error('Digiflazz callback notification/refund error', [
                 'order_id' => $invoice->order_id,
                 'status' => $incomingStatus,
                 'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function dispatchInvoiceNotificationSafely(Pembelian $invoice, string $transition): void
+    {
+        try {
+            app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                $invoice->fresh(),
+                $transition,
+            );
+        } catch (\Throwable $exception) {
+            Log::error('Digiflazz invoice notification dispatch failed', [
+                'order_id' => $invoice->order_id,
+                'transition' => $transition,
+                'error' => $exception->getMessage(),
             ]);
         }
     }
