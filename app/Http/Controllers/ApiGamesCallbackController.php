@@ -5,9 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
-use App\Services\EmailNotificationService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Services\PointService;
-use App\Services\WhatsappNotificationService;
 use App\Support\PembelianStatus;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,6 +105,19 @@ class ApiGamesCallbackController extends Controller
         return response()->json(['success' => true]);
     }
 
+    private function dispatchInvoiceNotificationSafely(Pembelian $invoice, string $transition): void
+    {
+        try {
+            app(InvoiceNotificationDispatcher::class)->dispatchForTransition($invoice->fresh(), $transition);
+        } catch (\Throwable $exception) {
+            Log::error('ApiGames invoice notification dispatch failed', [
+                'order_id' => $invoice->order_id,
+                'transition' => $transition,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function resolveInvoiceForCallback(string $refId): ?Pembelian
     {
         $activeAttemptInvoice = Pembelian::query()
@@ -140,11 +152,6 @@ class ApiGamesCallbackController extends Controller
         bool $isProviderValidation
     ): void {
         try {
-            $waService = app(WhatsappNotificationService::class);
-            $emailService = app(EmailNotificationService::class);
-            $targetWa = $payment?->no_pembeli ?: ($invoice->user->no_wa ?? null);
-            $targetEmail = $invoice->email_pembeli ?? ($invoice->user->email ?? null);
-
             if ($shouldRefund) {
                 app(PointService::class)->refundRedeemedPoints($invoice);
 
@@ -152,26 +159,10 @@ class ApiGamesCallbackController extends Controller
                     $invoice->user->increment('balance', $invoice->harga);
                 }
 
-                if ($targetWa) {
-                    $waService->sendNotification($targetWa, 'transaction_failed', [
-                        'nickname' => $invoice->nickname,
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'reason' => $note !== '' ? $note : 'Transaksi gagal dari API Games.',
-                    ]);
-                }
-
-                if ($targetEmail) {
-                    $emailService->sendTransactionEmail($targetEmail, [
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
-                        'nickname' => $invoice->nickname,
-                        'note' => $note !== '' ? $note : 'Transaksi gagal dari API Games.',
-                    ]);
-                }
+                $this->dispatchInvoiceNotificationSafely(
+                    $invoice,
+                    InvoiceNotificationDispatcher::TRANSITION_PROVIDER_FAILED,
+                );
 
                 return;
             }
@@ -188,27 +179,10 @@ class ApiGamesCallbackController extends Controller
             }
 
             if ($incomingStatus === PembelianStatus::SUCCESS) {
-                if ($targetWa) {
-                    $waService->sendNotification($targetWa, 'transaction_success', [
-                        'nickname' => $invoice->nickname,
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'sn' => $note,
-                    ]);
-                }
-
-                if ($targetEmail) {
-                    $emailService->sendTransactionEmail($targetEmail, [
-                        'order_id' => $invoice->order_id,
-                        'product' => $invoice->layanan,
-                        'amount' => 'Rp ' . number_format($invoice->harga, 0, ',', '.'),
-                        'status' => PembelianStatus::apiStatusCode($incomingStatus),
-                        'nickname' => $invoice->nickname,
-                        'sn' => $note,
-                        'note' => 'Transaksi API Games berhasil.',
-                    ]);
-                }
+                $this->dispatchInvoiceNotificationSafely(
+                    $invoice,
+                    InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS,
+                );
             }
         } catch (\Throwable $exception) {
             Log::error('ApiGames callback notification/refund error', [
