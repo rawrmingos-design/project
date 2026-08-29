@@ -229,8 +229,6 @@ class PaydisiniCallbackController extends Controller
     private function processPembelian(Pembelian $pembelian, Pembayaran $transaction): void
     {
         $orderProcessor = app(OrderProcessingService::class);
-        $waService = app(WhatsappNotificationService::class);
-        $emailService = app(EmailNotificationService::class);
 
         $result = $orderProcessor->process($pembelian);
         $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
