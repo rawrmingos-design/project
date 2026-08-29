@@ -19,6 +19,7 @@ use App\Services\CheckId\CheckIdResolver;
 use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
 use App\Services\Payments\DuitkuInvoiceService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Http\Controllers\provider\VipResellerController;
 use App\Http\Controllers\provider\ApiGamesController;
 use App\Http\Controllers\provider\BangJeffController;
@@ -1737,6 +1738,20 @@ class OrderController extends Controller
         }
 
         $pembayaran->save();
+
+        if ($status_pembayaran === 'Belum Lunas') {
+            try {
+                app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                    $pembelian->fresh('pembayaran'),
+                    InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PENDING,
+                );
+            } catch (\Throwable $exception) {
+                Log::error('Order invoice pending notification dispatch failed', [
+                    'order_id' => $order_id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
 
         if ($is_joki) {
             DB::table('data_joki')->insert([
