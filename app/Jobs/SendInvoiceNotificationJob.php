@@ -20,8 +20,10 @@ class SendInvoiceNotificationJob implements ShouldQueue
 
     public int $tries = 5;
 
-    public function __construct(public readonly int $deliveryId)
-    {
+    public function __construct(
+        public readonly int $deliveryId,
+        public readonly bool $force = false,
+    ) {
     }
 
     /** @return array<int, int> */
@@ -40,7 +42,7 @@ class SendInvoiceNotificationJob implements ShouldQueue
                 ->lockForUpdate()
                 ->first();
 
-            if (! $record || $record->status === InvoiceNotificationDelivery::STATUS_SENT) {
+            if (! $record || ($record->status === InvoiceNotificationDelivery::STATUS_SENT && ! $this->force)) {
                 return null;
             }
 
