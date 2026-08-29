@@ -6,6 +6,7 @@ use App\Http\Controllers\TokoPayController;
 use App\Http\Controllers\TriPayController;
 use App\Services\Gateway\GatewayPricingService;
 use App\Services\Payments\DuitkuInvoiceService;
+use App\Services\InvoiceNotificationDispatcher;
 use App\Models\BotCheckoutIntent;
 use App\Models\Kategori;
 use App\Models\Layanan;
@@ -389,7 +390,19 @@ class CheckoutOrderService
                 );
             }
 
-                return $order->fresh('pembayaran');
+            $freshOrder = $order->fresh('pembayaran');
+            if ($freshOrder && $payment->status === 'Belum Lunas') {
+                try {
+                    app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+                        $freshOrder,
+                        InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PENDING,
+                    );
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
+
+            return $freshOrder;
             });
 
             if ($idempotencyKey !== null) {
