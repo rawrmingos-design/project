@@ -25,6 +25,15 @@ class InvoiceNotificationDispatcher
      */
     public function dispatchForTransition(Pembelian $record, string $transition): array
     {
+        // Client requested only terminal success/failed notifications. Do not
+        // create delivery intents for payment confirmation/pending states.
+        if (in_array($transition, [
+            self::TRANSITION_PAYMENT_PENDING,
+            self::TRANSITION_PAYMENT_PAID,
+        ], true)) {
+            return [];
+        }
+
         $templateSlug = $this->templateSlugForTransition($transition);
         $record->loadMissing(['pembayaran', 'user']);
         $settings = SettingWeb::query()->first();
