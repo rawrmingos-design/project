@@ -16,23 +16,38 @@ class InvoiceNotificationDispatcherTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dispatcher_creates_one_delivery_per_enabled_channel(): void
+    public function test_dispatcher_skips_pending_and_paid_transitions(): void
     {
         Queue::fake();
         $order = $this->createOrder();
 
         $dispatcher = app(InvoiceNotificationDispatcher::class);
-        $first = $dispatcher->dispatchForTransition(
+        $pending = $dispatcher->dispatchForTransition(
             $order,
-            InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID,
+            InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PENDING,
         );
-        $second = $dispatcher->dispatchForTransition(
+        $paid = $dispatcher->dispatchForTransition(
             $order->fresh(),
             InvoiceNotificationDispatcher::TRANSITION_PAYMENT_PAID,
         );
 
-        $this->assertCount(2, $first);
-        $this->assertCount(2, $second);
+        $this->assertCount(0, $pending);
+        $this->assertCount(0, $paid);
+        $this->assertDatabaseCount('invoice_notification_deliveries', 0);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_dispatcher_creates_one_delivery_per_enabled_channel_for_success(): void
+    {
+        Queue::fake();
+        $order = $this->createOrder();
+
+        $deliveries = app(InvoiceNotificationDispatcher::class)->dispatchForTransition(
+            $order,
+            InvoiceNotificationDispatcher::TRANSITION_PROVIDER_SUCCESS,
+        );
+
+        $this->assertCount(2, $deliveries);
         $this->assertDatabaseCount('invoice_notification_deliveries', 2);
         Queue::assertPushed(SendInvoiceNotificationJob::class, 2);
     }
