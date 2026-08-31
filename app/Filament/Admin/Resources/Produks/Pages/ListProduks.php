@@ -8,12 +8,15 @@ use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Tabs\Tab;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Http\Controllers\DigiFlazzController;
 use App\Services\ProductPricingService;
+use App\Services\BulkProductProfitService;
 use App\Services\Providers\BangJeffService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -60,6 +63,74 @@ class ListProduks extends ListRecords
     {
         return [
             CreateAction::make(),
+
+            Action::make('bulk_edit_profit_scope')
+                ->label('Bulk Edit Profit Tier')
+                ->icon('heroicon-o-percent-badge')
+                ->color('warning')
+                ->form([
+                    Select::make('scope_type')
+                        ->label('Target Produk')
+                        ->options([
+                            'all' => 'Semua produk',
+                            'category' => 'Berdasarkan kategori',
+                            'selected' => 'Produk spesifik',
+                        ])
+                        ->default('category')
+                        ->live()
+                        ->required(),
+                    Select::make('kategori_id')
+                        ->label('Kategori')
+                        ->options(fn (): array => $this->getCachedKategoriOptions())
+                        ->searchable()
+                        ->visible(fn ($get): bool => $get('scope_type') === 'category')
+                        ->required(fn ($get): bool => $get('scope_type') === 'category'),
+                    Select::make('selected_ids')
+                        ->label('Produk spesifik')
+                        ->options(fn (): array => Layanan::query()->orderBy('layanan')->pluck('layanan', 'id')->toArray())
+                        ->searchable()
+                        ->multiple()
+                        ->visible(fn ($get): bool => $get('scope_type') === 'selected')
+                        ->required(fn ($get): bool => $get('scope_type') === 'selected'),
+                    Checkbox::make('ubah_member')->label('Ubah Profit Member / Publik')->live(),
+                    TextInput::make('member')->label('Profit Member / Publik (%)')->numeric()->integer()->minValue(0)->maxValue(100)
+                        ->disabled(fn ($get): bool => ! $get('ubah_member'))
+                        ->required(fn ($get): bool => (bool) $get('ubah_member')),
+                    Checkbox::make('ubah_platinum')->label('Ubah Profit Platinum')->live(),
+                    TextInput::make('platinum')->label('Profit Platinum (%)')->numeric()->integer()->minValue(0)->maxValue(100)
+                        ->disabled(fn ($get): bool => ! $get('ubah_platinum'))
+                        ->required(fn ($get): bool => (bool) $get('ubah_platinum')),
+                    Checkbox::make('ubah_gold')->label('Ubah Profit Gold')->live(),
+                    TextInput::make('gold')->label('Profit Gold (%)')->numeric()->integer()->minValue(0)->maxValue(100)
+                        ->disabled(fn ($get): bool => ! $get('ubah_gold'))
+                        ->required(fn ($get): bool => (bool) $get('ubah_gold')),
+                ])
+                ->action(function (array $data): void {
+                    $percentages = [
+                        'member' => ($data['ubah_member'] ?? false) ? ($data['member'] ?? null) : null,
+                        'platinum' => ($data['ubah_platinum'] ?? false) ? ($data['platinum'] ?? null) : null,
+                        'gold' => ($data['ubah_gold'] ?? false) ? ($data['gold'] ?? null) : null,
+                    ];
+                    $scope = [
+                        'scope_type' => $data['scope_type'],
+                        'kategori_id' => $data['kategori_id'] ?? null,
+                        'selected_ids' => $data['selected_ids'] ?? [],
+                    ];
+                    $service = app(BulkProductProfitService::class);
+                    $query = $service->buildTargetQuery($scope);
+                    $preview = $service->preview($query, $percentages);
+                    $service->apply($query, $percentages, auth()->id(), $scope);
+
+                    Notification::make()
+                        ->title('Profit tier berhasil diubah')
+                        ->body("{$preview['matched_count']} produk berhasil diperbarui.")
+                        ->success()
+                        ->send();
+                })
+                ->requiresConfirmation()
+                ->modalHeading('Bulk Edit Profit Tier')
+                ->modalDescription('Verifikasi target dan jumlah produk sebelum menerapkan perubahan.')
+                ->modalSubmitActionLabel('Terapkan Perubahan'),
             
             Action::make('sync_digiflazz')
                 ->label('Sync DigiFlazz')
