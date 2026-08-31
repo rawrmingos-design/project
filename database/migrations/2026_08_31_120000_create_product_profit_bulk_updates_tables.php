@@ -30,7 +30,7 @@ return new class extends Migration
             $table->json('after_values');
             $table->timestamps();
 
-            $table->unique(['bulk_update_id', 'layanan_id']);
+            $table->unique(['bulk_update_id', 'layanan_id'], 'bulk_profit_update_item_unique');
             $table->index('layanan_id');
         });
     }
