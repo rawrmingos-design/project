@@ -57,7 +57,7 @@ class ProductPricingServiceBulkProfitTest extends TestCase
             'gold' => null,
         ]);
 
-        $this->assertSame(11000, (int) $product->harga_member);
+        $this->assertSame(11500, (int) $product->harga_member);
         $this->assertSame(12000, (int) $product->harga_platinum);
         $this->assertSame(13000, (int) $product->harga_gold);
         $this->assertSame(15, (int) $product->profit_member);
