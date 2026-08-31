@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -58,6 +59,12 @@ class SendInvoiceNotificationJob implements ShouldQueue
 
         if (! $delivery) {
             return;
+        }
+
+        if ($delivery->channel === InvoiceNotificationDelivery::CHANNEL_WHATSAPP) {
+            Cache::lock('invoice-notification:whatsapp-rate-limit', 10)->block(10, function (): void {
+                usleep(1_000_000);
+            });
         }
 
         $result = $this->send($delivery, $whatsapp, $email);
