@@ -75,10 +75,10 @@ class BulkProductProfitServiceTest extends TestCase
             'harga' => 10000,
             'harga_member' => 10000,
             'harga_platinum' => 10000,
-            'harga_gold' => 10000,
-            'profit_member' => 0,
-            'profit_platinum' => 0,
-            'profit_gold' => 0,
+            'harga_gold' => 13000,
+            'profit_member' => 10,
+            'profit_platinum' => 20,
+            'profit_gold' => 30,
         ]);
 
         $preview = app(BulkProductProfitService::class)->preview(
