@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Produks\Tables;
 
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -17,10 +18,13 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\DatePicker;
 use App\Models\Kategori;
 use App\Http\Controllers\DigiFlazzController;
 use App\Services\ProductPricingService;
+use App\Services\BulkProductProfitService;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
@@ -283,6 +287,74 @@ class ProduksTable
             ->recordActionsColumnLabel('Actions')
             ->bulkActions([
                 BulkActionGroup::make([
+                    BulkAction::make('bulk_edit_profit')
+                        ->label('Bulk Edit Profit Tier')
+                        ->icon('heroicon-o-percent-badge')
+                        ->color('warning')
+                        ->form([
+                            Checkbox::make('ubah_member')
+                                ->label('Ubah Profit Member / Publik')
+                                ->live(),
+                            TextInput::make('member')
+                                ->label('Profit Member / Publik (%)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->integer()
+                                ->required(fn ($get): bool => (bool) $get('ubah_member'))
+                                ->disabled(fn ($get): bool => ! $get('ubah_member')),
+                            Checkbox::make('ubah_platinum')
+                                ->label('Ubah Profit Platinum')
+                                ->live(),
+                            TextInput::make('platinum')
+                                ->label('Profit Platinum (%)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->integer()
+                                ->required(fn ($get): bool => (bool) $get('ubah_platinum'))
+                                ->disabled(fn ($get): bool => ! $get('ubah_platinum')),
+                            Checkbox::make('ubah_gold')
+                                ->label('Ubah Profit Gold')
+                                ->live(),
+                            TextInput::make('gold')
+                                ->label('Profit Gold (%)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->maxValue(100)
+                                ->integer()
+                                ->required(fn ($get): bool => (bool) $get('ubah_gold'))
+                                ->disabled(fn ($get): bool => ! $get('ubah_gold')),
+                        ])
+                        ->action(function ($records, array $data): void {
+                            $percentages = [
+                                'member' => ($data['ubah_member'] ?? false) ? ($data['member'] ?? null) : null,
+                                'platinum' => ($data['ubah_platinum'] ?? false) ? ($data['platinum'] ?? null) : null,
+                                'gold' => ($data['ubah_gold'] ?? false) ? ($data['gold'] ?? null) : null,
+                            ];
+                            $service = app(BulkProductProfitService::class);
+                            $query = $service->buildTargetQuery([
+                                'scope_type' => 'selected',
+                                'selected_ids' => $records->modelKeys(),
+                            ]);
+                            $preview = $service->preview($query, $percentages);
+                            $service->apply($query, $percentages, auth()->id(), [
+                                'scope_type' => 'selected',
+                                'selected_ids' => $records->modelKeys(),
+                            ]);
+
+                            Notification::make()
+                                ->title('Profit tier berhasil diubah')
+                                ->body("{$preview['matched_count']} produk berhasil diperbarui.")
+                                ->success()
+                                ->send();
+                        })
+                        ->requiresConfirmation()
+                        ->modalHeading('Bulk Edit Profit Tier')
+                        ->modalDescription('Harga modal tidak berubah. Harga tier akan dihitung ulang dari persentase profit baru.')
+                        ->modalSubmitActionLabel('Terapkan Perubahan')
+                        ->deselectRecordsAfterCompletion(),
+
                     DeleteBulkAction::make(),
 
                     \Filament\Actions\BulkAction::make('activate')
