@@ -81,6 +81,42 @@ class ProductPricingService
         $this->applyDirectTierPrices($product, $modal, $member, $platinum, $gold);
     }
 
+    public function applyTierProfitPercentages(Model $product, array $percentages): void
+    {
+        $requested = [
+            'member' => $percentages['member'] ?? null,
+            'platinum' => $percentages['platinum'] ?? null,
+            'gold' => $percentages['gold'] ?? null,
+        ];
+
+        $resolved = [];
+        foreach ($requested as $tier => $value) {
+            if ($value === null || $value === '') {
+                $resolved[$tier] = (float) ($product->{'profit_' . $tier} ?? 0);
+                continue;
+            }
+
+            if (! is_numeric($value) || (float) $value < 0 || (float) $value > 100) {
+                throw new \InvalidArgumentException("Profit {$tier} harus berada di antara 0 dan 100 persen.");
+            }
+
+            $resolved[$tier] = (float) $value;
+        }
+
+        if ($resolved['member'] > $resolved['platinum'] || $resolved['platinum'] > $resolved['gold']) {
+            throw new \InvalidArgumentException('Profit tier harus berurutan: Member/Public <= Platinum <= Gold.');
+        }
+
+        $modal = $this->normalizeAmount($product->harga ?? 0);
+        $this->applyDirectTierPrices(
+            $product,
+            $modal,
+            $modal + $this->calculatePercentMargin($modal, $resolved['member']),
+            $modal + $this->calculatePercentMargin($modal, $resolved['platinum']),
+            $modal + $this->calculatePercentMargin($modal, $resolved['gold']),
+        );
+    }
+
     public function syncLegacyProfitColumns(Model $product): void
     {
         $modal = $this->normalizeAmount($product->harga ?? 0);
