@@ -5,8 +5,9 @@ namespace App\Services;
 use App\Models\ProductProfitBulkUpdate;
 use App\Models\Produk;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+
 use InvalidArgumentException;
 
 class BulkProductProfitService
@@ -120,7 +121,7 @@ class BulkProductProfitService
         }
     }
 
-    private function pricingSnapshot(Produk $product): array
+    private function pricingSnapshot(Model $product): array
     {
         return collect(['harga', 'harga_member', 'harga_platinum', 'harga_gold', 'profit_member', 'profit_platinum', 'profit_gold'])
             ->mapWithKeys(fn (string $field): array => [$field => $product->{$field}])
