@@ -114,7 +114,7 @@ if ($adminHost !== '' && str_contains($adminHost, '://')) {
 
 $adminHost = preg_replace('/:\d+$/', '', $adminHost) ?? '';
 
-$docsHostRaw = trim((string) env('DOCS_DOMAIN', ''));
+$docsHostRaw = trim((string) config('app.docs_domain', ''));
 $docsHost = $docsHostRaw;
 if ($docsHost !== '' && str_contains($docsHost, '://')) {
     $docsHost = (string) (parse_url($docsHost, PHP_URL_HOST) ?? '');

@@ -54,6 +54,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'filament_admin_domain' => env('FILAMENT_ADMIN_DOMAIN', ''),
+
+    'docs_domain' => env('DOCS_DOMAIN', ''),
+
     'asset_url' => env('ASSET_URL', null),
 
     /*
