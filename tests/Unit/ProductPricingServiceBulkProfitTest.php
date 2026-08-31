@@ -76,19 +76,21 @@ class ProductPricingServiceBulkProfitTest extends TestCase
             'member' => 101,
         ]);
     }
+    public function test_it_rejects_profit_percentages_that_break_tier_order(): void
+    {
+        $product = Layanan::factory()->create([
+            'harga' => 10000,
+            'harga_member' => 10000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10000,
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        app(ProductPricingService::class)->applyTierProfitPercentages($product, [
+            'member' => 20,
+            'platinum' => 10,
+            'gold' => 30,
+        ]);
+    }
 }
-
-Pest\test('bulk profit percentages must preserve tier order', function (): void {
-    $product = Layanan::factory()->create([
-        'harga' => 10000,
-        'harga_member' => 10000,
-        'harga_platinum' => 10000,
-        'harga_gold' => 10000,
-    ]);
-
-    expect(fn () => app(ProductPricingService::class)->applyTierProfitPercentages($product, [
-        'member' => 20,
-        'platinum' => 10,
-        'gold' => 30,
-    ]))->toThrow(InvalidArgumentException::class);
-});
