@@ -195,6 +195,12 @@ class WhatsappNotificationService
     {
         $digits = preg_replace('/\D+/', '', $target) ?? '';
 
+        if (str_starts_with($digits, '0')) {
+            $digits = '62' . substr($digits, 1);
+        } elseif (str_starts_with($digits, '8')) {
+            $digits = '62' . $digits;
+        }
+
         return $digits . '@s.whatsapp.net';
     }
 
