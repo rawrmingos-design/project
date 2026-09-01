@@ -567,7 +567,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text'
                 && $request->hasHeader('Authorization', 'Bearer openwa-token')
-                && ($request->data()['chatId'] ?? null) === '085792464508@s.whatsapp.net'
+                && ($request->data()['chatId'] ?? null) === '6285792464508@s.whatsapp.net'
                 && ($request->data()['text'] ?? null) === 'Halo dari OpenWA';
         });
     }
@@ -627,7 +627,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image'
                 && $request->hasHeader('Authorization', 'Bearer openwa-token')
-                && ($request->data()['chatId'] ?? null) === '085792464508@s.whatsapp.net'
+                && ($request->data()['chatId'] ?? null) === '6285792464508@s.whatsapp.net'
                 && ($request->data()['url'] ?? null) === 'https://cdn.example.test/qr/transaksi.png'
                 && ($request->data()['caption'] ?? null) === 'Silakan scan QRIS'
                 && ! isset($request->data()['text']);
