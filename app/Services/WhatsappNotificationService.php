@@ -100,6 +100,8 @@ class WhatsappNotificationService
      */
     public function sendMessage(string $target, string $message, ?string $url = null, ?string $customToken = null): array
     {
+        $provider = $customToken !== null ? 'openwa_custom' : 'unknown';
+
         try {
             $api = SettingWeb::first();
 
@@ -184,8 +186,18 @@ class WhatsappNotificationService
                 ->post('https://api.fonnte.com/send', $payload);
 
             return $this->normalizeFonnteResponse($response);
-        } catch (Throwable) {
-            Log::error('WhatsappNotificationService exception.');
+        } catch (Throwable $exception) {
+            Log::error('whatsapp_notification.transport_exception', [
+                'provider' => $provider,
+                'target_hash' => hash('sha256', $target),
+                'target_format' => str_contains($target, '@') ? 'jid' : 'phone',
+                'endpoint' => isset($api) && $provider === 'openwa'
+                    ? parse_url($this->openWaEndpoint('send-text', $url), PHP_URL_PATH)
+                    : null,
+                'exception' => $exception::class,
+                'error_code' => $exception->getCode(),
+                'error' => mb_substr($exception->getMessage(), 0, 500),
+            ]);
 
             return ['success' => false, 'message' => 'System Error.'];
         }
@@ -248,6 +260,14 @@ class WhatsappNotificationService
     private function normalizeOpenWaResponse(Response $response): array
     {
         $decoded = json_decode($response->body(), true);
+
+        if (! $response->successful()) {
+            Log::error('whatsapp_notification.provider_rejected', [
+                'provider' => 'openwa',
+                'http_status' => $response->status(),
+                'response' => mb_substr($response->body(), 0, 500),
+            ]);
+        }
 
         if (! is_array($decoded)) {
             return [
