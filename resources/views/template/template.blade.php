@@ -85,6 +85,17 @@
             ? $config
             : app(\App\Services\PublicSiteConfigService::class)->getSettings();
     @endphp
+    @if(!empty($gtmPurchaseSuccess))
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push({
+                event: 'purchase_success',
+                transaction_id: @json($gtmPurchaseSuccess['transaction_id']),
+                value: @json((int) $gtmPurchaseSuccess['value']),
+                currency: 'IDR'
+            });
+        </script>
+    @endif
     @include('partials.tracking-bootstrap', ['trackingSettings' => $legacyTrackingSettings])
     
     @php
