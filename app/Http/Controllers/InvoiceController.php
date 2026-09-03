@@ -66,6 +66,7 @@ class InvoiceController extends Controller
                 'voucher',
                 'layanan',
                 'pembayarans.harga AS harga_pembayaran',
+                'pembelians.profit AS profit_transaksi',
                 'pembelians.keterangan_sn',
                 'pembelians.created_at AS created_at',
                 'pembelians.status AS status_pembelian',
@@ -145,6 +146,7 @@ class InvoiceController extends Controller
         $normalizedOrderStatus = Str::lower(trim((string) ($data->status_pembelian ?? '')));
         $transactionId = (string) $data->id_pembelian;
         $invoiceValue = (int) round((float) ($data->harga_pembayaran ?? 0));
+        $transactionProfit = (int) round((float) ($data->profit_transaksi ?? 0));
         $gtmIdentityPayload = $gtmBuilder->buildCustomerIdentityPayload(
             $data->email_pembeli ?? null,
             $data->no_pembeli ?? null,
@@ -299,6 +301,14 @@ class InvoiceController extends Controller
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'order_id' => $data->id_pembelian,
             'gtmInvoiceEvents' => $gtmInvoiceEvents,
+            'gtmPurchaseSuccess' => in_array($normalizedPaymentStatus, ['paid', 'lunas'], true)
+                && in_array($normalizedOrderStatus, ['sukses', 'success'], true)
+                ? [
+                    'transaction_id' => $transactionId,
+                    'value' => $transactionProfit,
+                    'currency' => 'IDR',
+                ]
+                : null,
             'gtmInvoiceItem' => $gtmInvoiceItem,
             'invoiceRealtimeChannel' => InvoiceRealtimeStatus::channelName($transactionId),
         ]);

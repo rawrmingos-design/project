@@ -55,6 +55,14 @@ class InvoiceControllerGtmEventsTest extends TestCase
         $this->assertSame('success', $purchase['payload']['transaction_status']);
         $this->assertSame("purchase:{$orderId}", $purchase['dedupe_key']);
         $this->assertSame('success', $purchase['payload']['ecommerce']['transaction_status']);
+
+        $view = app(InvoiceController::class)->create($orderId);
+        $purchaseSuccess = $view->getData()['gtmPurchaseSuccess'] ?? null;
+        $this->assertSame([
+            'transaction_id' => $orderId,
+            'value' => 1730,
+            'currency' => 'IDR',
+        ], $purchaseSuccess);
     }
 
     #[Test]
@@ -110,6 +118,7 @@ class InvoiceControllerGtmEventsTest extends TestCase
             'order_id' => $orderId,
             'layanan' => 'Mobile Legends 86 Diamond',
             'harga' => 50000,
+            'profit' => 1730,
             'status' => $orderStatus,
             'tipe_transaksi' => 'game',
         ]);
