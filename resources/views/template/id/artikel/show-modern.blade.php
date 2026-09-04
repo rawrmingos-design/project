@@ -70,7 +70,7 @@
                 </div>
                 <div class="flex items-center gap-2 bg-black/30 px-4 py-2 rounded-full border border-white/10">
                     <i class="fa fa-user dynamic-text"></i>
-                    Admin
+                    Ditulis oleh Tim Editorial IstanaTopup
                 </div>
             </div>
         </div>
