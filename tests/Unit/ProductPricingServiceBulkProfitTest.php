@@ -76,7 +76,7 @@ class ProductPricingServiceBulkProfitTest extends TestCase
             'member' => 101,
         ]);
     }
-    public function test_it_rejects_profit_percentages_that_break_tier_order(): void
+    public function test_it_accepts_independent_profit_percentages_per_tier(): void
     {
         $product = Layanan::factory()->create([
             'harga' => 10000,
@@ -85,12 +85,17 @@ class ProductPricingServiceBulkProfitTest extends TestCase
             'harga_gold' => 10000,
         ]);
 
-        $this->expectException(InvalidArgumentException::class);
-
         app(ProductPricingService::class)->applyTierProfitPercentages($product, [
             'member' => 20,
             'platinum' => 10,
             'gold' => 30,
         ]);
+
+        $this->assertSame(20, (int) $product->profit_member);
+        $this->assertSame(10, (int) $product->profit_platinum);
+        $this->assertSame(30, (int) $product->profit_gold);
+        $this->assertSame(12000, (int) $product->harga_member);
+        $this->assertSame(11000, (int) $product->harga_platinum);
+        $this->assertSame(13000, (int) $product->harga_gold);
     }
 }
