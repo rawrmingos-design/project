@@ -110,15 +110,7 @@ class BulkProductProfitService
         if ($filled === []) {
             throw new InvalidArgumentException('Minimal satu tier profit harus diisi.');
         }
-        $previous = null;
-        foreach ($resolved as $value) {
-            if ($value !== null && $previous !== null && $value < $previous) {
-                throw new InvalidArgumentException('Profit tier harus berurutan: Member/Public <= Platinum <= Gold.');
-            }
-            if ($value !== null) {
-                $previous = $value;
-            }
-        }
+
     }
 
     private function pricingSnapshot(Model $product): array
