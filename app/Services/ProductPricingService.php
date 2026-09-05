@@ -103,10 +103,6 @@ class ProductPricingService
             $resolved[$tier] = (float) $value;
         }
 
-        if ($resolved['member'] > $resolved['platinum'] || $resolved['platinum'] > $resolved['gold']) {
-            throw new \InvalidArgumentException('Profit tier harus berurutan: Member/Public <= Platinum <= Gold.');
-        }
-
         $modal = $this->normalizeAmount($product->harga ?? 0);
         $this->applyDirectTierPrices(
             $product,
