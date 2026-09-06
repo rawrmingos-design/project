@@ -32,7 +32,7 @@ class PublicThemeRegistryTest extends TestCase
         $this->assertSame(PublicThemeRegistry::DEFAULT, PublicThemeRegistry::normalize(null));
     }
 
-    public function test_preview_only_theme_resolves_on_non_production(): void
+    public function test_istanatopup_theme_resolves_on_non_production(): void
     {
         $this->assertFalse(app()->environment('production'));
 
@@ -42,14 +42,14 @@ class PublicThemeRegistryTest extends TestCase
         );
     }
 
-    public function test_preview_only_theme_falls_back_to_default_on_production(): void
+    public function test_istanatopup_theme_resolves_on_production(): void
     {
-        // Swap env resolver: aplikasi menganggap dirinya di production.
+        // IstanaTopup sudah diaktifkan sebagai theme production.
         app()->detectEnvironment(fn () => 'production');
 
         $this->assertTrue(app()->environment('production'));
         $this->assertSame(
-            PublicThemeRegistry::DEFAULT,
+            'istanatopup',
             PublicThemeRegistry::resolveForEnvironment('istanatopup')
         );
     }
