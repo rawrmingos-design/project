@@ -1898,3 +1898,161 @@
         text-align: right;
     }
 }
+
+/* ---------- Article index: mobile-first reference parity ---------- */
+.public-app--istanatopup .public-article-page--index {
+    padding: 24px 0 10px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    min-height: 0;
+    margin: 0 auto 22px;
+    width: min(calc(100% - 32px), 1200px);
+    border: 1px solid var(--ist-border);
+    border-radius: 16px;
+    background-color: var(--ist-surface);
+    background-size: 58% 100%;
+    background-position: left center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__overlay {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 240px;
+    background: linear-gradient(90deg, rgba(30, 30, 30, 0) 55%, var(--ist-surface) 100%);
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content {
+    grid-column: 2;
+    grid-row: 1;
+    z-index: 1;
+    display: flex;
+    min-height: 0;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 24px 26px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__tag {
+    width: fit-content;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--ist-accent);
+    color: #fff;
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 10.5px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h1,
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h1 a {
+    max-width: none;
+    margin: 8px 0;
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__meta {
+    gap: 10px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 11px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content p {
+    margin-top: 8px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-article-page--index .public-article-section {
+    width: min(calc(100% - 32px), 1200px);
+    margin: 0 auto;
+}
+.public-app--istanatopup .public-article-page--index .public-article-section__header {
+    margin-bottom: 16px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-section__header h2 {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.public-app--istanatopup .public-article-page--index .public-article-section__header h2::before { display: none; }
+.public-app--istanatopup .public-article-page--index .public-article-section__header p {
+    margin-top: 3px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-article-page--index .public-article-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card {
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__thumb {
+    aspect-ratio: 16 / 8.5;
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__body { padding: 14px 15px 16px; }
+.public-app--istanatopup .public-article-page--index .public-article-card__body h3 {
+    margin: 0 0 6px;
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__body p {
+    margin: 0 0 10px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__cta {
+    color: var(--ist-accent-soft);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 11.5px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-article-page--index .public-article-pagination {
+    flex-wrap: wrap;
+    margin-top: 26px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+}
+@media (max-width: 1000px) {
+    .public-app--istanatopup .public-article-page--index .public-article-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-article-page--index { padding-top: 24px; }
+    .public-app--istanatopup .public-article-page--index .public-article-hero {
+        display: block;
+        width: calc(100% - 32px);
+        background-size: 100% auto;
+        background-position: center top;
+        padding-top: 56.25%;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__overlay { display: none; }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content {
+        display: block;
+        padding: 18px 15px 16px;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content h1,
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content h1 a { font-size: 18px; }
+    .public-app--istanatopup .public-article-page--index .public-article-section { width: calc(100% - 32px); }
+    .public-app--istanatopup .public-article-page--index .public-article-grid { grid-template-columns: 1fr; gap: 14px; }
+    .public-app--istanatopup .public-article-page--index .public-article-pagination { gap: 8px; font-size: 12px; }
+    .public-app--istanatopup .public-article-page--index .public-article-pagination__button { padding: 0 11px; }
+}
