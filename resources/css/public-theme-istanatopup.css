@@ -1715,3 +1715,172 @@
         min-width: 640px;
     }
 }
+
+/* ---------- Leaderboard reference parity ---------- */
+.public-app--istanatopup .public-leaderboard--istanatopup {
+    padding: 34px 0 10px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__header {
+    max-width: none;
+    margin: 0;
+    text-align: left;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__eyebrow {
+    display: none;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__title {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__description {
+    max-width: 680px;
+    margin: 4px 0 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13.5px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__periods {
+    display: flex;
+    gap: 9px;
+    margin-top: 22px;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__periods::-webkit-scrollbar { display: none; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__period {
+    flex: none;
+    padding: 9px 20px;
+    border: 1px solid var(--ist-border);
+    border-radius: 999px;
+    background: var(--ist-surface);
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__period.is-active {
+    border-color: var(--ist-accent);
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr 1fr;
+    gap: 14px;
+    align-items: end;
+    margin-top: 18px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    padding: 22px 14px 18px;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface) var(--ist-dots, none);
+    text-align: center;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card.is-first {
+    padding-top: 30px;
+    padding-bottom: 26px;
+    border-color: var(--ist-accent);
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rank {
+    color: var(--ist-accent);
+    font-size: 34px;
+    font-style: italic;
+    font-weight: 800;
+    line-height: 1;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .is-first .public-leaderboard__rank { font-size: 44px; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card strong {
+    max-width: 100%;
+    margin-top: 10px;
+    overflow: hidden;
+    color: var(--ist-text);
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card span:not(.public-leaderboard__rank) {
+    margin-top: 8px;
+    color: var(--ist-accent);
+    font-size: 15px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card small {
+    color: var(--ist-muted);
+    font-size: 12px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-wrap {
+    margin-top: 18px;
+    overflow-x: auto;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row {
+    display: grid;
+    grid-template-columns: 56px minmax(120px, 1fr) 120px 150px;
+    gap: 10px;
+    align-items: center;
+    min-width: 520px;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--ist-border);
+    color: var(--ist-text);
+    font-size: 13.5px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row:last-child { border-bottom: 0; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row.is-head {
+    background: var(--ist-surface-alt);
+    color: var(--ist-muted);
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-rank { color: var(--ist-muted); font-style: italic; font-weight: 800; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-total { text-align: right; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 22px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards > div {
+    padding: 15px 16px;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    color: var(--ist-muted);
+    font-size: 12.5px;
+}
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards strong { display: block; color: var(--ist-text); font-size: 13.5px; }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards b { color: var(--ist-accent); }
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__note,
+.public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__empty {
+    margin-top: 14px;
+    color: var(--ist-muted);
+    font-size: 12px;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-leaderboard--istanatopup { padding-top: 24px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__title { font-size: 24px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__description { font-size: 13.5px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium { gap: 8px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card { padding: 16px 8px 13px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card.is-first { padding-top: 22px; padding-bottom: 19px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rank { font-size: 28px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .is-first .public-leaderboard__rank { font-size: 36px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card strong { font-size: 12px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card span:not(.public-leaderboard__rank) { font-size: 11px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card small { font-size: 10px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards { grid-template-columns: 1fr; gap: 10px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row { grid-template-columns: 40px minmax(110px, 1fr) 92px 120px; padding: 12px 13px; font-size: 12px; }
+}
