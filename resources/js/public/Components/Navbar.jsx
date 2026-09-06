@@ -220,10 +220,10 @@ export default function Navbar() {
             setMobileSearchOpen(false);
         };
 
-        router.on('navigate', handleNavigationStart);
+        const removeNavigationListener = router.on('navigate', handleNavigationStart);
 
         return () => {
-            router.off('navigate', handleNavigationStart);
+            removeNavigationListener();
         };
     }, []);
 
