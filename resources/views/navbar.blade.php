@@ -1,10 +1,4 @@
 <style>
-    /* Legacy public navbar uses its own markup, outside .public-app--istanatopup. */
-    .legacy-public-navbar,
-    .legacy-public-navbar * {
-        font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
-    }
-
     .blurred-navbar {
         -webkit-backdrop-filter: blur(5px);
         backdrop-filter: blur(5px);
@@ -72,7 +66,7 @@ document.addEventListener('alpine:init', () => {
     }));
 });
 </script>
-<header class="legacy-public-navbar sticky z-40 w-full flex-none backdrop-blur duration-500 ease-in-out print:hidden top-0 mt-0" style="z-index:50">
+<header class="sticky z-40 w-full flex-none backdrop-blur duration-500 ease-in-out print:hidden top-0 mt-0" style="z-index:50">
 
 <div class="container flex h-16 items-center justify-between gap-4">
             <div class="flex items-center justify-start">
