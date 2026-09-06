@@ -1666,12 +1666,19 @@
     }
 
     /* Keep the lookup body inside the viewport on narrow phones. */
-    .public-app--istanatopup .public-history-page--istanatopup,
+    .public-app--istanatopup .public-history-page--istanatopup {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+    }
+
     .public-app--istanatopup .public-history-page--istanatopup .public-shell,
     .public-app--istanatopup .public-history-page--istanatopup .public-history-hero__inner {
-        width: 100%;
-        max-width: 100%;
+        width: min(calc(100% - 32px), 1200px);
+        max-width: 1200px;
         min-width: 0;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .public-app--istanatopup .public-history-page--istanatopup .public-history-search-card,
