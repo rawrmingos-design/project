@@ -669,13 +669,14 @@
     background: #101013;
     border-radius: 14px;
 }
-/* Banner: gambar memenuhi kotak (full-bleed dalam frame).
-   Upload banner rasio ~16/9 supaya tidak ter-crop; artwork landscape
-   ekstrem akan terpotong sisi kiri/kanan oleh object-fit cover. */
+/* Banner menampilkan seluruh artwork; rasio berbeda memakai letterbox, bukan crop. */
 .public-app--istanatopup .hero-swiper-react__image {
+    display: block;
+    width: 100%;
     aspect-ratio: 16 / 9;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
+    background: #101013;
     border-radius: 14px;
     border: 1px solid var(--ist-border);
 }
