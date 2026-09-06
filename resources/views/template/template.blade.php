@@ -79,6 +79,13 @@
         @endif
     @endif
 
+    @if(isset($articleSchema) && $articleSchema)
+        <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
+    @if(isset($faqSchema) && $faqSchema)
+        <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
+
     {{-- Shared tracking bootstrap: GTM / GA / Meta Pixel / pushDataLayerEvent --}}
     @php
         $legacyTrackingSettings = isset($config)
