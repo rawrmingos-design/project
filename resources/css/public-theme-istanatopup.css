@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,800&display=swap');
+
 /* ============================================================
    IstanaTopup theme — scoped under .public-app--istanatopup
    Palette from client mockup (Bangjeff-inspired dark):
@@ -31,6 +33,13 @@
 .public-app--istanatopup * {
     /* public-app.css has deeper component font rules; this theme owns all type. */
     font-family: var(--public-font-family, 'Plus Jakarta Sans'), system-ui, sans-serif !important;
+}
+
+.public-app--istanatopup .public-navbar,
+.public-app--istanatopup .public-navbar *,
+.public-app--istanatopup .public-drawer,
+.public-app--istanatopup .public-drawer * {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
 }
 
 .public-app--istanatopup a { color: inherit; text-decoration: none; }
