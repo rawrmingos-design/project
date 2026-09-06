@@ -1882,5 +1882,19 @@
     .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card span:not(.public-leaderboard__rank) { font-size: 11px; }
     .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__podium-card small { font-size: 10px; }
     .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__rewards { grid-template-columns: 1fr; gap: 10px; }
-    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row { grid-template-columns: 40px minmax(110px, 1fr) 92px 120px; padding: 12px 13px; font-size: 12px; }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-wrap {
+        overflow-x: hidden;
+    }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row {
+        grid-template-columns: 38px minmax(0, 1fr) 112px;
+        min-width: 0;
+        padding: 12px 13px;
+        font-size: 12px;
+    }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row > :nth-child(3) {
+        display: none;
+    }
+    .public-app--istanatopup .public-leaderboard--istanatopup .public-leaderboard__table-row > :nth-child(4) {
+        text-align: right;
+    }
 }
