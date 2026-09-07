@@ -26,6 +26,31 @@
         background: #1e1e1e;
     }
 
+    .auth-login-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 22px;
+        padding: 4px;
+        border-radius: 11px;
+        background: #262626;
+    }
+
+    .auth-login-tab {
+        flex: 1;
+        padding: 9px 0;
+        border-radius: 8px;
+        color: #9c9c9c;
+        font-size: 13.5px;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .auth-login-tab:hover,
+    .auth-login-tab.is-active {
+        background: #f97316;
+        color: #fff;
+    }
+
     .auth-login-form-column > div > div:first-child {
         margin-bottom: 22px;
     }
@@ -197,6 +222,10 @@
 
     <div class="auth-login-form-column flex min-h-screen w-full flex-col items-center justify-start gap-5 px-4 pb-8 pt-20 sm:pb-10 sm:pt-24 md:justify-center md:gap-7 md:px-12 md:py-14 lg:gap-8 lg:px-20 lg:py-20">
         <div class="mx-auto w-full max-w-md space-y-4 sm:space-y-5 md:space-y-6 lg:mx-0">
+            <nav class="auth-login-tabs" aria-label="Autentikasi">
+                <a class="auth-login-tab is-active" href="{{ route('login') }}" aria-current="page">Masuk</a>
+                <a class="auth-login-tab" href="{{ route('register') }}">Daftar</a>
+            </nav>
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Masuk</h1>
                 <p class="auth-login-copy mt-2 text-sm">Masuk dengan akun yang telah Kamu daftarkan.</p>
