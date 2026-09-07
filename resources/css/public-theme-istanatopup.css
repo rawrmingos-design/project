@@ -2791,8 +2791,63 @@
 @media (max-width: 640px) {
     .public-app--istanatopup .public-auth-page {
         min-height: 0;
-        padding: 24px 16px 10px;
+        padding: 24px 16px 28px;
     }
-    .public-app--istanatopup .public-auth-card { padding: 20px 16px; }
+    .public-app--istanatopup .public-auth-card { padding: 20px 16px 22px; }
     .public-app--istanatopup .public-auth-field-grid { grid-template-columns: 1fr; }
+}
+
+/* Auth spacing refinement */
+.public-app--istanatopup .public-auth-page {
+    padding-top: 32px;
+    padding-bottom: 34px;
+}
+.public-app--istanatopup .public-auth-card {
+    padding-top: 22px;
+    padding-bottom: 22px;
+}
+.public-app--istanatopup .public-auth-tabs {
+    margin-bottom: 18px;
+}
+.public-app--istanatopup .public-auth-header {
+    margin-bottom: 15px;
+}
+.public-app--istanatopup .public-auth-form {
+    gap: 11px;
+}
+.public-app--istanatopup .public-auth-row {
+    margin-top: 1px;
+    font-size: 12px;
+}
+.public-app--istanatopup .public-auth-row label {
+    align-items: center;
+    gap: 6px;
+}
+.public-app--istanatopup .public-auth-row input[type="checkbox"],
+.public-app--istanatopup .public-auth-consent input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+    margin: 0;
+}
+.public-app--istanatopup .public-auth-submit {
+    min-height: 42px;
+}
+.public-app--istanatopup .public-auth-benefit {
+    margin-top: 14px;
+}
+.public-app--istanatopup .public-auth-support {
+    margin-top: 13px;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-auth-page {
+        padding-top: 22px;
+        padding-bottom: 26px;
+    }
+}
+
+@media (min-width: 641px) {
+    .public-app--istanatopup .public-auth-page {
+        min-height: min(720px, calc(100vh - 108px));
+    }
 }
