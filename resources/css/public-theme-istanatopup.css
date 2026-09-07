@@ -1954,7 +1954,7 @@
     display: grid;
     grid-template-columns: 1.4fr 1fr;
     width: min(calc(100% - 32px), 1200px);
-    min-height: 190px;
+    min-height: 160px;
     margin: 0 auto 22px;
     overflow: hidden;
     border: 1px solid var(--ist-border);
@@ -2168,7 +2168,7 @@
     }
     .public-app--istanatopup .public-article-page--index .public-article-hero__thumb {
         min-height: 0;
-        aspect-ratio: 16 / 7;
+        aspect-ratio: 16 / 5.5;
     }
     .public-app--istanatopup .public-article-page--index .public-article-hero__overlay { display: none; }
     .public-app--istanatopup .public-article-page--index .public-article-hero__content {
