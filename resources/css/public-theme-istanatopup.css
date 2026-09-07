@@ -2248,3 +2248,60 @@
         font-size: 10px;
     }
 }
+
+/* Final article card parity */
+.public-app--istanatopup .public-article-page--index .public-article-card {
+    min-width: 0;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__thumb {
+    aspect-ratio: 16 / 8.5;
+    overflow: hidden;
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__body {
+    display: block;
+    padding: 14px 15px 16px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__category {
+    display: block;
+    color: var(--ist-accent);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__body h3 {
+    margin: 6px 0;
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__body p {
+    margin: 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+.public-app--istanatopup .public-article-page--index .public-article-card__date {
+    display: flex;
+    gap: 5px;
+    margin-top: 10px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 11px;
+    line-height: 1.3;
+}

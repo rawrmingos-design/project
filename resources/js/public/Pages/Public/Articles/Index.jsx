@@ -19,6 +19,24 @@ function formatDateLabel(value) {
     }).format(date);
 }
 
+function articleCategory(article) {
+    const haystack = `${article.title || ''} ${article.keywords || ''}`.toLowerCase();
+
+    if (haystack.includes('mobile legends') || haystack.includes('mlbb') || haystack.includes('diamond ml')) {
+        return 'Mobile Legends';
+    }
+
+    if (haystack.includes('free fire') || haystack.includes(' ff ') || haystack.includes('booyah')) {
+        return 'Free Fire';
+    }
+
+    if (haystack.includes('top up') || haystack.includes('topup') || haystack.includes('user id') || haystack.includes('zone id')) {
+        return 'Panduan';
+    }
+
+    return 'Artikel Game';
+}
+
 export default function ArticlesIndex({ meta, featured, articles = [], pagination }) {
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -79,16 +97,16 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                                 <Link key={article.id} href={`/id/artikel/${article.slug}`} className="public-article-card">
                                     <div className="public-article-card__thumb">
                                         <img src={article.thumbnail} alt={article.title} />
-                                        <div className="public-article-card__thumb-gradient" />
-                                        <div className="public-article-card__thumb-meta">
-                                            <span>{article.publishedAgo || formatDateLabel(article.publishedAt)}</span>
-                                            <span>{article.views} Views</span>
-                                        </div>
                                     </div>
                                     <div className="public-article-card__body">
+                                        <span className="public-article-card__category">{articleCategory(article)}</span>
                                         <h3>{article.title}</h3>
                                         <p>{article.excerpt}</p>
-                                        <span className="public-article-card__cta">Baca Selengkapnya</span>
+                                        <div className="public-article-card__date">
+                                            <span>Admin</span>
+                                            <span>&middot;</span>
+                                            <span>{article.publishedAtLabel || formatDateLabel(article.publishedAt)}</span>
+                                        </div>
                                     </div>
                                 </Link>
                             ))}
