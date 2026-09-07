@@ -2209,9 +2209,17 @@
 }
 .public-app--istanatopup .public-article-page--index .public-article-hero__content p {
     display: -webkit-box;
+    flex: 0 0 auto;
     overflow: hidden;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2,
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2 a {
+    flex: 0 0 auto;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__meta {
+    flex: 0 0 auto;
 }
 .public-app--istanatopup .public-article-page--index .public-article-hero__meta {
     margin-top: 8px;
