@@ -1983,6 +1983,7 @@
     z-index: 1;
     display: flex;
     min-width: 0;
+    min-height: 0;
     flex-direction: column;
     justify-content: center;
     padding: 24px 26px;
