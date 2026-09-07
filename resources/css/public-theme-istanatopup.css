@@ -2257,6 +2257,58 @@
     }
 }
 
+/* Final featured article layout parity */
+.public-app--istanatopup .public-article-page--index .public-article-hero {
+    height: auto;
+    min-height: 240px;
+    grid-template-rows: minmax(240px, auto);
+    align-items: stretch;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__thumb {
+    height: auto;
+    min-height: 240px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content {
+    height: auto;
+    min-height: 240px;
+    overflow: visible;
+    justify-content: center;
+    padding: 22px 26px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2,
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2 a {
+    line-height: 1.4;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content p {
+    flex: 0 0 auto;
+    -webkit-line-clamp: 2;
+    line-height: 1.5;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__meta {
+    margin-top: 12px;
+    gap: 2px;
+    font-size: 10.5px;
+    line-height: 1.4;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-article-page--index .public-article-hero {
+        display: block;
+        min-height: 0;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__thumb {
+        height: 110px;
+        min-height: 0;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content {
+        min-height: 0;
+        overflow: visible;
+        padding: 17px 15px 18px;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__meta {
+        margin-top: 10px;
+    }
+}
+
 /* Final article card parity */
 .public-app--istanatopup .public-article-page--index .public-article-card {
     min-width: 0;
