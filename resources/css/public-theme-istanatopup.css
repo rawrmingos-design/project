@@ -2442,3 +2442,179 @@
         font-size: 10.5px;
     }
 }
+
+
+/* ---------- Calculator reference parity ---------- */
+.public-app--istanatopup .public-calculator {
+    padding: 34px 0 10px;
+}
+.public-app--istanatopup .public-calculator .public-shell {
+    width: min(calc(100% - 32px), 1200px);
+}
+.public-app--istanatopup .public-calculator__wrap {
+    width: min(100%, 900px);
+    margin: 0 auto;
+}
+.public-app--istanatopup .public-calculator__nav {
+    display: flex;
+    gap: 9px;
+    margin: 0 0 18px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+.public-app--istanatopup .public-calculator__nav-item {
+    min-height: 38px;
+    padding: 9px 20px;
+    border: 1px solid var(--ist-border);
+    border-radius: 999px;
+    background: var(--ist-surface);
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+.public-app--istanatopup .public-calculator__nav-item:hover,
+.public-app--istanatopup .public-calculator__nav-item:focus-visible {
+    border-color: var(--ist-accent);
+    color: var(--ist-text);
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-calculator__nav-item.is-active {
+    border-color: var(--ist-accent);
+    background: var(--ist-accent);
+    color: #fff;
+}
+.public-app--istanatopup .public-calculator__header {
+    margin: 0 0 22px;
+    text-align: left;
+}
+.public-app--istanatopup .public-calculator__header h1 {
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+.public-app--istanatopup .public-calculator__header p {
+    max-width: 640px;
+    margin: 4px 0 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13.5px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-calculator__panel {
+    padding: 20px;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface);
+    box-shadow: none;
+}
+.public-app--istanatopup .public-calculator__field-grid {
+    gap: 12px;
+}
+.public-app--istanatopup .public-calculator__field {
+    gap: 6px;
+}
+.public-app--istanatopup .public-calculator__field span {
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 12px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-calculator__field input[type="number"],
+.public-app--istanatopup .public-calculator__field input[type="text"] {
+    height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--ist-border);
+    border-radius: 10px;
+    background: var(--ist-bg);
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 14px;
+}
+.public-app--istanatopup .public-calculator__field input:focus {
+    border-color: var(--ist-accent);
+    box-shadow: none;
+    background: var(--ist-bg);
+}
+.public-app--istanatopup .public-calculator__field input[type="range"] {
+    accent-color: var(--ist-accent);
+}
+.public-app--istanatopup .public-calculator__actions {
+    gap: 10px;
+    margin-top: 16px;
+}
+.public-app--istanatopup .public-calculator__button {
+    height: 44px;
+    border-radius: 10px;
+    background: var(--ist-accent);
+    color: #fff;
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13.5px;
+    font-weight: 800;
+}
+.public-app--istanatopup .public-calculator__button--ghost {
+    border: 1px solid var(--ist-border);
+    background: var(--ist-surface-alt);
+    color: var(--ist-text);
+}
+.public-app--istanatopup .public-calculator__result {
+    margin-top: 16px;
+    border: 1px dashed var(--ist-border);
+    border-radius: 12px;
+    background: var(--ist-surface-alt);
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+}
+.public-app--istanatopup .public-calculator__result strong,
+.public-app--istanatopup .public-calculator__range-meta strong {
+    color: var(--ist-accent);
+}
+.public-app--istanatopup .public-calculator__range-meta {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px dashed var(--ist-border);
+    border-radius: 12px;
+    background: var(--ist-surface-alt);
+}
+.public-app--istanatopup .public-calculator__range-meta p {
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-calculator {
+        padding-top: 24px;
+    }
+    .public-app--istanatopup .public-calculator .public-shell {
+        width: calc(100% - 32px);
+    }
+    .public-app--istanatopup .public-calculator__wrap {
+        width: 100%;
+    }
+    .public-app--istanatopup .public-calculator__nav {
+        overflow-x: auto;
+        padding-bottom: 3px;
+        scrollbar-width: none;
+    }
+    .public-app--istanatopup .public-calculator__nav::-webkit-scrollbar {
+        display: none;
+    }
+    .public-app--istanatopup .public-calculator__nav-item {
+        flex: 0 0 auto;
+        padding: 9px 16px;
+    }
+    .public-app--istanatopup .public-calculator__header h1 {
+        font-size: 22px;
+    }
+    .public-app--istanatopup .public-calculator__panel {
+        padding: 16px;
+    }
+    .public-app--istanatopup .public-calculator__actions {
+        grid-template-columns: 1fr;
+    }
+}
