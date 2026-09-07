@@ -26,6 +26,31 @@
         background: #1e1e1e;
     }
 
+    .auth-register-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 22px;
+        padding: 4px;
+        border-radius: 11px;
+        background: #262626;
+    }
+
+    .auth-register-tab {
+        flex: 1;
+        padding: 9px 0;
+        border-radius: 8px;
+        color: #9c9c9c;
+        font-size: 13.5px;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .auth-register-tab:hover,
+    .auth-register-tab.is-active {
+        background: #f97316;
+        color: #fff;
+    }
+
     .auth-register-form-column > div > div:first-child {
         margin-bottom: 22px;
     }
@@ -185,6 +210,10 @@
 
     <div class="auth-register-form-column flex min-h-screen w-full flex-col items-center justify-start gap-5 px-4 pb-8 pt-20 sm:pb-10 sm:pt-24 md:justify-center md:gap-7 md:px-12 md:py-14 lg:gap-8 lg:px-20 lg:py-20">
         <div class="mx-auto w-full max-w-md space-y-4 sm:space-y-5 md:space-y-6 lg:mx-0">
+            <nav class="auth-register-tabs" aria-label="Autentikasi">
+                <a class="auth-register-tab" href="{{ route('login') }}">Masuk</a>
+                <a class="auth-register-tab is-active" href="{{ route('register') }}" aria-current="page">Daftar</a>
+            </nav>
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Daftar</h1>
                 <p class="auth-register-copy mt-2 text-sm">Masukkan informasi pendaftaran yang valid.</p>
