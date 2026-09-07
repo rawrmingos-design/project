@@ -23,6 +23,20 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
             <section className="public-article-page public-article-page--index">
+                <div className="public-shell public-article-index-header">
+                    <header className="public-article-index-header__copy">
+                        <h1>Artikel Terbaru &amp; Berita Game</h1>
+                        <p>Panduan lengkap, berita promo, update top-up, dan info event dari dunia game yang kamu mainkan.</p>
+                    </header>
+                    <nav className="public-article-index-header__filters" aria-label="Kategori artikel">
+                        <button type="button" className="is-active" aria-current="page">Semua</button>
+                        <button type="button">Mobile Legends</button>
+                        <button type="button">Free Fire</button>
+                        <button type="button">Panduan</button>
+                        <button type="button">Promo</button>
+                    </nav>
+                </div>
+
                 {featured ? (
                     <div className="public-article-hero" style={{ backgroundImage: `url('${featured.thumbnail}')` }}>
                         <div className="public-article-hero__overlay" />
