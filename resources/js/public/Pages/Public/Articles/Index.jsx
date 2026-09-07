@@ -37,6 +37,15 @@ function articleCategory(article) {
     return 'Artikel Game';
 }
 
+function paginationPages(currentPage, lastPage) {
+    if (lastPage <= 5) {
+        return Array.from({ length: lastPage }, (_, index) => index + 1);
+    }
+
+    const start = Math.max(1, Math.min(currentPage - 1, lastPage - 2));
+    return [start, start + 1, start + 2];
+}
+
 export default function ArticlesIndex({ meta, featured, articles = [], pagination }) {
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -119,25 +128,35 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                     )}
 
                     {pagination?.lastPage > 1 ? (
-                        <div className="public-article-pagination">
+                        <nav className="public-article-pagination" aria-label="Pagination artikel">
                             <Link
                                 href={pagination.prevPageUrl || '#'}
-                                className={`public-article-pagination__button ${pagination.prevPageUrl ? '' : 'is-disabled'}`}
+                                className={`public-article-pagination__button public-article-pagination__arrow ${pagination.prevPageUrl ? '' : 'is-disabled'}`}
+                                aria-label="Halaman sebelumnya"
                                 preserveScroll
                             >
-                                Sebelumnya
+                                &lsaquo;
                             </Link>
-                            <span>
-                                Halaman {pagination.currentPage} dari {pagination.lastPage}
-                            </span>
+                            {paginationPages(pagination.currentPage, pagination.lastPage).map((page) => (
+                                <Link
+                                    key={page}
+                                    href={pagination.pageUrls?.[page] || `?page=${page}`}
+                                    className={`public-article-pagination__button public-article-pagination__page ${page === pagination.currentPage ? 'is-active' : ''}`}
+                                    aria-current={page === pagination.currentPage ? 'page' : undefined}
+                                    preserveScroll
+                                >
+                                    {page}
+                                </Link>
+                            ))}
                             <Link
                                 href={pagination.nextPageUrl || '#'}
-                                className={`public-article-pagination__button ${pagination.nextPageUrl ? '' : 'is-disabled'}`}
+                                className={`public-article-pagination__button public-article-pagination__arrow ${pagination.nextPageUrl ? '' : 'is-disabled'}`}
+                                aria-label="Halaman berikutnya"
                                 preserveScroll
                             >
-                                Berikutnya
+                                &rsaquo;
                             </Link>
-                        </div>
+                        </nav>
                     ) : null}
                 </div>
             </section>
