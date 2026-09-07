@@ -139,6 +139,7 @@ class ArticlePageController extends Controller
             'views' => (int) ($article->views ?? 0),
             'publishedAt' => optional($article->created_at)?->toDateString(),
             'publishedAtLabel' => optional($article->created_at)?->format('d M Y'),
+            'updatedAtLabel' => optional($article->updated_at)?->format('d F Y'),
             'publishedAgo' => optional($article->created_at)?->diffForHumans(),
             'excerpt' => (string) $excerpt,
             'metaDescription' => $withMetaDescription ? $metaDescription : null,

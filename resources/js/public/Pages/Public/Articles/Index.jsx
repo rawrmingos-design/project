@@ -54,9 +54,9 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                             </h2>
                             <p>{featured.metaDescription || featured.excerpt}</p>
                             <div className="public-article-hero__meta">
-                                <span>Admin</span>
-                                <span>&middot;</span>
-                                <span>{featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
+                                <span>Ditulis oleh Tim Editorial IstanaTopup</span>
+                                <span>Ditinjau oleh Tim Operasional IstanaTopup</span>
+                                <span>Diperbarui: {featured.updatedAtLabel || featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
                             </div>
                         </div>
                     </article>
