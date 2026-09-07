@@ -24,12 +24,18 @@ class LoginController extends Controller
         $this->rememberLoginRedirect($request);
         $captchaRuntime = $this->getAuthCaptchaRuntime();
 
-        return view('template.login', [
+        $props = [
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-            'captchaRuntime' => $captchaRuntime,
+            'captchaRuntime' => array_intersect_key($captchaRuntime, array_flip(['enabled', 'bypass', 'sitekey', 'is_active'])),
             'googleClientId' => $this->resolveGoogleClientId(),
-        ]);
+        ];
+
+        if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
+            return Inertia::render('Public/Auth/Login', $props);
+        }
+
+        return view('template.login', $props);
     }
 
     public function store(Request $request)

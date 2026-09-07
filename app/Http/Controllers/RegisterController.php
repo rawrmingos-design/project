@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
 use App\Support\WhatsappNumberNormalizer;
+use Inertia\Inertia;
 
 class RegisterController extends Controller
 {
@@ -22,12 +23,18 @@ class RegisterController extends Controller
     {
         $captchaRuntime = $this->getAuthCaptchaRuntime();
 
-        return view('template.register', [
+        $props = [
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-            'captchaRuntime' => $captchaRuntime,
+            'captchaRuntime' => array_intersect_key($captchaRuntime, array_flip(['enabled', 'bypass', 'sitekey', 'is_active'])),
             'googleClientId' => $this->resolveGoogleClientId(),
-        ]);
+        ];
+
+        if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
+            return Inertia::render('Public/Auth/Register', $props);
+        }
+
+        return view('template.register', $props);
     }
 
     public function store(Request $request)
