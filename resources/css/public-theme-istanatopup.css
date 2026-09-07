@@ -2418,3 +2418,27 @@
         min-height: 36px;
     }
 }
+
+
+/* Editorial metadata parity for article detail */
+.public-app--istanatopup .public-article-page--show .public-article-detail-card__meta,
+.public-app--istanatopup .public-article-page--show .public-article-modern__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 11px;
+    line-height: 1.4;
+}
+.public-app--istanatopup .public-article-page--show .public-article-modern__meta {
+    width: fit-content;
+    padding: 10px 14px;
+}
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-article-page--show .public-article-detail-card__meta,
+    .public-app--istanatopup .public-article-page--show .public-article-modern__meta {
+        font-size: 10.5px;
+    }
+}

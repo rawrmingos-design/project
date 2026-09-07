@@ -14,9 +14,8 @@ const shareIcons = {
 function ArticleMeta({ article, modern = false }) {
     return (
         <div className={`public-article-detail-card__meta${modern ? ' public-article-modern__meta' : ''}`}>
-            <span>{article.publishedAtLabel}</span>
-            <span>{article.views} {modern ? 'Reads' : 'Views'}</span>
-            <span>Admin</span>
+            <span>Ditulis oleh Tim Editorial IstanaTopup</span>
+            <span>Diperbarui: {article.updatedAtLabel || article.publishedAtLabel}</span>
         </div>
     );
 }
