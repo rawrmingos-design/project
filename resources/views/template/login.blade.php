@@ -45,10 +45,14 @@
         text-align: center;
     }
 
-    .auth-login-tab:hover,
     .auth-login-tab.is-active {
         background: #f97316;
         color: #fff;
+    }
+
+    .auth-login-tab:hover:not(.is-active) {
+        background: #2f2f2f;
+        color: #f5f5f5;
     }
 
     .auth-login-form-column > div > div:first-child {
@@ -228,7 +232,7 @@
             </nav>
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Masuk</h1>
-                <p class="auth-login-copy mt-2 text-sm">Masuk dengan akun yang telah Kamu daftarkan.</p>
+                <p class="auth-login-copy mt-2 text-sm">Masuk dengan akun yang telah kamu daftarkan.</p>
             </div>
 
             @if(session('error') || $errors->has('error'))
@@ -304,9 +308,9 @@
                 <div class="flex items-center justify-between text-sm">
                     <label for="remember-me" class="auth-login-copy flex cursor-pointer items-center gap-2 text-xs">
                         <input type="checkbox" class="h-4 w-4 rounded border border-murky-600 bg-murky-700 text-primary-500 focus:ring-primary-500" id="remember-me" name="rememberMe" />
-                        Ingat akun ku
+                        Ingat saya
                     </label>
-                    <a class="auth-login-link text-xs font-medium" href="{{ route('forgot') }}">Lupa kata sandi mu?</a>
+                    <a class="auth-login-link text-xs font-medium" href="{{ route('forgot') }}">Lupa password?</a>
                 </div>
 
                 @if($isLoginCaptchaEnabled)
@@ -335,7 +339,7 @@
                 </div>
 
                 <div class="relative flex justify-center text-sm">
-                    <span class="auth-login-copy text-sm">Belum memiliki akun?</span>
+                    <span class="auth-login-copy text-sm">Belum punya akun?</span>
                 </div>
 
                 <a class="auth-login-register inline-flex h-9 w-full items-center justify-center rounded-lg bg-transparent px-4 py-2 text-sm font-medium" href="{{ route('register') }}" style="outline: none;">
