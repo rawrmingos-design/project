@@ -68,7 +68,6 @@
         color: #9c9c9c;
     }
 
-    .auth-register-form-column > div > div:last-child,
     .auth-register-page > div:last-child {
         display: none;
     }
@@ -203,6 +202,7 @@
 @endsection
 
 @section('content')
+@include('../navbar')
 <div class="auth-register-page relative flex min-h-screen text-white">
     <div class="absolute left-4 top-4 z-40">
         <a class="auth-register-close inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors" href="{{ route('home') }}" style="outline: none;" aria-label="Kembali ke beranda">
@@ -387,6 +387,7 @@
         <img alt="{{ $config->judul_web }}" src="{{ URL::asset('assets/image/register.jpg') }}" loading="lazy" decoding="async" class="h-screen w-full object-cover object-center" />
     </div>
 </div>
+@include('../footer')
 
 @push('custom_script')
 @if(filled($googleClientId))
