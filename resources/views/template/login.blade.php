@@ -3,7 +3,7 @@
 @section('custom_style')
 <style>
     .auth-login-page {
-        min-height: calc(100vh - 108px);
+        min-height: 100vh;
         align-items: flex-start;
         justify-content: center;
         background: #121212;
@@ -12,7 +12,7 @@
 
     .auth-login-form-column {
         width: min(100%, 430px);
-        min-height: calc(100vh - 108px);
+        min-height: 100vh;
         justify-content: center;
         padding: 44px 18px 24px;
     }
