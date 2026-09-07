@@ -1948,6 +1948,80 @@
     color: #fff;
 }
 
+/* ---------- Article featured card: reference parity ---------- */
+.public-app--istanatopup .public-article-page--index .public-article-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    width: min(calc(100% - 32px), 1200px);
+    min-height: 240px;
+    margin: 0 auto 22px;
+    overflow: hidden;
+    border: 1px solid var(--ist-border);
+    border-radius: 16px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__thumb {
+    position: relative;
+    display: grid;
+    min-width: 0;
+    min-height: 240px;
+    place-items: center;
+    overflow: hidden;
+    background: var(--ist-surface-alt);
+    color: var(--ist-muted);
+    font-size: 11px;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__overlay { display: none; }
+.public-app--istanatopup .public-article-page--index .public-article-hero__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    padding: 24px 26px;
+    background: var(--ist-surface);
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__tag {
+    width: fit-content;
+    color: var(--ist-accent);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2,
+.public-app--istanatopup .public-article-page--index .public-article-hero__content h2 a {
+    margin: 8px 0;
+    color: var(--ist-text);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__content p {
+    margin: 0;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 13px;
+    line-height: 1.55;
+}
+.public-app--istanatopup .public-article-page--index .public-article-hero__meta {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    color: var(--ist-muted);
+    font-family: var(--public-font-family), system-ui, sans-serif !important;
+    font-size: 11px;
+}
+
 /* ---------- Article index: mobile-first reference parity ---------- */
 .public-app--istanatopup .public-article-page--index {
     padding: 24px 0 10px;
@@ -2089,17 +2163,18 @@
     .public-app--istanatopup .public-article-page--index .public-article-hero {
         display: block;
         width: calc(100% - 32px);
-        background-size: 100% auto;
-        background-position: center top;
-        padding-top: 56.25%;
+    }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__thumb {
+        min-height: 0;
+        aspect-ratio: 16 / 8.5;
     }
     .public-app--istanatopup .public-article-page--index .public-article-hero__overlay { display: none; }
     .public-app--istanatopup .public-article-page--index .public-article-hero__content {
         display: block;
         padding: 18px 15px 16px;
     }
-    .public-app--istanatopup .public-article-page--index .public-article-hero__content h1,
-    .public-app--istanatopup .public-article-page--index .public-article-hero__content h1 a { font-size: 18px; }
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content h2,
+    .public-app--istanatopup .public-article-page--index .public-article-hero__content h2 a { font-size: 18px; }
     .public-app--istanatopup .public-article-page--index .public-article-section { width: calc(100% - 32px); }
     .public-app--istanatopup .public-article-page--index .public-article-grid { grid-template-columns: 1fr; gap: 14px; }
     .public-app--istanatopup .public-article-page--index .public-article-pagination { gap: 8px; font-size: 12px; }
