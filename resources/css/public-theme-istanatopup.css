@@ -2046,8 +2046,8 @@
     position: static;
     grid-column: 1;
     grid-row: 1;
-    min-height: 240px;
-    background: linear-gradient(90deg, rgba(30, 30, 30, 0) 55%, var(--ist-surface) 100%);
+    min-height: 0;
+    background: transparent;
 }
 .public-app--istanatopup .public-article-page--index .public-article-hero__content {
     grid-column: 2;
