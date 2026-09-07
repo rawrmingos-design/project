@@ -3,7 +3,7 @@
 @section('custom_style')
 <style>
     .auth-register-page {
-        min-height: 100vh;
+        min-height: calc(100vh - 108px);
         align-items: flex-start;
         justify-content: center;
         background: #121212;
@@ -12,7 +12,7 @@
 
     .auth-register-form-column {
         width: min(100%, 430px);
-        min-height: 100vh;
+        min-height: calc(100vh - 108px);
         justify-content: center;
         padding: 44px 18px 24px;
     }
