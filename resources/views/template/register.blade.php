@@ -45,10 +45,14 @@
         text-align: center;
     }
 
-    .auth-register-tab:hover,
     .auth-register-tab.is-active {
         background: #f97316;
         color: #fff;
+    }
+
+    .auth-register-tab:hover:not(.is-active) {
+        background: #2f2f2f;
+        color: #f5f5f5;
     }
 
     .auth-register-form-column > div > div:first-child {
