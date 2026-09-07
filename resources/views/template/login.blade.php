@@ -3,17 +3,45 @@
 @section('custom_style')
 <style>
     .auth-login-page {
-        background: #18181b;
+        min-height: 100vh;
+        align-items: flex-start;
+        justify-content: center;
+        background: #121212;
+        color: #f5f5f5;
     }
 
     .auth-login-form-column {
-        width: 100%;
+        width: min(100%, 430px);
+        min-height: 100vh;
+        justify-content: center;
+        padding: 44px 18px 24px;
     }
 
-    @media (min-width: 768px) {
-        .auth-login-form-column {
-            width: 550px;
-        }
+    .auth-login-form-column > div {
+        width: 100%;
+        max-width: 430px;
+        padding: 26px 26px 24px;
+        border: 1px solid #2f2f2f;
+        border-radius: 16px;
+        background: #1e1e1e;
+    }
+
+    .auth-login-form-column > div > div:first-child {
+        margin-bottom: 22px;
+    }
+
+    .auth-login-form-column h1 {
+        font-size: 24px;
+        line-height: 1.2;
+    }
+
+    .auth-login-form-column .auth-login-copy {
+        color: #9c9c9c;
+    }
+
+    .auth-login-form-column > div > div:last-child,
+    .auth-login-page > div:last-child {
+        display: none;
     }
 
     .auth-login-close {
@@ -26,12 +54,12 @@
     }
 
     .auth-login-input {
-        height: 2.25rem;
-        border-radius: 0.55rem;
+        height: 44px;
+        border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: #383838;
         color: #fafaf9;
-        font-size: 0.78rem;
+        font-size: 13.5px;
     }
 
     .auth-login-input::placeholder {
