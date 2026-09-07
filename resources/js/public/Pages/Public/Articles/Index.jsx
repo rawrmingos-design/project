@@ -38,20 +38,28 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                 </div>
 
                 {featured ? (
-                    <div className="public-article-hero" style={{ backgroundImage: `url('${featured.thumbnail}')` }}>
+                    <article className="public-article-hero">
+                        <div className="public-article-hero__thumb">
+                            {featured.thumbnail ? (
+                                <img src={featured.thumbnail} alt="" />
+                            ) : (
+                                <span>thumbnail artikel</span>
+                            )}
+                        </div>
                         <div className="public-article-hero__overlay" />
                         <div className="public-shell public-article-hero__content">
-                            <span className="public-article-hero__tag">Featured News</span>
-                            <h1>
+                            <span className="public-article-hero__tag">{featured.title.toLowerCase().includes('free fire') ? 'Free Fire' : 'Artikel Pilihan'}</span>
+                            <h2>
                                 <Link href={`/id/artikel/${featured.slug}`}>{featured.title}</Link>
-                            </h1>
-                            <div className="public-article-hero__meta">
-                                <span>{featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
-                                <span>{featured.views} Views</span>
-                            </div>
+                            </h2>
                             <p>{featured.metaDescription || featured.excerpt}</p>
+                            <div className="public-article-hero__meta">
+                                <span>Admin</span>
+                                <span>&middot;</span>
+                                <span>{featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
+                            </div>
                         </div>
-                    </div>
+                    </article>
                 ) : (
                     <div className="public-shell public-article-empty-hero">
                         <h1>Berita &amp; Artikel</h1>
