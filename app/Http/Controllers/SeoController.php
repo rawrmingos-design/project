@@ -33,6 +33,19 @@ class SeoController extends Controller
             'Disallow: /wejizy',
             'Disallow: /cronjob',
             'Disallow: /ipay88',
+            'Disallow: /id/sign-in',
+            'Disallow: /id/sign-up',
+            'Disallow: /id/forgot-password',
+            'Disallow: /id/reset-password',
+            'Disallow: /id/dashboard',
+            'Disallow: /id/settings',
+            'Disallow: /id/deposit',
+            'Disallow: /id/affiliate',
+            'Disallow: /id/withdrawal',
+            'Disallow: /id/invoices',
+            'Disallow: /id/track',
+            'Disallow: /id/search',
+            'Disallow: /id/reseller',
         ];
 
         $customLines = preg_split('/\R+/', (string) $settings['robots_custom_lines']) ?: [];
@@ -123,11 +136,14 @@ class SeoController extends Controller
 
             $pushUrl($this->publicUrl('/id'), now(), 'hourly', '1.0');
             $pushUrl($this->publicUrl('/id/price-list'), now(), 'daily', '0.8');
-            $pushUrl($this->publicUrl('/id/invoices'), now(), 'daily', '0.6');
             $pushUrl($this->publicUrl('/id/reviews'), now(), 'weekly', '0.6');
             $pushUrl($this->publicUrl('/id/terms-and-condition'), now(), 'monthly', '0.4');
             $pushUrl($this->publicUrl('/id/privacy-policy'), now(), 'monthly', '0.4');
             $pushUrl($this->publicUrl('/id/artikel'), now(), 'daily', '0.7');
+            $pushUrl($this->publicUrl('/id/calculator/winrate'), now(), 'monthly', '0.6');
+            $pushUrl($this->publicUrl('/id/calculator/magic-wheel'), now(), 'monthly', '0.6');
+            $pushUrl($this->publicUrl('/id/calculator/zodiac'), now(), 'monthly', '0.6');
+            $pushUrl($this->publicUrl('/id/leaderboard'), now(), 'daily', '0.6');
 
             if ($settings['sitemap_include_articles']) {
                 Artikel::query()
