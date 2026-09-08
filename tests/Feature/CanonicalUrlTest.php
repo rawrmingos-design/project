@@ -62,9 +62,10 @@ class CanonicalUrlTest extends TestCase
         $this->seedPublicSettings('bangjeff');
 
         $content = $this->get('https://www.istanatopup.test/id')->assertOk()->getContent();
+        $decodedContent = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $this->assertStringContainsString('https://istanatopup.test/id/search/products?q={search_term_string}', $content);
-        $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $content);
+        $this->assertStringContainsString('https://istanatopup.test/id/search/products?q={search_term_string}', $decodedContent);
+        $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $decodedContent);
         $this->assertStringContainsString('<meta name="robots" content="index,follow', $content);
 
         preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
