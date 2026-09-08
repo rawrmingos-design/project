@@ -72,6 +72,11 @@ class ArticlePageController extends Controller
                 'keywords' => 'berita game, artikel game, tips game, mobile legends update, free fire event',
                 'canonical' => url('/id/artikel'),
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
+                'schemaMarkup' => $seoMetadataService->collectionSchema(
+                    'Berita & Artikel Game Terbaru',
+                    url('/id/artikel'),
+                    url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
+                ),
             ], $request),
         ]);
     }
@@ -120,8 +125,15 @@ class ArticlePageController extends Controller
                 'keywords' => (string) ($article->keywords ?? ''),
                 'canonical' => url("/id/artikel/{$article->slug}"),
                 'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
-            ]),
-        ]);
+                                'schemaMarkup' => $seoMetadataService->articleSchema([
+                                    'title' => (string) $article->title,
+                                    'description' => (string) ($article->meta_description ?? Str::limit(strip_tags((string) $article->content), 150)),
+                                    'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
+                                    'datePublished' => optional($article->created_at)?->toAtomString(),
+                                    'dateModified' => optional($article->updated_at)?->toAtomString(),
+                                ], url("/id/artikel/{$article->slug}"), (string) $settings->judul_web),
+                            ]),
+                        ]);
     }
 
     private function mapArticle(
