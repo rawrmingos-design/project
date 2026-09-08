@@ -8,6 +8,7 @@ use App\Http\Controllers\Concerns\HandlesLoginRedirect;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\SeoMetadataService;
 use App\Models\Berita;
 use App\Models\SettingWeb;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +20,7 @@ class LoginController extends Controller
     use ResolvesAuthCaptchaRuntime;
     use HandlesLoginRedirect;
 
-    public function create(Request $request)
+    public function create(Request $request, SeoMetadataService $seoMetadataService)
     {
         $this->rememberLoginRedirect($request);
         $captchaRuntime = $this->getAuthCaptchaRuntime();
@@ -29,6 +30,9 @@ class LoginController extends Controller
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'captchaRuntime' => array_intersect_key($captchaRuntime, array_flip(['enabled', 'bypass', 'sitekey', 'is_active'])),
             'googleClientId' => $this->resolveGoogleClientId(),
+            'meta' => $seoMetadataService->privatePage([
+                'title' => 'Masuk - ' . (string) SettingWeb::query()->value('judul_web'),
+            ], $request),
         ];
 
         if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
