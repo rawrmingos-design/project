@@ -23,7 +23,12 @@ final class SeoMetadataService
         $settings = $this->siteConfigService->getSettings();
         $description = HtmlSanitizer::toPlainText((string) ($settings->deskripsi_web ?? ''), 180);
         $image = $this->siteConfigService->normalizeAssetPath($settings->logo_favicon ?? null);
-        $canonical = CanonicalUrl::normalize($overrides['canonical'] ?? ($request?->url() ?? url()->current()));
+        $canonicalSource = $overrides['canonical'] ?? ($request?->url() ?? url()->current());
+        $canonical = CanonicalUrl::normalize($canonicalSource);
+        $page = (int) (($request?->query('page')) ?? 0);
+        if ($page > 1 && ! str_contains($canonical, '?')) {
+            $canonical .= '?page=' . $page;
+        }
 
         return array_filter([
             'title' => trim((string) ($overrides['title'] ?? $settings->judul_web ?? config('app.name'))),

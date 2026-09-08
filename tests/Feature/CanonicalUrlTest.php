@@ -89,6 +89,30 @@ class CanonicalUrlTest extends TestCase
         $this->assertContains('WebPage', $types);
     }
 
+    public function test_article_page_two_keeps_page_query_in_canonical_and_collection_schema(): void
+    {
+        $this->withoutVite();
+        $this->seedPublicSettings('bangjeff');
+
+        $content = $this->get('https://www.istanatopup.test/id/artikel?page=2&utm_source=test')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(
+            '<link rel="canonical" href="https://istanatopup.test/id/artikel?page=2">',
+            $content
+        );
+        $decodedContent = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->assertStringNotContainsString(
+            'canonical" href="https://istanatopup.test/id/artikel?page=2&utm_source=test',
+            $decodedContent
+        );
+        $this->assertStringContainsString(
+            '"url":"https://istanatopup.test/id/artikel?page=2"',
+            html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8')
+        );
+    }
+
     private function seedPublicSettings(string $theme): void
     {
         SettingWeb::create([
