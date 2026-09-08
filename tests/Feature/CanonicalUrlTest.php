@@ -107,10 +107,20 @@ class CanonicalUrlTest extends TestCase
             'canonical" href="https://istanatopup.test/id/artikel?page=2&utm_source=test',
             $decodedContent
         );
-        $this->assertStringContainsString(
-            '"url":"https://istanatopup.test/id/artikel?page=2"',
-            html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8')
-        );
+        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
+        $collectionPages = [];
+        foreach ($matches[1] as $schema) {
+            $decoded = json_decode(trim($schema), true);
+            $items = is_array($decoded) && array_is_list($decoded) ? $decoded : [$decoded];
+            foreach ($items as $item) {
+                if (($item['@type'] ?? null) === 'CollectionPage') {
+                    $collectionPages[] = $item;
+                }
+            }
+        }
+
+        $this->assertNotEmpty($collectionPages);
+        $this->assertSame('https://istanatopup.test/id/artikel?page=2', $collectionPages[0]['url']);
     }
 
     private function seedPublicSettings(string $theme): void
