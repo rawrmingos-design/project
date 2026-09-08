@@ -50,7 +50,11 @@ class OrderPageController extends Controller
                 'keywords' => "topup {$category['name']}, beli {$category['name']}, top up {$category['name']} murah, agen {$category['name']}, {$settings->judul_web}",
                 'canonical' => url("/id/{$category['slug']}"),
                 'image' => url($category['thumbnail']),
-                'schemaMarkup' => $category['schemaMarkup'],
+                'schemaMarkup' => $category['schemaMarkup'] ?: $seoMetadataService->collectionSchema(
+                    $title,
+                    url("/id/{$category['slug']}"),
+                    url($category['thumbnail']),
+                ),
             ]),
         ]));
     }
