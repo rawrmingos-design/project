@@ -4,7 +4,7 @@ namespace Tests\Unit;
 
 use App\Support\SeoRoutePolicy;
 use Illuminate\Http\Request;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class SeoRoutePolicyTest extends TestCase
 {
