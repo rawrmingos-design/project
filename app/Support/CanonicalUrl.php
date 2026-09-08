@@ -33,7 +33,13 @@ class CanonicalUrl
         }
 
         $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $query = '';
+        parse_str((string) ($parts['query'] ?? ''), $queryParams);
+        $page = filter_var($queryParams['page'] ?? null, FILTER_VALIDATE_INT);
+        if ($page !== false && $page !== null && $page > 1) {
+            $query = '?page=' . $page;
+        }
 
-        return 'https://' . $host . $port . $path;
+        return 'https://' . $host . $port . $path . $query;
     }
 }

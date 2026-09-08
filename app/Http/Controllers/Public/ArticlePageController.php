@@ -40,6 +40,7 @@ class ArticlePageController extends Controller
         });
 
         $page = max(1, (int) $request->query('page', 1));
+        $canonical = url('/id/artikel') . ($page > 1 ? '?page=' . $page : '');
 
         $paginator = Cache::remember("public:articles:index:page:{$page}:v{$cacheVersion}", $ttl, function () use ($featured, $page) {
             return Artikel::query()
@@ -70,11 +71,11 @@ class ArticlePageController extends Controller
                 'title' => 'Berita & Artikel Game Terbaru',
                 'description' => 'Baca berita dan artikel terbaru seputar game, tips & trik, dan update event mobile legends, free fire, pubg, dan lainnya.',
                 'keywords' => 'berita game, artikel game, tips game, mobile legends update, free fire event',
-                'canonical' => url('/id/artikel'),
+                'canonical' => $canonical,
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
                 'schemaMarkup' => $seoMetadataService->collectionSchema(
                     'Berita & Artikel Game Terbaru',
-                    url('/id/artikel'),
+                    $canonical,
                     url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
                 ),
             ], $request),
