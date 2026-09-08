@@ -107,6 +107,7 @@ final class SeoMetadataService
 
     public function articleSchema(array $article, string $canonical, string $siteName, ?string $logo = null): array
     {
+        $canonical = CanonicalUrl::normalize($canonical);
         $settings = $this->siteConfigService->getSettings();
         $logo ??= url($this->siteConfigService->normalizeAssetPath($settings->logo_header ?? null));
         $articleSchema = array_filter([
@@ -137,6 +138,8 @@ final class SeoMetadataService
 
     public function collectionSchema(string $name, string $canonical, ?string $image = null): array
     {
+        $canonical = CanonicalUrl::normalize($canonical);
+
         return [
             array_filter([
                 '@context' => 'https://schema.org',
