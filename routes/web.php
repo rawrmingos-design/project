@@ -294,11 +294,13 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
     Route::get('/account-deletion',                                              [PublicLegalPageController::class, 'accountDeletion'])->name('account.deletion');
     Route::get('/policy',                                                        [PublicLegalPageController::class, 'privacy'])->name('privacy');
     Route::get('/affiliate/program-terms',                                       [PublicLegalPageController::class, 'affiliateProgramTerms'])->name('affiliate.program.terms');
-    Route::get('/sign-in',                                                       [LoginController::class, 'create'])->name('login');
-    Route::post('/sign-in',                                                      [LoginController::class, 'store'])->name('post.login')->middleware('throttle:public-login');
-    Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
-    Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
-    Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
+    Route::middleware('guest')->group(function () {
+        Route::get('/sign-in',                                                       [LoginController::class, 'create'])->name('login');
+        Route::post('/sign-in',                                                      [LoginController::class, 'store'])->name('post.login')->middleware('throttle:public-login');
+        Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
+        Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
+        Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
+    });
     Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->middleware('throttle:public-api-expensive-read')->name('reviews');
     Route::get('/forgot-password',                                         [PublicInformationalPageController::class, 'forgotPassword'])->name('forgot');
 });
