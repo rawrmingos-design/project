@@ -14,7 +14,7 @@
         $ogTitle = trim((string) ($meta['ogTitle'] ?? $title));
         $ogDescription = trim((string) ($meta['ogDescription'] ?? $description));
         $ogUrl = \App\Support\CanonicalUrl::normalize($meta['ogUrl'] ?? $canonical);
-        $robots = trim((string) ($meta['robots'] ?? 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1'));
+        $robots = trim((string) ($meta['robots'] ?? $seoDefaults['robots'] ?? \App\Support\SeoRoutePolicy::robots()));
         $themeColor = trim((string) ($siteConfig['colors']['accent'] ?? '#fb923c'));
 
         $rawImage = trim((string) ($meta['image'] ?? $seoDefaults['image'] ?? $siteConfig['favicon'] ?? ''));

@@ -60,7 +60,7 @@ export default function SeoHead({ meta = {} }) {
         keywords: meta.keywords || seoDefaults.keywords || siteConfig.keywords || '',
         canonical: canonicalUrl(meta.canonical || seoDefaults.canonical),
         image: absoluteUrl(meta.image || seoDefaults.image || siteConfig.favicon),
-        robots: meta.robots || 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
+        robots: meta.robots || seoDefaults.robots || 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1',
         author: meta.author || siteConfig.name || '',
         ogTitle: meta.ogTitle || meta.title || seoDefaults.title || siteConfig.name || '',
         ogDescription: meta.ogDescription || meta.description || seoDefaults.description || siteConfig.description || '',
