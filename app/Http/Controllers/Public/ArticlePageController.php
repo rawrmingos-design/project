@@ -7,6 +7,7 @@ use App\Http\Controllers\ArtikelController as LegacyArtikelController;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Services\PublicSiteConfigService;
+use App\Services\SeoMetadataService;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,6 +20,7 @@ class ArticlePageController extends Controller
     public function index(
         Request $request,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyArtikelController $legacyArtikelController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -64,19 +66,20 @@ class ArticlePageController extends Controller
                 'prevPageUrl' => $paginator->previousPageUrl(),
                 'nextPageUrl' => $paginator->nextPageUrl(),
             ],
-            'meta' => [
+            'meta' => $seoMetadataService->page([
                 'title' => 'Berita & Artikel Game Terbaru',
                 'description' => 'Baca berita dan artikel terbaru seputar game, tips & trik, dan update event mobile legends, free fire, pubg, dan lainnya.',
                 'keywords' => 'berita game, artikel game, tips game, mobile legends update, free fire event',
                 'canonical' => url('/id/artikel'),
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
-            ],
+            ], $request),
         ]);
     }
 
     public function show(
         string $slug,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyArtikelController $legacyArtikelController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -111,13 +114,13 @@ class ArticlePageController extends Controller
         return Inertia::render('Public/Articles/Show', [
             'article' => $this->mapArticle($article, $siteConfigService, true, true),
             'recentArticles' => $recentArticles,
-            'meta' => [
+            'meta' => $seoMetadataService->article([
                 'title' => (string) $article->title,
                 'description' => (string) ($article->meta_description ?? Str::limit(strip_tags((string) $article->content), 150)),
                 'keywords' => (string) ($article->keywords ?? ''),
                 'canonical' => url("/id/artikel/{$article->slug}"),
                 'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
-            ],
+            ]),
         ]);
     }
 
