@@ -69,6 +69,8 @@ export default function SeoHead({ meta = {} }) {
         imageAlt: meta.imageAlt || meta.title || siteConfig.name || '',
     };
     const schemaJson = useMemo(() => {
+        if (resolved.robots.startsWith('noindex')) return null;
+
         const provided = serializeSchema(meta.schemaMarkup || seoDefaults.schemaMarkup);
         if (provided) return provided;
 
