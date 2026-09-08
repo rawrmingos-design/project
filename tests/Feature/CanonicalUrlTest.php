@@ -70,10 +70,21 @@ class CanonicalUrlTest extends TestCase
         preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
         $this->assertNotEmpty($matches[1]);
 
+        $types = [];
         foreach ($matches[1] as $schema) {
-            $this->assertNotNull(json_decode(trim($schema), true));
+            $decoded = json_decode(trim($schema), true);
+            $this->assertNotNull($decoded);
             $this->assertSame(JSON_ERROR_NONE, json_last_error());
+            foreach ((array) $decoded as $item) {
+                if (isset($item['@type'])) {
+                    $types[] = $item['@type'];
+                }
+            }
         }
+
+        $this->assertContains('WebSite', $types);
+        $this->assertContains('Organization', $types);
+        $this->assertContains('WebPage', $types);
     }
 
     private function seedPublicSettings(string $theme): void

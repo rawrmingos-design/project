@@ -62,6 +62,36 @@ class ArticleLayoutParityTest extends TestCase
             );
     }
 
+    public function test_article_page_renders_valid_article_and_breadcrumb_schema(): void
+    {
+        $article = $this->createArticle([
+            'slug' => 'schema-article',
+            'title' => 'Schema Article',
+            'meta_description' => 'Deskripsi schema article.',
+            'created_at' => now()->subDay(),
+            'updated_at' => now(),
+        ]);
+
+        $content = $this->get("/id/artikel/{$article->slug}")
+            ->assertOk()
+            ->getContent();
+
+        preg_match_all('/<script type="application\\/ld\\+json">(.*?)<\\/script>/s', $content, $matches);
+        $types = [];
+        foreach ($matches[1] ?? [] as $schema) {
+            $decoded = json_decode(trim($schema), true);
+            $this->assertSame(JSON_ERROR_NONE, json_last_error());
+            foreach ((array) $decoded as $item) {
+                if (isset($item['@type'])) {
+                    $types[] = $item['@type'];
+                }
+            }
+        }
+
+        $this->assertContains('Article', $types);
+        $this->assertContains('BreadcrumbList', $types);
+    }
+
     public function test_unknown_layout_and_malformed_colors_use_safe_fallback_props(): void
     {
         $article = $this->createArticle([
