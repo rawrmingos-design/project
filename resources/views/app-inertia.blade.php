@@ -43,7 +43,7 @@
             }
         }
 
-        if ($schemaJson === null) {
+        if ($schemaJson === null && !\Illuminate\Support\Str::startsWith($robots, 'noindex')) {
             $siteName = trim((string) ($siteConfig['name'] ?? config('app.name')));
             $siteUrl = \App\Support\CanonicalUrl::normalize(url('/id'));
             $orgLogo = $ogImage !== '' ? $ogImage : null;
