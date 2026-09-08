@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\HtmlSanitizer;
 use App\Models\SettingWeb;
 use App\Support\PublicThemeRegistry;
+use App\Support\SeoRoutePolicy;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -134,6 +135,7 @@ class PublicSiteConfigService
                 'keywords' => $settings->keywords,
                 'canonical' => \App\Support\CanonicalUrl::normalize(url()->current()),
                 'image' => $favicon['path'],
+                'robots' => SeoRoutePolicy::robots(),
             ],
         ];
     }
