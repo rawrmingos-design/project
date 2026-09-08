@@ -7,6 +7,7 @@ use App\Http\Controllers\OrderController as LegacyOrderController;
 use App\Models\Kategori;
 use App\Services\PublicOrderPageDataService;
 use App\Services\PublicSiteConfigService;
+use App\Services\SeoMetadataService;
 use App\Support\PublicThemeRegistry;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,6 +18,7 @@ class OrderPageController extends Controller
         Kategori $kategori,
         PublicOrderPageDataService $orderPageDataService,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyOrderController $legacyOrderController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -42,14 +44,14 @@ class OrderPageController extends Controller
             : "Top up {$category['name']} termurah dan terpercaya di {$settings->judul_web}. Proses instan, layanan 24 jam.";
 
         return Inertia::render('Public/Order', array_merge($data, [
-            'meta' => [
+            'meta' => $seoMetadataService->category([
                 'title' => $title,
                 'description' => $description,
                 'keywords' => "topup {$category['name']}, beli {$category['name']}, top up {$category['name']} murah, agen {$category['name']}, {$settings->judul_web}",
                 'canonical' => url("/id/{$category['slug']}"),
                 'image' => url($category['thumbnail']),
                 'schemaMarkup' => $category['schemaMarkup'],
-            ],
+            ]),
         ]));
     }
 }
