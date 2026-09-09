@@ -8,6 +8,16 @@ function formatCurrency(value) {
 export default function ProductCard({ item, compact = false, onClick = null, isActive = false, variant = 'default', showPrice = true }) {
     const { theme } = usePage().props;
     const activeThemeKey = theme?.key || 'default';
+    const trackProductSelection = () => {
+        if (typeof window !== 'undefined') {
+            window.pushDataLayerEvent?.('select_product', {
+                product_id: item.id,
+                product_name: item.name,
+                product_slug: item.slug,
+                category_name: item.subtitle || undefined,
+            });
+        }
+    };
 
     if (variant === 'poster') {
         const posterBody = (
@@ -29,14 +39,14 @@ export default function ProductCard({ item, compact = false, onClick = null, isA
 
         if (onClick) {
             return (
-                <button type="button" className={`product-card product-card--poster ${isActive ? 'is-active' : ''}`} onClick={onClick}>
+                <button type="button" className={`product-card product-card--poster ${isActive ? 'is-active' : ''}`} onClick={() => { trackProductSelection(); onClick(); }}>
                     {posterBody}
                 </button>
             );
         }
 
         return (
-            <Link href={`/id/${item.slug}`} className="product-card product-card--poster">
+            <Link href={`/id/${item.slug}`} className="product-card product-card--poster" onClick={trackProductSelection}>
                 {posterBody}
             </Link>
         );

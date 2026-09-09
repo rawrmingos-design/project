@@ -88,6 +88,15 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
     }, [flashsaleDeadline]);
 
     useEffect(() => {
+        if (typeof window !== 'undefined' && typeof window.pushDataLayerEvent === 'function') {
+            window.pushDataLayerEvent('view_home', {
+                page_type: 'home',
+                theme: activeThemeKey,
+            }, { dedupeKey: `view_home:${activeThemeKey}` });
+        }
+    }, [activeThemeKey]);
+
+    useEffect(() => {
         if (!categoryTabs.length) {
             return;
         }
@@ -289,7 +298,14 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     aria-selected={index === activeCategoryTab}
                                     aria-controls={`category-panel-${group.id}`}
                                     role="tab"
-                                    onClick={() => setActiveCategoryTab(index)}
+                                    onClick={() => {
+                                        setActiveCategoryTab(index);
+                                        window.pushDataLayerEvent?.('select_category', {
+                                            category_id: group.id,
+                                            category_name: group.name,
+                                            category_position: index + 1,
+                                        });
+                                    }}
                                 >
                                     {group.name}
                                 </button>
