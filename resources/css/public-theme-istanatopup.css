@@ -69,6 +69,85 @@
     }
 }
 
+/* ---------- P1 homepage trust and payment methods ---------- */
+.public-app--istanatopup .ist-trust-section {
+    padding: 14px 18px;
+}
+
+.public-app--istanatopup .ist-trust-grid,
+.public-app--istanatopup .ist-payment-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.public-app--istanatopup .ist-trust-item,
+.public-app--istanatopup .ist-payment-card {
+    min-width: 0;
+    border: 1px solid var(--ist-border);
+    border-radius: 14px;
+    background: var(--ist-surface-alt);
+}
+
+.public-app--istanatopup .ist-trust-item {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+}
+
+.public-app--istanatopup .ist-trust-item strong {
+    color: var(--ist-text);
+    font-size: 0.88rem;
+}
+
+.public-app--istanatopup .ist-trust-item span {
+    color: var(--ist-muted);
+    font-size: 0.75rem;
+    line-height: 1.35;
+}
+
+.public-app--istanatopup .ist-payment-section {
+    padding-bottom: 20px;
+}
+
+.public-app--istanatopup .ist-payment-grid {
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+
+.public-app--istanatopup .ist-payment-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 58px;
+    padding: 10px 12px;
+}
+
+.public-app--istanatopup .ist-payment-card img {
+    width: 42px;
+    height: 30px;
+    flex: 0 0 42px;
+    object-fit: contain;
+}
+
+.public-app--istanatopup .ist-payment-card span {
+    min-width: 0;
+    color: var(--ist-text-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+    .public-app--istanatopup .ist-trust-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .public-app--istanatopup .ist-trust-item {
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        align-items: center;
+    }
+}
+
 /* ---------- Mockup homepage: site intro + horizontal game cards ---------- */
 .public-app--istanatopup .ist-site-intro {
     text-align: center;

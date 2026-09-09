@@ -96,7 +96,7 @@ export default function LiveSalesToast({ enabled = true, fallbackImage = '/asset
     return (
         <aside className={`live-sales-toast ${isVisible ? 'live-sales-toast--visible' : 'live-sales-toast--hidden'}`} aria-live="polite">
             <div className="live-sales-toast__media">
-                <img src={activeImage} alt={activeAlt} loading="lazy" />
+                <img src={activeImage} alt={activeAlt} loading="lazy" onError={(event) => { event.currentTarget.src = safeFallbackImage; }} />
                 <span className="live-sales-toast__check" aria-hidden="true">✓</span>
             </div>
             <div className="live-sales-toast__content">
