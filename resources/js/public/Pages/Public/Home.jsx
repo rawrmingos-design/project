@@ -46,7 +46,7 @@ function formatArticleDate(value) {
     }).format(date).replace(/\//g, '.');
 }
 
-export default function Home({ meta, banners, popup, featuredCategories, categoryTabs, flashsale, articles, paymentMethods }) {
+export default function Home({ meta, banners, popup, featuredCategories, categoryTabs, flashsale, articles }) {
     const { featureFlags, siteConfig, theme } = usePage().props;
     const [activeCategoryTab, setActiveCategoryTab] = useState(0);
     const activeThemeKey = theme?.key || 'default';
@@ -362,35 +362,6 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </div>
                 </section>
 
-                {activeThemeKey === 'istanatopup' && paymentMethods.length ? (
-                    <section className="public-section public-section--storefront ist-payment-section" aria-label="Metode pembayaran">
-                        <div className="storefront-heading">
-                            <div>
-                                <h2 className="storefront-heading__title">METODE PEMBAYARAN</h2>
-                                <p className="storefront-heading__subtitle">Pilih metode pembayaran yang tersedia saat checkout.</p>
-                            </div>
-                        </div>
-                        <div className="ist-payment-marquee" tabIndex="0" aria-label="Daftar metode pembayaran">
-                            <div className="ist-payment-marquee__track">
-                                {[0, 1].map((groupIndex) => (
-                                    <div className="ist-payment-marquee__group" key={`payment-group-${groupIndex}`} aria-hidden={groupIndex === 1}>
-                                        {paymentMethods.map((method, index) => (
-                                            <div key={`${method.id || method.code}-${groupIndex}-${index}`} className="ist-payment-card">
-                                                <img
-                                                    src={method.image || '/assets/logo/favicon.webp'}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
-                                                />
-                                                <span>{method.name}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                ) : null}
             </div>
 
             <HomepagePopup popup={popup} enabled={featureFlags?.homePopupEnabled} />
