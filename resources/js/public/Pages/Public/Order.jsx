@@ -1546,6 +1546,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
         setPaymentStepInteracted(true);
         setSelectedMethodCode(method.code);
+        window.pushDataLayerEvent?.('payment_method_selected', {
+            payment_method: method.code,
+            payment_method_name: method.name,
+            category_slug: category.slug,
+        });
     };
     const openBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(true);
     const closeBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(false);
@@ -2205,6 +2210,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
             if (payload?.status?.code === 200) {
                 setNickname(payload.data.username);
                 setMessage({ type: 'success', text: `Akun ditemukan: ${payload.data.username}` });
+                window.pushDataLayerEvent?.('check_id_success', {
+                    category_slug: category.slug,
+                    validation_type: 'game_account',
+                });
                 return;
             }
 
@@ -2214,8 +2223,18 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
 
             setMessage({ type: 'error', text: payload?.status?.message || 'Akun tidak ditemukan.' });
+            window.pushDataLayerEvent?.('check_id_failed', {
+                category_slug: category.slug,
+                validation_type: 'game_account',
+                reason: 'account_not_found',
+            });
         } catch (error) {
             setMessage({ type: 'error', text: 'Gagal melakukan validasi akun.' });
+            window.pushDataLayerEvent?.('check_id_failed', {
+                category_slug: category.slug,
+                validation_type: 'game_account',
+                reason: 'request_error',
+            });
         } finally {
             setCheckLoading(false);
         }
