@@ -1348,6 +1348,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const paymentAutoScrollDoneRef = useRef(false);
 
     const isBangjeff = theme?.key === 'bangjeff';
+    const isBangjeffOrderStyle = isBangjeff || theme?.key === 'istanatopup';
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
         if (packages.length) {
@@ -3570,7 +3571,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
     return (
         <PublicLayout
             meta={meta}
-            mainClassName={isBangjeff ? 'public-main--hero-bleed public-main--order-bangjeff' : ''}
+            mainClassName={isBangjeffOrderStyle ? 'public-main--hero-bleed public-main--order-bangjeff' : ''}
+            rootClassName={isBangjeffOrderStyle ? 'public-app--bangjeff public-app--order-bangjeff' : ''}
         >
             <BangjeffLoginRequiredModal open={showLoginRequiredModal} onClose={closeBangjeffLoginRequiredModal} />
             <BangjeffSupportModal
@@ -3609,7 +3611,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                     { label: 'Total', value: displaySummaryTotal },
                 ]}
             />
-            {isBangjeff ? bangjeffLayout : legacyLayout}
+            {isBangjeffOrderStyle ? bangjeffLayout : legacyLayout}
         </PublicLayout>
     );
 }

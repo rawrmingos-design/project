@@ -8,7 +8,7 @@ import SeoHead from '../Components/SeoHead';
 import '../../../css/public-app.css';
 import '../../../css/public-theme-istanatopup.css';
 
-export default function PublicLayout({ children, meta = {}, mainClassName = '' }) {
+export default function PublicLayout({ children, meta = {}, mainClassName = '', rootClassName = '' }) {
     const { siteConfig, theme, featureFlags } = usePage().props;
     const activeTheme = resolveTheme(theme?.key);
     // Theme tokens are defaults; setting_webs colors remain the runtime source of truth.
@@ -39,7 +39,7 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '' }
     return (
         <>
             <SeoHead meta={meta} />
-            <div className={`public-app public-app--${theme?.key || 'default'}`} style={themeStyle}>
+            <div className={`public-app public-app--${theme?.key || 'default'} ${rootClassName}`.trim()} style={themeStyle}>
                 <Navbar />
                 <main className={`public-main ${mainClassName}`.trim()}>{children}</main>
                 <Footer />

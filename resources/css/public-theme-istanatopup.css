@@ -2937,3 +2937,20 @@
         min-height: min(720px, calc(100vh - 108px));
     }
 }
+
+/* Order page follows the BangJeff layout with IstanaTopup typography. */
+.public-app--istanatopup.public-app--order-bangjeff,
+.public-app--istanatopup.public-app--order-bangjeff * {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+
+.public-app--istanatopup.public-app--order-bangjeff .public-navbar__link,
+.public-app--istanatopup.public-app--order-bangjeff .public-navbar__text-link,
+.public-app--istanatopup.public-app--order-bangjeff .public-search input,
+.public-app--istanatopup.public-app--order-bangjeff .order-page,
+.public-app--istanatopup.public-app--order-bangjeff .order-page button,
+.public-app--istanatopup.public-app--order-bangjeff .order-page input,
+.public-app--istanatopup.public-app--order-bangjeff .order-page select,
+.public-app--istanatopup.public-app--order-bangjeff .order-page textarea {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
+}
