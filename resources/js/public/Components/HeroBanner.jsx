@@ -100,6 +100,7 @@ export default function HeroBanner({ banners = [] }) {
                                         alt={banner.title || `Banner ${index + 1}`}
                                         loading={index === 0 ? 'eager' : 'lazy'}
                                         decoding={index === 0 ? 'sync' : 'async'}
+                                        fetchPriority={index === 0 ? 'high' : 'auto'}
                                         onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
                                     />
                                 </a>
@@ -110,6 +111,7 @@ export default function HeroBanner({ banners = [] }) {
                                     alt={banner.title || `Banner ${index + 1}`}
                                     loading={index === 0 ? 'eager' : 'lazy'}
                                     decoding={index === 0 ? 'sync' : 'async'}
+                                    fetchPriority={index === 0 ? 'high' : 'auto'}
                                     onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
                                 />
                             )}
