@@ -286,6 +286,9 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     key={group.id}
                                     type="button"
                                     className={index === activeCategoryTab ? 'is-active' : ''}
+                                    aria-selected={index === activeCategoryTab}
+                                    aria-controls={`category-panel-${group.id}`}
+                                    role="tab"
                                     onClick={() => setActiveCategoryTab(index)}
                                 >
                                     {group.name}
@@ -297,12 +300,16 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     {categoryTabs.length ? (
                         <div className="category-tabs category-tabs--storefront">
                             {activeGroup ? (
-                                <div className="category-tabs__group">
-                                    <div className="product-grid product-grid--storefront product-grid--poster-storefront">
-                                        {activeGroup.items.map((item) => (
-                                            <ProductCard key={item.id} item={item} variant="poster" showPrice={false} />
-                                        ))}
-                                    </div>
+                                <div className="category-tabs__group" id={`category-panel-${activeGroup.id}`} role="tabpanel" aria-label={activeGroup.name}>
+                                    {activeGroup.items.length ? (
+                                        <div className="product-grid product-grid--storefront product-grid--poster-storefront">
+                                            {activeGroup.items.map((item) => (
+                                                <ProductCard key={item.id} item={item} variant="poster" showPrice={false} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="empty-card">Belum ada produk di kategori ini.</div>
+                                    )}
                                 </div>
                             ) : null}
                         </div>
@@ -348,26 +355,30 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </div>
 
                     <div className="article-rail article-rail--bangjeff-news">
-                        <div className="article-grid article-grid--journal article-grid--bangjeff-news">
-                            {articleItems.map((article) => (
-                                <article key={article.id} className="article-card article-card--journal">
-                                    <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
-                                        <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
-                                        <div className="article-card__overlay">
-                                            <strong>{article.title}</strong>
+                        {articleItems.length ? (
+                            <div className="article-grid article-grid--journal article-grid--bangjeff-news">
+                                {articleItems.map((article) => (
+                                    <article key={article.id} className="article-card article-card--journal">
+                                        <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
+                                            <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
+                                            <div className="article-card__overlay">
+                                                <strong>{article.title}</strong>
+                                            </div>
+                                        </Link>
+                                        <div className="article-card__body article-card__body--journal">
+                                            <span className="ist-article__category">Artikel</span>
+                                            <h3>{article.title}</h3>
+                                            {article.excerpt ? <p>{article.excerpt}</p> : null}
+                                            <div className="ist-article__date">
+                                                Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
+                                            </div>
                                         </div>
-                                    </Link>
-                                    <div className="article-card__body article-card__body--journal">
-                                        <span className="ist-article__category">Artikel</span>
-                                        <h3>{article.title}</h3>
-                                        {article.excerpt ? <p>{article.excerpt}</p> : null}
-                                        <div className="ist-article__date">
-                                            Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
-                                        </div>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="empty-card">Belum ada artikel terbaru.</div>
+                        )}
                     </div>
 
                     <div className="journal-actions">

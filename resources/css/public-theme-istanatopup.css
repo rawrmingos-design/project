@@ -69,6 +69,37 @@
     }
 }
 
+/* ---------- P2 accessibility and empty states ---------- */
+.public-app--istanatopup :where(a, button, input, select):focus-visible {
+    outline: 3px solid var(--ist-highlight, #FB923C);
+    outline-offset: 3px;
+}
+
+.public-app--istanatopup .storefront-tabs__nav button[aria-selected="true"] {
+    box-shadow: 0 0 0 2px var(--ist-highlight, #FB923C);
+}
+
+.public-app--istanatopup .empty-card {
+    color: var(--ist-muted);
+    text-align: center;
+}
+
+@media (max-width: 640px) {
+    .public-app--istanatopup .public-shell,
+    .public-app--istanatopup .public-section,
+    .public-app--istanatopup .article-rail,
+    .public-app--istanatopup .category-tabs__group {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .public-app--istanatopup .article-card,
+    .public-app--istanatopup .ist-hcard,
+    .public-app--istanatopup .ist-payment-card {
+        min-width: 0;
+    }
+}
+
 /* ---------- P1 homepage trust and payment methods ---------- */
 .public-app--istanatopup .ist-trust-section {
     padding: 14px 18px;
