@@ -150,8 +150,34 @@
     padding-bottom: 20px;
 }
 
-.public-app--istanatopup .ist-payment-grid {
-    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+.public-app--istanatopup .ist-payment-marquee {
+    overflow: hidden;
+    width: 100%;
+    border-radius: 14px;
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+}
+
+.public-app--istanatopup .ist-payment-marquee__track {
+    display: flex;
+    width: max-content;
+    gap: 12px;
+    animation: ist-payment-marquee 24s linear infinite;
+}
+
+.public-app--istanatopup .ist-payment-marquee:hover .ist-payment-marquee__track,
+.public-app--istanatopup .ist-payment-marquee:focus-within .ist-payment-marquee__track {
+    animation-play-state: paused;
+}
+
+@keyframes ist-payment-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-50% - 6px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .public-app--istanatopup .ist-payment-marquee__track {
+        animation: none;
+    }
 }
 
 .public-app--istanatopup .ist-payment-card {

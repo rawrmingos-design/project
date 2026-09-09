@@ -318,30 +318,6 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     )}
                 </section>
 
-                {activeThemeKey === 'istanatopup' && paymentMethods.length ? (
-                    <section className="public-section public-section--storefront ist-payment-section" aria-label="Metode pembayaran">
-                        <div className="storefront-heading">
-                            <div>
-                                <h2 className="storefront-heading__title">METODE PEMBAYARAN</h2>
-                                <p className="storefront-heading__subtitle">Pilih metode pembayaran yang tersedia saat checkout.</p>
-                            </div>
-                        </div>
-                        <div className="ist-payment-grid">
-                            {paymentMethods.map((method) => (
-                                <div key={method.id || method.code} className="ist-payment-card">
-                                    <img
-                                        src={method.image || '/assets/logo/favicon.webp'}
-                                        alt={method.name}
-                                        loading="lazy"
-                                        onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
-                                    />
-                                    <span>{method.name}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                ) : null}
-
                 <section className="public-section public-section--journal">
                     <div className="journal-heading journal-heading--bangjeff">
                         <div className="journal-heading__copy">
@@ -385,6 +361,32 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         <Link href="/id/artikel" className="journal-actions__button">Lihat Semua Artikel</Link>
                     </div>
                 </section>
+
+                {activeThemeKey === 'istanatopup' && paymentMethods.length ? (
+                    <section className="public-section public-section--storefront ist-payment-section" aria-label="Metode pembayaran">
+                        <div className="storefront-heading">
+                            <div>
+                                <h2 className="storefront-heading__title">METODE PEMBAYARAN</h2>
+                                <p className="storefront-heading__subtitle">Pilih metode pembayaran yang tersedia saat checkout.</p>
+                            </div>
+                        </div>
+                        <div className="ist-payment-marquee" tabIndex="0" aria-label="Daftar metode pembayaran">
+                            <div className="ist-payment-marquee__track">
+                                {[...paymentMethods, ...paymentMethods].map((method, index) => (
+                                    <div key={`${method.id || method.code}-${index}`} className="ist-payment-card">
+                                        <img
+                                            src={method.image || '/assets/logo/favicon.webp'}
+                                            alt=""
+                                            loading="lazy"
+                                            onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
+                                        />
+                                        <span>{method.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
             </div>
 
             <HomepagePopup popup={popup} enabled={featureFlags?.homePopupEnabled} />
