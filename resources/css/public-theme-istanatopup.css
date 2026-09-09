@@ -10,6 +10,7 @@
    ============================================================ */
 
 .public-app--istanatopup {
+    overflow-x: hidden;
     --ist-bg: #121212;
     --ist-surface: #1a1a1a;
     --ist-surface-alt: #1f1f1f;
