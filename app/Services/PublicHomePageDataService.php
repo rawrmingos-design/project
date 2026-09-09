@@ -56,6 +56,22 @@ class PublicHomePageDataService
         return (string) ($berita->judul ?? $berita->kategori ?? $berita->tipe ?? $fallback);
     }
 
+    private function bannerCtaUrl(?string $description): ?string
+    {
+        $text = trim(strip_tags((string) $description));
+
+        if (preg_match("~(?:(?:https?://)|(?:wa\\.me/)|(?:www\\.))[^\\s<>\"]+~i", $text, $matches) !== 1) {
+            return null;
+        }
+
+        $url = rtrim($matches[0], '.,;');
+        if (! str_starts_with(strtolower($url), 'http')) {
+            $url = 'https://' . $url;
+        }
+
+        return app(PublicSiteConfigService::class)->normalizeExternalUrl($url);
+    }
+
     public function getData(): array
     {
         $ttl = 300;
@@ -89,6 +105,7 @@ class PublicHomePageDataService
                 'id' => $banner->id,
                 'title' => $this->beritaTitle($banner, 'Promo Top Up'),
                 'description' => $banner->deskripsi,
+                'ctaUrl' => $this->bannerCtaUrl($banner->deskripsi),
                 'image' => $this->beritaImage($banner),
                 'category' => $banner->kategori ?? $banner->tipe,
             ])
@@ -106,6 +123,11 @@ class PublicHomePageDataService
             ->first($this->beritaSelectableColumns(['judul', 'deskripsi', 'images', 'path', 'tipe']));
 
         if (! $popup) {
+            return null;
+        }
+
+        $description = (string) ($popup->deskripsi ?? '');
+        if (app()->environment('production') && preg_match('/website demo|sandbox transaction|transaksi real/i', strip_tags($description)) === 1) {
             return null;
         }
 

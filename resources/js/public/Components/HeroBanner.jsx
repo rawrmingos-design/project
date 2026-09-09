@@ -92,13 +92,27 @@ export default function HeroBanner({ banners = [] }) {
                 >
                     {safeBanners.map((banner, index) => (
                         <SwiperSlide key={banner.id ?? index}>
-                            <img
-                                className="hero-swiper-react__image"
-                                src={banner.image}
-                                alt={banner.title || `Banner ${index + 1}`}
-                                loading={index === 0 ? 'eager' : 'lazy'}
-                                decoding={index === 0 ? 'sync' : 'async'}
-                            />
+                            {banner.ctaUrl ? (
+                                <a href={banner.ctaUrl} target="_blank" rel="noopener noreferrer" aria-label={banner.title || `Buka banner ${index + 1}`}>
+                                    <img
+                                        className="hero-swiper-react__image"
+                                        src={banner.image}
+                                        alt={banner.title || `Banner ${index + 1}`}
+                                        loading={index === 0 ? 'eager' : 'lazy'}
+                                        decoding={index === 0 ? 'sync' : 'async'}
+                                        onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
+                                    />
+                                </a>
+                            ) : (
+                                <img
+                                    className="hero-swiper-react__image"
+                                    src={banner.image}
+                                    alt={banner.title || `Banner ${index + 1}`}
+                                    loading={index === 0 ? 'eager' : 'lazy'}
+                                    decoding={index === 0 ? 'sync' : 'async'}
+                                    onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
+                                />
+                            )}
                         </SwiperSlide>
                     ))}
                 </Swiper>
