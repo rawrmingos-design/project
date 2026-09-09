@@ -8784,8 +8784,13 @@ textarea {
         font-size: 0.86rem;
     }
 
+    .hero-storefront__section {
+        overflow-x: hidden;
+    }
+
     .hero-storefront__bleed {
         width: calc(100% + 16px);
+        max-width: calc(100vw + 16px);
         margin-left: -8px;
         margin-right: -8px;
     }
