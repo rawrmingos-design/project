@@ -2954,3 +2954,15 @@
 .public-app--istanatopup.public-app--order-bangjeff .order-page textarea {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif !important;
 }
+
+@media (max-width: 640px) {
+    .public-app--istanatopup.public-app--order-bangjeff .inline-actions--bangjeff-account {
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .public-app--istanatopup.public-app--order-bangjeff .inline-actions--bangjeff-account > .public-button,
+    .public-app--istanatopup.public-app--order-bangjeff .inline-actions--bangjeff-account > .account-pill {
+        margin-top: 4px;
+    }
+}
