@@ -58,13 +58,16 @@ class PublicHomePageDataService
 
     private function bannerCtaUrl(?string $description): ?string
     {
-        $text = trim(strip_tags((string) $description));
+        $text = html_entity_decode((string) $description, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = trim(strip_tags($text));
+        $text = preg_replace('/(?:<\\/?p\\s*>|<br\\s*\\/?\\s*>)/i', ' ', $text) ?? $text;
 
-        if (preg_match("~(?:(?:https?://)|(?:wa\\.me/)|(?:www\\.))[^\\s<>\"]+~i", $text, $matches) !== 1) {
+        if (preg_match("~(?:(?:https?://)|(?:wa\\.me/)|(?:www\\.))[^\\s<>\"']+~i", $text, $matches) !== 1) {
             return null;
         }
 
-        $url = rtrim($matches[0], '.,;');
+        $url = rtrim($matches[0], '.,;:!?)]}');
+        $url = preg_replace('/(?:<\\/?p>|&lt;\\/?p\\s*&gt;)$/i', '', $url) ?? $url;
         if (! str_starts_with(strtolower($url), 'http')) {
             $url = 'https://' . $url;
         }
