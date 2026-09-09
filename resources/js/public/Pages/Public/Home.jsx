@@ -189,6 +189,25 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </section>
                 ) : null}
 
+                {activeThemeKey === 'istanatopup' ? (
+                    <section className="public-section public-section--storefront ist-trust-section" aria-label="Keunggulan layanan">
+                        <div className="ist-trust-grid">
+                            <div className="ist-trust-item">
+                                <strong>Buka 24 Jam</strong>
+                                <span>Akses layanan kapan saja.</span>
+                            </div>
+                            <div className="ist-trust-item">
+                                <strong>Status Bisa Dilacak</strong>
+                                <span>Cek transaksi dari halaman status.</span>
+                            </div>
+                            <div className="ist-trust-item">
+                                <strong>Pembayaran Beragam</strong>
+                                <span>Pilih metode yang tersedia.</span>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+
                 <section className="public-section public-section--storefront public-section--popular">
                     <div className="storefront-heading">
                         <div>
@@ -210,7 +229,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         {featuredCategories.map((item) => (
                             <Link key={item.id} href={`/id/${item.slug}`} className="ist-hcard">
                                 <span className="ist-hcard__art">
-                                    <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                    <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                 </span>
                                 <span className="hc-txt">
                                     <b>{item.name}</b>
@@ -241,7 +260,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             {(categoryTabs[0]?.items ?? []).slice(0, 8).map((item) => (
                                 <Link key={`trend-${item.id}`} href={`/id/${item.slug}`} className="ist-hcard">
                                     <span className="ist-hcard__art">
-                                        <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                        <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                     </span>
                                     <span className="hc-txt">
                                         <b>{item.name}</b>
@@ -292,6 +311,30 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     )}
                 </section>
 
+                {activeThemeKey === 'istanatopup' && paymentMethods.length ? (
+                    <section className="public-section public-section--storefront ist-payment-section" aria-label="Metode pembayaran">
+                        <div className="storefront-heading">
+                            <div>
+                                <h2 className="storefront-heading__title">METODE PEMBAYARAN</h2>
+                                <p className="storefront-heading__subtitle">Pilih metode pembayaran yang tersedia saat checkout.</p>
+                            </div>
+                        </div>
+                        <div className="ist-payment-grid">
+                            {paymentMethods.map((method) => (
+                                <div key={method.id || method.code} className="ist-payment-card">
+                                    <img
+                                        src={method.image || '/assets/logo/favicon.webp'}
+                                        alt={method.name}
+                                        loading="lazy"
+                                        onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
+                                    />
+                                    <span>{method.name}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                ) : null}
+
                 <section className="public-section public-section--journal">
                     <div className="journal-heading journal-heading--bangjeff">
                         <div className="journal-heading__copy">
@@ -309,7 +352,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             {articleItems.map((article) => (
                                 <article key={article.id} className="article-card article-card--journal">
                                     <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
-                                        <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} />
+                                        <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                         <div className="article-card__overlay">
                                             <strong>{article.title}</strong>
                                         </div>
