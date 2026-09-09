@@ -1567,21 +1567,21 @@ export default function Order({ meta, category, products, packages, paymentMetho
             key: 'speed',
             label: 'Proses Cepat',
             icon: (
-                <img src="/assets/thumbnail/lightning.gif" alt="Proses cepat" />
+                <img src="/assets/icons/feature-fast-process.svg" alt="" width="28" height="28" />
             ),
         },
         {
             key: 'support',
             label: 'Layanan Chat 24/7',
             icon: (
-                <img src="/assets/thumbnail/contact-support.gif" alt="Layanan cepat" />
+                <img src="/assets/icons/feature-support.svg" alt="" width="28" height="28" />
             ),
         },
         {
             key: 'secure',
             label: 'Pembayaran Aman!',
             icon: (
-                <img src="/assets/thumbnail/secure.gif" alt="Pembayaran aman" />
+                <img src="/assets/icons/feature-secure-payment.svg" alt="" width="28" height="28" />
             ),
         },
     ]), []);
