@@ -153,7 +153,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
 
                                                 <div className="flashsale-card__summary">
                                                     <div className="flashsale-card__thumb flashsale-card__thumb--compact">
-                                                        <img src={item.productLogo || item.thumbnail} alt={item.title} />
+                                                        <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                                     </div>
 
                                                     <div className="flashsale-card__details">
@@ -194,11 +194,11 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         <div>
                             <h2 className="storefront-heading__title">
                                 <span className="storefront-heading__icon">✨</span>
-                                {activeThemeKey === 'istanatopup' ? 'FAVORIT' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
+                                {activeThemeKey === 'istanatopup' ? 'POPULER' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
                             </h2>
                             <p className="storefront-heading__subtitle">
                                 {activeThemeKey === 'istanatopup'
-                                    ? 'Berikut adalah beberapa produk yang terakhir kamu beli.'
+                                    ? 'Berikut adalah beberapa kategori yang populer saat ini.'
                                     : activeThemeKey === 'bangjeff'
                                         ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
                                         : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
@@ -227,7 +227,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             <div>
                                 <h2 className="storefront-heading__title">
                                     <span className="storefront-heading__icon">🔥</span>
-                                    TRENDING
+                                    PRODUK PILIHAN
                                 </h2>
                                 <p className="storefront-heading__subtitle">
                                     {activeThemeKey === 'istanatopup'
