@@ -176,7 +176,7 @@
     @inertiaHead
     @unless(app()->runningUnitTests())
         @viteReactRefresh
-        @vite(['resources/css/public-app.css', 'resources/js/public-app.jsx'])
+        @vite(['resources/js/public-app.jsx'])
     @endunless
 </head>
 <body>

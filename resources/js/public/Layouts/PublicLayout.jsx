@@ -5,6 +5,7 @@ import Footer from '../Components/Footer';
 import LiveSalesToast from '../Components/LiveSalesToast';
 import { resolveTheme } from '../themeRegistry';
 import SeoHead from '../Components/SeoHead';
+import '../../../css/public-app.css';
 import '../../../css/public-theme-istanatopup.css';
 
 export default function PublicLayout({ children, meta = {}, mainClassName = '' }) {
