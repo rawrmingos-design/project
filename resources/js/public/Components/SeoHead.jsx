@@ -128,7 +128,6 @@ export default function SeoHead({ meta = {} }) {
                 <>
                     <link rel="preconnect" href="https://fonts.googleapis.com" />
                     <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,800&display=swap" />
                 </>
             ) : null}
             {schemaJson ? <script type="application/ld+json">{schemaJson}</script> : null}
