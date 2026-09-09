@@ -2797,7 +2797,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             </div>
 
             {category.requiresGameValidation ? (
-                <div className={`inline-actions ${isBangjeff ? 'inline-actions--bangjeff-account' : ''}`}>
+                <div className={`inline-actions ${isBangjeffOrderStyle ? 'inline-actions--bangjeff-account' : ''}`}>
                     {isBangjeff ? (
                         uid ? (
                             accountLookup?.type === 'success' ? (
