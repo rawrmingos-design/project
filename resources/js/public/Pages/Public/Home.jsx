@@ -372,15 +372,19 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         </div>
                         <div className="ist-payment-marquee" tabIndex="0" aria-label="Daftar metode pembayaran">
                             <div className="ist-payment-marquee__track">
-                                {[...paymentMethods, ...paymentMethods].map((method, index) => (
-                                    <div key={`${method.id || method.code}-${index}`} className="ist-payment-card">
-                                        <img
-                                            src={method.image || '/assets/logo/favicon.webp'}
-                                            alt=""
-                                            loading="lazy"
-                                            onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
-                                        />
-                                        <span>{method.name}</span>
+                                {[0, 1].map((groupIndex) => (
+                                    <div className="ist-payment-marquee__group" key={`payment-group-${groupIndex}`} aria-hidden={groupIndex === 1}>
+                                        {paymentMethods.map((method, index) => (
+                                            <div key={`${method.id || method.code}-${groupIndex}-${index}`} className="ist-payment-card">
+                                                <img
+                                                    src={method.image || '/assets/logo/favicon.webp'}
+                                                    alt=""
+                                                    loading="lazy"
+                                                    onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }}
+                                                />
+                                                <span>{method.name}</span>
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                             </div>

@@ -160,10 +160,17 @@
 .public-app--istanatopup .ist-payment-marquee__track {
     display: flex;
     width: max-content;
-    align-items: center;
-    gap: 34px;
+    align-items: stretch;
+    gap: 0;
     animation: ist-payment-marquee 18s linear infinite;
     will-change: transform;
+}
+
+.public-app--istanatopup .ist-payment-marquee__group {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 34px;
 }
 
 .public-app--istanatopup .ist-payment-marquee:hover .ist-payment-marquee__track,
@@ -173,7 +180,7 @@
 
 @keyframes ist-payment-marquee {
     from { transform: translate3d(0, 0, 0); }
-    to { transform: translate3d(calc(-50% - 17px), 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
 }
 
 .public-app--istanatopup .ist-payment-marquee .ist-payment-card {
