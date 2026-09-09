@@ -88,6 +88,14 @@
     .public-app--istanatopup .public-shell,
     .public-app--istanatopup .public-section,
     .public-app--istanatopup .article-rail,
+    .public-app--istanatopup .category-tabs__group,
+    .public-app--istanatopup .flashsale-rail--marquee {
+        overflow-x: clip;
+    }
+
+    .public-app--istanatopup .public-shell,
+    .public-app--istanatopup .public-section,
+    .public-app--istanatopup .article-rail,
     .public-app--istanatopup .category-tabs__group {
         min-width: 0;
         max-width: 100%;
