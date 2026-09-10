@@ -2640,7 +2640,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const pointControlReady = Boolean(pointInfo);
     const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0 || priceLoading;
     const pointRedemptionPanel = pointControlAvailable ? (
-        <div className={`order-points ${isBangjeff ? 'order-points--bangjeff' : ''}`}>
+        <div className={`order-points ${isBangjeffOrderStyle ? 'order-points--bangjeff' : ''}`}>
             <div className="order-points__header">
                 <div>
                     <strong>Gunakan Points</strong>
@@ -2683,7 +2683,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [showSavedAccountQuickFill]);
 
     const renderComplexFields = (fields) => (
-        <div className={`form-grid ${isBangjeff ? 'form-grid--bangjeff-account' : ''}`}>
+        <div className={`form-grid ${isBangjeffOrderStyle ? 'form-grid--bangjeff-account' : ''}`}>
             {fields.map((field) => (
                 <label key={field.name} className="field">
                     <span>{field.label}</span>
@@ -2716,13 +2716,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     const renderStandardAccountFields = () => (
         <>
-            <div className={`form-grid ${isBangjeff ? 'form-grid--bangjeff-account' : ''}`}>
+            <div className={`form-grid ${isBangjeffOrderStyle ? 'form-grid--bangjeff-account' : ''}`}>
                 {category.requireUserId ? (
                     <label className="field">
                         <span>{category.customInputs.userId.label}</span>
                         <div className="order-account-draft-anchor" ref={savedAccountQuickFillRef}>
                             <input
-                                className={isBangjeff ? 'order-promo__input--bangjeff order-account-id-input--bangjeff' : undefined}
+                                className={isBangjeffOrderStyle ? 'order-promo__input--bangjeff order-account-id-input--bangjeff' : undefined}
                                 type={isBangjeff && category.customInputs.userId.type === 'number' ? 'text' : (category.customInputs.userId.type || 'text')}
                                 value={uid}
                                 inputMode={category.customInputs.userId.type === 'number' ? 'numeric' : undefined}
