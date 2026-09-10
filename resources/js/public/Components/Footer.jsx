@@ -164,7 +164,7 @@ export default function Footer() {
                 )}
             </div>
 
-            <footer className={`public-footer public-footer--storefront ${isIstanaTopup ? 'public-footer--istanatopup' : ''}`.trim()}>
+            <footer className="public-footer public-footer--storefront">
                 <div className="public-footer__inner public-footer__inner--storefront">
                     {!isIstanaTopup ? <FooterSeoDescription html={siteConfig.footerDescriptionHtml} /> : null}
 
