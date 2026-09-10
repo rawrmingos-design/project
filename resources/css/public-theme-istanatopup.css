@@ -2968,6 +2968,10 @@
 }
 
 /* Keep the order hero/banner aligned with the transaction body shell. */
+.public-app--istanatopup.public-app--order-bangjeff .order-page--bangjeff {
+    row-gap: 0;
+}
+
 .public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff {
     width: min(calc(100% - 32px), 1280px);
     max-width: 100%;
