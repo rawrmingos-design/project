@@ -3396,8 +3396,9 @@ export default function Order({ meta, category, products, packages, paymentMetho
     );
 
     const bangjeffLayout = (
-        <div
-            className="order-page order-page--bangjeff"
+        <div className="public-order-variant--bangjeff public-app--bangjeff">
+            <div
+                className="order-page order-page--bangjeff"
             data-auth-user-id={authUser?.id ?? ''}
             data-auth-role={authUser?.role ?? 'guest'}
             data-balance-payment-allowed={canUseBangjeffBalancePayment ? 'true' : 'false'}
@@ -3566,13 +3567,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
             </div>
         </div>
+        </div>
     );
 
     return (
         <PublicLayout
             meta={meta}
             mainClassName={isBangjeffOrderStyle ? 'public-main--hero-bleed public-main--order-bangjeff' : ''}
-            rootClassName={isBangjeffOrderStyle ? 'public-app--bangjeff public-app--order-bangjeff' : ''}
+            rootClassName={isBangjeffOrderStyle ? 'public-app--order-bangjeff' : ''}
         >
             <BangjeffLoginRequiredModal open={showLoginRequiredModal} onClose={closeBangjeffLoginRequiredModal} />
             <BangjeffSupportModal
