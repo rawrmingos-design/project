@@ -2967,6 +2967,13 @@
     }
 }
 
+/* Keep the order page on one outer shell; do not stack main + shell gutters. */
+.public-app--istanatopup.public-app--order-bangjeff .public-main--order-bangjeff {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+}
+
 /* Keep the order hero/banner aligned with the transaction body shell. */
 .public-app--istanatopup.public-app--order-bangjeff .order-page--bangjeff {
     row-gap: 0;
