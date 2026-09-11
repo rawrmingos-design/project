@@ -2974,27 +2974,16 @@
     margin-inline: 0;
 }
 
-/* Keep the order hero/banner aligned with the transaction body shell. */
+/* Keep the order page full-bleed; preserve only internal panel padding. */
 .public-app--istanatopup.public-app--order-bangjeff .order-page--bangjeff {
     row-gap: 0;
 }
 
-.public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff {
-    width: min(calc(100% - 32px), 1280px);
-    max-width: 100%;
-    margin-inline: auto;
-}
-
-@media (max-width: 960px) {
-    .public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff {
-        width: min(calc(100% - 24px), 1280px);
-    }
-}
-
-@media (max-width: 640px) {
-    .public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff {
-        width: calc(100% - 16px);
-    }
+.public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff,
+.public-app--istanatopup.public-app--order-bangjeff .order-page__body--bangjeff {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
 }
 
 /* Remove the duplicated titlebar wrapper inset; keep its internal content padding. */
