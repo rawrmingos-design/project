@@ -2991,3 +2991,9 @@
     width: 100% !important;
     margin-inline: 0 !important;
 }
+
+/* Remove the remaining top inset on the order page only. */
+.public-app--istanatopup.public-app--order-bangjeff .public-main--order-bangjeff {
+    padding-top: 0;
+    margin-top: 0;
+}
