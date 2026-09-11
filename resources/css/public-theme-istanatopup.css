@@ -2997,3 +2997,23 @@
     padding-top: 0;
     margin-top: 0;
 }
+
+/* Give transaction sections breathing room without changing the hero. */
+.public-app--istanatopup.public-app--order-bangjeff .order-page__body--bangjeff {
+    box-sizing: border-box;
+    padding-top: 24px;
+    padding-inline: 16px;
+}
+
+@media (max-width: 767px) {
+    .public-app--istanatopup.public-app--order-bangjeff .order-page__body--bangjeff {
+        padding-top: 16px;
+        padding-inline: 16px;
+    }
+}
+
+@media (max-width: 359px) {
+    .public-app--istanatopup.public-app--order-bangjeff .order-page__body--bangjeff {
+        padding-inline: 12px;
+    }
+}
