@@ -2996,3 +2996,9 @@
         width: calc(100% - 16px);
     }
 }
+
+/* Remove the duplicated titlebar wrapper inset; keep its internal content padding. */
+.public-app--istanatopup.public-app--order-bangjeff .order-hero--bangjeff .order-hero__titlebar-inner--bangjeff {
+    width: 100% !important;
+    margin-inline: 0 !important;
+}
