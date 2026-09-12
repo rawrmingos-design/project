@@ -104,33 +104,33 @@ export default function SeoHead({ meta = {} }) {
 
     return (
         <Head>
-            <title>{resolved.title}</title>
-            {resolved.description ? <meta name="description" content={resolved.description} /> : null}
-            {resolved.keywords ? <meta name="keywords" content={resolved.keywords} /> : null}
-            <meta name="author" content={resolved.author} />
-            <meta name="robots" content={resolved.robots} />
-            {resolved.canonical ? <link rel="canonical" href={resolved.canonical} /> : null}
-            <meta property="og:title" content={resolved.ogTitle} />
-            <meta property="og:description" content={resolved.ogDescription} />
-            <meta property="og:type" content={resolved.ogType} />
-            <meta property="og:locale" content="id_ID" />
-            <meta property="og:site_name" content={siteConfig.name || resolved.author} />
-            {resolved.canonical ? <meta property="og:url" content={resolved.canonical} /> : null}
-            {socialImage ? <meta property="og:image" content={socialImage} /> : null}
-            {socialImage ? <meta property="og:image:alt" content={resolved.imageAlt} /> : null}
-            <meta name="twitter:card" content={resolved.twitterCard} />
-            <meta name="twitter:title" content={resolved.ogTitle} />
-            <meta name="twitter:description" content={resolved.ogDescription} />
-            {socialImage ? <meta name="twitter:image" content={socialImage} /> : null}
-            {socialImage ? <meta name="twitter:image:alt" content={resolved.imageAlt} /> : null}
-            <meta name="theme-color" content={siteConfig.colors?.accent || '#F97316'} />
+            <title head-key="title">{resolved.title}</title>
+            {resolved.description ? <meta head-key="description" name="description" content={resolved.description} /> : null}
+            {resolved.keywords ? <meta head-key="keywords" name="keywords" content={resolved.keywords} /> : null}
+            <meta head-key="author" name="author" content={resolved.author} />
+            <meta head-key="robots" name="robots" content={resolved.robots} />
+            {resolved.canonical ? <link head-key="canonical" rel="canonical" href={resolved.canonical} /> : null}
+            <meta head-key="og:title" property="og:title" content={resolved.ogTitle} />
+            <meta head-key="og:description" property="og:description" content={resolved.ogDescription} />
+            <meta head-key="og:type" property="og:type" content={resolved.ogType} />
+            <meta head-key="og:locale" property="og:locale" content="id_ID" />
+            <meta head-key="og:site_name" property="og:site_name" content={siteConfig.name || resolved.author} />
+            {resolved.canonical ? <meta head-key="og:url" property="og:url" content={resolved.canonical} /> : null}
+            {socialImage ? <meta head-key="og:image" property="og:image" content={socialImage} /> : null}
+            {socialImage ? <meta head-key="og:image:alt" property="og:image:alt" content={resolved.imageAlt} /> : null}
+            <meta head-key="twitter:card" name="twitter:card" content={resolved.twitterCard} />
+            <meta head-key="twitter:title" name="twitter:title" content={resolved.ogTitle} />
+            <meta head-key="twitter:description" name="twitter:description" content={resolved.ogDescription} />
+            {socialImage ? <meta head-key="twitter:image" name="twitter:image" content={socialImage} /> : null}
+            {socialImage ? <meta head-key="twitter:image:alt" name="twitter:image:alt" content={resolved.imageAlt} /> : null}
+            <meta head-key="theme-color" name="theme-color" content={siteConfig.colors?.accent || '#F97316'} />
             {theme?.key === 'istanatopup' ? (
                 <>
                     <link rel="preconnect" href="https://fonts.googleapis.com" />
                     <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
                 </>
             ) : null}
-            {schemaJson ? <script type="application/ld+json">{schemaJson}</script> : null}
+            {schemaJson ? <script head-key="json-ld" type="application/ld+json">{schemaJson}</script> : null}
         </Head>
     );
 }
