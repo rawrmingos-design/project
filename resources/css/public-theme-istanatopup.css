@@ -3017,3 +3017,10 @@
         padding-inline: 12px;
     }
 }
+
+/* Merge the order detail/FAQ body into the IstanaTopup page background. */
+.public-app--istanatopup.public-app--order-bangjeff .order-bottom--bangjeff .order-panel--bangjeff,
+.public-app--istanatopup.public-app--order-bangjeff .order-bottom--bangjeff .order-panel__body--bangjeff {
+    background: var(--ist-bg);
+    background-image: none;
+}
