@@ -90,8 +90,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="theme-color" content="{{ $themeColor }}">
-    <meta name="robots" content="{{ $robots }}">
+    <meta data-inertia="theme-color" name="theme-color" content="{{ $themeColor }}">
+    <meta data-inertia="robots" name="robots" content="{{ $robots }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -102,31 +102,31 @@
     <meta name="format-detection" content="telephone=no">
 
     @if($description !== '')
-        <meta name="description" content="{{ $description }}">
+        <meta data-inertia="description" name="description" content="{{ $description }}">
     @endif
     @if($keywords !== '')
-        <meta name="keywords" content="{{ $keywords }}">
+        <meta data-inertia="keywords" name="keywords" content="{{ $keywords }}">
     @endif
 
     @if($title !== '')
-        <title inertia>{{ $title }}</title>
-        <meta property="og:title" content="{{ $ogTitle }}">
-        <meta name="twitter:title" content="{{ $ogTitle }}">
+        <title inertia data-inertia="title">{{ $title }}</title>
+        <meta data-inertia="og:title" property="og:title" content="{{ $ogTitle }}">
+        <meta data-inertia="twitter:title" name="twitter:title" content="{{ $ogTitle }}">
     @endif
     @if($ogDescription !== '')
-        <meta property="og:description" content="{{ $ogDescription }}">
-        <meta name="twitter:description" content="{{ $ogDescription }}">
+        <meta data-inertia="og:description" property="og:description" content="{{ $ogDescription }}">
+        <meta data-inertia="twitter:description" name="twitter:description" content="{{ $ogDescription }}">
     @endif
     @if($canonical !== '')
-        <link rel="canonical" href="{{ $canonical }}">
-        <meta property="og:url" content="{{ $ogUrl }}">
+        <link data-inertia="canonical" rel="canonical" href="{{ $canonical }}">
+        <meta data-inertia="og:url" property="og:url" content="{{ $ogUrl }}">
     @endif
     @if($ogImage !== '')
-        <meta property="og:image" content="{{ $ogImage }}">
-        <meta name="twitter:image" content="{{ $ogImage }}">
+        <meta data-inertia="og:image" property="og:image" content="{{ $ogImage }}">
+        <meta data-inertia="twitter:image" name="twitter:image" content="{{ $ogImage }}">
     @endif
-    <meta property="og:type" content="website">
-    <meta name="twitter:card" content="{{ $twitterCard }}">
+    <meta data-inertia="og:type" property="og:type" content="website">
+    <meta data-inertia="twitter:card" name="twitter:card" content="{{ $twitterCard }}">
 
     @if(isset($siteConfig['favicon']) && $siteConfig['favicon'] !== '')
         @php
@@ -137,11 +137,11 @@
         @endphp
         <link rel="icon" href="{{ $faviconPath }}">
         <link rel="shortcut icon" href="{{ $faviconPath }}">
-        <meta property="og:site_name" content="{{ $siteConfig['name'] ?? config('app.name') }}">
+        <meta data-inertia="og:site_name" property="og:site_name" content="{{ $siteConfig['name'] ?? config('app.name') }}">
     @endif
 
     @if($schemaJson)
-        <script type="application/ld+json">{!! $schemaJson !!}</script>
+        <script data-inertia="json-ld" type="application/ld+json">{!! $schemaJson !!}</script>
     @endif
 
     <!-- Inject runtime environment variables for React/Vite -->
