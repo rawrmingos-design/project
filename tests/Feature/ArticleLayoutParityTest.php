@@ -76,7 +76,7 @@ class ArticleLayoutParityTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        preg_match_all('/<script type="application\\/ld\\+json">(.*?)<\\/script>/s', $content, $matches);
+        preg_match_all('/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/s', $content, $matches);
         $types = [];
         foreach ($matches[1] ?? [] as $schema) {
             $decoded = json_decode(trim($schema), true);
