@@ -39,8 +39,8 @@ class CanonicalUrlTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('<link rel="canonical" href="https://istanatopup.test/id">', false)
-            ->assertSee('<meta property="og:url" content="https://istanatopup.test/id">', false);
+            ->assertSee('<link data-inertia="canonical" rel="canonical" href="https://istanatopup.test/id">', false)
+            ->assertSee('<meta data-inertia="og:url" property="og:url" content="https://istanatopup.test/id">', false);
     }
 
     public function test_legacy_template_renders_https_non_www_canonical_and_og_url(): void
@@ -66,9 +66,9 @@ class CanonicalUrlTest extends TestCase
 
         $this->assertStringContainsString('/id/search/products?q={search_term_string}', $decodedContent);
         $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $decodedContent);
-        $this->assertStringContainsString('<meta name="robots" content="index,follow', $content);
+        $this->assertStringContainsString('<meta data-inertia="robots" name="robots" content="index,follow', $content);
 
-        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
+        preg_match_all('/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/s', $content, $matches);
         $this->assertNotEmpty($matches[1]);
 
         $searchTargets = [];
@@ -107,7 +107,7 @@ class CanonicalUrlTest extends TestCase
             'canonical" href="https://istanatopup.test/id/artikel?page=2&utm_source=test',
             $decodedContent
         );
-        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
+        preg_match_all('/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/s', $content, $matches);
         $collectionPages = [];
         foreach ($matches[1] as $schema) {
             $decoded = json_decode(trim($schema), true);
