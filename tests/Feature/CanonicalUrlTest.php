@@ -99,7 +99,7 @@ class CanonicalUrlTest extends TestCase
             ->getContent();
 
         $this->assertStringContainsString(
-            '<link rel="canonical" href="https://istanatopup.test/id/artikel?page=2">',
+            '<link data-inertia="canonical" rel="canonical" href="https://istanatopup.test/id/artikel?page=2">',
             $content
         );
         $decodedContent = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');

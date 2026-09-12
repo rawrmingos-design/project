@@ -31,7 +31,8 @@ test.describe('SEO route boundaries', () => {
 
     test('auth page is private and guest dashboard redirects to auth', async ({ page }) => {
         await page.goto('/id/sign-in');
-        await expect(page.locator('meta[name="robots"][data-inertia]')).toHaveAttribute('content', /noindex,nofollow,noarchive/);
+        await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex,nofollow,noarchive/);
+        await expect(page.locator('meta[name="robots"]')).toHaveCount(1);
 
         await page.goto('/id/dashboard');
         await expect(page).toHaveURL(/\/id\/sign-in/);
