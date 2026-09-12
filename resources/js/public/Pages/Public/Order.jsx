@@ -1349,6 +1349,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     const isBangjeff = theme?.key === 'bangjeff';
     const isBangjeffOrderStyle = isBangjeff || theme?.key === 'istanatopup';
+    const shouldAutoCheckAccount = isBangjeff || theme?.key === 'istanatopup';
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
         if (packages.length) {
@@ -1905,7 +1906,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [groupedMethodEntries, openPaymentGroup]);
 
     useEffect(() => {
-        if (isComplexOrder || !category.requiresGameValidation || !isBangjeff) {
+        if (isComplexOrder || !category.requiresGameValidation || !shouldAutoCheckAccount) {
             return undefined;
         }
 
@@ -1980,7 +1981,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             controller.abort();
             window.clearTimeout(timer);
         };
-    }, [category.requiresGameValidation, category.slug, isBangjeff, isComplexOrder, uid, zone]);
+    }, [category.requiresGameValidation, category.slug, isComplexOrder, shouldAutoCheckAccount, uid, zone]);
 
     const quantity = useMemo(() => {
         const raw = Number(specialForm.qty || 1);
@@ -2798,7 +2799,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
             {category.requiresGameValidation ? (
                 <div className={`inline-actions ${isBangjeffOrderStyle ? 'inline-actions--bangjeff-account' : ''}`}>
-                    {isBangjeff ? (
+                    {shouldAutoCheckAccount ? (
                         uid ? (
                             accountLookup?.type === 'success' ? (
                                 <div className="account-pill account-pill--bangjeff-success">
