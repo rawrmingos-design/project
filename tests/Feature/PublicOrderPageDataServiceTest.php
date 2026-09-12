@@ -79,6 +79,16 @@ class PublicOrderPageDataServiceTest extends TestCase
             'harga_gold' => 23000,
         ]);
 
+        $unavailableItem = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Unavailable Diamond Pack',
+            'provider_id' => 'unavailable-pack',
+            'harga_member' => 8000,
+            'harga_platinum' => 7000,
+            'harga_gold' => 7500,
+            'status' => 'unavailable',
+        ]);
+
         $otherCategoryItem = Layanan::factory()->create([
             'kategori_id' => $otherCategory->id,
             'layanan' => 'Other Game Pack',
@@ -98,6 +108,13 @@ class PublicOrderPageDataServiceTest extends TestCase
                 'paket_id' => $basicPackage->id,
                 'layanan_id' => $fastItem->id,
                 'product_logo' => '/assets/product_logo/fast.png',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'paket_id' => $basicPackage->id,
+                'layanan_id' => $unavailableItem->id,
+                'product_logo' => 'assets/product_logo/unavailable.png',
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
