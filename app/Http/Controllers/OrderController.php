@@ -113,6 +113,7 @@ class OrderController extends Controller
                 $layananIds = $paket->layanan->pluck('id')->toArray();
                 $layananData = Layanan::whereIn('id', $layananIds)
                     ->where('kategori_id', $data->id)
+                    ->where('status', 'available')
                     ->where(function ($query) use ($role) {
                         if ($role == 'Member') $query->where('harga_member', '>', 0);
                         elseif ($role == 'Platinum') $query->where('harga_platinum', '>', 0);

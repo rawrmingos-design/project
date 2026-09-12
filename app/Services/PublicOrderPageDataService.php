@@ -182,6 +182,7 @@ class PublicOrderPageDataService
             ->join('paket_layanans', 'paket_layanans.paket_id', '=', 'pakets.id')
             ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
             ->where('layanans.kategori_id', $categoryId)
+            ->where('layanans.status', 'available')
             ->where("layanans.{$priceColumn}", '>', 0)
             ->select([
                 'pakets.id AS paket_id',
