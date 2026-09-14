@@ -23,6 +23,7 @@ class EligibilityTest extends TestCase
         parent::setUp();
 
         $this->disableCaptchaForTests();
+        config(['reseller_documents.public_directory' => 'assets/reseller-documents-testing/' . env('TEST_TOKEN', 'single')]);
 
         $this->mock(ResellerDocumentStorageService::class, function (MockInterface $mock) {
             $mock->shouldReceive('store')->andReturn('assets/reseller-documents/fake.jpg');
@@ -34,7 +35,7 @@ class EligibilityTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdUserIds as $userId) {
-            $directory = public_path("assets/reseller-documents/{$userId}");
+            $directory = public_path((string) config('reseller_documents.public_directory') . "/{$userId}");
 
             if (File::isDirectory($directory)) {
                 File::deleteDirectory($directory);
