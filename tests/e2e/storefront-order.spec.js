@@ -11,6 +11,51 @@ test.describe('Public storefront order flow', () => {
         await expect(page.locator('input[placeholder="Masukkan User ID"]')).toBeVisible();
     });
 
+    test('keeps desktop checkout summary in one column without overflow', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const summary = page.locator('.order-summary--bangjeff:visible');
+        await expect(summary).toBeVisible();
+
+        const layout = await summary.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            const columns = getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).filter(Boolean);
+            const rows = Array.from(element.querySelectorAll('.order-summary__row')).map((row) => {
+                const rowRect = row.getBoundingClientRect();
+                const labelRect = row.querySelector('.order-summary__label')?.getBoundingClientRect();
+                const valueRect = row.querySelector('.order-summary__value')?.getBoundingClientRect();
+
+                return {
+                    left: rowRect.left,
+                    right: rowRect.right,
+                    labelLeft: labelRect?.left ?? null,
+                    valueRight: valueRect?.right ?? null,
+                    overflow: row.scrollWidth > row.clientWidth,
+                };
+            });
+
+            return {
+                columnCount: columns.length,
+                overflow: element.scrollWidth > element.clientWidth,
+                inViewport: rect.left >= 0 && rect.right <= window.innerWidth,
+                rows,
+            };
+        });
+
+        expect(layout.columnCount).toBe(1);
+        expect(layout.overflow).toBe(false);
+        expect(layout.inViewport).toBe(true);
+        expect(layout.rows.length).toBeGreaterThan(0);
+        expect(layout.rows.every((row) => (
+            !row.overflow
+            && row.labelLeft !== null
+            && row.valueRight !== null
+            && row.labelLeft >= row.left
+            && row.valueRight <= row.right
+        ))).toBe(true);
+    });
+
     test('selecting product, account, and payment method updates checkout state', async ({ page }) => {
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 

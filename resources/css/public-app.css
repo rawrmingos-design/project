@@ -5023,6 +5023,7 @@ textarea {
 
 .order-summary--bangjeff {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
     padding: 10px 0 0;
     background: transparent;
@@ -5037,11 +5038,21 @@ textarea {
     gap: 12px;
 }
 
+.public-app--bangjeff .order-summary--bangjeff .order-summary__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
 .public-app--bangjeff .order-summary__label {
     color: #fafaf9;
     font-size: 0.84rem;
     font-weight: 700;
     line-height: 1.3;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .public-app--bangjeff .order-summary__value {
@@ -5049,6 +5060,10 @@ textarea {
     font-size: 0.84rem;
     font-weight: 700;
     line-height: 1.3;
+    min-width: 0;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .public-app--bangjeff .order-summary__divider {
@@ -5062,6 +5077,11 @@ textarea {
     font-size: 0.96rem;
     font-weight: 700;
     color: #fafaf9;
+}
+
+.public-app--bangjeff .order-summary--bangjeff .order-summary__row--total {
+    gap: 16px;
+    margin-top: 1px;
 }
 
 .public-app--bangjeff .order-summary__value--total {
