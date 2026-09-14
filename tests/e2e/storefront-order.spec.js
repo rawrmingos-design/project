@@ -56,7 +56,6 @@ test.describe('Public storefront order flow', () => {
         const heldMethodPrice = new Promise((resolve) => {
             releaseMethodPrice = resolve;
         });
-        const checkRequestBodies = [];
         let finalOrderPosts = 0;
 
         await page.route('**/id/harga', async (route) => {
@@ -86,19 +85,24 @@ test.describe('Public storefront order flow', () => {
             }
         });
 
+        const selectedProductPriceRequest = page.waitForRequest((request) => {
+            if (new URL(request.url()).pathname !== '/id/harga') {
+                return false;
+            }
+
+            const body = new URLSearchParams(request.postData() || '');
+            return Boolean(body.get('nominal')) && !body.get('payment_method');
+        });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
-
-        const pageData = await page.locator('script[data-page]').evaluate((node) => JSON.parse(node.getAttribute('data-page') || '{}'));
-        const selectedServiceId = String(pageData?.props?.products?.[0]?.id || '');
+        const selectedProductPricePayload = new URLSearchParams((await selectedProductPriceRequest).postData() || '');
+        const selectedServiceId = selectedProductPricePayload.get('nominal');
         expect(selectedServiceId).not.toBe('');
-
-        await page.locator('.variant-card:visible').first().click();
         const checkRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/ajax/check-account');
         await page.locator('input[placeholder="Masukkan User ID"]').fill('123456789');
         await page.locator('input[placeholder="example@gmail.com"]').fill('e2e@example.test');
-        await checkRequest;
+        const accountCheckRequest = await checkRequest;
 
-        const checkPayload = new URLSearchParams(checkRequestBodies.at(-1));
+        const checkPayload = new URLSearchParams(accountCheckRequest.postData() || '');
         expect(checkPayload.get('kategori_kode')).toBe('e2e-game');
         expect(checkPayload.get('service')).toBe(selectedServiceId);
 
