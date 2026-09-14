@@ -373,6 +373,31 @@ class ApiCheckControllerTest extends TestCase
         $this->assertFalse($result['unavailable']);
     }
 
+    public function test_selfhosted_unstructured_4xx_remains_provider_unavailable(): void
+    {
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => false,
+            ], 400),
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Primary provider failed',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'Velixs provider failed',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', null, 'Free Fire');
+
+        $this->assertSame(404, $result['status']['code']);
+        $this->assertSame('Self-hosted check ID API returned a non-200 response.', $result['status']['message']);
+        $this->assertTrue($result['unavailable']);
+    }
+
     public function test_selfhosted_server_error_remains_provider_unavailable(): void
     {
         $this->enableSelfHostedCheckId();

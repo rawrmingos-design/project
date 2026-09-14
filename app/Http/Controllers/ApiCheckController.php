@@ -420,16 +420,17 @@ class ApiCheckController extends Controller
                     ? trim((string) ($payload['message'] ?? ''))
                     : '';
 
-                // A 400/404 from cekid is a completed validation response
-                // (for example an invalid ID or a missing zone), not an outage.
-                // Auth, rate-limit, and 5xx responses remain provider-unavailable.
-                $unavailable = $status >= 500 || in_array($status, [401, 403, 429], true);
+                // Only a structured 400/404 from cekid is a completed validation
+                // result (for example an invalid ID or a missing zone). A malformed
+                // response, auth/rate-limit result, or server error is an outage.
+                $completedValidation = in_array($status, [400, 404], true)
+                    && $providerMessage !== '';
 
                 return $this->failedResult(
-                    ! $unavailable && $providerMessage !== ''
+                    $completedValidation
                         ? $providerMessage
                         : 'Self-hosted check ID API returned a non-200 response.',
-                    $unavailable,
+                    ! $completedValidation,
                 );
             }
 
