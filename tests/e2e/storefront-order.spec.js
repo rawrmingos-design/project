@@ -68,7 +68,6 @@ test.describe('Public storefront order flow', () => {
             await route.continue();
         });
         await page.route('**/ajax/check-account', async (route) => {
-            checkRequestBodies.push(route.request().postData() || '');
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
