@@ -346,6 +346,59 @@ class ApiCheckControllerTest extends TestCase
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.digiflazz.com'));
     }
 
+    public function test_selfhosted_validation_4xx_is_not_marked_as_provider_unavailable(): void
+    {
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => false,
+                'code' => 400,
+                'message' => 'Zone is required',
+            ], 400),
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Primary provider failed',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'Velixs provider failed',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', null, 'Free Fire');
+
+        $this->assertSame(404, $result['status']['code']);
+        $this->assertSame('Zone is required', $result['status']['message']);
+        $this->assertFalse($result['unavailable']);
+    }
+
+    public function test_selfhosted_server_error_remains_provider_unavailable(): void
+    {
+        $this->enableSelfHostedCheckId();
+
+        Http::fake([
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => false,
+                'message' => 'Upstream provider failed',
+            ], 503),
+            'https://api-cek-id-game-ten.vercel.app/api/check-id-game' => Http::response([
+                'status' => false,
+                'message' => 'Primary provider failed',
+            ]),
+            'https://api.velixs.com/idgames-checker' => Http::response([
+                'status' => false,
+                'message' => 'Velixs provider failed',
+            ]),
+        ]);
+
+        $result = app(ApiCheckController::class)->check('123456', null, 'Free Fire');
+
+        $this->assertSame(404, $result['status']['code']);
+        $this->assertSame('Self-hosted check ID API returned a non-200 response.', $result['status']['message']);
+        $this->assertTrue($result['unavailable']);
+    }
+
     public function test_selfhosted_rejects_non_https_or_local_url_without_requesting_it(): void
     {
         $this->seedApiGamesSettings();

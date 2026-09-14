@@ -414,7 +414,23 @@ class ApiCheckController extends Controller
                 ]);
 
             if (! $response->successful()) {
-                return $this->failedResult('Self-hosted check ID API returned a non-200 response.', true);
+                $status = $response->status();
+                $payload = $response->json();
+                $providerMessage = is_array($payload)
+                    ? trim((string) ($payload['message'] ?? ''))
+                    : '';
+
+                // A 400/404 from cekid is a completed validation response
+                // (for example an invalid ID or a missing zone), not an outage.
+                // Auth, rate-limit, and 5xx responses remain provider-unavailable.
+                $unavailable = $status >= 500 || in_array($status, [401, 403, 429], true);
+
+                return $this->failedResult(
+                    ! $unavailable && $providerMessage !== ''
+                        ? $providerMessage
+                        : 'Self-hosted check ID API returned a non-200 response.',
+                    $unavailable,
+                );
             }
 
             return $this->normalizeSelfHostedResponse($response->json());
