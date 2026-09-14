@@ -28,17 +28,11 @@ class CompleteApplicationTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdUserIds as $userId) {
-            $directory = public_path("assets/reseller-documents/{$userId}");
+            $directory = public_path((string) config('reseller_documents.public_directory') . "/{$userId}");
 
             if (File::isDirectory($directory)) {
                 File::deleteDirectory($directory);
             }
-        }
-
-        $parallelDirectory = public_path((string) config('reseller_documents.public_directory'));
-
-        if (File::isDirectory($parallelDirectory)) {
-            File::deleteDirectory($parallelDirectory);
         }
 
         parent::tearDown();

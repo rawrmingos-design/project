@@ -19,6 +19,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
     {
         parent::setUp();
 
+        config(['reseller_documents.public_directory' => 'assets/reseller-documents-testing/' . env('TEST_TOKEN', 'single')]);
         $this->service = new ResellerDocumentStorageService();
         $this->cleanupTestDirectory();
     }
@@ -37,7 +38,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
     {
         $path = $this->service->buildRelativePath($this->testUserId, 'identity', 'jpg');
 
-        $this->assertStringStartsWith("assets/reseller-documents/{$this->testUserId}/identity_", $path);
+        $this->assertStringStartsWith("{$this->testRelativeDirectory()}/identity_", $path);
         $this->assertStringEndsWith('.jpg', $path);
     }
 
@@ -48,7 +49,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
     {
         $path = $this->service->buildRelativePath($this->testUserId, 'Business Proof', '.PNG');
 
-        $this->assertStringStartsWith("assets/reseller-documents/{$this->testUserId}/business_proof_", $path);
+        $this->assertStringStartsWith("{$this->testRelativeDirectory()}/business_proof_", $path);
         $this->assertStringEndsWith('.png', $path);
     }
 
@@ -71,7 +72,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
 
         $relativePath = $this->service->store($this->testUserId, $file, 'identity');
 
-        $this->assertStringStartsWith("assets/reseller-documents/{$this->testUserId}/identity_", $relativePath);
+        $this->assertStringStartsWith("{$this->testRelativeDirectory()}/identity_", $relativePath);
         $this->assertStringEndsWith('.jpg', $relativePath);
         $this->assertFileExists(public_path($relativePath));
     }
@@ -81,7 +82,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
      */
     public function test_store_creates_target_directory_when_missing(): void
     {
-        $directory = public_path("assets/reseller-documents/{$this->testUserId}");
+        $directory = public_path($this->testRelativeDirectory());
         $this->assertDirectoryDoesNotExist($directory);
 
         $file = UploadedFile::fake()->image('selfie.jpg', 800, 600)->size(512);
@@ -97,7 +98,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
      */
     public function test_delete_removes_existing_file(): void
     {
-        $relativePath = "assets/reseller-documents/{$this->testUserId}/old_file.jpg";
+        $relativePath = "{$this->testRelativeDirectory()}/old_file.jpg";
         $absolutePath = public_path($relativePath);
 
         File::ensureDirectoryExists(dirname($absolutePath));
@@ -126,7 +127,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
      */
     public function test_replace_deletes_old_file_and_stores_new_file(): void
     {
-        $oldRelativePath = "assets/reseller-documents/{$this->testUserId}/old_identity.jpg";
+        $oldRelativePath = "{$this->testRelativeDirectory()}/old_identity.jpg";
         $oldAbsolutePath = public_path($oldRelativePath);
 
         File::ensureDirectoryExists(dirname($oldAbsolutePath));
@@ -158,10 +159,15 @@ class ResellerDocumentStorageServiceTest extends TestCase
 
     private function cleanupTestDirectory(): void
     {
-        $directory = public_path("assets/reseller-documents/{$this->testUserId}");
+        $directory = public_path($this->testRelativeDirectory());
 
         if (File::isDirectory($directory)) {
             File::deleteDirectory($directory);
         }
+    }
+
+    private function testRelativeDirectory(): string
+    {
+        return trim((string) config('reseller_documents.public_directory'), '/') . "/{$this->testUserId}";
     }
 }
