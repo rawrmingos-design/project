@@ -115,6 +115,39 @@ class OrderControllerCheckAccountTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_check_account_hides_unavailable_provider_detail_from_storefront(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'provider-unavailable',
+            'tipe' => 'game',
+            'require_user_id' => true,
+        ]);
+
+        $this->mock(CheckIdResolver::class, function ($mock): void {
+            $mock->shouldReceive('resolveForCategory')
+                ->once()
+                ->andReturn([
+                    'status' => [
+                        'code' => 404,
+                        'message' => 'Self-hosted check ID API returned a non-200 response.',
+                    ],
+                    'unavailable' => true,
+                    'message' => 'Self-hosted check ID API returned a non-200 response.',
+                ]);
+        });
+
+        $this->postJson('/ajax/check-account', [
+            'uid' => 'CUSTOM_UID',
+            'kategori_kode' => $category->kode,
+        ])
+            ->assertOk()
+            ->assertJsonPath('status.code', 404)
+            ->assertJsonPath('status.message', 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.')
+            ->assertJsonPath('message', 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.')
+            ->assertJsonPath('unavailable', true)
+            ->assertJsonPath('error_code', 'CHECK_ID_UNAVAILABLE');
+    }
+
     public function test_check_account_rejects_layanan_from_different_category(): void
     {
         $requestedKategori = Kategori::factory()->create([

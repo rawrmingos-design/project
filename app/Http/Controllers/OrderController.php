@@ -1461,6 +1461,13 @@ class OrderController extends Controller
             $layananContext,
         );
 
+        if (($data['unavailable'] ?? false) === true) {
+            $message = 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.';
+            $data['status']['message'] = $message;
+            $data['message'] = $message;
+            $data['error_code'] = 'CHECK_ID_UNAVAILABLE';
+        }
+
         return response()->json($data);
     }
 
