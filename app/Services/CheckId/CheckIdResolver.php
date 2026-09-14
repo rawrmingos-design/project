@@ -19,6 +19,7 @@ class CheckIdResolver
         'fc-mobile' => 'ea-sports-fc-mobile',
         'pubg-mobile' => 'pubg-mobile-dg',
         'magic-chess-gogo' => 'magic-chess-go-go',
+        'mobile-legends' => 'mobile-legends-up',
     ];
 
     private const SUPPORTED_CODES = [
@@ -189,15 +190,30 @@ class CheckIdResolver
     {
         $categoryCode = $this->normalizeCode($categoryCode);
 
-        if (in_array($categoryCode, self::ZONELESS_CODES, true)) {
-            return true;
-        }
-
+        // Catalog provider menjadi source of truth jika metadata tersedia.
+        // Static list hanya fallback saat catalog gagal/slug belum terdaftar.
         if ($item = $this->getCatalogItem($categoryCode)) {
-            return isset($item['hasZoneId']) && $item['hasZoneId'] === false;
+            return array_key_exists('hasZoneId', $item)
+                && $item['hasZoneId'] === false;
         }
 
-        return false;
+        return in_array($categoryCode, self::ZONELESS_CODES, true);
+    }
+
+    public function requiresZoneId(string $categoryCode, ?bool $categoryServerId = null): bool
+    {
+        $categoryCode = $this->normalizeCode($categoryCode);
+        $catalogItem = $this->getCatalogItem($categoryCode);
+
+        if (is_array($catalogItem) && array_key_exists('hasZoneId', $catalogItem)) {
+            return (bool) $catalogItem['hasZoneId'];
+        }
+
+        if ($categoryServerId !== null) {
+            return $categoryServerId;
+        }
+
+        return ! in_array($categoryCode, self::ZONELESS_CODES, true);
     }
 
     public function resolveForCategory(
@@ -232,7 +248,11 @@ class CheckIdResolver
         $gameCode = is_array($catalogItem) && ! empty($catalogItem['slug'])
             ? (string) $catalogItem['slug']
             : (self::CATALOG_ALIASES[$categoryCode] ?? $categoryCode);
-        $zoneForCheck = $this->zoneForCheck($categoryCode, $zone);
+        $zoneForCheck = $this->zoneForCheck(
+            $categoryCode,
+            $zone,
+            $resolvedCategory?->server_id,
+        );
 
         return (new ApiCheckController($layanan))->check($uid, $zoneForCheck, $gameCode);
     }
@@ -247,6 +267,10 @@ class CheckIdResolver
         // unsupported). Cache kosong akan diperlakukan sebagai miss dan di-refetch.
         if (is_array($cached) && $cached !== []) {
             return $cached;
+        }
+
+        if (! (bool) config('providers.check_id.selfhosted.enabled', false)) {
+            return [];
         }
 
         $baseUrl = rtrim(trim((string) config('providers.check_id.selfhosted.base_url', 'https://cekid.jasakoding.web.id')), '/');
@@ -324,9 +348,9 @@ class CheckIdResolver
             ?? ucwords(str_replace(['-', '_'], ' ', $categoryCode));
     }
 
-    private function zoneForCheck(string $categoryCode, ?string $zone): ?string
+    private function zoneForCheck(string $categoryCode, ?string $zone, ?bool $categoryServerId = null): ?string
     {
-        if ($this->isZoneless($categoryCode)) {
+        if (! $this->requiresZoneId($categoryCode, $categoryServerId)) {
             return null;
         }
 
