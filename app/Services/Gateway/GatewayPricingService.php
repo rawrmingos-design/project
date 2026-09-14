@@ -56,6 +56,8 @@ class GatewayPricingService
             ]);
         }
 
+        $requiresZoneId = $this->requiresZoneId($category);
+
         return [
             'ok' => true,
             'message' => 'Harga berhasil dihitung.',
@@ -65,8 +67,8 @@ class GatewayPricingService
                 'category_code' => (string) $category->kode,
                 'category_name' => (string) $category->nama,
                 'requires_user_id' => (bool) $category->require_user_id,
-                'requires_zone_id' => $this->requiresZoneId($category),
-                'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category),
+                'requires_zone_id' => $requiresZoneId,
+                'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category, $requiresZoneId),
                 'base_amount' => $baseAmount,
                 'discount' => $discount,
                 'amount_after_discount' => $amountAfterDiscount,
@@ -100,8 +102,10 @@ class GatewayPricingService
 
     private function requiresZoneId(Kategori $category): bool
     {
-        return (bool) $category->server_id
-            && ! app(CheckIdResolver::class)->isZoneless((string) $category->kode);
+        return app(CheckIdResolver::class)->requiresZoneId(
+            (string) $category->kode,
+            (bool) $category->server_id,
+        );
     }
 
     private function resolveBaseAmount(Layanan $service, Kategori $category, ?User $user, array $payload): int

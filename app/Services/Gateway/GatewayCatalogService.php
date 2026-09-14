@@ -75,7 +75,7 @@ class GatewayCatalogService
         $search = strtolower(trim((string) ($filters['q'] ?? '')));
         $typeSlug = strtolower(trim((string) ($filters['type'] ?? $filters['category_type'] ?? '')));
         $role = (string) ($user?->role ?? 'Guest');
-        $cacheKey = 'gateway:categories:v1:' . sha1(json_encode([$search, $typeSlug, $role], JSON_UNESCAPED_SLASHES));
+        $cacheKey = 'gateway:categories:v2:' . sha1(json_encode([$search, $typeSlug, $role], JSON_UNESCAPED_SLASHES));
 
         return Cache::remember($cacheKey, 300, function () use ($search, $typeSlug): array {
             $categories = Kategori::query()
@@ -117,7 +117,10 @@ class GatewayCatalogService
                             'name' => (string) $category->categoryType->name,
                         ] : null,
                         'requires_user_id' => (bool) ($category->require_user_id ?? true),
-                        'requires_zone_id' => (bool) ($category->server_id ?? false),
+                        'requires_zone_id' => app(CheckIdResolver::class)->requiresZoneId(
+                            (string) $category->kode,
+                            (bool) ($category->server_id ?? false),
+                        ),
                         'service_count' => (int) ($serviceCounts[$category->id] ?? 0),
                         'thumbnail' => $category->thumbnail,
                     ];
@@ -137,7 +140,7 @@ class GatewayCatalogService
         $typeSlug = strtolower(trim((string) ($filters['type'] ?? $filters['category_type'] ?? '')));
         $serviceSearch = strtolower(trim((string) ($filters['service_q'] ?? $filters['service'] ?? '')));
         $role = (string) ($user?->role ?? 'Guest');
-        $cacheKey = 'gateway:categories-with-services:v1:' . sha1(json_encode([$search, $typeSlug, $serviceSearch, $role], JSON_UNESCAPED_SLASHES));
+        $cacheKey = 'gateway:categories-with-services:v2:' . sha1(json_encode([$search, $typeSlug, $serviceSearch, $role], JSON_UNESCAPED_SLASHES));
 
         return Cache::remember($cacheKey, 300, function () use ($search, $typeSlug, $serviceSearch, $user): array {
             $categories = Kategori::query()
@@ -344,12 +347,16 @@ class GatewayCatalogService
 
     private function requiresZoneId(Kategori $category): bool
     {
-        return (bool) $category->server_id
-            && ! app(CheckIdResolver::class)->isZoneless((string) $category->kode);
+        return app(CheckIdResolver::class)->requiresZoneId(
+            (string) $category->kode,
+            (bool) $category->server_id,
+        );
     }
 
     private function categoryPayload(Kategori $category, int $serviceCount): array
     {
+        $requiresZoneId = $this->requiresZoneId($category);
+
         return [
             'id' => $category->id,
             'code' => (string) $category->kode,
@@ -361,8 +368,8 @@ class GatewayCatalogService
                 'name' => (string) $category->categoryType->name,
             ] : null,
             'requires_user_id' => (bool) ($category->require_user_id ?? true),
-            'requires_zone_id' => $this->requiresZoneId($category),
-            'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category),
+            'requires_zone_id' => $requiresZoneId,
+            'custom_inputs' => app(CustomInputDefaults::class)->inputSpecification($category, $requiresZoneId),
             'service_count' => $serviceCount,
             'thumbnail' => $category->thumbnail,
         ];

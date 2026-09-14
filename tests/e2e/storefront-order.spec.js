@@ -49,6 +49,81 @@ test.describe('Public storefront order flow', () => {
             expect(Number(body.harga)).toBeGreaterThan(0);
         }
     });
+
+    test('sends the selected service to Check-ID and waits for price before preview', async ({ page }) => {
+        let releaseMethodPrice;
+        let holdMethodPrice = false;
+        const heldMethodPrice = new Promise((resolve) => {
+            releaseMethodPrice = resolve;
+        });
+        const checkRequestBodies = [];
+        let finalOrderPosts = 0;
+
+        await page.route('**/id/harga', async (route) => {
+            const body = new URLSearchParams(route.request().postData() || '');
+            if (holdMethodPrice && body.get('payment_method') === 'E2E_QRIS') {
+                holdMethodPrice = false;
+                await heldMethodPrice;
+            }
+
+            await route.continue();
+        });
+        await page.route('**/ajax/check-account', async (route) => {
+            checkRequestBodies.push(route.request().postData() || '');
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    status: { code: 200, message: 'User found' },
+                    data: { username: 'E2E Player' },
+                }),
+            });
+        });
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const pageData = await page.locator('script[data-page]').evaluate((node) => JSON.parse(node.getAttribute('data-page') || '{}'));
+        const selectedServiceId = String(pageData?.props?.products?.[0]?.id || '');
+        expect(selectedServiceId).not.toBe('');
+
+        await page.locator('.variant-card:visible').first().click();
+        const checkRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/ajax/check-account');
+        await page.locator('input[placeholder="Masukkan User ID"]').fill('123456789');
+        await page.locator('input[placeholder="example@gmail.com"]').fill('e2e@example.test');
+        await checkRequest;
+
+        const checkPayload = new URLSearchParams(checkRequestBodies.at(-1));
+        expect(checkPayload.get('kategori_kode')).toBe('e2e-game');
+        expect(checkPayload.get('service')).toBe(selectedServiceId);
+
+        holdMethodPrice = true;
+        const methodPriceResponse = page.waitForResponse((response) => {
+            if (new URL(response.url()).pathname !== '/id/harga') {
+                return false;
+            }
+
+            const body = new URLSearchParams(response.request().postData() || '');
+            return body.get('payment_method') === 'E2E_QRIS';
+        });
+        await page.locator('.payment-card:visible').first().click();
+
+        const checkout = page.locator('.public-button--bangjeff-order:visible').first();
+        await expect(checkout).toBeDisabled();
+
+        releaseMethodPrice();
+        await methodPriceResponse;
+        await expect(checkout).toBeEnabled();
+
+        await checkout.click();
+        await expect(page.getByRole('dialog', { name: 'Buat Pesanan' })).toBeVisible();
+        expect(finalOrderPosts).toBe(0);
+    });
 });
 
 test.describe('Public storefront validation', () => {

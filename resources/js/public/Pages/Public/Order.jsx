@@ -1308,6 +1308,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [email, setEmail] = useState('');
     const [nickname, setNickname] = useState('');
     const [pricePreview, setPricePreview] = useState(null);
+    const [pricePreviewKey, setPricePreviewKey] = useState(null);
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
     const priceRequestSequenceRef = useRef(0);
@@ -1352,19 +1353,25 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const shouldAutoCheckAccount = isBangjeff || theme?.key === 'istanatopup';
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
-        if (packages.length) {
-            return packages.map((item) => ({
-                name: item.name,
-                items: item.items || [],
-            }));
+        if (!packages.length) {
+            return [
+                {
+                    name: null,
+                    items: products,
+                },
+            ];
         }
 
-        return [
-            {
-                name: null,
-                items: products,
-            },
-        ];
+        const packageGroups = packages.map((item) => ({
+            name: item.name,
+            items: item.items || [],
+        }));
+        const packagedIds = new Set(packageGroups.flatMap((group) => group.items.map((item) => item.id)));
+        const ungroupedProducts = products.filter((item) => !packagedIds.has(item.id));
+
+        return ungroupedProducts.length
+            ? [...packageGroups, { name: 'Layanan Lainnya', items: ungroupedProducts }]
+            : packageGroups;
     }, [packages, products]);
     const activeVariantGroup = variantGroups[selectedPackage] ?? variantGroups[0] ?? { items: [] };
     const variantItems = activeVariantGroup.items ?? [];
@@ -1637,6 +1644,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setEmail('');
         setNickname('');
         setPricePreview(null);
+        setPricePreviewKey(null);
         setPriceLoading(false);
         setUsePoint(0);
         setCheckLoading(false);
@@ -1849,7 +1857,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [selectedPackage, variantGroups.length]);
 
     useEffect(() => {
-        const candidateItems = isBangjeff ? allVariantItems : variantItems;
+        const candidateItems = isBangjeffOrderStyle ? allVariantItems : variantItems;
 
         if (!selectedProductId && candidateItems[0]) {
             if (preventAutoSelectRef.current) {
@@ -1911,7 +1919,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
         }
 
         const currentUid = String(uid || '').trim();
-        if (!currentUid) {
+        const currentZone = String(zone || '').trim();
+        if (!currentUid || (category.customInputs.zone && !currentZone)) {
             setNickname('');
             setAccountLookup(null);
             return undefined;
@@ -1925,6 +1934,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 const body = new URLSearchParams();
                 body.append('uid', currentUid);
                 body.append('kategori_kode', category.slug);
+                if (selectedProductId) body.append('service', String(selectedProductId));
                 if (zone) body.append('zone', zone);
 
                 const response = await fetch('/ajax/check-account', {
@@ -1981,7 +1991,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             controller.abort();
             window.clearTimeout(timer);
         };
-    }, [category.requiresGameValidation, category.slug, isComplexOrder, shouldAutoCheckAccount, uid, zone]);
+    }, [category.customInputs.zone, category.requiresGameValidation, category.slug, isComplexOrder, selectedProductId, shouldAutoCheckAccount, uid, zone]);
 
     const quantity = useMemo(() => {
         const raw = Number(specialForm.qty || 1);
@@ -2086,19 +2096,35 @@ export default function Order({ meta, category, products, packages, paymentMetho
         });
     }, [category.slug, gtmViewItemPayload]);
 
+    const priceRequestKey = useMemo(
+        () => JSON.stringify([
+            category.type,
+            selectedProductId,
+            selectedMethodCode,
+            quantity,
+            voucher,
+            usePoint,
+        ]),
+        [category.type, quantity, selectedMethodCode, selectedProductId, usePoint, voucher],
+    );
+
     useEffect(() => {
         const requestSequence = priceRequestSequenceRef.current + 1;
         priceRequestSequenceRef.current = requestSequence;
 
         if (!selectedProductId) {
             setPricePreview(null);
+            setPricePreviewKey(null);
             setPriceLoading(false);
             return undefined;
         }
 
         const controller = new AbortController();
         const loadPrice = async () => {
+            setPricePreview(null);
+            setPricePreviewKey(null);
             setPriceLoading(true);
+
             try {
                 const body = new URLSearchParams();
                 body.append('nominal', selectedProductId);
@@ -2126,6 +2152,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 const payload = await response.json();
                 if (requestSequence === priceRequestSequenceRef.current) {
                     setPricePreview(payload);
+                    setPricePreviewKey(priceRequestKey);
                 }
             } catch (error) {
                 if (error.name !== 'AbortError' && requestSequence === priceRequestSequenceRef.current) {
@@ -2141,14 +2168,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         loadPrice();
 
         return () => controller.abort();
-    }, [category.type, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
-
-    useEffect(() => {
-        if (selectedProductId) {
-            setPricePreview(null);
-            setPriceLoading(true);
-        }
-    }, [quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
+    }, [category.type, priceRequestKey, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
 
     useEffect(() => {
         setUsePoint(0);
@@ -2189,6 +2209,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
             return;
         }
 
+        if (category.customInputs.zone && !String(zone || '').trim()) {
+            setMessage({ type: 'error', text: `${category.customInputs.zone.label} wajib diisi terlebih dahulu.` });
+            return;
+        }
+
         setCheckLoading(true);
         setMessage(null);
 
@@ -2196,6 +2221,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             const body = new URLSearchParams();
             body.append('uid', uid);
             body.append('kategori_kode', category.slug);
+            if (selectedProductId) body.append('service', String(selectedProductId));
             if (zone) body.append('zone', zone);
 
             const response = await fetch('/ajax/check-account', {
@@ -2263,6 +2289,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const applyVoucherPreview = (nextVoucherCode) => {
         setVoucher(nextVoucherCode);
         setPricePreview(null);
+        setPricePreviewKey(null);
     };
 
     const resetStaleVoucherState = () => {
@@ -2270,6 +2297,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setAvailablePromos([]);
         setShowAvailablePromoModal(false);
         setPricePreview(null);
+        setPricePreviewKey(null);
         setVoucherActionLoading(null);
     };
 
@@ -2396,6 +2424,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
             return 'Pilih metode pembayaran terlebih dahulu.';
         }
 
+        if (priceLoading || !pricePreview || pricePreviewKey !== priceRequestKey) {
+            return 'Harga sedang dihitung. Tunggu sampai total pembayaran tersedia.';
+        }
+
         const contactEmail = String(email || '').trim();
         const contactPhone = String(phone || '').trim();
 
@@ -2415,6 +2447,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
         if (category.requireUserId && !uid) {
             return 'Data akun wajib diisi terlebih dahulu.';
+        }
+
+        if (category.customInputs.zone && !String(zone || '').trim()) {
+            return `${category.customInputs.zone.label} wajib diisi terlebih dahulu.`;
         }
 
         return null;
