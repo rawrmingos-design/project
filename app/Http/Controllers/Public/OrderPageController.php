@@ -42,18 +42,20 @@ class OrderPageController extends Controller
         $description = mb_strlen($rawMetaDescription) >= 40
             ? $rawMetaDescription
             : "Top up {$category['name']} termurah dan terpercaya di {$settings->judul_web}. Proses instan, layanan 24 jam.";
+        $categoryImage = ! empty($category['thumbnail']) ? url($category['thumbnail']) : null;
+        $categoryCanonical = url("/id/{$category['slug']}");
 
         return Inertia::render('Public/Order', array_merge($data, [
             'meta' => $seoMetadataService->category([
                 'title' => $title,
                 'description' => $description,
                 'keywords' => "topup {$category['name']}, beli {$category['name']}, top up {$category['name']} murah, agen {$category['name']}, {$settings->judul_web}",
-                'canonical' => url("/id/{$category['slug']}"),
-                'image' => url($category['thumbnail']),
+                'canonical' => $categoryCanonical,
+                'image' => $categoryImage,
                 'schemaMarkup' => $category['schemaMarkup'] ?: $seoMetadataService->collectionSchema(
                     $title,
-                    url("/id/{$category['slug']}"),
-                    url($category['thumbnail']),
+                    $categoryCanonical,
+                    $categoryImage,
                 ),
             ]),
         ]));
