@@ -2,13 +2,25 @@
 const { test, expect } = require('@playwright/test');
 
 test.describe('Public storefront order flow', () => {
-    test('renders seeded category, product, and payment method', async ({ page }) => {
+    test('renders seeded category, product, and payment method without broken media requests', async ({ page }) => {
+        const brokenMediaRequests = [];
+        page.on('response', (response) => {
+            if (response.url().includes('e2e-missing.webp')) {
+                brokenMediaRequests.push({ url: response.url(), status: response.status() });
+            }
+        });
+
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
         await expect(page.getByRole('heading', { name: 'E2E Game', exact: true })).toBeVisible();
         await expect(page.locator('.variant-card:visible').getByText('E2E Product 10000', { exact: true })).toBeVisible();
         await expect(page.locator('.payment-card:visible').getByText('QRIS', { exact: false })).toBeVisible();
         await expect(page.locator('input[placeholder="Masukkan User ID"]')).toBeVisible();
+
+        const pageData = JSON.parse(await page.locator('script[data-page]').textContent());
+        const e2eMethod = (pageData.props.paymentMethods || []).find((method) => method.code === 'E2E_QRIS');
+        expect(e2eMethod?.image).toBeNull();
+        expect(brokenMediaRequests).toEqual([]);
     });
 
     test('renders live sales toast only on the homepage', async ({ page }) => {

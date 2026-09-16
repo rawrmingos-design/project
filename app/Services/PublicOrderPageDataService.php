@@ -15,6 +15,24 @@ use Illuminate\Support\Facades\DB;
 
 class PublicOrderPageDataService
 {
+    private function publicAssetPath(?string $path): ?string
+    {
+        $path = trim((string) $path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        $resolver = app(PublicUploadUrlService::class);
+        $exists = $resolver->exists($path, config('uploads.disk', 'assets'));
+
+        if ($exists === false) {
+            return null;
+        }
+
+        return $resolver->url($path, config('uploads.disk', 'assets'));
+    }
+
     public function isSupportedForInertia(Kategori $kategori): bool
     {
         return in_array($kategori->tipe, ['game', 'populer', 'voucher', 'joki', 'jokigendong', 'vilogml'], true);
@@ -25,7 +43,7 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:v4:{$kategori->kode}:{$role}";
+        $cacheKey = "inertia_order_page:v5:{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -88,8 +106,8 @@ class PublicOrderPageDataService
                     'slug' => $category->kode,
                     'type' => $category->tipe,
                     'orderMode' => $this->resolveOrderMode($category->tipe),
-                    'thumbnail' => '/' . ltrim((string) $category->thumbnail, '/'),
-                    'banner' => '/' . ltrim((string) $category->banner, '/'),
+                    'thumbnail' => $this->publicAssetPath($category->thumbnail),
+                    'banner' => $this->publicAssetPath($category->banner),
                     'description' => $this->sanitizeCategoryDescription($category->deskripsi_game),
                     'fieldDescription' => $category->deskripsi_field,
                     'requireUserId' => (bool) ($category->require_user_id ?? true),
@@ -189,7 +207,7 @@ class PublicOrderPageDataService
                 'flashPrice' => (int) ($item->harga_flash_sale ?? 0),
                 'flashStock' => (int) ($item->stock_flash_sale ?? 0),
                 'flashExpiresAt' => $item->expired_flash_sale ? Carbon::parse($item->expired_flash_sale)->toIso8601String() : null,
-                'productLogo' => $item->product_logo ? '/' . ltrim((string) $item->product_logo, '/') : null,
+                'productLogo' => $this->publicAssetPath($item->product_logo),
             ])
             ->values();
     }
@@ -228,7 +246,7 @@ class PublicOrderPageDataService
                         'id' => $layanan->id,
                         'name' => $layanan->layanan,
                         'price' => (int) $layanan->harga,
-                        'productLogo' => $layanan->product_logo ? '/' . ltrim((string) $layanan->product_logo, '/') : null,
+                        'productLogo' => $this->publicAssetPath($layanan->product_logo),
                         'isFlashSale' => (bool) $layanan->is_flash_sale,
                         'flashPrice' => (int) ($layanan->harga_flash_sale ?? 0),
                         'flashExpiresAt' => $layanan->expired_flash_sale ? Carbon::parse($layanan->expired_flash_sale)->toIso8601String() : null,
@@ -290,7 +308,7 @@ class PublicOrderPageDataService
                 // groupLabel: human-readable from category label
                 'groupLabel' => $method->displayCategory?->label ?? $method->tipe,
                 'gateway'    => $method->payment,
-                'image'      => $method->images ? '/' . ltrim((string) $method->images, '/') : null,
+                'image'      => $this->publicAssetPath($method->images),
                 'feePercent' => (float) ($method->fee_percent ?? 0),
                 'fixFee'     => (float) ($method->fix_fee ?? 0),
                 'minAmount'  => $method->min_pembelian !== null ? (float) $method->min_pembelian : null,

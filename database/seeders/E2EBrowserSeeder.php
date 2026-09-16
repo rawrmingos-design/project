@@ -174,8 +174,8 @@ class E2EBrowserSeeder extends Seeder
             ['code' => 'E2E_QRIS'],
             [
                 'name' => 'E2E QRIS',
-                'images' => 'assets/logo/favicon.webp',
-                'keterangan' => 'E2E payment method',
+                'images' => 'assets/payment/e2e-missing.webp',
+                'keterangan' => 'E2E payment method with missing media fixture',
                 'tipe' => 'qris',
                 'payment' => 'Tripay',
                 'fee_percent' => 0,
