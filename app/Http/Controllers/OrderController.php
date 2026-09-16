@@ -54,7 +54,7 @@ class OrderController extends Controller
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
         $tenantId = app(\App\Tenancy\TenantContext::class)->id() ?? 'main';
-        $cacheKey = "order_page:{$tenantId}:{$kategori->kode}:{$role}";
+        $cacheKey = "order_page:v2:{$tenantId}:{$kategori->kode}:{$role}";
         $ttl = 300; // 5 minutes
 
         // Cache the entire data preparation for the view
@@ -97,6 +97,31 @@ class OrderController extends Controller
             } else { // Guest
                 $query->select('id', 'layanan', 'product_logo', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
             }
+            $hasPackageMembership = DB::table('paket_layanans')
+                ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
+                ->where('layanans.kategori_id', $data->id)
+                ->exists();
+
+            if ($hasPackageMembership) {
+                $query
+                    ->whereExists(function ($subquery) {
+                        $subquery->selectRaw('1')
+                            ->from('paket_layanans')
+                            ->whereColumn('paket_layanans.layanan_id', 'layanans.id');
+                    })
+                    ->where(function ($priceQuery) use ($role) {
+                        if ($role === 'Member') {
+                            $priceQuery->where('harga_member', '>', 0);
+                        } elseif ($role === 'Platinum') {
+                            $priceQuery->where('harga_platinum', '>', 0);
+                        } elseif (in_array($role, ['Gold', 'Admin'], true)) {
+                            $priceQuery->where('harga_gold', '>', 0);
+                        } else {
+                            $priceQuery->where('harga_member', '>', 0);
+                        }
+                    });
+            }
+
             $layanan = $query->orderBy('harga', 'asc')->get();
 
             $ratings = DB::table('ratings')

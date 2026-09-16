@@ -6,6 +6,7 @@ use App\Models\Artikel;
 use App\Models\Berita;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use App\Models\Paket;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\Rating;
@@ -193,6 +194,48 @@ class PublicInertiaSecurityAndRouteTest extends TestCase
         $this->get("/id/{$supportedCategory->kode}")
             ->assertOk()
             ->assertViewIs('template.order');
+    }
+
+    #[Test]
+    public function order_pages_do_not_expose_services_outside_packages_in_either_render_path(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'packaged-order',
+            'tipe' => 'game',
+        ]);
+        $package = Paket::query()->create(['nama' => 'Visible Package']);
+        $packagedItem = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Packaged Service',
+            'harga_member' => 10000,
+            'harga_platinum' => 9000,
+            'harga_gold' => 9500,
+        ]);
+        $ungroupedItem = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Ungrouped Service',
+            'harga_member' => 11000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10500,
+        ]);
+        $package->layanan()->attach($packagedItem->id);
+
+        $this->get("/id/{$category->kode}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('products', fn ($products) => collect($products)->pluck('id')->all() === [$packagedItem->id])
+                ->where('products', fn ($products) => ! collect($products)->pluck('id')->contains($ungroupedItem->id))
+            );
+
+        $this->setTheme('default');
+
+        $response = $this->get("/id/{$category->kode}");
+        $response->assertOk()->assertViewIs('template.order');
+
+        $viewData = $response->viewData();
+        $legacyProducts = collect($viewData['harga'] ?? [])->pluck('id');
+        $this->assertContains($packagedItem->id, $legacyProducts->all());
+        $this->assertNotContains($ungroupedItem->id, $legacyProducts->all());
     }
 
     #[Test]

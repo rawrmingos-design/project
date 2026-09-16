@@ -25,7 +25,7 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:v3:{$kategori->kode}:{$role}";
+        $cacheKey = "inertia_order_page:v4:{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -53,8 +53,23 @@ class PublicOrderPageDataService
                 ->where('kategoris.kode', $kategori->kode)
                 ->firstOrFail();
 
-            $products = $this->loadProducts($category->id, $role);
             $packages = $this->loadPackages($category->id, $role);
+            $packagedProductIds = collect($packages)
+                ->flatMap(fn (array $package) => $package['items'] ?? [])
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $hasPackageMembership = DB::table('paket_layanans')
+                ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
+                ->where('layanans.kategori_id', $category->id)
+                ->exists();
+            $products = $this->loadProducts(
+                $category->id,
+                $role,
+                $hasPackageMembership ? $packagedProductIds : null,
+            );
             $ratings = $this->loadRatings($category->id);
             $methods = $this->loadMethods();
             $gtmBuilder = app(GtmDataLayerBuilder::class);
@@ -146,11 +161,15 @@ class PublicOrderPageDataService
         };
     }
 
-    private function loadProducts(int $categoryId, string $role)
+    private function loadProducts(int $categoryId, string $role, ?array $allowedProductIds = null)
     {
         $query = Layanan::query()
             ->where('kategori_id', $categoryId)
             ->where('status', 'available');
+
+        if ($allowedProductIds !== null) {
+            $query->whereIn('id', $allowedProductIds);
+        }
 
         match ($role) {
             'Member' => $query->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),

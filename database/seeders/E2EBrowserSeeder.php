@@ -6,6 +6,7 @@ use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
+use App\Models\Paket;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +121,7 @@ class E2EBrowserSeeder extends Seeder
             ],
         );
 
-        Layanan::query()->updateOrCreate(
+        $packagedProduct = Layanan::query()->updateOrCreate(
             ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-1'],
             [
                 'layanan' => 'E2E Product 10000',
@@ -133,6 +134,34 @@ class E2EBrowserSeeder extends Seeder
                 'profit_platinum' => 0,
                 'profit_gold' => 0,
                 'catatan' => 'E2E product',
+                'status' => 'available',
+                'product_logo' => 'assets/logo/favicon.webp',
+                'is_flash_sale' => false,
+                'harga_flash_sale' => 0,
+                'stock_flash_sale' => 0,
+            ],
+        );
+
+        $package = Paket::query()->firstOrCreate(['nama' => 'E2E Package']);
+        $package->layanan()->syncWithoutDetaching([
+            $packagedProduct->id => [
+                'product_logo' => 'assets/logo/favicon.webp',
+            ],
+        ]);
+
+        Layanan::query()->updateOrCreate(
+            ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-2'],
+            [
+                'layanan' => 'E2E Ungrouped 20000',
+                'provider' => 'manual',
+                'harga' => 20000,
+                'harga_member' => 20000,
+                'harga_platinum' => 20000,
+                'harga_gold' => 20000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'catatan' => 'E2E ungrouped product',
                 'status' => 'available',
                 'product_logo' => 'assets/logo/favicon.webp',
                 'is_flash_sale' => false,

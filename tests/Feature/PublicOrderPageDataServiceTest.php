@@ -170,6 +170,47 @@ class PublicOrderPageDataServiceTest extends TestCase
         ], $packages);
     }
 
+    public function test_get_data_excludes_available_services_that_are_not_in_a_package(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'packaged-catalog',
+            'tipe' => 'game',
+        ]);
+        $package = Paket::query()->create(['nama' => 'Visible Package']);
+        $packagedItem = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Packaged Service',
+            'harga_member' => 10000,
+            'harga_platinum' => 9000,
+            'harga_gold' => 9500,
+            'status' => 'available',
+        ]);
+        $ungroupedItem = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => 'Ungrouped Service',
+            'harga_member' => 11000,
+            'harga_platinum' => 10000,
+            'harga_gold' => 10500,
+            'status' => 'available',
+        ]);
+
+        DB::table('paket_layanans')->insert([
+            'paket_id' => $package->id,
+            'layanan_id' => $packagedItem->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $data = app(PublicOrderPageDataService::class)->getData($category);
+
+        $this->assertSame([$packagedItem->id], collect($data['products'])->pluck('id')->all());
+        $this->assertSame([$packagedItem->id], collect($data['packages'])
+            ->flatMap(fn (array $packageData) => $packageData['items'])
+            ->pluck('id')
+            ->all());
+        $this->assertNotContains($ungroupedItem->id, collect($data['products'])->pluck('id')->all());
+    }
+
     private function invokeLoadPackages(int $categoryId, string $role): array
     {
         $service = app(PublicOrderPageDataService::class);

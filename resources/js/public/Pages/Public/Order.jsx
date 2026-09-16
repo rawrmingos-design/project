@@ -48,6 +48,14 @@ async function parseJsonSafe(response) {
     }
 }
 
+function isValidOrderEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function isValidOrderPhone(value) {
+    return /^[0-9]{9,16}$/.test(String(value || '').trim());
+}
+
 function toStablePayloadString(payload = {}) {
     return JSON.stringify(
         Object.keys(payload)
@@ -1312,6 +1320,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
     const priceRequestSequenceRef = useRef(0);
+    const accountLookupSequenceRef = useRef(0);
     const [checkLoading, setCheckLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [message, setMessage] = useState(null);
@@ -1351,6 +1360,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const isBangjeff = theme?.key === 'bangjeff';
     const isBangjeffOrderStyle = isBangjeff || theme?.key === 'istanatopup';
     const shouldAutoCheckAccount = isBangjeff || theme?.key === 'istanatopup';
+    const requiresExplicitNominalSelection = isBangjeff;
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
         if (!packages.length) {
@@ -1362,23 +1372,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
             ];
         }
 
-        const packageGroups = packages.map((item) => ({
+        return packages.map((item) => ({
             name: item.name,
             items: item.items || [],
         }));
-        const packagedIds = new Set(packageGroups.flatMap((group) => group.items.map((item) => item.id)));
-        const ungroupedProducts = products.filter((item) => !packagedIds.has(item.id));
-
-        return ungroupedProducts.length
-            ? [...packageGroups, { name: 'Layanan Lainnya', items: ungroupedProducts }]
-            : packageGroups;
     }, [packages, products]);
     const activeVariantGroup = variantGroups[selectedPackage] ?? variantGroups[0] ?? { items: [] };
     const variantItems = activeVariantGroup.items ?? [];
-    const allVariantItems = useMemo(
-        () => variantGroups.flatMap((group) => group.items ?? []),
-        [variantGroups],
-    );
     const allCatalogItems = useMemo(() => [...products, ...packages.flatMap((item) => item.items || [])], [packages, products]);
     const selectedProduct = useMemo(
         () => allCatalogItems.find((item) => item.id === selectedProductId) || null,
@@ -1390,6 +1390,15 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const selectedGtmItem = selectedProductId ? (gtmItemCatalog[String(selectedProductId)] || null) : null;
     const selectedGtmPaymentMethod = selectedMethodCode ? (gtmPaymentMethods[String(selectedMethodCode)] || null) : null;
     const selectedMethod = paymentMethods.find((item) => item.code === selectedMethodCode) || null;
+    const accountLookupFingerprint = useMemo(
+        () => JSON.stringify([
+            category.slug,
+            selectedProductId,
+            String(uid || '').trim(),
+            String(zone || '').trim(),
+        ]),
+        [category.slug, selectedProductId, uid, zone],
+    );
     const groupedMethods = useMemo(() => paymentMethods.reduce((acc, method) => {
         const key = method.groupLabel || method.group || 'lainnya';
         if (!acc[key]) acc[key] = [];
@@ -1857,7 +1866,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [selectedPackage, variantGroups.length]);
 
     useEffect(() => {
-        const candidateItems = isBangjeffOrderStyle ? allVariantItems : variantItems;
+        const candidateItems = variantItems;
 
         if (!selectedProductId && candidateItems[0]) {
             if (preventAutoSelectRef.current) {
@@ -1876,7 +1885,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
             setSelectedProductId(candidateItems[0]?.id ?? null);
         }
-    }, [allVariantItems, isBangjeff, selectedProductId, variantItems]);
+    }, [selectedProductId, variantItems]);
 
     useEffect(() => {
         if (activeFaqIndex >= faqItems.length) {
@@ -1915,12 +1924,26 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     useEffect(() => {
         if (isComplexOrder || !category.requiresGameValidation || !shouldAutoCheckAccount) {
+            return;
+        }
+
+        setAccountLookup((current) => (
+            current?.fingerprint === accountLookupFingerprint ? current : null
+        ));
+        setNickname('');
+    }, [accountLookupFingerprint, category.requiresGameValidation, isComplexOrder, shouldAutoCheckAccount]);
+
+    useEffect(() => {
+        if (isComplexOrder || !category.requiresGameValidation || !shouldAutoCheckAccount) {
             return undefined;
         }
 
+        const lookupSequence = accountLookupSequenceRef.current + 1;
+        accountLookupSequenceRef.current = lookupSequence;
         const currentUid = String(uid || '').trim();
         const currentZone = String(zone || '').trim();
         if (!currentUid || (category.customInputs.zone && !currentZone)) {
+            setCheckLoading(false);
             setNickname('');
             setAccountLookup(null);
             return undefined;
@@ -1928,6 +1951,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
         const controller = new AbortController();
         const timer = window.setTimeout(async () => {
+            if (lookupSequence !== accountLookupSequenceRef.current) {
+                return;
+            }
+
             setCheckLoading(true);
 
             try {
@@ -1935,7 +1962,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 body.append('uid', currentUid);
                 body.append('kategori_kode', category.slug);
                 if (selectedProductId) body.append('service', String(selectedProductId));
-                if (zone) body.append('zone', zone);
+                if (currentZone) body.append('zone', currentZone);
 
                 const response = await fetch('/ajax/check-account', {
                     method: 'POST',
@@ -1949,12 +1976,16 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 });
 
                 const payload = await response.json();
+                if (lookupSequence !== accountLookupSequenceRef.current) {
+                    return;
+                }
 
                 if (payload?.status?.code === 200) {
                     const username = payload?.data?.username || currentUid;
                     setNickname(username);
                     setAccountLookup({
                         type: 'success',
+                        fingerprint: accountLookupFingerprint,
                         username,
                         location: 'Indonesia',
                     });
@@ -1964,6 +1995,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 if (payload?.skip_check) {
                     setAccountLookup({
                         type: 'info',
+                        fingerprint: accountLookupFingerprint,
                         text: 'Validasi akun tidak diperlukan untuk kategori ini.',
                     });
                     return;
@@ -1972,18 +2004,22 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 setNickname('');
                 setAccountLookup({
                     type: 'error',
+                    fingerprint: accountLookupFingerprint,
                     text: payload?.status?.message || 'Akun tidak ditemukan.',
                 });
             } catch (error) {
-                if (error.name !== 'AbortError') {
+                if (error.name !== 'AbortError' && lookupSequence === accountLookupSequenceRef.current) {
                     setNickname('');
                     setAccountLookup({
                         type: 'error',
+                        fingerprint: accountLookupFingerprint,
                         text: 'Gagal melakukan validasi akun.',
                     });
                 }
             } finally {
-                setCheckLoading(false);
+                if (lookupSequence === accountLookupSequenceRef.current) {
+                    setCheckLoading(false);
+                }
             }
         }, 420);
 
@@ -1991,7 +2027,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             controller.abort();
             window.clearTimeout(timer);
         };
-    }, [category.customInputs.zone, category.requiresGameValidation, category.slug, isComplexOrder, selectedProductId, shouldAutoCheckAccount, uid, zone]);
+    }, [accountLookupFingerprint, category.customInputs.zone, category.requiresGameValidation, category.slug, isComplexOrder, selectedProductId, shouldAutoCheckAccount, uid, zone]);
 
     const quantity = useMemo(() => {
         const raw = Number(specialForm.qty || 1);
@@ -2013,6 +2049,26 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
         return true;
     }, [category.customInputs.zone, category.requireUserId, isComplexOrder, specialFieldsWithoutQty, specialForm, uid, zone]);
+
+    const accountLookupRequired = isBangjeff
+        && !isComplexOrder
+        && category.requiresGameValidation
+        && shouldAutoCheckAccount
+        && Boolean(category.requireUserId || category.customInputs.zone);
+    const accountLookupReady = !accountLookupRequired
+        || (
+            !checkLoading
+            && accountLookup?.type === 'success'
+            && accountLookup.fingerprint === accountLookupFingerprint
+        );
+    const contactDetailsReady = isBangjeff
+        ? Boolean(
+            (isValidOrderEmail(email) || isValidOrderPhone(phone))
+            && (!email || isValidOrderEmail(email))
+            && (!phone || isValidOrderPhone(phone))
+        )
+        : true;
+    const selectedPaymentReady = !isBangjeff || Boolean(selectedMethodCode && selectedMethod);
 
     const scrollToOrderPanel = useCallback((targetRef) => {
         if (!isBangjeff || !targetRef?.current || typeof window === 'undefined') {
@@ -2416,6 +2472,64 @@ export default function Order({ meta, category, products, packages, paymentMetho
     };
 
     const validateBeforeSubmit = () => {
+        if (isBangjeff) {
+            if (!selectedProductId || (requiresExplicitNominalSelection && !nominalStepInteracted)) {
+                return 'Pilih nominal terlebih dahulu.';
+            }
+
+            if (!accountStepReady) {
+                return 'Data akun wajib diisi terlebih dahulu.';
+            }
+
+            if (accountLookupRequired && checkLoading) {
+                return 'Validasi akun sedang diproses. Tunggu sampai selesai.';
+            }
+
+            if (!accountLookupReady) {
+                return 'Validasi akun belum berhasil.';
+            }
+
+            if (!selectedMethodCode || !selectedMethod) {
+                return 'Pilih metode pembayaran terlebih dahulu.';
+            }
+
+            if (
+                priceLoading
+                || pricePreview?.status !== true
+                || pricePreviewKey !== priceRequestKey
+                || getMethodFinalPrice(pricePreview, selectedMethodCode, null) === null
+            ) {
+                return 'Harga sedang dihitung. Tunggu sampai total pembayaran tersedia.';
+            }
+
+            const contactEmail = String(email || '').trim();
+            const contactPhone = String(phone || '').trim();
+            const emailReady = !contactEmail || isValidOrderEmail(contactEmail);
+            const phoneReady = !contactPhone || isValidOrderPhone(contactPhone);
+
+            if (!emailReady) {
+                return 'Format email tidak valid.';
+            }
+
+            if (!phoneReady) {
+                return 'Format nomor WhatsApp tidak valid.';
+            }
+
+            if ((!contactEmail && !contactPhone) || (!isValidOrderEmail(contactEmail) && !isValidOrderPhone(contactPhone))) {
+                return 'Isi minimal salah satu: email atau nomor WhatsApp.';
+            }
+
+            if (isComplexOrder) {
+                for (const field of category.specialFields) {
+                    if (field.required && !String(specialForm[field.name] ?? '').trim()) {
+                        return `${field.label} wajib diisi.`;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         if (!selectedProductId) {
             return 'Pilih nominal terlebih dahulu.';
         }
@@ -2456,8 +2570,26 @@ export default function Order({ meta, category, products, packages, paymentMetho
         return null;
     };
 
+    const priceQuoteReady = !isBangjeff
+        || Boolean(
+            !priceLoading
+            && pricePreview?.status === true
+            && pricePreviewKey === priceRequestKey
+            && getMethodFinalPrice(pricePreview, selectedMethodCode, null) !== null
+        );
+    const bangjeffOrderReady = !isBangjeff
+        || Boolean(
+            selectedProductId
+            && nominalStepInteracted
+            && accountStepReady
+            && accountLookupReady
+            && selectedPaymentReady
+            && contactDetailsReady
+            && priceQuoteReady
+            && !submitLoading
+        );
     const orderValidationMessage = validateBeforeSubmit();
-    const isOrderReady = !orderValidationMessage;
+    const isOrderReady = isBangjeff ? bangjeffOrderReady : !orderValidationMessage;
 
     const buildOrderSubmitPayload = () => {
         const body = new URLSearchParams();
@@ -3489,7 +3621,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
             </section>
 
-            <div className="public-shell public-shell--order order-page__body order-page__body--bangjeff">
+            <div className={`public-shell public-shell--order order-page__body order-page__body--bangjeff ${mobileCheckoutExpanded && isBangjeff ? 'order-page__body--bangjeff-checkout-expanded' : ''}`}>
                 <div className="order-mobile-tabs order-mobile-tabs--bangjeff" role="tablist" aria-orientation="horizontal">
                     <button
                         type="button"
