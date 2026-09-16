@@ -185,11 +185,10 @@ class TenantDomainServiceTest extends TestCase
 
     public function test_filter_domain_rejects_docs_domain(): void
     {
-        putenv('DOCS_DOMAIN=docs.topupengine.test');
-        $_ENV['DOCS_DOMAIN'] = 'docs.topupengine.test';
-        $_SERVER['DOCS_DOMAIN'] = 'docs.topupengine.test';
-
-        config(['app.url' => 'https://topupengine.test']);
+        config([
+            'app.url' => 'https://topupengine.test',
+            'app.docs_domain' => 'docs.topupengine.test',
+        ]);
 
         $errors = $this->service->filterDomain('docs.topupengine.test');
 

@@ -200,7 +200,7 @@ class TenantDomainService
         $adminDomain = strtolower(trim((string) config('app.filament_admin_domain')));
 
         // Get docs domain
-        $docsDomain = strtolower(trim((string) env('DOCS_DOMAIN')));
+        $docsDomain = strtolower(trim((string) config('app.docs_domain', '')));
 
         // Check 1: Reject if matches app URL host
         if ($platformHost !== '' && $normalizedDomain === $platformHost) {

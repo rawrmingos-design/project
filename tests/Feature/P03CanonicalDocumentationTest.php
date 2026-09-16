@@ -76,6 +76,22 @@ class P03CanonicalDocumentationTest extends TestCase
         $this->assertSame(DocsController::class . '@index', $route->getActionName());
     }
 
+    public function test_docs_host_uses_cached_config_when_docs_domain_is_not_in_runtime_env(): void
+    {
+        /** @var User $user */
+        $user = User::factory()->create(['role' => 'Member']);
+
+        // config:cache makes direct env('DOCS_DOMAIN') unavailable at request time.
+        putenv('DOCS_DOMAIN');
+        unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
+        Env::enablePutenv();
+
+        $this->actingAs($user)
+            ->get('http://docs.istanatopup.test/')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('Docs/Index', false));
+    }
+
     public function test_storefront_legacy_documentation_paths_follow_the_public_unknown_route_policy(): void
     {
         $this->get('http://public.istanatopup.test/id/docs')

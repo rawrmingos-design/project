@@ -94,6 +94,7 @@ class SalesPageTest extends TestCase
         }
 
         if ($value === null) {
+            config(['app.docs_domain' => '']);
             putenv('DOCS_DOMAIN');
             unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);
             Env::enablePutenv();
@@ -101,6 +102,7 @@ class SalesPageTest extends TestCase
             return;
         }
 
+        config(['app.docs_domain' => $value]);
         putenv("DOCS_DOMAIN={$value}");
         $_ENV['DOCS_DOMAIN'] = $value;
         $_SERVER['DOCS_DOMAIN'] = $value;

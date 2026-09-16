@@ -446,7 +446,7 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
     }
     $lazyAdminHost = preg_replace('/:\d+$/', '', $lazyAdminHost) ?? '';
 
-    $lazyDocsRaw     = trim((string) env('DOCS_DOMAIN', ''));
+    $lazyDocsRaw     = trim((string) config('app.docs_domain', ''));
     $lazyDocsHost    = $lazyDocsRaw;
 
     if ($lazyDocsHost !== '' && str_contains($lazyDocsHost, '://')) {

@@ -177,7 +177,7 @@ class PublicSiteConfigService
 
     public function docsUrl(): ?string
     {
-        $docsDomain = trim((string) env('DOCS_DOMAIN', ''));
+        $docsDomain = trim((string) config('app.docs_domain', ''));
 
         if ($docsDomain === '') {
             return null;

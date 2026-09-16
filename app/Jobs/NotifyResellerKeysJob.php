@@ -58,7 +58,10 @@ class NotifyResellerKeysJob implements ShouldQueue
 
         $siteName = $settings->title ?? 'Our Platform';
         $supportEmail = $settings->email ?? 'support@example.com';
-        $docsUrl = 'https://' . (env('DOCS_DOMAIN') ?: config('app.url') . '/docs');
+        $docsDomain = trim((string) config('app.docs_domain', ''));
+        $docsUrl = $docsDomain !== ''
+            ? 'https://' . $docsDomain
+            : rtrim((string) config('app.url'), '/') . '/docs';
         $credentialsUrl = url('/id/reseller/credentials');
 
         // Prepare message content
