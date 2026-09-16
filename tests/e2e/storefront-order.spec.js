@@ -11,6 +11,38 @@ test.describe('Public storefront order flow', () => {
         await expect(page.locator('input[placeholder="Masukkan User ID"]')).toBeVisible();
     });
 
+    test('renders live sales toast only on the homepage', async ({ page }) => {
+        let recentPurchasesRequests = 0;
+
+        await page.addInitScript(() => {
+            window.localStorage.setItem('hidePopup_900001', 'true');
+        });
+        await page.route('**/api/recent-purchases', async (route) => {
+            recentPurchasesRequests += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([{
+                    item: 'E2E Live Sale',
+                    name: 'E**',
+                    image: null,
+                    time_ago: 'Baru saja',
+                }]),
+            });
+        });
+
+        await page.goto('/id', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.live-sales-toast--visible')).toBeVisible();
+        expect(recentPurchasesRequests).toBeGreaterThanOrEqual(1);
+
+        const homepageRequestCount = recentPurchasesRequests;
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1200);
+
+        await expect(page.locator('.live-sales-toast')).toHaveCount(0);
+        expect(recentPurchasesRequests).toBe(homepageRequestCount);
+    });
+
     test('excludes services outside packages from the order payload and UI', async ({ page }) => {
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 

@@ -41,7 +41,7 @@ class E2EBrowserSeeder extends Seeder
                 'order_prefik' => 'E2E',
                 'public_theme' => env('E2E_PUBLIC_THEME', 'bangjeff'),
                 'home_popup_enabled' => true,
-                'live_sales_enabled' => false,
+                'live_sales_enabled' => filter_var(env('E2E_LIVE_SALES_ENABLED', 'true'), FILTER_VALIDATE_BOOLEAN),
                 'google_analytics_id' => null,
                 'facebook_pixel_id' => null,
                 'google_tag_manager_id' => null,

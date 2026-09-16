@@ -4,6 +4,7 @@ import PublicLayout from '../../Layouts/PublicLayout';
 import HeroBanner from '../../Components/HeroBanner';
 import ProductCard from '../../Components/ProductCard';
 import HomepagePopup from '../../Components/HomepagePopup';
+import LiveSalesToast from '../../Components/LiveSalesToast';
 
 function formatCurrency(value) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value || 0);
@@ -380,6 +381,10 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
 
             </div>
 
+            <LiveSalesToast
+                enabled={featureFlags?.liveSalesEnabled}
+                fallbackImage={siteConfig.favicon}
+            />
             <HomepagePopup popup={popup} enabled={featureFlags?.homePopupEnabled} />
         </PublicLayout>
     );
