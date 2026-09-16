@@ -24,13 +24,7 @@ class PublicOrderPageDataService
         }
 
         $resolver = app(PublicUploadUrlService::class);
-        $exists = $resolver->exists($path, config('uploads.disk', 'assets'));
-
-        if ($exists === false) {
-            return null;
-        }
-
-        return $resolver->url($path, config('uploads.disk', 'assets'));
+        return $resolver->existingUrl($path, config('uploads.disk', 'assets'));
     }
 
     public function isSupportedForInertia(Kategori $kategori): bool
