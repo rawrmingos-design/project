@@ -140,6 +140,9 @@ final class SeoMetadataService
     {
         $canonical = CanonicalUrl::normalize($canonical);
 
+        $settings = $this->siteConfigService->getSettings();
+        $siteName = trim((string) ($settings->judul_web ?? config('app.name')));
+
         return [
             array_filter([
                 '@context' => 'https://schema.org',
@@ -151,7 +154,7 @@ final class SeoMetadataService
                 'inLanguage' => 'id-ID',
             ], static fn ($value): bool => $value !== null && $value !== ''),
             $this->breadcrumbSchema([
-                ['name' => config('app.name'), 'url' => url('/id')],
+                ['name' => $siteName, 'url' => url('/id')],
                 ['name' => $name, 'url' => $canonical],
             ]),
         ];

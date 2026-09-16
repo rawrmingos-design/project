@@ -20,6 +20,33 @@ test.describe('SEO route boundaries', () => {
         expect(types).toEqual(expect.arrayContaining(['WebSite', 'Organization', 'WebPage']));
     });
 
+    test('order page exposes category SEO, canonical, and site-name breadcrumb', async ({ page }) => {
+        await page.goto('/id/e2e-game');
+
+        await expect(page.locator('html')).toHaveAttribute('lang', 'id');
+        await expect(page).toHaveTitle(/Top Up E2E Game Murah/);
+        await expect(page.locator('meta[name="description"][data-inertia]')).toHaveAttribute('content', /top up E2E Game/i);
+        await expect(page.locator('meta[name="robots"][data-inertia]')).toHaveAttribute('content', /index,follow/);
+        await expect(page.locator('meta[name="robots"][data-inertia]')).toHaveCount(1);
+        await expect(page.locator('link[rel="canonical"][data-inertia]')).toHaveAttribute('href', /\/id\/e2e-game$/);
+        await expect(page.locator('link[rel="canonical"][data-inertia]')).toHaveCount(1);
+        await expect(page.locator('script[type="application/ld+json"][data-inertia="json-ld"]')).toHaveCount(1);
+
+        const schemas = await jsonLd(page);
+        const collection = schemas.flatMap((schema) => Array.isArray(schema) ? schema : [schema]);
+        const breadcrumb = collection.find((schema) => schema['@type'] === 'BreadcrumbList');
+        const collectionPage = collection.find((schema) => schema['@type'] === 'CollectionPage');
+
+        expect(collectionPage).toMatchObject({
+            url: expect.stringMatching(/\/id\/e2e-game$/),
+            inLanguage: 'id-ID',
+        });
+        expect(breadcrumb?.itemListElement?.[0]).toMatchObject({
+            name: 'P06 Browser Test',
+            item: expect.stringMatching(/\/id$/),
+        });
+    });
+
     test('public calculator remains indexable and appears in sitemap', async ({ page, request }) => {
         await page.goto('/id/calculator/winrate');
         await expect(page.locator('meta[name="robots"][data-inertia]')).toHaveAttribute('content', /index,follow/);
