@@ -2935,7 +2935,7 @@ textarea {
 /* The IstanaTopup shell uses overflow-x:hidden globally. On this order variant
  * that creates a scroll container and prevents the desktop sidebar from
  * sticking to the viewport. Keep the containment scoped to the order page. */
-.public-app.public-app--bangjeff.public-app--order-bangjeff {
+.public-app.public-app--order-bangjeff {
     overflow-x: clip;
 }
 

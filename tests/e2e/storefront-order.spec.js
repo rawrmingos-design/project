@@ -98,6 +98,53 @@ test.describe('Public storefront order flow', () => {
         expect(stickyState.summaryBottom).toBeGreaterThan(stickyState.summaryTop);
     });
 
+    test('keeps the desktop checkout sidebar attached to the viewport while scrolling', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const sidebar = page.locator('.order-layout__sidebar--bangjeff:visible');
+        await expect(sidebar).toBeVisible();
+
+        const beforeScroll = await sidebar.evaluate((element) => {
+            const root = document.querySelector('.public-app.public-app--order-bangjeff');
+
+            return {
+                position: getComputedStyle(element).position,
+                top: parseFloat(getComputedStyle(element).top),
+                rootOverflowX: root ? getComputedStyle(root).overflowX : null,
+                rootOverflowY: root ? getComputedStyle(root).overflowY : null,
+            };
+        });
+
+        expect(beforeScroll.position).toBe('sticky');
+        expect(beforeScroll.top).toBe(118);
+        expect(beforeScroll.rootOverflowX).toBe('clip');
+        expect(beforeScroll.rootOverflowY).not.toBe('auto');
+
+        await page.evaluate(() => window.scrollTo({ top: 900, left: 0, behavior: 'instant' }));
+        await page.waitForTimeout(100);
+
+        const afterScroll = await sidebar.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            const summary = element.querySelector('.order-mini-card--summary')?.getBoundingClientRect();
+
+            return {
+                top: rect.top,
+                bottom: rect.bottom,
+                summaryTop: summary?.top ?? null,
+                summaryBottom: summary?.bottom ?? null,
+                viewportHeight: window.innerHeight,
+            };
+        });
+
+        expect(afterScroll.top).toBeGreaterThanOrEqual(100);
+        expect(afterScroll.top).toBeLessThanOrEqual(130);
+        expect(afterScroll.bottom).toBeGreaterThan(afterScroll.top);
+        expect(afterScroll.summaryTop).toBeGreaterThanOrEqual(afterScroll.top);
+        expect(afterScroll.summaryBottom).toBeLessThanOrEqual(afterScroll.bottom);
+        expect(afterScroll.summaryTop).toBeLessThan(afterScroll.viewportHeight);
+    });
+
     test('keeps CTA disabled until the auto-selected nominal is explicitly chosen', async ({ page }) => {
         let finalOrderPosts = 0;
 

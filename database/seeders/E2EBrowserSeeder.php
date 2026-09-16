@@ -39,7 +39,7 @@ class E2EBrowserSeeder extends Seeder
                 'warna4' => '#fb923c',
                 'paydisini_apikey' => '',
                 'order_prefik' => 'E2E',
-                'public_theme' => 'bangjeff',
+                'public_theme' => env('E2E_PUBLIC_THEME', 'bangjeff'),
                 'home_popup_enabled' => true,
                 'live_sales_enabled' => false,
                 'google_analytics_id' => null,
