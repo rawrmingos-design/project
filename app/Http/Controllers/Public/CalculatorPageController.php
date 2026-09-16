@@ -7,6 +7,7 @@ use App\Http\Controllers\HitungpointmwController as LegacyMagicWheelController;
 use App\Http\Controllers\HitungpointzodiacController as LegacyZodiacController;
 use App\Http\Controllers\HitungwrController as LegacyWinRateController;
 use App\Services\PublicSiteConfigService;
+use App\Services\SeoMetadataService;
 use App\Support\PublicThemeRegistry;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,33 +16,39 @@ class CalculatorPageController extends Controller
 {
     public function magicWheel(
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyMagicWheelController $legacyMagicWheelController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         return $this->renderCalculatorPage(
             'magic-wheel',
             $siteConfigService,
+            $seoMetadataService,
             fn () => $legacyMagicWheelController->create(),
         );
     }
 
     public function zodiac(
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyZodiacController $legacyZodiacController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         return $this->renderCalculatorPage(
             'zodiac',
             $siteConfigService,
+            $seoMetadataService,
             fn () => $legacyZodiacController->create(),
         );
     }
 
     public function winrate(
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyWinRateController $legacyWinRateController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         return $this->renderCalculatorPage(
             'winrate',
             $siteConfigService,
+            $seoMetadataService,
             fn () => $legacyWinRateController->create(),
         );
     }
@@ -49,6 +56,7 @@ class CalculatorPageController extends Controller
     private function renderCalculatorPage(
         string $calculator,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         callable $legacyResponder,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -79,13 +87,16 @@ class CalculatorPageController extends Controller
             'calculator' => [
                 'type' => $resolvedCalculator,
             ],
-            'meta' => [
+            'meta' => $seoMetadataService->calculator(
+                "{$resolvedMeta['title']} - {$settings->judul_web}",
+                [
                 'title' => "{$resolvedMeta['title']} - {$settings->judul_web}",
                 'description' => $resolvedMeta['description'],
                 'keywords' => "kalkulator, {$resolvedCalculator}, top up game, {$settings->judul_web}",
                 'canonical' => url('/id/calculator/' . $resolvedCalculator),
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
-            ],
+                ],
+            ),
         ]);
     }
 }

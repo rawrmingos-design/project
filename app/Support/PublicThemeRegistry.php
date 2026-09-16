@@ -12,9 +12,7 @@ class PublicThemeRegistry
      * Theme yang masih dalam tahap pengembangan: boleh dipakai untuk
      * preview di staging/local, diblokir saat disimpan dari production.
      */
-    public const PREVIEW_ONLY_THEMES = [
-        self::ISTANATOPUP,
-    ];
+    public const PREVIEW_ONLY_THEMES = [];
 
     public static function options(): array
     {

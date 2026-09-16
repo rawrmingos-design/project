@@ -19,25 +19,74 @@ function formatDateLabel(value) {
     }).format(date);
 }
 
+function articleCategory(article) {
+    const haystack = `${article.title || ''} ${article.keywords || ''}`.toLowerCase();
+
+    if (haystack.includes('mobile legends') || haystack.includes('mlbb') || haystack.includes('diamond ml')) {
+        return 'Mobile Legends';
+    }
+
+    if (haystack.includes('free fire') || haystack.includes(' ff ') || haystack.includes('booyah')) {
+        return 'Free Fire';
+    }
+
+    if (haystack.includes('top up') || haystack.includes('topup') || haystack.includes('user id') || haystack.includes('zone id')) {
+        return 'Panduan';
+    }
+
+    return 'Artikel Game';
+}
+
+function paginationPages(currentPage, lastPage) {
+    if (lastPage <= 5) {
+        return Array.from({ length: lastPage }, (_, index) => index + 1);
+    }
+
+    const start = Math.max(1, Math.min(currentPage - 1, lastPage - 2));
+    return [start, start + 1, start + 2];
+}
+
 export default function ArticlesIndex({ meta, featured, articles = [], pagination }) {
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
             <section className="public-article-page public-article-page--index">
+                <div className="public-shell public-article-index-header">
+                    <header className="public-article-index-header__copy">
+                        <h1>Artikel Terbaru &amp; Berita Game</h1>
+                        <p>Panduan lengkap, berita promo, update top-up, dan info event dari dunia game yang kamu mainkan.</p>
+                    </header>
+                    <nav className="public-article-index-header__filters" aria-label="Kategori artikel">
+                        <button type="button" className="is-active" aria-current="page">Semua</button>
+                        <button type="button">Mobile Legends</button>
+                        <button type="button">Free Fire</button>
+                        <button type="button">Panduan</button>
+                        <button type="button">Promo</button>
+                    </nav>
+                </div>
+
                 {featured ? (
-                    <div className="public-article-hero" style={{ backgroundImage: `url('${featured.thumbnail}')` }}>
+                    <article className="public-article-hero">
+                        <div className="public-article-hero__thumb">
+                            {featured.thumbnail ? (
+                                <img src={featured.thumbnail} alt="" />
+                            ) : (
+                                <span>thumbnail artikel</span>
+                            )}
+                        </div>
                         <div className="public-article-hero__overlay" />
                         <div className="public-shell public-article-hero__content">
-                            <span className="public-article-hero__tag">Featured News</span>
-                            <h1>
+                            <span className="public-article-hero__tag">{featured.title.toLowerCase().includes('free fire') ? 'Free Fire' : 'Artikel Pilihan'}</span>
+                            <h2>
                                 <Link href={`/id/artikel/${featured.slug}`}>{featured.title}</Link>
-                            </h1>
-                            <div className="public-article-hero__meta">
-                                <span>{featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
-                                <span>{featured.views} Views</span>
-                            </div>
+                            </h2>
                             <p>{featured.metaDescription || featured.excerpt}</p>
+                            <div className="public-article-hero__meta">
+                                <span>Ditulis oleh Tim Editorial IstanaTopup</span>
+                                <span>Ditinjau oleh Tim Operasional IstanaTopup</span>
+                                <span>Diperbarui: {featured.updatedAtLabel || featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
+                            </div>
                         </div>
-                    </div>
+                    </article>
                 ) : (
                     <div className="public-shell public-article-empty-hero">
                         <h1>Berita &amp; Artikel</h1>
@@ -57,16 +106,16 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                                 <Link key={article.id} href={`/id/artikel/${article.slug}`} className="public-article-card">
                                     <div className="public-article-card__thumb">
                                         <img src={article.thumbnail} alt={article.title} />
-                                        <div className="public-article-card__thumb-gradient" />
-                                        <div className="public-article-card__thumb-meta">
-                                            <span>{article.publishedAgo || formatDateLabel(article.publishedAt)}</span>
-                                            <span>{article.views} Views</span>
-                                        </div>
                                     </div>
                                     <div className="public-article-card__body">
+                                        <span className="public-article-card__category">{articleCategory(article)}</span>
                                         <h3>{article.title}</h3>
                                         <p>{article.excerpt}</p>
-                                        <span className="public-article-card__cta">Baca Selengkapnya</span>
+                                        <div className="public-article-card__date">
+                                            <span>Admin</span>
+                                            <span>&middot;</span>
+                                            <span>{article.publishedAtLabel || formatDateLabel(article.publishedAt)}</span>
+                                        </div>
                                     </div>
                                 </Link>
                             ))}
@@ -79,25 +128,35 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                     )}
 
                     {pagination?.lastPage > 1 ? (
-                        <div className="public-article-pagination">
+                        <nav className="public-article-pagination" aria-label="Pagination artikel">
                             <Link
                                 href={pagination.prevPageUrl || '#'}
-                                className={`public-article-pagination__button ${pagination.prevPageUrl ? '' : 'is-disabled'}`}
+                                className={`public-article-pagination__button public-article-pagination__arrow ${pagination.prevPageUrl ? '' : 'is-disabled'}`}
+                                aria-label="Halaman sebelumnya"
                                 preserveScroll
                             >
-                                Sebelumnya
+                                &lsaquo;
                             </Link>
-                            <span>
-                                Halaman {pagination.currentPage} dari {pagination.lastPage}
-                            </span>
+                            {paginationPages(pagination.currentPage, pagination.lastPage).map((page) => (
+                                <Link
+                                    key={page}
+                                    href={pagination.pageUrls?.[page] || `?page=${page}`}
+                                    className={`public-article-pagination__button public-article-pagination__page ${page === pagination.currentPage ? 'is-active' : ''}`}
+                                    aria-current={page === pagination.currentPage ? 'page' : undefined}
+                                    preserveScroll
+                                >
+                                    {page}
+                                </Link>
+                            ))}
                             <Link
                                 href={pagination.nextPageUrl || '#'}
-                                className={`public-article-pagination__button ${pagination.nextPageUrl ? '' : 'is-disabled'}`}
+                                className={`public-article-pagination__button public-article-pagination__arrow ${pagination.nextPageUrl ? '' : 'is-disabled'}`}
+                                aria-label="Halaman berikutnya"
                                 preserveScroll
                             >
-                                Berikutnya
+                                &rsaquo;
                             </Link>
-                        </div>
+                        </nav>
                     ) : null}
                 </div>
             </section>

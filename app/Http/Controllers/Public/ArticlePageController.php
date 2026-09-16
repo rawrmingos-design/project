@@ -7,6 +7,7 @@ use App\Http\Controllers\ArtikelController as LegacyArtikelController;
 use App\Http\Controllers\Controller;
 use App\Models\Artikel;
 use App\Services\PublicSiteConfigService;
+use App\Services\SeoMetadataService;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,6 +20,7 @@ class ArticlePageController extends Controller
     public function index(
         Request $request,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyArtikelController $legacyArtikelController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -38,6 +40,7 @@ class ArticlePageController extends Controller
         });
 
         $page = max(1, (int) $request->query('page', 1));
+        $canonical = url('/id/artikel') . ($page > 1 ? '?page=' . $page : '');
 
         $paginator = Cache::remember("public:articles:index:page:{$page}:v{$cacheVersion}", $ttl, function () use ($featured, $page) {
             return Artikel::query()
@@ -64,19 +67,25 @@ class ArticlePageController extends Controller
                 'prevPageUrl' => $paginator->previousPageUrl(),
                 'nextPageUrl' => $paginator->nextPageUrl(),
             ],
-            'meta' => [
+            'meta' => $seoMetadataService->page([
                 'title' => 'Berita & Artikel Game Terbaru',
                 'description' => 'Baca berita dan artikel terbaru seputar game, tips & trik, dan update event mobile legends, free fire, pubg, dan lainnya.',
                 'keywords' => 'berita game, artikel game, tips game, mobile legends update, free fire event',
-                'canonical' => url('/id/artikel'),
+                'canonical' => $canonical,
                 'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
-            ],
+                'schemaMarkup' => $seoMetadataService->collectionSchema(
+                    'Berita & Artikel Game Terbaru',
+                    $canonical,
+                    url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
+                ),
+            ], $request),
         ]);
     }
 
     public function show(
         string $slug,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyArtikelController $legacyArtikelController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -111,14 +120,21 @@ class ArticlePageController extends Controller
         return Inertia::render('Public/Articles/Show', [
             'article' => $this->mapArticle($article, $siteConfigService, true, true),
             'recentArticles' => $recentArticles,
-            'meta' => [
+            'meta' => $seoMetadataService->article([
                 'title' => (string) $article->title,
                 'description' => (string) ($article->meta_description ?? Str::limit(strip_tags((string) $article->content), 150)),
                 'keywords' => (string) ($article->keywords ?? ''),
                 'canonical' => url("/id/artikel/{$article->slug}"),
                 'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
-            ],
-        ]);
+                                'schemaMarkup' => $seoMetadataService->articleSchema([
+                                    'title' => (string) $article->title,
+                                    'description' => (string) ($article->meta_description ?? Str::limit(strip_tags((string) $article->content), 150)),
+                                    'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
+                                    'datePublished' => optional($article->created_at)?->toAtomString(),
+                                    'dateModified' => optional($article->updated_at)?->toAtomString(),
+                                ], url("/id/artikel/{$article->slug}"), (string) $settings->judul_web),
+                            ]),
+                        ]);
     }
 
     private function mapArticle(
@@ -139,6 +155,7 @@ class ArticlePageController extends Controller
             'views' => (int) ($article->views ?? 0),
             'publishedAt' => optional($article->created_at)?->toDateString(),
             'publishedAtLabel' => optional($article->created_at)?->format('d M Y'),
+            'updatedAtLabel' => optional($article->updated_at)?->format('d F Y'),
             'publishedAgo' => optional($article->created_at)?->diffForHumans(),
             'excerpt' => (string) $excerpt,
             'metaDescription' => $withMetaDescription ? $metaDescription : null,

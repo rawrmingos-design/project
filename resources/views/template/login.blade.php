@@ -3,17 +3,74 @@
 @section('custom_style')
 <style>
     .auth-login-page {
-        background: #18181b;
+        min-height: 100vh;
+        align-items: flex-start;
+        justify-content: center;
+        background: #121212;
+        color: #f5f5f5;
     }
 
     .auth-login-form-column {
-        width: 100%;
+        width: min(100%, 430px);
+        min-height: 100vh;
+        justify-content: center;
+        padding: 44px 18px 24px;
     }
 
-    @media (min-width: 768px) {
-        .auth-login-form-column {
-            width: 550px;
-        }
+    .auth-login-form-column > div {
+        width: 100%;
+        max-width: 430px;
+        padding: 26px 26px 24px;
+        border: 1px solid #2f2f2f;
+        border-radius: 16px;
+        background: #1e1e1e;
+    }
+
+    .auth-login-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 22px;
+        padding: 4px;
+        border-radius: 11px;
+        background: #262626;
+    }
+
+    .auth-login-tab {
+        flex: 1;
+        padding: 9px 0;
+        border-radius: 8px;
+        color: #9c9c9c;
+        font-size: 13.5px;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .auth-login-tab.is-active {
+        background: #f97316;
+        color: #fff;
+    }
+
+    .auth-login-tab:hover:not(.is-active) {
+        background: #2f2f2f;
+        color: #f5f5f5;
+    }
+
+    .auth-login-form-column > div > div:first-child {
+        margin-bottom: 22px;
+    }
+
+    .auth-login-form-column h1 {
+        font-size: 24px;
+        line-height: 1.2;
+    }
+
+    .auth-login-form-column .auth-login-copy {
+        color: #9c9c9c;
+    }
+
+    .auth-login-form-column > div > div:last-child,
+    .auth-login-page > div:last-child {
+        display: none;
     }
 
     .auth-login-close {
@@ -26,12 +83,12 @@
     }
 
     .auth-login-input {
-        height: 2.25rem;
-        border-radius: 0.55rem;
+        height: 44px;
+        border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: #383838;
         color: #fafaf9;
-        font-size: 0.78rem;
+        font-size: 13.5px;
     }
 
     .auth-login-input::placeholder {
@@ -169,9 +226,13 @@
 
     <div class="auth-login-form-column flex min-h-screen w-full flex-col items-center justify-start gap-5 px-4 pb-8 pt-20 sm:pb-10 sm:pt-24 md:justify-center md:gap-7 md:px-12 md:py-14 lg:gap-8 lg:px-20 lg:py-20">
         <div class="mx-auto w-full max-w-md space-y-4 sm:space-y-5 md:space-y-6 lg:mx-0">
+            <nav class="auth-login-tabs" aria-label="Autentikasi">
+                <a class="auth-login-tab is-active" href="{{ route('login') }}" aria-current="page">Masuk</a>
+                <a class="auth-login-tab" href="{{ route('register') }}">Daftar</a>
+            </nav>
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Masuk</h1>
-                <p class="auth-login-copy mt-2 text-sm">Masuk dengan akun yang telah Kamu daftarkan.</p>
+                <p class="auth-login-copy mt-2 text-sm">Masuk dengan akun yang telah kamu daftarkan.</p>
             </div>
 
             @if(session('error') || $errors->has('error'))
@@ -247,9 +308,9 @@
                 <div class="flex items-center justify-between text-sm">
                     <label for="remember-me" class="auth-login-copy flex cursor-pointer items-center gap-2 text-xs">
                         <input type="checkbox" class="h-4 w-4 rounded border border-murky-600 bg-murky-700 text-primary-500 focus:ring-primary-500" id="remember-me" name="rememberMe" />
-                        Ingat akun ku
+                        Ingat saya
                     </label>
-                    <a class="auth-login-link text-xs font-medium" href="{{ route('forgot') }}">Lupa kata sandi mu?</a>
+                    <a class="auth-login-link text-xs font-medium" href="{{ route('forgot') }}">Lupa password?</a>
                 </div>
 
                 @if($isLoginCaptchaEnabled)
@@ -278,7 +339,7 @@
                 </div>
 
                 <div class="relative flex justify-center text-sm">
-                    <span class="auth-login-copy text-sm">Belum memiliki akun?</span>
+                    <span class="auth-login-copy text-sm">Belum punya akun?</span>
                 </div>
 
                 <a class="auth-login-register inline-flex h-9 w-full items-center justify-center rounded-lg bg-transparent px-4 py-2 text-sm font-medium" href="{{ route('register') }}" style="outline: none;">

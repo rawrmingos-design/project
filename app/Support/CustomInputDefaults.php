@@ -87,7 +87,7 @@ class CustomInputDefaults
     /**
      * @return array{user_id: array{label: string, placeholder: string, type: string}, zone: array{label: string, placeholder: string, type: string, is_select: bool, options: array<int, array{label: string, value: string}>}|null}
      */
-    public function inputSpecification(Kategori $kategori): array
+    public function inputSpecification(Kategori $kategori, ?bool $requiresZoneId = null): array
     {
         $customInput = CustomInput::query()
             ->where('kategori_id', (string) $kategori->id)
@@ -115,6 +115,23 @@ class CustomInputDefaults
             'field_select_value_input' => $defaults['field_select'] ?? null,
         ];
         $zoneType = strtolower(trim((string) $state['field_2_type']));
+        $requiresZoneId ??= $state['has_field_2'];
+        $zone = $requiresZoneId ? ($state['has_field_2'] ? [
+            'label' => trim((string) $state['field_2_title']) ?: 'Server / Zone',
+            'placeholder' => trim((string) $state['field_2_placeholder']) ?: 'Masukkan Server / Zone',
+            'type' => $zoneType ?: 'text',
+            'is_select' => $zoneType === 'select',
+            'options' => $this->selectOptions(
+                $state['field_select_title_input'] ?? null,
+                $state['field_select_value_input'] ?? null,
+            ),
+        ] : [
+            'label' => 'Server / Zone',
+            'placeholder' => 'Masukkan Server / Zone',
+            'type' => 'number',
+            'is_select' => false,
+            'options' => [],
+        ]) : null;
 
         return [
             'user_id' => [
@@ -122,16 +139,7 @@ class CustomInputDefaults
                 'placeholder' => trim((string) $state['field_1_placeholder']) ?: 'Masukkan User ID',
                 'type' => trim((string) $state['field_1_type']) ?: 'text',
             ],
-            'zone' => $state['has_field_2'] ? [
-                'label' => trim((string) $state['field_2_title']) ?: 'Server / Zone',
-                'placeholder' => trim((string) $state['field_2_placeholder']) ?: 'Masukkan Server / Zone',
-                'type' => $zoneType ?: 'text',
-                'is_select' => $zoneType === 'select',
-                'options' => $this->selectOptions(
-                    $state['field_select_title_input'] ?? null,
-                    $state['field_select_value_input'] ?? null,
-                ),
-            ] : null,
+            'zone' => $zone,
         ];
     }
 

@@ -79,6 +79,32 @@ XML);
             ->assertDontSee('/admin/settings', false);
     }
 
+    public function test_robots_disallows_private_routes_and_advertises_sitemap(): void
+    {
+        $this->createSettings();
+
+        $this->get('/robots.txt')
+            ->assertOk()
+            ->assertSee('Disallow: /id/sign-in', false)
+            ->assertSee('Disallow: /id/dashboard', false)
+            ->assertSee('Disallow: /id/invoices', false)
+            ->assertSee('Sitemap: ', false);
+    }
+
+    public function test_dynamic_main_sitemap_excludes_private_invoice_and_includes_public_pages(): void
+    {
+        $this->createSettings();
+
+        $this->get('/sitemap-main.xml')
+            ->assertOk()
+            ->assertSee('/id/calculator/winrate', false)
+            ->assertSee('/id/calculator/magic-wheel', false)
+            ->assertSee('/id/calculator/zodiac', false)
+            ->assertSee('/id/leaderboard', false)
+            ->assertDontSee('/id/invoices', false)
+            ->assertDontSee('/id/dashboard', false);
+    }
+
     public function test_custom_mode_without_assets_falls_back_to_dynamic_main_sitemap(): void
     {
         Artikel::query()->create([

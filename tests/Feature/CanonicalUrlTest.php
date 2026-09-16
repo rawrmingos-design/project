@@ -39,8 +39,8 @@ class CanonicalUrlTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('<link rel="canonical" href="https://istanatopup.test/id">', false)
-            ->assertSee('<meta property="og:url" content="https://istanatopup.test/id">', false);
+            ->assertSee('<link data-inertia="canonical" rel="canonical" href="https://istanatopup.test/id">', false)
+            ->assertSee('<meta data-inertia="og:url" property="og:url" content="https://istanatopup.test/id">', false);
     }
 
     public function test_legacy_template_renders_https_non_www_canonical_and_og_url(): void
@@ -62,18 +62,65 @@ class CanonicalUrlTest extends TestCase
         $this->seedPublicSettings('bangjeff');
 
         $content = $this->get('https://www.istanatopup.test/id')->assertOk()->getContent();
+        $decodedContent = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $this->assertStringContainsString('https://istanatopup.test/id/search/products?q={search_term_string}', $content);
-        $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $content);
-        $this->assertStringContainsString('<meta name="robots" content="index,follow', $content);
+        $this->assertStringContainsString('/id/search/products?q={search_term_string}', $decodedContent);
+        $this->assertStringNotContainsString('/id/cari/index?q={search_term_string}', $decodedContent);
+        $this->assertStringContainsString('<meta data-inertia="robots" name="robots" content="index,follow', $content);
 
-        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $content, $matches);
+        preg_match_all('/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/s', $content, $matches);
         $this->assertNotEmpty($matches[1]);
 
+        $searchTargets = [];
+        $types = [];
         foreach ($matches[1] as $schema) {
-            $this->assertNotNull(json_decode(trim($schema), true));
+            $decoded = json_decode(trim($schema), true);
+            $this->assertNotNull($decoded);
             $this->assertSame(JSON_ERROR_NONE, json_last_error());
+            foreach ((array) $decoded as $item) {
+                if (isset($item['@type'])) {
+                    $types[] = $item['@type'];
+                }
+            }
         }
+
+        $this->assertContains('WebSite', $types);
+        $this->assertContains('Organization', $types);
+        $this->assertContains('WebPage', $types);
+    }
+
+    public function test_article_page_two_keeps_page_query_in_canonical_and_collection_schema(): void
+    {
+        $this->withoutVite();
+        $this->seedPublicSettings('bangjeff');
+
+        $content = $this->get('https://www.istanatopup.test/id/artikel?page=2&utm_source=test')
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString(
+            '<link data-inertia="canonical" rel="canonical" href="https://istanatopup.test/id/artikel?page=2">',
+            $content
+        );
+        $decodedContent = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->assertStringNotContainsString(
+            'canonical" href="https://istanatopup.test/id/artikel?page=2&utm_source=test',
+            $decodedContent
+        );
+        preg_match_all('/<script\b[^>]*type="application\/ld\+json"[^>]*>(.*?)<\/script>/s', $content, $matches);
+        $collectionPages = [];
+        foreach ($matches[1] as $schema) {
+            $decoded = json_decode(trim($schema), true);
+            $items = is_array($decoded) && array_is_list($decoded) ? $decoded : [$decoded];
+            foreach ($items as $item) {
+                if (($item['@type'] ?? null) === 'CollectionPage') {
+                    $collectionPages[] = $item;
+                }
+            }
+        }
+
+        $this->assertNotEmpty($collectionPages);
+        $this->assertSame('https://istanatopup.test/id/artikel?page=2', $collectionPages[0]['url']);
     }
 
     private function seedPublicSettings(string $theme): void

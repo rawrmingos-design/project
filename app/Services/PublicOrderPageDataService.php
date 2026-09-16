@@ -7,6 +7,7 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Support\CustomInputDefaults;
 use App\Support\GtmDataLayerBuilder;
+use App\Services\CheckId\CheckIdResolver;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -24,7 +25,7 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:v2:{$kategori->kode}:{$role}";
+        $cacheKey = "inertia_order_page:v4:{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -52,8 +53,23 @@ class PublicOrderPageDataService
                 ->where('kategoris.kode', $kategori->kode)
                 ->firstOrFail();
 
-            $products = $this->loadProducts($category->id, $role);
             $packages = $this->loadPackages($category->id, $role);
+            $packagedProductIds = collect($packages)
+                ->flatMap(fn (array $package) => $package['items'] ?? [])
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            $hasPackageMembership = DB::table('paket_layanans')
+                ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
+                ->where('layanans.kategori_id', $category->id)
+                ->exists();
+            $products = $this->loadProducts(
+                $category->id,
+                $role,
+                $hasPackageMembership ? $packagedProductIds : null,
+            );
             $ratings = $this->loadRatings($category->id);
             $methods = $this->loadMethods();
             $gtmBuilder = app(GtmDataLayerBuilder::class);
@@ -77,7 +93,7 @@ class PublicOrderPageDataService
                     'description' => $this->sanitizeCategoryDescription($category->deskripsi_game),
                     'fieldDescription' => $category->deskripsi_field,
                     'requireUserId' => (bool) ($category->require_user_id ?? true),
-                    'serverId' => (bool) ($category->server_id ?? false),
+                    'serverId' => $this->requiresZoneId($category),
                     'requiresGameValidation' => in_array($category->tipe, ['game', 'populer'], true),
                     'metaTitle' => $category->meta_title,
                     'metaDescription' => $category->meta_description,
@@ -145,11 +161,15 @@ class PublicOrderPageDataService
         };
     }
 
-    private function loadProducts(int $categoryId, string $role)
+    private function loadProducts(int $categoryId, string $role, ?array $allowedProductIds = null)
     {
         $query = Layanan::query()
             ->where('kategori_id', $categoryId)
             ->where('status', 'available');
+
+        if ($allowedProductIds !== null) {
+            $query->whereIn('id', $allowedProductIds);
+        }
 
         match ($role) {
             'Member' => $query->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
@@ -182,6 +202,7 @@ class PublicOrderPageDataService
             ->join('paket_layanans', 'paket_layanans.paket_id', '=', 'pakets.id')
             ->join('layanans', 'layanans.id', '=', 'paket_layanans.layanan_id')
             ->where('layanans.kategori_id', $categoryId)
+            ->where('layanans.status', 'available')
             ->where("layanans.{$priceColumn}", '>', 0)
             ->select([
                 'pakets.id AS paket_id',
@@ -327,6 +348,26 @@ class PublicOrderPageDataService
         $field2 = array_map('trim', array_filter(explode(',', (string) ($category->field_2 ?? ''))));
         $fieldSelectTitle = array_map('trim', array_filter(explode(',', (string) ($category->field_select_title ?? ''))));
         $fieldSelect = array_map('trim', array_filter(explode(',', (string) ($category->field_select ?? ''))));
+        $requiresZone = $this->requiresZoneId($category);
+
+        $zone = $requiresZone ? ($field2 !== [] ? [
+            'label' => $field2[0] ?? 'Server / Zone',
+            'placeholder' => $field2[1] ?? 'Masukkan Server / Zone',
+            'type' => $field2[2] ?? 'text',
+            'isSelect' => ($field2[2] ?? null) === 'select',
+            'options' => collect($fieldSelectTitle)->map(function ($title, $index) use ($fieldSelect) {
+                return [
+                    'label' => $title,
+                    'value' => $fieldSelect[$index] ?? $title,
+                ];
+            })->values()->all(),
+        ] : [
+            'label' => 'Server / Zone',
+            'placeholder' => 'Masukkan Server / Zone',
+            'type' => 'number',
+            'isSelect' => false,
+            'options' => [],
+        ]) : null;
 
         return [
             'userId' => [
@@ -334,19 +375,16 @@ class PublicOrderPageDataService
                 'placeholder' => $field1[1] ?? 'Masukkan User ID',
                 'type' => $field1[2] ?? 'text',
             ],
-            'zone' => $field2 !== [] ? [
-                'label' => $field2[0] ?? 'Server / Zone',
-                'placeholder' => $field2[1] ?? 'Masukkan Server / Zone',
-                'type' => $field2[2] ?? 'text',
-                'isSelect' => ($field2[2] ?? null) === 'select',
-                'options' => collect($fieldSelectTitle)->map(function ($title, $index) use ($fieldSelect) {
-                    return [
-                        'label' => $title,
-                        'value' => $fieldSelect[$index] ?? $title,
-                    ];
-                })->values()->all(),
-            ] : null,
+            'zone' => $zone,
         ];
+    }
+
+    private function requiresZoneId(object $category): bool
+    {
+        return app(CheckIdResolver::class)->requiresZoneId(
+            (string) ($category->kode ?? ''),
+            (bool) ($category->server_id ?? false),
+        );
     }
 
     private function mapSpecialFields(string $type): array

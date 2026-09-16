@@ -46,7 +46,7 @@ function formatArticleDate(value) {
     }).format(date).replace(/\//g, '.');
 }
 
-export default function Home({ meta, banners, popup, featuredCategories, categoryTabs, flashsale, articles, paymentMethods }) {
+export default function Home({ meta, banners, popup, featuredCategories, categoryTabs, flashsale, articles }) {
     const { featureFlags, siteConfig, theme } = usePage().props;
     const [activeCategoryTab, setActiveCategoryTab] = useState(0);
     const activeThemeKey = theme?.key || 'default';
@@ -86,6 +86,15 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
 
         return () => window.clearInterval(interval);
     }, [flashsaleDeadline]);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && typeof window.pushDataLayerEvent === 'function') {
+            window.pushDataLayerEvent('view_home', {
+                page_type: 'home',
+                theme: activeThemeKey,
+            }, { dedupeKey: `view_home:${activeThemeKey}` });
+        }
+    }, [activeThemeKey]);
 
     useEffect(() => {
         if (!categoryTabs.length) {
@@ -153,7 +162,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
 
                                                 <div className="flashsale-card__summary">
                                                     <div className="flashsale-card__thumb flashsale-card__thumb--compact">
-                                                        <img src={item.productLogo || item.thumbnail} alt={item.title} />
+                                                        <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                                     </div>
 
                                                     <div className="flashsale-card__details">
@@ -189,16 +198,35 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </section>
                 ) : null}
 
+                {activeThemeKey === 'istanatopup' ? (
+                    <section className="public-section public-section--storefront ist-trust-section" aria-label="Keunggulan layanan">
+                        <div className="ist-trust-grid">
+                            <div className="ist-trust-item">
+                                <strong>Buka 24 Jam</strong>
+                                <span>Akses layanan kapan saja.</span>
+                            </div>
+                            <div className="ist-trust-item">
+                                <strong>Status Bisa Dilacak</strong>
+                                <span>Cek transaksi dari halaman status.</span>
+                            </div>
+                            <div className="ist-trust-item">
+                                <strong>Pembayaran Beragam</strong>
+                                <span>Pilih metode yang tersedia.</span>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+
                 <section className="public-section public-section--storefront public-section--popular">
                     <div className="storefront-heading">
                         <div>
                             <h2 className="storefront-heading__title">
                                 <span className="storefront-heading__icon">✨</span>
-                                {activeThemeKey === 'istanatopup' ? 'FAVORIT' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
+                                {activeThemeKey === 'istanatopup' ? 'POPULER' : activeThemeKey === 'bangjeff' ? 'TRENDING' : 'POPULER!'}
                             </h2>
                             <p className="storefront-heading__subtitle">
                                 {activeThemeKey === 'istanatopup'
-                                    ? 'Berikut adalah beberapa produk yang terakhir kamu beli.'
+                                    ? 'Berikut adalah beberapa kategori yang populer saat ini.'
                                     : activeThemeKey === 'bangjeff'
                                         ? 'Berikut adalah beberapa produk yang paling populer saat ini.'
                                         : `Beberapa produk yang paling populer saat ini di ${siteConfig.name}.`}
@@ -210,7 +238,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         {featuredCategories.map((item) => (
                             <Link key={item.id} href={`/id/${item.slug}`} className="ist-hcard">
                                 <span className="ist-hcard__art">
-                                    <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                    <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                 </span>
                                 <span className="hc-txt">
                                     <b>{item.name}</b>
@@ -227,7 +255,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             <div>
                                 <h2 className="storefront-heading__title">
                                     <span className="storefront-heading__icon">🔥</span>
-                                    TRENDING
+                                    PRODUK PILIHAN
                                 </h2>
                                 <p className="storefront-heading__subtitle">
                                     {activeThemeKey === 'istanatopup'
@@ -241,7 +269,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                             {(categoryTabs[0]?.items ?? []).slice(0, 8).map((item) => (
                                 <Link key={`trend-${item.id}`} href={`/id/${item.slug}`} className="ist-hcard">
                                     <span className="ist-hcard__art">
-                                        <img src={item.productLogo || item.thumbnail} alt={item.name} loading="lazy" />
+                                        <img src={item.productLogo || item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                     </span>
                                     <span className="hc-txt">
                                         <b>{item.name}</b>
@@ -267,7 +295,17 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                     key={group.id}
                                     type="button"
                                     className={index === activeCategoryTab ? 'is-active' : ''}
-                                    onClick={() => setActiveCategoryTab(index)}
+                                    aria-selected={index === activeCategoryTab}
+                                    aria-controls={`category-panel-${group.id}`}
+                                    role="tab"
+                                    onClick={() => {
+                                        setActiveCategoryTab(index);
+                                        window.pushDataLayerEvent?.('select_category', {
+                                            category_id: group.id,
+                                            category_name: group.name,
+                                            category_position: index + 1,
+                                        });
+                                    }}
                                 >
                                     {group.name}
                                 </button>
@@ -278,12 +316,16 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     {categoryTabs.length ? (
                         <div className="category-tabs category-tabs--storefront">
                             {activeGroup ? (
-                                <div className="category-tabs__group">
-                                    <div className="product-grid product-grid--storefront product-grid--poster-storefront">
-                                        {activeGroup.items.map((item) => (
-                                            <ProductCard key={item.id} item={item} variant="poster" showPrice={false} />
-                                        ))}
-                                    </div>
+                                <div className="category-tabs__group" id={`category-panel-${activeGroup.id}`} role="tabpanel" aria-label={activeGroup.name}>
+                                    {activeGroup.items.length ? (
+                                        <div className="product-grid product-grid--storefront product-grid--poster-storefront">
+                                            {activeGroup.items.map((item) => (
+                                                <ProductCard key={item.id} item={item} variant="poster" showPrice={false} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="empty-card">Belum ada produk di kategori ini.</div>
+                                    )}
                                 </div>
                             ) : null}
                         </div>
@@ -305,32 +347,37 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                     </div>
 
                     <div className="article-rail article-rail--bangjeff-news">
-                        <div className="article-grid article-grid--journal article-grid--bangjeff-news">
-                            {articleItems.map((article) => (
-                                <article key={article.id} className="article-card article-card--journal">
-                                    <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
-                                        <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} />
-                                        <div className="article-card__overlay">
-                                            <strong>{article.title}</strong>
+                        {articleItems.length ? (
+                            <div className="article-grid article-grid--journal article-grid--bangjeff-news">
+                                {articleItems.map((article) => (
+                                    <article key={article.id} className="article-card article-card--journal">
+                                        <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
+                                            <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
+                                            <div className="article-card__overlay">
+                                                <strong>{article.title}</strong>
+                                            </div>
+                                        </Link>
+                                        <div className="article-card__body article-card__body--journal">
+                                            <span className="ist-article__category">Artikel</span>
+                                            <h3>{article.title}</h3>
+                                            {article.excerpt ? <p>{article.excerpt}</p> : null}
+                                            <div className="ist-article__date">
+                                                Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
+                                            </div>
                                         </div>
-                                    </Link>
-                                    <div className="article-card__body article-card__body--journal">
-                                        <span className="ist-article__category">Artikel</span>
-                                        <h3>{article.title}</h3>
-                                        {article.excerpt ? <p>{article.excerpt}</p> : null}
-                                        <div className="ist-article__date">
-                                            Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
-                                        </div>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="empty-card">Belum ada artikel terbaru.</div>
+                        )}
                     </div>
 
                     <div className="journal-actions">
                         <Link href="/id/artikel" className="journal-actions__button">Lihat Semua Artikel</Link>
                     </div>
                 </section>
+
             </div>
 
             <HomepagePopup popup={popup} enabled={featureFlags?.homePopupEnabled} />

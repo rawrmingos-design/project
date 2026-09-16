@@ -13,21 +13,32 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
 use App\Support\WhatsappNumberNormalizer;
+use Inertia\Inertia;
+use App\Services\SeoMetadataService;
 
 class RegisterController extends Controller
 {
     use ResolvesAuthCaptchaRuntime;
 
-    public function create()
+    public function create(SeoMetadataService $seoMetadataService)
     {
         $captchaRuntime = $this->getAuthCaptchaRuntime();
 
-        return view('template.register', [
+        $props = [
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
-            'captchaRuntime' => $captchaRuntime,
+            'captchaRuntime' => array_intersect_key($captchaRuntime, array_flip(['enabled', 'bypass', 'sitekey', 'is_active'])),
             'googleClientId' => $this->resolveGoogleClientId(),
-        ]);
+            'meta' => $seoMetadataService->privatePage([
+                'title' => 'Daftar - ' . (string) SettingWeb::query()->value('judul_web'),
+            ]),
+        ];
+
+        if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
+            return Inertia::render('Public/Auth/Register', $props);
+        }
+
+        return view('template.register', $props);
     }
 
     public function store(Request $request)

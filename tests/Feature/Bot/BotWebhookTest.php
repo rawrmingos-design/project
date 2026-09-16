@@ -1278,6 +1278,12 @@ class BotWebhookTest extends TestCase
             'kategori_id' => $category->id,
             'status' => 'available',
         ]);
+        Cache::put('checkid_catalog_v1', [
+            'free-fire' => [
+                'slug' => 'free-fire',
+                'hasZoneId' => false,
+            ],
+        ]);
         $context = [
             'source' => 'telegram_gateway',
             'external_user_id' => 'telegram:9876',

@@ -220,10 +220,10 @@ export default function Navbar() {
             setMobileSearchOpen(false);
         };
 
-        router.on('navigate', handleNavigationStart);
+        const removeNavigationListener = router.on('navigate', handleNavigationStart);
 
         return () => {
-            router.off('navigate', handleNavigationStart);
+            removeNavigationListener();
         };
     }, []);
 
@@ -407,7 +407,7 @@ export default function Navbar() {
                                         <div className="public-search__list">
                                             {searchItems.map((item) => (
                                                 <a key={item.slug} href={`/id/${item.slug}`} className="public-search-item" role="option" aria-selected="false">
-                                                    <img src={item.thumbnail} alt={item.name} loading="lazy" decoding="async" />
+                                                    <img src={item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                                     <span className="public-search-item__copy">
                                                         <strong>{item.name}</strong>
                                                         <small>{item.subtitle}</small>
@@ -549,7 +549,7 @@ export default function Navbar() {
                                             <div className="public-search__list">
                                                 {searchItems.map((item) => (
                                                     <a key={item.slug} href={`/id/${item.slug}`} className="public-search-item" role="option" aria-selected="false">
-                                                        <img src={item.thumbnail} alt={item.name} loading="lazy" decoding="async" />
+                                                        <img src={item.thumbnail || '/assets/logo/favicon.webp'} alt={item.name} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                                         <span className="public-search-item__copy">
                                                             <strong>{item.name}</strong>
                                                             <small>{item.subtitle}</small>

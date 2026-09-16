@@ -3,17 +3,74 @@
 @section('custom_style')
 <style>
     .auth-register-page {
-        background: #18181b;
+        min-height: 100vh;
+        align-items: flex-start;
+        justify-content: center;
+        background: #121212;
+        color: #f5f5f5;
     }
 
     .auth-register-form-column {
-        width: 100%;
+        width: min(100%, 430px);
+        min-height: 100vh;
+        justify-content: center;
+        padding: 44px 18px 24px;
     }
 
-    @media (min-width: 768px) {
-        .auth-register-form-column {
-            width: 550px;
-        }
+    .auth-register-form-column > div {
+        width: 100%;
+        max-width: 430px;
+        padding: 26px 26px 24px;
+        border: 1px solid #2f2f2f;
+        border-radius: 16px;
+        background: #1e1e1e;
+    }
+
+    .auth-register-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 22px;
+        padding: 4px;
+        border-radius: 11px;
+        background: #262626;
+    }
+
+    .auth-register-tab {
+        flex: 1;
+        padding: 9px 0;
+        border-radius: 8px;
+        color: #9c9c9c;
+        font-size: 13.5px;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .auth-register-tab.is-active {
+        background: #f97316;
+        color: #fff;
+    }
+
+    .auth-register-tab:hover:not(.is-active) {
+        background: #2f2f2f;
+        color: #f5f5f5;
+    }
+
+    .auth-register-form-column > div > div:first-child {
+        margin-bottom: 22px;
+    }
+
+    .auth-register-form-column h1 {
+        font-size: 24px;
+        line-height: 1.2;
+    }
+
+    .auth-register-form-column .auth-register-copy {
+        color: #9c9c9c;
+    }
+
+    .auth-register-form-column > div > div:last-child,
+    .auth-register-page > div:last-child {
+        display: none;
     }
 
     .auth-register-close {
@@ -26,12 +83,12 @@
     }
 
     .auth-register-input {
-        height: 2.25rem;
-        border-radius: 0.55rem;
+        height: 44px;
+        border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.12);
         background: #383838;
         color: #fafaf9;
-        font-size: 0.78rem;
+        font-size: 13.5px;
     }
 
     .auth-register-input::placeholder {
@@ -157,6 +214,10 @@
 
     <div class="auth-register-form-column flex min-h-screen w-full flex-col items-center justify-start gap-5 px-4 pb-8 pt-20 sm:pb-10 sm:pt-24 md:justify-center md:gap-7 md:px-12 md:py-14 lg:gap-8 lg:px-20 lg:py-20">
         <div class="mx-auto w-full max-w-md space-y-4 sm:space-y-5 md:space-y-6 lg:mx-0">
+            <nav class="auth-register-tabs" aria-label="Autentikasi">
+                <a class="auth-register-tab" href="{{ route('login') }}">Masuk</a>
+                <a class="auth-register-tab is-active" href="{{ route('register') }}" aria-current="page">Daftar</a>
+            </nav>
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Daftar</h1>
                 <p class="auth-register-copy mt-2 text-sm">Masukkan informasi pendaftaran yang valid.</p>
