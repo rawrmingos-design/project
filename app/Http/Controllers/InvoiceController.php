@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Pembelian;
 use App\Models\Pembayaran;
+use App\Services\PublicInvoiceReferenceResolver;
 use App\Models\Berita;
 use App\Models\Method;
 use Illuminate\Support\Carbon;
@@ -36,8 +37,11 @@ class InvoiceController extends Controller
             ->leftJoin('payment_display_categories', 'methods.payment_display_category_id', '=', 'payment_display_categories.id');
     }
 
-   public function create($order)
+   public function create($order, ?PublicInvoiceReferenceResolver $invoiceReferenceResolver = null)
     {
+        $resolvedOrder = ($invoiceReferenceResolver ?? app(PublicInvoiceReferenceResolver::class))->resolve((string) $order);
+        $order = $resolvedOrder?->order_id ?: $order;
+
         $payment = Pembayaran::query()
             ->where('order_id', $order)
             ->latest('id')
@@ -317,6 +321,7 @@ class InvoiceController extends Controller
 
 
    public function ratingCustomer(Request $request, $order_id) {
+    $order_id = app(PublicInvoiceReferenceResolver::class)->resolveOrderId((string) $order_id) ?: $order_id;
     $input = $request->all();
     $wantsJson = $request->expectsJson() || $request->ajax();
 
@@ -410,6 +415,8 @@ class InvoiceController extends Controller
 
     public function checkStatus($order)
     {
+        $order = app(PublicInvoiceReferenceResolver::class)->resolveOrderId((string) $order) ?: $order;
+
         $payment = Pembayaran::query()
             ->where('order_id', $order)
             ->latest('id')

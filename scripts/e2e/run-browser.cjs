@@ -134,6 +134,7 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
         ]);
@@ -145,6 +146,7 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
         ]);

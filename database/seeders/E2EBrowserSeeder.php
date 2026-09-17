@@ -7,6 +7,8 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Paket;
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +66,7 @@ class E2EBrowserSeeder extends Seeder
 
         $this->seedUsers();
         $this->seedStorefront();
+        $this->seedInvoice();
     }
 
     private function seedUsers(): void
@@ -93,6 +96,73 @@ class E2EBrowserSeeder extends Seeder
                 'point_balance' => 0,
                 'no_wa' => '6281200000002',
                 'affiliate_status' => 'inactive',
+            ],
+        );
+    }
+
+    private function seedInvoice(): void
+    {
+        $orderId = 'E2E-INVOICE-INTERNAL-001';
+        $displayOrderId = 'E2E-INVOICE-INTERNAL-001_001';
+        $category = Kategori::query()->updateOrCreate(
+            ['kode' => 'e2e-invoice-game'],
+            [
+                'nama' => 'E2E Invoice Game',
+                'sub_nama' => 'Deterministic invoice test game',
+                'status' => 'active',
+                'thumbnail' => 'assets/thumbnail/e2e-invoice-missing.webp',
+                'tipe' => 'game',
+                'server_id' => false,
+                'require_user_id' => true,
+            ],
+        );
+        Layanan::query()->updateOrCreate(
+            ['kategori_id' => $category->id, 'provider_id' => 'e2e-invoice-product'],
+            [
+                'layanan' => 'E2E Invoice Product',
+                'provider' => 'manual',
+                'harga' => 10000,
+                'harga_member' => 10000,
+                'harga_platinum' => 10000,
+                'harga_gold' => 10000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'status' => 'available',
+            ],
+        );
+
+        Pembelian::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'base_order_id' => $orderId,
+                'invoice_version' => 1,
+                'display_order_id' => $displayOrderId,
+                'active_attempt_reference' => $displayOrderId,
+                'username' => 'Anonim',
+                'user_id' => '12345678',
+                'zone' => '1234',
+                'nickname' => 'E2E Player',
+                'email_pembeli' => 'e2e-invoice@example.test',
+                'layanan' => 'E2E Invoice Product',
+                'harga' => 10000,
+                'profit' => 0,
+                'status' => 'Pending',
+                'tipe_transaksi' => 'game',
+                'voucher' => null,
+                'keterangan_sn' => null,
+            ],
+        );
+
+        Pembayaran::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'harga' => '10000',
+                'no_pembayaran' => 'E2E-PAYMENT-001',
+                'no_pembeli' => '6281200000001',
+                'status' => 'Belum Lunas',
+                'metode' => 'E2E_QRIS',
+                'reference' => 'E2E-REFERENCE-001',
             ],
         );
     }

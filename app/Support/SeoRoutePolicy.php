@@ -22,6 +22,8 @@ final class SeoRoutePolicy
         'id/withdrawal*',
         'id/invoices*',
         'id/track*',
+        'invoices*',
+        'track*',
         'id/search*',
         'id/reseller/registry*',
         'id/reseller/dashboard*',

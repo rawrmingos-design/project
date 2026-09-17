@@ -6,6 +6,7 @@ use App\Http\Controllers\CariController as LegacyCariController;
 use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
 use App\Services\PublicSiteConfigService;
+use App\Services\SeoMetadataService;
 use App\Support\PublicThemeRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,7 @@ class TransactionLookupPageController extends Controller
     public function index(
         Request $request,
         PublicSiteConfigService $siteConfigService,
+        SeoMetadataService $seoMetadataService,
         LegacyCariController $legacyCariController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -41,13 +43,13 @@ class TransactionLookupPageController extends Controller
         return Inertia::render('Public/CheckTransactions', [
             'recentTransactions' => $recentTransactions,
             'recentTransactionsScope' => $recentScope,
-            'meta' => [
+            'meta' => $seoMetadataService->privatePage([
                 'title' => "Cek Transaksi - {$settings->judul_web}",
                 'description' => 'Cek detail transaksi dengan nomor invoice dan lihat riwayat transaksi yang tersimpan untuk akun atau browser saat ini.',
                 'keywords' => "cek transaksi, cek invoice, status transaksi, {$settings->judul_web}",
-                'canonical' => url('/id/invoices'),
-                'image' => url($siteConfigService->normalizeAssetPath($settings->logo_favicon)),
-            ],
+                'canonical' => $request->url(),
+                'image' => $siteConfigService->normalizeAssetPath($settings->logo_favicon),
+            ], $request),
         ]);
     }
 
@@ -100,9 +102,10 @@ class TransactionLookupPageController extends Controller
                     })->latest('created_at');
                 }
             } else {
-                $orderQuery
-                    ->where('order_id', $invoiceId)
-                    ->orWhere('display_order_id', $invoiceId);
+                $orderQuery->where(function (Builder $query) use ($invoiceId): void {
+                    $query->where('order_id', $invoiceId)
+                        ->orWhere('display_order_id', $invoiceId);
+                });
             }
 
             $order = $orderQuery->with('pembayaran')->first();
@@ -133,6 +136,7 @@ class TransactionLookupPageController extends Controller
             return back()->with('error', 'Order not found');
         }
 
+        self::rememberRecentOrderId($request, $orderId);
         $redirectUrl = route('pembelian', ['order' => $orderId]);
 
         if ($request->expectsJson()) {

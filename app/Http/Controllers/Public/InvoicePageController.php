@@ -8,10 +8,14 @@ use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Services\PublicInvoiceReferenceResolver;
 use App\Services\PublicSiteConfigService;
+use App\Services\PublicUploadUrlService;
+use App\Services\SeoMetadataService;
 use App\Support\GtmDataLayerBuilder;
 use App\Support\InvoiceRealtimeStatus;
 use App\Support\PublicThemeRegistry;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,8 +25,12 @@ use Inertia\Response;
 class InvoicePageController extends Controller
 {
     public function __invoke(
+        Request $request,
         string $order,
         PublicSiteConfigService $siteConfigService,
+        PublicInvoiceReferenceResolver $invoiceReferenceResolver,
+        PublicUploadUrlService $uploadUrlService,
+        SeoMetadataService $seoMetadataService,
         LegacyInvoiceController $legacyInvoiceController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -31,8 +39,14 @@ class InvoicePageController extends Controller
             return $legacyInvoiceController->create($order);
         }
 
+        $purchase = $invoiceReferenceResolver->resolve($order);
+        abort_if(! $purchase, 404);
+
+        $internalOrderId = (string) $purchase->order_id;
+        $displayOrderId = (string) ($purchase->display_order_id ?: $purchase->display_invoice_id ?: $internalOrderId);
+
         $payment = Pembayaran::query()
-            ->where('order_id', $order)
+            ->where('order_id', $internalOrderId)
             ->latest('id')
             ->first();
 
@@ -40,7 +54,7 @@ class InvoicePageController extends Controller
         $payment->syncExpiredStatus();
 
         $dataQuery = Pembelian::query()
-            ->where('pembayarans.order_id', $order)
+            ->where('pembayarans.order_id', $internalOrderId)
             ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
             ->leftJoin('data_joki', 'pembelians.order_id', '=', 'data_joki.order_id');
 
@@ -70,6 +84,7 @@ class InvoicePageController extends Controller
                 'pembayarans.expired_at',
                 'pembayarans.harga AS harga_pembayaran',
                 'pembelians.order_id AS id_pembelian',
+                'pembelians.display_order_id AS display_order_id',
                 'pembelians.user_id',
                 'pembelians.zone',
                 'pembelians.nickname',
@@ -113,7 +128,11 @@ class InvoicePageController extends Controller
 
         $kategori = $layanan?->kategori;
         $productName = $kategori?->nama ?: ($data->layanan ?: 'Produk');
-        $thumbnail = $this->normalizeAssetPath($kategori?->thumbnail ?: 'assets/logo/favicon.webp');
+        $publicInvoiceId = trim((string) ($data->display_order_id ?: $displayOrderId ?: $data->id_pembelian));
+        $thumbnail = $uploadUrlService->existingUrl(
+            $kategori?->thumbnail,
+            config('uploads.disk', 'assets'),
+        );
 
         $methodCode = trim((string) ($data->metode_pembayaran ?? ''));
         $methodType = trim((string) ($data->metode_tipe ?? ''));
@@ -169,10 +188,10 @@ class InvoicePageController extends Controller
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $fallbackExpiryHours = $isDuitkuGateway ? 1 : 3;
 
-        $methodImage = $this->normalizeAssetPath($data->metode_image, '');
-        if ($methodImage === '') {
-            $methodImage = null;
-        }
+        $methodImage = $uploadUrlService->existingUrl(
+            $data->metode_image,
+            config('uploads.disk', 'assets'),
+        );
 
         $methodCategoryId = (int) ($data->metode_category_id ?? 0);
         $methodCategoryLabel = (string) ($data->metode_category_label ?? '');
@@ -207,25 +226,25 @@ class InvoicePageController extends Controller
         );
 
         $heroTitle = 'Harap lengkapi pembayaran.';
-        $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' menunggu pembayaran sebelum dikirim.';
+        $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' menunggu pembayaran sebelum dikirim.';
 
         if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
             if (in_array($orderStatus, ['sukses', 'success'], true)) {
                 $heroTitle = 'Transaksi berhasil diselesaikan.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sudah berhasil diproses dan selesai.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah berhasil diproses dan selesai.';
             } elseif (in_array($orderStatus, ['proses', 'processing', 'pending'], true)) {
                 $heroTitle = 'Pembayaran sudah diterima.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sedang diproses oleh sistem dan provider.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sedang diproses oleh sistem dan provider.';
             } else {
                 $heroTitle = 'Pembayaran sudah diterima.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sudah masuk dan sedang menunggu update status transaksi.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah masuk dan sedang menunggu update status transaksi.';
             }
         } elseif ($paymentStatus === 'expired') {
             $heroTitle = 'Invoice sudah kedaluwarsa.';
-            $heroDescription = 'Batas pembayaran untuk pesanan ' . $data->id_pembelian . ' telah habis. Silakan buat transaksi baru jika masih diperlukan.';
+            $heroDescription = 'Batas pembayaran untuk pesanan ' . $publicInvoiceId . ' telah habis. Silakan buat transaksi baru jika masih diperlukan.';
         } elseif (in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true)) {
             $heroTitle = 'Transaksi tidak dapat diselesaikan.';
-            $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' mengalami kendala. Silakan cek detail status transaksi di bawah.';
+            $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' mengalami kendala. Silakan cek detail status transaksi di bawah.';
         }
 
         $normalizedPayment = $this->normalizePaymentStatus($paymentStatusRaw);
@@ -322,7 +341,7 @@ class InvoicePageController extends Controller
             $data->zone ?? null,
             $data->nickname ?? null,
         );
-        $transactionId = (string) $data->id_pembelian;
+        $transactionId = $publicInvoiceId;
         $gtmInvoiceEvents = [
             [
                 'name' => 'invoice_viewed',
@@ -456,7 +475,8 @@ class InvoicePageController extends Controller
 
         return Inertia::render('Public/Invoice', [
             'invoice' => [
-                'orderId' => (string) $data->id_pembelian,
+                'orderId' => $publicInvoiceId,
+                'internalOrderId' => (string) $data->id_pembelian,
                 'productName' => $productName,
                 'itemName' => (string) ($data->layanan ?? $productName),
                 'thumbnail' => $thumbnail,
@@ -529,13 +549,14 @@ class InvoicePageController extends Controller
                 ],
                 'gtmEvents' => $gtmInvoiceEvents,
             ],
-            'meta' => [
-                'title' => "Invoice {$data->id_pembelian} - {$settings->judul_web}",
-                'description' => "Detail invoice {$data->id_pembelian} untuk {$productName}.",
-                'keywords' => "invoice {$data->id_pembelian}, {$productName}, {$settings->judul_web}",
-                'canonical' => url("/id/invoices/{$data->id_pembelian}"),
-                'image' => url($thumbnail),
-            ],
+            'meta' => $seoMetadataService->privatePage([
+                'title' => "Invoice {$publicInvoiceId} - {$settings->judul_web}",
+                'description' => "Detail invoice {$publicInvoiceId} untuk {$productName}.",
+                'keywords' => "invoice {$publicInvoiceId}, {$productName}, {$settings->judul_web}",
+                'canonical' => $request->url(),
+                'image' => $thumbnail,
+                'imageAlt' => "Thumbnail {$productName}",
+            ], $request),
         ]);
     }
 
@@ -588,18 +609,4 @@ class InvoicePageController extends Controller
         return 'Gunakan metode pembayaran yang dipilih untuk menyelesaikan transaksi.';
     }
 
-    private function normalizeAssetPath(?string $path, string $fallback = '/assets/logo/favicon.webp'): string
-    {
-        $path = trim((string) $path);
-
-        if ($path === '') {
-            return $fallback;
-        }
-
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, 'data:image/')) {
-            return $path;
-        }
-
-        return '/' . ltrim($path, '/');
-    }
 }

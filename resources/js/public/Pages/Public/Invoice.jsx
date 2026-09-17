@@ -192,6 +192,7 @@ function isFinalTransactionState(paymentCode, orderCode) {
 }
 
 export default function Invoice({ invoice, meta }) {
+    const internalOrderId = invoice?.internalOrderId || invoice?.orderId || '';
     const [orderStatus, setOrderStatus] = useState(invoice?.status?.order ?? { code: 'pending', label: 'Pending' });
     const [paymentStatus, setPaymentStatus] = useState(invoice?.status?.payment ?? { code: 'unpaid', label: 'Unpaid' });
     const [isPageShellReady, setIsPageShellReady] = useState(false);
@@ -259,7 +260,7 @@ export default function Invoice({ invoice, meta }) {
         setRatingErrors({});
 
         try {
-            const response = await fetch(`/id/invoices/${encodeURIComponent(invoice?.orderId || '')}`, {
+            const response = await fetch(`/id/invoices/${encodeURIComponent(internalOrderId)}`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -295,7 +296,7 @@ export default function Invoice({ invoice, meta }) {
             setRatingState('error');
             setRatingMessage('Koneksi bermasalah. Coba lagi sebentar.');
         }
-    }, [invoice?.orderId, invoice?.productName, invoice?.rating?.categoryName, ratingComment, ratingEligible, ratingSubmitted, ratingBusy, ratingValue]);
+    }, [internalOrderId, invoice?.productName, invoice?.rating?.categoryName, ratingComment, ratingEligible, ratingSubmitted, ratingBusy, ratingValue]);
 
     useEffect(() => {
         const events = Array.isArray(invoice?.gtmEvents) ? invoice.gtmEvents : [];
@@ -479,7 +480,7 @@ export default function Invoice({ invoice, meta }) {
     }, [applyInvoiceStatusUpdate, invoice?.realtime?.channel, invoice?.realtime?.event]);
 
     useEffect(() => {
-        if (!invoice?.orderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
+        if (!internalOrderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
             return undefined;
         }
 
@@ -491,7 +492,7 @@ export default function Invoice({ invoice, meta }) {
             }
 
             try {
-                const response = await fetch(`/ajax/transaction-status/${encodeURIComponent(invoice.orderId)}`, {
+                const response = await fetch(`/ajax/transaction-status/${encodeURIComponent(internalOrderId)}`, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                     },
@@ -519,7 +520,7 @@ export default function Invoice({ invoice, meta }) {
             isActive = false;
             window.clearInterval(timer);
         };
-    }, [applyInvoiceStatusUpdate, invoice?.orderId, orderStatus.code, paymentStatus.code]);
+    }, [applyInvoiceStatusUpdate, internalOrderId, orderStatus.code, paymentStatus.code]);
 
     const showCopyToast = (type, text) => {
         setCopyToast({ type, text });
@@ -557,7 +558,7 @@ export default function Invoice({ invoice, meta }) {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `qr-payment-${invoice.orderId || 'invoice'}.png`;
+            link.download = `qr-payment-${invoice?.orderId || 'invoice'}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -774,11 +775,17 @@ export default function Invoice({ invoice, meta }) {
                             <div className="invoice-account-card__shell">
                                 <div className="invoice-account-card__thumb-wrap">
                                     <div className="invoice-account-card__thumb">
-                                        <img
-                                            src={invoice?.thumbnail}
-                                            alt={invoice?.productName || 'Produk'}
-                                            className="invoice-account-card__thumb-image"
-                                        />
+                                        {invoice?.thumbnail ? (
+                                            <img
+                                                src={invoice.thumbnail}
+                                                alt={invoice?.productName || 'Produk'}
+                                                className="invoice-account-card__thumb-image"
+                                            />
+                                        ) : (
+                                            <div className="invoice-account-card__thumb-fallback" role="img" aria-label="Thumbnail produk tidak tersedia">
+                                                <span aria-hidden="true">Produk</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="invoice-account-card__thumb-meta">
                                         <p className="invoice-account-card__thumb-title">{invoice?.productName}</p>
