@@ -3242,6 +3242,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                             selected={selectedProductId === item.id}
                                             onSelect={() => {
                                                 preventAutoSelectRef.current = false;
+                                                // Keep the active variant group in sync with the
+                                                // clicked item: otherwise the auto-select effect
+                                                // (candidateItems = variantItems of the active
+                                                // group) treats a cross-group pick as stale and
+                                                // reverts it to the first item of the old group.
+                                                setSelectedPackage(index);
                                                 setNominalStepInteracted(true);
                                                 setSelectedProductId(item.id);
                                             }}

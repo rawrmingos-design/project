@@ -72,6 +72,40 @@ test.describe('Public storefront order flow', () => {
         await expect(page.getByText('Layanan Lainnya', { exact: true })).toHaveCount(0);
     });
 
+    test('keeps the selected nominal when picked from another package group', async ({ page }) => {
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const groups = page.locator('.variant-group--bangjeff');
+        await expect(groups).toHaveCount(2);
+
+        const firstGroup = groups.filter({ has: page.getByRole('heading', { name: 'E2E Package', exact: true }) });
+        const instantGroup = groups.filter({ has: page.getByRole('heading', { name: 'E2E Package Instant', exact: true }) });
+
+        const autoSelectedCard = firstGroup.locator('.variant-card--bangjeff').first();
+        const instantCard = instantGroup.locator('.variant-card--bangjeff').first();
+
+        await expect(autoSelectedCard).toHaveClass(/is-active/);
+
+        await instantCard.click();
+        await expect(instantCard).toHaveClass(/is-active/);
+
+        // Regression: the auto-select effect must not treat a pick from another
+        // group as stale and revert it to the first item of the previous group.
+        await page.waitForTimeout(1000);
+        await expect(instantCard).toHaveClass(/is-active/);
+        await expect(autoSelectedCard).not.toHaveClass(/is-active/);
+        await expect(page.locator('.variant-card--bangjeff.is-active')).toHaveCount(1);
+        expect(finalOrderPosts).toBe(0);
+    });
+
     test('keeps desktop checkout summary in one column without overflow', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
@@ -395,7 +429,7 @@ test.describe('Public storefront order flow', () => {
     test('selecting product, account, and payment method updates checkout state', async ({ page }) => {
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
-        const product = page.locator('.variant-card:visible');
+        const product = page.locator('.variant-card:visible').filter({ hasText: 'E2E Product 10000' });
         await expect(product).toBeVisible();
         await product.click();
 
@@ -405,9 +439,9 @@ test.describe('Public storefront order flow', () => {
 
         await page.locator('.payment-card:visible').first().click();
 
-        await expect(page.locator('.variant-card:visible')).toHaveClass(/is-active/);
+        await expect(product).toHaveClass(/is-active/);
         await expect(page.locator('.payment-card:visible')).toHaveClass(/is-active/);
-        await expect(page.locator('.variant-card:visible')).toContainText('Rp');
+        await expect(product).toContainText('Rp');
     });
 
     test('price endpoint returns a price preview for the seeded product', async ({ page }) => {

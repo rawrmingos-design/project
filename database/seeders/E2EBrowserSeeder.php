@@ -219,6 +219,36 @@ class E2EBrowserSeeder extends Seeder
             ],
         ]);
 
+        // Second package group: regression fixture for cross-group nominal selection
+        // (picking a nominal outside the first group must not revert to the first group).
+        $instantProduct = Layanan::query()->updateOrCreate(
+            ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-3'],
+            [
+                'layanan' => 'E2E Instant 30000',
+                'provider' => 'manual',
+                'harga' => 30000,
+                'harga_member' => 30000,
+                'harga_platinum' => 30000,
+                'harga_gold' => 30000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'catatan' => 'E2E second package product',
+                'status' => 'available',
+                'product_logo' => 'assets/logo/favicon.webp',
+                'is_flash_sale' => false,
+                'harga_flash_sale' => 0,
+                'stock_flash_sale' => 0,
+            ],
+        );
+
+        $instantPackage = Paket::query()->firstOrCreate(['nama' => 'E2E Package Instant']);
+        $instantPackage->layanan()->syncWithoutDetaching([
+            $instantProduct->id => [
+                'product_logo' => 'assets/logo/favicon.webp',
+            ],
+        ]);
+
         Layanan::query()->updateOrCreate(
             ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-2'],
             [
