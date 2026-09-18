@@ -90,7 +90,7 @@ function serve() {
 
     run(php, migrateArgs);
 
-    const child = spawn(php, ['artisan', 'serve', '--host=127.0.0.1', `--port=${port}`], {
+    const child = spawn(php, ['artisan', 'serve', '--host=127.0.0.1', `--port=${port}`, '--no-reload'], {
         cwd: root,
         env: e2eEnvironment,
         stdio: 'inherit',
