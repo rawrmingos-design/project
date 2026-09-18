@@ -165,6 +165,52 @@ class E2EBrowserSeeder extends Seeder
                 'reference' => 'E2E-REFERENCE-001',
             ],
         );
+
+        // State-coverage variants for invoice copy/tone regression (see invoice-detail.spec.js).
+        $this->seedInvoiceVariant('E2E-INVOICE-PAID-FAILED-001', 'Gagal', 'Paid');
+        $this->seedInvoiceVariant('E2E-INVOICE-LAPSED-001', 'Pending', 'Belum Lunas', 6);
+    }
+
+    private function seedInvoiceVariant(string $orderId, string $orderStatus, string $paymentStatus, ?int $createdHoursAgo = null): void
+    {
+        $displayOrderId = $orderId . '_001';
+
+        $pembelian = [
+            'base_order_id' => $orderId,
+            'invoice_version' => 1,
+            'display_order_id' => $displayOrderId,
+            'active_attempt_reference' => $displayOrderId,
+            'username' => 'Anonim',
+            'user_id' => '12345678',
+            'zone' => '1234',
+            'nickname' => 'E2E Player',
+            'email_pembeli' => 'e2e-invoice@example.test',
+            'layanan' => 'E2E Invoice Product',
+            'harga' => 10000,
+            'profit' => 0,
+            'status' => $orderStatus,
+            'tipe_transaksi' => 'game',
+            'voucher' => null,
+            'keterangan_sn' => null,
+        ];
+
+        if ($createdHoursAgo !== null) {
+            $pembelian['created_at'] = now()->subHours($createdHoursAgo);
+        }
+
+        Pembelian::query()->updateOrCreate(['order_id' => $orderId], $pembelian);
+
+        Pembayaran::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'harga' => '10000',
+                'no_pembayaran' => 'E2E-PAYMENT-' . $orderId,
+                'no_pembeli' => '6281200000001',
+                'status' => $paymentStatus,
+                'metode' => 'E2E_QRIS',
+                'reference' => 'E2E-REFERENCE-' . $orderId,
+            ],
+        );
     }
 
     private function seedStorefront(): void

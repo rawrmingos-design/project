@@ -33,4 +33,30 @@ test.describe('Public invoice detail', () => {
         expect(checkoutPosts).toEqual([]);
         expect(brokenMedia).toEqual([]);
     });
+
+    test('renders state-accurate hero copy, banner tone, and countdown chip for pending, failed, and lapsed invoices', async ({ page }) => {
+        const checkoutPosts = [];
+        page.on('request', (request) => {
+            if (request.method() === 'POST' && request.url().endsWith('/id')) {
+                checkoutPosts.push(request.url());
+            }
+        });
+
+        await page.goto('/id/invoices/E2E-INVOICE-INTERNAL-001_001', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.invoice-status-banner-react--pending')).toBeVisible();
+        await expect(page.locator('.invoice-status-banner-react__title')).toHaveText('Harap lengkapi pembayaran.');
+        await expect(page.locator('.invoice-countdown-chip--pending')).toHaveCount(1);
+
+        await page.goto('/id/invoices/E2E-INVOICE-PAID-FAILED-001_001', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.invoice-status-banner-react--failed')).toBeVisible();
+        await expect(page.locator('.invoice-status-banner-react__title')).toHaveText('Pembayaran diterima, namun transaksi gagal.');
+        await expect(page.locator('.invoice-countdown-chip--paid')).toHaveCount(1);
+
+        await page.goto('/id/invoices/E2E-INVOICE-LAPSED-001_001', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.invoice-status-banner-react--expired')).toBeVisible();
+        await expect(page.locator('.invoice-status-banner-react__title')).toHaveText('Invoice sudah kedaluwarsa.');
+        await expect(page.locator('.invoice-countdown-chip--expired')).toHaveCount(1);
+
+        expect(checkoutPosts).toEqual([]);
+    });
 });

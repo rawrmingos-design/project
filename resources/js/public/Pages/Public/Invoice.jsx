@@ -235,6 +235,9 @@ export default function Invoice({ invoice, meta }) {
     const introSequenceSwitchMs = Math.max(180, Math.round(introDurationMs / 2));
     const countdownParts = useMemo(() => parseCountdownParts(countdown), [countdown]);
     const isCountdownExpired = countdown === 'Pembayaran kedaluwarsa';
+    const countdownChipTone = paymentStatus.code === 'paid'
+        ? 'paid'
+        : (paymentStatus.code === 'expired' || isCountdownExpired ? 'expired' : 'pending');
     const hasPayButton = Boolean(invoice?.payment?.showPayButton && invoice?.payment?.paymentUrl);
     const showActivePayButton = hasPayButton && paymentStatus.code === 'unpaid' && !isCountdownExpired;
     const showDisabledPayButton = hasPayButton && (paymentStatus.code === 'expired' || isCountdownExpired);
@@ -606,7 +609,7 @@ export default function Invoice({ invoice, meta }) {
     const introOverlayClassName = `invoice-status-banner-react__intro-overlay invoice-status-banner-react__intro-overlay--${introTone} ${isIntroOverlayExiting ? 'is-exiting' : 'is-visible'}`;
     const progressSteps = useMemo(() => {
         const isPaymentPaid = paymentStatus.code === 'paid';
-        const isPaymentExpired = paymentStatus.code === 'expired';
+        const isPaymentExpired = paymentStatus.code === 'expired' || isCountdownExpired;
         const isOrderProcessing = orderStatus.code === 'processing';
         const isOrderSuccess = orderStatus.code === 'success';
         const isOrderFailed = orderStatus.code === 'failed';
@@ -649,7 +652,7 @@ export default function Invoice({ invoice, meta }) {
                 state: isOrderSuccess ? 'done' : isOrderFailed ? 'failed' : 'pending',
             },
         ];
-    }, [paymentStatus.code, orderStatus.code]);
+    }, [paymentStatus.code, orderStatus.code, isCountdownExpired]);
 
     const progressIndex = useMemo(() => {
         let index = 0;
@@ -683,7 +686,7 @@ export default function Invoice({ invoice, meta }) {
             return 'Transaksi tidak dapat diproses.';
         }
 
-        if (paymentStatus.code === 'expired') {
+        if (paymentStatus.code === 'expired' || isCountdownExpired) {
             return 'Pembayaran telah kedaluwarsa.';
         }
 
@@ -692,7 +695,7 @@ export default function Invoice({ invoice, meta }) {
         }
 
         return 'Silakan melakukan pembayaran.';
-    }, [orderStatus.code, paymentStatus.code]);
+    }, [orderStatus.code, paymentStatus.code, isCountdownExpired]);
 
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
@@ -756,7 +759,7 @@ export default function Invoice({ invoice, meta }) {
                 </div>
 
                 <div className={`invoice-countdown-row invoice-animate invoice-animate-delay-2 ${isInvoiceAnimated ? 'is-visible' : ''}`}>
-                    <div className="invoice-countdown-chip">
+                    <div className={`invoice-countdown-chip invoice-countdown-chip--${countdownChipTone}`}>
                         {countdownParts ? (
                             <>
                                 <span>{countdownParts.hours} Jam</span>

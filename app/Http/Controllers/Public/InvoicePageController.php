@@ -225,13 +225,28 @@ class InvoicePageController extends Controller
             ], true) || ($isDuitkuGateway && ctype_digit(str_replace(['-', ' '], '', $paymentValue)))
         );
 
+        // Effective payment-window expiry. Payments without an explicit expired_at fall back to
+        // created_at + fallbackExpiryHours — the same value exposed as expiry.expiresAt — so the
+        // hero/intro copy can never disagree with the client-side countdown chip.
+        $expiredAt = $data->expired_at
+            ? Carbon::parse($data->expired_at)
+            : Carbon::parse($data->created_at)->addHours($fallbackExpiryHours);
+
+        $orderFailed = in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true);
+        $invoiceExpired = $paymentStatus === 'expired'
+            || in_array($orderStatus, ['expired', 'kedaluwarsa'], true)
+            || (! $paymentIsSettled && $expiredAt->isPast());
+
         $heroTitle = 'Harap lengkapi pembayaran.';
         $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' menunggu pembayaran sebelum dikirim.';
 
-        if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
+        if ($paymentIsSettled) {
             if (in_array($orderStatus, ['sukses', 'success'], true)) {
                 $heroTitle = 'Transaksi berhasil diselesaikan.';
                 $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah berhasil diproses dan selesai.';
+            } elseif ($orderFailed) {
+                $heroTitle = 'Pembayaran diterima, namun transaksi gagal.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' tidak dapat diproses. Silakan hubungi customer service untuk bantuan.';
             } elseif (in_array($orderStatus, ['proses', 'processing', 'pending'], true)) {
                 $heroTitle = 'Pembayaran sudah diterima.';
                 $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sedang diproses oleh sistem dan provider.';
@@ -239,10 +254,10 @@ class InvoicePageController extends Controller
                 $heroTitle = 'Pembayaran sudah diterima.';
                 $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah masuk dan sedang menunggu update status transaksi.';
             }
-        } elseif ($paymentStatus === 'expired') {
+        } elseif ($invoiceExpired) {
             $heroTitle = 'Invoice sudah kedaluwarsa.';
             $heroDescription = 'Batas pembayaran untuk pesanan ' . $publicInvoiceId . ' telah habis. Silakan buat transaksi baru jika masih diperlukan.';
-        } elseif (in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true)) {
+        } elseif ($orderFailed) {
             $heroTitle = 'Transaksi tidak dapat diselesaikan.';
             $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' mengalami kendala. Silakan cek detail status transaksi di bawah.';
         }
@@ -255,24 +270,29 @@ class InvoicePageController extends Controller
         $introSubtitle = 'Silakan selesaikan pembayaran agar pesanan bisa diproses.';
         $introIcon = 'clock';
 
-        if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
+        if ($paymentIsSettled) {
             if (in_array($orderStatus, ['sukses', 'success'], true)) {
                 $introState = 'paid';
                 $introTitle = 'Transaksi Berhasil';
                 $introSubtitle = 'Pembayaran berhasil diterima dan transaksi telah selesai diproses.';
                 $introIcon = 'check';
+            } elseif ($orderFailed) {
+                $introState = 'failed';
+                $introTitle = 'Transaksi Gagal';
+                $introSubtitle = 'Pembayaran sudah diterima, namun transaksi tidak dapat diproses. Silakan hubungi customer service untuk bantuan.';
+                $introIcon = 'warning';
             } else {
                 $introState = 'paid';
                 $introTitle = 'Pembayaran Diterima';
                 $introSubtitle = 'Pembayaran berhasil diterima. Sistem sedang menyelesaikan proses transaksi.';
                 $introIcon = 'check';
             }
-        } elseif ($paymentStatus === 'expired') {
+        } elseif ($invoiceExpired) {
             $introState = 'expired';
             $introTitle = 'Pembayaran Kedaluwarsa';
             $introSubtitle = 'Batas waktu pembayaran telah berakhir. Silakan lakukan pembelian ulang jika masih diperlukan.';
             $introIcon = 'x';
-        } elseif (in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true)) {
+        } elseif ($orderFailed) {
             $introState = 'failed';
             $introTitle = 'Transaksi Gagal';
             $introSubtitle = 'Transaksi tidak dapat diselesaikan. Silakan cek detail invoice untuk informasi lebih lanjut.';
@@ -313,10 +333,6 @@ class InvoicePageController extends Controller
                 $introUsesLottie = true;
             }
         }
-
-        $expiredAt = $data->expired_at
-            ? Carbon::parse($data->expired_at)
-            : Carbon::parse($data->created_at)->addHours($fallbackExpiryHours);
 
         $subtotal = (int) round((float) ($data->harga_layanan ?? 0));
         $total = (int) round((float) ($data->harga_pembayaran ?? 0));
