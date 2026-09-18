@@ -15,9 +15,12 @@ use App\Services\SeoMetadataService;
 use App\Support\GtmDataLayerBuilder;
 use App\Support\InvoiceRealtimeStatus;
 use App\Support\PublicThemeRegistry;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -203,17 +206,26 @@ class InvoicePageController extends Controller
         $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
             'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'NQ', 'LQ', 'GQ', 'SQ', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
         ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
-        $isQrImage = str_starts_with($paymentValue, 'data:image/')
-            || preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
-            || ($isQrMethod && ! $isPaymentUrl && $paymentValue !== '');
-        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ! $isPaymentUrl && $paymentValue !== '';
-        $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
-        $resolvedQrImageUrl = $isQrImage
-            && ! str_starts_with($paymentValue, '00020101')
-            && ! $isPaymentUrl
-            && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
-                ? $paymentValue
-                : $dynamicQrSource;
+        // QRIS QR rendering: prefer an image we control. Remote QR images (image
+        // URLs, or known gateway QR endpoints such as tripay.co.id/qr/*) are streamed
+        // through our own proxy route so the page and download button stay
+        // same-origin; raw QR payload strings are rendered locally to a PNG data URI.
+        $isRemoteQrImageUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false
+            && (preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1 || $this->isGatewayQrImageUrl($paymentValue));
+        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ($isRemoteQrImageUrl || ! $isPaymentUrl) && $paymentValue !== '';
+
+        if (str_starts_with($paymentValue, 'data:image/')) {
+            $resolvedQrImageUrl = $paymentValue;
+        } elseif ($isRemoteQrImageUrl) {
+            $resolvedQrImageUrl = $this->isAllowedProxyTarget($paymentValue)
+                ? route('pembelian.qr', ['order' => $publicInvoiceId])
+                : $paymentValue;
+        } elseif ($isQrMethod && ! $isPaymentUrl && $paymentValue !== '') {
+            $resolvedQrImageUrl = $this->buildLocalQrDataUri($paymentValue);
+        } else {
+            $resolvedQrImageUrl = null;
+        }
+
         $showPayButton = $paymentStatusRaw === 'Belum Lunas' && $isPaymentUrl && ! $showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
         $showCopyPaymentNumber = ! $isPaymentUrl && ! $showQrImage && (
@@ -623,6 +635,122 @@ class InvoicePageController extends Controller
         }
 
         return 'Gunakan metode pembayaran yang dipilih untuk menyelesaikan transaksi.';
+    }
+
+    /**
+     * QRIS QR image proxy: streams an allowlisted gateway-hosted QR image through our
+     * own domain so the invoice <img> and download button stay same-origin (no CORS,
+     * no hotlink dependencies, gateway URLs never exposed to the client).
+     */
+    public function qrImage(string $order, PublicInvoiceReferenceResolver $invoiceReferenceResolver): \Illuminate\Http\Response
+    {
+        $purchase = $invoiceReferenceResolver->resolve($order);
+        abort_if(! $purchase, 404);
+
+        $payment = Pembayaran::query()
+            ->where('order_id', (string) $purchase->order_id)
+            ->latest('id')
+            ->first();
+
+        abort_if(! $payment, 404);
+        $payment->syncExpiredStatus();
+
+        $isUnpaid = in_array(Str::lower(trim((string) $payment->status)), ['belum lunas', 'unpaid', 'pending'], true);
+        abort_unless($isUnpaid, 404);
+
+        $paymentValue = trim((string) $payment->no_pembayaran);
+        abort_if($paymentValue === '', 404);
+        abort_unless($this->isAllowedProxyTarget($paymentValue), 404);
+
+        try {
+            $response = Http::timeout((int) config('qr.proxy_timeout', 5))
+                ->withoutRedirecting()
+                ->get($paymentValue);
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        abort_unless($response->successful(), 404);
+
+        $contentType = Str::lower((string) $response->header('Content-Type'));
+        abort_unless(str_starts_with($contentType, 'image/'), 404);
+
+        $body = $response->body();
+        abort_if($body === '' || strlen($body) > (int) config('qr.proxy_max_bytes', 1048576), 404);
+
+        return response($body, 200, [
+            'Content-Type' => $contentType,
+            'Content-Length' => (string) strlen($body),
+            'Cache-Control' => 'private, max-age=120',
+        ]);
+    }
+
+    /**
+     * Known gateway QR-image endpoints (e.g. Tripay serves the QRIS PNG at
+     * https://tripay.co.id/qr/{reference}) that are safe to render inline.
+     */
+    private function isGatewayQrImageUrl(string $value): bool
+    {
+        if (filter_var($value, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        $path = Str::lower((string) (parse_url($value, PHP_URL_PATH) ?? ''));
+
+        return str_contains($path, '/qr/') && $this->isAllowedProxyTarget($value);
+    }
+
+    /**
+     * SSRF guard for the QR proxy: allowlisted hosts only, HTTPS (loopback may use
+     * plain HTTP for the local E2E harness), and QR-ish paths/extensions only.
+     */
+    private function isAllowedProxyTarget(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (! is_array($parts) || empty($parts['host'])) {
+            return false;
+        }
+
+        $host = Str::lower((string) $parts['host']);
+        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
+        $allowedHosts = array_map('strtolower', (array) config('qr.proxy_hosts', ['tripay.co.id']));
+        if (! in_array($host, $allowedHosts, true)) {
+            return false;
+        }
+
+        if ($scheme !== 'https' && ! in_array($host, ['127.0.0.1', 'localhost'], true)) {
+            return false;
+        }
+
+        $path = Str::lower((string) ($parts['path'] ?? ''));
+
+        return str_contains($path, '/qr/') || preg_match('/\.(png|jpe?g|webp|svg)$/', $path) === 1;
+    }
+
+    /**
+     * Render a raw QR payload locally (PNG data URI) instead of calling a third-party
+     * QR service. Falls back to the legacy external generator only if rendering throws.
+     */
+    private function buildLocalQrDataUri(string $payload): string
+    {
+        $payload = trim($payload);
+
+        try {
+            $rendered = (new QRCode(new QROptions([
+                'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+                'eccLevel' => QRCode::ECC_L,
+                'scale' => 8,
+                'outputBase64' => true,
+            ])))->render($payload);
+
+            if (is_string($rendered) && str_starts_with($rendered, 'data:image/')) {
+                return $rendered;
+            }
+        } catch (\Throwable) {
+            // Fall through to the last-resort fallback below.
+        }
+
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($payload);
     }
 
 }

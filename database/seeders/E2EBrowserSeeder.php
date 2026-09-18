@@ -13,6 +13,8 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 class E2EBrowserSeeder extends Seeder
 {
@@ -169,9 +171,10 @@ class E2EBrowserSeeder extends Seeder
         // State-coverage variants for invoice copy/tone regression (see invoice-detail.spec.js).
         $this->seedInvoiceVariant('E2E-INVOICE-PAID-FAILED-001', 'Gagal', 'Paid');
         $this->seedInvoiceVariant('E2E-INVOICE-LAPSED-001', 'Pending', 'Belum Lunas', 6);
+        $this->seedInvoiceQris();
     }
 
-    private function seedInvoiceVariant(string $orderId, string $orderStatus, string $paymentStatus, ?int $createdHoursAgo = null): void
+    private function seedInvoiceVariant(string $orderId, string $orderStatus, string $paymentStatus, ?int $createdHoursAgo = null, string $metode = 'E2E_QRIS', ?string $paymentValue = null): void
     {
         $displayOrderId = $orderId . '_001';
 
@@ -204,12 +207,42 @@ class E2EBrowserSeeder extends Seeder
             ['order_id' => $orderId],
             [
                 'harga' => '10000',
-                'no_pembayaran' => 'E2E-PAYMENT-' . $orderId,
+                'no_pembayaran' => $paymentValue ?? ('E2E-PAYMENT-' . $orderId),
                 'no_pembeli' => '6281200000001',
                 'status' => $paymentStatus,
-                'metode' => 'E2E_QRIS',
+                'metode' => $metode,
                 'reference' => 'E2E-REFERENCE-' . $orderId,
             ],
+        );
+    }
+
+    private function seedInvoiceQris(): void
+    {
+        $baseUrl = rtrim((string) env('APP_URL', 'http://127.0.0.1'), '/');
+        $qrRelativePath = 'assets/e2e/qr-fixture.png';
+
+        // Generate a real QR PNG served by the app itself, so the invoice QR proxy
+        // can be exercised end-to-end without calling any external service.
+        $rendered = (string) (new QRCode(new QROptions([
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+            'eccLevel' => QRCode::ECC_L,
+            'scale' => 8,
+            'outputBase64' => true,
+        ])))->render('E2E-QRIS-FIXTURE-' . str_repeat('ABCDEFGHIJ', 3));
+
+        $absolutePath = public_path($qrRelativePath);
+        if (! is_dir(dirname($absolutePath))) {
+            mkdir(dirname($absolutePath), 0775, true);
+        }
+        file_put_contents($absolutePath, base64_decode(substr($rendered, strpos($rendered, ',') + 1)));
+
+        $this->seedInvoiceVariant(
+            'E2E-INVOICE-QRIS-001',
+            'Pending',
+            'Belum Lunas',
+            null,
+            'QRIS',
+            $baseUrl . '/' . $qrRelativePath,
         );
     }
 

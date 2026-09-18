@@ -87,6 +87,7 @@ testsprite_tests\tmp\config.json
 
 # Runtime upload artifacts
 /public/images/
+/public/assets/e2e/
 /storage/app/bukti_withdraw/
 
 # Kiro specs & config

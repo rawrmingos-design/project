@@ -59,4 +59,28 @@ test.describe('Public invoice detail', () => {
 
         expect(checkoutPosts).toEqual([]);
     });
+
+    test('renders the QRIS QR image inline through the self-hosted proxy', async ({ page }) => {
+        const checkoutPosts = [];
+        page.on('request', (request) => {
+            if (request.method() === 'POST' && request.url().endsWith('/id')) {
+                checkoutPosts.push(request.url());
+            }
+        });
+
+        await page.goto('/id/invoices/E2E-INVOICE-QRIS-001_001', { waitUntil: 'domcontentloaded' });
+
+        const qrImage = page.locator('.invoice-qr__image');
+        await expect(qrImage).toBeVisible();
+        await expect(page.getByRole('button', { name: /unduh kode qr/i })).toBeVisible();
+
+        const src = (await qrImage.getAttribute('src')) ?? '';
+        expect(src).toContain('/id/invoices/E2E-INVOICE-QRIS-001');
+        expect(src).toContain('/payment-qr');
+        expect(src).not.toContain('qrserver.com');
+
+        await expect.poll(() => qrImage.evaluate((img) => img.complete && img.naturalWidth > 0)).toBe(true);
+
+        expect(checkoutPosts).toEqual([]);
+    });
 });

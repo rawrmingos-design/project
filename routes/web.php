@@ -327,6 +327,11 @@ Route::middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(functi
     Route::post('/available-voucher',                                            [VoucherController::class, 'best'])->middleware('throttle:public-voucher')->name('available.voucher');
 });
 
+// QRIS QR image proxy: streamed same-origin from an allowlisted gateway host.
+Route::get('/id/invoices/{order}/payment-qr', [PublicInvoicePageController::class, 'qrImage'])
+    ->middleware('throttle:public-status')
+    ->name('pembelian.qr');
+
 // Rute callback
 Route::post('/wejizy/digi/payload', [DigiflazzCallbackController::class, 'handle'])
     ->middleware(['throttle:supplier-callback', 'inbound.whitelist:supplier_callback,digiflazz,log_only']);

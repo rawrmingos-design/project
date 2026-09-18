@@ -34,6 +34,8 @@ const e2eEnvironment = {
     TELESCOPE_ENABLED: 'false',
     FILAMENT_ADMIN_DOMAIN: '',
     DOCS_DOMAIN: '',
+    QR_PROXY_ALLOWED_HOSTS: 'tripay.co.id,127.0.0.1',
+    PHP_CLI_SERVER_WORKERS: '4',
     E2E_BASE_URL: baseURL,
     E2E_PORT: port,
     APP_CONFIG_CACHE: '.tmp/e2e/cache/config.php',
