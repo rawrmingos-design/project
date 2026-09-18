@@ -118,43 +118,65 @@ test.describe('Public storefront order flow', () => {
 
         const sidebar = page.locator('.order-layout__sidebar--bangjeff:visible');
         await expect(sidebar).toBeVisible();
-        await expect(sidebar).toHaveCSS('position', 'sticky');
+        await expect(sidebar).toHaveCSS('position', 'static');
 
-        await page.evaluate(() => window.scrollTo({ top: 600, left: 0, behavior: 'instant' }));
+        const stickySummary = page.locator('.order-sidebar-bangjeff__summary-sticky:visible');
+        await expect(stickySummary).toBeVisible();
+        await expect(stickySummary).toHaveCSS('position', 'sticky');
+
+        const pinScrollTop = await stickySummary.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+
+            return Math.max(240, Math.round(rect.top + window.scrollY - 60));
+        });
+
+        await page.evaluate((top) => window.scrollTo({ top, left: 0, behavior: 'instant' }), pinScrollTop);
         await page.waitForTimeout(100);
 
-        const stickyState = await sidebar.evaluate((element) => {
+        const stickyState = await stickySummary.evaluate((element) => {
             const rect = element.getBoundingClientRect();
+            const sidebarRect = element.closest('.order-layout__sidebar--bangjeff')?.getBoundingClientRect();
             const summary = element.querySelector('.order-summary--bangjeff')?.getBoundingClientRect();
 
             return {
-                sidebarTop: rect.top,
-                summaryTop: summary?.top ?? null,
-                summaryBottom: summary?.bottom ?? null,
+                summaryTop: rect.top,
+                sidebarTop: sidebarRect?.top ?? null,
+                sidebarBottom: sidebarRect?.bottom ?? null,
+                cardTop: summary?.top ?? null,
+                cardBottom: summary?.bottom ?? null,
                 viewportHeight: window.innerHeight,
             };
         });
 
-        expect(stickyState.sidebarTop).toBeGreaterThanOrEqual(100);
-        expect(stickyState.sidebarTop).toBeLessThanOrEqual(130);
-        expect(stickyState.summaryTop).not.toBeNull();
-        expect(stickyState.summaryTop).toBeLessThan(stickyState.viewportHeight);
-        expect(stickyState.summaryBottom).toBeGreaterThan(stickyState.summaryTop);
+        expect(stickyState.summaryTop).toBeGreaterThanOrEqual(100);
+        expect(stickyState.summaryTop).toBeLessThanOrEqual(130);
+        expect(stickyState.sidebarTop).not.toBeNull();
+        expect(stickyState.sidebarTop).toBeLessThan(stickyState.summaryTop);
+        expect(stickyState.sidebarBottom).toBeGreaterThanOrEqual(stickyState.summaryTop);
+        expect(stickyState.cardTop).not.toBeNull();
+        expect(stickyState.cardTop).toBeGreaterThanOrEqual(stickyState.summaryTop);
+        expect(stickyState.cardBottom).toBeLessThan(stickyState.viewportHeight);
     });
 
-    test('keeps the desktop checkout sidebar attached to the viewport while scrolling', async ({ page }) => {
+    test('keeps only the checkout summary pinned while support cards scroll normally', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
-        const sidebar = page.locator('.order-layout__sidebar--bangjeff:visible');
-        await expect(sidebar).toBeVisible();
+        const stickySummary = page.locator('.order-sidebar-bangjeff__summary-sticky:visible');
+        await expect(stickySummary).toBeVisible();
 
-        const beforeScroll = await sidebar.evaluate((element) => {
+        const beforeScroll = await stickySummary.evaluate((element) => {
             const root = document.querySelector('.public-app.public-app--order-bangjeff');
+            const sidebarEl = element.closest('.order-layout__sidebar--bangjeff');
+            const rating = document.querySelector('.order-mini-card--rating');
+            const help = document.querySelector('.order-help-card--bangjeff');
 
             return {
                 position: getComputedStyle(element).position,
                 top: parseFloat(getComputedStyle(element).top),
+                sidebarPosition: sidebarEl ? getComputedStyle(sidebarEl).position : null,
+                ratingPosition: rating ? getComputedStyle(rating).position : null,
+                helpPosition: help ? getComputedStyle(help).position : null,
                 rootOverflowX: root ? getComputedStyle(root).overflowX : null,
                 rootOverflowY: root ? getComputedStyle(root).overflowY : null,
             };
@@ -162,31 +184,45 @@ test.describe('Public storefront order flow', () => {
 
         expect(beforeScroll.position).toBe('sticky');
         expect(beforeScroll.top).toBe(118);
+        expect(beforeScroll.sidebarPosition).toBe('static');
+        expect(beforeScroll.ratingPosition).toBe('static');
+        expect(beforeScroll.helpPosition).toBe('static');
         expect(beforeScroll.rootOverflowX).toBe('clip');
         expect(beforeScroll.rootOverflowY).not.toBe('auto');
 
-        await page.evaluate(() => window.scrollTo({ top: 900, left: 0, behavior: 'instant' }));
+        const pinScrollTop = await stickySummary.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+
+            return Math.max(240, Math.round(rect.top + window.scrollY - 60));
+        });
+
+        await page.evaluate((top) => window.scrollTo({ top, left: 0, behavior: 'instant' }), pinScrollTop);
         await page.waitForTimeout(100);
 
-        const afterScroll = await sidebar.evaluate((element) => {
-            const rect = element.getBoundingClientRect();
-            const summary = element.querySelector('.order-mini-card--summary')?.getBoundingClientRect();
+        const afterScroll = await page.evaluate(() => {
+            const box = (element) => {
+                const rect = element?.getBoundingClientRect();
+
+                return rect ? { top: rect.top, bottom: rect.bottom } : null;
+            };
 
             return {
-                top: rect.top,
-                bottom: rect.bottom,
-                summaryTop: summary?.top ?? null,
-                summaryBottom: summary?.bottom ?? null,
+                sticky: box(document.querySelector('.order-sidebar-bangjeff__summary-sticky')),
+                sidebar: box(document.querySelector('.order-layout__sidebar--bangjeff')),
+                rating: box(document.querySelector('.order-mini-card--rating')),
+                help: box(document.querySelector('.order-help-card--bangjeff')),
                 viewportHeight: window.innerHeight,
             };
         });
 
-        expect(afterScroll.top).toBeGreaterThanOrEqual(100);
-        expect(afterScroll.top).toBeLessThanOrEqual(130);
-        expect(afterScroll.bottom).toBeGreaterThan(afterScroll.top);
-        expect(afterScroll.summaryTop).toBeGreaterThanOrEqual(afterScroll.top);
-        expect(afterScroll.summaryBottom).toBeLessThanOrEqual(afterScroll.bottom);
-        expect(afterScroll.summaryTop).toBeLessThan(afterScroll.viewportHeight);
+        expect(afterScroll.sticky.top).toBeGreaterThanOrEqual(100);
+        expect(afterScroll.sticky.top).toBeLessThanOrEqual(130);
+        expect(afterScroll.sticky.bottom).toBeGreaterThan(afterScroll.sticky.top);
+        expect(afterScroll.rating.bottom).toBeLessThanOrEqual(afterScroll.sticky.top + 1);
+        expect(afterScroll.help.bottom).toBeLessThanOrEqual(afterScroll.sticky.top + 1);
+        expect(afterScroll.sidebar.top).toBeLessThan(afterScroll.sticky.top);
+        expect(afterScroll.sidebar.bottom).toBeGreaterThanOrEqual(afterScroll.sticky.bottom - 1);
+        expect(afterScroll.sticky.bottom).toBeLessThanOrEqual(afterScroll.viewportHeight);
     });
 
     test('keeps CTA disabled until the auto-selected nominal is explicitly chosen', async ({ page }) => {

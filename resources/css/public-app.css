@@ -2970,19 +2970,24 @@ textarea {
 }
 
 .public-app--bangjeff .order-layout__sidebar--bangjeff {
-    align-self: start;
-    position: -webkit-sticky;
-    position: sticky;
-    top: 118px;
-    z-index: 12;
-    height: fit-content;
+    align-self: stretch;
+    position: static;
+    top: auto;
+    z-index: auto;
+    height: auto;
+    display: flex;
+    flex-direction: column;
     overflow: visible;
 }
 
 .public-app--bangjeff .order-sidebar-bangjeff {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     position: static;
     z-index: 7;
-    align-self: start;
+    align-self: stretch;
     overflow: visible;
 }
 
@@ -3167,19 +3172,19 @@ textarea {
     .public-app--bangjeff .order-layout--bangjeff {
         gap: 32px;
     }
-
-    .public-app--bangjeff .order-sidebar-bangjeff__sticky {
-        gap: 32px;
-    }
 }
 
-.public-app--bangjeff .order-sidebar-bangjeff__sticky {
+.public-app--bangjeff .order-sidebar-bangjeff__support {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    position: static;
-    top: auto;
-    align-self: start;
+}
+
+.public-app--bangjeff .order-sidebar-bangjeff__summary-sticky {
+    position: -webkit-sticky;
+    position: sticky;
+    top: 118px;
+    z-index: 12;
 }
 
 .public-app--bangjeff .order-layout--bangjeff,
@@ -8374,7 +8379,7 @@ textarea {
         align-self: start;
     }
 
-    .public-app--bangjeff .order-sidebar-bangjeff__sticky {
+    .public-app--bangjeff .order-sidebar-bangjeff__summary-sticky {
         position: static;
         top: auto;
     }
@@ -8576,7 +8581,8 @@ textarea {
         gap: 32px;
     }
 
-    .public-app--bangjeff .order-sidebar-bangjeff__sticky {
+    .public-app--bangjeff .order-sidebar-bangjeff,
+    .public-app--bangjeff .order-sidebar-bangjeff__support {
         gap: 32px;
     }
 }
