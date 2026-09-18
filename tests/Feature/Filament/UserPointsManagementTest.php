@@ -2,6 +2,7 @@
 
 use App\Filament\Admin\Resources\Users\Pages\EditUser;
 use App\Filament\Admin\Resources\Users\Pages\ListUsers;
+use App\Filament\Admin\Resources\Users\RelationManagers\PointHistoriesRelationManager;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\PointHistory;
 use App\Models\User;
@@ -118,4 +119,74 @@ test('halaman edit user tetap dapat dibuka setelah section game dihapus', functi
     $user = User::factory()->create();
 
     $this->get(UserResource::getUrl('edit', ['record' => $user]))->assertOk();
+});
+
+test('resource user mendaftarkan relation manager riwayat poin', function () {
+    expect(UserResource::getRelations())->toContain(PointHistoriesRelationManager::class);
+});
+
+test('halaman edit user menampilkan tab riwayat poin', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    $user = User::factory()->create();
+
+    Livewire::test(EditUser::class, ['record' => $user->getRouteKey()])
+        ->assertSuccessful()
+        ->assertSee('Riwayat Poin')
+        ->assertFormFieldExists('email');
+});
+
+test('riwayat poin user tampil di halaman edit user', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    $user = User::factory()->create(['point_balance' => 150]);
+
+    $earn = PointHistory::create([
+        'user_id' => $user->id,
+        'type' => 'earn',
+        'points' => 200,
+        'description' => 'Penyesuaian poin admin: Bonus event',
+    ]);
+
+    $redeem = PointHistory::create([
+        'user_id' => $user->id,
+        'type' => 'redeem',
+        'points' => 50,
+        'description' => 'Penyesuaian poin admin',
+    ]);
+
+    Livewire::test(PointHistoriesRelationManager::class, [
+        'ownerRecord' => $user,
+        'pageClass' => EditUser::class,
+    ])
+        ->assertSuccessful()
+        ->assertCanSeeTableRecords([$earn, $redeem]);
+});
+
+test('riwayat poin hanya menampilkan milik user yang sedang dibuka', function () {
+    $this->actingAs(User::factory()->create(['role' => 'Admin']));
+
+    $user = User::factory()->create();
+    $otherUser = User::factory()->create();
+
+    $mine = PointHistory::create([
+        'user_id' => $user->id,
+        'type' => 'earn',
+        'points' => 10,
+        'description' => 'Hanya milik user ini',
+    ]);
+
+    $others = PointHistory::create([
+        'user_id' => $otherUser->id,
+        'type' => 'earn',
+        'points' => 99,
+        'description' => 'Milik user lain',
+    ]);
+
+    Livewire::test(PointHistoriesRelationManager::class, [
+        'ownerRecord' => $user,
+        'pageClass' => EditUser::class,
+    ])
+        ->assertCanSeeTableRecords([$mine])
+        ->assertCanNotSeeTableRecords([$others]);
 });

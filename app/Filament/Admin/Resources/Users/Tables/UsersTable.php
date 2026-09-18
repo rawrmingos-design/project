@@ -124,11 +124,12 @@ class UsersTable
                     ])
                     ->action(function ($record, array $data) {
                         $newBalance = $record->balance + $data['amount'];
-                        $record->update(['balance' => max(0, $newBalance)]);
-                        
+                        $appliedBalance = max(0, (int) $newBalance);
+                        $record->update(['balance' => $appliedBalance]);
+
                         Notification::make()
                             ->title('Saldo berhasil diubah')
-                            ->body("Saldo baru: Rp " . number_format($newBalance, 0, ',', '.'))
+                            ->body("Saldo baru: Rp " . number_format($appliedBalance, 0, ',', '.'))
                             ->success()
                             ->send();
                     })
