@@ -83,4 +83,39 @@ test.describe('Public invoice detail', () => {
 
         expect(checkoutPosts).toEqual([]);
     });
+
+    test('keeps the hero banner full-bleed with the istana page gutter aligned to the order shell', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/id/invoices/E2E-INVOICE-INTERNAL-001_001', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.invoice-status-banner-react')).toBeVisible();
+
+        const geo = await page.evaluate(() => {
+            const rect = (selector) => {
+                const el = document.querySelector(selector);
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                return { x: Math.round(r.x), right: Math.round(r.right) };
+            };
+            return {
+                viewportWidth: window.innerWidth,
+                banner: rect('.invoice-status-banner-react'),
+                page: rect('.invoice-page'),
+                content: rect('.invoice-progress-section'),
+                isIstana: Boolean(document.querySelector('.public-app--istanatopup')),
+                scrollWidth: document.documentElement.scrollWidth,
+            };
+        });
+
+        // The banner bleeds to both viewport edges (istanatopup + bangjeff paths).
+        expect(geo.banner.x).toBe(0);
+        expect(geo.banner.right).toBe(geo.viewportWidth);
+        expect(geo.scrollWidth).toBeLessThanOrEqual(geo.viewportWidth);
+
+        // The istana page mirrors the order shell: full-width section + 16px inner gutter.
+        if (geo.isIstana) {
+            expect(geo.page.x).toBe(0);
+            expect(geo.page.right).toBe(geo.viewportWidth);
+            expect(geo.content.x).toBe(16);
+        }
+    });
 });

@@ -3039,3 +3039,35 @@
     background: linear-gradient(180deg, rgba(63, 63, 70, 0.92), rgba(39, 39, 42, 0.92));
     color: #e4e4e7;
 }
+
+/* ---------- Invoice: full-bleed banner aligned with the Order page ---------- */
+/* `.public-app--istanatopup .public-main` caps every page at 1200px, leaving
+   ~120px of side space around the invoice banner at 1440px. The Order page
+   already owns this fix via `public-main--order-bangjeff`; mirror it for the
+   invoice page: main becomes full-bleed, the banner fills it edge-to-edge, and
+   the content section keeps a 16px inner gutter (same edge model as the order
+   body). Scoped to istanatopup so bangjeff/default themes stay unchanged. */
+.public-app--istanatopup .public-main--invoice-bleed {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+}
+
+.public-app--istanatopup .public-main--invoice-bleed .invoice-status-banner-react {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+}
+
+.public-app--istanatopup .public-main--invoice-bleed .invoice-page {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    padding-inline: 16px;
+}
+
+@media (max-width: 359px) {
+    .public-app--istanatopup .public-main--invoice-bleed .invoice-page {
+        padding-inline: 12px;
+    }
+}

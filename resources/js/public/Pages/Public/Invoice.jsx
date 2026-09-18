@@ -698,7 +698,7 @@ export default function Invoice({ invoice, meta }) {
     }, [orderStatus.code, paymentStatus.code, isCountdownExpired]);
 
     return (
-        <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
+        <PublicLayout meta={meta} mainClassName="public-main--hero-bleed public-main--invoice-bleed">
             <section className={statusBannerClassName}>
                 {isIntroOverlayMounted ? (
                     <div className={introOverlayClassName} aria-hidden="true">
