@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\Users\Tables;
 
+use App\Models\PointHistory;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -12,6 +14,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\DB;
 
 class UsersTable
 {
@@ -62,7 +65,7 @@ class UsersTable
                     ->alignEnd()
                     ->weight('bold')
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
                     
                 BadgeColumn::make('role')
                     ->label('Role')
@@ -126,6 +129,95 @@ class UsersTable
                         Notification::make()
                             ->title('Saldo berhasil diubah')
                             ->body("Saldo baru: Rp " . number_format($newBalance, 0, ',', '.'))
+                            ->success()
+                            ->send();
+                    })
+                    ->requiresConfirmation(),
+
+                Action::make('adjust_points')
+                    ->label('Ubah Poin')
+                    ->icon('heroicon-o-star')
+                    ->color('info')
+                    ->form([
+                        TextInput::make('amount')
+                            ->label('Jumlah Poin')
+                            ->numeric()
+                            ->integer()
+                            ->required()
+                            ->rule('not_in:0')
+                            ->helperText('Nilai positif menambah poin, negatif mengurangi. Tidak boleh 0.'),
+                        
+                        TextInput::make('description')
+                            ->label('Catatan (opsional)')
+                            ->maxLength(255)
+                            ->helperText('Tersimpan di riwayat poin user.'),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $amount = (int) $data['amount'];
+
+                        if ($amount === 0) {
+                            Notification::make()
+                                ->title('Jumlah poin tidak valid')
+                                ->body('Masukkan nilai poin selain 0.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        $result = DB::transaction(function () use ($record, $amount, $data) {
+                            $user = User::where('id', $record->id)->lockForUpdate()->first();
+
+                            if (!$user) {
+                                return null;
+                            }
+
+                            $currentBalance = (int) ($user->point_balance ?? 0);
+
+                            if ($amount < 0 && abs($amount) > $currentBalance) {
+                                return ['status' => 'insufficient', 'balance' => $currentBalance];
+                            }
+
+                            $newBalance = $currentBalance + $amount;
+
+                            User::where('id', $user->id)->update(['point_balance' => $newBalance]);
+
+                            $note = trim((string) ($data['description'] ?? ''));
+
+                            PointHistory::create([
+                                'user_id'     => $user->id,
+                                'order_id'    => null,
+                                'type'        => $amount > 0 ? 'earn' : 'redeem',
+                                'points'      => abs($amount),
+                                'description' => 'Penyesuaian poin admin' . ($note !== '' ? ': ' . $note : ''),
+                            ]);
+
+                            return ['status' => 'ok', 'balance' => $newBalance];
+                        });
+
+                        if ($result === null) {
+                            Notification::make()
+                                ->title('Gagal mengubah poin')
+                                ->body('User tidak ditemukan.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        if ($result['status'] === 'insufficient') {
+                            Notification::make()
+                                ->title('Saldo poin tidak cukup')
+                                ->body('Pengurangan melebihi saldo poin. Saldo saat ini: ' . number_format($result['balance'], 0, ',', '.') . ' poin.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Poin berhasil diubah')
+                            ->body('Saldo poin baru: ' . number_format($result['balance'], 0, ',', '.') . ' poin')
                             ->success()
                             ->send();
                     })
