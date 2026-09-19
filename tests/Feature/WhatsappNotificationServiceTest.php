@@ -28,12 +28,12 @@ class WhatsappNotificationServiceTest extends TestCase
                 'process' => 'pending',
                 'requestid' => 425754326,
                 'status' => true,
-                'target' => ['[REDACTED]'],
+                'target' => ['6281000000001'],
             ], 200),
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendTestMessage('[REDACTED]', 'Halo test');
+            ->sendTestMessage('6281000000001', 'Halo test');
 
         $this->assertTrue($result['success']);
         $this->assertSame('fonnte', $result['provider']);
@@ -58,7 +58,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendTestMessage('[REDACTED]', 'Halo test');
+            ->sendTestMessage('6281000000001', 'Halo test');
 
         $this->assertFalse($result['success']);
         $this->assertSame('token invalid', $result['message']);
@@ -83,7 +83,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::fake();
 
         $result = app(WhatsappNotificationService::class)->sendNotification(
-            '[REDACTED]',
+            '6281000000001',
             'transaction_pending',
             ['order_id' => 'INV-INACTIVE-WA-001'],
         );
@@ -102,7 +102,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::fake();
 
         $result = app(WhatsappNotificationService::class)->sendNotification(
-            '[REDACTED]',
+            '6281000000001',
             'transaction_pending',
             ['order_id' => 'INV-MISSING-WA-001'],
         );
@@ -130,7 +130,7 @@ class WhatsappNotificationServiceTest extends TestCase
             'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
         ]);
 
-        app(WhatsappNotificationService::class)->sendNotification('[REDACTED]', 'transaction_success', [
+        app(WhatsappNotificationService::class)->sendNotification('6281000000001', 'transaction_success', [
             'order_id' => 'INV-TRIPAY-001',
             'product' => 'Mobile Legends 86 Diamonds',
         ]);
@@ -138,7 +138,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://api.fonnte.com/send'
                 && $request->hasHeader('Authorization', 'fonnte-token')
-                && ($request->data()['target'] ?? null) === '[REDACTED]'
+                && ($request->data()['target'] ?? null) === '6281000000001'
                 && ($request->data()['message'] ?? null) === "✅ *PEMBAYARAN BERHASIL DIVERIFIKASI!*\n\nTerima kasih telah berbelanja di Z-Vault Store.\n\n🧾 *RINCIAN TRANSAKSI*\n├ Nomor Invoice: *INV-TRIPAY-001*\n└ Produk: *Mobile Legends 86 Diamonds*\n\n🔐 Jika ada kendala hubungi admin utama:\nchat admin @mings dan kirimkan id pesanan nya";
         });
     }
@@ -164,7 +164,7 @@ class WhatsappNotificationServiceTest extends TestCase
             'https://api.fonnte.com/send' => Http::response(['status' => true], 200),
         ]);
 
-        app(WhatsappNotificationService::class)->sendNotification('[REDACTED]', 'transaction_pending');
+        app(WhatsappNotificationService::class)->sendNotification('6281000000001', 'transaction_pending');
 
         Http::assertSent(function ($request) use ($pendingContent): bool {
             return $request->url() === 'https://api.fonnte.com/send'
@@ -365,7 +365,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendTestMessage('[REDACTED]', 'Halo test');
+            ->sendTestMessage('6281000000001', 'Halo test');
 
         $this->assertTrue($result['success']);
         $this->assertSame('queued', $result['message']);
@@ -559,7 +559,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendTestMessage('[REDACTED]', 'Halo dari OpenWA');
+            ->sendTestMessage('6281000000001', 'Halo dari OpenWA');
 
         $this->assertTrue($result['success']);
         $this->assertSame('openwa', $result['provider']);
@@ -567,7 +567,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-text'
                 && $request->hasHeader('Authorization', 'Bearer openwa-token')
-                && ($request->data()['chatId'] ?? null) === '[REDACTED]@s.whatsapp.net'
+                && ($request->data()['chatId'] ?? null) === '6281000000001@s.whatsapp.net'
                 && ($request->data()['text'] ?? null) === 'Halo dari OpenWA';
         });
     }
@@ -589,7 +589,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendMessage('[REDACTED]', 'Halo bot', null, 'custom-openwa-key');
+            ->sendMessage('6281000000001', 'Halo bot', null, 'custom-openwa-key');
 
         $this->assertTrue($result['success']);
         $this->assertSame('openwa', $result['provider']);
@@ -619,7 +619,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendMessage('[REDACTED]', 'Silakan scan QRIS', 'https://cdn.example.test/qr/transaksi.png');
+            ->sendMessage('6281000000001', 'Silakan scan QRIS', 'https://cdn.example.test/qr/transaksi.png');
 
         $this->assertTrue($result['success']);
         $this->assertSame('openwa', $result['provider']);
@@ -627,7 +627,7 @@ class WhatsappNotificationServiceTest extends TestCase
         Http::assertSent(function ($request): bool {
             return $request->url() === 'https://wagateway.jasakoding.web.id/api/sessions/f802a400-0cf5-4c28-b7b0-aa30c169aee5/messages/send-image'
                 && $request->hasHeader('Authorization', 'Bearer openwa-token')
-                && ($request->data()['chatId'] ?? null) === '[REDACTED]@s.whatsapp.net'
+                && ($request->data()['chatId'] ?? null) === '6281000000001@s.whatsapp.net'
                 && ($request->data()['url'] ?? null) === 'https://cdn.example.test/qr/transaksi.png'
                 && ($request->data()['caption'] ?? null) === 'Silakan scan QRIS'
                 && ! isset($request->data()['text']);
@@ -652,7 +652,7 @@ class WhatsappNotificationServiceTest extends TestCase
         ]);
 
         $result = app(WhatsappNotificationService::class)
-            ->sendMessage('[REDACTED]', 'Scan QRIS ini', 'https://cdn.example.test/qr/bot-order.png', 'custom-openwa-key');
+            ->sendMessage('6281000000001', 'Scan QRIS ini', 'https://cdn.example.test/qr/bot-order.png', 'custom-openwa-key');
 
         $this->assertTrue($result['success']);
         $this->assertSame('openwa', $result['provider']);

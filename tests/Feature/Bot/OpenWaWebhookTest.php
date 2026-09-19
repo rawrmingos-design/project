@@ -191,7 +191,7 @@ class OpenWaWebhookTest extends TestCase
             $mock->shouldReceive('sendMessage')
                 ->once()
                 ->withArgs(function (string $target, string $message) {
-                    $this->assertSame('[REDACTED]', $target);
+                    $this->assertSame('6281000000001', $target);
                     $this->assertNotEmpty($message);
 
                     return true;
@@ -207,9 +207,9 @@ class OpenWaWebhookTest extends TestCase
             'deliveryId' => 'dlv_flat_001',
             'data' => [
                 'id' => 'AC659A0084CC1FF1EB4020B4E312B6DF',
-                'from' => '[REDACTED]@c.us',
+                'from' => '6281000000001@c.us',
                 'to' => '6287780901780@c.us',
-                'chatId' => '[REDACTED]@c.us',
+                'chatId' => '6281000000001@c.us',
                 'body' => 'menu',
                 'type' => 'text',
                 'timestamp' => 1787119501,
@@ -235,10 +235,10 @@ class OpenWaWebhookTest extends TestCase
         config(['bot.order_wa_enabled' => true]);
 
         // Seed checkout state (waiting_confirmation) + active numeric menu
-        // (checkout_confirmation) for sender [REDACTED].
+        // (checkout_confirmation) for sender 6281000000001.
         $checkoutStateKey = 'bot:checkout-state:' . hash(
             'sha256',
-            implode('|', ['whatsapp_gateway', '[REDACTED]']),
+            implode('|', ['whatsapp_gateway', '6281000000001']),
         );
         Cache::put($checkoutStateKey, [
             'step' => 'waiting_confirmation',
@@ -246,7 +246,7 @@ class OpenWaWebhookTest extends TestCase
             'intent_token' => 'tok-123',
         ], now()->addMinutes(5));
 
-        $numericMenuKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:[REDACTED]');
+        $numericMenuKey = 'bot:numeric-menu:' . hash('sha256', 'whatsapp:6281000000001');
         Cache::put($numericMenuKey, [
             'schema_version' => 1,
             'revision' => 'ABCDEF1234567890',
@@ -284,7 +284,7 @@ class OpenWaWebhookTest extends TestCase
                     // 'tok-123' does not exist, so the handler replies
                     // 'Konfirmasi checkout tidak valid' — proving the
                     // konfirmasi command was actually invoked.
-                    $this->assertSame('[REDACTED]', $target);
+                    $this->assertSame('6281000000001', $target);
                     $this->assertStringContainsString('Konfirmasi checkout tidak valid', $message);
 
                     return true;
@@ -297,9 +297,9 @@ class OpenWaWebhookTest extends TestCase
             'deliveryId' => 'dlv_confirm_num_001',
             'data' => [
                 'id' => 'WA-CONFIRM-NUM-001',
-                'from' => '[REDACTED]@c.us',
+                'from' => '6281000000001@c.us',
                 'to' => '6287780901780@c.us',
-                'chatId' => '[REDACTED]@c.us',
+                'chatId' => '6281000000001@c.us',
                 'body' => '1',
                 'type' => 'text',
                 'timestamp' => 1787119600,

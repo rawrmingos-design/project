@@ -28,7 +28,7 @@ Membuat data user dengan berbagai role dan balance.
 **Example Users:**
 ```
 Admin:
-- Email: [REDACTED]
+- Email: admin@example.com
 - Username: admin
 - Balance: Rp 1,000,000
 
@@ -133,7 +133,7 @@ Setelah seeding selesai, Anda akan memiliki:
 
 **Admin Panel:**
 ```
-Email: [REDACTED]
+Email: admin@example.com
 Password: password
 ```
 
