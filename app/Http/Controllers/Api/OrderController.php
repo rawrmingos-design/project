@@ -52,7 +52,7 @@ class OrderController extends Controller
             $voucher = Voucher::where('kode', $request->voucher)->first();
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
-                if ($potongan > $voucher->max_potongan) {
+                if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {
                     $potongan = $voucher->max_potongan;
                 }
                 $harga -= $potongan;
@@ -165,7 +165,10 @@ class OrderController extends Controller
             $voucher = Voucher::where('kode', $request->voucher)->first();
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
-                $harga -= min($potongan, $voucher->max_potongan);
+                if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {
+                    $potongan = $voucher->max_potongan;
+                }
+                $harga -= $potongan;
             }
         }
 

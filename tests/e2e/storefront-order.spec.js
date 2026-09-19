@@ -245,6 +245,58 @@ test.describe('Public storefront order flow', () => {
         expect(finalOrderPosts).toBe(0);
     });
 
+    test('applies a valid promo code, shows the discount, and rejects an invalid code', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const promoInput = page.locator('.order-promo__input');
+        await expect(promoInput).toBeVisible();
+
+        const totalValue = page.locator('.order-summary--bangjeff .order-summary__value--total');
+        const toNumber = (text) => Number(String(text).replace(/[^0-9]/g, ''));
+        // Wait until the initial price quote has resolved (the summary renders
+        // "Rp 0" until the first /id/harga response arrives).
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 25_000 }).toBeGreaterThan(0);
+        const totalBefore = toNumber(await totalValue.innerText());
+
+        // Valid promo: server-side validation round-trip, then the voucher must
+        // be applied to the price quote (fixture: 10% of 10.000, cap 5.000).
+        // Delay the voucher validation so the quote triggered by typing resolves
+        // first — this pins the race where applying the code used to leave the
+        // summary stuck at Rp 0 (preview nulled after a valid quote arrived,
+        // with nothing to refetch it).
+        await page.route('**/check-voucher', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            await route.continue();
+        });
+
+        const checkRequest = page.waitForRequest((request) => request.url().includes('/check-voucher'));
+        await promoInput.fill('E2EPROMO10');
+        await page.locator('.order-promo__apply').click();
+        await checkRequest;
+
+        await expect(page.locator('.feedback--success')).toContainText('E2EPROMO10');
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 15_000 }).toBe(totalBefore - 1000);
+
+        // Invalid promo: the server error is surfaced and the total returns to
+        // its undiscounted value.
+        await promoInput.fill('KODE-NGACO');
+        await page.locator('.order-promo__apply').click();
+        await expect(page.locator('.feedback--error')).toContainText(/tidak ditemukan/i);
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 15_000 }).toBe(totalBefore);
+
+        expect(finalOrderPosts).toBe(0);
+    });
+
     test('keeps desktop checkout summary in one column without overflow', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });

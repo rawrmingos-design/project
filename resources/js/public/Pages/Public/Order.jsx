@@ -1317,6 +1317,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [nickname, setNickname] = useState('');
     const [pricePreview, setPricePreview] = useState(null);
     const [pricePreviewKey, setPricePreviewKey] = useState(null);
+    const [priceRefreshToken, setPriceRefreshToken] = useState(0);
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
     const [pointInputDraft, setPointInputDraft] = useState('');
@@ -2199,7 +2200,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [category.type, priceRequestKey, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
+    }, [category.type, priceRequestKey, priceRefreshToken, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
 
     useEffect(() => {
         setUsePoint(0);
@@ -2336,8 +2337,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     const applyVoucherPreview = (nextVoucherCode) => {
         setVoucher(nextVoucherCode);
-        setPricePreview(null);
-        setPricePreviewKey(null);
+        // Force a fresh quote for the applied code. Nulling the preview here used
+        // to race with the quote triggered by typing the same code: when that
+        // quote resolved first, the null wiped a valid voucher-aware preview and
+        // nothing refetched it (voucher/priceRequestKey unchanged) — the summary
+        // stayed stuck at Rp 0. Bumping a token always re-runs the price effect.
+        setPriceRefreshToken((token) => token + 1);
     };
 
     const resetStaleVoucherState = () => {

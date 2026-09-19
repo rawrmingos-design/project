@@ -68,22 +68,24 @@ class VoucherController extends Controller
             $service = Layanan::where('id', $request->service)->select('harga_member AS harga')->first();
         }
             
+            // Minimal transaksi dibandingkan dengan harga SEBELUM diskon supaya
+            // konsisten dengan validasi jalur order (OrderController@store).
+            if ($voucher->mintrx && $voucher->mintrx > $service->harga) {
+                return response()->json([
+                    'status'  => false,
+                    'title'   => 'Ooops!',
+                    'message' => 'Minimal Transaksi > Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
+                ], 422);
+            }
+
             $potongan = $service->harga * ($voucher->promo / 100);
             $maxPotongan = (float) ($voucher->max_potongan ?? 0);
-            
+
             if($maxPotongan > 0 && $potongan > $maxPotongan){
                 $potongan = $maxPotongan;
             }
-            
+
             $service->harga = $service->harga - $potongan;
-            
-            if ($voucher->mintrx && $voucher->mintrx > $service->harga) {
-            return response()->json([
-                'status'  => false,
-                'title'   => 'Ooops!',
-                'message' => 'Minimal Transaksi > Rp ' . number_format($voucher->mintrx, 0, ',', '.'),
-            ], 422);
-        }
             
             return response()->json([
                 'status' => true,

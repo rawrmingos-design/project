@@ -285,6 +285,27 @@ class VoucherTransactionTest extends TestCase
         ]);
     }
 
+    public function test_check_voucher_min_transaction_uses_pre_discount_price(): void
+    {
+        // Harga dasar 100.000; promo 10% → final 90.000. mintrx 95.000 tetap
+        // valid karena basis dibandingkan SEBELUM diskon — sama seperti
+        // validasi jalur order di OrderController@store.
+        $this->voucher->update([
+            'promo' => 10,
+            'max_potongan' => 0,
+            'mintrx' => 95000,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson('/check-voucher', [
+            'voucher' => 'DISKON50',
+            'service' => $this->service->id,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => true]);
+        $this->assertSame(90000, (int) $response->json('harga'));
+    }
+
     public function test_available_voucher_endpoint_returns_eligible_vouchers_without_consuming_stock()
     {
         Voucher::create([

@@ -147,7 +147,14 @@ class GatewayController extends Controller
 
         $discount = 0;
         if ($amount > 0) {
-            $discount = min((int) round($amount * ((float) $voucher->promo / 100)), (int) $voucher->max_potongan);
+            $discount = (int) round($amount * ((float) $voucher->promo / 100));
+            $maxDiscount = (int) $voucher->max_potongan;
+
+            if ($maxDiscount > 0 && $discount > $maxDiscount) {
+                $discount = $maxDiscount;
+            }
+
+            $discount = max(0, $discount);
         }
 
         return response()->json([

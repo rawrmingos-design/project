@@ -243,7 +243,17 @@ class CheckoutOrderService
                     ]);
                 }
 
-                $discount = min((int) round($baseAmount * ((float) $voucher->promo / 100)), (int) $voucher->max_potongan);
+                // max_potongan = 0 berarti "tanpa cap" (kontrak sama dengan
+                // OrderController@store dan form admin), bukan diskon nol.
+                $discount = (int) round($baseAmount * ((float) $voucher->promo / 100));
+                $maxDiscount = (int) $voucher->max_potongan;
+
+                if ($maxDiscount > 0 && $discount > $maxDiscount) {
+                    $discount = $maxDiscount;
+                }
+
+                $discount = max(0, $discount);
+
                 $baseAmount = max(0, $baseAmount - $discount);
                 $voucher->decrement('stock');
             }

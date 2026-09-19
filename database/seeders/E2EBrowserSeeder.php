@@ -10,6 +10,7 @@ use App\Models\Paket;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\User;
+use App\Models\Voucher;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -362,6 +363,17 @@ class E2EBrowserSeeder extends Seeder
                 'min_pembelian' => 10000,
                 'max_pembelian' => 1000000,
                 'statuspayment' => true,
+            ],
+        );
+
+        Voucher::query()->updateOrCreate(
+            ['kode' => 'E2EPROMO10'],
+            [
+                'promo' => 10,
+                'stock' => 10,
+                'mintrx' => 0,
+                'max_potongan' => 5000,
+                'expired_at' => null,
             ],
         );
     }

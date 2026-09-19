@@ -149,7 +149,16 @@ class GatewayPricingService
             ]);
         }
 
-        return min((int) round($baseAmount * ((float) $voucher->promo / 100)), (int) $voucher->max_potongan);
+        // max_potongan = 0 berarti "tanpa cap" — konsisten dengan
+        // CheckoutOrderService dan alur order web.
+        $discount = (int) round($baseAmount * ((float) $voucher->promo / 100));
+        $maxDiscount = (int) $voucher->max_potongan;
+
+        if ($maxDiscount > 0 && $discount > $maxDiscount) {
+            $discount = $maxDiscount;
+        }
+
+        return max(0, $discount);
     }
 
     private function methodFee(int $amount, Method $method): int
