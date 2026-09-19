@@ -163,7 +163,7 @@ test.describe('Public storefront order flow', () => {
         expect(finalOrderPosts).toBe(0);
     });
 
-    test('computes the points discount in real time while moving the slider', async ({ page }) => {
+    test('applies the points discount in real time while typing the amount', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
 
         let finalOrderPosts = 0;
@@ -189,44 +189,56 @@ test.describe('Public storefront order flow', () => {
         await loginAsMember(page);
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
-        const slider = page.locator('.order-points__range');
-        await expect(slider).toBeVisible();
-        await expect(slider).toBeEnabled({ timeout: 25_000 });
-
-        const setSlider = (value) => slider.evaluate((element, next) => {
-            const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-            setter.call(element, String(next));
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-        }, value);
+        const pointInput = page.locator('.order-points__input');
+        await expect(pointInput).toBeVisible();
+        await expect(pointInput).toBeEnabled({ timeout: 25_000 });
 
         const totalValue = page.locator('.order-summary--bangjeff .order-summary__value--total');
         const toNumber = (text) => Number(String(text).replace(/[^0-9]/g, ''));
+        const discountLabel = page.locator('.order-points__discount');
         const totalBefore = toNumber(await totalValue.innerText());
 
-        // Real-time: the discount label must appear immediately even though the
-        // held /id/harga quote has not resolved yet (fixtures: 1 point = Rp100).
-        await setSlider(25);
-        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?2\.500/, { timeout: 1500 });
+        // Real-time: typing a value must update the discount label immediately
+        // even though the held /id/harga quote has not resolved yet
+        // (fixtures: 1 point = Rp100, 50 points redeemable).
+        await pointInput.fill('25');
+        await expect(discountLabel).toContainText(/Rp\s?2\.500/, { timeout: 1500 });
 
-        // After the debounced quote settles, the rendered total must match the
-        // live calculation exactly (dropped by the discount).
+        // After the debounced quote settles, the rendered total must drop by
+        // exactly the live-calculated discount.
         await page.waitForTimeout(3400);
-        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?2\.500/);
+        await expect(discountLabel).toContainText(/Rp\s?2\.500/);
         expect(toNumber(await totalValue.innerText())).toBe(totalBefore - 2500);
         await expect(page.locator('.order-summary--bangjeff .order-summary__row--discount')).toContainText(/Rp\s?2\.500/);
 
-        // Rapid drags must be coalesced by the debounce instead of firing a
-        // request per tick (the old behaviour spammed the throttled endpoint).
+        // Client guardrails: above-max values are clamped inside the field,
+        // junk is stripped, a negative sign can never stick.
+        await pointInput.fill('9999');
+        await expect(pointInput).toHaveValue('50');
+        await expect(discountLabel).toContainText(/Rp\s?5\.000/);
+
+        await pointInput.fill('abc$-1.5');
+        await expect(pointInput).toHaveValue('15');
+
+        await pointInput.fill('abc');
+        await expect(pointInput).toHaveValue('');
+        await expect(discountLabel).toHaveCount(0);
+
+        // Rapid typing must be coalesced by the debounce instead of firing one
+        // request per keystroke at the throttled /id/harga endpoint.
         holdHarga = false;
-        const requestsBeforeRapidDrag = hargaRequests;
-        await setSlider(10);
-        await setSlider(20);
-        await setSlider(30);
-        await setSlider(40);
+        const requestsBeforeRapidTyping = hargaRequests;
+        await pointInput.fill('');
+        await pointInput.pressSequentially('12345', { delay: 50 });
         await page.waitForTimeout(1200);
-        expect(hargaRequests - requestsBeforeRapidDrag).toBeLessThanOrEqual(2);
-        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?4\.000/);
+        expect(hargaRequests - requestsBeforeRapidTyping).toBeLessThanOrEqual(2);
+        await expect(pointInput).toHaveValue('50');
+
+        // "Maks" fills the entire redeemable amount in one click.
+        await pointInput.fill('1');
+        await page.locator('.order-points__max').click();
+        await expect(pointInput).toHaveValue('50');
+        await expect(discountLabel).toContainText(/Rp\s?5\.000/);
 
         expect(finalOrderPosts).toBe(0);
     });

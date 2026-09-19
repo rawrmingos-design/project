@@ -486,4 +486,60 @@ class OrderControllerPointTest extends TestCase
         $this->assertNotNull($order);
         $this->assertEquals(100, $order->used_points);
     }
+
+    /** @test */
+    public function ordered_endpoint_clamps_absurd_use_point_regardless_of_client()
+    {
+        // A hostile or broken client can send any number; the server must treat
+        // it exactly like the 150-pointer case and cap it at the percent limit.
+        $this->mock(\App\Services\ProviderRoutingService::class, function ($mock) {
+            $mock->shouldReceive('findBestProvider')
+                 ->andReturn([
+                     'provider_code' => 'manual',
+                     'sku' => 'manual-123',
+                 ]);
+        });
+
+        $this->user->update(['point_balance' => 200]);
+
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid'   => '12345678',
+            'zone'  => '1234',
+            'qty'   => 1,
+            'use_point' => 999999999,
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->user->refresh();
+        $this->assertEquals(100, $this->user->point_balance); // Capped at 100, never more
+        $this->assertEquals(90000, $this->user->balance);
+
+        $order = Pembelian::where('username', $this->user->username)->latest()->first();
+        $this->assertNotNull($order);
+        $this->assertEquals(100, $order->used_points);
+    }
+
+    /** @test */
+    public function ordered_endpoint_rejects_negative_use_point()
+    {
+        $balanceBefore = (int) $this->user->point_balance;
+
+        $response = $this->actingAs($this->user)->postJson(route('ordered'), [
+            'service' => $this->layanan->id,
+            'payment_method' => 'SALDO',
+            'nomor' => '081234567890',
+            'uid'   => '12345678',
+            'zone'  => '1234',
+            'qty'   => 1,
+            'use_point' => -10,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('use_point');
+        $this->assertSame($balanceBefore, (int) $this->user->fresh()->point_balance);
+    }
 }

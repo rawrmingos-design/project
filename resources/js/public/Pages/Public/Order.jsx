@@ -1319,6 +1319,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [pricePreviewKey, setPricePreviewKey] = useState(null);
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
+    const [pointInputDraft, setPointInputDraft] = useState('');
     const [lastPointInfo, setLastPointInfo] = useState(null);
     const priceRequestSequenceRef = useRef(0);
     const accountLookupSequenceRef = useRef(0);
@@ -2239,6 +2240,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
         }
     }, [pricePreview, usePoint]);
 
+    // Keep the points text field in step with the committed value whenever it
+    // changes from outside the field itself (steppers, "Maks" button, server
+    // clamp, category/account resets).
+    useEffect(() => {
+        setPointInputDraft(usePoint > 0 ? String(usePoint) : '');
+    }, [usePoint]);
+
     const handleCheckAccount = async () => {
         if (isComplexOrder || !category.requiresGameValidation) {
             return;
@@ -2788,8 +2796,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const committedPointDiscount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
     const amountBeforePoint = getSelectedAmountBeforePoint(pricePreview, selectedMethodCode, null);
     // Real-time point maths: mirror the server formula (min(points, max_points) * point_value)
-    // so the discount and totals move instantly while the slider is dragged, instead of
-    // waiting for the debounced /id/harga round-trip.
+    // so the discount and totals move instantly while the user types the amount,
+    // instead of waiting for the debounced /id/harga round-trip.
     const liveUsePoint = Math.max(0, Math.min(Math.floor(Number(usePoint) || 0), maxRedeemablePoints));
     const pointDiscountAmount = Math.floor(liveUsePoint * pointValue);
     const liveTotalPrice = amountBeforePoint !== null
@@ -2802,6 +2810,35 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const pointControlAvailable = Boolean(authUser);
     const pointControlReady = Boolean(pointInfo);
     const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0;
+    // Points entry is a plain numeric field (users need an exact amount, not a
+    // slider): digits only, clamped here AND re-clamped server-side, hard cap on
+    // length, never negative/decimals/scientific notation.
+    const commitPointAmount = (value) => {
+        const numeric = Math.floor(Number(value));
+
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            setUsePoint(0);
+            return;
+        }
+
+        setUsePoint(Math.min(numeric, maxRedeemablePoints));
+    };
+    const handlePointInputChange = (raw) => {
+        const digits = String(raw).replace(/[^0-9]/g, '').slice(0, 9);
+
+        if (digits === '') {
+            setPointInputDraft('');
+            setUsePoint(0);
+            return;
+        }
+
+        const bounded = Math.min(parseInt(digits, 10) || 0, maxRedeemablePoints);
+        setPointInputDraft(bounded > 0 ? String(bounded) : '');
+        setUsePoint(bounded);
+    };
+    const handlePointInputBlur = () => {
+        setPointInputDraft(usePoint > 0 ? String(usePoint) : '');
+    };
     const pointRedemptionPanel = pointControlAvailable ? (
         <div className={`order-points ${isBangjeffOrderStyle ? 'order-points--bangjeff' : ''}`}>
             <div className="order-points__header">
@@ -2811,17 +2848,47 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
                 <strong className="order-points__selected">{usePoint.toLocaleString('id-ID')} points</strong>
             </div>
-            <input
-                className="order-points__range"
-                type="range"
-                min="0"
-                max={maxRedeemablePoints}
-                step="1"
-                value={Math.min(usePoint, maxRedeemablePoints)}
-                onChange={(event) => setUsePoint(Math.max(0, Math.min(Number(event.target.value) || 0, maxRedeemablePoints)))}
-                disabled={pointControlDisabled}
-                aria-label="Jumlah points yang digunakan"
-            />
+            <div className="order-points__control">
+                <button
+                    type="button"
+                    className="order-points__stepper"
+                    onClick={() => commitPointAmount(usePoint - 1)}
+                    disabled={pointControlDisabled || usePoint <= 0}
+                    aria-label="Kurangi satu point"
+                >
+                    −
+                </button>
+                <input
+                    className="order-points__input"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
+                    placeholder="0"
+                    value={pointInputDraft}
+                    onChange={(event) => handlePointInputChange(event.target.value)}
+                    onBlur={handlePointInputBlur}
+                    disabled={pointControlDisabled}
+                    aria-label="Jumlah points yang digunakan"
+                />
+                <button
+                    type="button"
+                    className="order-points__stepper"
+                    onClick={() => commitPointAmount(usePoint + 1)}
+                    disabled={pointControlDisabled || usePoint >= maxRedeemablePoints}
+                    aria-label="Tambah satu point"
+                >
+                    +
+                </button>
+                <button
+                    type="button"
+                    className="order-points__max"
+                    onClick={() => commitPointAmount(maxRedeemablePoints)}
+                    disabled={pointControlDisabled || usePoint >= maxRedeemablePoints}
+                >
+                    Maks
+                </button>
+            </div>
             <div className="order-points__meta">
                 <span>{pointControlReady ? `Maksimal ${maxRedeemablePoints.toLocaleString('id-ID')} points` : 'Mengambil batas redeem...'}</span>
                 {pointValue > 0 ? <span>1 point = {formatCurrency(pointValue)}</span> : null}
