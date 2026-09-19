@@ -106,6 +106,53 @@ test.describe('Public storefront order flow', () => {
         expect(finalOrderPosts).toBe(0);
     });
 
+    test('auto-scrolls to payment after picking a nominal and to contact after picking a method', async ({ page }) => {
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const waitForStepNearTop = (sectionId, maxTop) => page.waitForFunction(
+            ({ id, top }) => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    return false;
+                }
+                const rect = element.getBoundingClientRect();
+                return rect.top >= 0 && rect.top <= top;
+            },
+            { id: sectionId, top: maxTop },
+            { timeout: 8000 },
+        );
+
+        const cards = page.locator('.variant-card--bangjeff:visible');
+        await expect(cards.first()).toBeVisible();
+
+        // First explicit pick scrolls to the payment step.
+        await cards.nth(1).click();
+        await waitForStepNearTop('order-step-payment', 220);
+
+        // Scrolling back up and picking another nominal must scroll again:
+        // the auto-scroll fires per explicit interaction, not once per session.
+        await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+        await page.waitForTimeout(150);
+        await cards.nth(0).click();
+        await waitForStepNearTop('order-step-payment', 220);
+
+        // Picking a payment method continues on to the contact step.
+        const methodCards = page.locator('.payment-card--bangjeff:visible');
+        await expect(methodCards.first()).toBeVisible();
+        await methodCards.first().click();
+        await waitForStepNearTop('order-step-contact', 260);
+
+        expect(finalOrderPosts).toBe(0);
+    });
+
     test('keeps desktop checkout summary in one column without overflow', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });

@@ -1353,13 +1353,30 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const paymentPanelRef = useRef(null);
     const contactPanelRef = useRef(null);
     const accountAutoScrollDoneRef = useRef(false);
-    const nominalAutoScrollDoneRef = useRef(false);
     const quantityAutoScrollDoneRef = useRef(false);
-    const paymentAutoScrollDoneRef = useRef(false);
 
     const isBangjeff = theme?.key === 'bangjeff';
     const isBangjeffOrderStyle = isBangjeff || theme?.key === 'istanatopup';
     const shouldAutoCheckAccount = isBangjeff || theme?.key === 'istanatopup';
+
+    // Auto-scroll between order panels, shared by the transaction layouts
+    // (bangjeff + istanatopup use the same panel UI). Called from interaction
+    // handlers so every explicit pick advances the user to the next step.
+    const scrollToOrderPanel = useCallback((targetRef) => {
+        if (!isBangjeffOrderStyle || !targetRef?.current || typeof window === 'undefined') {
+            return;
+        }
+
+        const offset = window.innerWidth < 1024 ? 94 : 108;
+        const top = Math.max(0, window.scrollY + targetRef.current.getBoundingClientRect().top - offset);
+
+        window.requestAnimationFrame(() => {
+            window.scrollTo({
+                top,
+                behavior: 'smooth',
+            });
+        });
+    }, [isBangjeffOrderStyle]);
     const requiresExplicitNominalSelection = isBangjeff;
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
@@ -1569,6 +1586,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             payment_method_name: method.name,
             category_slug: category.slug,
         });
+        scrollToOrderPanel(contactPanelRef);
     };
     const openBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(true);
     const closeBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(false);
@@ -1678,9 +1696,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setPaymentStepInteracted(false);
         setSpecialForm(buildInitialSpecialForm(category.specialFields));
         accountAutoScrollDoneRef.current = false;
-        nominalAutoScrollDoneRef.current = false;
         quantityAutoScrollDoneRef.current = false;
-        paymentAutoScrollDoneRef.current = false;
     }, [category.specialFields]);
 
     const handleApplySavedAccountDraft = () => {
@@ -1905,9 +1921,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setQuantityStepInteracted(false);
         setPaymentStepInteracted(false);
         accountAutoScrollDoneRef.current = false;
-        nominalAutoScrollDoneRef.current = false;
         quantityAutoScrollDoneRef.current = false;
-        paymentAutoScrollDoneRef.current = false;
         preventAutoSelectRef.current = false;
     }, [category.slug]);
 
@@ -2070,22 +2084,6 @@ export default function Order({ meta, category, products, packages, paymentMetho
         : true;
     const selectedPaymentReady = !isBangjeff || Boolean(selectedMethodCode && selectedMethod);
 
-    const scrollToOrderPanel = useCallback((targetRef) => {
-        if (!isBangjeff || !targetRef?.current || typeof window === 'undefined') {
-            return;
-        }
-
-        const offset = window.innerWidth < 1024 ? 94 : 108;
-        const top = Math.max(0, window.scrollY + targetRef.current.getBoundingClientRect().top - offset);
-
-        window.requestAnimationFrame(() => {
-            window.scrollTo({
-                top,
-                behavior: 'smooth',
-            });
-        });
-    }, [isBangjeff]);
-
     useEffect(() => {
         if (!accountStepReady) {
             accountAutoScrollDoneRef.current = false;
@@ -2101,20 +2099,6 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [accountStepInteracted, accountStepReady, scrollToOrderPanel]);
 
     useEffect(() => {
-        if (!selectedProductId) {
-            nominalAutoScrollDoneRef.current = false;
-            return;
-        }
-
-        if (!nominalStepInteracted || nominalAutoScrollDoneRef.current) {
-            return;
-        }
-
-        scrollToOrderPanel(paymentPanelRef);
-        nominalAutoScrollDoneRef.current = true;
-    }, [nominalStepInteracted, scrollToOrderPanel, selectedProductId]);
-
-    useEffect(() => {
         if (!quantityEnabled) {
             quantityAutoScrollDoneRef.current = false;
             return;
@@ -2127,20 +2111,6 @@ export default function Order({ meta, category, products, packages, paymentMetho
         scrollToOrderPanel(paymentPanelRef);
         quantityAutoScrollDoneRef.current = true;
     }, [quantityEnabled, quantityStepInteracted, scrollToOrderPanel]);
-
-    useEffect(() => {
-        if (!selectedMethodCode) {
-            paymentAutoScrollDoneRef.current = false;
-            return;
-        }
-
-        if (!paymentStepInteracted || paymentAutoScrollDoneRef.current) {
-            return;
-        }
-
-        scrollToOrderPanel(contactPanelRef);
-        paymentAutoScrollDoneRef.current = true;
-    }, [paymentStepInteracted, scrollToOrderPanel, selectedMethodCode]);
 
     useEffect(() => {
         if (!gtmViewItemPayload || typeof window === 'undefined' || typeof window.pushDataLayerEvent !== 'function') {
@@ -3250,6 +3220,9 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                                 setSelectedPackage(index);
                                                 setNominalStepInteracted(true);
                                                 setSelectedProductId(item.id);
+                                                // Deterministic flow: every nominal pick moves the
+                                                // user on to the payment step.
+                                                scrollToOrderPanel(paymentPanelRef);
                                             }}
                                         />
                                     ))}
