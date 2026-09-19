@@ -1,6 +1,16 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+async function loginAsMember(page) {
+    await page.goto('/id/sign-in', { waitUntil: 'domcontentloaded' });
+    await page.locator('input[name="username"]').fill('e2e-member');
+    await page.locator('input[name="password"]').fill('e2e-password');
+    const loginButton = page.locator('#btnMasuk');
+    await expect(loginButton).toBeEnabled();
+    await loginButton.click();
+    await page.waitForURL(/\/id\/dashboard/, { timeout: 15_000 });
+}
+
 test.describe('Public storefront order flow', () => {
     test('renders seeded category, product, and payment method without broken media requests', async ({ page }) => {
         const brokenMediaRequests = [];
@@ -149,6 +159,74 @@ test.describe('Public storefront order flow', () => {
         await expect(methodCards.first()).toBeVisible();
         await methodCards.first().click();
         await waitForStepNearTop('order-step-contact', 260);
+
+        expect(finalOrderPosts).toBe(0);
+    });
+
+    test('computes the points discount in real time while moving the slider', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+
+        let finalOrderPosts = 0;
+        let hargaRequests = 0;
+        let holdHarga = true;
+
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.route('**/id/harga', async (route) => {
+            hargaRequests += 1;
+            if (holdHarga) {
+                // Hold the server quote so real-time assertions cannot rely on it.
+                await new Promise((resolve) => setTimeout(resolve, 2500));
+            }
+            await route.continue();
+        });
+
+        await loginAsMember(page);
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const slider = page.locator('.order-points__range');
+        await expect(slider).toBeVisible();
+        await expect(slider).toBeEnabled({ timeout: 25_000 });
+
+        const setSlider = (value) => slider.evaluate((element, next) => {
+            const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            setter.call(element, String(next));
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+        }, value);
+
+        const totalValue = page.locator('.order-summary--bangjeff .order-summary__value--total');
+        const toNumber = (text) => Number(String(text).replace(/[^0-9]/g, ''));
+        const totalBefore = toNumber(await totalValue.innerText());
+
+        // Real-time: the discount label must appear immediately even though the
+        // held /id/harga quote has not resolved yet (fixtures: 1 point = Rp100).
+        await setSlider(25);
+        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?2\.500/, { timeout: 1500 });
+
+        // After the debounced quote settles, the rendered total must match the
+        // live calculation exactly (dropped by the discount).
+        await page.waitForTimeout(3400);
+        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?2\.500/);
+        expect(toNumber(await totalValue.innerText())).toBe(totalBefore - 2500);
+        await expect(page.locator('.order-summary--bangjeff .order-summary__row--discount')).toContainText(/Rp\s?2\.500/);
+
+        // Rapid drags must be coalesced by the debounce instead of firing a
+        // request per tick (the old behaviour spammed the throttled endpoint).
+        holdHarga = false;
+        const requestsBeforeRapidDrag = hargaRequests;
+        await setSlider(10);
+        await setSlider(20);
+        await setSlider(30);
+        await setSlider(40);
+        await page.waitForTimeout(1200);
+        expect(hargaRequests - requestsBeforeRapidDrag).toBeLessThanOrEqual(2);
+        await expect(page.locator('.order-points__discount')).toContainText(/Rp\s?4\.000/);
 
         expect(finalOrderPosts).toBe(0);
     });

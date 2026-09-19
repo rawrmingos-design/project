@@ -81,7 +81,7 @@ class E2EBrowserSeeder extends Seeder
                 'password' => Hash::make('e2e-password'),
                 'role' => 'Member',
                 'balance' => 100000,
-                'point_balance' => 0,
+                'point_balance' => 500,
                 'no_wa' => '6281200000001',
                 'affiliate_status' => 'inactive',
             ],

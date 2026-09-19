@@ -1319,6 +1319,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [pricePreviewKey, setPricePreviewKey] = useState(null);
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
+    const [lastPointInfo, setLastPointInfo] = useState(null);
     const priceRequestSequenceRef = useRef(0);
     const accountLookupSequenceRef = useRef(0);
     const [checkLoading, setCheckLoading] = useState(false);
@@ -2191,9 +2192,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
         };
 
-        loadPrice();
+        const debounceTimer = setTimeout(loadPrice, 300);
 
-        return () => controller.abort();
+        return () => {
+            clearTimeout(debounceTimer);
+            controller.abort();
+        };
     }, [category.type, priceRequestKey, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
 
     useEffect(() => {
@@ -2205,6 +2209,16 @@ export default function Order({ meta, category, products, packages, paymentMetho
             setUsePoint(0);
         }
     }, [authUser]);
+
+    useEffect(() => {
+        if (pricePreview?.point_info) {
+            setLastPointInfo(pricePreview.point_info);
+        }
+    }, [pricePreview]);
+
+    useEffect(() => {
+        setLastPointInfo(null);
+    }, [authUser?.id]);
 
     useEffect(() => {
         if (!pricePreview?.point_info) {
@@ -2759,13 +2773,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const selectedMethodPrice = getMethodFinalPrice(pricePreview, selectedMethodCode);
     const summaryProductImage = category.thumbnail || selectedProduct?.productLogo || selectedProduct?.thumbnail || '/assets/logo/favicon.webp';
     const hasBackendPrice = selectedMethodPrice !== null || pricePreview?.selected_final_price !== undefined || pricePreview?.harga !== undefined;
-    const displayPreviewPrice = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
     const displaySummaryFee = priceLoading && !hasBackendPrice
         ? 'Menghitung...'
         : summaryFeeAmount === null ? '—' : formatCurrency(summaryFeeAmount);
     const displaySummaryBase = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(selectedUnitPrice);
-    const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
-    const pointInfo = pricePreview?.point_info || null;
+    const pointInfo = pricePreview?.point_info || lastPointInfo;
     const pointBalance = Number.isFinite(Number(pointInfo?.balance))
         ? Math.max(0, Math.floor(Number(pointInfo.balance)))
         : Math.max(0, Math.floor(Number(authUser?.pointBalance || 0)));
@@ -2773,11 +2785,23 @@ export default function Order({ meta, category, products, packages, paymentMetho
         ? Math.max(0, Math.floor(Number(pointInfo.max_points)))
         : 0;
     const pointValue = Number.isFinite(Number(pointInfo?.point_value)) ? Number(pointInfo.point_value) : 0;
-    const pointDiscountAmount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
+    const committedPointDiscount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
     const amountBeforePoint = getSelectedAmountBeforePoint(pricePreview, selectedMethodCode, null);
+    // Real-time point maths: mirror the server formula (min(points, max_points) * point_value)
+    // so the discount and totals move instantly while the slider is dragged, instead of
+    // waiting for the debounced /id/harga round-trip.
+    const liveUsePoint = Math.max(0, Math.min(Math.floor(Number(usePoint) || 0), maxRedeemablePoints));
+    const pointDiscountAmount = Math.floor(liveUsePoint * pointValue);
+    const liveTotalPrice = amountBeforePoint !== null
+        ? Math.max(1000, previewPrice + committedPointDiscount - pointDiscountAmount)
+        : previewPrice;
+    // NOTE: keep display helpers below liveTotalPrice — referencing it earlier is a
+    // temporal-dead-zone crash during render (broke hydration once).
+    const displayPreviewPrice = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(liveTotalPrice);
+    const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(liveTotalPrice);
     const pointControlAvailable = Boolean(authUser);
     const pointControlReady = Boolean(pointInfo);
-    const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0 || priceLoading;
+    const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0;
     const pointRedemptionPanel = pointControlAvailable ? (
         <div className={`order-points ${isBangjeffOrderStyle ? 'order-points--bangjeff' : ''}`}>
             <div className="order-points__header">
