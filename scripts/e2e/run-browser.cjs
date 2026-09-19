@@ -18,6 +18,7 @@ const e2eEnvironment = {
     ...process.env,
     APP_ENV: 'e2e',
     APP_DEBUG: 'false',
+    // Key test-only untuk environment sqlite ephemeral E2E (bukan kredensial produksi).
     APP_KEY: 'base64:cx0fphnsde2XPSe0r2v9U8lwpQbmg1fSIyEKGEhf4EY=',
     APP_URL: baseURL,
     DB_CONNECTION: 'sqlite',

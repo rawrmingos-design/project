@@ -11,6 +11,10 @@ class SettingWebsSeeder extends Seeder
     {
         DB::table('setting_webs')->truncate();
 
+        // NOTE (OSS safety): seluruh kredensial provider/payment di bawah ini
+        // sengaja dikosongkan ('' atau placeholder non-rahasia). Isi melalui
+        // Admin Panel -> Pengaturan (tabel setting_webs) atau environment
+        // deployment. Jangan pernah menaruh kredensial asli pada seeder/commit.
         DB::table('setting_webs')->insert([
         [
             'id' => 1,
@@ -34,26 +38,26 @@ class SettingWebsSeeder extends Seeder
             'warna3' => '#ffa54a',
             'warna4' => '#ff8040',
             'paydisini_apikey' => ' ',
-            'tripay_api' => '[REDACTED]',
-            'tripay_merchant_code' => '[REDACTED]',
-            'tripay_private_key' => '[REDACTED]',
-            'duitku_merchant_code' => '[REDACTED]',
-            'duitku_merchant_key' => '[REDACTED]',
+            'tripay_api' => '',
+            'tripay_merchant_code' => '',
+            'tripay_private_key' => '',
+            'duitku_merchant_code' => '',
+            'duitku_merchant_key' => '',
             'duitku_callback_url' => 'https://istanatopup.imhaf.online',
             'duitku_return_url' => null,
             'duitku_mode' => 'sandbox',
             'deposit_jalur' => 'tripay',
             'duitku_enabled' => 1,
-            'tokopay_merchant_id' => '[REDACTED]',
-            'tokopay_secret_key' => '[REDACTED]',
-            'username_digi' => '[REDACTED]',
-            'api_key_digi' => '[REDACTED]',
+            'tokopay_merchant_id' => '',
+            'tokopay_secret_key' => '',
+            'username_digi' => '',
+            'api_key_digi' => '',
             'apigames_secret' => '-',
             'apigames_merchant' => '-',
             'vip_apiid' => ' ',
             'vip_apikey' => ' ',
             'nomor_admin' => '6287780901780',
-            'wa_key' => '[REDACTED]',
+            'wa_key' => '',
             'wa_number' => '6287780901780',
             'ovo_admin' => '0',
             'ovo1_admin' => '0',
