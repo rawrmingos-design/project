@@ -94,11 +94,12 @@ test.describe('Public invoice detail', () => {
                 const el = document.querySelector(selector);
                 if (!el) return null;
                 const r = el.getBoundingClientRect();
-                return { x: Math.round(r.x), right: Math.round(r.right) };
+                return { x: Math.round(r.x), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom) };
             };
             return {
                 viewportWidth: window.innerWidth,
                 banner: rect('.invoice-status-banner-react'),
+                navbar: rect('.public-navbar'),
                 page: rect('.invoice-page'),
                 content: rect('.invoice-progress-section'),
                 isIstana: Boolean(document.querySelector('.public-app--istanatopup')),
@@ -110,6 +111,10 @@ test.describe('Public invoice detail', () => {
         expect(geo.banner.x).toBe(0);
         expect(geo.banner.right).toBe(geo.viewportWidth);
         expect(geo.scrollWidth).toBeLessThanOrEqual(geo.viewportWidth);
+
+        // No vertical gap between the navbar and the banner (order-page model).
+        expect(geo.navbar).not.toBeNull();
+        expect(geo.banner.top).toBe(geo.navbar.bottom);
 
         // The istana page mirrors the order shell: full-width section + 16px inner gutter.
         if (geo.isIstana) {

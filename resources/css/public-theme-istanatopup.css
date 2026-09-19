@@ -3044,13 +3044,17 @@
 /* `.public-app--istanatopup .public-main` caps every page at 1200px, leaving
    ~120px of side space around the invoice banner at 1440px. The Order page
    already owns this fix via `public-main--order-bangjeff`; mirror it for the
-   invoice page: main becomes full-bleed, the banner fills it edge-to-edge, and
+   invoice page: main becomes full-bleed with no top inset (the shared
+   `.public-main--hero-bleed` rule adds 16px padding-top, so the banner would
+   otherwise float below the navbar), the banner fills it edge-to-edge, and
    the content section keeps a 16px inner gutter (same edge model as the order
    body). Scoped to istanatopup so bangjeff/default themes stay unchanged. */
 .public-app--istanatopup .public-main--invoice-bleed {
     width: 100%;
     max-width: none;
     margin-inline: 0;
+    padding-top: 0;
+    margin-top: 0;
 }
 
 .public-app--istanatopup .public-main--invoice-bleed .invoice-status-banner-react {
