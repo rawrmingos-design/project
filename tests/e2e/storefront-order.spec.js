@@ -2,13 +2,57 @@
 const { test, expect } = require('@playwright/test');
 
 test.describe('Public storefront order flow', () => {
-    test('renders seeded category, product, and payment method', async ({ page }) => {
+    test('renders seeded category, product, and payment method without broken media requests', async ({ page }) => {
+        const brokenMediaRequests = [];
+        page.on('response', (response) => {
+            if (response.url().includes('e2e-missing.webp')) {
+                brokenMediaRequests.push({ url: response.url(), status: response.status() });
+            }
+        });
+
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
         await expect(page.getByRole('heading', { name: 'E2E Game', exact: true })).toBeVisible();
         await expect(page.locator('.variant-card:visible').getByText('E2E Product 10000', { exact: true })).toBeVisible();
         await expect(page.locator('.payment-card:visible').getByText('QRIS', { exact: false })).toBeVisible();
         await expect(page.locator('input[placeholder="Masukkan User ID"]')).toBeVisible();
+
+        const pageData = JSON.parse(await page.locator('script[data-page]').textContent());
+        const e2eMethod = (pageData.props.paymentMethods || []).find((method) => method.code === 'E2E_QRIS');
+        expect(e2eMethod?.image).toBeNull();
+        expect(brokenMediaRequests).toEqual([]);
+    });
+
+    test('renders live sales toast only on the homepage', async ({ page }) => {
+        let recentPurchasesRequests = 0;
+
+        await page.addInitScript(() => {
+            window.localStorage.setItem('hidePopup_900001', 'true');
+        });
+        await page.route('**/api/recent-purchases', async (route) => {
+            recentPurchasesRequests += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([{
+                    item: 'E2E Live Sale',
+                    name: 'E**',
+                    image: null,
+                    time_ago: 'Baru saja',
+                }]),
+            });
+        });
+
+        await page.goto('/id', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('.live-sales-toast--visible')).toBeVisible();
+        expect(recentPurchasesRequests).toBeGreaterThanOrEqual(1);
+
+        const homepageRequestCount = recentPurchasesRequests;
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1200);
+
+        await expect(page.locator('.live-sales-toast')).toHaveCount(0);
+        expect(recentPurchasesRequests).toBe(homepageRequestCount);
     });
 
     test('excludes services outside packages from the order payload and UI', async ({ page }) => {
@@ -26,6 +70,40 @@ test.describe('Public storefront order flow', () => {
         expect(packageNames).not.toContain('E2E Ungrouped 20000');
         await expect(page.getByText('E2E Ungrouped 20000', { exact: true })).toHaveCount(0);
         await expect(page.getByText('Layanan Lainnya', { exact: true })).toHaveCount(0);
+    });
+
+    test('keeps the selected nominal when picked from another package group', async ({ page }) => {
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const groups = page.locator('.variant-group--bangjeff');
+        await expect(groups).toHaveCount(2);
+
+        const firstGroup = groups.filter({ has: page.getByRole('heading', { name: 'E2E Package', exact: true }) });
+        const instantGroup = groups.filter({ has: page.getByRole('heading', { name: 'E2E Package Instant', exact: true }) });
+
+        const autoSelectedCard = firstGroup.locator('.variant-card--bangjeff').first();
+        const instantCard = instantGroup.locator('.variant-card--bangjeff').first();
+
+        await expect(autoSelectedCard).toHaveClass(/is-active/);
+
+        await instantCard.click();
+        await expect(instantCard).toHaveClass(/is-active/);
+
+        // Regression: the auto-select effect must not treat a pick from another
+        // group as stale and revert it to the first item of the previous group.
+        await page.waitForTimeout(1000);
+        await expect(instantCard).toHaveClass(/is-active/);
+        await expect(autoSelectedCard).not.toHaveClass(/is-active/);
+        await expect(page.locator('.variant-card--bangjeff.is-active')).toHaveCount(1);
+        expect(finalOrderPosts).toBe(0);
     });
 
     test('keeps desktop checkout summary in one column without overflow', async ({ page }) => {
@@ -74,28 +152,111 @@ test.describe('Public storefront order flow', () => {
 
         const sidebar = page.locator('.order-layout__sidebar--bangjeff:visible');
         await expect(sidebar).toBeVisible();
-        await expect(sidebar).toHaveCSS('position', 'sticky');
+        await expect(sidebar).toHaveCSS('position', 'static');
 
-        await page.evaluate(() => window.scrollTo({ top: 600, left: 0, behavior: 'instant' }));
+        const stickySummary = page.locator('.order-sidebar-bangjeff__summary-sticky:visible');
+        await expect(stickySummary).toBeVisible();
+        await expect(stickySummary).toHaveCSS('position', 'sticky');
+
+        const pinScrollTop = await stickySummary.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+
+            return Math.max(240, Math.round(rect.top + window.scrollY - 60));
+        });
+
+        await page.evaluate((top) => window.scrollTo({ top, left: 0, behavior: 'instant' }), pinScrollTop);
         await page.waitForTimeout(100);
 
-        const stickyState = await sidebar.evaluate((element) => {
+        const stickyState = await stickySummary.evaluate((element) => {
             const rect = element.getBoundingClientRect();
+            const sidebarRect = element.closest('.order-layout__sidebar--bangjeff')?.getBoundingClientRect();
             const summary = element.querySelector('.order-summary--bangjeff')?.getBoundingClientRect();
 
             return {
-                sidebarTop: rect.top,
-                summaryTop: summary?.top ?? null,
-                summaryBottom: summary?.bottom ?? null,
+                summaryTop: rect.top,
+                sidebarTop: sidebarRect?.top ?? null,
+                sidebarBottom: sidebarRect?.bottom ?? null,
+                cardTop: summary?.top ?? null,
+                cardBottom: summary?.bottom ?? null,
                 viewportHeight: window.innerHeight,
             };
         });
 
-        expect(stickyState.sidebarTop).toBeGreaterThanOrEqual(100);
-        expect(stickyState.sidebarTop).toBeLessThanOrEqual(130);
-        expect(stickyState.summaryTop).not.toBeNull();
-        expect(stickyState.summaryTop).toBeLessThan(stickyState.viewportHeight);
-        expect(stickyState.summaryBottom).toBeGreaterThan(stickyState.summaryTop);
+        expect(stickyState.summaryTop).toBeGreaterThanOrEqual(100);
+        expect(stickyState.summaryTop).toBeLessThanOrEqual(130);
+        expect(stickyState.sidebarTop).not.toBeNull();
+        expect(stickyState.sidebarTop).toBeLessThan(stickyState.summaryTop);
+        expect(stickyState.sidebarBottom).toBeGreaterThanOrEqual(stickyState.summaryTop);
+        expect(stickyState.cardTop).not.toBeNull();
+        expect(stickyState.cardTop).toBeGreaterThanOrEqual(stickyState.summaryTop);
+        expect(stickyState.cardBottom).toBeLessThan(stickyState.viewportHeight);
+    });
+
+    test('keeps only the checkout summary pinned while support cards scroll normally', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const stickySummary = page.locator('.order-sidebar-bangjeff__summary-sticky:visible');
+        await expect(stickySummary).toBeVisible();
+
+        const beforeScroll = await stickySummary.evaluate((element) => {
+            const root = document.querySelector('.public-app.public-app--order-bangjeff');
+            const sidebarEl = element.closest('.order-layout__sidebar--bangjeff');
+            const rating = document.querySelector('.order-mini-card--rating');
+            const help = document.querySelector('.order-help-card--bangjeff');
+
+            return {
+                position: getComputedStyle(element).position,
+                top: parseFloat(getComputedStyle(element).top),
+                sidebarPosition: sidebarEl ? getComputedStyle(sidebarEl).position : null,
+                ratingPosition: rating ? getComputedStyle(rating).position : null,
+                helpPosition: help ? getComputedStyle(help).position : null,
+                rootOverflowX: root ? getComputedStyle(root).overflowX : null,
+                rootOverflowY: root ? getComputedStyle(root).overflowY : null,
+            };
+        });
+
+        expect(beforeScroll.position).toBe('sticky');
+        expect(beforeScroll.top).toBe(118);
+        expect(beforeScroll.sidebarPosition).toBe('static');
+        expect(beforeScroll.ratingPosition).toBe('static');
+        expect(beforeScroll.helpPosition).toBe('static');
+        expect(beforeScroll.rootOverflowX).toBe('clip');
+        expect(beforeScroll.rootOverflowY).not.toBe('auto');
+
+        const pinScrollTop = await stickySummary.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+
+            return Math.max(240, Math.round(rect.top + window.scrollY - 60));
+        });
+
+        await page.evaluate((top) => window.scrollTo({ top, left: 0, behavior: 'instant' }), pinScrollTop);
+        await page.waitForTimeout(100);
+
+        const afterScroll = await page.evaluate(() => {
+            const box = (element) => {
+                const rect = element?.getBoundingClientRect();
+
+                return rect ? { top: rect.top, bottom: rect.bottom } : null;
+            };
+
+            return {
+                sticky: box(document.querySelector('.order-sidebar-bangjeff__summary-sticky')),
+                sidebar: box(document.querySelector('.order-layout__sidebar--bangjeff')),
+                rating: box(document.querySelector('.order-mini-card--rating')),
+                help: box(document.querySelector('.order-help-card--bangjeff')),
+                viewportHeight: window.innerHeight,
+            };
+        });
+
+        expect(afterScroll.sticky.top).toBeGreaterThanOrEqual(100);
+        expect(afterScroll.sticky.top).toBeLessThanOrEqual(130);
+        expect(afterScroll.sticky.bottom).toBeGreaterThan(afterScroll.sticky.top);
+        expect(afterScroll.rating.bottom).toBeLessThanOrEqual(afterScroll.sticky.top + 1);
+        expect(afterScroll.help.bottom).toBeLessThanOrEqual(afterScroll.sticky.top + 1);
+        expect(afterScroll.sidebar.top).toBeLessThan(afterScroll.sticky.top);
+        expect(afterScroll.sidebar.bottom).toBeGreaterThanOrEqual(afterScroll.sticky.bottom - 1);
+        expect(afterScroll.sticky.bottom).toBeLessThanOrEqual(afterScroll.viewportHeight);
     });
 
     test('keeps CTA disabled until the auto-selected nominal is explicitly chosen', async ({ page }) => {
@@ -268,7 +429,7 @@ test.describe('Public storefront order flow', () => {
     test('selecting product, account, and payment method updates checkout state', async ({ page }) => {
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
 
-        const product = page.locator('.variant-card:visible');
+        const product = page.locator('.variant-card:visible').filter({ hasText: 'E2E Product 10000' });
         await expect(product).toBeVisible();
         await product.click();
 
@@ -278,9 +439,9 @@ test.describe('Public storefront order flow', () => {
 
         await page.locator('.payment-card:visible').first().click();
 
-        await expect(page.locator('.variant-card:visible')).toHaveClass(/is-active/);
+        await expect(product).toHaveClass(/is-active/);
         await expect(page.locator('.payment-card:visible')).toHaveClass(/is-active/);
-        await expect(page.locator('.variant-card:visible')).toContainText('Rp');
+        await expect(product).toContainText('Rp');
     });
 
     test('price endpoint returns a price preview for the seeded product', async ({ page }) => {

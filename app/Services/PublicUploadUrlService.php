@@ -10,10 +10,26 @@ class PublicUploadUrlService
 {
     public function url(?string $path, ?string $disk = null, ?string $fallback = null): ?string
     {
+        return $this->resolve($path, $disk, $fallback)['url'];
+    }
+
+    public function exists(?string $path, ?string $disk = null): ?bool
+    {
+        return $this->resolve($path, $disk)['exists'];
+    }
+
+    /**
+     * Return an asset URL only when the requested asset exists.
+     *
+     * Unlike url(), this method never returns a placeholder or a URL for a
+     * missing path. It is intended for data contracts rendered as <img src>.
+     */
+    public function existingUrl(?string $path, ?string $disk = null): ?string
+    {
         $normalized = $this->normalizePath($path);
 
         if ($normalized === null) {
-            return $this->fallbackUrl($fallback);
+            return null;
         }
 
         if (Str::startsWith($normalized, ['http://', 'https://'])) {
@@ -23,43 +39,74 @@ class PublicUploadUrlService
         $disk ??= (string) config('uploads.disk', 'assets');
 
         if ($disk !== 'assets') {
-            $remoteUrl = $this->remoteUrl($disk, $normalized);
+            try {
+                $storage = Storage::disk($disk);
 
-            if ($remoteUrl !== null) {
-                return $remoteUrl;
+                if ($storage->exists($normalized)) {
+                    return $storage->url($normalized);
+                }
+            } catch (Throwable) {
+                // Fall back to the local public directory below.
             }
         }
 
-        if ($this->localExists($normalized)) {
-            return asset($normalized);
-        }
-
-        return $this->fallbackUrl($fallback) ?? asset($normalized);
+        return $this->localExists($normalized) ? asset($normalized) : null;
     }
 
-    public function exists(?string $path, ?string $disk = null): ?bool
+    /**
+     * Resolve an asset URL and its existence state with one storage check.
+     *
+     * The fallback URL intentionally is not existence-checked to preserve the
+     * legacy resolver contract used by shared site configuration.
+     *
+     * @return array{url: ?string, exists: ?bool}
+     */
+    public function resolve(?string $path, ?string $disk = null, ?string $fallback = null): array
     {
         $normalized = $this->normalizePath($path);
 
         if ($normalized === null) {
-            return false;
+            return [
+                'url' => $this->fallbackUrl($fallback),
+                'exists' => false,
+            ];
         }
 
         if (Str::startsWith($normalized, ['http://', 'https://'])) {
-            return null;
+            return [
+                'url' => $normalized,
+                'exists' => null,
+            ];
         }
 
         $disk ??= (string) config('uploads.disk', 'assets');
 
         if ($disk !== 'assets') {
             try {
-                return Storage::disk($disk)->exists($normalized) || $this->localExists($normalized);
+                $storage = Storage::disk($disk);
+
+                if ($storage->exists($normalized)) {
+                    return [
+                        'url' => $storage->url($normalized),
+                        'exists' => true,
+                    ];
+                }
             } catch (Throwable) {
-                return $this->localExists($normalized);
+                // Fall back to the local public directory below.
             }
         }
 
-        return $this->localExists($normalized);
+        if ($this->localExists($normalized)) {
+            return [
+                'url' => asset($normalized),
+                'exists' => true,
+            ];
+        }
+
+        return [
+            'url' => $this->fallbackUrl($fallback) ?? asset($normalized),
+            'exists' => false,
+        ];
     }
 
     public function normalizePath(?string $path): ?string
@@ -77,18 +124,6 @@ class PublicUploadUrlService
         return ltrim(str_replace('\\', '/', $path), '/');
     }
 
-    private function remoteUrl(string $disk, string $path): ?string
-    {
-        try {
-            if (! Storage::disk($disk)->exists($path)) {
-                return null;
-            }
-
-            return Storage::disk($disk)->url($path);
-        } catch (Throwable) {
-            return null;
-        }
-    }
 
     private function localExists(string $path): bool
     {

@@ -2,22 +2,19 @@ import React from 'react';
 import { usePage } from '@inertiajs/react';
 import Navbar from '../Components/Navbar';
 import Footer from '../Components/Footer';
-import LiveSalesToast from '../Components/LiveSalesToast';
 import { resolveTheme } from '../themeRegistry';
 import SeoHead from '../Components/SeoHead';
 import '../../../css/public-app.css';
 import '../../../css/public-theme-istanatopup.css';
 
 export default function PublicLayout({ children, meta = {}, mainClassName = '', rootClassName = '' }) {
-    const { siteConfig, theme, featureFlags } = usePage().props;
+    const { siteConfig, theme } = usePage().props;
     const activeTheme = resolveTheme(theme?.key);
     // Theme tokens are defaults; setting_webs colors remain the runtime source of truth.
     const palette = {
         ...(activeTheme.tokens.colors || {}),
         ...(siteConfig.colors || {}),
     };
-    const shouldRenderLiveSalesToast = featureFlags?.liveSalesEnabled;
-
     const themeStyle = {
         '--public-color-primary': palette.primary,
         '--public-color-secondary': palette.secondary,
@@ -43,7 +40,6 @@ export default function PublicLayout({ children, meta = {}, mainClassName = '', 
                 <Navbar />
                 <main className={`public-main ${mainClassName}`.trim()}>{children}</main>
                 <Footer />
-                {shouldRenderLiveSalesToast ? <LiveSalesToast enabled fallbackImage={siteConfig.favicon} /> : null}
             </div>
         </>
     );

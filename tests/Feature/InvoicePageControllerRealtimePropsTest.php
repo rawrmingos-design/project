@@ -9,7 +9,9 @@ use App\Models\PaymentDisplayCategory;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
+use App\Support\CanonicalUrl;
 use App\Support\InvoiceRealtimeStatus;
+use App\Support\SeoRoutePolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +20,33 @@ use Tests\TestCase;
 class InvoicePageControllerRealtimePropsTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function invoice_page_resolves_display_invoice_reference_without_exposing_internal_identifier_as_display_id(): void
+    {
+        config(['app.key' => 'base64:MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=']);
+        $this->withoutVite();
+
+        $orderId = 'INV-INTERNAL-RESET-001';
+        $displayOrderId = 'INV-INTERNAL-RESET-001_001';
+        $this->seedBangjeffInvoiceData($orderId);
+        Pembelian::query()->where('order_id', $orderId)->update([
+            'invoice_version' => 1,
+            'display_order_id' => $displayOrderId,
+            'active_attempt_reference' => $displayOrderId,
+        ]);
+
+        $this->get(route('pembelian', ['order' => $displayOrderId]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Invoice')
+                ->where('invoice.orderId', $displayOrderId)
+                ->where('invoice.internalOrderId', $orderId)
+                ->where('invoice.realtime.channel', InvoiceRealtimeStatus::channelName($orderId))
+                ->where('meta.robots', SeoRoutePolicy::PRIVATE_ROBOTS)
+                ->where('meta.canonical', CanonicalUrl::normalize(route('pembelian', ['order' => $displayOrderId])))
+            );
+    }
 
     #[Test]
     public function inertia_invoice_page_includes_realtime_channel_and_event_props(): void
@@ -33,6 +62,11 @@ class InvoicePageControllerRealtimePropsTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Public/Invoice')
                 ->where('invoice.orderId', $orderId)
+                ->where('invoice.internalOrderId', $orderId)
+                ->where('meta.robots', SeoRoutePolicy::PRIVATE_ROBOTS)
+                ->where('meta.canonical', CanonicalUrl::normalize(route('pembelian', ['order' => $orderId])))
+                ->missing('invoice.email_pembeli')
+                ->missing('invoice.payment.reference')
                 ->where('invoice.fulfillment.serviceNote', null)
                 ->where('invoice.fulfillment.transactionType', 'game')
                 ->where('invoice.fulfillment.joki', null)

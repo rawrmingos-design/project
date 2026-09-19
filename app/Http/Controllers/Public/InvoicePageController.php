@@ -8,12 +8,19 @@ use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Services\PublicInvoiceReferenceResolver;
 use App\Services\PublicSiteConfigService;
+use App\Services\PublicUploadUrlService;
+use App\Services\SeoMetadataService;
 use App\Support\GtmDataLayerBuilder;
 use App\Support\InvoiceRealtimeStatus;
 use App\Support\PublicThemeRegistry;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,8 +28,12 @@ use Inertia\Response;
 class InvoicePageController extends Controller
 {
     public function __invoke(
+        Request $request,
         string $order,
         PublicSiteConfigService $siteConfigService,
+        PublicInvoiceReferenceResolver $invoiceReferenceResolver,
+        PublicUploadUrlService $uploadUrlService,
+        SeoMetadataService $seoMetadataService,
         LegacyInvoiceController $legacyInvoiceController,
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
@@ -31,8 +42,14 @@ class InvoicePageController extends Controller
             return $legacyInvoiceController->create($order);
         }
 
+        $purchase = $invoiceReferenceResolver->resolve($order);
+        abort_if(! $purchase, 404);
+
+        $internalOrderId = (string) $purchase->order_id;
+        $displayOrderId = (string) ($purchase->display_order_id ?: $purchase->display_invoice_id ?: $internalOrderId);
+
         $payment = Pembayaran::query()
-            ->where('order_id', $order)
+            ->where('order_id', $internalOrderId)
             ->latest('id')
             ->first();
 
@@ -40,7 +57,7 @@ class InvoicePageController extends Controller
         $payment->syncExpiredStatus();
 
         $dataQuery = Pembelian::query()
-            ->where('pembayarans.order_id', $order)
+            ->where('pembayarans.order_id', $internalOrderId)
             ->join('pembayarans', 'pembelians.order_id', '=', 'pembayarans.order_id')
             ->leftJoin('data_joki', 'pembelians.order_id', '=', 'data_joki.order_id');
 
@@ -70,6 +87,7 @@ class InvoicePageController extends Controller
                 'pembayarans.expired_at',
                 'pembayarans.harga AS harga_pembayaran',
                 'pembelians.order_id AS id_pembelian',
+                'pembelians.display_order_id AS display_order_id',
                 'pembelians.user_id',
                 'pembelians.zone',
                 'pembelians.nickname',
@@ -113,7 +131,11 @@ class InvoicePageController extends Controller
 
         $kategori = $layanan?->kategori;
         $productName = $kategori?->nama ?: ($data->layanan ?: 'Produk');
-        $thumbnail = $this->normalizeAssetPath($kategori?->thumbnail ?: 'assets/logo/favicon.webp');
+        $publicInvoiceId = trim((string) ($data->display_order_id ?: $displayOrderId ?: $data->id_pembelian));
+        $thumbnail = $uploadUrlService->existingUrl(
+            $kategori?->thumbnail,
+            config('uploads.disk', 'assets'),
+        );
 
         $methodCode = trim((string) ($data->metode_pembayaran ?? ''));
         $methodType = trim((string) ($data->metode_tipe ?? ''));
@@ -169,10 +191,10 @@ class InvoicePageController extends Controller
         $isDuitkuGateway = in_array($paymentCode, ['DUITKU'], true) || Str::contains($methodNameLower, 'duitku');
         $fallbackExpiryHours = $isDuitkuGateway ? 1 : 3;
 
-        $methodImage = $this->normalizeAssetPath($data->metode_image, '');
-        if ($methodImage === '') {
-            $methodImage = null;
-        }
+        $methodImage = $uploadUrlService->existingUrl(
+            $data->metode_image,
+            config('uploads.disk', 'assets'),
+        );
 
         $methodCategoryId = (int) ($data->metode_category_id ?? 0);
         $methodCategoryLabel = (string) ($data->metode_category_label ?? '');
@@ -184,17 +206,26 @@ class InvoicePageController extends Controller
         $isQrMethod = $methodTypeLower === 'qris' || str_contains($methodTypeLower, 'qris') || in_array($paymentCode, [
             'QRIS', '11', '17', '23', 'QRISREALTIME', 'SP', 'NQ', 'LQ', 'GQ', 'SQ', 'QRISC', 'QRISOP', 'QRIS_CUSTOM', 'QRIS2', 'QRIS2_OFFLINE', 'QRIS2_RECURRING',
         ], true) || ($isDuitkuGateway && (str_starts_with($paymentValue, '00020101') || in_array($paymentCode, ['SP', 'QRIS'], true)));
-        $isQrImage = str_starts_with($paymentValue, 'data:image/')
-            || preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
-            || ($isQrMethod && ! $isPaymentUrl && $paymentValue !== '');
-        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ! $isPaymentUrl && $paymentValue !== '';
-        $dynamicQrSource = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($paymentValue);
-        $resolvedQrImageUrl = $isQrImage
-            && ! str_starts_with($paymentValue, '00020101')
-            && ! $isPaymentUrl
-            && preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1
-                ? $paymentValue
-                : $dynamicQrSource;
+        // QRIS QR rendering: prefer an image we control. Remote QR images (image
+        // URLs, or known gateway QR endpoints such as tripay.co.id/qr/*) are streamed
+        // through our own proxy route so the page and download button stay
+        // same-origin; raw QR payload strings are rendered locally to a PNG data URI.
+        $isRemoteQrImageUrl = filter_var($paymentValue, FILTER_VALIDATE_URL) !== false
+            && (preg_match('/\.(png|jpe?g|webp|svg)(\?.*)?$/i', $paymentValue) === 1 || $this->isGatewayQrImageUrl($paymentValue));
+        $showQrImage = $paymentStatusRaw === 'Belum Lunas' && $isQrMethod && ($isRemoteQrImageUrl || ! $isPaymentUrl) && $paymentValue !== '';
+
+        if (str_starts_with($paymentValue, 'data:image/')) {
+            $resolvedQrImageUrl = $paymentValue;
+        } elseif ($isRemoteQrImageUrl) {
+            $resolvedQrImageUrl = $this->isAllowedProxyTarget($paymentValue)
+                ? route('pembelian.qr', ['order' => $publicInvoiceId])
+                : $paymentValue;
+        } elseif ($isQrMethod && ! $isPaymentUrl && $paymentValue !== '') {
+            $resolvedQrImageUrl = $this->buildLocalQrDataUri($paymentValue);
+        } else {
+            $resolvedQrImageUrl = null;
+        }
+
         $showPayButton = $paymentStatusRaw === 'Belum Lunas' && $isPaymentUrl && ! $showQrImage;
         $payButtonLabel = $isDuitkuGateway ? 'Buka Link Pembayaran' : 'Bayar Sekarang';
         $showCopyPaymentNumber = ! $isPaymentUrl && ! $showQrImage && (
@@ -206,26 +237,41 @@ class InvoicePageController extends Controller
             ], true) || ($isDuitkuGateway && ctype_digit(str_replace(['-', ' '], '', $paymentValue)))
         );
 
-        $heroTitle = 'Harap lengkapi pembayaran.';
-        $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' menunggu pembayaran sebelum dikirim.';
+        // Effective payment-window expiry. Payments without an explicit expired_at fall back to
+        // created_at + fallbackExpiryHours — the same value exposed as expiry.expiresAt — so the
+        // hero/intro copy can never disagree with the client-side countdown chip.
+        $expiredAt = $data->expired_at
+            ? Carbon::parse($data->expired_at)
+            : Carbon::parse($data->created_at)->addHours($fallbackExpiryHours);
 
-        if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
+        $orderFailed = in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true);
+        $invoiceExpired = $paymentStatus === 'expired'
+            || in_array($orderStatus, ['expired', 'kedaluwarsa'], true)
+            || (! $paymentIsSettled && $expiredAt->isPast());
+
+        $heroTitle = 'Harap lengkapi pembayaran.';
+        $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' menunggu pembayaran sebelum dikirim.';
+
+        if ($paymentIsSettled) {
             if (in_array($orderStatus, ['sukses', 'success'], true)) {
                 $heroTitle = 'Transaksi berhasil diselesaikan.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sudah berhasil diproses dan selesai.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah berhasil diproses dan selesai.';
+            } elseif ($orderFailed) {
+                $heroTitle = 'Pembayaran diterima, namun transaksi gagal.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' tidak dapat diproses. Silakan hubungi customer service untuk bantuan.';
             } elseif (in_array($orderStatus, ['proses', 'processing', 'pending'], true)) {
                 $heroTitle = 'Pembayaran sudah diterima.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sedang diproses oleh sistem dan provider.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sedang diproses oleh sistem dan provider.';
             } else {
                 $heroTitle = 'Pembayaran sudah diterima.';
-                $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' sudah masuk dan sedang menunggu update status transaksi.';
+                $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' sudah masuk dan sedang menunggu update status transaksi.';
             }
-        } elseif ($paymentStatus === 'expired') {
+        } elseif ($invoiceExpired) {
             $heroTitle = 'Invoice sudah kedaluwarsa.';
-            $heroDescription = 'Batas pembayaran untuk pesanan ' . $data->id_pembelian . ' telah habis. Silakan buat transaksi baru jika masih diperlukan.';
-        } elseif (in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true)) {
+            $heroDescription = 'Batas pembayaran untuk pesanan ' . $publicInvoiceId . ' telah habis. Silakan buat transaksi baru jika masih diperlukan.';
+        } elseif ($orderFailed) {
             $heroTitle = 'Transaksi tidak dapat diselesaikan.';
-            $heroDescription = 'Pesanan kamu ' . $data->id_pembelian . ' mengalami kendala. Silakan cek detail status transaksi di bawah.';
+            $heroDescription = 'Pesanan kamu ' . $publicInvoiceId . ' mengalami kendala. Silakan cek detail status transaksi di bawah.';
         }
 
         $normalizedPayment = $this->normalizePaymentStatus($paymentStatusRaw);
@@ -236,24 +282,29 @@ class InvoicePageController extends Controller
         $introSubtitle = 'Silakan selesaikan pembayaran agar pesanan bisa diproses.';
         $introIcon = 'clock';
 
-        if (in_array($paymentStatus, ['paid', 'lunas', 'success'], true)) {
+        if ($paymentIsSettled) {
             if (in_array($orderStatus, ['sukses', 'success'], true)) {
                 $introState = 'paid';
                 $introTitle = 'Transaksi Berhasil';
                 $introSubtitle = 'Pembayaran berhasil diterima dan transaksi telah selesai diproses.';
                 $introIcon = 'check';
+            } elseif ($orderFailed) {
+                $introState = 'failed';
+                $introTitle = 'Transaksi Gagal';
+                $introSubtitle = 'Pembayaran sudah diterima, namun transaksi tidak dapat diproses. Silakan hubungi customer service untuk bantuan.';
+                $introIcon = 'warning';
             } else {
                 $introState = 'paid';
                 $introTitle = 'Pembayaran Diterima';
                 $introSubtitle = 'Pembayaran berhasil diterima. Sistem sedang menyelesaikan proses transaksi.';
                 $introIcon = 'check';
             }
-        } elseif ($paymentStatus === 'expired') {
+        } elseif ($invoiceExpired) {
             $introState = 'expired';
             $introTitle = 'Pembayaran Kedaluwarsa';
             $introSubtitle = 'Batas waktu pembayaran telah berakhir. Silakan lakukan pembelian ulang jika masih diperlukan.';
             $introIcon = 'x';
-        } elseif (in_array($orderStatus, ['gagal', 'batal', 'failed', 'cancelled'], true)) {
+        } elseif ($orderFailed) {
             $introState = 'failed';
             $introTitle = 'Transaksi Gagal';
             $introSubtitle = 'Transaksi tidak dapat diselesaikan. Silakan cek detail invoice untuk informasi lebih lanjut.';
@@ -295,10 +346,6 @@ class InvoicePageController extends Controller
             }
         }
 
-        $expiredAt = $data->expired_at
-            ? Carbon::parse($data->expired_at)
-            : Carbon::parse($data->created_at)->addHours($fallbackExpiryHours);
-
         $subtotal = (int) round((float) ($data->harga_layanan ?? 0));
         $total = (int) round((float) ($data->harga_pembayaran ?? 0));
         if ($subtotal <= 0) {
@@ -322,7 +369,7 @@ class InvoicePageController extends Controller
             $data->zone ?? null,
             $data->nickname ?? null,
         );
-        $transactionId = (string) $data->id_pembelian;
+        $transactionId = $publicInvoiceId;
         $gtmInvoiceEvents = [
             [
                 'name' => 'invoice_viewed',
@@ -456,7 +503,8 @@ class InvoicePageController extends Controller
 
         return Inertia::render('Public/Invoice', [
             'invoice' => [
-                'orderId' => (string) $data->id_pembelian,
+                'orderId' => $publicInvoiceId,
+                'internalOrderId' => (string) $data->id_pembelian,
                 'productName' => $productName,
                 'itemName' => (string) ($data->layanan ?? $productName),
                 'thumbnail' => $thumbnail,
@@ -529,13 +577,14 @@ class InvoicePageController extends Controller
                 ],
                 'gtmEvents' => $gtmInvoiceEvents,
             ],
-            'meta' => [
-                'title' => "Invoice {$data->id_pembelian} - {$settings->judul_web}",
-                'description' => "Detail invoice {$data->id_pembelian} untuk {$productName}.",
-                'keywords' => "invoice {$data->id_pembelian}, {$productName}, {$settings->judul_web}",
-                'canonical' => url("/id/invoices/{$data->id_pembelian}"),
-                'image' => url($thumbnail),
-            ],
+            'meta' => $seoMetadataService->privatePage([
+                'title' => "Invoice {$publicInvoiceId} - {$settings->judul_web}",
+                'description' => "Detail invoice {$publicInvoiceId} untuk {$productName}.",
+                'keywords' => "invoice {$publicInvoiceId}, {$productName}, {$settings->judul_web}",
+                'canonical' => $request->url(),
+                'image' => $thumbnail,
+                'imageAlt' => "Thumbnail {$productName}",
+            ], $request),
         ]);
     }
 
@@ -588,18 +637,120 @@ class InvoicePageController extends Controller
         return 'Gunakan metode pembayaran yang dipilih untuk menyelesaikan transaksi.';
     }
 
-    private function normalizeAssetPath(?string $path, string $fallback = '/assets/logo/favicon.webp'): string
+    /**
+     * QRIS QR image proxy: streams an allowlisted gateway-hosted QR image through our
+     * own domain so the invoice <img> and download button stay same-origin (no CORS,
+     * no hotlink dependencies, gateway URLs never exposed to the client).
+     */
+    public function qrImage(string $order, PublicInvoiceReferenceResolver $invoiceReferenceResolver): \Illuminate\Http\Response
     {
-        $path = trim((string) $path);
+        $purchase = $invoiceReferenceResolver->resolve($order);
+        abort_if(! $purchase, 404);
 
-        if ($path === '') {
-            return $fallback;
+        $payment = Pembayaran::query()
+            ->where('order_id', (string) $purchase->order_id)
+            ->latest('id')
+            ->first();
+
+        abort_if(! $payment, 404);
+        $payment->syncExpiredStatus();
+
+        $isUnpaid = in_array(Str::lower(trim((string) $payment->status)), ['belum lunas', 'unpaid', 'pending'], true);
+        abort_unless($isUnpaid, 404);
+
+        $paymentValue = trim((string) $payment->no_pembayaran);
+        abort_if($paymentValue === '', 404);
+        abort_unless($this->isAllowedProxyTarget($paymentValue), 404);
+
+        try {
+            $response = Http::timeout((int) config('qr.proxy_timeout', 5))
+                ->withoutRedirecting()
+                ->get($paymentValue);
+        } catch (\Throwable) {
+            abort(404);
         }
 
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, 'data:image/')) {
-            return $path;
-        }
+        abort_unless($response->successful(), 404);
 
-        return '/' . ltrim($path, '/');
+        $contentType = Str::lower((string) $response->header('Content-Type'));
+        abort_unless(str_starts_with($contentType, 'image/'), 404);
+
+        $body = $response->body();
+        abort_if($body === '' || strlen($body) > (int) config('qr.proxy_max_bytes', 1048576), 404);
+
+        return response($body, 200, [
+            'Content-Type' => $contentType,
+            'Content-Length' => (string) strlen($body),
+            'Cache-Control' => 'private, max-age=120',
+        ]);
     }
+
+    /**
+     * Known gateway QR-image endpoints (e.g. Tripay serves the QRIS PNG at
+     * https://tripay.co.id/qr/{reference}) that are safe to render inline.
+     */
+    private function isGatewayQrImageUrl(string $value): bool
+    {
+        if (filter_var($value, FILTER_VALIDATE_URL) === false) {
+            return false;
+        }
+
+        $path = Str::lower((string) (parse_url($value, PHP_URL_PATH) ?? ''));
+
+        return str_contains($path, '/qr/') && $this->isAllowedProxyTarget($value);
+    }
+
+    /**
+     * SSRF guard for the QR proxy: allowlisted hosts only, HTTPS (loopback may use
+     * plain HTTP for the local E2E harness), and QR-ish paths/extensions only.
+     */
+    private function isAllowedProxyTarget(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (! is_array($parts) || empty($parts['host'])) {
+            return false;
+        }
+
+        $host = Str::lower((string) $parts['host']);
+        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
+        $allowedHosts = array_map('strtolower', (array) config('qr.proxy_hosts', ['tripay.co.id']));
+        if (! in_array($host, $allowedHosts, true)) {
+            return false;
+        }
+
+        if ($scheme !== 'https' && ! in_array($host, ['127.0.0.1', 'localhost'], true)) {
+            return false;
+        }
+
+        $path = Str::lower((string) ($parts['path'] ?? ''));
+
+        return str_contains($path, '/qr/') || preg_match('/\.(png|jpe?g|webp|svg)$/', $path) === 1;
+    }
+
+    /**
+     * Render a raw QR payload locally (PNG data URI) instead of calling a third-party
+     * QR service. Falls back to the legacy external generator only if rendering throws.
+     */
+    private function buildLocalQrDataUri(string $payload): string
+    {
+        $payload = trim($payload);
+
+        try {
+            $rendered = (new QRCode(new QROptions([
+                'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+                'eccLevel' => QRCode::ECC_L,
+                'scale' => 8,
+                'outputBase64' => true,
+            ])))->render($payload);
+
+            if (is_string($rendered) && str_starts_with($rendered, 'data:image/')) {
+                return $rendered;
+            }
+        } catch (\Throwable) {
+            // Fall through to the last-resort fallback below.
+        }
+
+        return 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=' . urlencode($payload);
+    }
+
 }

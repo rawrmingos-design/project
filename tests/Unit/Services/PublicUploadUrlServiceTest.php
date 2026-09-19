@@ -77,4 +77,19 @@ class PublicUploadUrlServiceTest extends TestCase
         );
         $this->assertFalse($this->service->exists('assets/logo/missing.png'));
     }
+
+    public function test_it_returns_null_for_missing_asset_without_fallback(): void
+    {
+        $this->assertNull($this->service->existingUrl('assets/logo/missing.png'));
+    }
+
+    public function test_it_resolves_existing_asset_with_a_single_pass_contract(): void
+    {
+        File::put(public_path('assets/logo/r2-resolver-local.png'), 'local');
+
+        $this->assertSame(
+            asset('assets/logo/r2-resolver-local.png'),
+            $this->service->existingUrl('assets/logo/r2-resolver-local.png')
+        );
+    }
 }

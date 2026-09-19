@@ -3024,3 +3024,54 @@
     background: var(--ist-bg);
     background-image: none;
 }
+
+/* ---------- Invoice countdown chip state tones ---------- */
+/* Base chip (bangjeff stylesheet) is always red; recolor per state so a paid
+   receipt never reads as an error and a lapsed deadline reads as neutral. */
+.public-app--istanatopup .invoice-countdown-chip--paid {
+    border-color: rgba(34, 197, 94, 0.5);
+    background: linear-gradient(180deg, rgba(23, 179, 97, 0.92), rgba(16, 148, 81, 0.92));
+    color: #ecfdf3;
+}
+
+.public-app--istanatopup .invoice-countdown-chip--expired {
+    border-color: rgba(148, 163, 184, 0.3);
+    background: linear-gradient(180deg, rgba(63, 63, 70, 0.92), rgba(39, 39, 42, 0.92));
+    color: #e4e4e7;
+}
+
+/* ---------- Invoice: full-bleed banner aligned with the Order page ---------- */
+/* `.public-app--istanatopup .public-main` caps every page at 1200px, leaving
+   ~120px of side space around the invoice banner at 1440px. The Order page
+   already owns this fix via `public-main--order-bangjeff`; mirror it for the
+   invoice page: main becomes full-bleed with no top inset (the shared
+   `.public-main--hero-bleed` rule adds 16px padding-top, so the banner would
+   otherwise float below the navbar), the banner fills it edge-to-edge, and
+   the content section keeps a 16px inner gutter (same edge model as the order
+   body). Scoped to istanatopup so bangjeff/default themes stay unchanged. */
+.public-app--istanatopup .public-main--invoice-bleed {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding-top: 0;
+    margin-top: 0;
+}
+
+.public-app--istanatopup .public-main--invoice-bleed .invoice-status-banner-react {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+}
+
+.public-app--istanatopup .public-main--invoice-bleed .invoice-page {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    padding-inline: 16px;
+}
+
+@media (max-width: 359px) {
+    .public-app--istanatopup .public-main--invoice-bleed .invoice-page {
+        padding-inline: 12px;
+    }
+}

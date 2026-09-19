@@ -192,6 +192,7 @@ function isFinalTransactionState(paymentCode, orderCode) {
 }
 
 export default function Invoice({ invoice, meta }) {
+    const internalOrderId = invoice?.internalOrderId || invoice?.orderId || '';
     const [orderStatus, setOrderStatus] = useState(invoice?.status?.order ?? { code: 'pending', label: 'Pending' });
     const [paymentStatus, setPaymentStatus] = useState(invoice?.status?.payment ?? { code: 'unpaid', label: 'Unpaid' });
     const [isPageShellReady, setIsPageShellReady] = useState(false);
@@ -234,6 +235,9 @@ export default function Invoice({ invoice, meta }) {
     const introSequenceSwitchMs = Math.max(180, Math.round(introDurationMs / 2));
     const countdownParts = useMemo(() => parseCountdownParts(countdown), [countdown]);
     const isCountdownExpired = countdown === 'Pembayaran kedaluwarsa';
+    const countdownChipTone = paymentStatus.code === 'paid'
+        ? 'paid'
+        : (paymentStatus.code === 'expired' || isCountdownExpired ? 'expired' : 'pending');
     const hasPayButton = Boolean(invoice?.payment?.showPayButton && invoice?.payment?.paymentUrl);
     const showActivePayButton = hasPayButton && paymentStatus.code === 'unpaid' && !isCountdownExpired;
     const showDisabledPayButton = hasPayButton && (paymentStatus.code === 'expired' || isCountdownExpired);
@@ -259,7 +263,7 @@ export default function Invoice({ invoice, meta }) {
         setRatingErrors({});
 
         try {
-            const response = await fetch(`/id/invoices/${encodeURIComponent(invoice?.orderId || '')}`, {
+            const response = await fetch(`/id/invoices/${encodeURIComponent(internalOrderId)}`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -295,7 +299,7 @@ export default function Invoice({ invoice, meta }) {
             setRatingState('error');
             setRatingMessage('Koneksi bermasalah. Coba lagi sebentar.');
         }
-    }, [invoice?.orderId, invoice?.productName, invoice?.rating?.categoryName, ratingComment, ratingEligible, ratingSubmitted, ratingBusy, ratingValue]);
+    }, [internalOrderId, invoice?.productName, invoice?.rating?.categoryName, ratingComment, ratingEligible, ratingSubmitted, ratingBusy, ratingValue]);
 
     useEffect(() => {
         const events = Array.isArray(invoice?.gtmEvents) ? invoice.gtmEvents : [];
@@ -479,7 +483,7 @@ export default function Invoice({ invoice, meta }) {
     }, [applyInvoiceStatusUpdate, invoice?.realtime?.channel, invoice?.realtime?.event]);
 
     useEffect(() => {
-        if (!invoice?.orderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
+        if (!internalOrderId || isFinalTransactionState(paymentStatus.code, orderStatus.code)) {
             return undefined;
         }
 
@@ -491,7 +495,7 @@ export default function Invoice({ invoice, meta }) {
             }
 
             try {
-                const response = await fetch(`/ajax/transaction-status/${encodeURIComponent(invoice.orderId)}`, {
+                const response = await fetch(`/ajax/transaction-status/${encodeURIComponent(internalOrderId)}`, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                     },
@@ -519,7 +523,7 @@ export default function Invoice({ invoice, meta }) {
             isActive = false;
             window.clearInterval(timer);
         };
-    }, [applyInvoiceStatusUpdate, invoice?.orderId, orderStatus.code, paymentStatus.code]);
+    }, [applyInvoiceStatusUpdate, internalOrderId, orderStatus.code, paymentStatus.code]);
 
     const showCopyToast = (type, text) => {
         setCopyToast({ type, text });
@@ -557,7 +561,7 @@ export default function Invoice({ invoice, meta }) {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `qr-payment-${invoice.orderId || 'invoice'}.png`;
+            link.download = `qr-payment-${invoice?.orderId || 'invoice'}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -605,7 +609,7 @@ export default function Invoice({ invoice, meta }) {
     const introOverlayClassName = `invoice-status-banner-react__intro-overlay invoice-status-banner-react__intro-overlay--${introTone} ${isIntroOverlayExiting ? 'is-exiting' : 'is-visible'}`;
     const progressSteps = useMemo(() => {
         const isPaymentPaid = paymentStatus.code === 'paid';
-        const isPaymentExpired = paymentStatus.code === 'expired';
+        const isPaymentExpired = paymentStatus.code === 'expired' || isCountdownExpired;
         const isOrderProcessing = orderStatus.code === 'processing';
         const isOrderSuccess = orderStatus.code === 'success';
         const isOrderFailed = orderStatus.code === 'failed';
@@ -648,7 +652,7 @@ export default function Invoice({ invoice, meta }) {
                 state: isOrderSuccess ? 'done' : isOrderFailed ? 'failed' : 'pending',
             },
         ];
-    }, [paymentStatus.code, orderStatus.code]);
+    }, [paymentStatus.code, orderStatus.code, isCountdownExpired]);
 
     const progressIndex = useMemo(() => {
         let index = 0;
@@ -682,7 +686,7 @@ export default function Invoice({ invoice, meta }) {
             return 'Transaksi tidak dapat diproses.';
         }
 
-        if (paymentStatus.code === 'expired') {
+        if (paymentStatus.code === 'expired' || isCountdownExpired) {
             return 'Pembayaran telah kedaluwarsa.';
         }
 
@@ -691,10 +695,10 @@ export default function Invoice({ invoice, meta }) {
         }
 
         return 'Silakan melakukan pembayaran.';
-    }, [orderStatus.code, paymentStatus.code]);
+    }, [orderStatus.code, paymentStatus.code, isCountdownExpired]);
 
     return (
-        <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
+        <PublicLayout meta={meta} mainClassName="public-main--hero-bleed public-main--invoice-bleed">
             <section className={statusBannerClassName}>
                 {isIntroOverlayMounted ? (
                     <div className={introOverlayClassName} aria-hidden="true">
@@ -755,7 +759,7 @@ export default function Invoice({ invoice, meta }) {
                 </div>
 
                 <div className={`invoice-countdown-row invoice-animate invoice-animate-delay-2 ${isInvoiceAnimated ? 'is-visible' : ''}`}>
-                    <div className="invoice-countdown-chip">
+                    <div className={`invoice-countdown-chip invoice-countdown-chip--${countdownChipTone}`}>
                         {countdownParts ? (
                             <>
                                 <span>{countdownParts.hours} Jam</span>
@@ -774,11 +778,17 @@ export default function Invoice({ invoice, meta }) {
                             <div className="invoice-account-card__shell">
                                 <div className="invoice-account-card__thumb-wrap">
                                     <div className="invoice-account-card__thumb">
-                                        <img
-                                            src={invoice?.thumbnail}
-                                            alt={invoice?.productName || 'Produk'}
-                                            className="invoice-account-card__thumb-image"
-                                        />
+                                        {invoice?.thumbnail ? (
+                                            <img
+                                                src={invoice.thumbnail}
+                                                alt={invoice?.productName || 'Produk'}
+                                                className="invoice-account-card__thumb-image"
+                                            />
+                                        ) : (
+                                            <div className="invoice-account-card__thumb-fallback" role="img" aria-label="Thumbnail produk tidak tersedia">
+                                                <span aria-hidden="true">Produk</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="invoice-account-card__thumb-meta">
                                         <p className="invoice-account-card__thumb-title">{invoice?.productName}</p>

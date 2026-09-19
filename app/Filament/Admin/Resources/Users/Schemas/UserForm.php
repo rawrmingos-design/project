@@ -78,24 +78,6 @@ class UserForm
                             ->helperText('Kosongkan jika tidak ingin mengubah password.'),
                     ])
                     ->collapsible(),
-                    
-                Section::make('Informasi Game (Opsional)')
-                    ->columns(3)
-                    ->schema([
-                        TextInput::make('idgame')
-                            ->label('ID Game')
-                            ->maxLength(225),
-                            
-                        TextInput::make('servergame')
-                            ->label('Server Game')
-                            ->numeric(),
-                            
-                        TextInput::make('idgame2')
-                            ->label('ID Game 2')
-                            ->maxLength(2225),
-                    ])
-                    ->collapsed()
-                    ->collapsible(),
             ]);
     }
 }

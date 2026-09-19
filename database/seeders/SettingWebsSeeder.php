@@ -11,6 +11,10 @@ class SettingWebsSeeder extends Seeder
     {
         DB::table('setting_webs')->truncate();
 
+        // NOTE (OSS safety): seluruh kredensial provider/payment di bawah ini
+        // sengaja dikosongkan ('' atau placeholder non-rahasia). Isi melalui
+        // Admin Panel -> Pengaturan (tabel setting_webs) atau environment
+        // deployment. Jangan pernah menaruh kredensial asli pada seeder/commit.
         DB::table('setting_webs')->insert([
         [
             'id' => 1,

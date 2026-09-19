@@ -110,6 +110,32 @@ class PublicInertiaSecurityAndRouteTest extends TestCase
     }
 
     #[Test]
+    public function invoice_lookup_accepts_display_reference_and_stores_internal_order_in_guest_session(): void
+    {
+        $this->createTransaction('INV-LOOKUP-INTERNAL-001', 'guest-owner');
+        Pembelian::query()
+            ->where('order_id', 'INV-LOOKUP-INTERNAL-001')
+            ->update(['display_order_id' => 'INV-LOOKUP-INTERNAL-001_001']);
+
+        $this->postJson(route('cari.post'), [
+            'id' => 'INV-LOOKUP-INTERNAL-001_001',
+            'type' => 'invoice',
+        ])
+            ->assertOk()
+            ->assertJsonPath('status', true)
+            ->assertJsonPath('redirect_url', route('pembelian', ['order' => 'INV-LOOKUP-INTERNAL-001']))
+            ->assertJsonPath('transaction.invoiceId', 'INV-LOOKUP-INTERNAL-001_001');
+
+        $this->get('/id/invoices')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('recentTransactionsScope.key', 'guest-session')
+                ->where('recentTransactions.0.invoiceId', 'INV-LOOKUP-INTERNAL-001_001')
+                ->where('recentTransactions.0.invoiceUrl', route('pembelian', ['order' => 'INV-LOOKUP-INTERNAL-001']))
+            );
+    }
+
+    #[Test]
     public function dashboard_uses_monetary_balance_and_preserves_affiliate_ctas(): void
     {
         /** @var User $user */

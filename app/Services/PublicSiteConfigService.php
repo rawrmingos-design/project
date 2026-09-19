@@ -294,15 +294,14 @@ class PublicSiteConfigService
         $usesFallback = $requested === '';
         $resolver = app(PublicUploadUrlService::class);
         $normalized = $this->normalizeAssetPath($requested, $fallback);
-        $resolvedUrl = $resolver->url($requested !== '' ? $requested : $fallback, config('uploads.disk', 'assets'), $fallback);
-        $exists = $resolver->exists($requested !== '' ? $requested : $fallback, config('uploads.disk', 'assets'));
+        $resolved = $resolver->resolve($requested !== '' ? $requested : $fallback, config('uploads.disk', 'assets'), $fallback);
 
         return [
             'requested' => $requested !== '' ? $requested : null,
-            'path' => $resolvedUrl ?? $normalized,
+            'path' => $resolved['url'] ?? $normalized,
             'source' => $usesFallback ? 'fallback' : 'db',
             'usesFallback' => $usesFallback,
-            'exists' => $exists,
+            'exists' => $resolved['exists'],
         ];
     }
 

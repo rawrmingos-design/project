@@ -18,6 +18,7 @@ const e2eEnvironment = {
     ...process.env,
     APP_ENV: 'e2e',
     APP_DEBUG: 'false',
+    // Key test-only untuk environment sqlite ephemeral E2E (bukan kredensial produksi).
     APP_KEY: 'base64:cx0fphnsde2XPSe0r2v9U8lwpQbmg1fSIyEKGEhf4EY=',
     APP_URL: baseURL,
     DB_CONNECTION: 'sqlite',
@@ -34,6 +35,8 @@ const e2eEnvironment = {
     TELESCOPE_ENABLED: 'false',
     FILAMENT_ADMIN_DOMAIN: '',
     DOCS_DOMAIN: '',
+    QR_PROXY_ALLOWED_HOSTS: 'tripay.co.id,127.0.0.1',
+    PHP_CLI_SERVER_WORKERS: '4',
     E2E_BASE_URL: baseURL,
     E2E_PORT: port,
     APP_CONFIG_CACHE: '.tmp/e2e/cache/config.php',
@@ -90,7 +93,7 @@ function serve() {
 
     run(php, migrateArgs);
 
-    const child = spawn(php, ['artisan', 'serve', '--host=127.0.0.1', `--port=${port}`], {
+    const child = spawn(php, ['artisan', 'serve', '--host=127.0.0.1', `--port=${port}`, '--no-reload'], {
         cwd: root,
         env: e2eEnvironment,
         stdio: 'inherit',
@@ -134,6 +137,7 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
         ]);
@@ -145,6 +149,7 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
         ]);

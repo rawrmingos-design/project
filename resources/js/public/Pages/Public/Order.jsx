@@ -3242,6 +3242,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                             selected={selectedProductId === item.id}
                                             onSelect={() => {
                                                 preventAutoSelectRef.current = false;
+                                                // Keep the active variant group in sync with the
+                                                // clicked item: otherwise the auto-select effect
+                                                // (candidateItems = variantItems of the active
+                                                // group) treats a cross-group pick as stale and
+                                                // reverts it to the first item of the old group.
+                                                setSelectedPackage(index);
                                                 setNominalStepInteracted(true);
                                                 setSelectedProductId(item.id);
                                             }}
@@ -3449,7 +3455,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     const bangjeffSidebar = (
         <aside className="order-sidebar-bangjeff">
-            <div className="order-sidebar-bangjeff__sticky">
+            <div className="order-sidebar-bangjeff__support">
                 <section className="order-mini-card order-mini-card--bangjeff order-mini-card--rating">
                     <div className="order-mini-card__eyebrow">Ulasan dan rating</div>
                     <div className="order-rating__row">
@@ -3476,7 +3482,9 @@ export default function Order({ meta, category, products, packages, paymentMetho
                         <span>Kamu bisa hubungi admin disini.</span>
                     </div>
                 </button>
+            </div>
 
+            <div className="order-sidebar-bangjeff__summary-sticky">
                 <section className="order-mini-card order-mini-card--bangjeff order-mini-card--summary">
                     {selectedProduct ? (
                         <>

@@ -7,10 +7,14 @@ use App\Models\Kategori;
 use App\Models\Layanan;
 use App\Models\Method;
 use App\Models\Paket;
+use App\Models\Pembayaran;
+use App\Models\Pembelian;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 class E2EBrowserSeeder extends Seeder
 {
@@ -39,9 +43,9 @@ class E2EBrowserSeeder extends Seeder
                 'warna4' => '#fb923c',
                 'paydisini_apikey' => '',
                 'order_prefik' => 'E2E',
-                'public_theme' => 'bangjeff',
+                'public_theme' => env('E2E_PUBLIC_THEME', 'bangjeff'),
                 'home_popup_enabled' => true,
-                'live_sales_enabled' => false,
+                'live_sales_enabled' => filter_var(env('E2E_LIVE_SALES_ENABLED', 'true'), FILTER_VALIDATE_BOOLEAN),
                 'google_analytics_id' => null,
                 'facebook_pixel_id' => null,
                 'google_tag_manager_id' => null,
@@ -64,6 +68,7 @@ class E2EBrowserSeeder extends Seeder
 
         $this->seedUsers();
         $this->seedStorefront();
+        $this->seedInvoice();
     }
 
     private function seedUsers(): void
@@ -94,6 +99,150 @@ class E2EBrowserSeeder extends Seeder
                 'no_wa' => '6281200000002',
                 'affiliate_status' => 'inactive',
             ],
+        );
+    }
+
+    private function seedInvoice(): void
+    {
+        $orderId = 'E2E-INVOICE-INTERNAL-001';
+        $displayOrderId = 'E2E-INVOICE-INTERNAL-001_001';
+        $category = Kategori::query()->updateOrCreate(
+            ['kode' => 'e2e-invoice-game'],
+            [
+                'nama' => 'E2E Invoice Game',
+                'sub_nama' => 'Deterministic invoice test game',
+                'status' => 'active',
+                'thumbnail' => 'assets/thumbnail/e2e-invoice-missing.webp',
+                'tipe' => 'game',
+                'server_id' => false,
+                'require_user_id' => true,
+            ],
+        );
+        Layanan::query()->updateOrCreate(
+            ['kategori_id' => $category->id, 'provider_id' => 'e2e-invoice-product'],
+            [
+                'layanan' => 'E2E Invoice Product',
+                'provider' => 'manual',
+                'harga' => 10000,
+                'harga_member' => 10000,
+                'harga_platinum' => 10000,
+                'harga_gold' => 10000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'status' => 'available',
+            ],
+        );
+
+        Pembelian::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'base_order_id' => $orderId,
+                'invoice_version' => 1,
+                'display_order_id' => $displayOrderId,
+                'active_attempt_reference' => $displayOrderId,
+                'username' => 'Anonim',
+                'user_id' => '12345678',
+                'zone' => '1234',
+                'nickname' => 'E2E Player',
+                'email_pembeli' => 'e2e-invoice@example.test',
+                'layanan' => 'E2E Invoice Product',
+                'harga' => 10000,
+                'profit' => 0,
+                'status' => 'Pending',
+                'tipe_transaksi' => 'game',
+                'voucher' => null,
+                'keterangan_sn' => null,
+            ],
+        );
+
+        Pembayaran::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'harga' => '10000',
+                'no_pembayaran' => 'E2E-PAYMENT-001',
+                'no_pembeli' => '6281200000001',
+                'status' => 'Belum Lunas',
+                'metode' => 'E2E_QRIS',
+                'reference' => 'E2E-REFERENCE-001',
+            ],
+        );
+
+        // State-coverage variants for invoice copy/tone regression (see invoice-detail.spec.js).
+        $this->seedInvoiceVariant('E2E-INVOICE-PAID-FAILED-001', 'Gagal', 'Paid');
+        $this->seedInvoiceVariant('E2E-INVOICE-LAPSED-001', 'Pending', 'Belum Lunas', 6);
+        $this->seedInvoiceQris();
+    }
+
+    private function seedInvoiceVariant(string $orderId, string $orderStatus, string $paymentStatus, ?int $createdHoursAgo = null, string $metode = 'E2E_QRIS', ?string $paymentValue = null): void
+    {
+        $displayOrderId = $orderId . '_001';
+
+        $pembelian = [
+            'base_order_id' => $orderId,
+            'invoice_version' => 1,
+            'display_order_id' => $displayOrderId,
+            'active_attempt_reference' => $displayOrderId,
+            'username' => 'Anonim',
+            'user_id' => '12345678',
+            'zone' => '1234',
+            'nickname' => 'E2E Player',
+            'email_pembeli' => 'e2e-invoice@example.test',
+            'layanan' => 'E2E Invoice Product',
+            'harga' => 10000,
+            'profit' => 0,
+            'status' => $orderStatus,
+            'tipe_transaksi' => 'game',
+            'voucher' => null,
+            'keterangan_sn' => null,
+        ];
+
+        if ($createdHoursAgo !== null) {
+            $pembelian['created_at'] = now()->subHours($createdHoursAgo);
+        }
+
+        Pembelian::query()->updateOrCreate(['order_id' => $orderId], $pembelian);
+
+        Pembayaran::query()->updateOrCreate(
+            ['order_id' => $orderId],
+            [
+                'harga' => '10000',
+                'no_pembayaran' => $paymentValue ?? ('E2E-PAYMENT-' . $orderId),
+                'no_pembeli' => '6281200000001',
+                'status' => $paymentStatus,
+                'metode' => $metode,
+                'reference' => 'E2E-REFERENCE-' . $orderId,
+            ],
+        );
+    }
+
+    private function seedInvoiceQris(): void
+    {
+        $baseUrl = rtrim((string) env('APP_URL', 'http://127.0.0.1'), '/');
+        $qrRelativePath = 'assets/e2e/qr-fixture.png';
+
+        // Generate a real QR PNG served by the app itself, so the invoice QR proxy
+        // can be exercised end-to-end without calling any external service.
+        $rendered = (string) (new QRCode(new QROptions([
+            'outputType' => QRCode::OUTPUT_IMAGE_PNG,
+            'eccLevel' => QRCode::ECC_L,
+            'scale' => 8,
+            'outputBase64' => true,
+        ])))->render('E2E-QRIS-FIXTURE-' . str_repeat('ABCDEFGHIJ', 3));
+
+        $absolutePath = public_path($qrRelativePath);
+        if (! is_dir(dirname($absolutePath))) {
+            mkdir(dirname($absolutePath), 0775, true);
+        }
+        file_put_contents($absolutePath, base64_decode(substr($rendered, strpos($rendered, ',') + 1)));
+
+        $this->seedInvoiceVariant(
+            'E2E-INVOICE-QRIS-001',
+            'Pending',
+            'Belum Lunas',
+            null,
+            'QRIS',
+            $baseUrl . '/' . $qrRelativePath,
         );
     }
 
@@ -149,6 +298,36 @@ class E2EBrowserSeeder extends Seeder
             ],
         ]);
 
+        // Second package group: regression fixture for cross-group nominal selection
+        // (picking a nominal outside the first group must not revert to the first group).
+        $instantProduct = Layanan::query()->updateOrCreate(
+            ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-3'],
+            [
+                'layanan' => 'E2E Instant 30000',
+                'provider' => 'manual',
+                'harga' => 30000,
+                'harga_member' => 30000,
+                'harga_platinum' => 30000,
+                'harga_gold' => 30000,
+                'profit_member' => 0,
+                'profit_platinum' => 0,
+                'profit_gold' => 0,
+                'catatan' => 'E2E second package product',
+                'status' => 'available',
+                'product_logo' => 'assets/logo/favicon.webp',
+                'is_flash_sale' => false,
+                'harga_flash_sale' => 0,
+                'stock_flash_sale' => 0,
+            ],
+        );
+
+        $instantPackage = Paket::query()->firstOrCreate(['nama' => 'E2E Package Instant']);
+        $instantPackage->layanan()->syncWithoutDetaching([
+            $instantProduct->id => [
+                'product_logo' => 'assets/logo/favicon.webp',
+            ],
+        ]);
+
         Layanan::query()->updateOrCreate(
             ['kategori_id' => $category->id, 'provider_id' => 'e2e-product-2'],
             [
@@ -174,8 +353,8 @@ class E2EBrowserSeeder extends Seeder
             ['code' => 'E2E_QRIS'],
             [
                 'name' => 'E2E QRIS',
-                'images' => 'assets/logo/favicon.webp',
-                'keterangan' => 'E2E payment method',
+                'images' => 'assets/payment/e2e-missing.webp',
+                'keterangan' => 'E2E payment method with missing media fixture',
                 'tipe' => 'qris',
                 'payment' => 'Tripay',
                 'fee_percent' => 0,

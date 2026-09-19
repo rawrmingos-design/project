@@ -30,6 +30,7 @@ storage/logs/*
 # -------------------------------------------------------
 tests/
 .env
+.env.*
 .env.example
 .env.testing
 phpunit.xml
