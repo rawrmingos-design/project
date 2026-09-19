@@ -275,6 +275,7 @@ class TriPayCallbackController extends Controller
             InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
             app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+            app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
 
             $this->dispatchInvoiceNotificationSafely(
                 $pembelian,
@@ -338,6 +339,7 @@ class TriPayCallbackController extends Controller
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
 
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+        app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
 
         $this->dispatchInvoiceNotificationSafely(
             $pembelian,

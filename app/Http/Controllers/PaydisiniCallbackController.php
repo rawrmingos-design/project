@@ -193,6 +193,7 @@ class PaydisiniCallbackController extends Controller
         $pembelian->refresh();
         InvoiceStatusUpdated::dispatchForOrder((string) $pembelian->order_id);
         app(\App\Services\PointService::class)->refundRedeemedPoints($pembelian);
+        app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
 
         $this->dispatchInvoiceNotificationSafely(
             $pembelian,

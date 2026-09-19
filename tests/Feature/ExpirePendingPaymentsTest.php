@@ -111,6 +111,7 @@ class ExpirePendingPaymentsTest extends TestCase
         $this->assertSame(1, $stats['expired_pembelians']);
         $this->assertSame('Expired', $pembelian->fresh()->status);
         $this->assertSame(8, (int) $voucher->fresh()->stock);
+        $this->assertNotNull($pembelian->fresh()->voucher_stock_restored_at);
     }
 
     public function test_it_restores_voucher_stock_only_once_and_never_for_voucher_type_orders(): void

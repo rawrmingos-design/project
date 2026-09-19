@@ -3,8 +3,6 @@
 namespace App\Services\Payments;
 
 use App\Models\Pembayaran;
-use App\Models\Pembelian;
-use App\Models\Voucher;
 use App\Support\PaymentStatus;
 use App\Support\PembelianStatus;
 use Illuminate\Support\Facades\DB;
@@ -121,7 +119,10 @@ class ExpirePendingPayments
                 && $pembelian->hasStatus(PembelianStatus::EXPIRED);
 
             if ($expiredPembelian) {
-                $this->restoreVoucherStockForExpiredOrder($pembelian);
+                // VoucherService punya ledger idempotency sendiri
+                // (voucher_stock_restored_at) sehingga aman dipanggil walau
+                // command ini jalan tiap menit.
+                app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
             }
 
             return [
@@ -132,29 +133,4 @@ class ExpirePendingPayments
         });
     }
 
-    /**
-     * Kembalikan stok voucher saat order pending benar-benar hangus (transisi
-     * Pending -> Expired). Dipanggil di dalam transaksi ber-lock yang sama dan
-     * hanya pada transisi (bukan setiap run), jadi restore maksimal sekali per
-     * order. Kolom `voucher` pada pembelians juga menyimpan SN untuk produk
-     * bertipe voucher, karena itu tipe_transaksi 'voucher' dilewati.
-     */
-    private function restoreVoucherStockForExpiredOrder(Pembelian $pembelian): void
-    {
-        $voucherCode = trim((string) ($pembelian->voucher ?? ''));
-
-        if ($voucherCode === '' || strtolower(trim((string) $pembelian->tipe_transaksi)) === 'voucher') {
-            return;
-        }
-
-        $restored = Voucher::query()
-            ->where('kode', $voucherCode)
-            ->increment('stock');
-
-        if ($restored > 0) {
-            Log::info('Voucher stock restored after payment expiry', [
-                'order_id' => $pembelian->order_id,
-            ]);
-        }
-    }
 }

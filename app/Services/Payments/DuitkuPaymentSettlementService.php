@@ -120,6 +120,7 @@ class DuitkuPaymentSettlementService
             }
             $order->update($data);
             app(PointService::class)->refundRedeemedPoints($order);
+            app(\App\Services\VoucherService::class)->restoreStockForOrder($order);
 
             return;
         }
