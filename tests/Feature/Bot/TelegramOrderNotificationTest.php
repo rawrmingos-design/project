@@ -138,7 +138,7 @@ class TelegramOrderNotificationTest extends TestCase
             'order_id' => $order->order_id,
             'harga' => 10500,
             'no_pembayaran' => 'WA-VA-001',
-            'no_pembeli' => '[REDACTED]',
+            'no_pembeli' => '6281000000001',
             'status' => 'Lunas',
             'metode' => 'QRIS',
         ]);

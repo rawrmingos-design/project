@@ -24,7 +24,7 @@ class SettingWebsSeeder extends Seeder
             'logo_header' => 'assets/logo/01KGSN7TWDAQXP947X0GH07TDE.webp',
             'logo_footer' => 'assets/logo/01KGSN7TXFTHQYY8T2SM6HQ6S2.png',
             'logo_favicon' => 'assets/logo/01KGSR2RX28HCH8084K9YB7AP2.ico',
-            'url_wa' => 'https://wa.me/[REDACTED]',
+            'url_wa' => 'https://wa.me/6281000000001',
             'url_ig' => 'https://www.instagram.com/egymaulana1404',
             'url_tiktok' => 'https://www.tiktok.com/',
             'url_youtube' => 'https://www.youtube.com/',

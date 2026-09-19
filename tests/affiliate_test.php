@@ -29,7 +29,7 @@ try {
         [
             'name' => 'Test Uplink',
             'password' => bcrypt('password'),
-            'email' => '[REDACTED]',
+            'email' => 'uplink@example.com',
             'role' => 'Member',
             'balance' => 0,
             'no_wa' => '081234567890',
@@ -51,7 +51,7 @@ try {
         [
             'name' => 'Test Downlink',
             'password' => bcrypt('password'),
-            'email' => '[REDACTED]',
+            'email' => 'downlink@example.com',
             'role' => 'Member',
             'balance' => 0,
             'no_wa' => '081234567891',

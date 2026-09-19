@@ -40,7 +40,7 @@ class GatewayInvoiceStatusTest extends TestCase
             'order_id' => $order->order_id,
             'harga' => 10500,
             'no_pembayaran' => 'TEST-VA-001',
-            'no_pembeli' => '[REDACTED]',
+            'no_pembeli' => '6281000000001',
             'status' => 'Belum Lunas',
             'metode' => 'QRIS',
         ]);
@@ -60,7 +60,7 @@ class GatewayInvoiceStatusTest extends TestCase
         $service = app(GatewayInvoiceService::class);
         $result = $service->status($order->order_id, null, [
             'source' => 'whatsapp_gateway',
-            'external_user_id' => 'whatsapp:[REDACTED]',
+            'external_user_id' => 'whatsapp:6281000000001',
         ]);
 
         $this->assertTrue($result['ok']);
@@ -87,7 +87,7 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->createOrder(['order_id' => 'BOT-TEST-002']);
 
         $service = app(GatewayInvoiceService::class);
-        $latest = $service->latestForSender('whatsapp_gateway', 'whatsapp:[REDACTED]');
+        $latest = $service->latestForSender('whatsapp_gateway', 'whatsapp:6281000000001');
 
         $this->assertNotNull($latest);
         $this->assertSame('BOT-TEST-002', $latest->order_id);
@@ -124,7 +124,7 @@ class GatewayInvoiceStatusTest extends TestCase
         ]);
 
         $service = app(GatewayInvoiceService::class);
-        $orders = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:[REDACTED]');
+        $orders = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:6281000000001');
 
         $this->assertCount(1, $orders);
         $this->assertSame('BOT-TEST-ACTIVE', $orders->first()->order_id);
@@ -139,8 +139,8 @@ class GatewayInvoiceStatusTest extends TestCase
     {
         $order = $this->createOrder(array_merge([
             'status' => 'Sukses',
-            'gateway_principal' => 'whatsapp:[REDACTED]',
-            'email_pembeli' => '[REDACTED]@whatsapp.user',
+            'gateway_principal' => 'whatsapp:6281000000001',
+            'email_pembeli' => '6281000000001@whatsapp.user',
         ], $overrides));
 
         $order->pembayaran()->delete();
@@ -155,7 +155,7 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-2', 'status' => 'Pending']);
 
         $service = app(GatewayInvoiceService::class);
-        $recent = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:[REDACTED]');
+        $recent = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:6281000000001');
 
         $ids = $recent->pluck('order_id')->all();
         $this->assertContains('WA-WITH-PAY', $ids);
@@ -171,7 +171,7 @@ class GatewayInvoiceStatusTest extends TestCase
         ]);
         $other->pembayaran()->update(['no_pembeli' => '6281111111111']);
 
-        $again = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:[REDACTED]');
+        $again = $service->recentOrdersForSender('whatsapp_gateway', 'whatsapp:6281000000001');
         $this->assertNotContains('WA-OTHER-SENDER', $again->pluck('order_id')->all());
     }
 
@@ -181,7 +181,7 @@ class GatewayInvoiceStatusTest extends TestCase
         $this->createWaOrderWithoutPayment(['order_id' => 'WA-NO-PAY-DONE', 'status' => 'Sukses']);
 
         $service = app(GatewayInvoiceService::class);
-        $active = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:[REDACTED]');
+        $active = $service->activeOrdersForSender('whatsapp_gateway', 'whatsapp:6281000000001');
 
         $this->assertCount(1, $active);
         $this->assertSame('WA-NO-PAY-ACTIVE', $active->first()->order_id);
@@ -200,7 +200,7 @@ class GatewayInvoiceStatusTest extends TestCase
 
         $result = $service->status('WA-NO-PAY-ID', null, [
             'source' => 'whatsapp_gateway',
-            'external_user_id' => 'whatsapp:[REDACTED]',
+            'external_user_id' => 'whatsapp:6281000000001',
         ]);
 
         $this->assertTrue($result['ok']);
