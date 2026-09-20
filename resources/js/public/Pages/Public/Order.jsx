@@ -1380,7 +1380,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             });
         });
     }, [isBangjeffOrderStyle]);
-    const requiresExplicitNominalSelection = isBangjeff;
+    const requiresExplicitNominalSelection = isBangjeffOrderStyle;
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
         if (!packages.length) {
@@ -2067,7 +2067,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         return true;
     }, [category.customInputs.zone, category.requireUserId, isComplexOrder, specialFieldsWithoutQty, specialForm, uid, zone]);
 
-    const accountLookupRequired = isBangjeff
+    const accountLookupRequired = isBangjeffOrderStyle
         && !isComplexOrder
         && category.requiresGameValidation
         && shouldAutoCheckAccount
@@ -2078,14 +2078,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && accountLookup?.type === 'success'
             && accountLookup.fingerprint === accountLookupFingerprint
         );
-    const contactDetailsReady = isBangjeff
+    const contactDetailsReady = isBangjeffOrderStyle
         ? Boolean(
             (isValidOrderEmail(email) || isValidOrderPhone(phone))
             && (!email || isValidOrderEmail(email))
             && (!phone || isValidOrderPhone(phone))
         )
         : true;
-    const selectedPaymentReady = !isBangjeff || Boolean(selectedMethodCode && selectedMethod);
+    const selectedPaymentReady = !isBangjeffOrderStyle || Boolean(selectedMethodCode && selectedMethod);
 
     useEffect(() => {
         if (!accountStepReady) {
@@ -2469,7 +2469,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     };
 
     const validateBeforeSubmit = () => {
-        if (isBangjeff) {
+        if (isBangjeffOrderStyle) {
             if (!selectedProductId || (requiresExplicitNominalSelection && !nominalStepInteracted)) {
                 return 'Pilih nominal terlebih dahulu.';
             }
@@ -2567,14 +2567,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
         return null;
     };
 
-    const priceQuoteReady = !isBangjeff
+    const priceQuoteReady = !isBangjeffOrderStyle
         || Boolean(
             !priceLoading
             && pricePreview?.status === true
             && pricePreviewKey === priceRequestKey
             && getMethodFinalPrice(pricePreview, selectedMethodCode, null) !== null
         );
-    const bangjeffOrderReady = !isBangjeff
+    const bangjeffOrderReady = !isBangjeffOrderStyle
         || Boolean(
             selectedProductId
             && nominalStepInteracted
@@ -2586,7 +2586,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && !submitLoading
         );
     const orderValidationMessage = validateBeforeSubmit();
-    const isOrderReady = isBangjeff ? bangjeffOrderReady : !orderValidationMessage;
+    const isOrderReady = isBangjeffOrderStyle ? bangjeffOrderReady : !orderValidationMessage;
 
     const buildOrderSubmitPayload = () => {
         const body = new URLSearchParams();

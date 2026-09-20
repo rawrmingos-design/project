@@ -55,3 +55,76 @@ test.describe('Storefront navbar desktop dropdown', () => {
         await page.waitForURL('**/id/calculator/zodiac');
     });
 });
+
+async function loginAsMember(page) {
+    await page.goto('/id/sign-in', { waitUntil: 'domcontentloaded' });
+    await page.locator('input[name="username"]').fill('e2e-member');
+    await page.locator('input[name="password"]').fill('e2e-password');
+    // Legacy Blade login exposes #btnMasuk; the IstanaTopup React page uses
+    // .public-auth-submit. Match either so themed runs work too.
+    const loginButton = page.locator('#btnMasuk, .public-auth-submit').first();
+    await expect(loginButton).toBeEnabled();
+    await loginButton.click();
+    await page.waitForURL(/\/id\/dashboard/, { timeout: 15_000 });
+}
+
+test.describe('Storefront navbar account menu', () => {
+    test('desktop: the account area opens an account dropdown without navigating', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await loginAsMember(page);
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        // `count()` tidak auto-wait: tunggu navbar ter-hydrate dulu, kalau tidak
+        // deteksi varian membaca 0 dan test salah jalur (ambil markup bangjeff).
+        await page
+            .locator('.public-navbar__account-menu--compact, .public-navbar__account-trigger')
+            .first()
+            .waitFor({ state: 'visible', timeout: 15_000 });
+
+        // Halaman order memakai wrapper `public-app--order-bangjeff` (bukan theme marker),
+        // jadi deteksi varian navbar dari markup yang benar-benar dirender: pill ringkas
+        // `.public-navbar__account-menu--compact` hanya ada di theme modern non-bangjeff.
+        const isCompactVariant =
+            (await page.locator('.public-navbar__account-menu--compact').count()) > 0;
+
+        if (!isCompactVariant) {
+            // Bangjeff: avatar trigger di top bar, dropdown dibuka via klik.
+            const trigger = page.locator('.public-navbar__account-trigger').first();
+            await expect(trigger).toBeVisible();
+            await expect(page.locator('.public-navbar__account-dropdown')).toHaveCount(0);
+
+            await trigger.click();
+            const dropdown = page.locator('.public-navbar__account-dropdown').first();
+            await expect(dropdown).toBeVisible();
+            await expect(dropdown).toContainText('Keluar');
+            expect(await dropdown.locator('.public-navbar__account-link').count()).toBeGreaterThanOrEqual(5);
+            return;
+        }
+
+        const menu = page.locator('.public-navbar__account-menu--compact');
+        await expect(menu).toBeVisible();
+
+        const trigger = menu.locator('.public-navbar__compact-account');
+        const dropdown = menu.locator('.public-navbar__account-dropdown');
+
+        await expect(trigger).toContainText('e2e-member');
+        await expect(dropdown).toBeHidden();
+
+        // Hover membuka dropdown (bukan navigasi / refresh).
+        await trigger.hover();
+        await expect(dropdown).toBeVisible();
+        await expect(dropdown).toContainText('Telah masuk sebagai');
+        await expect(dropdown).toContainText('E2E Member');
+        await expect(dropdown).toContainText('Keluar');
+        expect(await dropdown.locator('.public-navbar__account-link').count()).toBeGreaterThanOrEqual(5);
+
+        // Klik trigger hanya toggle; URL tidak berubah.
+        await trigger.click();
+        await page.waitForTimeout(600);
+        expect(page.url()).toContain('/id/e2e-game');
+
+        // Item di dalam dropdown tetap navigasi normal.
+        await dropdown.locator('.public-navbar__account-link', { hasText: 'Dashboard' }).click();
+        await page.waitForURL('**/id/dashboard');
+    });
+});

@@ -586,6 +586,62 @@
 .public-app--istanatopup .public-navbar__compact-account:hover {
     color: var(--ist-text);
 }
+
+/* ---------- Dropdown akun compact (struktur navbar legacy, gaya istana) ---------- */
+.public-app--istanatopup .public-navbar__account-menu--compact {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__compact-account {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__compact-chevron {
+    transition: transform 170ms ease;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact.is-open .public-navbar__compact-chevron {
+    transform: rotate(180deg);
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__account-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    width: min(288px, calc(100vw - 24px));
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--ist-border);
+    background: var(--ist-surface-alt);
+    box-shadow: 0 20px 34px rgba(0, 0, 0, 0.45);
+    display: grid;
+    gap: 2px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 170ms ease, transform 170ms ease, visibility 170ms ease;
+    z-index: 46;
+}
+/* Jembatan hover 12px: pointer boleh menyeberang gap tanpa menutup panel. */
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__account-dropdown::before {
+    content: "";
+    position: absolute;
+    top: -12px;
+    left: 0;
+    right: 0;
+    height: 12px;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact:hover .public-navbar__account-dropdown,
+.public-app--istanatopup .public-navbar__account-menu--compact:focus-within .public-navbar__account-dropdown,
+.public-app--istanatopup .public-navbar__account-menu--compact.is-open .public-navbar__account-dropdown {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
+}
 .public-app--istanatopup .public-brand--storefront .public-brand__logo {
     border-radius: 10px;
 }

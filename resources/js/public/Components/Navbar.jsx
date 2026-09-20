@@ -619,14 +619,52 @@ export default function Navbar() {
                         <div className="public-navbar__bottom-actions">
                             {authUser ? (
                                 !isBangjeffTheme ? (
-                                    <Link href="/id/dashboard" className="public-navbar__compact-account public-navbar__compact-account--storefront">
-                                        <span className="public-navbar__compact-account-main">
-                                            <span className="public-account-pill__icon">{iconFor('user')}</span>
-                                            <span>{authUser.username}</span>
-                                            <span className="public-navbar__compact-chevron">{iconFor('chevron')}</span>
-                                        </span>
-                                        <small>{formatCurrency(authUser.balance)}</small>
-                                    </Link>
+                                    <div
+                                        ref={accountMenuRef}
+                                        className={`public-navbar__account-menu public-navbar__account-menu--compact ${accountMenuOpen ? 'is-open' : ''}`}
+                                    >
+                                        <button
+                                            type="button"
+                                            className="public-navbar__compact-account public-navbar__compact-account--storefront"
+                                            aria-haspopup="menu"
+                                            aria-expanded={accountMenuOpen}
+                                            onClick={() => setAccountMenuOpen((current) => !current)}
+                                        >
+                                            <span className="public-navbar__compact-account-main">
+                                                <span className="public-account-pill__icon">{iconFor('user')}</span>
+                                                <span>{authUser.username}</span>
+                                                <span className="public-navbar__compact-chevron">{iconFor('chevron')}</span>
+                                            </span>
+                                            <small>{formatCurrency(authUser.balance)}</small>
+                                        </button>
+                                        <div className="public-navbar__account-dropdown public-navbar__account-dropdown--compact" role="menu" aria-label="Menu akun">
+                                            <div className="public-navbar__account-copy">
+                                                <small>Telah masuk sebagai</small>
+                                                <strong>{displayName}</strong>
+                                            </div>
+                                            <div className="public-navbar__account-balance">
+                                                <span className="public-navbar__account-balance-dot" aria-hidden="true" />
+                                                <strong>{formatCurrency(authUser.balance)}</strong>
+                                                <small>Saldo</small>
+                                            </div>
+                                            {accountLinks.map((item) => (
+                                                <Link
+                                                    key={item.href}
+                                                    href={item.href}
+                                                    role="menuitem"
+                                                    className={`public-navbar__account-link ${isActive(item.href) ? 'is-active' : ''}`}
+                                                    onClick={() => setAccountMenuOpen(false)}
+                                                >
+                                                    <span className="public-navbar__account-link-icon">{iconFor(item.icon)}</span>
+                                                    <span>{item.label}</span>
+                                                </Link>
+                                            ))}
+                                            <button type="button" className="public-navbar__account-link public-navbar__account-link--danger" role="menuitem" onClick={handleLogout}>
+                                                <span className="public-navbar__account-link-icon">{iconFor('logout')}</span>
+                                                <span>Keluar</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 ) : null
                             ) : (
                                 <>
