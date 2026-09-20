@@ -118,7 +118,9 @@ export default function Deposit({ meta, deposit }) {
 
     const estimatedAdminFee = estimateAdminFee(amount, selectedMethod);
     const feeAmount = quote ? Number(quote.admin_fee || 0) : estimatedAdminFee;
-    const gatewayFee = quote ? Number(quote.gateway_fee || 0) : 0;
+    // Total the customer pays == nominal + our admin fee. The gateway's own customer fee is
+    // absorbed by the store (same convention as the order checkout), so it is not a second
+    // charge here. The server quote stays authoritative to avoid duplicating the formula.
     const totalAmount = quote ? Number(quote.total_amount || 0) : amount + feeAmount;
 
     const isReadyToSubmit = Boolean(
@@ -252,12 +254,6 @@ export default function Deposit({ meta, deposit }) {
                                             <span>Biaya</span>
                                             <strong>{formatRupiah(feeAmount)}</strong>
                                         </div>
-                                        {gatewayFee > 0 ? (
-                                            <div className="public-deposit-summary__row" data-role="gateway-fee">
-                                                <span>Biaya Payment Gateway</span>
-                                                <strong>{formatRupiah(gatewayFee)}</strong>
-                                            </div>
-                                        ) : null}
                                         <div className="public-deposit-summary__row is-total">
                                             <span>Total Pembayaran</span>
                                             <strong data-role="deposit-total">

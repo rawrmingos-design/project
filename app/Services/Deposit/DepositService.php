@@ -237,6 +237,7 @@ class DepositService
                 'amount' => $netAmount,
                 'fee' => $feeAmount,
                 'gateway_fee' => $pricing['gateway_fee'],
+                'gateway_amount' => $grossAmount,
                 'total_amount' => $totalAmount,
                 'gross_amount' => $grossAmount,
                 'pay_url' => $result['pay_url'] ?? null,

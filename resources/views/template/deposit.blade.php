@@ -134,10 +134,6 @@
                         <span>Biaya</span>
                         <strong id="summary_fee">Rp 0</strong>
                     </div>
-                    <div class="public-deposit-summary__row" id="summary_gateway_fee_row" hidden>
-                        <span>Biaya Payment Gateway</span>
-                        <strong id="summary_gateway_fee">Rp 0</strong>
-                    </div>
                     <div class="public-deposit-summary__row is-total">
                         <span>Total Pembayaran</span>
                         <strong id="summary_total">Rp 0</strong>
@@ -207,8 +203,6 @@
         const summaryNominal = document.getElementById('summary_nominal');
         const summaryFee = document.getElementById('summary_fee');
         const summaryTotal = document.getElementById('summary_total');
-        const summaryGatewayFeeRow = document.getElementById('summary_gateway_fee_row');
-        const summaryGatewayFee = document.getElementById('summary_gateway_fee');
 
         function toRupiah(value) {
             const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -299,7 +293,8 @@
                 && Number(activeQuote.net_amount) === amount
                 && String(activeQuote.method || '') === String(selectedCard?.dataset.method || '');
             const fee = quoteMatchesSelection ? Number(activeQuote.admin_fee || 0) : estimatedFee;
-            const gatewayFee = quoteMatchesSelection ? Number(activeQuote.gateway_fee || 0) : 0;
+            // Total == nominal + admin fee. The gateway's own customer fee is absorbed by the
+            // store (same convention as the order checkout), so it is never a second charge.
             const total = quoteMatchesSelection
                 ? Number(activeQuote.total_amount || 0)
                 : amount + fee;
@@ -307,10 +302,6 @@
 
             if (summaryNominal) summaryNominal.textContent = toRupiah(amount);
             if (summaryFee) summaryFee.textContent = toRupiah(fee);
-            if (summaryGatewayFeeRow) {
-                summaryGatewayFeeRow.hidden = gatewayFee <= 0;
-                if (summaryGatewayFee) summaryGatewayFee.textContent = toRupiah(gatewayFee);
-            }
             if (summaryTotal) summaryTotal.textContent = toRupiah(total);
             if (phonePaymentInput) phonePaymentInput.value = phoneValue;
 

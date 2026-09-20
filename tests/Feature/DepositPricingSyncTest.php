@@ -15,16 +15,17 @@ use Tests\TestCase;
 
 /**
  * Deposit pricing must be consistent between what the form promises and what the
- * customer is actually charged.
+ * customer is actually charged — and it must follow the SAME convention as the order
+ * checkout, so the two flows cannot drift apart.
  *
- * Real bug (staging, QRIS via Tripay): the form showed Rp 50.450 (nominal 50.000 +
- * admin fee 450) while Tripay charged Rp 51.554. Tripay adds its own customer fee
- * (flat 750 + 0.70%) ON TOP of the amount we send, so the amount sent to the gateway
- * is not the amount the customer pays. The order flow already handles this via
- * GatewayPricingService::gatewayCustomerFee(); the deposit flow did not.
+ * Real bug (staging, QRIS via Tripay): the form showed Rp 50.450 (nominal 50.000 + admin
+ * fee 450) while Tripay charged Rp 51.554, because Tripay adds its own customer fee
+ * (flat 750 + 0.70%) ON TOP of the amount we ask it to collect.
  *
- * Evidence (tripay transaction detail for DP19051420973851):
- *   amount=51554, amount_received=50450, fee_customer=1104
+ * Convention (matching OrderController + GatewayPricingService):
+ *   - the customer pays exactly `nominal + admin fee`
+ *   - the request sent to Tripay is REDUCED by the gateway fee so that lands on that total
+ *   - the gateway's own fee is absorbed by the store, never shown as a second charge
  */
 class DepositPricingSyncTest extends TestCase
 {
@@ -35,11 +36,8 @@ class DepositPricingSyncTest extends TestCase
     /** ceil(50000 * 0.70%) + 100 = 350 + 100 */
     private const ADMIN_FEE = 450;
 
-    /** 50000 + 450 — what we ask the gateway to collect for the merchant */
-    private const GATEWAY_AMOUNT = 50450;
-
-    /** Tripay QRIS customer fee for 50.450: 750 flat + 0.70% */
-    private const GATEWAY_FEE = 1104;
+    /** What the customer pays and the invoice displays: nominal + admin fee. */
+    private const TOTAL_AMOUNT = 50450;
 
     protected function setUp(): void
     {
@@ -84,8 +82,9 @@ class DepositPricingSyncTest extends TestCase
     }
 
     /**
-     * Tripay adds the customer fee on top of the requested amount. The fake mirrors
-     * the real behaviour we observed: amount = requested + fee_customer.
+     * Tripay adds the customer fee on top of the requested amount, exactly like the real
+     * gateway (verified: requested 50.450 -> amount 51.554, fee_customer 1.104). The fake
+     * mirrors that so a wrong request amount cannot silently pass.
      */
     private function fakeGateways(): void
     {
@@ -107,6 +106,7 @@ class DepositPricingSyncTest extends TestCase
             {
                 return [
                     'success' => true,
+                    // The gateway bills its own fee on top of what we request.
                     'amount' => (int) $jumlah + $this->customerFeeFor((int) $jumlah),
                     'no_pembayaran' => 'QR-' . $idOrder,
                     'payment_code' => null,
@@ -120,7 +120,7 @@ class DepositPricingSyncTest extends TestCase
         });
     }
 
-    public function test_the_quote_endpoint_returns_a_gateway_inclusive_total(): void
+    public function test_the_quote_returns_the_amount_the_customer_pays(): void
     {
         $this->fakeGateways();
         $user = User::factory()->create(['role' => 'Member']);
@@ -136,12 +136,43 @@ class DepositPricingSyncTest extends TestCase
 
         $this->assertSame(self::NET_AMOUNT, $data['net_amount']);
         $this->assertSame(self::ADMIN_FEE, $data['admin_fee']);
-        $this->assertSame(self::GATEWAY_AMOUNT, $data['gateway_amount']);
-        $this->assertSame(self::GATEWAY_FEE, $data['gateway_fee']);
 
-        // The whole point: the displayed total is what the customer really pays.
-        $this->assertSame(self::GATEWAY_AMOUNT + self::GATEWAY_FEE, $data['total_amount']);
-        $this->assertSame(51554, $data['total_amount']);
+        // The customer pays nominal + admin fee — the same rule as the order checkout.
+        $this->assertSame(self::TOTAL_AMOUNT, $data['total_amount']);
+        $this->assertSame(
+            $data['net_amount'] + $data['admin_fee'],
+            $data['total_amount'],
+            'displayed total must equal nominal + admin fee',
+        );
+
+        // We must ask the gateway for LESS than the total, so that its own fee lands on it.
+        $this->assertLessThan($data['total_amount'], $data['gateway_amount']);
+        $this->assertGreaterThan(0, $data['gateway_fee']);
+
+        // ...and the absorbed fee must be exactly the gap.
+        $this->assertSame($data['total_amount'] - $data['gateway_amount'], $data['gateway_fee']);
+    }
+
+    public function test_the_gateway_is_asked_for_an_amount_that_lands_on_the_displayed_total(): void
+    {
+        $this->fakeGateways();
+        $user = User::factory()->create(['role' => 'Member']);
+
+        $result = app(DepositService::class)->create($user, [
+            'jumlah' => self::NET_AMOUNT,
+            'metode' => 'QRIS',
+            'source' => 'web',
+        ]);
+
+        $this->assertTrue($result['success'], 'deposit creation failed');
+
+        // The fake gateway charges request + its own fee. That final charge is what the
+        // customer is billed, and it must be exactly the total we displayed.
+        $this->assertSame(self::TOTAL_AMOUNT, (int) $result['total_amount']);
+        $this->assertSame(
+            (int) $result['gateway_amount'] + (int) $result['gateway_fee'],
+            (int) $result['total_amount'],
+        );
     }
 
     public function test_the_json_response_exposes_the_total_the_customer_pays(): void
@@ -149,9 +180,7 @@ class DepositPricingSyncTest extends TestCase
         $this->fakeGateways();
         $user = User::factory()->create(['role' => 'Member']);
 
-        // The reseller deposit modal renders `total_amount` as "Total Payment"; if the
-        // endpoint only returned the pre-gateway amount, that screen would understate
-        // the charge in exactly the same way as the old deposit form.
+        // The reseller deposit modal renders `total_amount` as "Total Payment".
         $response = $this->actingAs($user)->postJson(route('deposit.store'), [
             'jumlah' => self::NET_AMOUNT,
             'metode' => 'QRIS',
@@ -162,9 +191,8 @@ class DepositPricingSyncTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('amount', self::NET_AMOUNT)
             ->assertJsonPath('fee', self::ADMIN_FEE)
-            ->assertJsonPath('gateway_fee', self::GATEWAY_FEE)
-            ->assertJsonPath('total_amount', 51554)
-            ->assertJsonPath('gross_amount', self::GATEWAY_AMOUNT);
+            ->assertJsonPath('total_amount', self::TOTAL_AMOUNT)
+            ->assertJsonPath('gross_amount', self::TOTAL_AMOUNT - 1096);
     }
 
     public function test_the_quote_endpoint_rejects_unknown_payment_methods(): void
@@ -178,10 +206,10 @@ class DepositPricingSyncTest extends TestCase
     }
 
     /**
-     * Duitku collects exactly what we ask for, so no gateway fee may be added —
-     * otherwise we'd overcharge by inventing a fee that the gateway never takes.
+     * Duitku collects exactly what we ask for, so we must request the full total — adding a
+     * gateway fee term would invent a charge the gateway never takes.
      */
-    public function test_duitku_deposits_are_not_charged_a_gateway_fee(): void
+    public function test_duitku_deposits_carry_no_gateway_fee(): void
     {
         $this->fakeGateways();
         Method::create([
@@ -211,14 +239,17 @@ class DepositPricingSyncTest extends TestCase
         $this->assertSame(750, $data['admin_fee']);   // ceil(50000 * 1.5%)
         $this->assertSame(0, $data['gateway_fee']);
         $this->assertSame(50750, $data['total_amount']);
+
+        // No fee to reverse: the gateway is asked for the full displayed total.
+        $this->assertSame(50750, $data['gateway_amount']);
     }
 
     /**
-     * The invoice is what the customer actually pays against, so its total must equal
-     * the sum of the rows shown on screen. Before the fix the rows said 50.450 while
-     * the customer was charged 51.554.
+     * The invoice is what the customer pays against, and it must show exactly ONE fee row
+     * ("Biaya") like the order invoice — showing the absorbed gateway fee as a second line
+     * double-counts it and is what made the previous screen confusing.
      */
-    public function test_the_invoice_rows_add_up_to_the_gateway_total(): void
+    public function test_the_invoice_shows_one_fee_row_that_adds_up_to_the_total(): void
     {
         $this->fakeGateways();
         DB::table('setting_webs')->where('id', 1)->update(['public_theme' => 'istanatopup']);
@@ -239,15 +270,15 @@ class DepositPricingSyncTest extends TestCase
                 ->component('Public/DepositInvoice')
                 ->where('invoice.amount.subtotal', self::NET_AMOUNT)
                 ->where('invoice.amount.adminFee', self::ADMIN_FEE)
-                ->where('invoice.amount.gatewayFee', self::GATEWAY_FEE)
-                ->where('invoice.amount.fee', self::ADMIN_FEE + self::GATEWAY_FEE)
-                ->where('invoice.amount.total', 51554)
+                ->where('invoice.amount.fee', self::ADMIN_FEE)
+                ->where('invoice.amount.total', self::TOTAL_AMOUNT)
             );
 
         $amount = $response->viewData('page')['props']['invoice']['amount'];
 
-        // The rows a customer reads must sum to the total they are charged.
+        // The rows the customer reads must sum to the total they are charged.
         $this->assertSame($amount['total'], $amount['subtotal'] + $amount['fee']);
+        $this->assertSame(self::ADMIN_FEE, $amount['fee']);
     }
 
     public function test_deposit_result_reports_the_amount_the_customer_actually_pays(): void
@@ -269,14 +300,12 @@ class DepositPricingSyncTest extends TestCase
         // Balance credited is still the nominal the user asked for.
         $this->assertSame(self::NET_AMOUNT, (int) $deposit->jumlah);
 
-        // The invoice total is the gateway-inclusive amount, not `net + admin fee`.
-        $this->assertSame(51554, (int) $payment->harga);
-        $this->assertNotSame(self::GATEWAY_AMOUNT, (int) $payment->harga);
+        // The invoice total is what the customer pays: nominal + admin fee.
+        $this->assertSame(self::TOTAL_AMOUNT, (int) $payment->harga);
 
-        // ...and the service result must agree with the invoice, otherwise the form
-        // and the invoice disagree again.
+        // ...and the service result must agree with the invoice, otherwise the form and the
+        // invoice disagree again.
         $this->assertSame((int) $payment->harga, (int) $result['total_amount']);
         $this->assertSame(self::ADMIN_FEE, (int) $result['fee']);
-        $this->assertSame(self::GATEWAY_FEE, (int) $result['gateway_fee']);
     }
 }

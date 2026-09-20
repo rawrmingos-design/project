@@ -99,14 +99,22 @@ class DepositInvoicePageController extends Controller
         // Deposits created before this fix have no breakdown, so they keep the old
         // subtraction (which is still correct for Duitku/Tokopay and at least truthful
         // about the total for legacy Tripay rows).
+        //
+        // The customer sees ONE fee row ("Biaya"), exactly like the order invoice: our admin
+        // fee. The gateway's own fee is absorbed by the store and must never be added as a
+        // second visible line — showing it would double-count, because the customer already
+        // pays it inside the single charge.
+        //
+        // Derive the visible fee from the two stored totals so the row the customer reads
+        // always reconciles: Harga + Biaya == Total Pembayaran, for current and legacy rows.
         $storedPricing = data_get($deposit->payment_metadata, 'pricing');
-        $adminFee = is_array($storedPricing) && isset($storedPricing['admin_fee'])
-            ? max(0, (int) $storedPricing['admin_fee'])
-            : max(0, $total - $subtotal);
+        $adminFee = max(0, $total - $subtotal);
+        $fee = $adminFee;
+
+        // Absorbed gateway fee: accounting/reconciliation only, never rendered as a charge.
         $gatewayFee = is_array($storedPricing) && isset($storedPricing['gateway_fee'])
             ? max(0, (int) $storedPricing['gateway_fee'])
             : 0;
-        $fee = $adminFee + $gatewayFee;
 
         [$hero, $intro] = $this->resolveHeroAndIntro($deposit, $paymentStatus);
 

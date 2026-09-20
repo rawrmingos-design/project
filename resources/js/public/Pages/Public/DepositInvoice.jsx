@@ -534,12 +534,6 @@ export default function DepositInvoice({ invoice, meta }) {
                                                 <dt>Biaya</dt>
                                                 <dd>{formatCurrency(invoice?.amount?.fee)}</dd>
                                             </div>
-                                            {Number(invoice?.amount?.gatewayFee || 0) > 0 ? (
-                                                <div className="invoice-summary__row" data-role="gateway-fee">
-                                                    <dt>Biaya Payment Gateway</dt>
-                                                    <dd>{formatCurrency(invoice?.amount?.gatewayFee)}</dd>
-                                                </div>
-                                            ) : null}
                                         </dl>
                                     </div>
                                 </div>
