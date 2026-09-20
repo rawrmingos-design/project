@@ -5,14 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\SettingWeb;
 use App\Models\User;
 use App\Http\Controllers\Concerns\HandlesLoginRedirect;
+use App\Support\PendingGoogleSignup;
+use App\Support\WhatsappNumberNormalizer;
+use App\Support\PublicThemeRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class GoogleAuthController extends Controller
 {
@@ -82,14 +87,21 @@ class GoogleAuthController extends Controller
         }
 
         if (! $user) {
-            $user = $this->createGoogleUser(
-                sub: $sub,
-                email: $email,
-                name: (string) ($tokenInfo['name'] ?? ''),
-                picture: (string) ($tokenInfo['picture'] ?? ''),
-                hasGoogleColumn: $hasGoogleColumn,
-                hasGoogleAvatarColumn: $hasGoogleAvatarColumn,
-            );
+            // Two-step sign-up: Google never returns a phone number, but `users.no_wa`
+            // is NOT NULL and is the buyer identity used by the order API + WhatsApp
+            // flows. Park the verified profile in the session and collect the number
+            // before creating the row (same requirement as the normal sign-up form).
+            PendingGoogleSignup::put($request, [
+                'sub' => $sub,
+                'email' => $email,
+                'name' => (string) ($tokenInfo['name'] ?? ''),
+                'picture' => (string) ($tokenInfo['picture'] ?? ''),
+                'google_id_column' => $hasGoogleColumn,
+                'google_avatar_column' => $hasGoogleAvatarColumn,
+                'redirect' => $request->session()->get(self::LOGIN_REDIRECT_SESSION_KEY),
+            ]);
+
+            return redirect()->to(route('auth.google.complete'));
         } else {
             $updates = [];
 
@@ -119,11 +131,132 @@ class GoogleAuthController extends Controller
         return $this->redirectAfterLogin($request);
     }
 
+    /**
+     * Step 2 of the Google sign-up: the visitor supplies the WhatsApp number that
+     * Google cannot provide, then the account is created and activated.
+     */
+    public function showComplete(Request $request)
+    {
+        $pending = PendingGoogleSignup::get($request);
+
+        if ($pending === null) {
+            return redirect()->to(route('login'));
+        }
+
+        $props = [
+            'name' => $pending['name'],
+            'email' => $pending['email'],
+            'avatar' => $pending['picture'],
+            'meta' => [
+                'title' => 'Lengkapi Akun - ' . (string) SettingWeb::query()->value('judul_web'),
+            ],
+        ];
+
+        if (SettingWeb::query()->value('public_theme') !== PublicThemeRegistry::DEFAULT) {
+            return Inertia::render('Public/Auth/CompleteGoogleSignup', $props);
+        }
+
+        return view('template.complete-google-signup', $props);
+    }
+
+    public function complete(Request $request): RedirectResponse
+    {
+        $pending = PendingGoogleSignup::get($request);
+
+        if ($pending === null) {
+            return redirect()->to(route('login'));
+        }
+
+        $validator = Validator::make($request->all(), [
+            'no_wa' => ['required', 'string', 'max:30', function (string $attribute, mixed $value, \Closure $fail): void {
+                $normalized = WhatsappNumberNormalizer::normalize((string) $value);
+
+                if ($normalized === null) {
+                    $fail('Nomor WhatsApp harus berupa nomor Indonesia yang valid.');
+                    return;
+                }
+
+                if (User::query()->where('no_wa', $normalized)->exists()) {
+                    $fail('Nomor WhatsApp telah digunakan.');
+                }
+            }],
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $normalizedWhatsapp = WhatsappNumberNormalizer::normalize((string) $request->input('no_wa'));
+
+        if ($normalizedWhatsapp === null) {
+            throw ValidationException::withMessages([
+                'no_wa' => 'Nomor WhatsApp harus berupa nomor Indonesia yang valid.',
+            ]);
+        }
+
+        // The Google identity may have been registered (or linked) while this visitor
+        // was completing the form — reuse that account instead of creating a duplicate.
+        $user = User::query()->where('google_id', $pending['sub'])->first();
+
+        if (! $user) {
+            $user = User::query()->whereRaw('LOWER(email) = ?', [$pending['email']])->first();
+        }
+
+        if ($user) {
+            $updates = [];
+
+            if (($pending['google_id_column'] ?? false) && blank($user->google_id)) {
+                $updates['google_id'] = $pending['sub'];
+            }
+
+            if (($pending['google_avatar_column'] ?? false) && filled($pending['picture'])) {
+                $updates['google_avatar'] = $pending['picture'];
+            }
+
+            if (blank($user->no_wa)) {
+                $updates['no_wa'] = $normalizedWhatsapp;
+            }
+
+            if ($updates !== []) {
+                $user->fill($updates);
+                $user->save();
+            }
+        } else {
+            $user = $this->createGoogleUser(
+                sub: $pending['sub'],
+                email: $pending['email'],
+                name: $pending['name'],
+                picture: $pending['picture'],
+                noWa: $normalizedWhatsapp,
+                hasGoogleColumn: (bool) ($pending['google_id_column'] ?? false),
+                hasGoogleAvatarColumn: (bool) ($pending['google_avatar_column'] ?? false),
+            );
+        }
+
+        PendingGoogleSignup::forget($request);
+
+        if ($user->role === 'Admin') {
+            throw ValidationException::withMessages([
+                'error' => ['Akun admin tidak bisa login melalui halaman ini.'],
+            ]);
+        }
+
+        if (filled($pending['redirect'] ?? null)) {
+            $request->session()->put(self::LOGIN_REDIRECT_SESSION_KEY, $pending['redirect']);
+        }
+
+        Auth::login($user, true);
+        $request->session()->regenerate();
+
+        return $this->redirectAfterLogin($request);
+    }
+
     private function createGoogleUser(
         string $sub,
         string $email,
         string $name,
         string $picture,
+        string $noWa,
         bool $hasGoogleColumn,
         bool $hasGoogleAvatarColumn,
     ): User {
@@ -135,9 +268,9 @@ class GoogleAuthController extends Controller
             'username' => $username,
             'password' => Hash::make(Str::random(40)),
             'email' => $email,
-            'api_key' => Str::random(32),
             'balance' => 0,
-            'no_wa' => null,
+            // Required by the schema (NOT NULL) and used as the buyer identity on orders.
+            'no_wa' => $noWa,
             'role' => 'Member',
             'referral_code' => $this->generateUniqueReferralCode(),
             'uplink' => null,

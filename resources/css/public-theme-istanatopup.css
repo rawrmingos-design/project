@@ -3248,3 +3248,50 @@
     white-space: normal;
     overflow-x: visible;
 }
+
+/* ==========================================================================
+   Step 2 of the Google sign-up (complete the WhatsApp number)
+   ========================================================================== */
+
+.public-auth-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 12px;
+    border: 1px solid #262626;
+    border-radius: 12px;
+    background: #1f1f1f;
+}
+
+.public-auth-profile__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.public-auth-profile__identity {
+    min-width: 0;
+}
+
+.public-auth-profile__identity strong {
+    display: block;
+    font-size: 14px;
+    color: #f5f5f5;
+}
+
+.public-auth-profile__identity span {
+    display: block;
+    font-size: 12px;
+    color: #9c9c9c;
+    overflow-wrap: anywhere;
+}
+
+.public-auth-hint {
+    margin: 8px 0 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #9c9c9c;
+}

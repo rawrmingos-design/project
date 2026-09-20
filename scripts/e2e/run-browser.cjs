@@ -142,6 +142,7 @@ switch (mode) {
             'tests/e2e/seo-boundaries.spec.js',
             'tests/e2e/storefront-navbar.spec.js',
             'tests/e2e/storefront-order-mobile-gutter.spec.js',
+            'tests/e2e/storefront-google-signup.spec.js',
         ]);
         break;
     case 'all':
@@ -156,6 +157,7 @@ switch (mode) {
             'tests/e2e/seo-boundaries.spec.js',
             'tests/e2e/storefront-navbar.spec.js',
             'tests/e2e/storefront-order-mobile-gutter.spec.js',
+            'tests/e2e/storefront-google-signup.spec.js',
         ]);
         break;
     default:
