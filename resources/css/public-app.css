@@ -2951,6 +2951,12 @@ textarea {
 
 .public-app--bangjeff .order-page--bangjeff {
     display: grid;
+    /* Implicit track is `auto` = max-content. At <=640px the hero meta row is
+       `white-space: nowrap` (~383px intrinsic), so the track could not shrink:
+       on 320-375px viewports the shell stayed 383px wide and the 16px right
+       gutter was pushed off-screen while the left one stayed — cards read as
+       flush/cut on the right. Pin the track so both gutters stay equal. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     overflow-x: clip;
 }

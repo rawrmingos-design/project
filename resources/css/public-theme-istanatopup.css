@@ -3229,3 +3229,22 @@
         padding-inline: 12px;
     }
 }
+
+/* ---------- Order page: hero chips wrap instead of scrolling ---------- */
+/* `.order-page--bangjeff` is a grid whose track is `auto` (max-content) and at
+   <=640px the hero meta row is `white-space: nowrap` (~383px intrinsic). That
+   combination kept the shell 383px wide on 320-375px viewports and pushed the
+   16px right gutter off-screen, so the Masukkan Data / Pilih Nominal / Pilih
+   Pembayaran / Detail Kontak / Kode Promo cards looked flush against the right
+   edge while the left gutter stayed (user report: "kurang space kanan kiri").
+   The grid track fix lives with the shared bangjeff layout in public-app.css;
+   here istana additionally wraps the hero chips so "Pembayaran Aman!" is not
+   clipped inside a scroll-x container with a hidden scrollbar. */
+.public-app--istanatopup.public-app--order-bangjeff .order-hero__meta--bangjeff {
+    /* Istana reads the hero as a static card, so let chips wrap onto a second
+       line rather than hiding "Pembayaran Aman!" inside a scroll-x container
+       with a hidden scrollbar (bangjeff keeps its horizontal scroll by design). */
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-x: visible;
+}
