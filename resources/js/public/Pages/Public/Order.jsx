@@ -3698,7 +3698,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
             </section>
 
-            <div className={`public-shell public-shell--order order-page__body order-page__body--bangjeff ${mobileCheckoutExpanded && isBangjeff ? 'order-page__body--bangjeff-checkout-expanded' : ''}`}>
+            <div className={`public-shell public-shell--order order-page__body order-page__body--bangjeff ${mobileCheckoutExpanded && isBangjeffOrderStyle ? 'order-page__body--bangjeff-checkout-expanded' : ''}`}>
                 <div className="order-mobile-tabs order-mobile-tabs--bangjeff" role="tablist" aria-orientation="horizontal">
                     <button
                         type="button"

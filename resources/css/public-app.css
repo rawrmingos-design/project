@@ -966,6 +966,16 @@ textarea {
     z-index: 46;
 }
 
+/* Jembatan hover: pointer yang menyeberang gap 11px tetap dihitung hover. */
+.public-app--bangjeff .public-navbar__submenu::before {
+    content: "";
+    position: absolute;
+    top: -14px;
+    left: 0;
+    right: 0;
+    height: 14px;
+}
+
 .public-app--bangjeff .public-navbar__item--has-menu:hover .public-navbar__submenu,
 .public-app--bangjeff .public-navbar__item--has-menu:focus-within .public-navbar__submenu {
     opacity: 1;
