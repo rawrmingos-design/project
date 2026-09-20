@@ -228,6 +228,7 @@ class GoogleAuthController extends Controller
                 name: $pending['name'],
                 picture: $pending['picture'],
                 noWa: $normalizedWhatsapp,
+                uplink: $this->resolveUplink($request),
                 hasGoogleColumn: (bool) ($pending['google_id_column'] ?? false),
                 hasGoogleAvatarColumn: (bool) ($pending['google_avatar_column'] ?? false),
             );
@@ -257,6 +258,7 @@ class GoogleAuthController extends Controller
         string $name,
         string $picture,
         string $noWa,
+        ?string $uplink,
         bool $hasGoogleColumn,
         bool $hasGoogleAvatarColumn,
     ): User {
@@ -273,7 +275,7 @@ class GoogleAuthController extends Controller
             'no_wa' => $noWa,
             'role' => 'Member',
             'referral_code' => $this->generateUniqueReferralCode(),
-            'uplink' => null,
+            'uplink' => $uplink,
         ];
 
         if ($hasGoogleColumn) {
@@ -285,6 +287,24 @@ class GoogleAuthController extends Controller
         }
 
         return User::query()->create($payload);
+    }
+
+    /**
+     * Resolve the referrer the same way the normal sign-up form does: an explicit
+     * `kode_referral` input, else the `referral_code` cookie set by TrackReferral.
+     * Dropping this would silently cost the affiliate the signup they drove.
+     */
+    private function resolveUplink(Request $request): ?string
+    {
+        $referralCode = $request->input('kode_referral') ?? $request->cookie('referral_code');
+
+        if (blank($referralCode)) {
+            return null;
+        }
+
+        return User::query()
+            ->where('referral_code', (string) $referralCode)
+            ->value('username');
     }
 
     private function generateUniqueUsername(string $name): string

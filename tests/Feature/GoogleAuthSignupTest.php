@@ -158,6 +158,42 @@ class GoogleAuthSignupTest extends TestCase
         $this->assertSame('628111111111', $existing->fresh()->no_wa);
     }
 
+    public function test_completing_the_google_signup_keeps_the_referral_cookie(): void
+    {
+        // The normal sign-up form resolves `uplink` from the `referral_code` cookie set
+        // by TrackReferral. Google sign-up must not silently drop the referrer, or the
+        // affiliate loses the commission for a signup they drove.
+        $referrer = User::query()->create([
+            'name' => 'Referrer',
+            'username' => 'referrer-01',
+            'password' => 'secret',
+            'email' => 'referrer@example.com',
+            'balance' => 0,
+            'no_wa' => '628111111111',
+            'role' => 'Member',
+            'referral_code' => 'REF-ABC123',
+        ]);
+
+        $this->withCookie('referral_code', 'REF-ABC123');
+        $this->fakeGoogleToken();
+        $this->post('/id/auth/google', ['credential' => 'fake-token']);
+        $this->post(route('auth.google.complete.post'), ['no_wa' => '081298765432']);
+
+        $user = User::query()->where('email', 'alvinfrista@gmail.com')->firstOrFail();
+        $this->assertSame($referrer->username, $user->uplink);
+    }
+
+    public function test_completing_the_google_signup_ignores_an_unknown_referral_code(): void
+    {
+        $this->withCookie('referral_code', 'REF-NOPE99');
+        $this->fakeGoogleToken();
+        $this->post('/id/auth/google', ['credential' => 'fake-token']);
+        $this->post(route('auth.google.complete.post'), ['no_wa' => '081298765432']);
+
+        $user = User::query()->where('email', 'alvinfrista@gmail.com')->firstOrFail();
+        $this->assertNull($user->uplink);
+    }
+
     public function test_completion_page_is_reachable_for_a_pending_google_signup(): void
     {
         $this->fakeGoogleToken();
