@@ -140,6 +140,7 @@ switch (mode) {
             'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
+            'tests/e2e/storefront-navbar.spec.js',
         ]);
         break;
     case 'all':
@@ -152,6 +153,7 @@ switch (mode) {
             'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
+            'tests/e2e/storefront-navbar.spec.js',
         ]);
         break;
     default:

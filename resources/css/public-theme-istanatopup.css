@@ -460,6 +460,104 @@
     font-weight: 700;
 }
 .public-app--istanatopup .public-navbar__text-link--storefront:hover { color: var(--ist-accent-soft); }
+
+/* ---------- Dropdown submenu desktop (parity dengan bangjeff) ---------- */
+.public-app--istanatopup .public-navbar__item--has-menu {
+    height: 48px;
+}
+.public-app--istanatopup .public-navbar__item--has-menu .public-navbar__link--has-menu {
+    height: 48px;
+}
+/* Mobile: dropdown tidak pernah tampil; children diakses lewat drawer. */
+.public-app--istanatopup .public-navbar__submenu {
+    display: none;
+}
+@media (min-width: 961px) {
+    .public-app--istanatopup .public-navbar__links--storefront {
+        overflow: visible;
+    }
+    .public-app--istanatopup .public-navbar__submenu {
+        position: absolute;
+        top: calc(100% + 10px);
+        left: -14px;
+        width: min(360px, calc(100vw - 24px));
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--ist-border);
+        background: var(--ist-surface-alt);
+        box-shadow: 0 20px 34px rgba(0, 0, 0, 0.45);
+        display: grid;
+        gap: 6px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition: opacity 170ms ease, transform 170ms ease, visibility 170ms ease;
+        z-index: 46;
+    }
+    /* Jembatan hover: pointer yang menyeberang dari link ke panel tetap
+       dihitung hover pada item (menutup gap 10px di antaranya). */
+    .public-app--istanatopup .public-navbar__submenu::before {
+        content: "";
+        position: absolute;
+        top: -12px;
+        left: 0;
+        right: 0;
+        height: 12px;
+    }
+    .public-app--istanatopup .public-navbar__item--has-menu:hover .public-navbar__submenu,
+    .public-app--istanatopup .public-navbar__item--has-menu:focus-within .public-navbar__submenu {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+    .public-app--istanatopup .public-navbar__submenu-link {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        color: var(--ist-text-soft);
+        transition: background-color 170ms ease, color 170ms ease;
+    }
+    .public-app--istanatopup .public-navbar__submenu-link:hover,
+    .public-app--istanatopup .public-navbar__submenu-link:focus-visible,
+    .public-app--istanatopup .public-navbar__submenu-link.is-active {
+        background: rgba(249, 115, 22, 0.12);
+        color: #fff;
+    }
+    .public-app--istanatopup .public-navbar__submenu-icon {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 20px;
+        margin-top: 2px;
+        color: var(--ist-accent-soft);
+    }
+    .public-app--istanatopup .public-navbar__submenu-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy strong {
+        color: var(--ist-text);
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy small {
+        color: var(--ist-muted);
+        font-size: 0.78rem;
+        font-weight: 500;
+        line-height: 1.42;
+        letter-spacing: 0;
+    }
+}
 @media (max-width: 960px) {
     .public-app--istanatopup .public-navbar__inner { width: min(calc(100% - 24px), 1280px); }
 }

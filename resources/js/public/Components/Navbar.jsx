@@ -579,7 +579,7 @@ export default function Navbar() {
                                 const hasChildren = Array.isArray(item.children) && item.children.length > 0;
                                 const parentActive = isActive(item.href) || (hasChildren && item.children.some((child) => isActive(child.href)));
 
-                                if (hasChildren && isBangjeffTheme) {
+                                if (hasChildren && isStorefrontModernTheme) {
                                     return (
                                         <div key={item.label} className={`public-navbar__item public-navbar__item--has-menu ${parentActive ? 'is-active' : ''}`}>
                                             <Link href={item.href} className={`public-navbar__link public-navbar__link--has-menu ${parentActive ? 'is-active' : ''}`}>
