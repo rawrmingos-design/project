@@ -211,6 +211,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->middleware('not-reseller:reseller.deposits')->name('reload');
         Route::get('/deposit',                                                      PublicDepositPageController::class)->middleware('non-affiliate.only')->name('deposit');
         Route::post('/deposit',                                                     [DepositController::class, 'store'])->middleware(['non-affiliate.only', 'throttle:public-deposit-submit'])->name('deposit.store');
+        Route::post('/deposit/quote',                                               [DepositController::class, 'quote'])->middleware(['non-affiliate.only', 'throttle:public-order-price'])->name('deposit.quote');
         Route::get('/deposit/{order}',                                               PublicDepositInvoicePageController::class)->name('deposit.invoice');
         Route::get('/dashboard/history',                                             PublicTransactionHistoryPageController::class)->middleware('not-reseller')->name('riwayat');
         Route::get('/affiliate',                                                     PublicAffiliatePageController::class)->name('affiliate');

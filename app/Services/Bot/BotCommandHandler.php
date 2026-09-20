@@ -444,7 +444,7 @@ class BotCommandHandler
             '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
             '',
             'Order ID: `' . $this->escapeMarkdownCode((string) $result['order_id']) . '`',
-            'Jumlah: Rp ' . number_format((int) ($result['gross_amount'] ?? $amount), 0, ',', '.'),
+            'Jumlah: Rp ' . number_format((int) ($result['total_amount'] ?? $result['gross_amount'] ?? $amount), 0, ',', '.'),
         ];
 
         if ($paymentCode !== '' && $qrLink === '' && $qrPayload === '') {

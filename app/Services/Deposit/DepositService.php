@@ -22,7 +22,13 @@ class DepositService
     public function __construct(
         private readonly ?TriPayController $triPayController = null,
         private readonly ?TokoPayController $tokoPayController = null,
+        private readonly ?DepositPricingService $depositPricingService = null,
     ) {
+    }
+
+    private function pricingService(): DepositPricingService
+    {
+        return $this->depositPricingService ?? app(DepositPricingService::class);
     }
 
     /**
@@ -119,10 +125,9 @@ class DepositService
                 return $this->failure('Transaksi deposit serupa sudah dibuat. Silakan cek invoice deposit terbaru kamu.');
             }
 
-            $feePercent = (float) ($method->fee_percent ?? 0);
-            $fixedFee = (float) ($method->fix_fee ?? 0);
-            $feeAmount = (int) ceil($netAmount * ($feePercent / 100)) + (int) ceil($fixedFee);
-            $grossAmount = $netAmount + $feeAmount;
+            $pricing = $this->pricingService()->quote($netAmount, $method);
+            $feeAmount = $pricing['admin_fee'];
+            $grossAmount = $pricing['gateway_amount'];
             $gateway = strtolower(trim((string) ($api->deposit_jalur ?? 'duitku')));
             $merchantOrderId = $this->generateUniqueDepositOrderId();
             $isReseller = strtolower(trim((string) $user->role)) === 'reseller';
@@ -149,12 +154,32 @@ class DepositService
                 return $this->failure('Gagal membuat invoice via ' . ucfirst($gateway));
             }
 
+            // The gateway response is authoritative: Tripay bills its own customer fee on
+            // top of the amount we requested. Showing our estimate instead of what the
+            // gateway actually charges is exactly the mismatch this fixes.
+            $pricing = $this->pricingService()->reconcile(
+                $pricing,
+                isset($result['amount']) ? (int) $result['amount'] : null
+            );
+            $feeAmount = $pricing['admin_fee'];
+            $grossAmount = $pricing['gateway_amount'];
+            $totalAmount = $pricing['total_amount'];
+
             $expiredAt = $this->resolvePaymentExpiryAt($result, $gateway);
             $metadata = array_merge([
                 'source' => $source,
                 'external_user_id' => $externalUserId,
                 'external_message_id' => $externalMessageId,
                 'gateway' => $gateway,
+                // Exact price breakdown, so the invoice never has to re-derive it (and
+                // can never disagree with what the gateway charged).
+                'pricing' => [
+                    'net_amount' => $pricing['net_amount'],
+                    'admin_fee' => $pricing['admin_fee'],
+                    'gateway_amount' => $pricing['gateway_amount'],
+                    'gateway_fee' => $pricing['gateway_fee'],
+                    'total_amount' => $pricing['total_amount'],
+                ],
                 'payment_code' => $result['payment_code'] ?? null,
                 'qr_link' => $result['qr_link'] ?? null,
                 'qr_payload' => $result['qr_payload'] ?? null,
@@ -162,7 +187,7 @@ class DepositService
                 'pay_url' => $result['pay_url'] ?? null,
             ], is_array($input['metadata'] ?? null) ? $input['metadata'] : []);
 
-            $deposit = DB::transaction(function () use ($user, $paymentMethod, $result, $netAmount, $normalizedPhone, $gateway, $expiredAt, $merchantOrderId, $idempotencyKey, $metadata): Deposit {
+            $deposit = DB::transaction(function () use ($user, $paymentMethod, $result, $netAmount, $normalizedPhone, $gateway, $expiredAt, $merchantOrderId, $idempotencyKey, $metadata, $totalAmount): Deposit {
                 if ($idempotencyKey !== null) {
                     $existing = Deposit::query()->where('idempotency_key', $idempotencyKey)->lockForUpdate()->first();
                     if ($existing) {
@@ -188,7 +213,7 @@ class DepositService
                 $pembayaran = new Pembayaran();
                 $pembayaran->tenant_id = $user->tenant_id;
                 $pembayaran->order_id = $merchantOrderId;
-                $pembayaran->harga = $result['amount'];
+                $pembayaran->harga = $totalAmount;
                 $pembayaran->no_pembayaran = $deposit->no_pembayaran;
                 $pembayaran->no_pembeli = $normalizedPhone ?: '-';
                 $pembayaran->status = 'Belum Lunas';
@@ -211,6 +236,8 @@ class DepositService
                 'order_id' => $deposit->order_id,
                 'amount' => $netAmount,
                 'fee' => $feeAmount,
+                'gateway_fee' => $pricing['gateway_fee'],
+                'total_amount' => $totalAmount,
                 'gross_amount' => $grossAmount,
                 'pay_url' => $result['pay_url'] ?? null,
                 'checkout_url' => $result['checkout_url'] ?? null,

@@ -134,6 +134,10 @@
                         <span>Biaya</span>
                         <strong id="summary_fee">Rp 0</strong>
                     </div>
+                    <div class="public-deposit-summary__row" id="summary_gateway_fee_row" hidden>
+                        <span>Biaya Payment Gateway</span>
+                        <strong id="summary_gateway_fee">Rp 0</strong>
+                    </div>
                     <div class="public-deposit-summary__row is-total">
                         <span>Total Pembayaran</span>
                         <strong id="summary_total">Rp 0</strong>
@@ -203,6 +207,8 @@
         const summaryNominal = document.getElementById('summary_nominal');
         const summaryFee = document.getElementById('summary_fee');
         const summaryTotal = document.getElementById('summary_total');
+        const summaryGatewayFeeRow = document.getElementById('summary_gateway_fee_row');
+        const summaryGatewayFee = document.getElementById('summary_gateway_fee');
 
         function toRupiah(value) {
             const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -214,6 +220,58 @@
                 return 0;
             }
             return Math.ceil((amount * (percent / 100)) + fixedFee);
+        }
+
+        // Server-side pricing is authoritative: Tripay adds its own customer fee on top
+        // of the amount we request, so the browser cannot derive the payable total from
+        // fee_percent/fix_fee alone (that mismatch is what showed Rp 50.450 while the
+        // customer was charged Rp 51.554). The quote endpoint is debounced per change.
+        let quoteToken = 0;
+        let quoteTimer = null;
+        let activeQuote = null;
+
+        function csrfToken() {
+            return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        }
+
+        function requestQuote(amount, methodCode) {
+            quoteToken += 1;
+            const token = quoteToken;
+
+            if (quoteTimer) {
+                window.clearTimeout(quoteTimer);
+            }
+
+            if (!methodCode || amount <= 0) {
+                activeQuote = null;
+                return;
+            }
+
+            quoteTimer = window.setTimeout(() => {
+                fetch('/id/deposit/quote', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken(),
+                    },
+                    body: JSON.stringify({ jumlah: amount, metode: methodCode }),
+                })
+                    .then((response) => (response.ok ? response.json() : null))
+                    .then((payload) => {
+                        if (token !== quoteToken) {
+                            return;
+                        }
+                        activeQuote = payload && payload.success ? payload.data : null;
+                        updateSummary();
+                    })
+                    .catch(() => {
+                        if (token === quoteToken) {
+                            activeQuote = null;
+                        }
+                    });
+            }, 250);
         }
 
         function getSelectedCard() {
@@ -235,20 +293,35 @@
             const selectedCard = getSelectedCard();
             const percent = Number(selectedCard?.dataset.feePercent || 0);
             const fixedFee = Number(selectedCard?.dataset.fixedFee || 0);
-            const fee = calculateFee(amount, percent, fixedFee);
-            const total = amount + fee;
+            const estimatedFee = calculateFee(amount, percent, fixedFee);
+            // Quote (when available and for the same method) wins over the local estimate.
+            const quoteMatchesSelection = activeQuote
+                && Number(activeQuote.net_amount) === amount
+                && String(activeQuote.method || '') === String(selectedCard?.dataset.method || '');
+            const fee = quoteMatchesSelection ? Number(activeQuote.admin_fee || 0) : estimatedFee;
+            const gatewayFee = quoteMatchesSelection ? Number(activeQuote.gateway_fee || 0) : 0;
+            const total = quoteMatchesSelection
+                ? Number(activeQuote.total_amount || 0)
+                : amount + fee;
             const phoneValue = String(phoneInput?.value || '').trim();
 
             if (summaryNominal) summaryNominal.textContent = toRupiah(amount);
             if (summaryFee) summaryFee.textContent = toRupiah(fee);
+            if (summaryGatewayFeeRow) {
+                summaryGatewayFeeRow.hidden = gatewayFee <= 0;
+                if (summaryGatewayFee) summaryGatewayFee.textContent = toRupiah(gatewayFee);
+            }
             if (summaryTotal) summaryTotal.textContent = toRupiah(total);
             if (phonePaymentInput) phonePaymentInput.value = phoneValue;
 
             methodCards.forEach((card) => {
                 const methodPercent = Number(card.dataset.feePercent || 0);
                 const methodFixed = Number(card.dataset.fixedFee || 0);
+                const isActiveCard = card.classList.contains('is-active');
                 const methodFee = calculateFee(amount, methodPercent, methodFixed);
-                const methodTotal = amount + methodFee;
+                const methodTotal = isActiveCard && quoteMatchesSelection
+                    ? Number(activeQuote.total_amount || 0)
+                    : amount + methodFee;
                 const totalLabel = card.querySelector('[data-role="method-total"]');
 
                 if (!totalLabel) return;
@@ -269,19 +342,25 @@
             methodCards.forEach((card) => {
                 card.addEventListener('click', () => {
                     setActiveCard(card);
+                    requestQuote(Number(amountInput?.value || 0), card.dataset.method || '');
                     updateSummary();
                 });
             });
         }
 
         if (amountInput) {
-            amountInput.addEventListener('input', updateSummary);
+            amountInput.addEventListener('input', () => {
+                requestQuote(Number(amountInput.value || 0), getSelectedCard()?.dataset.method || '');
+                updateSummary();
+            });
         }
 
         if (phoneInput) {
             phoneInput.addEventListener('input', updateSummary);
         }
 
+        // Initial state: ask the server for the real total for the pre-selected method.
+        requestQuote(Number(amountInput?.value || 0), getSelectedCard()?.dataset.method || '');
         updateSummary();
     })();
 </script>

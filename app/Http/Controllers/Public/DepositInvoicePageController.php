@@ -93,7 +93,20 @@ class DepositInvoicePageController extends Controller
         if ($subtotal <= 0) {
             $subtotal = $total;
         }
-        $fee = max(0, $total - $subtotal);
+
+        // Prefer the breakdown stored at creation time: it is the only place that knows
+        // how much of the total was our admin fee vs the gateway's own customer fee.
+        // Deposits created before this fix have no breakdown, so they keep the old
+        // subtraction (which is still correct for Duitku/Tokopay and at least truthful
+        // about the total for legacy Tripay rows).
+        $storedPricing = data_get($deposit->payment_metadata, 'pricing');
+        $adminFee = is_array($storedPricing) && isset($storedPricing['admin_fee'])
+            ? max(0, (int) $storedPricing['admin_fee'])
+            : max(0, $total - $subtotal);
+        $gatewayFee = is_array($storedPricing) && isset($storedPricing['gateway_fee'])
+            ? max(0, (int) $storedPricing['gateway_fee'])
+            : 0;
+        $fee = $adminFee + $gatewayFee;
 
         [$hero, $intro] = $this->resolveHeroAndIntro($deposit, $paymentStatus);
 
@@ -125,6 +138,8 @@ class DepositInvoicePageController extends Controller
                 ],
                 'amount' => [
                     'subtotal' => $subtotal,
+                    'adminFee' => $adminFee,
+                    'gatewayFee' => $gatewayFee,
                     'fee' => $fee,
                     'total' => $total,
                 ],
