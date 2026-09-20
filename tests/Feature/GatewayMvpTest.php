@@ -308,6 +308,33 @@ class GatewayMvpTest extends TestCase
         $this->assertSame(3, $service->fresh()->stock_flash_sale);
     }
 
+    public function test_gateway_price_quote_treats_zero_max_potongan_as_no_cap(): void
+    {
+        [$service] = $this->createManualCheckoutFixtures([
+            'harga_member' => 10000,
+        ]);
+
+        Voucher::query()->create([
+            'kode' => 'NOCAP10',
+            'promo' => 10,
+            'max_potongan' => 0,
+            'mintrx' => 0,
+            'stock' => 5,
+            'expired_at' => now()->addDay(),
+        ]);
+
+        $this->postJson('/api/gateway/price', [
+            'service_id' => $service->id,
+            'payment_method' => 'MANUAL',
+            'voucher' => 'NOCAP10',
+        ])
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('data.base_amount', 10000)
+            ->assertJsonPath('data.discount', 1000)
+            ->assertJsonPath('data.total_amount', 9000);
+    }
+
     public function test_gateway_check_id_skips_non_game_categories(): void
     {
         Kategori::factory()->create([
@@ -562,6 +589,15 @@ class GatewayMvpTest extends TestCase
             'expired_at' => now()->subDay(),
         ]);
 
+        $noCapVoucher = Voucher::query()->create([
+            'kode' => 'NOCAP10',
+            'promo' => 10,
+            'max_potongan' => 0,
+            'mintrx' => 0,
+            'stock' => 5,
+            'expired_at' => now()->addDay(),
+        ]);
+
         $this->postJson('/api/gateway/vouchers/validate', [
             'code' => 'DISC10',
         ])->assertOk()
@@ -577,6 +613,15 @@ class GatewayMvpTest extends TestCase
             ->assertJsonPath('ok', true)
             ->assertJsonPath('data.valid', true)
             ->assertJsonPath('data.estimated_discount', 1000);
+
+        // max_potongan = 0 berarti tanpa cap: 10% dari 100.000 = 10.000.
+        $this->postJson('/api/gateway/vouchers/validate', [
+            'code' => 'NOCAP10',
+            'amount' => 100000,
+        ])->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath('data.valid', true)
+            ->assertJsonPath('data.estimated_discount', 10000);
 
         $this->postJson('/api/gateway/vouchers/validate', [
             'code' => 'DISC10',

@@ -145,6 +145,7 @@ class VipResellerCallbackController extends Controller
         try {
             if ($shouldRefund) {
                 app(PointService::class)->refundRedeemedPoints($invoice);
+                app(\App\Services\VoucherService::class)->restoreStockForOrder($invoice);
 
                 if (($payment?->metode ?? null) === 'SALDO' && $invoice->user) {
                     $invoice->user->increment('balance', $invoice->harga);

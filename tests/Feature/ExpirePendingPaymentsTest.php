@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
+use App\Models\Voucher;
 use App\Services\Payments\ExpirePendingPayments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -89,9 +90,64 @@ class ExpirePendingPaymentsTest extends TestCase
         $this->assertSame('Pending', $secondOrder->fresh()->status);
     }
 
-    private function createPembelian(string $orderId, string $status): Pembelian
+    public function test_it_restores_voucher_stock_when_pending_order_expires(): void
     {
-        return Pembelian::query()->create([
+        $voucher = Voucher::query()->create([
+            'kode' => 'EXPIRE10',
+            'promo' => 10,
+            'stock' => 7,
+            'mintrx' => 0,
+            'max_potongan' => 1000,
+        ]);
+
+        $pembelian = $this->createPembelian('INV-EXPIRE-VOUCHER', 'Pending', [
+            'voucher' => 'EXPIRE10',
+            'tipe_transaksi' => 'game',
+        ]);
+        $this->createPayment($pembelian->order_id, 'Belum Lunas', now()->subMinute());
+
+        $stats = app(ExpirePendingPayments::class)->expire();
+
+        $this->assertSame(1, $stats['expired_pembelians']);
+        $this->assertSame('Expired', $pembelian->fresh()->status);
+        $this->assertSame(8, (int) $voucher->fresh()->stock);
+        $this->assertNotNull($pembelian->fresh()->voucher_stock_restored_at);
+    }
+
+    public function test_it_restores_voucher_stock_only_once_and_never_for_voucher_type_orders(): void
+    {
+        $voucher = Voucher::query()->create([
+            'kode' => 'EXPIRE20',
+            'promo' => 20,
+            'stock' => 5,
+            'mintrx' => 0,
+            'max_potongan' => 1000,
+        ]);
+
+        $promoOrder = $this->createPembelian('INV-EXPIRE-ONCE', 'Pending', [
+            'voucher' => 'EXPIRE20',
+            'tipe_transaksi' => 'game',
+        ]);
+        $this->createPayment($promoOrder->order_id, 'Belum Lunas', now()->subMinute());
+
+        // Kolom voucher pada order bertipe 'voucher' berisi SN, bukan kode promo.
+        $snOrder = $this->createPembelian('INV-EXPIRE-SN', 'Pending', [
+            'voucher' => 'EXPIRE20',
+            'tipe_transaksi' => 'voucher',
+        ]);
+        $this->createPayment($snOrder->order_id, 'Belum Lunas', now()->subMinute());
+
+        app(ExpirePendingPayments::class)->expire();
+        app(ExpirePendingPayments::class)->expire(); // Run kedua tidak menambah stok lagi.
+
+        $this->assertSame(6, (int) $voucher->fresh()->stock); // 5 + 1, sekali saja.
+        $this->assertSame('Expired', $promoOrder->fresh()->status);
+        $this->assertSame('Expired', $snOrder->fresh()->status);
+    }
+
+    private function createPembelian(string $orderId, string $status, array $overrides = []): Pembelian
+    {
+        return Pembelian::query()->create(array_merge([
             'order_id' => $orderId,
             'username' => 'member-test',
             'layanan' => 'Test Service',
@@ -101,7 +157,7 @@ class ExpirePendingPaymentsTest extends TestCase
             'zone' => '2001',
             'status' => $status,
             'tipe_transaksi' => 'game',
-        ]);
+        ], $overrides));
     }
 
     private function createPayment(string $orderId, string $status, $expiredAt): Pembayaran

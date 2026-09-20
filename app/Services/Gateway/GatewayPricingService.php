@@ -11,10 +11,66 @@ use App\Models\Voucher;
 use App\Services\CheckId\CheckIdResolver;
 use App\Services\PaymentMethodCatalogService;
 use App\Support\CustomInputDefaults;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class GatewayPricingService
 {
+    /**
+     * Reverse the gateway's customer fee so the customer pays exactly `$targetAmount`.
+     *
+     * Tripay adds its customer fee on top of the amount we ask it to collect, so sending
+     * `$targetAmount` would charge more than we display. We instead request a reduced
+     * amount such that `request + customerFee(request) == $targetAmount`, iterating a few
+     * times because the fee itself depends on the amount. Duitku/Tokopay collect exactly
+     * what we ask for and are returned unchanged.
+     *
+     * Both the order checkout flow and the deposit flow must use this so the displayed
+     * total is always the charged total.
+     */
+    public function resolveGatewayRequestAmount(int $targetAmount, ?Method $method): int
+    {
+        $targetAmount = max(1000, (int) round($targetAmount));
+
+        if (! $method || ($method->payment ?? null) !== 'tripay') {
+            return $targetAmount;
+        }
+
+        try {
+            $candidateAmount = $targetAmount;
+            $tripay = app(TriPayController::class);
+
+            for ($i = 0; $i < 5; $i++) {
+                $cacheKey = sprintf('tripay_customer_fee:%s:%d', $method->code, $candidateAmount);
+                $customerFee = Cache::remember($cacheKey, 300, function () use ($candidateAmount, $tripay, $method) {
+                    return (int) round($tripay->customerFee($candidateAmount, $method->code));
+                });
+
+                if ($customerFee <= 0) {
+                    return $targetAmount;
+                }
+
+                $nextAmount = max(1000, $targetAmount - $customerFee);
+                if (abs($nextAmount - $candidateAmount) <= 1) {
+                    return $nextAmount;
+                }
+
+                $candidateAmount = $nextAmount;
+            }
+
+            return $candidateAmount;
+        } catch (\Throwable $e) {
+            Log::warning('Tripay request amount resolver failed', [
+                'method' => $method->code ?? null,
+                'amount' => $targetAmount,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $targetAmount;
+        }
+    }
+
     public function quote(array $payload, ?User $user = null): array
     {
         $service = Layanan::query()
@@ -149,7 +205,16 @@ class GatewayPricingService
             ]);
         }
 
-        return min((int) round($baseAmount * ((float) $voucher->promo / 100)), (int) $voucher->max_potongan);
+        // max_potongan = 0 berarti "tanpa cap" — konsisten dengan
+        // CheckoutOrderService dan alur order web.
+        $discount = (int) round($baseAmount * ((float) $voucher->promo / 100));
+        $maxDiscount = (int) $voucher->max_potongan;
+
+        if ($maxDiscount > 0 && $discount > $maxDiscount) {
+            $discount = $maxDiscount;
+        }
+
+        return max(0, $discount);
     }
 
     private function methodFee(int $amount, Method $method): int

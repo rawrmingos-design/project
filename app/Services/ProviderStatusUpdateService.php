@@ -174,6 +174,7 @@ class ProviderStatusUpdateService
         }
 
         app(PointService::class)->refundRedeemedPoints($pembelian);
+        app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
 
         $payment = $pembelian->pembayaran ?: Pembayaran::query()
             ->where('order_id', $pembelian->order_id)

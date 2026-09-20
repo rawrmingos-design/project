@@ -966,6 +966,16 @@ textarea {
     z-index: 46;
 }
 
+/* Jembatan hover: pointer yang menyeberang gap 11px tetap dihitung hover. */
+.public-app--bangjeff .public-navbar__submenu::before {
+    content: "";
+    position: absolute;
+    top: -14px;
+    left: 0;
+    right: 0;
+    height: 14px;
+}
+
 .public-app--bangjeff .public-navbar__item--has-menu:hover .public-navbar__submenu,
 .public-app--bangjeff .public-navbar__item--has-menu:focus-within .public-navbar__submenu {
     opacity: 1;
@@ -2941,6 +2951,12 @@ textarea {
 
 .public-app--bangjeff .order-page--bangjeff {
     display: grid;
+    /* Implicit track is `auto` = max-content. At <=640px the hero meta row is
+       `white-space: nowrap` (~383px intrinsic), so the track could not shrink:
+       on 320-375px viewports the shell stayed 383px wide and the 16px right
+       gutter was pushed off-screen while the left one stayed — cards read as
+       flush/cut on the right. Pin the track so both gutters stay equal. */
+    grid-template-columns: minmax(0, 1fr);
     gap: 12px;
     overflow-x: clip;
 }
@@ -5006,15 +5022,95 @@ textarea {
     color: rgba(250, 250, 249, 0.68);
 }
 
-.order-points__range {
+.order-points__control {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
     width: 100%;
-    accent-color: #f97316;
-    cursor: pointer;
 }
 
-.order-points__range:disabled {
+.order-points__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 14px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    border-radius: 10px;
+    background: #ffffff;
+    color: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: right;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.order-points__input:focus {
+    outline: none;
+    border-color: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+
+.order-points__input:disabled {
     cursor: not-allowed;
     opacity: 0.48;
+}
+
+.order-points__stepper,
+.order-points__max {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-width: 42px;
+    padding: 10px 14px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.04);
+    color: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.order-points__stepper:hover:not(:disabled),
+.order-points__max:hover:not(:disabled) {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.08);
+}
+
+.order-points__stepper:disabled,
+.order-points__max:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+}
+
+.order-points--bangjeff .order-points__input {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: #3a3a3c;
+    color: #fafaf9;
+}
+
+.order-points--bangjeff .order-points__input:focus {
+    border-color: rgba(249, 115, 22, 0.72);
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.28);
+}
+
+.order-points--bangjeff .order-points__input::placeholder {
+    color: rgba(250, 250, 249, 0.4);
+}
+
+.order-points--bangjeff .order-points__stepper,
+.order-points--bangjeff .order-points__max {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(250, 250, 249, 0.08);
+    color: #fafaf9;
+}
+
+.order-points--bangjeff .order-points__stepper:hover:not(:disabled),
+.order-points--bangjeff .order-points__max:hover:not(:disabled) {
+    border-color: rgba(249, 115, 22, 0.72);
+    background: rgba(249, 115, 22, 0.18);
 }
 
 .order-points__discount {

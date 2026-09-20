@@ -460,6 +460,104 @@
     font-weight: 700;
 }
 .public-app--istanatopup .public-navbar__text-link--storefront:hover { color: var(--ist-accent-soft); }
+
+/* ---------- Dropdown submenu desktop (parity dengan bangjeff) ---------- */
+.public-app--istanatopup .public-navbar__item--has-menu {
+    height: 48px;
+}
+.public-app--istanatopup .public-navbar__item--has-menu .public-navbar__link--has-menu {
+    height: 48px;
+}
+/* Mobile: dropdown tidak pernah tampil; children diakses lewat drawer. */
+.public-app--istanatopup .public-navbar__submenu {
+    display: none;
+}
+@media (min-width: 961px) {
+    .public-app--istanatopup .public-navbar__links--storefront {
+        overflow: visible;
+    }
+    .public-app--istanatopup .public-navbar__submenu {
+        position: absolute;
+        top: calc(100% + 10px);
+        left: -14px;
+        width: min(360px, calc(100vw - 24px));
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--ist-border);
+        background: var(--ist-surface-alt);
+        box-shadow: 0 20px 34px rgba(0, 0, 0, 0.45);
+        display: grid;
+        gap: 6px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition: opacity 170ms ease, transform 170ms ease, visibility 170ms ease;
+        z-index: 46;
+    }
+    /* Jembatan hover: pointer yang menyeberang dari link ke panel tetap
+       dihitung hover pada item (menutup gap 10px di antaranya). */
+    .public-app--istanatopup .public-navbar__submenu::before {
+        content: "";
+        position: absolute;
+        top: -12px;
+        left: 0;
+        right: 0;
+        height: 12px;
+    }
+    .public-app--istanatopup .public-navbar__item--has-menu:hover .public-navbar__submenu,
+    .public-app--istanatopup .public-navbar__item--has-menu:focus-within .public-navbar__submenu {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+    .public-app--istanatopup .public-navbar__submenu-link {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        color: var(--ist-text-soft);
+        transition: background-color 170ms ease, color 170ms ease;
+    }
+    .public-app--istanatopup .public-navbar__submenu-link:hover,
+    .public-app--istanatopup .public-navbar__submenu-link:focus-visible,
+    .public-app--istanatopup .public-navbar__submenu-link.is-active {
+        background: rgba(249, 115, 22, 0.12);
+        color: #fff;
+    }
+    .public-app--istanatopup .public-navbar__submenu-icon {
+        width: 20px;
+        height: 20px;
+        flex: 0 0 20px;
+        margin-top: 2px;
+        color: var(--ist-accent-soft);
+    }
+    .public-app--istanatopup .public-navbar__submenu-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy strong {
+        color: var(--ist-text);
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0;
+    }
+    .public-app--istanatopup .public-navbar__submenu-copy small {
+        color: var(--ist-muted);
+        font-size: 0.78rem;
+        font-weight: 500;
+        line-height: 1.42;
+        letter-spacing: 0;
+    }
+}
 @media (max-width: 960px) {
     .public-app--istanatopup .public-navbar__inner { width: min(calc(100% - 24px), 1280px); }
 }
@@ -487,6 +585,62 @@
 .public-app--istanatopup .public-navbar__text-link:hover,
 .public-app--istanatopup .public-navbar__compact-account:hover {
     color: var(--ist-text);
+}
+
+/* ---------- Dropdown akun compact (struktur navbar legacy, gaya istana) ---------- */
+.public-app--istanatopup .public-navbar__account-menu--compact {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__compact-account {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__compact-chevron {
+    transition: transform 170ms ease;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact.is-open .public-navbar__compact-chevron {
+    transform: rotate(180deg);
+}
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__account-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: auto;
+    width: min(288px, calc(100vw - 24px));
+    padding: 10px;
+    border-radius: 14px;
+    border: 1px solid var(--ist-border);
+    background: var(--ist-surface-alt);
+    box-shadow: 0 20px 34px rgba(0, 0, 0, 0.45);
+    display: grid;
+    gap: 2px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 170ms ease, transform 170ms ease, visibility 170ms ease;
+    z-index: 46;
+}
+/* Jembatan hover 12px: pointer boleh menyeberang gap tanpa menutup panel. */
+.public-app--istanatopup .public-navbar__account-menu--compact .public-navbar__account-dropdown::before {
+    content: "";
+    position: absolute;
+    top: -12px;
+    left: 0;
+    right: 0;
+    height: 12px;
+}
+.public-app--istanatopup .public-navbar__account-menu--compact:hover .public-navbar__account-dropdown,
+.public-app--istanatopup .public-navbar__account-menu--compact:focus-within .public-navbar__account-dropdown,
+.public-app--istanatopup .public-navbar__account-menu--compact.is-open .public-navbar__account-dropdown {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
 }
 .public-app--istanatopup .public-brand--storefront .public-brand__logo {
     border-radius: 10px;
@@ -3074,4 +3228,70 @@
     .public-app--istanatopup .public-main--invoice-bleed .invoice-page {
         padding-inline: 12px;
     }
+}
+
+/* ---------- Order page: hero chips wrap instead of scrolling ---------- */
+/* `.order-page--bangjeff` is a grid whose track is `auto` (max-content) and at
+   <=640px the hero meta row is `white-space: nowrap` (~383px intrinsic). That
+   combination kept the shell 383px wide on 320-375px viewports and pushed the
+   16px right gutter off-screen, so the Masukkan Data / Pilih Nominal / Pilih
+   Pembayaran / Detail Kontak / Kode Promo cards looked flush against the right
+   edge while the left gutter stayed (user report: "kurang space kanan kiri").
+   The grid track fix lives with the shared bangjeff layout in public-app.css;
+   here istana additionally wraps the hero chips so "Pembayaran Aman!" is not
+   clipped inside a scroll-x container with a hidden scrollbar. */
+.public-app--istanatopup.public-app--order-bangjeff .order-hero__meta--bangjeff {
+    /* Istana reads the hero as a static card, so let chips wrap onto a second
+       line rather than hiding "Pembayaran Aman!" inside a scroll-x container
+       with a hidden scrollbar (bangjeff keeps its horizontal scroll by design). */
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-x: visible;
+}
+
+/* ==========================================================================
+   Step 2 of the Google sign-up (complete the WhatsApp number)
+   ========================================================================== */
+
+.public-auth-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 12px;
+    border: 1px solid #262626;
+    border-radius: 12px;
+    background: #1f1f1f;
+}
+
+.public-auth-profile__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.public-auth-profile__identity {
+    min-width: 0;
+}
+
+.public-auth-profile__identity strong {
+    display: block;
+    font-size: 14px;
+    color: #f5f5f5;
+}
+
+.public-auth-profile__identity span {
+    display: block;
+    font-size: 12px;
+    color: #9c9c9c;
+    overflow-wrap: anywhere;
+}
+
+.public-auth-hint {
+    margin: 8px 0 16px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #9c9c9c;
 }

@@ -5,7 +5,7 @@ async function loginAsMember(page) {
     await page.goto('/id/sign-in', { waitUntil: 'domcontentloaded' });
     await page.locator('input[name="username"]').fill('e2e-member');
     await page.locator('input[name="password"]').fill('e2e-password');
-    const loginButton = page.locator('#btnMasuk');
+    const loginButton = page.locator('#btnMasuk, .public-auth-submit').first();
     await expect(loginButton).toBeEnabled();
     await loginButton.click();
     await page.waitForURL(/\/id\/dashboard/, { timeout: 15_000 });

@@ -137,9 +137,13 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/deposit-pricing-sync.spec.js',
             'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
+            'tests/e2e/storefront-navbar.spec.js',
+            'tests/e2e/storefront-order-mobile-gutter.spec.js',
+            'tests/e2e/storefront-google-signup.spec.js',
         ]);
         break;
     case 'all':
@@ -149,9 +153,13 @@ switch (mode) {
             'tests/e2e/homepage-popup.spec.js',
             'tests/e2e/storefront-order.spec.js',
             'tests/e2e/deposit-flow.spec.js',
+            'tests/e2e/deposit-pricing-sync.spec.js',
             'tests/e2e/invoice-detail.spec.js',
             'tests/e2e/member-settings.spec.js',
             'tests/e2e/seo-boundaries.spec.js',
+            'tests/e2e/storefront-navbar.spec.js',
+            'tests/e2e/storefront-order-mobile-gutter.spec.js',
+            'tests/e2e/storefront-google-signup.spec.js',
         ]);
         break;
     default:

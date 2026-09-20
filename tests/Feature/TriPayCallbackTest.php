@@ -6,6 +6,7 @@ use App\Models\Deposit;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\User;
+use App\Models\Voucher;
 use App\Services\EmailNotificationService;
 use App\Services\OrderProcessingService;
 use App\Services\WhatsappNotificationService;
@@ -168,6 +169,13 @@ class TriPayCallbackTest extends TestCase
     public function test_expired_callback_marks_unpaid_invoice_and_pembelian_as_expired(): void
     {
         $user = $this->createUser(username: 'order-tripay-expired');
+        $voucher = Voucher::create([
+            'kode' => 'TRIPAYEXPIRE10',
+            'promo' => 10,
+            'stock' => 4,
+            'mintrx' => 0,
+            'max_potongan' => 1000,
+        ]);
         $invoice = $this->createInvoice([
             'order_id' => 'INV-TRIPAY-EXPIRED',
             'reference' => 'REF-TRIPAY-EXPIRED',
@@ -176,6 +184,7 @@ class TriPayCallbackTest extends TestCase
         $pembelian = $this->createPembelian($user, [
             'order_id' => $invoice->order_id,
             'status' => 'Pending',
+            'voucher' => 'TRIPAYEXPIRE10',
         ]);
         $this->bindNotificationStubs();
 
@@ -203,6 +212,8 @@ class TriPayCallbackTest extends TestCase
 
         $this->assertSame('Expired', $invoice->status);
         $this->assertSame('Expired', $pembelian->status);
+        $this->assertSame(5, (int) $voucher->fresh()->stock);
+        $this->assertNotNull($pembelian->fresh()->voucher_stock_restored_at);
     }
 
     public function test_paid_callback_marks_pending_deposit_success_and_increments_balance(): void
@@ -383,6 +394,13 @@ class TriPayCallbackTest extends TestCase
     public function test_paid_callback_updates_pembelian_for_mocked_provider_failed_result(): void
     {
         $user = $this->createUser(username: 'order-tripay-failed');
+        $voucher = Voucher::create([
+            'kode' => 'TRIPAYFAIL10',
+            'promo' => 10,
+            'stock' => 5,
+            'mintrx' => 0,
+            'max_potongan' => 1000,
+        ]);
         $invoice = $this->createInvoice([
             'order_id' => 'INV-TRIPAY-ORDER-FAILED',
             'reference' => 'REF-TRIPAY-ORDER-FAILED',
@@ -394,6 +412,7 @@ class TriPayCallbackTest extends TestCase
             'harga' => 47000,
             'status' => 'Pending',
             'keterangan_sn' => 'SN-LAMA',
+            'voucher' => 'TRIPAYFAIL10',
         ]);
 
         $this->bindNotificationStubs();
@@ -429,6 +448,8 @@ class TriPayCallbackTest extends TestCase
         $this->assertSame('PROVIDER-FAILED-123', $pembelian->provider_order_id);
         $this->assertSame('SN-LAMA', $pembelian->keterangan_sn);
         $this->assertStringContainsString('Provider failed', (string) $pembelian->log);
+        $this->assertSame(6, (int) $voucher->fresh()->stock);
+        $this->assertNotNull($pembelian->fresh()->voucher_stock_restored_at);
     }
 
     public function test_paid_callback_returns_processing_error_when_mocked_processor_throws(): void

@@ -244,7 +244,7 @@ export default function DepositModal({ isOpen, onClose }) {
                             
                             <div style={{ fontSize: '12px', color: 'var(--on-surface-variant)', marginBottom: '4px' }}>Total Payment</div>
                             <div style={{ fontSize: '32px', fontWeight: 700, color: 'var(--tertiary)', fontFamily: 'var(--font-heading)', letterSpacing: '-1px' }}>
-                                {formatRupiah(invoiceData.gross_amount)}
+                                {formatRupiah(invoiceData.total_amount ?? invoiceData.gross_amount)}
                             </div>
                         </div>
 

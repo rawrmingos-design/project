@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Berita;
 use App\Models\Deposit;
 use App\Models\Method;
+use App\Services\Deposit\DepositPricingService;
 use App\Services\Deposit\DepositService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,6 +37,60 @@ class DepositController extends Controller
             'logoheader' => Berita::where('tipe', 'logoheader')->latest()->first(),
             'logofooter' => Berita::where('tipe', 'logofooter')->latest()->first(),
             'pay_method' => Method::availableForDeposit($showDemoMethods),
+        ]);
+    }
+
+    /**
+     * Live pricing for the deposit form.
+     *
+     * The customer must see the exact amount they will be charged, which for Tripay
+     * includes the gateway's own customer fee. Returning it from the server keeps the
+     * form, the invoice and the gateway in agreement.
+     */
+    public function quote(Request $request, DepositPricingService $pricingService)
+    {
+        $validated = $request->validate([
+            'jumlah' => ['required', 'numeric', 'min:10000'],
+            'metode' => ['required', 'string', 'max:50'],
+        ], [
+            'jumlah.required' => 'Mohon isi jumlah deposit',
+            'jumlah.numeric' => 'Jumlah harus berupa angka',
+            'jumlah.min' => 'Minimal deposit Rp 10.000',
+            'metode.required' => 'Mohon pilih metode pembayaran',
+        ]);
+
+        $netAmount = (int) floor((float) $validated['jumlah']);
+        $paymentMethod = strtoupper(trim((string) $validated['metode']));
+
+        $method = Method::query()
+            ->enabled()
+            ->whereRaw('UPPER(code) = ?', [$paymentMethod])
+            ->first();
+
+        if (! $method) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metode pembayaran tidak valid',
+                'field' => 'metode',
+            ], 422);
+        }
+
+        if ($method->isSaldoMethod() || (! app()->environment('local') && $method->isDemoMethod())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Metode pembayaran tidak tersedia',
+                'field' => 'metode',
+            ], 422);
+        }
+
+        $quote = $pricingService->quote($netAmount, $method);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                ...$quote,
+                'method' => strtoupper(trim((string) ($method->getRawOriginal('code') ?? $method->code))),
+            ],
         ]);
     }
 
@@ -75,6 +130,8 @@ class DepositController extends Controller
                     'order_id' => $result['order_id'],
                     'amount' => $result['amount'],
                     'fee' => $result['fee'],
+                    'gateway_fee' => $result['gateway_fee'] ?? null,
+                    'total_amount' => $result['total_amount'] ?? null,
                     'gross_amount' => $result['gross_amount'],
                     'pay_url' => $result['pay_url'] ?? null,
                     'va_number' => $result['va_number'] ?? null,

@@ -68,7 +68,11 @@ class RedirectLegacyBladeWhenBangjeff
     private function isAllowedException(Request $request): bool
     {
         return $request->is('id/sign-in')
-            || $request->is('id/sign-up');
+            || $request->is('id/sign-up')
+            // Guest auth flow: Google returns its POST response here and the completion
+            // page (step 2 of Google sign-up) must stay reachable, not bounce to /id.
+            || $request->is('id/auth/google')
+            || $request->is('id/auth/google/*');
     }
 
     private function isBangjeffInertiaRoute(Request $request): bool

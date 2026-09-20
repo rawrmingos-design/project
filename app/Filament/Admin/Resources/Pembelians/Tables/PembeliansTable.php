@@ -322,6 +322,7 @@ class PembeliansTable
                             }
 
                             app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+                            app(\App\Services\VoucherService::class)->restoreStockForOrder($record);
 
                             $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::FAILED), 'log' => $logMsg]);
                             Notification::make()
@@ -347,6 +348,7 @@ class PembeliansTable
                             }
 
                             app(\App\Services\PointService::class)->refundRedeemedPoints($record);
+                            app(\App\Services\VoucherService::class)->restoreStockForOrder($record);
 
                             $record->update(['status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::CANCELLED), 'log' => $logMsg]);
                             $record->syncPaymentStatusForResetEligibility();

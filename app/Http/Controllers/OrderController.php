@@ -478,44 +478,10 @@ class OrderController extends Controller
 
     private function resolveGatewayRequestAmount(int $targetAmount, $method): int
     {
-        $targetAmount = max(1000, (int) round($targetAmount));
-
-        if (!$method || ($method->payment ?? null) !== 'tripay') {
-            return $targetAmount;
-        }
-
-        try {
-            $candidateAmount = $targetAmount;
-            $tripay = app(TriPayController::class);
-
-            for ($i = 0; $i < 5; $i++) {
-                $cacheKey = sprintf('tripay_customer_fee:%s:%d', $method->code, $candidateAmount);
-                $customerFee = Cache::remember($cacheKey, 300, function () use ($candidateAmount, $tripay, $method) {
-                    return (int) round($tripay->customerFee($candidateAmount, $method->code));
-                });
-
-                if ($customerFee <= 0) {
-                    return $targetAmount;
-                }
-
-                $nextAmount = max(1000, $targetAmount - $customerFee);
-                if (abs($nextAmount - $candidateAmount) <= 1) {
-                    return $nextAmount;
-                }
-
-                $candidateAmount = $nextAmount;
-            }
-
-            return $candidateAmount;
-        } catch (\Throwable $e) {
-            Log::warning('Tripay request amount resolver failed', [
-                'method' => $method->code ?? null,
-                'amount' => $targetAmount,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $targetAmount;
-        }
+        // Single source of truth: the gateway fee reversal lives in GatewayPricingService so
+        // the order flow and the deposit flow can never drift apart again.
+        return app(\App\Services\Gateway\GatewayPricingService::class)
+            ->resolveGatewayRequestAmount($targetAmount, $method);
     }
 
 

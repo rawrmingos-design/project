@@ -9,6 +9,7 @@ use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\Voucher;
 use App\Http\Controllers\TokoPayController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -136,6 +137,57 @@ class ApiV2CheckoutOrderServiceTest extends TestCase
 
         $this->assertSame('buyer@example.test', $order->email_pembeli);
         $this->assertSame('-', $payment->no_pembeli);
+    }
+
+    public function test_api_v2_checkout_applies_percentage_discount_when_max_potongan_is_zero(): void
+    {
+        $category = Kategori::factory()->create(['tipe' => 'game', 'require_user_id' => true]);
+        $service = Layanan::factory()->create([
+            'kategori_id' => $category->id,
+            'layanan' => '50 Diamonds',
+            'provider' => 'manual',
+            'provider_id' => 'ml-50',
+            'harga_member' => 10000,
+            'profit_member' => 1000,
+        ]);
+
+        Method::query()->create([
+            'name' => 'Manual Transfer',
+            'code' => 'MANUAL',
+            'payment' => 'manual',
+            'tipe' => 'manual',
+            'images' => 'manual.png',
+            'keterangan' => 'Manual transfer desc',
+            'fee_percent' => 0,
+            'fix_fee' => 0,
+            'statuspayment' => 1,
+        ]);
+
+        $voucher = Voucher::query()->create([
+            'kode' => 'NOCAP10',
+            'promo' => 10,
+            'max_potongan' => 0,
+            'mintrx' => 0,
+            'stock' => 5,
+        ]);
+
+        $response = $this->postJson('/api/v2/order/store', [
+            'service' => $service->id,
+            'payment_method' => 'MANUAL',
+            'nomor' => '081234567890',
+            'uid' => '123456',
+            'zone' => '1234',
+            'voucher' => 'NOCAP10',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('status', true);
+
+        $order = Pembelian::query()->where('order_id', $response->json('order_id'))->firstOrFail();
+
+        // 10% dari 10.000 = 1.000 (tanpa cap) dan stok voucher terpakai.
+        $this->assertSame(9000, (int) $order->harga);
+        $this->assertSame(4, (int) $voucher->fresh()->stock);
     }
 
     public function test_api_v2_checkout_accepts_whatsapp_alias_contact(): void

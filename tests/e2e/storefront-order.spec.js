@@ -1,6 +1,18 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
+async function loginAsMember(page) {
+    await page.goto('/id/sign-in', { waitUntil: 'domcontentloaded' });
+    await page.locator('input[name="username"]').fill('e2e-member');
+    await page.locator('input[name="password"]').fill('e2e-password');
+    // Legacy Blade login exposes #btnMasuk; the IstanaTopup React page uses
+    // .public-auth-submit. Match either so themed runs work too.
+    const loginButton = page.locator('#btnMasuk, .public-auth-submit').first();
+    await expect(loginButton).toBeEnabled();
+    await loginButton.click();
+    await page.waitForURL(/\/id\/dashboard/, { timeout: 15_000 });
+}
+
 test.describe('Public storefront order flow', () => {
     test('renders seeded category, product, and payment method without broken media requests', async ({ page }) => {
         const brokenMediaRequests = [];
@@ -103,6 +115,185 @@ test.describe('Public storefront order flow', () => {
         await expect(instantCard).toHaveClass(/is-active/);
         await expect(autoSelectedCard).not.toHaveClass(/is-active/);
         await expect(page.locator('.variant-card--bangjeff.is-active')).toHaveCount(1);
+        expect(finalOrderPosts).toBe(0);
+    });
+
+    test('auto-scrolls to payment after picking a nominal and to contact after picking a method', async ({ page }) => {
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const waitForStepNearTop = (sectionId, maxTop) => page.waitForFunction(
+            ({ id, top }) => {
+                const element = document.getElementById(id);
+                if (!element) {
+                    return false;
+                }
+                const rect = element.getBoundingClientRect();
+                return rect.top >= 0 && rect.top <= top;
+            },
+            { id: sectionId, top: maxTop },
+            { timeout: 8000 },
+        );
+
+        const cards = page.locator('.variant-card--bangjeff:visible');
+        await expect(cards.first()).toBeVisible();
+
+        // First explicit pick scrolls to the payment step.
+        await cards.nth(1).click();
+        await waitForStepNearTop('order-step-payment', 220);
+
+        // Scrolling back up and picking another nominal must scroll again:
+        // the auto-scroll fires per explicit interaction, not once per session.
+        await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+        await page.waitForTimeout(150);
+        await cards.nth(0).click();
+        await waitForStepNearTop('order-step-payment', 220);
+
+        // Picking a payment method continues on to the contact step.
+        const methodCards = page.locator('.payment-card--bangjeff:visible');
+        await expect(methodCards.first()).toBeVisible();
+        await methodCards.first().click();
+        await waitForStepNearTop('order-step-contact', 260);
+
+        expect(finalOrderPosts).toBe(0);
+    });
+
+    test('applies the points discount in real time while typing the amount', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+
+        let finalOrderPosts = 0;
+        let hargaRequests = 0;
+        let holdHarga = true;
+
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.route('**/id/harga', async (route) => {
+            hargaRequests += 1;
+            if (holdHarga) {
+                // Hold the server quote so real-time assertions cannot rely on it.
+                await new Promise((resolve) => setTimeout(resolve, 2500));
+            }
+            await route.continue();
+        });
+
+        await loginAsMember(page);
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const pointInput = page.locator('.order-points__input');
+        await expect(pointInput).toBeVisible();
+        await expect(pointInput).toBeEnabled({ timeout: 25_000 });
+
+        const totalValue = page.locator('.order-summary--bangjeff .order-summary__value--total');
+        const toNumber = (text) => Number(String(text).replace(/[^0-9]/g, ''));
+        const discountLabel = page.locator('.order-points__discount');
+        const totalBefore = toNumber(await totalValue.innerText());
+
+        // Real-time: typing a value must update the discount label immediately
+        // even though the held /id/harga quote has not resolved yet
+        // (fixtures: 1 point = Rp100, 50 points redeemable).
+        await pointInput.fill('25');
+        await expect(discountLabel).toContainText(/Rp\s?2\.500/, { timeout: 1500 });
+
+        // After the debounced quote settles, the rendered total must drop by
+        // exactly the live-calculated discount.
+        await page.waitForTimeout(3400);
+        await expect(discountLabel).toContainText(/Rp\s?2\.500/);
+        expect(toNumber(await totalValue.innerText())).toBe(totalBefore - 2500);
+        await expect(page.locator('.order-summary--bangjeff .order-summary__row--discount')).toContainText(/Rp\s?2\.500/);
+
+        // Client guardrails: above-max values are clamped inside the field,
+        // junk is stripped, a negative sign can never stick.
+        await pointInput.fill('9999');
+        await expect(pointInput).toHaveValue('50');
+        await expect(discountLabel).toContainText(/Rp\s?5\.000/);
+
+        await pointInput.fill('abc$-1.5');
+        await expect(pointInput).toHaveValue('15');
+
+        await pointInput.fill('abc');
+        await expect(pointInput).toHaveValue('');
+        await expect(discountLabel).toHaveCount(0);
+
+        // Rapid typing must be coalesced by the debounce instead of firing one
+        // request per keystroke at the throttled /id/harga endpoint.
+        holdHarga = false;
+        const requestsBeforeRapidTyping = hargaRequests;
+        await pointInput.fill('');
+        await pointInput.pressSequentially('12345', { delay: 50 });
+        await page.waitForTimeout(1200);
+        expect(hargaRequests - requestsBeforeRapidTyping).toBeLessThanOrEqual(2);
+        await expect(pointInput).toHaveValue('50');
+
+        // "Maks" fills the entire redeemable amount in one click.
+        await pointInput.fill('1');
+        await page.locator('.order-points__max').click();
+        await expect(pointInput).toHaveValue('50');
+        await expect(discountLabel).toContainText(/Rp\s?5\.000/);
+
+        expect(finalOrderPosts).toBe(0);
+    });
+
+    test('applies a valid promo code, shows the discount, and rejects an invalid code', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+
+        let finalOrderPosts = 0;
+        page.on('request', (request) => {
+            const url = new URL(request.url());
+            if (request.method() === 'POST' && url.pathname === '/id') {
+                finalOrderPosts += 1;
+            }
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const promoInput = page.locator('.order-promo__input');
+        await expect(promoInput).toBeVisible();
+
+        const totalValue = page.locator('.order-summary--bangjeff .order-summary__value--total');
+        const toNumber = (text) => Number(String(text).replace(/[^0-9]/g, ''));
+        // Wait until the initial price quote has resolved (the summary renders
+        // "Rp 0" until the first /id/harga response arrives).
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 25_000 }).toBeGreaterThan(0);
+        const totalBefore = toNumber(await totalValue.innerText());
+
+        // Valid promo: server-side validation round-trip, then the voucher must
+        // be applied to the price quote (fixture: 10% of 10.000, cap 5.000).
+        // Delay the voucher validation so the quote triggered by typing resolves
+        // first — this pins the race where applying the code used to leave the
+        // summary stuck at Rp 0 (preview nulled after a valid quote arrived,
+        // with nothing to refetch it).
+        await page.route('**/check-voucher', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 600));
+            await route.continue();
+        });
+
+        const checkRequest = page.waitForRequest((request) => request.url().includes('/check-voucher'));
+        await promoInput.fill('E2EPROMO10');
+        await page.locator('.order-promo__apply').click();
+        await checkRequest;
+
+        await expect(page.locator('.feedback--success')).toContainText('E2EPROMO10');
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 15_000 }).toBe(totalBefore - 1000);
+
+        // Invalid promo: the server error is surfaced and the total returns to
+        // its undiscounted value.
+        await promoInput.fill('KODE-NGACO');
+        await page.locator('.order-promo__apply').click();
+        await expect(page.locator('.feedback--error')).toContainText(/tidak ditemukan/i);
+        await expect.poll(async () => toNumber(await totalValue.innerText()), { timeout: 15_000 }).toBe(totalBefore);
+
         expect(finalOrderPosts).toBe(0);
     });
 

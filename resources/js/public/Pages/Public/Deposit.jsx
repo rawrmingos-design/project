@@ -1,10 +1,33 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useForm } from '@inertiajs/react';
 import PublicLayout from '../../Layouts/PublicLayout';
 import UserDashboardSidebar from '../../Components/UserDashboardSidebar';
 
 function formatRupiah(value) {
     return `Rp ${new Intl.NumberFormat('id-ID').format(Number(value || 0))}`;
+}
+
+function csrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
+/**
+ * Local estimate of the admin fee (method percent + fixed).
+ *
+ * Only used for the per-method cards before a quote arrives. The authoritative
+ * total — which for Tripay includes the gateway's own customer fee — comes from the
+ * server quote endpoint, because computing it in the browser is what made the form
+ * promise Rp 50.450 while the customer was charged Rp 51.554.
+ */
+function estimateAdminFee(amount, method) {
+    if (!method || amount <= 0) {
+        return 0;
+    }
+
+    const percent = Number(method.feePercent || 0) / 100;
+    const fixed = Number(method.fixedFee || 0);
+
+    return Math.max(0, Math.ceil((amount * percent) + fixed));
 }
 
 function StatusBadge({ status }) {
@@ -36,16 +59,69 @@ export default function Deposit({ meta, deposit }) {
     );
 
     const amount = Math.max(0, Number(form.data.jumlah || 0));
-    const feeAmount = useMemo(() => {
+
+    // Server quote is the source of truth for the payable total. Until it arrives the
+    // summary falls back to the local admin-fee estimate, which never understates the
+    // real Tripay charge for long.
+    const [quote, setQuote] = useState(null);
+    const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+    const quoteRequestRef = useRef(0);
+
+    useEffect(() => {
         if (!selectedMethod || amount <= 0) {
-            return 0;
+            setQuote(null);
+            setIsQuoteLoading(false);
+            return undefined;
         }
 
-        const percent = Number(selectedMethod.feePercent || 0) / 100;
-        const fixed = Number(selectedMethod.fixedFee || 0);
-        return Math.max(0, Math.ceil((amount * percent) + fixed));
-    }, [selectedMethod, amount]);
-    const totalAmount = amount + feeAmount;
+        const requestId = ++quoteRequestRef.current;
+        const controller = new AbortController();
+        setIsQuoteLoading(true);
+
+        const timer = window.setTimeout(() => {
+            fetch('/id/deposit/quote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken(),
+                },
+                body: JSON.stringify({ jumlah: amount, metode: form.data.metode }),
+                signal: controller.signal,
+            })
+                .then((response) => (response.ok ? response.json() : null))
+                .then((payload) => {
+                    if (requestId !== quoteRequestRef.current) {
+                        return;
+                    }
+
+                    setQuote(payload?.success ? payload.data : null);
+                })
+                .catch(() => {
+                    if (requestId === quoteRequestRef.current) {
+                        setQuote(null);
+                    }
+                })
+                .finally(() => {
+                    if (requestId === quoteRequestRef.current) {
+                        setIsQuoteLoading(false);
+                    }
+                });
+        }, 250);
+
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [amount, form.data.metode, selectedMethod]);
+
+    const estimatedAdminFee = estimateAdminFee(amount, selectedMethod);
+    const feeAmount = quote ? Number(quote.admin_fee || 0) : estimatedAdminFee;
+    // Total the customer pays == nominal + our admin fee. The gateway's own customer fee is
+    // absorbed by the store (same convention as the order checkout), so it is not a second
+    // charge here. The server quote stays authoritative to avoid duplicating the formula.
+    const totalAmount = quote ? Number(quote.total_amount || 0) : amount + feeAmount;
 
     const isReadyToSubmit = Boolean(
         !form.processing
@@ -137,9 +213,12 @@ export default function Deposit({ meta, deposit }) {
                                         <div className="public-deposit-method-grid">
                                             {methods.map((method) => {
                                                 const isActive = form.data.metode === method.code;
-                                                const methodTotal = amount > 0
-                                                    ? amount + Math.max(0, Math.ceil((amount * (Number(method.feePercent || 0) / 100)) + Number(method.fixedFee || 0)))
-                                                    : 0;
+                                                // The selected card shows the exact payable total from the
+                                                // server quote; other cards only show the nominal + admin fee
+                                                // estimate, because Tripay's customer fee is per amount.
+                                                const methodTotal = isActive && quote
+                                                    ? Number(quote.total_amount || 0)
+                                                    : amount + estimateAdminFee(amount, method);
 
                                                 return (
                                                     <button
@@ -177,7 +256,9 @@ export default function Deposit({ meta, deposit }) {
                                         </div>
                                         <div className="public-deposit-summary__row is-total">
                                             <span>Total Pembayaran</span>
-                                            <strong>{formatRupiah(totalAmount)}</strong>
+                                            <strong data-role="deposit-total">
+                                                {isQuoteLoading && !quote ? 'Menghitung...' : formatRupiah(totalAmount)}
+                                            </strong>
                                         </div>
                                         <button type="submit" className="public-deposit-summary__submit" disabled={!isReadyToSubmit}>
                                             {form.processing ? 'Memproses...' : 'Top Up Sekarang'}

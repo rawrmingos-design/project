@@ -211,6 +211,7 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::get('/deposit/history',                                               PublicDepositHistoryPageController::class)->middleware('not-reseller:reseller.deposits')->name('reload');
         Route::get('/deposit',                                                      PublicDepositPageController::class)->middleware('non-affiliate.only')->name('deposit');
         Route::post('/deposit',                                                     [DepositController::class, 'store'])->middleware(['non-affiliate.only', 'throttle:public-deposit-submit'])->name('deposit.store');
+        Route::post('/deposit/quote',                                               [DepositController::class, 'quote'])->middleware(['non-affiliate.only', 'throttle:public-order-price'])->name('deposit.quote');
         Route::get('/deposit/{order}',                                               PublicDepositInvoicePageController::class)->name('deposit.invoice');
         Route::get('/dashboard/history',                                             PublicTransactionHistoryPageController::class)->middleware('not-reseller')->name('riwayat');
         Route::get('/affiliate',                                                     PublicAffiliatePageController::class)->name('affiliate');
@@ -300,6 +301,10 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
         Route::get('/sign-up',                                                       [RegisterController::class, 'create'])->name('register');
         Route::post('/sign-up',                                                      [RegisterController::class, 'store'])->name('post.register')->middleware('throttle:public-register');
         Route::post('/auth/google',                                                  [GoogleAuthController::class, 'store'])->name('auth.google')->middleware('throttle:public-login');
+        // Step 2 of Google sign-up: the verified Google profile waits in the session
+        // until the visitor supplies the WhatsApp number that Google does not provide.
+        Route::get('/auth/google/complete',                                          [GoogleAuthController::class, 'showComplete'])->name('auth.google.complete');
+        Route::post('/auth/google/complete',                                         [GoogleAuthController::class, 'complete'])->name('auth.google.complete.post')->middleware('throttle:public-register');
     });
     Route::get('/reviews',                                                       [PublicInformationalPageController::class, 'reviews'])->middleware('throttle:public-api-expensive-read')->name('reviews');
     Route::get('/forgot-password',                                         [PublicInformationalPageController::class, 'forgotPassword'])->name('forgot');

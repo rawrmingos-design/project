@@ -118,6 +118,13 @@ class ExpirePendingPayments
                 && ! $pembelian->hasStatus($previousPembelianStatus ?? '')
                 && $pembelian->hasStatus(PembelianStatus::EXPIRED);
 
+            if ($expiredPembelian) {
+                // VoucherService punya ledger idempotency sendiri
+                // (voucher_stock_restored_at) sehingga aman dipanggil walau
+                // command ini jalan tiap menit.
+                app(\App\Services\VoucherService::class)->restoreStockForOrder($pembelian);
+            }
+
             return [
                 'expired_payment' => $expiredPayment,
                 'expired_pembelian' => $expiredPembelian,
@@ -125,4 +132,5 @@ class ExpirePendingPayments
             ];
         });
     }
+
 }

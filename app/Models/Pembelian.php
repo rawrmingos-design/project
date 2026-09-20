@@ -62,6 +62,7 @@ class Pembelian extends Model
         'tenant_commission_credited_at' => 'datetime',
         'refund_amount'           => 'integer',
         'refunded_at'             => 'datetime',
+        'voucher_stock_restored_at' => 'datetime',
         'email_pembeli'           => 'string',
         'gateway_principal'       => 'string',
         'reseller_integration_id' => 'integer',

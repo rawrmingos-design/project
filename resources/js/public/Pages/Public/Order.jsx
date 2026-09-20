@@ -1317,8 +1317,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const [nickname, setNickname] = useState('');
     const [pricePreview, setPricePreview] = useState(null);
     const [pricePreviewKey, setPricePreviewKey] = useState(null);
+    const [priceRefreshToken, setPriceRefreshToken] = useState(0);
     const [priceLoading, setPriceLoading] = useState(false);
     const [usePoint, setUsePoint] = useState(0);
+    const [pointInputDraft, setPointInputDraft] = useState('');
+    const [lastPointInfo, setLastPointInfo] = useState(null);
     const priceRequestSequenceRef = useRef(0);
     const accountLookupSequenceRef = useRef(0);
     const [checkLoading, setCheckLoading] = useState(false);
@@ -1353,14 +1356,31 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const paymentPanelRef = useRef(null);
     const contactPanelRef = useRef(null);
     const accountAutoScrollDoneRef = useRef(false);
-    const nominalAutoScrollDoneRef = useRef(false);
     const quantityAutoScrollDoneRef = useRef(false);
-    const paymentAutoScrollDoneRef = useRef(false);
 
     const isBangjeff = theme?.key === 'bangjeff';
     const isBangjeffOrderStyle = isBangjeff || theme?.key === 'istanatopup';
     const shouldAutoCheckAccount = isBangjeff || theme?.key === 'istanatopup';
-    const requiresExplicitNominalSelection = isBangjeff;
+
+    // Auto-scroll between order panels, shared by the transaction layouts
+    // (bangjeff + istanatopup use the same panel UI). Called from interaction
+    // handlers so every explicit pick advances the user to the next step.
+    const scrollToOrderPanel = useCallback((targetRef) => {
+        if (!isBangjeffOrderStyle || !targetRef?.current || typeof window === 'undefined') {
+            return;
+        }
+
+        const offset = window.innerWidth < 1024 ? 94 : 108;
+        const top = Math.max(0, window.scrollY + targetRef.current.getBoundingClientRect().top - offset);
+
+        window.requestAnimationFrame(() => {
+            window.scrollTo({
+                top,
+                behavior: 'smooth',
+            });
+        });
+    }, [isBangjeffOrderStyle]);
+    const requiresExplicitNominalSelection = isBangjeffOrderStyle;
     const isComplexOrder = category.orderMode === 'complex';
     const variantGroups = useMemo(() => {
         if (!packages.length) {
@@ -1569,6 +1589,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             payment_method_name: method.name,
             category_slug: category.slug,
         });
+        scrollToOrderPanel(contactPanelRef);
     };
     const openBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(true);
     const closeBangjeffLoginRequiredModal = () => setShowLoginRequiredModal(false);
@@ -1678,9 +1699,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setPaymentStepInteracted(false);
         setSpecialForm(buildInitialSpecialForm(category.specialFields));
         accountAutoScrollDoneRef.current = false;
-        nominalAutoScrollDoneRef.current = false;
         quantityAutoScrollDoneRef.current = false;
-        paymentAutoScrollDoneRef.current = false;
     }, [category.specialFields]);
 
     const handleApplySavedAccountDraft = () => {
@@ -1905,9 +1924,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         setQuantityStepInteracted(false);
         setPaymentStepInteracted(false);
         accountAutoScrollDoneRef.current = false;
-        nominalAutoScrollDoneRef.current = false;
         quantityAutoScrollDoneRef.current = false;
-        paymentAutoScrollDoneRef.current = false;
         preventAutoSelectRef.current = false;
     }, [category.slug]);
 
@@ -2050,7 +2067,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         return true;
     }, [category.customInputs.zone, category.requireUserId, isComplexOrder, specialFieldsWithoutQty, specialForm, uid, zone]);
 
-    const accountLookupRequired = isBangjeff
+    const accountLookupRequired = isBangjeffOrderStyle
         && !isComplexOrder
         && category.requiresGameValidation
         && shouldAutoCheckAccount
@@ -2061,30 +2078,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && accountLookup?.type === 'success'
             && accountLookup.fingerprint === accountLookupFingerprint
         );
-    const contactDetailsReady = isBangjeff
+    const contactDetailsReady = isBangjeffOrderStyle
         ? Boolean(
             (isValidOrderEmail(email) || isValidOrderPhone(phone))
             && (!email || isValidOrderEmail(email))
             && (!phone || isValidOrderPhone(phone))
         )
         : true;
-    const selectedPaymentReady = !isBangjeff || Boolean(selectedMethodCode && selectedMethod);
-
-    const scrollToOrderPanel = useCallback((targetRef) => {
-        if (!isBangjeff || !targetRef?.current || typeof window === 'undefined') {
-            return;
-        }
-
-        const offset = window.innerWidth < 1024 ? 94 : 108;
-        const top = Math.max(0, window.scrollY + targetRef.current.getBoundingClientRect().top - offset);
-
-        window.requestAnimationFrame(() => {
-            window.scrollTo({
-                top,
-                behavior: 'smooth',
-            });
-        });
-    }, [isBangjeff]);
+    const selectedPaymentReady = !isBangjeffOrderStyle || Boolean(selectedMethodCode && selectedMethod);
 
     useEffect(() => {
         if (!accountStepReady) {
@@ -2101,20 +2102,6 @@ export default function Order({ meta, category, products, packages, paymentMetho
     }, [accountStepInteracted, accountStepReady, scrollToOrderPanel]);
 
     useEffect(() => {
-        if (!selectedProductId) {
-            nominalAutoScrollDoneRef.current = false;
-            return;
-        }
-
-        if (!nominalStepInteracted || nominalAutoScrollDoneRef.current) {
-            return;
-        }
-
-        scrollToOrderPanel(paymentPanelRef);
-        nominalAutoScrollDoneRef.current = true;
-    }, [nominalStepInteracted, scrollToOrderPanel, selectedProductId]);
-
-    useEffect(() => {
         if (!quantityEnabled) {
             quantityAutoScrollDoneRef.current = false;
             return;
@@ -2127,20 +2114,6 @@ export default function Order({ meta, category, products, packages, paymentMetho
         scrollToOrderPanel(paymentPanelRef);
         quantityAutoScrollDoneRef.current = true;
     }, [quantityEnabled, quantityStepInteracted, scrollToOrderPanel]);
-
-    useEffect(() => {
-        if (!selectedMethodCode) {
-            paymentAutoScrollDoneRef.current = false;
-            return;
-        }
-
-        if (!paymentStepInteracted || paymentAutoScrollDoneRef.current) {
-            return;
-        }
-
-        scrollToOrderPanel(contactPanelRef);
-        paymentAutoScrollDoneRef.current = true;
-    }, [paymentStepInteracted, scrollToOrderPanel, selectedMethodCode]);
 
     useEffect(() => {
         if (!gtmViewItemPayload || typeof window === 'undefined' || typeof window.pushDataLayerEvent !== 'function') {
@@ -2221,10 +2194,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
         };
 
-        loadPrice();
+        const debounceTimer = setTimeout(loadPrice, 300);
 
-        return () => controller.abort();
-    }, [category.type, priceRequestKey, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
+        return () => {
+            clearTimeout(debounceTimer);
+            controller.abort();
+        };
+    }, [category.type, priceRequestKey, priceRefreshToken, quantity, selectedMethodCode, selectedProductId, usePoint, voucher]);
 
     useEffect(() => {
         setUsePoint(0);
@@ -2235,6 +2211,16 @@ export default function Order({ meta, category, products, packages, paymentMetho
             setUsePoint(0);
         }
     }, [authUser]);
+
+    useEffect(() => {
+        if (pricePreview?.point_info) {
+            setLastPointInfo(pricePreview.point_info);
+        }
+    }, [pricePreview]);
+
+    useEffect(() => {
+        setLastPointInfo(null);
+    }, [authUser?.id]);
 
     useEffect(() => {
         if (!pricePreview?.point_info) {
@@ -2254,6 +2240,13 @@ export default function Order({ meta, category, products, packages, paymentMetho
             setUsePoint(boundedUsePoint);
         }
     }, [pricePreview, usePoint]);
+
+    // Keep the points text field in step with the committed value whenever it
+    // changes from outside the field itself (steppers, "Maks" button, server
+    // clamp, category/account resets).
+    useEffect(() => {
+        setPointInputDraft(usePoint > 0 ? String(usePoint) : '');
+    }, [usePoint]);
 
     const handleCheckAccount = async () => {
         if (isComplexOrder || !category.requiresGameValidation) {
@@ -2344,8 +2337,12 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
     const applyVoucherPreview = (nextVoucherCode) => {
         setVoucher(nextVoucherCode);
-        setPricePreview(null);
-        setPricePreviewKey(null);
+        // Force a fresh quote for the applied code. Nulling the preview here used
+        // to race with the quote triggered by typing the same code: when that
+        // quote resolved first, the null wiped a valid voucher-aware preview and
+        // nothing refetched it (voucher/priceRequestKey unchanged) — the summary
+        // stayed stuck at Rp 0. Bumping a token always re-runs the price effect.
+        setPriceRefreshToken((token) => token + 1);
     };
 
     const resetStaleVoucherState = () => {
@@ -2472,7 +2469,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
     };
 
     const validateBeforeSubmit = () => {
-        if (isBangjeff) {
+        if (isBangjeffOrderStyle) {
             if (!selectedProductId || (requiresExplicitNominalSelection && !nominalStepInteracted)) {
                 return 'Pilih nominal terlebih dahulu.';
             }
@@ -2570,14 +2567,14 @@ export default function Order({ meta, category, products, packages, paymentMetho
         return null;
     };
 
-    const priceQuoteReady = !isBangjeff
+    const priceQuoteReady = !isBangjeffOrderStyle
         || Boolean(
             !priceLoading
             && pricePreview?.status === true
             && pricePreviewKey === priceRequestKey
             && getMethodFinalPrice(pricePreview, selectedMethodCode, null) !== null
         );
-    const bangjeffOrderReady = !isBangjeff
+    const bangjeffOrderReady = !isBangjeffOrderStyle
         || Boolean(
             selectedProductId
             && nominalStepInteracted
@@ -2589,7 +2586,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && !submitLoading
         );
     const orderValidationMessage = validateBeforeSubmit();
-    const isOrderReady = isBangjeff ? bangjeffOrderReady : !orderValidationMessage;
+    const isOrderReady = isBangjeffOrderStyle ? bangjeffOrderReady : !orderValidationMessage;
 
     const buildOrderSubmitPayload = () => {
         const body = new URLSearchParams();
@@ -2789,13 +2786,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
     const selectedMethodPrice = getMethodFinalPrice(pricePreview, selectedMethodCode);
     const summaryProductImage = category.thumbnail || selectedProduct?.productLogo || selectedProduct?.thumbnail || '/assets/logo/favicon.webp';
     const hasBackendPrice = selectedMethodPrice !== null || pricePreview?.selected_final_price !== undefined || pricePreview?.harga !== undefined;
-    const displayPreviewPrice = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
     const displaySummaryFee = priceLoading && !hasBackendPrice
         ? 'Menghitung...'
         : summaryFeeAmount === null ? '—' : formatCurrency(summaryFeeAmount);
     const displaySummaryBase = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(selectedUnitPrice);
-    const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(previewPrice);
-    const pointInfo = pricePreview?.point_info || null;
+    const pointInfo = pricePreview?.point_info || lastPointInfo;
     const pointBalance = Number.isFinite(Number(pointInfo?.balance))
         ? Math.max(0, Math.floor(Number(pointInfo.balance)))
         : Math.max(0, Math.floor(Number(authUser?.pointBalance || 0)));
@@ -2803,11 +2798,52 @@ export default function Order({ meta, category, products, packages, paymentMetho
         ? Math.max(0, Math.floor(Number(pointInfo.max_points)))
         : 0;
     const pointValue = Number.isFinite(Number(pointInfo?.point_value)) ? Number(pointInfo.point_value) : 0;
-    const pointDiscountAmount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
+    const committedPointDiscount = getSelectedPointDiscount(pricePreview, selectedMethodCode, 0);
     const amountBeforePoint = getSelectedAmountBeforePoint(pricePreview, selectedMethodCode, null);
+    // Real-time point maths: mirror the server formula (min(points, max_points) * point_value)
+    // so the discount and totals move instantly while the user types the amount,
+    // instead of waiting for the debounced /id/harga round-trip.
+    const liveUsePoint = Math.max(0, Math.min(Math.floor(Number(usePoint) || 0), maxRedeemablePoints));
+    const pointDiscountAmount = Math.floor(liveUsePoint * pointValue);
+    const liveTotalPrice = amountBeforePoint !== null
+        ? Math.max(1000, previewPrice + committedPointDiscount - pointDiscountAmount)
+        : previewPrice;
+    // NOTE: keep display helpers below liveTotalPrice — referencing it earlier is a
+    // temporal-dead-zone crash during render (broke hydration once).
+    const displayPreviewPrice = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(liveTotalPrice);
+    const displaySummaryTotal = priceLoading && !hasBackendPrice ? 'Menghitung...' : formatCurrency(liveTotalPrice);
     const pointControlAvailable = Boolean(authUser);
     const pointControlReady = Boolean(pointInfo);
-    const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0 || priceLoading;
+    const pointControlDisabled = !pointControlReady || maxRedeemablePoints <= 0 || pointBalance <= 0;
+    // Points entry is a plain numeric field (users need an exact amount, not a
+    // slider): digits only, clamped here AND re-clamped server-side, hard cap on
+    // length, never negative/decimals/scientific notation.
+    const commitPointAmount = (value) => {
+        const numeric = Math.floor(Number(value));
+
+        if (!Number.isFinite(numeric) || numeric <= 0) {
+            setUsePoint(0);
+            return;
+        }
+
+        setUsePoint(Math.min(numeric, maxRedeemablePoints));
+    };
+    const handlePointInputChange = (raw) => {
+        const digits = String(raw).replace(/[^0-9]/g, '').slice(0, 9);
+
+        if (digits === '') {
+            setPointInputDraft('');
+            setUsePoint(0);
+            return;
+        }
+
+        const bounded = Math.min(parseInt(digits, 10) || 0, maxRedeemablePoints);
+        setPointInputDraft(bounded > 0 ? String(bounded) : '');
+        setUsePoint(bounded);
+    };
+    const handlePointInputBlur = () => {
+        setPointInputDraft(usePoint > 0 ? String(usePoint) : '');
+    };
     const pointRedemptionPanel = pointControlAvailable ? (
         <div className={`order-points ${isBangjeffOrderStyle ? 'order-points--bangjeff' : ''}`}>
             <div className="order-points__header">
@@ -2817,17 +2853,47 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
                 <strong className="order-points__selected">{usePoint.toLocaleString('id-ID')} points</strong>
             </div>
-            <input
-                className="order-points__range"
-                type="range"
-                min="0"
-                max={maxRedeemablePoints}
-                step="1"
-                value={Math.min(usePoint, maxRedeemablePoints)}
-                onChange={(event) => setUsePoint(Math.max(0, Math.min(Number(event.target.value) || 0, maxRedeemablePoints)))}
-                disabled={pointControlDisabled}
-                aria-label="Jumlah points yang digunakan"
-            />
+            <div className="order-points__control">
+                <button
+                    type="button"
+                    className="order-points__stepper"
+                    onClick={() => commitPointAmount(usePoint - 1)}
+                    disabled={pointControlDisabled || usePoint <= 0}
+                    aria-label="Kurangi satu point"
+                >
+                    −
+                </button>
+                <input
+                    className="order-points__input"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="off"
+                    placeholder="0"
+                    value={pointInputDraft}
+                    onChange={(event) => handlePointInputChange(event.target.value)}
+                    onBlur={handlePointInputBlur}
+                    disabled={pointControlDisabled}
+                    aria-label="Jumlah points yang digunakan"
+                />
+                <button
+                    type="button"
+                    className="order-points__stepper"
+                    onClick={() => commitPointAmount(usePoint + 1)}
+                    disabled={pointControlDisabled || usePoint >= maxRedeemablePoints}
+                    aria-label="Tambah satu point"
+                >
+                    +
+                </button>
+                <button
+                    type="button"
+                    className="order-points__max"
+                    onClick={() => commitPointAmount(maxRedeemablePoints)}
+                    disabled={pointControlDisabled || usePoint >= maxRedeemablePoints}
+                >
+                    Maks
+                </button>
+            </div>
             <div className="order-points__meta">
                 <span>{pointControlReady ? `Maksimal ${maxRedeemablePoints.toLocaleString('id-ID')} points` : 'Mengambil batas redeem...'}</span>
                 {pointValue > 0 ? <span>1 point = {formatCurrency(pointValue)}</span> : null}
@@ -3250,6 +3316,9 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                                 setSelectedPackage(index);
                                                 setNominalStepInteracted(true);
                                                 setSelectedProductId(item.id);
+                                                // Deterministic flow: every nominal pick moves the
+                                                // user on to the payment step.
+                                                scrollToOrderPanel(paymentPanelRef);
                                             }}
                                         />
                                     ))}
@@ -3629,7 +3698,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 </div>
             </section>
 
-            <div className={`public-shell public-shell--order order-page__body order-page__body--bangjeff ${mobileCheckoutExpanded && isBangjeff ? 'order-page__body--bangjeff-checkout-expanded' : ''}`}>
+            <div className={`public-shell public-shell--order order-page__body order-page__body--bangjeff ${mobileCheckoutExpanded && isBangjeffOrderStyle ? 'order-page__body--bangjeff-checkout-expanded' : ''}`}>
                 <div className="order-mobile-tabs order-mobile-tabs--bangjeff" role="tablist" aria-orientation="horizontal">
                     <button
                         type="button"
