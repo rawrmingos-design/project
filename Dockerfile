@@ -71,8 +71,14 @@ RUN composer install \
 # Copy semua source code
 COPY . .
 
-# Install & build Node.js assets
-RUN npm ci --legacy-peer-deps && npm run production && npm run build && rm -rf node_modules
+# Install & build Node.js assets + SSR bundle
+# Bundle SSR di-build dengan `ssr.noExternal` sehingga self-contained (tidak
+# butuh node_modules saat runtime) — node_modules tetap dihapus.
+RUN npm ci --legacy-peer-deps \
+    && npm run production \
+    && npm run build \
+    && npm run build:ssr \
+    && rm -rf node_modules
 
 # Buat direktori yang dibutuhkan Laravel SEBELUM artisan commands
 RUN mkdir -p bootstrap/cache \
@@ -103,7 +109,6 @@ RUN chown -R www-data:www-data /var/www/html/storage \
 
 # Copy Supervisor config
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
 # Copy nginx config ke dalam container
 COPY docker/nginx/app.conf /etc/nginx/nginx.conf
 

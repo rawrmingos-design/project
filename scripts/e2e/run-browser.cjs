@@ -63,10 +63,11 @@ function run(command, args, environment = e2eEnvironment) {
     }
 }
 
-function runPlaywright(specs, serverless = false) {
+function runPlaywright(specs, serverless = false, extraEnv = {}) {
     run(process.execPath, [playwrightCli, 'test', ...specs, ...extraArgs], {
         ...e2eEnvironment,
         E2E_SERVERLESS: serverless ? '1' : '0',
+        ...extraEnv,
     });
 }
 
@@ -74,7 +75,81 @@ function buildAssets() {
     run(process.execPath, [viteCli, 'build'], process.env);
 }
 
+/**
+ * Pastikan tidak ada bundle SSR tertinggal. Mode yang tidak menjalankan SSR
+ * harus tetap menguji jalur fallback client-side.
+ */
+function removeSsrBundle() {
+    fs.rmSync(path.join(root, 'bootstrap', 'ssr'), { recursive: true, force: true });
+}
+
+function buildSsrBundle() {
+    run(process.execPath, [viteCli, 'build', '--ssr', 'resources/js/ssr.jsx', '--outDir', 'bootstrap/ssr'], process.env);
+}
+
+/**
+ * Jalankan server SSR di port terpisah, tunggu sampai sehat, lalu jalankan
+ * callback. Bundle SSR dibangun lebih dulu supaya halaman benar-benar
+ * di-render di server, bukan jatuh ke shell client-only.
+ */
+async function withSsrServer(callback) {
+    buildSsrBundle();
+
+    // Port SSR ditentukan oleh @inertiajs/core (13714) dan harus sama dengan
+    // config('inertia.ssr.url') yang dipakai Laravel.
+    const ssrPort = '13714';
+    const child = spawn(process.execPath, ['bootstrap/ssr/ssr.mjs'], {
+        cwd: root,
+        env: e2eEnvironment,
+        stdio: 'inherit',
+    });
+
+    const stop = () => {
+        if (!child.killed) {
+            child.kill('SIGTERM');
+        }
+    };
+
+    const ready = (async () => {
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+
+            try {
+                const response = await fetch(`http://127.0.0.1:${ssrPort}/health`);
+                if (response.ok) {
+                    return true;
+                }
+            } catch {
+                // server belum siap
+            }
+        }
+
+        return false;
+    })();
+
+    try {
+        const isReady = await ready;
+
+        if (!isReady) {
+            console.error('SSR server tidak siap pada waktu yang ditentukan.');
+            stop();
+            process.exit(1);
+        }
+
+        await callback();
+    } finally {
+        stop();
+    }
+}
+
 function serve() {
+    // Playwright menjalankan mode ini sebagai webServer. Mode `ssr` sengaja
+    // mempertahankan bundle yang baru di-build, jadi penghapusan harus
+    // dilewati lewat penanda dari pemanggilnya.
+    if (process.env.E2E_KEEP_SSR_BUNDLE !== '1') {
+        removeSsrBundle();
+    }
+
     fs.rmSync(runtimeDir, { recursive: true, force: true });
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.writeFileSync(databasePath, '');
@@ -128,10 +203,21 @@ switch (mode) {
     case 'serve':
         serve();
         break;
+    case 'ssr':
+        // Mode khusus: render server-side + bukti konten di HTML awal.
+        withSsrServer(async () => {
+            buildAssets();
+            runPlaywright(['tests/e2e/ssr-content.spec.js'], false, { E2E_KEEP_SSR_BUNDLE: '1' });
+        }).catch((error) => {
+            console.error(error);
+            process.exit(1);
+        });
+        break;
     case 'tracking':
         runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
         break;
     case 'app':
+        removeSsrBundle();
         buildAssets();
         runPlaywright([
             'tests/e2e/homepage-popup.spec.js',
@@ -148,6 +234,7 @@ switch (mode) {
         ]);
         break;
     case 'all':
+        removeSsrBundle();
         buildAssets();
         runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
         runPlaywright([

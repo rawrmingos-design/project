@@ -6,8 +6,15 @@ export default defineConfig({
     plugins: [
         laravel({
             input: ['resources/css/public-app.css', 'resources/js/public-app.jsx', 'resources/js/realtime.js'],
+            ssr: 'resources/js/ssr.jsx',
             refresh: true,
         }),
         react(),
     ],
+    ssr: {
+        // Bundle dependensi runtime (react, react-dom/server, @inertiajs) ke
+        // dalam bundle SSR supaya server render tidak butuh node_modules di
+        // image produksi.
+        noExternal: true,
+    },
 });
