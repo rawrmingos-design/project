@@ -194,8 +194,22 @@
 
     @inertiaHead
     @unless(app()->runningUnitTests())
+        @php
+            // CSS harus di-link eksplisit: kalau hanya di-import dari JS, HTML SSR
+            // sempat dirender tanpa stylesheet sama sekali (FOUC / halaman terlihat
+            // rusak sesaat). Theme istana punya file scoped sendiri; theme lain
+            // (mis. bangjeff) sudah termasuk di public-app.css.
+            $activeThemeKey = \App\Support\PublicThemeRegistry::resolveForEnvironment(
+                $props['theme']['key'] ?? null
+            );
+            $viteEntries = ['resources/css/public-app.css'];
+            if ($activeThemeKey === \App\Support\PublicThemeRegistry::ISTANATOPUP) {
+                $viteEntries[] = 'resources/css/public-theme-istanatopup.css';
+            }
+            $viteEntries[] = 'resources/js/public-app.jsx';
+        @endphp
         @viteReactRefresh
-        @vite(['resources/js/public-app.jsx'])
+        @vite($viteEntries)
     @endunless
 </head>
 <body>
@@ -203,6 +217,143 @@
         'trackingSettings' => $inertiaTrackingSettings,
         'trackingPlacement' => 'body',
     ])
+
+    {{-- Splash anti-FOUC: HTML SSR bisa tampil sebelum CSS/JS selesai dimuat
+         sehingga halaman sempat terlihat rusak. Overlay ini dirender inline
+         (tanpa dependency) dan disembunyikan segera setelah React siap. --}}
+    @php
+        $splashName = trim((string) ($siteConfig['name'] ?? config('app.name', 'Game Top-Up')));
+        $splashLogo = trim((string) ($siteConfig['logoHeader'] ?? ''));
+        if ($splashLogo !== '' && !\Illuminate\Support\Str::startsWith($splashLogo, ['http://', 'https://', 'data:'])) {
+            $splashLogo = url('/' . ltrim($splashLogo, '/'));
+        }
+        $splashPrimary = trim((string) ($siteConfig['colors']['primary'] ?? '#222222'));
+        $splashAccent = trim((string) ($siteConfig['colors']['accent'] ?? '#ffa54a'));
+        if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $splashPrimary)) { $splashPrimary = '#222222'; }
+        if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $splashAccent)) { $splashAccent = '#ffa54a'; }
+    @endphp
+    <style>
+        #ist-boot-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: {{ $splashPrimary }};
+            transition: opacity .28s ease;
+        }
+        #ist-boot-splash[hidden] { display: none; }
+        #ist-boot-splash.is-hiding { opacity: 0; pointer-events: none; }
+        #ist-boot-splash .ist-boot-splash__inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            padding: 0 24px;
+            text-align: center;
+        }
+        #ist-boot-splash img {
+            width: 96px;
+            height: 96px;
+            object-fit: contain;
+            animation: istBootPulse 1.6s ease-in-out infinite;
+        }
+        #ist-boot-splash .ist-boot-splash__bar {
+            position: relative;
+            width: min(220px, 62vw);
+            height: 4px;
+            overflow: hidden;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, .14);
+        }
+        #ist-boot-splash .ist-boot-splash__bar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(90deg, transparent, {{ $splashAccent }}, transparent);
+            animation: istBootSweep 1.15s cubic-bezier(.22, 1, .36, 1) infinite;
+        }
+        #ist-boot-splash .ist-boot-splash__title {
+            margin: 0;
+            font: 600 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+            color: #fff;
+            letter-spacing: .01em;
+        }
+        @keyframes istBootPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.06); opacity: .88; }
+        }
+        @keyframes istBootSweep {
+            100% { transform: translateX(100%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #ist-boot-splash img,
+            #ist-boot-splash .ist-boot-splash__bar::after { animation: none; }
+        }
+    </style>
+    <div id="ist-boot-splash" role="status" aria-live="polite" aria-label="Memuat halaman">
+        <div class="ist-boot-splash__inner">
+            @if($splashLogo !== '')
+                <img src="{{ $splashLogo }}" alt="{{ $splashName }}" width="96" height="96" decoding="async">
+            @endif
+            <div class="ist-boot-splash__bar" aria-hidden="true"></div>
+            <p class="ist-boot-splash__title">{{ $splashName !== '' ? $splashName : 'Memuat…' }}</p>
+        </div>
+    </div>
+    <script>
+        (function () {
+            // Sembunyikan splash setelah React selesai hidrasi. Batas waktu
+            // menjaga agar splash tidak pernah menutupi UI kalau inisialisasi
+            // React gagal (mis. error bundle) — halaman tetap bisa dipakai.
+            var splash = document.getElementById('ist-boot-splash');
+            if (!splash) return;
+
+            var hidden = false;
+            function hideBootSplash() {
+                if (hidden) return;
+                hidden = true;
+                splash.classList.add('is-hiding');
+                window.setTimeout(function () { splash.hidden = true; }, 320);
+            }
+
+            function revealWhenReady() {
+                // Skrip ini di-parse sebelum direktif inertia, jadi #app baru
+                // ada di DOM setelah dokumen selesai diparse.
+                var app = document.getElementById('app');
+                if (!app || typeof MutationObserver === 'undefined') {
+                    window.setTimeout(hideBootSplash, 1500);
+                    return;
+                }
+
+                var observer = new MutationObserver(function () {
+                    if (app.children.length > 0) {
+                        observer.disconnect();
+                        requestAnimationFrame(function () { requestAnimationFrame(hideBootSplash); });
+                    }
+                });
+
+                // Konten SSR sudah ada di #app -> tampilkan halaman segera.
+                if (app.children.length > 0) {
+                    requestAnimationFrame(function () { requestAnimationFrame(hideBootSplash); });
+                    return;
+                }
+
+                observer.observe(app, { childList: true });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', revealWhenReady);
+            } else {
+                revealWhenReady();
+            }
+
+            // Jaring pengaman: splash tidak boleh menutupi UI selamanya.
+            window.setTimeout(hideBootSplash, 6000);
+        })();
+    </script>
+
     @inertia
     <script>
         // Register the PWA service worker so the footer install button can trigger beforeinstallprompt.

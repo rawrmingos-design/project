@@ -207,7 +207,11 @@ switch (mode) {
         // Mode khusus: render server-side + bukti konten di HTML awal.
         withSsrServer(async () => {
             buildAssets();
-            runPlaywright(['tests/e2e/ssr-content.spec.js'], false, { E2E_KEEP_SSR_BUNDLE: '1' });
+            runPlaywright(
+                ['tests/e2e/ssr-content.spec.js', 'tests/e2e/anti-fouc.spec.js'],
+                false,
+                { E2E_KEEP_SSR_BUNDLE: '1' }
+            );
         }).catch((error) => {
             console.error(error);
             process.exit(1);
