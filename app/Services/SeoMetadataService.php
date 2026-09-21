@@ -105,7 +105,7 @@ final class SeoMetadataService
         ];
     }
 
-    public function articleSchema(array $article, string $canonical, string $siteName, ?string $logo = null): array
+    public function articleSchema(array $article, string $canonical, string $siteName, ?string $logo = null, ?string $content = null): array
     {
         $canonical = CanonicalUrl::normalize($canonical);
         $settings = $this->siteConfigService->getSettings();
@@ -129,11 +129,123 @@ final class SeoMetadataService
             'inLanguage' => 'id-ID',
         ], static fn ($value): bool => $value !== null && $value !== '');
 
-        return [$articleSchema, $this->breadcrumbSchema([
+        $schemas = [$articleSchema, $this->breadcrumbSchema([
             ['name' => $siteName, 'url' => url('/id')],
             ['name' => 'Artikel', 'url' => url('/id/artikel')],
             ['name' => $article['title'] ?? 'Artikel', 'url' => $canonical],
         ])];
+
+        // Paritas dengan legacy Blade: bagian FAQ di dalam konten artikel
+        // juga dipublikasikan sebagai FAQPage agar kaya rich result.
+        $faq = $this->faqSchema($content, $canonical);
+        if ($faq !== null) {
+            $schemas[] = $faq;
+        }
+
+        return $schemas;
+    }
+
+    /**
+     * Bangun schema FAQPage dari bagian "FAQ" di dalam konten artikel.
+     *
+     * Konvensi konten: sebuah <h2> yang memuat kata "faq", lalu pasangan
+     * <h3>pertanyaan</h3> diikuti <p>jawaban</p>. Bagian berhenti saat
+     * menemukan <h2> berikutnya. Mengembalikan null bila tidak ada FAQ,
+     * sehingga halaman biasa tidak ikut mendapat schema FAQPage.
+     */
+    public function faqSchema(?string $content, ?string $canonical = null): ?array
+    {
+        $questions = $this->faqQuestions($content);
+
+        if ($questions === []) {
+            return null;
+        }
+
+        return array_filter([
+            '@context' => 'https://schema.org',
+            '@type' => 'FAQPage',
+            '@id' => $canonical !== null ? CanonicalUrl::normalize($canonical) . '#faq' : null,
+            'mainEntity' => $questions,
+        ], static fn ($value): bool => $value !== null);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function faqQuestions(?string $content): array
+    {
+        $content = trim((string) $content);
+
+        if ($content === '' || ! str_contains(strtolower($content), 'faq')) {
+            return [];
+        }
+
+        $document = new \DOMDocument();
+        $previousUseErrors = libxml_use_internal_errors(true);
+        $document->loadHTML('<?xml encoding="UTF-8">' . $content);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previousUseErrors);
+
+        $faqHeading = null;
+
+        foreach ($document->getElementsByTagName('h2') as $heading) {
+            $headingText = strtolower(trim((string) preg_replace('/\s+/', ' ', $heading->textContent)));
+
+            if (str_contains($headingText, 'faq')) {
+                $faqHeading = $heading;
+                break;
+            }
+        }
+
+        if ($faqHeading === null) {
+            return [];
+        }
+
+        $questions = [];
+
+        for ($node = $faqHeading->nextSibling; $node !== null; $node = $node->nextSibling) {
+            if ($node->nodeType !== XML_ELEMENT_NODE) {
+                continue;
+            }
+
+            $nodeName = strtolower($node->nodeName);
+
+            if ($nodeName === 'h2') {
+                break;
+            }
+
+            if ($nodeName !== 'h3') {
+                continue;
+            }
+
+            $question = trim((string) preg_replace('/\s+/', ' ', $node->textContent));
+            $answerNode = $node->nextSibling;
+
+            while ($answerNode && $answerNode->nodeType !== XML_ELEMENT_NODE) {
+                $answerNode = $answerNode->nextSibling;
+            }
+
+            if ($question === '' || $answerNode === null || strtolower($answerNode->nodeName) !== 'p') {
+                continue;
+            }
+
+            $answer = trim((string) preg_replace('/\s+/', ' ', $answerNode->textContent));
+
+            if ($answer === '') {
+                continue;
+            }
+
+            $questions[] = [
+                '@type' => 'Question',
+                'name' => $question,
+                'acceptedAnswer' => [
+                    '@type' => 'Answer',
+                    'text' => $answer,
+                ],
+            ];
+        }
+
+        return $questions;
     }
 
     public function collectionSchema(string $name, string $canonical, ?string $image = null): array

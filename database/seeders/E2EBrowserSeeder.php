@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Artikel;
 use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
@@ -20,6 +21,8 @@ use chillerlan\QRCode\QROptions;
 class E2EBrowserSeeder extends Seeder
 {
     public const POPUP_ID = 900001;
+
+    public const ARTICLE_FAQ_SLUG = 'e2e-faq-parity';
 
     public function run(): void
     {
@@ -374,6 +377,23 @@ class E2EBrowserSeeder extends Seeder
                 'mintrx' => 0,
                 'max_potongan' => 5000,
                 'expired_at' => null,
+            ],
+        );
+
+        Artikel::query()->updateOrCreate(
+            ['slug' => self::ARTICLE_FAQ_SLUG],
+            [
+                'title' => 'E2E FAQ Parity Artikel',
+                'thumbnail' => 'assets/logo/favicon.webp',
+                'content' => '<h2>Pertanyaan Umum (FAQ)</h2>'
+                    . '<h3>Apa itu top up?</h3><p>Top up adalah pengisian ulang diamond atau voucher game.</p>'
+                    . '<h3>Berapa lama prosesnya?</h3><p>Proses instan 1-3 menit setelah pembayaran terkonfirmasi.</p>'
+                    . '<h2>Catatan</h2><p>Halaman ini dipakai untuk uji paritas schema.</p>',
+                'meta_description' => 'Artikel E2E untuk uji paritas FAQPage schema.',
+                'keywords' => 'e2e,faq,top up',
+                'layout' => 'default',
+                'status' => 'active',
+                'views' => 0,
             ],
         );
     }

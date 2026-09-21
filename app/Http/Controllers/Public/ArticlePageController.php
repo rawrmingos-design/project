@@ -117,8 +117,10 @@ class ArticlePageController extends Controller
                 ->all();
         });
 
+        $mappedArticle = $this->mapArticle($article, $siteConfigService, true, true);
+
         return Inertia::render('Public/Articles/Show', [
-            'article' => $this->mapArticle($article, $siteConfigService, true, true),
+            'article' => $mappedArticle,
             'recentArticles' => $recentArticles,
             'meta' => $seoMetadataService->article([
                 'title' => (string) $article->title,
@@ -132,7 +134,7 @@ class ArticlePageController extends Controller
                                     'image' => url($siteConfigService->normalizeAssetPath((string) $article->thumbnail)),
                                     'datePublished' => optional($article->created_at)?->toAtomString(),
                                     'dateModified' => optional($article->updated_at)?->toAtomString(),
-                                ], url("/id/artikel/{$article->slug}"), (string) $settings->judul_web),
+                                ], url("/id/artikel/{$article->slug}"), (string) $settings->judul_web, null, (string) ($mappedArticle['content'] ?? '')),
                             ]),
                         ]);
     }
