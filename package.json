@@ -19,6 +19,7 @@
         "hot": "mix watch --hot",
         "prod": "npm run production",
         "production": "mix --production",
+        "build:ssr": "vite build --ssr resources/js/ssr.jsx",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",

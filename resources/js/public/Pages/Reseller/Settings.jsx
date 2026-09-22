@@ -7,7 +7,13 @@ export default function Settings() {
     const { settingsPage, meta, csrf_token } = usePage().props;
     const { profile, twoFactor, push, flash } = settingsPage;
 
-    const [pushSupported] = useState(() => Boolean(window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window));
+    // Push API hanya ada di browser; saat SSR (Node) nilainya false supaya
+    // render server tidak menyentuh `window`/`navigator`.
+    const [pushSupported] = useState(() => (
+        typeof window !== 'undefined'
+        && typeof navigator !== 'undefined'
+        && Boolean(window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window)
+    ));
     const [pushStatus, setPushStatus] = useState(push.enabled ? 'Subscribed' : 'Not subscribed');
     const [pushError, setPushError] = useState(null);
     const [pushBusy, setPushBusy] = useState(false);
