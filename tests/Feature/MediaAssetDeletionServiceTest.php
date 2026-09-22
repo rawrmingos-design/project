@@ -101,6 +101,234 @@ class MediaAssetDeletionServiceTest extends TestCase
         }
     }
 
+    /**
+     * Regresi bug produksi: file unggahan Spatie Media Library berada di
+     * prefix `assets/media/<mediaId>/<file>` (config media-library.prefix).
+     * Direktori itu TIDAK ada di managedDirectories() sehingga
+     * isDeletablePublicFile() mengembalikan false: file fisik tetap
+     * tertinggal di disk walau record sudah dihapus dari File Manager.
+     * Gejala ke pengguna: "gambar sudah dihapus tapi masih tampil".
+     */
+    public function test_it_deletes_spatie_media_prefix_files(): void
+    {
+        $prefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+        $this->assertNotSame('', $prefix, 'prefix media library harus terkonfigurasi');
+
+        $relativePath = '/' . $prefix . '/99901/01M1684CKWS8BNTX65RYXZ0SPRTEST.webp';
+        $absolutePath = public_path(ltrim($relativePath, '/'));
+
+        File::ensureDirectoryExists(dirname($absolutePath));
+        File::put($absolutePath, 'fake spatie image contents');
+
+        try {
+            $asset = MediaAsset::query()->create([
+                'name' => '01M1684CKWS8BNTX65RYXZ0SPRTEST',
+                'folder' => 'produk',
+                'path' => $relativePath,
+            ]);
+
+            $result = app(MediaAssetDeletionService::class)->delete($asset);
+
+            $this->assertTrue($result['asset_deleted']);
+            $this->assertTrue(
+                $result['file_deleted'],
+                'file di prefix spatie (assets/media) harus ikut terhapus, bukan di-skip',
+            );
+            $this->assertFalse($result['file_skipped']);
+            $this->assertFalse(File::exists($absolutePath));
+            $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
+        } finally {
+            File::delete($absolutePath);
+        }
+    }
+
+    /**
+     * Folder sync tidak boleh membuat ulang asset setelah file spatie
+     * prefix dihapus — kalau tidak, gambar "muncul kembali" di File Manager.
+     */
+    public function test_folder_sync_does_not_recreate_deleted_spatie_prefix_asset(): void
+    {
+        $prefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+        $relativePath = '/' . $prefix . '/99902/resync-guard-test.webp';
+        $absolutePath = public_path(ltrim($relativePath, '/'));
+
+        File::ensureDirectoryExists(dirname($absolutePath));
+        File::put($absolutePath, 'fake contents');
+
+        try {
+            $asset = MediaAsset::query()->create([
+                'name' => 'resync-guard-test',
+                'folder' => 'produk',
+                'path' => $relativePath,
+            ]);
+
+            app(MediaAssetDeletionService::class)->delete($asset);
+
+            $this->assertFalse(File::exists($absolutePath));
+
+            app(MediaAssetFolderSyncService::class)->sync();
+
+            $this->assertDatabaseMissing('media_assets', ['path' => $relativePath]);
+        } finally {
+            File::delete($absolutePath);
+        }
+    }
+
+    /**
+     * Varian optimized dari file spatie prefix juga harus ikut dibersihkan.
+     */
+    public function test_it_deletes_optimized_variants_for_spatie_prefix_images(): void
+    {
+        $prefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+        $relativePath = '/' . $prefix . '/99903/variant-spatie-test.webp';
+        $absolutePath = public_path(ltrim($relativePath, '/'));
+
+        File::ensureDirectoryExists(dirname($absolutePath));
+        File::put($absolutePath, 'fake image contents');
+
+        try {
+            $asset = MediaAsset::query()->create([
+                'name' => 'variant-spatie-test',
+                'folder' => 'produk',
+                'path' => $relativePath,
+            ]);
+
+            $result = app(MediaAssetDeletionService::class)->delete($asset);
+
+            $this->assertTrue($result['file_deleted']);
+            $this->assertFalse(File::exists($absolutePath));
+        } finally {
+            File::delete($absolutePath);
+        }
+    }
+
+    /**
+     * File yang sama bisa terdaftar di DUA tempat: sebagai MediaAsset (File
+     * Manager) DAN sebagai media milik PaketLayanan (unggahan form produk).
+     * Menghapus dari File Manager harus membersihkan keduanya — kalau row
+     * milik PaketLayanan dibiarkan, form produk masih melihat media "ada"
+     * dan menuliskannya kembali ke kolom legacy saat disimpan, sehingga
+     * gambar yang sudah dihapus muncul lagi di frontend.
+     */
+    public function test_it_deletes_sibling_spatie_media_pointing_to_same_file(): void
+    {
+        $prefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+
+        // Path Spatie = <prefix>/<mediaId>/<file_name>, jadi id row-nya
+        // dulu yang menentukan path fisik.
+        $siblingId = DB::table('media')->insertGetId([
+            'model_type' => \App\Models\PaketLayanan::class,
+            'model_id' => 1,
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'collection_name' => 'product_logo',
+            'name' => 'sibling-shared-file',
+            'file_name' => 'sibling-shared-file.webp',
+            'mime_type' => 'image/webp',
+            'disk' => 'assets',
+            'conversions_disk' => 'assets',
+            'size' => 20,
+            'manipulations' => '[]',
+            'custom_properties' => '[]',
+            'generated_conversions' => '[]',
+            'responsive_images' => '[]',
+            'order_column' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $relativePath = '/' . $prefix . '/' . $siblingId . '/sibling-shared-file.webp';
+        $absolutePath = public_path(ltrim($relativePath, '/'));
+
+        try {
+            File::ensureDirectoryExists(dirname($absolutePath));
+            File::put($absolutePath, 'fake shared contents');
+
+            // Row milik MediaAsset sendiri (dibuat manual, tanpa file media).
+            $asset = MediaAsset::query()->create([
+                'name' => 'sibling-shared-file',
+                'folder' => 'produk',
+                'path' => $relativePath,
+            ]);
+
+            $this->assertFileExists($absolutePath);
+            $this->assertSame(
+                $absolutePath,
+                MediaAsset::find($asset->id)->resolveAbsolutePath(),
+            );
+
+            $result = app(MediaAssetDeletionService::class)->delete($asset);
+
+            $this->assertTrue($result['asset_deleted']);
+            $this->assertFalse(File::exists($absolutePath));
+            $this->assertDatabaseMissing('media', ['id' => $siblingId]);
+        } finally {
+            File::delete($absolutePath);
+        }
+    }
+
+    /**
+     * Scoping harus ketat: file dengan NAMA SAMA di direktori BEDA tidak
+     * boleh ikut terhapus. Prod punya 8 nama file yang dipakai 9–16 row
+     * masing-masing; penghapusan berbasis nama file akan merusak produk lain.
+     */
+    public function test_it_does_not_delete_media_with_same_filename_in_other_directory(): void
+    {
+        $prefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+
+        // Row asing dibuat dulu: path Spatie bergantung pada id row-nya.
+        $otherId = DB::table('media')->insertGetId([
+            'model_type' => \App\Models\PaketLayanan::class,
+            'model_id' => 2,
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'collection_name' => 'product_logo',
+            'name' => 'shared-name',
+            'file_name' => 'shared-name.webp',
+            'mime_type' => 'image/webp',
+            'disk' => 'assets',
+            'conversions_disk' => 'assets',
+            'size' => 15,
+            'manipulations' => '[]',
+            'custom_properties' => '[]',
+            'generated_conversions' => '[]',
+            'responsive_images' => '[]',
+            'order_column' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // File lain: NAMA SAMA, direktori berbeda.
+        $otherRelative = '/' . $prefix . '/' . $otherId . '/shared-name.webp';
+        $otherAbsolute = public_path(ltrim($otherRelative, '/'));
+
+        // Target: direktori sendiri, nama file juga sama.
+        $targetRelative = '/' . $prefix . '/99905/shared-name.webp';
+        $targetAbsolute = public_path(ltrim($targetRelative, '/'));
+
+        try {
+            File::ensureDirectoryExists(dirname($otherAbsolute));
+            File::put($otherAbsolute, 'other contents');
+
+            File::ensureDirectoryExists(dirname($targetAbsolute));
+            File::put($targetAbsolute, 'target contents');
+
+            $asset = MediaAsset::query()->create([
+                'name' => 'shared-name',
+                'folder' => 'produk',
+                'path' => $targetRelative,
+            ]);
+
+            app(MediaAssetDeletionService::class)->delete($asset);
+
+            // File & row di direktori lain harus UTUH.
+            $this->assertTrue(File::exists($otherAbsolute), 'file di direktori lain tidak boleh terhapus');
+            $this->assertDatabaseHas('media', ['id' => $otherId]);
+        } finally {
+            File::delete($targetAbsolute);
+            File::delete($otherAbsolute);
+            DB::table('media')->where('model_id', 2)->where('collection_name', 'product_logo')->delete();
+        }
+    }
+
     public function test_it_clears_legacy_references_before_deleting_asset(): void
     {
         $relativePath = 'assets/product_logo/test-clear-ref.png';
