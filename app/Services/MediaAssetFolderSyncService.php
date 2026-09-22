@@ -52,7 +52,7 @@ class MediaAssetFolderSyncService
 
     private function directories(): array
     {
-        return [
+        $directories = [
             'assets/product_logo' => 'produk',
             'assets/thumbnail' => 'kategori',
             'assets/banner_game' => 'banner',
@@ -61,5 +61,18 @@ class MediaAssetFolderSyncService
             'assets/seasonal' => 'seasonal',
             'articles/thumbnails' => 'artikel',
         ];
+
+        // Unggahan dari form produk/kategori disimpan Spatie Media Library
+        // di prefix ini (config media-library.prefix). Kalau tidak
+        // di-index, file-nya tidak muncul di File Manager sehingga admin
+        // TIDAK BISA menghapusnya dari sana — persis keluhan "sudah
+        // dihapus tapi masih tampil" (sebenarnya belum pernah terhapus).
+        $spatiePrefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+
+        if ($spatiePrefix !== '' && ! array_key_exists($spatiePrefix, $directories)) {
+            $directories[$spatiePrefix] = 'produk';
+        }
+
+        return $directories;
     }
 }

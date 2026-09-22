@@ -146,6 +146,14 @@ class MediaAssetDeletionService
                 $result['media_deleted']++;
             }
 
+            // File yang sama sering diunggah lewat form produk/kategori
+            // sehingga row Spatie-nya menempel ke model lain (PaketLayanan,
+            // Produk, Kategori) — bukan ke MediaAsset ini. Kalau row itu
+            // dibiarkan, form produk masih menganggap gambar "ada" dan
+            // menuliskannya kembali ke kolom legacy saat disimpan,
+            // sehingga gambar yang sudah dihapus MUNCUL LAGI.
+            $result['media_deleted'] += $this->deleteSiblingSpatieMedia($asset, $result['file_path']);
+
             $asset->delete();
         });
         $result['asset_deleted'] = true;
@@ -177,6 +185,49 @@ class MediaAssetDeletionService
             || $this->isOwnSpatieMediaFile($absolutePath, $asset);
     }
 
+    /**
+     * Hapus row Spatie media milik model LAIN (form produk/kategori) yang
+     * menunjuk ke file fisik yang sama persis.
+     *
+     * Scoping sengaja ketat ke path fisik identik, BUKAN nama file: satu
+     * nama file bisa dipakai banyak row di direktori berbeda (prod: 8 nama
+     * file dipakai 9–16 row masing-masing). Menghapus berdasarkan nama file
+     * akan ikut menghapus media milik produk lain yang tidak diminta.
+     *
+     * @return int jumlah row Spatie yang dihapus
+     */
+    private function deleteSiblingSpatieMedia(MediaAsset $asset, ?string $relativePath): int
+    {
+        if (blank($relativePath)) {
+            return 0;
+        }
+
+        $target = $this->normalizePath(public_path(ltrim($relativePath, '/')));
+        $ownIds = $asset->media->pluck('id')->all();
+        $deleted = 0;
+
+        foreach (Media::query()->where('disk', 'assets')->get() as $media) {
+            if (in_array($media->id, $ownIds, true)) {
+                continue;
+            }
+
+            $mediaPath = $media->getPath();
+
+            if (! is_file($mediaPath)) {
+                continue;
+            }
+
+            if ($this->normalizePath($mediaPath) !== $target) {
+                continue;
+            }
+
+            $media->delete();
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
     private function isOwnSpatieMediaFile(string $absolutePath, MediaAsset $asset): bool
     {
         return $asset->media->contains(function (Media $media) use ($absolutePath): bool {
@@ -186,15 +237,32 @@ class MediaAssetDeletionService
 
     private function managedDirectories(): array
     {
-        return [
-            public_path('assets/product_logo'),
-            public_path('assets/thumbnail'),
-            public_path('assets/banner_game'),
-            public_path('assets/banner'),
-            public_path('assets/logo'),
-            public_path('assets/seasonal'),
-            public_path('articles/thumbnails'),
+        // Spatie Media Library menaruh file unggahan di prefix ini
+        // (config media-library.prefix, default assets/media). Tanpa
+        // direktori ini, file hasil unggahan form produk/kategori
+        // TIDAK ikut terhapus walau record-nya sudah dihapus dari
+        // File Manager (gejala: gambar "sudah dihapus" tapi masih tampil).
+        $spatiePrefix = trim((string) config('media-library.prefix', 'assets/media'), '/');
+
+        $directories = [
+            'assets/product_logo',
+            'assets/thumbnail',
+            'assets/banner_game',
+            'assets/banner',
+            'assets/logo',
+            'assets/seasonal',
+            'articles/thumbnails',
+            'assets/optimized',
         ];
+
+        if ($spatiePrefix !== '') {
+            $directories[] = $spatiePrefix;
+        }
+
+        return array_map(
+            static fn (string $directory): string => public_path($directory),
+            $directories
+        );
     }
 
     private function isInsideAnyDirectory(string $path, array $directories): bool
