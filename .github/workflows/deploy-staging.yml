@@ -248,6 +248,12 @@ jobs:
           username: ${{ secrets.STAGING_VPS_USER }}
           key: ${{ secrets.STAGING_VPS_SSH_KEY }}
           port: ${{ secrets.STAGING_VPS_PORT || 22 }}
+          # Default appleboy/ssh-action command_timeout = 10m. Pull image 1.25 GB
+          # dari GHCR ke VPS sempat stall ~9m45s tanpa progres sehingga kena
+          # timeout tepat di ambang 10m (run 35862993385 attempt 1 dan
+          # 35865408113 attempt 1/2: pull aktif hanya 10-17 detik lalu diam).
+          # Bukan kegagalan kode - test, browser test, dan build image hijau.
+          command_timeout: 30m
           script: |
             cd ${{ secrets.STAGING_VPS_APP_PATH }}
 
