@@ -103,6 +103,86 @@ class LegacyPaginationStylingTest extends TestCase
         );
     }
 
+    public function test_legacy_pagination_renders_the_windowed_pages_not_every_page(): void
+    {
+        // UrlWindow::get() memakai small slider (SEMUA halaman, tanpa pemisah)
+        // selama lastPage < onEachSide * 2 + 8. Dengan onEachSide default 3,
+        // batasnya 14 halaman. Jadi untuk benar-benar menguji jalur jendela +
+        // pemisah "..." kita perlu lebih dari 14 halaman:
+        // 180 artikel / 9 per halaman = 20 halaman, halaman aktif 10.
+        $this->createArticles(180);
+
+        $paginator = \App\Models\Artikel::query()
+            ->where('status', 'active')
+            ->orderByDesc('created_at')
+            ->paginate(9, ['*'], 'page', 10);
+
+        $this->assertGreaterThan(14, $paginator->lastPage(), 'Prasyarat test: butuh lebih dari 14 halaman agar pemisah muncul.');
+
+        // Nomor halaman yang HARUS tampil menurut paginator. `elements()`
+        // bersifat protected (dipakai internal saat Laravel merender view),
+        // jadi diakses lewat closure yang di-bind — sumber data yang sama
+        // dengan $elements yang diterima view.
+        $elements = (function () {
+            return $this->elements();
+        })->call($paginator);
+
+        $expectedPages = [];
+        $expectedGaps = 0;
+        foreach ($elements as $element) {
+            if (is_string($element)) {
+                $expectedGaps++;
+                continue;
+            }
+            foreach (array_keys($element) as $page) {
+                $expectedPages[] = (string) $page;
+            }
+        }
+
+        $this->assertNotEmpty($expectedPages, 'Prasyarat test tidak terpenuhi: paginator tidak menghasilkan halaman.');
+        $this->assertGreaterThan(0, $expectedGaps, 'Prasyarat test tidak terpenuhi: seharusnya ada pemisah halaman di 20 halaman.');
+        // Jendela tidak boleh menampilkan semua halaman.
+        $this->assertLessThan(
+            $paginator->lastPage(),
+            count($expectedPages),
+            'Prasyarat test tidak terpenuhi: jendela halaman seharusnya tidak menampilkan semua halaman.',
+        );
+
+        $html = $this->get('/id/artikel?page=10')->assertOk()->getContent();
+        $pagination = $this->extractPaginationHtml($html);
+
+        // Setiap nomor halaman yang diharapkan muncul sebagai tombol/link.
+        foreach ($expectedPages as $page) {
+            $this->assertMatchesRegularExpression(
+                '/class="legacy-pagination__item[^"]*"[^>]*>\s*' . preg_quote($page, '/') . '\s*</',
+                $pagination,
+                "Nomor halaman {$page} tidak dirender oleh view pagination legacy.",
+            );
+        }
+
+        // Tidak boleh menampilkan halaman di luar jendela paginator.
+        $rendered = [];
+        if (preg_match_all('/class="legacy-pagination__item[^"]*"[^>]*>\s*(\d{1,3})\s*</', $pagination, $m)) {
+            $rendered = array_values(array_unique($m[1]));
+        }
+        $this->assertEqualsCanonicalizing(
+            $expectedPages,
+            $rendered,
+            'View pagination legacy menampilkan nomor halaman yang berbeda dari jendela paginator.',
+        );
+
+        // Pemisah "..." muncul sesuai jumlah gap dari paginator.
+        if ($expectedGaps > 0) {
+            $this->assertSame(
+                $expectedGaps,
+                substr_count($pagination, 'is-gap'),
+                'Jumlah pemisah halaman tidak sesuai dengan paginator.',
+            );
+        }
+
+        $this->assertStringContainsString('is-active', $pagination, 'Halaman aktif tidak ditandai.');
+    }
+
     /**
      * Ambil hanya blok <nav> pagination, supaya assert tidak tertipu oleh
      * markup lain di halaman yang mungkin memang memakai bg-white.
