@@ -361,6 +361,7 @@
     <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/legacy-pagination.css') }}">
 
     @php
         $needsPublicDashboardStyles = request()->routeIs([
