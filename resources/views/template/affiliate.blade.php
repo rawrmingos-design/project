@@ -304,7 +304,10 @@
             
             <!-- Pagination -->
             <div class="px-4 py-3 border-t border-gray-700">
-                {{ $affiliate_history->links() }}
+                {{-- Lihat resources/views/vendor/pagination/legacy.blade.php:
+                     view bawaan Laravel memakai utility Tailwind yang tidak ada
+                     di stylesheet theme legacy. --}}
+                {{ $affiliate_history->links('pagination::legacy') }}
             </div>
             
             @else

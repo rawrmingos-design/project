@@ -113,7 +113,11 @@
         </div>
 
         <div class="mt-16 flex justify-center">
-            {{ $articles->links() }}
+            {{-- View pagination khusus theme legacy: theme ini tidak memuat
+                 utility Tailwind lengkap, sehingga view bawaan Laravel
+                 (pagination::tailwind) tampil sebagai kotak putih kosong.
+                 Lihat resources/views/vendor/pagination/legacy.blade.php --}}
+            {{ $articles->links('pagination::legacy') }}
         </div>
         
     </div>

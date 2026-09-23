@@ -1,0 +1,158 @@
+/* ---------------------------------------------------------------------------
+   Pagination — theme LEGACY (`public_theme = default`)
+
+   Dipakai oleh resources/views/vendor/pagination/legacy.blade.php.
+
+   KENAPA FILE INI ADA
+   -------------------
+   Theme legacy memuat 4 stylesheet portabel (pjojikhhoyutyrtd, barrsopaosocas,
+   owihdagowdhqo, seasonal-themes) yang BUKAN output Tailwind lengkap. Sementara
+   itu, view pagination bawaan Laravel (`pagination::tailwind`) memakai ~20
+   utility class yang tidak ada di stylesheet tersebut:
+
+     text-gray-700  text-gray-600  text-gray-800  bg-gray-200  border-gray-300
+     border-gray-600  rounded-l-md  rounded-r-md  -ml-px  cursor-default
+     cursor-not-allowed  hover:bg-gray-100  active:bg-gray-100  focus:ring
+     ring-gray-300  focus:border-blue-300  dark:*  dst.
+
+   Akibatnya tombol halaman tampil sebagai kotak putih kosong: `bg-white`
+   kebetulan terdefinisi, tetapi kelas warnanya tidak. Teks lalu mewarisi
+   `color: #fff` dari <body>, sehingga putih di atas putih dan tidak terbaca —
+   sampai di-hover, karena ada rule global `a:hover { background-color: var(--warna_3) }`
+   yang menutupi teks. Itu sebabnya gejalanya persis seperti laporan client:
+   "kotak terlihat kosong sampai di-hover".
+
+   Prinsip file ini:
+     1. Hanya memakai class miliknya sendiri (.legacy-pagination__*) + CSS var
+        brand (--warna_3) yang selalu tersedia dari template.
+     2. Background transparan (permintaan client) dengan border tetap, supaya
+        tombol menyatu dengan tema gelap dan teksnya langsung terbaca.
+     3. Tanpa `color-mix()` / fitur CSS baru supaya aman di browser lama;
+        nilai fallback selalu ditulis lebih dulu.
+   --------------------------------------------------------------------------- */
+
+.legacy-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 40px;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.legacy-pagination__summary {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.legacy-pagination__summary > span {
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.legacy-pagination__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.legacy-pagination__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    /* Fallback lebih dulu untuk browser tanpa var() */
+    background-color: transparent;
+    background-color: transparent;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+/* `bg-white` bawaan view Laravel diganti transparan sesuai permintaan client */
+.legacy-pagination__item:link,
+.legacy-pagination__item:visited {
+    background-color: transparent;
+    color: #ffffff;
+}
+
+a.legacy-pagination__item:hover,
+a.legacy-pagination__item:focus-visible {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: var(--warna_3);
+    color: #ffffff;
+    outline: none;
+}
+
+a.legacy-pagination__item:active {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.legacy-pagination__item.is-active {
+    background-color: var(--warna_3);
+    border-color: var(--warna_3);
+    color: #ffffff;
+    font-weight: 700;
+    cursor: default;
+}
+
+.legacy-pagination__item.is-disabled {
+    background-color: transparent;
+    border-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.35);
+    cursor: not-allowed;
+}
+
+.legacy-pagination__item.is-gap {
+    border-color: transparent;
+    background-color: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: default;
+}
+
+.legacy-pagination__icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+    .legacy-pagination {
+        justify-content: center;
+    }
+
+    .legacy-pagination__summary {
+        display: none;
+    }
+
+    /* Di layar kecil, tombol prev/next cukup ikon supaya tidak berdesakan */
+    .legacy-pagination__label {
+        display: none;
+    }
+
+    .legacy-pagination__item {
+        padding: 0 10px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .legacy-pagination__item {
+        transition: none;
+    }
+}
