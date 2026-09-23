@@ -35,18 +35,18 @@
             {{-- Previous --}}
             <li>
                 @if ($paginator->onFirstPage())
-                    <span class="legacy-pagination__item is-disabled" aria-disabled="true" aria-label="{{ __('pagination.previous') }}">
+                    <span class="legacy-pagination__item is-disabled" aria-disabled="true" aria-label="@lang('pagination.previous')">
                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="legacy-pagination__icon">
                             <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                         </svg>
-                        <span class="legacy-pagination__label">{{ __('pagination.previous') }}</span>
+                        <span class="legacy-pagination__label">@lang('pagination.previous')</span>
                     </span>
                 @else
-                    <a href="{{ $paginator->previousPageUrl() }}" rel="prev" class="legacy-pagination__item" aria-label="{{ __('pagination.previous') }}">
+                    <a href="{{ $paginator->previousPageUrl() }}" rel="prev" class="legacy-pagination__item" aria-label="@lang('pagination.previous')">
                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="legacy-pagination__icon">
                             <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                         </svg>
-                        <span class="legacy-pagination__label">{{ __('pagination.previous') }}</span>
+                        <span class="legacy-pagination__label">@lang('pagination.previous')</span>
                     </a>
                 @endif
             </li>
@@ -73,15 +73,15 @@
             {{-- Next --}}
             <li>
                 @if ($paginator->hasMorePages())
-                    <a href="{{ $paginator->nextPageUrl() }}" rel="next" class="legacy-pagination__item" aria-label="{{ __('pagination.next') }}">
-                        <span class="legacy-pagination__label">{{ __('pagination.next') }}</span>
+                    <a href="{{ $paginator->nextPageUrl() }}" rel="next" class="legacy-pagination__item" aria-label="@lang('pagination.next')">
+                        <span class="legacy-pagination__label">@lang('pagination.next')</span>
                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="legacy-pagination__icon">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                         </svg>
                     </a>
                 @else
-                    <span class="legacy-pagination__item is-disabled" aria-disabled="true" aria-label="{{ __('pagination.next') }}">
-                        <span class="legacy-pagination__label">{{ __('pagination.next') }}</span>
+                    <span class="legacy-pagination__item is-disabled" aria-disabled="true" aria-label="@lang('pagination.next')">
+                        <span class="legacy-pagination__label">@lang('pagination.next')</span>
                         <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" class="legacy-pagination__icon">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                         </svg>

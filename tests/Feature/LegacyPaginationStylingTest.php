@@ -184,6 +184,54 @@ class LegacyPaginationStylingTest extends TestCase
     }
 
     /**
+     * Label Previous/Next dirender lewat @lang() tanpa escaping tambahan.
+     *
+     * File lang/en/pagination.php berisi entity HTML (`&laquo; Previous`,
+     * `Next &raquo;`). Kalau dirender dengan `{{ }}` ia ter-escape dua kali
+     * menjadi `&amp;laquo;` sehingga yang tampil di layar adalah teks mentah
+     * "&laquo; Previous" — bukan tanda panah. View bawaan Laravel pun memakai
+     * `{!! !!}` / `@lang()` untuk alasan yang sama.
+     */
+    public function test_legacy_pagination_labels_are_not_double_escaped(): void
+    {
+        $this->createArticles(12);
+
+        $html = $this->get('/id/artikel')->assertOk()->getContent();
+        $pagination = $this->extractPaginationHtml($html);
+
+        $this->assertStringNotContainsString(
+            '&amp;laquo;',
+            $pagination,
+            'Label "Previous" ter-escape ganda (&amp;laquo;) — pakai @lang() / {!! !!}, bukan {{ }}.',
+        );
+        $this->assertStringNotContainsString(
+            '&amp;raquo;',
+            $pagination,
+            'Label "Next" ter-escape ganda (&amp;raquo;) — pakai @lang() / {!! !!}, bukan {{ }}.',
+        );
+
+        // Entity harus benar-benar merender panah, bukan teks mentah.
+        // Catatan format: label previous = "&laquo; Previous" (entity di depan),
+        // label next = "Next &raquo;" (entity di belakang) — sesuai
+        // lang/en/pagination.php.
+        $this->assertStringNotContainsString(
+            '&amp;#039;',
+            $pagination,
+            'Ada entity yang ter-escape ganda di markup pagination.',
+        );
+        $this->assertMatchesRegularExpression(
+            '/legacy-pagination__label">\s*(&laquo;|«)/',
+            $pagination,
+            'Label "Previous" tidak dirender sebagai tanda panah.',
+        );
+        $this->assertMatchesRegularExpression(
+            '/legacy-pagination__label">\s*Next\s*(&raquo;|»)/',
+            $pagination,
+            'Label "Next" tidak dirender sebagai tanda panah.',
+        );
+    }
+
+    /**
      * Ambil hanya blok <nav> pagination, supaya assert tidak tertipu oleh
      * markup lain di halaman yang mungkin memang memakai bg-white.
      */
