@@ -260,6 +260,12 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          # Default appleboy/ssh-action command_timeout adalah 10m. Pull image
+          # 1.25 GB dari GHCR ke VPS bisa stall sementara; pada 2026-09-23 pull
+          # sempat berhenti ~9m45s tanpa progres dan kena timeout 10m tepat saat
+          # menarik layer terakhir (bukan kegagalan kode: guard, test, browser
+          # test, dan build image semuanya hijau di run yang sama).
+          command_timeout: 30m
           script: |
             cd ${{ secrets.VPS_APP_PATH }}
 
