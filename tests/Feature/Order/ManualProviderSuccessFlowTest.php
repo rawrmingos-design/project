@@ -152,6 +152,98 @@ class ManualProviderSuccessFlowTest extends TestCase
         );
     }
 
+    /**
+     * Produk uji manual harus tersedia di SETIAP kategori game yang dipakai
+     * untuk pengujian alur sukses (Mobile Legends + Free Fire), supaya tim
+     * bisa memverifikasi order sukses dari kategori mana pun.
+     */
+    public static function manualTestProductProvider(): array
+    {
+        return [
+            'mobile legends' => ['ML_MANUAL_1'],
+            'free fire' => ['FF_MANUAL_1'],
+        ];
+    }
+
+    /** @dataProvider manualTestProductProvider */
+    public function test_manual_test_product_is_routable_per_category(string $sku): void
+    {
+        $kategoriKode = $sku === 'FF_MANUAL_1' ? 'free-fire' : 'mobile-legends';
+
+        $kategori = Kategori::factory()->create([
+            'kode' => $kategoriKode,
+            'tipe' => 'game',
+            'require_user_id' => true,
+        ]);
+
+        $layanan = Layanan::factory()->create([
+            'kategori_id' => $kategori->id,
+            'layanan' => 'Produk Uji Manual',
+            'provider' => 'manual',
+            'provider_id' => $sku,
+            'harga' => 1000,
+            'harga_member' => 1050,
+            'status' => 'available',
+        ]);
+
+        $route = app(ProviderRoutingService::class)->findBestProvider($layanan);
+
+        $this->assertNotNull($route);
+        $this->assertSame('manual', $route['provider_code']);
+        $this->assertSame($sku, $route['sku']);
+        $this->assertSame('manual', $route['credentials']['type']);
+    }
+
+    /**
+     * Produk manual Free Fire harus benar-benar lolos alur order sukses —
+     * bukan hanya routable. Ini yang dipakai tim untuk uji E2E dari kategori
+     * Free Fire.
+     */
+    public function test_free_fire_manual_product_reaches_success(): void
+    {
+        $kategori = Kategori::factory()->create([
+            'kode' => 'free-fire',
+            'tipe' => 'game',
+            'require_user_id' => true,
+        ]);
+
+        $layanan = Layanan::factory()->create([
+            'kategori_id' => $kategori->id,
+            'layanan' => '5 Diamond (Test Manual)',
+            'provider' => 'manual',
+            'provider_id' => 'FF_MANUAL_1',
+            'harga' => 1000,
+            'harga_member' => 1050,
+            'status' => 'available',
+        ]);
+
+        $order = Pembelian::query()->create([
+            'order_id' => 'EM260924000000FFMANUAL',
+            'username' => '1840180550',
+            'user_id' => '1840180550',
+            'layanan' => '5 Diamond (Test Manual)',
+            'active_layanan_id' => $layanan->id,
+            'active_provider_code' => 'manual',
+            'active_provider_sku' => 'FF_MANUAL_1',
+            'harga' => 1000,
+            'profit' => 0,
+            'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
+            'traffic_source' => 'telegram_gateway',
+        ]);
+
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+        (new SendPembelianToProviderJob($order->id))
+            ->handle(app(\App\Services\OrderProcessingService::class));
+
+        $this->assertSame(
+            PembelianStatus::preferredDatabaseLabel(PembelianStatus::SUCCESS),
+            $order->fresh()->status,
+            'Order manual Free Fire harus otomatis Sukses.',
+        );
+        Http::assertNothingSent();
+    }
+
     public function test_manual_provider_order_is_visible_in_sender_transaction_list(): void
     {
         [, $order] = $this->fixtures(['gateway_principal' => 'telegram:6252007210']);
