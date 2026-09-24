@@ -54,20 +54,26 @@ class BotCommandHandler
     public function handle(?string $command, array $args, array $context): array
     {
         try {
-            $membership = $this->telegramMembership->check($context);
+            // Perintah yang hanya membaca data milik sender sendiri (bukan
+            // membuka katalog / membuat order) tidak boleh diblokir gate
+            // keanggotaan. Sebelumnya gangguan verifikasi sesaat membuat
+            // user tidak bisa mengecek transaksinya sendiri.
+            if (! $this->isMembershipExemptCommand($command)) {
+                $membership = $this->telegramMembership->check($context);
 
-            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
-                $this->clearCheckoutState($context);
+                if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
+                    $this->clearCheckoutState($context);
 
-                return $this->formatter->formatTelegramMembershipRequired(
-                    (string) ($membership['channel_url'] ?? ''),
-                );
-            }
+                    return $this->formatter->formatTelegramMembershipRequired(
+                        (string) ($membership['channel_url'] ?? ''),
+                    );
+                }
 
-            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
-                $this->clearCheckoutState($context);
+                if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
+                    $this->clearCheckoutState($context);
 
-                return $this->formatter->formatTelegramMembershipUnavailable();
+                    return $this->formatter->formatTelegramMembershipUnavailable();
+                }
             }
 
             if ($this->shouldClearCheckoutState($command, $context)) {
@@ -1555,56 +1561,43 @@ class BotCommandHandler
     {
         $orderId = '';
 
-        if (count($args) >= 1) {
+        if (count($args) >= 1 && ! str_starts_with((string) $args[0], 'page:')) {
             $orderId = trim((string) $args[0]);
-        } elseif (
-            ($context['source'] ?? null) === 'whatsapp_gateway'
-            || ($context['source'] ?? null) === 'telegram_gateway'
-        ) {
-            // `status` tanpa order ID → cek order milik sender.
-            $source = (string) $context['source'];
-            $externalUserId = (string) ($context['external_user_id'] ?? '');
-
-            $orders = $this->invoice->activeOrdersForSender($source, $externalUserId);
-
-            if ($orders->count() > 1) {
-                return $this->formatter->formatActiveOrders(
-                    $orders->map(fn (Pembelian $order): array => [
-                        'order_id' => (string) $order->order_id,
-                        'product' => (string) ($order->layanan ?? 'Produk'),
-                        'amount' => (int) $order->harga,
-                        'payment_status' => (string) ($order->pembayaran?->status ?? ''),
-                        'order_status' => (string) $order->status,
-                    ]),
-                );
-            }
-
-            if ($orders->count() === 1) {
-                $orderId = (string) $orders->first()->order_id;
-            }
         }
 
         if ($orderId === '' && in_array(($context['source'] ?? null), ['whatsapp_gateway', 'telegram_gateway'], true)) {
-            // Tidak ada order aktif: tampilkan ringkasan N order
-            // terakhir milik sender (semua status) supaya user tidak
-            // perlu hafal order ID untuk melihat statusnya.
-            $recent = $this->invoice->recentOrdersForSender(
+            // Tidak ada order ID: tampilkan SEMUA checkout milik sender
+            // (semua status) secara terpaginasi, supaya user tidak perlu
+            // hafal order ID dan tidak ada transaksi yang "hilang" hanya
+            // karena statusnya final (mis. Gagal/Expired).
+            $page = $this->pageFromArgs($args);
+            $list = $this->invoice->senderOrdersForSender(
                 (string) $context['source'],
                 (string) ($context['external_user_id'] ?? ''),
+                $page,
+                (int) \App\Services\Gateway\GatewayInvoiceService::SENDER_LIST_PER_PAGE,
             );
 
-            if ($recent->isNotEmpty()) {
-                return $this->formatter->formatActiveOrders(
-                    $recent->map(fn (Pembelian $order): array => [
+            if ($list['total'] > 0) {
+                return $this->formatter->formatSenderOrderList(
+                    $list['items']->map(fn (Pembelian $order): array => [
                         'order_id' => (string) $order->order_id,
                         'product' => (string) ($order->layanan ?? 'Produk'),
                         'amount' => (int) $order->harga,
                         'payment_status' => (string) ($order->pembayaran?->status ?? ''),
                         'order_status' => (string) $order->status,
                     ]),
-                    '📦 *Pesanan Terakhirmu*',
+                    $list['page'],
+                    $list['total_pages'],
+                    $list['total'],
+                    (int) \App\Services\Gateway\GatewayInvoiceService::SENDER_LIST_PER_PAGE,
                 );
             }
+
+            return [
+                'text' => "Kamu belum punya transaksi. Ketik *menu* untuk mulai top up 🛍️",
+                'buttons' => [],
+            ];
         }
 
         if ($orderId === '') {
@@ -1620,6 +1613,27 @@ class BotCommandHandler
         ]);
 
         return $this->formatter->formatStatus($res);
+    }
+
+    /**
+     * Perintah yang TIDAK memerlukan keanggotaan channel: perintah yang
+     * hanya menampilkan data milik sender sendiri (status transaksi,
+     * riwayat, bantuan) atau yang justru dipakai untuk memperbaiki
+     * keadaan (start/batal). Gate keanggotaan tetap berlaku untuk
+     * membuka katalog dan membuat order.
+     *
+     * @param string|null $command
+     */
+    private function isMembershipExemptCommand(?string $command): bool
+    {
+        return in_array($command, [
+            'start',
+            'help', 'bantuan',
+            'status',
+            'order_history', 'history', 'riwayat', 'pesanan',
+            'batal', 'cancel',
+            'admin',
+        ], true);
     }
 
     private function shouldClearCheckoutState(?string $command, array $context): bool

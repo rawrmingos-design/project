@@ -91,6 +91,41 @@ class OrderProcessingService
         return $result;
     }
 
+    /**
+     * Deteksi error konfigurasi/kredensial provider — bukan vonis atas
+     * order. Digiflazz memakai rc=41 dengan pesan "Signature Anda salah"
+     * ketika sign tidak valid (mis. flag `testing` tidak dikirim, akun
+     * sandbox, atau kredensial tidak sinkron). Order seperti ini harus
+     * tetap Pending dan bisa dicoba ulang, bukan di-Gagal-kan.
+     */
+    protected function isProviderConfigurationError(string $rc, string $message): bool
+    {
+        if ($rc === '41') {
+            return true;
+        }
+
+        $haystack = strtolower(trim($message));
+
+        if ($haystack === '') {
+            return false;
+        }
+
+        foreach ([
+            'signature anda salah',
+            'signature salah',
+            'invalid signature',
+            'unauthorized',
+            'authentication failed',
+            'kredensial',
+        ] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected function resolveLayanan(Pembelian $pembelian): ?Layanan
     {
         if ($pembelian->active_layanan_id) {
@@ -221,6 +256,26 @@ class OrderProcessingService
                 $isSuccess = in_array($providerStatus, ['success', 'sukses'], true) || $providerRc === '00';
                 $isFailed = in_array($providerStatus, ['gagal', 'failed', 'error', 'canceled', 'cancelled'], true)
                     || $providerRc === '02';
+
+                // Error konfigurasi/kredensial provider BUKAN vonis provider
+                // atas order. Digiflazz membalas rc=41 "Signature Anda salah"
+                // untuk masalah sign/testing, dan responnya memuat
+                // status=Gagal. Menelannya sebagai Gagal akan menghancurkan
+                // order yang SUDAH dibayar. Perlakukan sebagai kegagalan
+                // sementara supaya bisa dicoba ulang.
+                if ($this->isProviderConfigurationError($providerRc, $providerMessage)) {
+                    $result['order_status'] = 'Pending';
+                    $result['message'] = 'Provider menolak permintaan karena konfigurasi/kredensial'
+                        . ($providerMessage !== '' ? ': ' . $providerMessage : '.');
+
+                    Log::warning('OrderProcessingService: provider configuration error, order left pending.', [
+                        'provider' => $providerCode,
+                        'provider_rc' => $providerRc,
+                        'message' => $providerMessage,
+                    ]);
+
+                    return $result;
+                }
 
                 if ($isPending || $isSuccess) {
                     $normalizedStatus = $isSuccess ? 'Sukses' : 'Processing';

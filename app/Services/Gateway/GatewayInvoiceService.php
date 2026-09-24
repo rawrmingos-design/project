@@ -4,6 +4,7 @@ namespace App\Services\Gateway;
 
 use App\Models\Pembelian;
 use App\Models\User;
+use App\Support\PembelianStatus;
 use App\Support\TelegramIdentity;
 use App\Services\Checkout\CheckoutOrderService;
 use App\Tenancy\TenantContext;
@@ -13,6 +14,12 @@ use Illuminate\Validation\ValidationException;
 class GatewayInvoiceService
 {
     private const ALLOWED_SOURCES = ['whatsapp_gateway', 'telegram_gateway'];
+
+    /** Baris per halaman untuk daftar transaksi milik sender. */
+    public const SENDER_LIST_PER_PAGE = 5;
+
+    /** Batas atas daftar transaksi sender (menjaga payload callback). */
+    public const SENDER_LIST_CAP = 50;
 
     public function __construct(
         private readonly CheckoutOrderService $checkout,
@@ -113,9 +120,15 @@ class GatewayInvoiceService
     }
 
     /**
-     * Order milik sender yang masih "aktif" (belum selesai/tuntas):
-     * pembayaran belum lunas, atau order status masih proses/sukses-belum-selesai.
-     * Dipakai handler `status` tanpa argumen untuk menampilkan daftar pilihan.
+     * Order milik sender yang masih "aktif" (belum selesai/tuntas).
+     *
+     * PENTING: predikat keaktifan di sini HARUS sama dengan definisi
+     * `activeLayanan`/filter final di `recentOrdersForTelegramPrincipal()`.
+     * Sebelumnya cabang Telegram mempertahankan order yang `status` ordernya
+     * masih proses TANPA melihat pembayaran — sehingga order yang sudah
+     * dibayar tapi gagal kirim (mis. order Gagal ber-pembayaran Lunas) ikut
+     * dianggap aktif, sementara cabang WA membuangnya. Akibatnya daftar
+     * pilihan ganda bisa berbohong dan `status` jatuh ke jalur salah.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, \App\Models\Pembelian>
      */
@@ -127,13 +140,10 @@ class GatewayInvoiceService
         if ($source === 'telegram_gateway') {
             // Aktif untuk Telegram: principal cocok DAN order belum
             // final. Pembayaran Telegram tidak memakai no_pembeli,
-            // jadi filter status cukup dari kolom order.
+            // jadi filter status harus memakai definisi final yang
+            // SAMA dengan recentOrdersForTelegramPrincipal().
             return $this->recentOrdersForTelegramPrincipal($externalUserId, $limit)
-                ->filter(fn (Pembelian $order): bool => ! in_array(
-                    strtolower(trim((string) $order->status)),
-                    ['sukses', 'success', 'selesai', 'gagal', 'batal', 'cancel', 'expired'],
-                    true,
-                ))
+                ->filter(fn (Pembelian $order): bool => ! PembelianStatus::isFinal($order->status))
                 ->values();
         }
 
@@ -181,6 +191,36 @@ class GatewayInvoiceService
             ->latest('created_at')
             ->limit($limit)
             ->get();
+    }
+
+    /**
+     * Daftar transaksi milik sender (SEMUA status), terpaginasi.
+     * Dipakai perintah `status` tanpa argumen agar user melihat semua
+     * checkout miliknya sendiri tanpa perlu hafal order ID.
+     *
+     * @return array{items: \Illuminate\Database\Eloquent\Collection<int, \App\Models\Pembelian>, page: int, total_pages: int, total: int}
+     */
+    public function senderOrdersForSender(
+        string $source,
+        string $externalUserId,
+        int $page = 1,
+        int $perPage = self::SENDER_LIST_PER_PAGE,
+    ): array {
+        $source = $this->normalizeSource($source);
+        $externalUserId = $this->normalizeExternalUserId($source, $externalUserId);
+
+        $all = $this->recentOrdersForSender($source, $externalUserId, self::SENDER_LIST_CAP);
+        $total = $all->count();
+        $perPage = max(1, $perPage);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $totalPages);
+
+        return [
+            'items' => $all->slice(($page - 1) * $perPage, $perPage)->values(),
+            'page' => $page,
+            'total_pages' => $totalPages,
+            'total' => $total,
+        ];
     }
 
     /**

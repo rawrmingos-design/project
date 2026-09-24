@@ -610,8 +610,100 @@ class BotMessageFormatter
     }
 
     /**
-     * @param iterable<int, array{order_id: string, product: string, amount: int, payment_status: string, order_status: string}> $orders
+     * Daftar SEMUA transaksi milik sender (semua status), terpaginasi.
+     * Nomor pada daftar bisa diklik untuk membuka detail order tersebut
+     * (`status <order_id>`), jadi user tidak perlu menyalin order ID.
+     *
+     * @param iterable<int, array<string, mixed>> $orders
+     * @return array{text: string, buttons: array}
      */
+    public function formatSenderOrderList(
+        iterable $orders,
+        int $page = 1,
+        int $totalPages = 1,
+        int $total = 0,
+        int $perPage = 5,
+    ): array {
+        $lines = [
+            '📦 *Transaksi Kamu*',
+            '',
+        ];
+        $buttons = [];
+        $row = [];
+        $number = (($page - 1) * max(1, $perPage)) + 1;
+
+        foreach ($orders as $order) {
+            $orderId = (string) ($order['order_id'] ?? '');
+            $orderStatus = strtolower(trim((string) ($order['order_status'] ?? '')));
+            $paymentStatus = strtolower(trim((string) ($order['payment_status'] ?? '')));
+
+            $paymentLabel = match (true) {
+                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) => 'Lunas',
+                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) => 'Expired',
+                default => 'Belum Bayar',
+            };
+
+            $orderLabel = match (true) {
+                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) => 'Sukses',
+                in_array($orderStatus, ['gagal', 'failed'], true) => 'Gagal',
+                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) => 'Expired',
+                default => 'Diproses',
+            };
+
+            $lines[] = $number . '. `' . $this->escapeMarkdownCode($orderId) . '`';
+            $lines[] = '   💎 ' . $this->escapeMarkdown((string) ($order['product'] ?? 'Produk'))
+                . ' · ' . $paymentLabel . ' · ' . $orderLabel;
+            $lines[] = '   💰 Rp ' . number_format((int) ($order['amount'] ?? 0), 0, ',', '.');
+
+            // Tombol nomor = buka detail order tsb. Telegram membatasi
+            // callback_data 64 byte; order_id gateway biasanya ~21-24
+            // karakter. Bila kebetulan lebih panjang, tombol dilewati
+            // (user masih bisa mengetik `status <invoice>`).
+            $callback = 'status ' . $orderId;
+            if (strlen($callback) <= 64) {
+                $row[] = $this->button((string) $number, $callback, 'status_detail');
+                if (count($row) === 5) {
+                    $buttons[] = $row;
+                    $row = [];
+                }
+            }
+
+            $number++;
+        }
+
+        if ($row !== []) {
+            $buttons[] = $row;
+        }
+
+        if ($total > 0) {
+            $lines[] = '';
+            $lines[] = 'Menampilkan halaman ' . $page . ' dari ' . $totalPages
+                . ' · total ' . $total . ' transaksi.';
+        }
+
+        $lines[] = 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
+
+        if ($totalPages > 1) {
+            $row = [];
+            if ($page > 1) {
+                $row[] = $this->button('⬅️ Sebelumnya', 'status page:' . ($page - 1), 'navigation_previous');
+            }
+            if ($page < $totalPages) {
+                $row[] = $this->button('Berikutnya ➡️', 'status page:' . ($page + 1), 'navigation_next');
+            }
+            if ($row !== []) {
+                $buttons[] = $row;
+            }
+        }
+
+        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu')];
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => $buttons,
+        ];
+    }
+
     public function formatActiveOrders(iterable $orders, string $title = '📦 *Pesanan Aktif*'): array
     {
         $lines = [

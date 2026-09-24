@@ -68,6 +68,32 @@ class ProviderOrderStatusSyncService
         return ['updated' => $updated, 'failed' => $failed];
     }
 
+    /**
+     * Error konfigurasi/kredensial provider (mis. rc=41 "Signature Anda
+     * salah") bukan status order — jangan pernah dipakai untuk mengubah
+     * status order yang sudah dibayar.
+     */
+    private function isConfigurationError(string $rc, string $message): bool
+    {
+        if ($rc === '41') {
+            return true;
+        }
+
+        $haystack = strtolower(trim($message));
+
+        if ($haystack === '') {
+            return false;
+        }
+
+        foreach (['signature anda salah', 'signature salah', 'invalid signature', 'unauthorized'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function providerClient(string $provider): object
     {
         return match ($provider) {
@@ -93,6 +119,21 @@ class ProviderOrderStatusSyncService
         };
         $status = strtolower(trim((string) $rawStatus));
         $rc = trim((string) data_get($response, 'data.rc', ''));
+        $message = trim((string) data_get($response, 'data.message', ''));
+
+        // Error konfigurasi/kredensial (mis. Digiflazz rc=41 "Signature Anda
+        // salah") BUKAN status order. Mengembalikan 'Gagal' di sini pernah
+        // menghancurkan order yang sudah dibayar. Lempar sebagai tak-dikenal
+        // supaya polling tidak mengubah status apa pun.
+        if ($this->isConfigurationError($rc, $message)) {
+            Log::warning('Provider status sync hit a provider configuration error.', [
+                'provider' => $provider,
+                'provider_rc' => $rc,
+                'message' => $message,
+            ]);
+
+            return null;
+        }
 
         return match ($provider) {
             'gameshop' => match ($status) {

@@ -33,19 +33,48 @@ class DigiFlazzController extends Controller
         }
     }
 
+    /**
+     * Akun Digiflazz ber-mode TESTING (sandbox) HANYA menerima request yang
+     * membawa `testing=true`. Dulu hanya jalur `order()` yang mengirim flag
+     * ini, sedangkan jalur `status()` tidak — sehingga Digiflazz membalas
+     * rc=41 "Signature Anda salah" saat polling status order di staging,
+     * dan order yang SUDAH dibayar ikut ditandai Gagal.
+     *
+     * Nilai default sengaja meniru ekspresi lama (`APP_ENV === 'local'`)
+     * supaya perilaku produksi identik dengan sebelumnya.
+     */
+    public function isTestingMode(): bool
+    {
+        return (bool) config('providers.digiflazz.testing', config('app.env') === 'local');
+    }
+
+    /**
+     * Semua jalur mengirim key `testing` dengan nilai yang sama — persis
+     * seperti yang selalu dilakukan jalur `order()` (yang terbukti jalan di
+     * produksi). Tidak ada jalur yang boleh punya bentuk payload berbeda.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    protected function withTestingFlag(array $data): array
+    {
+        $data['testing'] = $this->isTestingMode();
+
+        return $data;
+    }
+
     public function order($uid, $zone, $service, $order_id)
     {
         $target = $uid . $zone;
         $sign = md5($this->username . $this->apiKey . strval($order_id));
-        $api_postdata = [
+        $api_postdata = $this->withTestingFlag([
             'username' => $this->username,
             'buyer_sku_code' => $service,
             'customer_no' => $target,
-            'testing' => env('APP_ENV') === 'local',
             'ref_id' => strval($order_id),
             'sign' => $sign,
             'cb_url' => env('APP_URL_CALLBACK') . '/wejizy/digi/payload',
-        ];
+        ]);
 
         return $this->connect("/v1/transaction", $api_postdata);
     }
@@ -54,7 +83,7 @@ class DigiFlazzController extends Controller
     {
         $target = $uid . $zone;
         $sign = md5($this->username . $this->apiKey . $poid);
-        $data = [
+        $data = $this->withTestingFlag([
             'command' => 'status-pasca',
             'username' => $this->username,
             'buyer_sku_code' => $pid,
@@ -62,7 +91,7 @@ class DigiFlazzController extends Controller
             'ref_id' => $poid,
             'sign' => $sign,
             'cb_url' => env('APP_URL_CALLBACK') . '/wejizy/digi/payload',
-        ];
+        ]);
 
         return $this->connect("/v1/transaction", $data);
     }
@@ -70,10 +99,10 @@ class DigiFlazzController extends Controller
     public function harga()
     {
         $sign = md5($this->username . $this->apiKey . "pricelist");
-        $data = [
+        $data = $this->withTestingFlag([
             'username' => $this->username,
             'sign' => $sign,
-        ];
+        ]);
 
         return $this->connect('/v1/price-list', $data);
     }
@@ -81,11 +110,11 @@ class DigiFlazzController extends Controller
     public function cekSaldo()
     {
         $sign = md5($this->username . $this->apiKey . "depo");
-        $data = [
+        $data = $this->withTestingFlag([
             'username' => $this->username,
             'cmd' => 'deposit',
             'sign' => $sign,
-        ];
+        ]);
 
         return $this->connect('/v1/cek-saldo', $data);
     }
@@ -93,11 +122,11 @@ class DigiFlazzController extends Controller
     public function cekSaldoManual()
     {
         $sign = md5($this->username . $this->apiKey . "manual");
-        $data = [
+        $data = $this->withTestingFlag([
             'username' => $this->username,
             'cmd' => 'manual',
             'sign' => $sign,
-        ];
+        ]);
 
         return $this->connect('/v1/cek-saldo', $data);
     }
@@ -105,10 +134,10 @@ class DigiFlazzController extends Controller
     public function cekProduk()
     {
         $sign = md5($this->username . $this->apiKey . "pricelist");
-        $data = [
+        $data = $this->withTestingFlag([
             'username' => $this->username,
             'sign' => $sign,
-        ];
+        ]);
 
         return $this->connect('/v1/price-list', $data);
     }

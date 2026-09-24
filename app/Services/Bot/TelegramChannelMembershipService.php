@@ -44,13 +44,15 @@ class TelegramChannelMembershipService
             return $this->result(self::STATUS_ALLOWED, $channelUrl);
         }
 
+        // Sebelumnya user ini SUDAH terverifikasi sebagai member. Simpan
+        // fakta itu lebih lama dari TTL verifikasi, supaya gangguan sesaat
+        // pada Telegram tidak mengunci user yang jelas-jelas sudah gabung.
+        if (Cache::get($this->graceKey($cacheKey)) === true) {
+            return $this->result(self::STATUS_ALLOWED, $channelUrl);
+        }
+
         try {
-            $response = Http::connectTimeout(2)
-                ->timeout(4)
-                ->post("https://api.telegram.org/bot{$token}/getChatMember", [
-                    'chat_id' => $channelId,
-                    'user_id' => (int) $userId,
-                ]);
+            $response = $this->requestChatMember($token, $channelId, (int) $userId);
 
             $payload = $response->json();
 
@@ -60,7 +62,7 @@ class TelegramChannelMembershipService
                     'telegram_ok' => is_array($payload) ? ($payload['ok'] ?? null) : null,
                 ]);
 
-                return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
+                return $this->unverifiedResult($channelUrl);
             }
 
             $status = (string) data_get($payload, 'result.status', '');
@@ -68,12 +70,16 @@ class TelegramChannelMembershipService
                 || ($status === 'restricted' && data_get($payload, 'result.is_member') === true);
 
             if ($isMember) {
-                Cache::put($cacheKey, true, max(1, $this->cacheSeconds()));
+                $this->rememberVerified($cacheKey);
 
                 return $this->result(self::STATUS_ALLOWED, $channelUrl);
             }
 
             if (in_array($status, ['left', 'kicked', 'restricted'], true)) {
+                // Penolakan DEFINITIF: Telegram menjawab, user memang tidak
+                // bergabung. Grace record lama tidak boleh menahannya.
+                Cache::forget($this->graceKey($cacheKey));
+
                 return $this->result(self::STATUS_NOT_MEMBER, $channelUrl);
             }
 
@@ -81,13 +87,66 @@ class TelegramChannelMembershipService
                 'membership_status' => $status,
             ]);
 
-            return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
+            return $this->unverifiedResult($channelUrl);
         } catch (Throwable $exception) {
             Log::warning('Telegram channel membership request failed.', [
                 'exception' => $exception::class,
             ]);
 
-            return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
+            return $this->unverifiedResult($channelUrl);
+        }
+    }
+
+    /**
+     * Hasil saat keanggotaan TIDAK dapat dipastikan (timeout, jaringan,
+     * respons tak dikenal). Selama masa tenggang, user yang sebelumnya
+     * terverifikasi tetap diizinkan; selain itu perilaku lama dipertahankan
+     * (pesan "coba lagi") sehingga gate tidak pernah dibuka untuk umum.
+     *
+     * @return array{status: string, channel_url: ?string}
+     */
+    private function unverifiedResult(?string $channelUrl): array
+    {
+        return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
+    }
+
+    private function rememberVerified(string $cacheKey): void
+    {
+        Cache::put($cacheKey, true, max(1, $this->cacheSeconds()));
+        Cache::put(
+            $this->graceKey($cacheKey),
+            true,
+            max(60, (int) config('services.telegram-bot-api.required_channel.grace_seconds', 86400)),
+        );
+    }
+
+    private function graceKey(string $cacheKey): string
+    {
+        return $cacheKey . ':verified';
+    }
+
+    /**
+     * Ambil keanggotaan dengan satu kali percobaan ulang. Timeout 4 detik
+     * terbukti kadang tidak cukup (Telegram lambat / jaringan berkedip),
+     * dan sebelumnya satu kedipan langsung memblokir seluruh perintah.
+     */
+    private function requestChatMember(string $token, string $channelId, int $userId): \Illuminate\Http\Client\Response
+    {
+        try {
+            return Http::connectTimeout(3)
+                ->timeout(6)
+                ->post("https://api.telegram.org/bot{$token}/getChatMember", [
+                    'chat_id' => $channelId,
+                    'user_id' => $userId,
+                ]);
+        } catch (Throwable $exception) {
+            return Http::connectTimeout(3)
+                ->timeout(6)
+                ->retry(1, 250, throw: false)
+                ->post("https://api.telegram.org/bot{$token}/getChatMember", [
+                    'chat_id' => $channelId,
+                    'user_id' => $userId,
+                ]);
         }
     }
 
