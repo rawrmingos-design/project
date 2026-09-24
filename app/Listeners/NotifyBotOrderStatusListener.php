@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\InvoiceStatusUpdated;
 use App\Models\Pembelian;
 use App\Services\Bot\BotMessageFormatter;
+use App\Support\TelegramIdentity;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Cache;
@@ -156,11 +157,25 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         }
 
         if (! Cache::has($cacheKey)) {
+            // Principal kanonik `telegram:<id>`; order lama (sebelum kolom
+            // principal ada, atau sesudah regresi format ber-scope) punya
+            // principal NULL — fallback ke email legacy `telegram:<id>@telegram.user`.
+            $chatId = TelegramIdentity::chatId($purchase->gateway_principal)
+                ?? TelegramIdentity::chatId($purchase->email_pembeli);
+
+            if ($chatId === null) {
+                Log::warning('NotifyBotOrderStatus: identitas Telegram tidak resolvable, notif dilewati', [
+                    'order_id' => $orderId,
+                ]);
+
+                return;
+            }
+
             try {
                 $response = Http::timeout(10)->post(
                     "https://api.telegram.org/bot{$token}/sendMessage",
                     [
-                        'chat_id' => str_replace('telegram:', '', (string) $purchase->gateway_principal),
+                        'chat_id' => $chatId,
                         'text' => app(BotMessageFormatter::class)->formatStatus($payload)['text'],
                         'parse_mode' => 'Markdown',
                     ],

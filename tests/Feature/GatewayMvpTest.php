@@ -426,7 +426,8 @@ class GatewayMvpTest extends TestCase
             'nomor' => '081234567890',
             'uid' => '123456',
             'zone' => '1234',
-            'external_user_id' => '9876',
+            // Bentuk NYATA dari TelegramAdapter: telegram:<scope>:<id>.
+            'external_user_id' => 'telegram:default:9876',
         ])->assertOk()->json('data.order_id');
 
         $order = Pembelian::query()->where('order_id', $orderId)->firstOrFail();
@@ -434,7 +435,7 @@ class GatewayMvpTest extends TestCase
 
         $order->update(['log' => json_encode(['result' => ['status' => 'SUCCESS']])]);
 
-        $this->getJson('/api/gateway/invoices/' . $orderId . '?source=telegram_gateway&external_user_id=telegram:9876')
+        $this->getJson('/api/gateway/invoices/' . $orderId . '?source=telegram_gateway&external_user_id=telegram:default:9876')
             ->assertOk()
             ->assertJsonPath('ok', true)
             ->assertJsonPath('data.order_id', $orderId);

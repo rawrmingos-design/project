@@ -16,6 +16,7 @@ use App\Models\Pembelian;
 use App\Models\SettingWeb;
 use App\Models\User;
 use App\Models\Voucher;
+use App\Support\TelegramIdentity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -889,22 +890,11 @@ class CheckoutOrderService
             return null;
         }
 
-        $externalUserId = trim((string) ($context['external_user_id'] ?? ''));
-
-        if ($externalUserId === '') {
-            return null;
-        }
-
-        // Accept already-prefixed form or raw numeric Telegram ID.
-        if (preg_match('/^telegram:\d+$/', $externalUserId) === 1) {
-            return $externalUserId;
-        }
-
-        if (preg_match('/^\d+$/', $externalUserId) === 1) {
-            return 'telegram:' . $externalUserId;
-        }
-
-        return null;
+        // Produsen identitas (TelegramAdapter / handleDeposit) mengirim
+        // bentuk ber-scope `telegram:<scope>:<id>`; jalur lama mengirim
+        // `telegram:<id>` atau `<id>` mentah. Semua dinormalisasi ke
+        // bentuk kanonik oleh TelegramIdentity (satu sumber kebenaran).
+        return TelegramIdentity::principal($context['external_user_id'] ?? null);
     }
 
     private function normalizeSource(string $source): string

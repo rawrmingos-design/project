@@ -31,7 +31,10 @@ class TelegramOrderNotificationTest extends TestCase
             'status' => 'Pending',
             'log' => json_encode(['source' => 'telegram_gateway_checkout']),
             'traffic_source' => 'telegram_gateway',
-            'gateway_principal' => 'telegram:98765',
+            // Bentuk identitas NYATA keluaran TelegramAdapter
+            // (telegram:<bot_scope>:<user_id>) — bukan bentuk rekaan,
+            // supaya test tidak hijau palsu saat format berubah.
+            'gateway_principal' => 'telegram:default:98765',
             'email_pembeli' => '98765@telegram.user',
             'tipe_transaksi' => 'game',
             'active_layanan_id' => 1,

@@ -4,6 +4,7 @@ namespace App\Services\Gateway;
 
 use App\Models\Pembelian;
 use App\Models\User;
+use App\Support\TelegramIdentity;
 use App\Services\Checkout\CheckoutOrderService;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
@@ -374,20 +375,15 @@ class GatewayInvoiceService
             return $externalUserId;
         }
 
-        if (preg_match('/^(?:telegram:)?(\d+)$/', $externalUserId, $matches) !== 1) {
-            return $externalUserId;
-        }
-
-        return 'telegram:' . $matches[1];
+        // Bentuk ber-scope `telegram:<scope>:<id>` (keluaran adapter) maupun
+        // bentuk lama `telegram:<id>` / `<id>` mentah dinormalisasi ke
+        // kanonik `telegram:<id>` oleh TelegramIdentity.
+        return TelegramIdentity::principal($externalUserId) ?? $externalUserId;
     }
 
     private function telegramEmailForPrincipal(string $principal): ?string
     {
-        if (preg_match('/^telegram:(\d+)$/', $principal, $matches) !== 1) {
-            return null;
-        }
-
-        return 'telegram:' . $matches[1] . '@telegram.user';
+        return TelegramIdentity::legacyEmail($principal);
     }
 
     private function normalizeSource(string $source): string
