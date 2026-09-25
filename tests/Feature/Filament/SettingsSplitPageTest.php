@@ -257,6 +257,55 @@ class SettingsSplitPageTest extends AdminTestCase
         Http::assertNothingSent();
     }
 
+    public function test_notifications_settings_exposes_multi_channel_gate_field(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->assertFormFieldExists('telegram_required_channels');
+    }
+
+    public function test_notifications_settings_saves_multiple_required_channels(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_required_channels' => [
+                    ['label' => 'Channel Info', 'id' => '@mastoredigital', 'url' => 'https://t.me/mastoredigital'],
+                    ['label' => 'Grup Info', 'id' => '@mapremiumsinfo', 'url' => 'https://t.me/mapremiumsinfo'],
+                ],
+            ])
+            ->call('save');
+
+        $saved = SettingWeb::query()->findOrFail(1)->telegram_required_channels;
+
+        $this->assertIsArray($saved, 'Nilai Repeater harus tersimpan sebagai array, bukan dibuang whitelist.');
+        $this->assertCount(2, $saved);
+        $this->assertSame(
+            ['@mastoredigital', '@mapremiumsinfo'],
+            array_column($saved, 'id'),
+        );
+    }
+
     public function test_notifications_settings_openwa_fields_visible_when_provider_is_openwa(): void
     {
         /** @var User $admin */
