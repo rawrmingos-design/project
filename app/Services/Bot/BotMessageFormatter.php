@@ -162,6 +162,45 @@ class BotMessageFormatter
     }
 
     /**
+     * Pesan saat gate TIDAK BISA berfungsi karena masalah SETELAN
+     * (bot belum jadi anggota/admin di channel wajib).
+     *
+     * Dibedakan dari `formatTelegramMembershipUnavailable()`: yang itu untuk
+     * gangguan sesaat dan menyuruh user "coba lagi" — masuk akal. Yang ini
+     * tidak akan sembuh sendiri, jadi menyuruh user mencoba terus adalah
+     * kebohongan yang membuatnya menunggu tanpa akhir.
+     *
+     * User tidak diberi detail teknis internal; cukup tahu bahwa ini bukan
+     * salahnya dan sudah dilaporkan ke admin.
+     */
+    public function formatTelegramMembershipMisconfigured(): array
+    {
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
+
+        $buttons = [];
+
+        if (filter_var($adminUrl, FILTER_VALIDATE_URL) !== false) {
+            $buttons[] = [$this->urlButton('💬 Hubungi Admin', $adminUrl)];
+        }
+
+        return [
+            'text' => implode("\n", [
+                '🛠️ *Layanan Sedang Diperbaiki*',
+                '',
+                'Maaf, verifikasi keanggotaan channel sedang tidak bisa dijalankan.',
+                'Ini masalah di sisi kami, bukan karena kamu belum bergabung.',
+                '',
+                'Kami sudah melaporkannya ke admin. Silakan coba lagi nanti,',
+                'atau hubungi admin kalau perlu dibantu segera.',
+            ]),
+            'buttons' => $buttons,
+        ];
+    }
+
+    /**
+     * Pesan saat verifikasi TIDAK BISA dijalankan karena gangguan sesaat
+     * (timeout / Telegram sedang bermasalah). Di sini "coba lagi" masuk akal.
+     *
      * @return array{text: string, buttons: array}
      */
     public function formatTelegramMembershipUnavailable(): array

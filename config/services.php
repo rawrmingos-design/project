@@ -65,6 +65,12 @@ return [
             'id' => env('TELEGRAM_REQUIRED_CHANNEL_ID'),
             'url' => env('TELEGRAM_REQUIRED_CHANNEL_URL'),
             'cache_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_CACHE_SECONDS', 120),
+            // Berapa lama fakta "user ini pernah lolos" diingat, supaya
+            // gangguan sesaat pada Telegram tidak mengunci user yang sah.
+            'grace_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_GRACE_SECONDS', 86400),
+            // Tujuan laporan saat gate TIDAK BISA berfungsi (bot belum ada di
+            // channel). Kosong = cukup lewat log.
+            'admin_alert_chat_id' => env('TELEGRAM_ADMIN_ALERT_CHAT_ID'),
         ],
         // Deep-link grup diskusi (opsional) untuk tombol "Diskusi".
         // Catatan: Bot API TIDAK bisa membuat post di topik General; tautan

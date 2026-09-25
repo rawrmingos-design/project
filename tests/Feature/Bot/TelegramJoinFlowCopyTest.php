@@ -7,6 +7,7 @@ use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\GatewayInvoiceService;
 use App\Services\Bot\GatewayPricingService;
 use App\Support\TelegramMarkdown;
+use App\Services\Bot\TelegramChannelMembershipService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -160,6 +161,89 @@ class TelegramJoinFlowCopyTest extends TestCase
                 && str_contains($text, 'Halo Mings!')
                 && str_contains($text, 'menu');
         });
+    }
+
+    /**
+     * Ketika BOT sendiri tidak bisa membaca channel, user harus dapat pesan
+     * yang jujur (ini masalah kami, sudah dilaporkan) — BUKAN disuruh
+     * "coba lagi" selamanya, dan BUKAN disuruh join padahal itu tidak akan
+     * menolong.
+     */
+    public function test_gate_shows_maintenance_message_when_bot_cannot_read_channel(): void
+    {
+        $this->seedInboundPolicy();
+
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@jasakodings', 'url' => 'https://t.me/jasakodings', 'label' => 'Jasakoding'],
+            ],
+            'services.telegram-bot-api.admin_contact_url' => 'https://wa.me/6285792464508',
+        ]);
+
+        Http::fake([
+            '*' => Http::response([
+                'ok' => false,
+                'error_code' => 400,
+                'description' => 'Bad Request: member list is inaccessible',
+            ], 400),
+        ]);
+
+        Cache::flush();
+
+        $this->sendUpdate(9901, 'menu')->assertOk();
+
+        $sent = collect(Http::recorded())
+            ->first(fn (array $pair): bool => str_contains($pair[0]->url(), 'sendMessage'));
+
+        $this->assertNotNull($sent, 'Bot harus membalas sesuatu, bukan diam.');
+        $text = (string) ($sent[0]['text'] ?? '');
+
+        $this->assertStringContainsString('Layanan Sedang Diperbaiki', $text);
+        $this->assertStringNotContainsString('Akses Terbatas', $text, 'Jangan salahkan user.');
+        $this->assertStringContainsString('admin', $text);
+    }
+
+    /**
+     * Keamanan: status yang TIDAK dikenal handler tidak boleh dianggap
+     * "boleh lewat".
+     *
+     * Ini nyata terjadi — saat kelas service sudah punya status baru
+     * (`misconfigured`) tapi handler-nya belum mengenalinya, user langsung
+     * lolos gate tanpa verifikasi. Handler sekarang menahan SEMUA status
+     * selain `allowed`.
+     */
+    public function test_unknown_membership_status_never_lets_the_user_through(): void
+    {
+        $this->seedInboundPolicy();
+
+        config([
+            'services.telegram-bot-api.required_channel.enabled' => true,
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@jasakodings', 'url' => 'https://t.me/jasakodings', 'label' => 'Jasakoding'],
+            ],
+        ]);
+
+        // Status yang sama sekali tidak dikenal handler — situasi nyata saat
+        // kelas service sudah punya status baru tapi handler belum tahu.
+        $this->mock(TelegramChannelMembershipService::class, function (MockInterface $mock): void {
+            $mock->shouldReceive('check')->andReturn(['status' => 'status_karangan']);
+        });
+
+        Cache::flush();
+
+        $response = app(BotCommandHandler::class)->handle('menu', [], [
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:9876',
+            'telegram_user_id' => 9876,
+            'chat_id' => '12345',
+            'telegram_metadata' => ['first_name' => 'Mings'],
+        ]);
+
+        $text = (string) ($response['text'] ?? '');
+
+        $this->assertStringContainsString('Verifikasi Keanggotaan Bermasalah', $text);
+        $this->assertStringNotContainsString('Menu Utama', $text, 'Katalog TIDAK boleh terbuka.');
     }
 
     public function test_confirmation_message_only_appears_once(): void

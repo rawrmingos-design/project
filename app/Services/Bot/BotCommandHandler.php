@@ -60,19 +60,29 @@ class BotCommandHandler
             // user tidak bisa mengecek transaksinya sendiri.
             if (! $this->isMembershipExemptCommand($command)) {
                 $membership = $this->telegramMembership->check($context);
+                $status = (string) ($membership['status'] ?? '');
 
-                if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
-                    $this->clearCheckoutState($context);
-                    $this->markGatePending($context);
-
-                    return $this->formatter->formatTelegramMembershipRequired(
-                        (array) ($membership['missing'] ?? []),
-                    );
-                }
-
-                if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
+                // Daftar "status yang boleh lolos" TIDAK dipakai di sini.
+                // Sebaliknya: user ditahan KECUALI statusnya jelas `allowed`.
+                // Alasannya keamanan — status baru yang belum dikenal handler
+                // (mis. saat kelas service sudah diperbarui tapi handler belum)
+                // tidak boleh otomatis dianggap boleh lewat.
+                if ($status !== TelegramChannelMembershipService::STATUS_ALLOWED) {
                     $this->clearCheckoutState($context);
 
+                    if ($status === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
+                        $this->markGatePending($context);
+
+                        return $this->formatter->formatTelegramMembershipRequired(
+                            (array) ($membership['missing'] ?? []),
+                        );
+                    }
+
+                    if ($status === TelegramChannelMembershipService::STATUS_MISCONFIGURED) {
+                        return $this->formatter->formatTelegramMembershipMisconfigured();
+                    }
+
+                    // Gangguan sesaat, atau status yang tidak dikenal sama sekali.
                     return $this->formatter->formatTelegramMembershipUnavailable();
                 }
 
