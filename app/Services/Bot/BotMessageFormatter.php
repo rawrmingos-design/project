@@ -3,6 +3,7 @@
 namespace App\Services\Bot;
 
 use App\Models\SettingWeb;
+use App\Support\TelegramDiscussionUrl;
 
 class BotMessageFormatter
 {
@@ -811,6 +812,15 @@ class BotMessageFormatter
         }
         if ($capabilities->supports('deposit')) {
             $buttons[] = [$this->button('💰 Deposit', 'deposit')];
+        }
+
+        // Tombol Diskusi hanya muncul bila admin mengisi link grup diskusi.
+        // Telegram tidak mengizinkan bot membuat post di topik General, jadi
+        // ini tautan agar user bisa masuk ke topik diskusi.
+        $discussionUrl = TelegramDiscussionUrl::get();
+
+        if ($discussionUrl !== null) {
+            $buttons[] = [$this->urlButton('💬 Grup Diskusi', $discussionUrl)];
         }
 
         return [

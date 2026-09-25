@@ -250,6 +250,22 @@ class AppServiceProvider extends ServiceProvider
                         config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
                     }
 
+                    // Deep-link grup diskusi (opsional).
+                    if (!empty($config->telegram_discussion_url)) {
+                        config(['services.telegram-bot-api.discussion_url' => $config->telegram_discussion_url]);
+                    }
+
+                    // Tujuan pengumuman admin (grup + topik forum).
+                    $announcementTargets = $config->telegram_announcement_targets ?? null;
+
+                    if (is_string($announcementTargets) && $announcementTargets !== '') {
+                        $announcementTargets = json_decode($announcementTargets, true);
+                    }
+
+                    if (is_array($announcementTargets) && $announcementTargets !== []) {
+                        config(['services.telegram-bot-api.announcement_targets' => array_values($announcementTargets)]);
+                    }
+
                     // Override bot order flags if set in DB
                     // NOTE: capture config-cache value FIRST — line berikutnya
                     // override services.telegram-bot-api.order_enabled dari DB.

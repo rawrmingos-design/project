@@ -1275,7 +1275,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
 
                         Repeater::make('telegram_required_channels')
                             ->label('Channel / Grup Wajib (bisa lebih dari satu)')
-                            ->helperText('User harus bergabung ke SEMUA channel di daftar ini sebelum bisa membuka katalog atau membuat order.')
+                            ->helperText('User harus bergabung ke SEMUA channel di daftar ini sebelum bisa membuka katalog atau membuat order. Untuk GRUP TOPIK Telegram, isi grupnya di sini supaya user wajib bergabung ke grup tersebut.')
                             ->addActionLabel('Tambah channel')
                             ->reorderable()
                             ->columns(1)
@@ -1306,6 +1306,52 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ])
                             ->itemLabel(fn (array $state): ?string => filled($state['id'] ?? null)
                                 ? (string) ($state['label'] ?? '') . ' ' . (string) $state['id']
+                                : null)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        TextInput::make('telegram_discussion_url')
+                            ->label('Link Grup Diskusi (opsional)')
+                            ->helperText('Deep-link ke topik diskusi, contoh: https://t.me/namagrup/12. Dipakai untuk tombol "Diskusi". Catatan: Telegram TIDAK mengizinkan bot membuat post di topik General, jadi ini berupa tautan, bukan posting otomatis.')
+                            ->placeholder('https://t.me/namagrup/12')
+                            ->rule('regex:#^https://t\.me/[A-Za-z0-9_]{4,}(/\d+)?$#')
+                            ->validationMessages([
+                                'regex' => 'Harus https://t.me/namagrup atau https://t.me/namagrup/<id topik>.',
+                            ])
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
+
+                        Repeater::make('telegram_announcement_targets')
+                            ->label('Tujuan Pengumuman (grup + topik)')
+                            ->helperText('Ke mana pengumuman admin dikirim. Isi "Thread ID" dengan id TOPIK (mis. Announcement); kosongkan bila ingin masuk ke chat utama. Bot harus sudah jadi anggota grup dan punya izin kirim pesan. Ambil ID grup numerik (mis. -1001234567890) lewat bot seperti @userinfobot.')
+                            ->addActionLabel('Tambah tujuan')
+                            ->reorderable()
+                            ->columns(1)
+                            ->columnSpanFull()
+                            ->defaultItems(0)
+                            ->schema([
+                                TextInput::make('label')
+                                    ->label('Nama Tujuan')
+                                    ->placeholder('Announcement')
+                                    ->helperText('Hanya untuk membedakan tujuan di daftar ini.')
+                                    ->maxLength(60),
+                                TextInput::make('chat_id')
+                                    ->label('Chat ID Grup')
+                                    ->placeholder('-1001234567890')
+                                    ->required()
+                                    ->rule('regex:/^-?\d{5,}$/')
+                                    ->validationMessages([
+                                        'regex' => 'Harus ID numerik grup, contoh: -1001234567890. Username @grup tidak dipakai untuk tujuan kirim.',
+                                    ]),
+                                TextInput::make('thread_id')
+                                    ->label('Thread ID Topik (opsional)')
+                                    ->placeholder('12')
+                                    ->helperText('Kosongkan untuk chat utama / Topik General.')
+                                    ->numeric()
+                                    ->minValue(1),
+                            ])
+                            ->itemLabel(fn (array $state): ?string => filled($state['chat_id'] ?? null)
+                                ? trim((string) ($state['label'] ?? '')) . ' → ' . (string) $state['chat_id']
+                                    . (filled($state['thread_id'] ?? null) ? ' / topik ' . (string) $state['thread_id'] : ' / utama')
                                 : null)
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),

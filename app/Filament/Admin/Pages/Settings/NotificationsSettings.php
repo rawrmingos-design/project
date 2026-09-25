@@ -52,6 +52,8 @@ class NotificationsSettings extends SettingsSectionPage
             'telegram_channel_id',
             'telegram_channel_url',
             'telegram_required_channels',
+            'telegram_discussion_url',
+            'telegram_announcement_targets',
             'bot_order_tg_enabled',
             'easywa_email',
             'easywa_secret_key',

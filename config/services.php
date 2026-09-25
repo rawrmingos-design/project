@@ -66,6 +66,13 @@ return [
             'url' => env('TELEGRAM_REQUIRED_CHANNEL_URL'),
             'cache_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_CACHE_SECONDS', 120),
         ],
+        // Deep-link grup diskusi (opsional) untuk tombol "Diskusi".
+        // Catatan: Bot API TIDAK bisa membuat post di topik General; tautan
+        // ini yang dipakai agar user bisa masuk ke topik diskusi.
+        'discussion_url' => env('TELEGRAM_DISCUSSION_URL'),
+        // Tujuan pengumuman admin: daftar {label, chat_id, thread_id}.
+        // Diisi dari kolom JSON setting_webs.telegram_announcement_targets.
+        'announcement_targets' => [],
     ],
 
     'fonnte' => [
