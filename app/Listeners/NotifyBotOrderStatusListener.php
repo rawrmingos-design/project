@@ -6,6 +6,7 @@ use App\Events\InvoiceStatusUpdated;
 use App\Models\Pembelian;
 use App\Services\Bot\BotMessageFormatter;
 use App\Support\TelegramIdentity;
+use App\Support\TelegramMarkdown;
 use App\Services\WhatsappNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Cache;
@@ -172,23 +173,50 @@ class NotifyBotOrderStatusListener implements ShouldQueue
             }
 
             try {
+                // Teks dari formatter ditulis gaya Markdown lama; dikirim ke
+                // MarkdownV2 harus lewat konverter dulu (kalau tidak, karakter
+                // seperti `.` dan `(` ditolak Telegram).
+                $statusText = TelegramMarkdown::fromLegacy(
+                    app(BotMessageFormatter::class)->formatStatus($payload)['text'],
+                );
+
                 $response = Http::timeout(10)->post(
                     "https://api.telegram.org/bot{$token}/sendMessage",
                     [
                         'chat_id' => $chatId,
-                        'text' => app(BotMessageFormatter::class)->formatStatus($payload)['text'],
-                        'parse_mode' => 'Markdown',
+                        'text' => $statusText,
+                        'parse_mode' => 'MarkdownV2',
                     ],
                 );
 
                 if ($response->successful() && ($response->json('ok') ?? false)) {
                     Cache::put($cacheKey, true, now()->addHours(24));
                 } else {
-                    Log::warning('NotifyBotOrderStatus: gagal kirim notif Telegram', [
+                    // Pengaman: kalau format ditolak, kirim ulang tanpa format.
+                    // Notifikasi status order terlalu penting untuk hilang.
+                    Log::warning('NotifyBotOrderStatus: notif berformat ditolak, kirim ulang tanpa format', [
                         'order_id' => $orderId,
                         'transition' => $transition,
                         'response' => $response->json(),
                     ]);
+
+                    $retry = Http::timeout(10)->post(
+                        "https://api.telegram.org/bot{$token}/sendMessage",
+                        [
+                            'chat_id' => $chatId,
+                            'text' => app(BotMessageFormatter::class)->formatStatus($payload)['text'],
+                        ],
+                    );
+
+                    if ($retry->successful() && ($retry->json('ok') ?? false)) {
+                        Cache::put($cacheKey, true, now()->addHours(24));
+                    } else {
+                        Log::warning('NotifyBotOrderStatus: gagal kirim notif Telegram', [
+                            'order_id' => $orderId,
+                            'transition' => $transition,
+                            'response' => $retry->json(),
+                        ]);
+                    }
                 }
             } catch (\Throwable $e) {
                 Log::error('NotifyBotOrderStatus: exception kirim notif Telegram', [

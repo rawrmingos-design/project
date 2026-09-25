@@ -113,6 +113,86 @@ class TelegramOrderNotificationTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_telegram_notification_falls_back_to_plain_text_when_format_rejected(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+
+        // Percobaan ber-format ditolak; percobaan tanpa format diterima.
+        // Ini meniru kejadian nyata: satu karakter tak terduga merusak
+        // MarkdownV2, dan notifikasi status order TIDAK boleh hilang.
+        $percobaan = [];
+
+        Http::fake(function ($request) use (&$percobaan) {
+            if (! str_contains($request->url(), '/sendMessage')) {
+                return Http::response(['ok' => true, 'result' => []]);
+            }
+
+            $berformat = isset($request['parse_mode']);
+            $percobaan[] = $request['parse_mode'] ?? null;
+
+            return $berformat
+                ? Http::response(['ok' => false, 'description' => "Bad Request: can't parse entities"], 400)
+                : Http::response(['ok' => true, 'result' => []]);
+        });
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        $this->assertSame(
+            ['MarkdownV2', null],
+            $percobaan,
+            'Kirim ber-format dulu, lalu diulang tanpa format.',
+        );
+
+        // Notifikasi terkirim (percobaan kedua) → anti-spam ditandai, jadi
+        // transisi yang sama tidak dikirim lagi.
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        $this->assertCount(2, $percobaan, 'Setelah sukses kirim, transisi sama tidak diulang.');
+    }
+
+    public function test_telegram_notification_uses_markdown_v2_formatting(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), '/sendMessage')) {
+                return false;
+            }
+
+            if (($request['parse_mode'] ?? null) !== 'MarkdownV2') {
+                return false;
+            }
+
+            // Teks yang dilihat user = backslash dilepas.
+            $terlihat = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
+
+            return str_contains($terlihat, 'Top Up Berhasil')
+                && str_contains($terlihat, 'Terima kasih sudah berbelanja')
+                && ! str_contains($terlihat, '\\');
+        });
+    }
+
     public function test_whatsapp_orders_do_not_hit_telegram_api(): void
     {
         config(['services.telegram-bot-api.token' => null]);
