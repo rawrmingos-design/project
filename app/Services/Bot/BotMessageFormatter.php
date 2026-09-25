@@ -96,8 +96,8 @@ class BotMessageFormatter
             '🔒 *Akses Terbatas*',
             '',
             $single
-                ? 'Untuk memakai bot ini, kamu wajib bergabung ke channel berikut:'
-                : 'Untuk memakai bot ini, kamu wajib bergabung ke *semua* channel berikut:',
+                ? 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:'
+                : 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke *semua* channel berikut dulu ya:',
             '',
         ];
 
@@ -111,7 +111,7 @@ class BotMessageFormatter
         }
 
         $lines[] = '';
-        $lines[] = 'Setelah bergabung ke semuanya, tekan *✅ Sudah Bergabung*.';
+        $lines[] = 'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah untuk verifikasi.';
 
         $buttons = [];
 
@@ -130,6 +130,34 @@ class BotMessageFormatter
         return [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
+        ];
+    }
+
+    /**
+     * Konfirmasi setelah user BERHASIL melewati gerbang keanggotaan.
+     *
+     * Sebelumnya tidak ada pesan ini: user yang baru bergabung langsung
+     * dilempar ke menu tanpa penjelasan, sehingga tidak ada tanda bahwa
+     * syaratnya sudah terpenuhi.
+     */
+    public function formatTelegramMembershipVerified(string $firstName = ''): array
+    {
+        $sapaan = trim($firstName) !== ''
+            ? 'Halo ' . $this->escapeMarkdown(trim($firstName)) . '! '
+            : '';
+
+        return [
+            'text' => implode("\n", [
+                '✅ *Verifikasi Berhasil*',
+                '',
+                $sapaan . 'Keanggotaanmu sudah terverifikasi. Sekarang kamu bisa memakai semua fitur bot.',
+                '',
+                'Ketik `menu` untuk mulai belanja, atau `help` untuk melihat panduan.',
+            ]),
+            'buttons' => [
+                [$this->button('🛍️ Buka Menu', 'menu')],
+                [$this->button('❓ Panduan', 'help')],
+            ],
         ];
     }
 

@@ -222,7 +222,8 @@ class TelegramMembershipGateTest extends TestCase
 
         $this->assertStringContainsString('Akses Terbatas', $message['text']);
         // Kalimat pembuka memakai bentuk tunggal ("channel berikut").
-        $this->assertStringContainsString('wajib bergabung ke channel berikut', $message['text']);
+        $this->assertStringContainsString('bergabung ke channel berikut', $message['text']);
+        $this->assertStringNotContainsString('ke *semua* channel', $message['text']);
         $this->assertCount(2, $message['buttons'], '1 tombol gabung + 1 tombol cek ulang.');
     }
 

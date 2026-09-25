@@ -63,6 +63,7 @@ class BotCommandHandler
 
                 if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
                     $this->clearCheckoutState($context);
+                    $this->markGatePending($context);
 
                     return $this->formatter->formatTelegramMembershipRequired(
                         (array) ($membership['missing'] ?? []),
@@ -73,6 +74,17 @@ class BotCommandHandler
                     $this->clearCheckoutState($context);
 
                     return $this->formatter->formatTelegramMembershipUnavailable();
+                }
+
+                // Ambang gate TERLEWATI — keanggotaan terverifikasi. Kalau user
+                // ini sebelumnya tertahan di gerbang, sekarang saatnya memberi
+                // kepastian bahwa verifikasinya berhasil. Sebelumnya user
+                // dilempar langsung ke menu tanpa penjelasan apa pun, jadi
+                // tidak ada tanda bahwa syaratnya sudah terpenuhi.
+                if ($this->pullGatePending($context)) {
+                    return $this->formatter->formatTelegramMembershipVerified(
+                        (string) ($context['telegram_metadata']['first_name'] ?? ''),
+                    );
                 }
             }
 
@@ -1671,6 +1683,58 @@ class BotCommandHandler
     private function checkoutStateKey(array $context): string
     {
         return 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
+    }
+
+    /**
+     * Tandai bahwa user ini sedang tertahan di gerbang keanggotaan.
+     *
+     * Ditulis saat gate menolak, dibaca sekali saat gate terlewati — dipakai
+     * untuk membedakan user yang BARU bergabung dari user yang memang sudah
+     * lama jadi member. Tanpa penanda ini, sapaan "verifikasi berhasil" akan
+     * muncul di setiap percakapan yang gagal terverifikasi sementara.
+     */
+    private function markGatePending(array $context): void
+    {
+        Cache::put($this->gatePendingKey($context), true, now()->addMinutes(30));
+    }
+
+    /**
+     * Ambil-dan-hapus penanda gate.
+     *
+     * Sekali ambil supaya sapaan verifikasi hanya muncul sekali. Kalau
+     * penyimpanan gagal, dikembalikan false — lebih baik tidak menyapa
+     * daripada salah menyapa.
+     */
+    private function pullGatePending(array $context): bool
+    {
+        $key = $this->gatePendingKey($context);
+
+        try {
+            if (Cache::get($key) !== true) {
+                return false;
+            }
+
+            Cache::forget($key);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Bot gate pending state could not be read.', [
+                'exception' => $e::class,
+            ]);
+
+            return false;
+        }
+    }
+
+    private function gatePendingKey(array $context): string
+    {
+        return 'bot:gate-pending:' . hash(
             'sha256',
             implode('|', [
                 (string) ($context['source'] ?? ''),

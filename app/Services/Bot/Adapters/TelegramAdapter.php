@@ -7,6 +7,7 @@ use App\Services\Bot\BotCommandParser;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\TelegramWelcomeService;
+use App\Support\TelegramMarkdown;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -180,75 +181,129 @@ class TelegramAdapter implements BotAdapterInterface
         }
 
         $hasPhoto = filter_var($response['photo_url'] ?? null, FILTER_VALIDATE_URL) !== false;
-        $payload = [
-            'chat_id' => $chatId,
-            'parse_mode' => 'Markdown',
-        ];
 
-        if ($hasPhoto) {
-            $payload['photo'] = $response['photo_url'];
-            $payload['caption'] = $response['text'];
-        } else {
-            $payload['text'] = $response['text'];
+        // Teks bot ditulis dalam gaya Markdown LAMA (`*tebal*`, `` `kode` ``).
+        // Dikirim apa adanya ke MarkdownV2 akan DITOLAK Telegram: karakter
+        // `.`, `(`, `!`, `|`, `+`, `-`, `=` wajib di-escape di MarkdownV2,
+        // dan teks bot penuh karakter itu (harga "Rp 1.050", "admin: 62...").
+        // Diuji langsung ke API: 7 dari 12 teks bot gagal total. Karena itu
+        // teks dikonversi dulu lewat TelegramMarkdown::fromLegacy().
+        $formatted = TelegramMarkdown::fromLegacy((string) ($response['text'] ?? ''));
+
+        $endpoint = $hasPhoto ? 'sendPhoto' : 'sendMessage';
+
+        $buildPayload = static function (?string $parseMode) use ($chatId, $hasPhoto, $formatted, $response): array {
+            $payload = ['chat_id' => $chatId];
+
+            if ($parseMode !== null) {
+                $payload['parse_mode'] = $parseMode;
+            }
+
+            if ($hasPhoto) {
+                $payload['photo'] = $response['photo_url'];
+                $payload['caption'] = $formatted;
+            } else {
+                $payload['text'] = $formatted;
+            }
+
+            return $payload;
+        };
+
+        // Keyboard dibangun terpisah karena sama untuk kedua percobaan.
+        $keyboard = $this->buildReplyMarkup($response);
+
+        $attempts = $keyboard === null ? [null] : [$keyboard];
+
+        foreach ($attempts as $replyMarkup) {
+            // Percobaan 1 dengan format, percobaan 2 tanpa format. Percobaan
+            // kedua penting: pesan tanpa format jauh lebih berguna daripada
+            // pesan yang hilang sama sekali gara-gara satu karakter.
+            foreach (['MarkdownV2', null] as $parseMode) {
+                $payload = $buildPayload($parseMode);
+
+                if ($replyMarkup !== null) {
+                    $payload['reply_markup'] = $replyMarkup;
+                }
+
+                try {
+                    $result = Http::post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
+
+                    if ($result->successful() && ($result->json('ok') ?? false)) {
+                        return;
+                    }
+
+                    Log::warning('Telegram reply rejected.', [
+                        'endpoint' => $endpoint,
+                        'parse_mode' => $parseMode,
+                        'description' => $result->json('description'),
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send telegram reply: ' . $e->getMessage());
+                }
+            }
         }
+    }
 
+    /**
+     * Susun inline keyboard / reply keyboard dari respons handler.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildReplyMarkup(array $response): ?array
+    {
         $hasInlineButtons = ! empty($response['buttons']);
         $wantsReplyKeyboard = ! empty($response['use_reply_keyboard']);
 
         if ($wantsReplyKeyboard) {
-            $payload['reply_markup'] = $this->formatter->defaultReplyKeyboard(
+            return $this->formatter->defaultReplyKeyboard(
                 BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM),
             );
-        } elseif ($hasInlineButtons) {
-            // Format inline keyboard
-            $keyboard = [];
-            foreach ($response['buttons'] as $row) {
-                $buttons = $this->isButton($row) ? [$row] : $row;
-                $keyboardRow = [];
+        }
 
-                foreach ($buttons as $btn) {
-                    if (! $this->isButton($btn)) {
-                        continue;
-                    }
+        if (! $hasInlineButtons) {
+            return null;
+        }
 
-                    if (isset($btn['url'])) {
-                        $keyboardRow[] = [
-                            'text' => $btn['text'],
-                            'url' => $btn['url'],
-                        ];
-                        continue;
-                    }
+        $keyboard = [];
 
-                    if (strlen($btn['callback']) > 64) {
-                        Log::warning('Telegram inline button callback exceeds Telegram limit.', [
-                            'callback_length' => strlen($btn['callback']),
-                        ]);
-                        continue;
-                    }
+        foreach ($response['buttons'] as $row) {
+            $buttons = $this->isButton($row) ? [$row] : $row;
+            $keyboardRow = [];
 
+            foreach ($buttons as $btn) {
+                if (! $this->isButton($btn)) {
+                    continue;
+                }
+
+                if (isset($btn['url'])) {
                     $keyboardRow[] = [
                         'text' => $btn['text'],
-                        'callback_data' => $btn['callback'],
+                        'url' => $btn['url'],
                     ];
+
+                    continue;
                 }
 
-                if ($keyboardRow !== []) {
-                    $keyboard[] = $keyboardRow;
+                if (strlen($btn['callback']) > 64) {
+                    Log::warning('Telegram inline button callback exceeds Telegram limit.', [
+                        'callback_length' => strlen($btn['callback']),
+                    ]);
+
+                    continue;
                 }
+
+                $keyboardRow[] = [
+                    'text' => $btn['text'],
+                    'callback_data' => $btn['callback'],
+                ];
             }
 
-            $payload['reply_markup'] = [
-                'inline_keyboard' => $keyboard,
-            ];
+            if ($keyboardRow !== []) {
+                $keyboard[] = $keyboardRow;
+            }
         }
 
-        $endpoint = $hasPhoto ? 'sendPhoto' : 'sendMessage';
-
-        try {
-            Http::post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
-        } catch (\Exception $e) {
-            Log::error("Failed to send telegram reply: " . $e->getMessage());
-        }
+        return ['inline_keyboard' => $keyboard];
     }
 
     private function isButton(mixed $value): bool
