@@ -111,6 +111,36 @@ class TelegramAnnouncementService
             }
 
             $description = (string) ($response->json('description') ?? 'HTTP ' . $response->status());
+
+            // BUG NYATA: pesan yang tampak biasa tetap bisa ditolak Telegram
+            // karena ketidakcocokan Markdown. Contoh yang benar-benar terjadi:
+            // admin menulis "@jasakoding_bot" — garis bawahnya dibaca sebagai
+            // pembuka italic, sehingga Telegram menjawab "can't parse entities"
+            // dan pengumuman GAGAL TOTAL terkirim.
+            //
+            // Pengumuman yang sampai ke member (tanpa format) jauh lebih
+            // berguna daripada pengumuman yang hilang karena satu karakter.
+            // Jadi kalau yang salah cuma formatnya, kirim ulang tanpa
+            // parse_mode. Kalau masih gagal, baru laporkan error aslinya.
+            if ($markdown && $this->isParseError($description)) {
+                Log::warning('Telegram announcement gagal parsing Markdown, kirim ulang tanpa format.', [
+                    'target' => $target['label'],
+                    'thread_id' => $target['thread_id'],
+                    'description' => $description,
+                ]);
+
+                unset($payload['parse_mode']);
+
+                $retry = Http::timeout(15)
+                    ->post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
+
+                if ($retry->successful() && $retry->json('ok') === true) {
+                    return ['label' => $target['label'], 'ok' => true, 'error' => null];
+                }
+
+                $description = (string) ($retry->json('description') ?? 'HTTP ' . $retry->status());
+            }
+
             $hint = $this->hintFor($description);
 
             Log::warning('Telegram announcement failed.', [
@@ -133,6 +163,22 @@ class TelegramAnnouncementService
     private function token(): string
     {
         return trim((string) config('services.telegram-bot-api.token'));
+    }
+
+    /**
+     * Apakah error ini soal format Markdown, bukan soal hak akses/topik?
+     *
+     * Frase nyata dari Telegram: "can't parse entities: Can't find end of
+     * the entity starting at byte offset N". Dicek longgar supaya tidak
+     * rapuh terhadap perubahan kalimat.
+     */
+    private function isParseError(string $description): bool
+    {
+        $lower = strtolower($description);
+
+        return str_contains($lower, 'parse entities')
+            || str_contains($lower, 'can\'t find end of the entity')
+            || str_contains($lower, 'unsupported start tag');
     }
 
     /**
@@ -171,6 +217,13 @@ class TelegramAnnouncementService
         if (str_contains($lower, 'chat not found')) {
             return 'Bot belum menjadi anggota grup itu, atau Chat ID salah. '
                 . 'Tambahkan bot ke grup dulu. [' . $description . ']';
+        }
+
+        if ($this->isParseError($description)) {
+            return 'Format pesan ditolak Telegram. Hindari garis bawah (_) dan tanda bintang (*) '
+                . 'di dalam teks — misalnya username seperti @nama_bot atau kata seperti promo_10. '
+                . 'Garis bawah dibaca Telegram sebagai penanda miring. '
+                . 'Pesan sudah dicoba kirim ulang tanpa format, tapi tetap gagal. [' . $description . ']';
         }
 
         return null;

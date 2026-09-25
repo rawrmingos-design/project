@@ -250,6 +250,78 @@ class TelegramTopicAnnouncementTest extends TestCase
         $this->assertSame('Bad Request: some new error', $results[0]['error']);
     }
 
+    public function test_announcement_retries_without_format_when_markdown_breaks(): void
+    {
+        // REGRESI BUG NYATA yang ketangkap saat kirim panduan ke topik
+        // Announcement grup asli. Teks yang tampak biasa tetap ditolak:
+        //
+        //   "Transaksi lewat bot @jasakoding_bot, bukan di grup ya."
+        //                                  ^ garis bawah
+        //
+        // Telegram membaca garis bawah itu sebagai pembuka italic, lalu
+        // menjawab "can't parse entities: Can't find end of the entity
+        // starting at byte offset 483" dan pengumuman GAGAL TOTAL.
+        //
+        // Pengumuman yang sampai ke member tanpa format jauh lebih berguna
+        // daripada hilang karena satu karakter.
+        $attempts = [];
+
+        Http::fake(function ($request) use (&$attempts) {
+            $data = $request->data();
+            $attempts[] = $data['parse_mode'] ?? null;
+
+            // Hanya kiriman ber-parse_mode yang ditolak.
+            return isset($data['parse_mode'])
+                ? Http::response(['ok' => false, 'description' => "Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 483"], 400)
+                : Http::response(['ok' => true], 200);
+        });
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Transaksi lewat bot @jasakoding_bot ya.');
+
+        $this->assertTrue($results[0]['ok'], 'Harus berhasil setelah kirim ulang tanpa format.');
+        $this->assertSame(['Markdown', null], $attempts, 'Coba dengan Markdown dulu, lalu tanpa format.');
+    }
+
+    public function test_announcement_does_not_retry_on_permission_error(): void
+    {
+        // Error hak akses TIDAK boleh memicu kirim ulang tanpa format —
+        // percuma, dan cuma menambah kiriman gagal.
+        $count = 0;
+
+        Http::fake(function () use (&$count) {
+            $count++;
+
+            return Http::response(['ok' => false, 'description' => 'Bad Request: TOPIC_CLOSED'], 400);
+        });
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Test');
+
+        $this->assertFalse($results[0]['ok']);
+        $this->assertSame(1, $count, 'Error TOPIC_CLOSED tidak boleh dikirim ulang.');
+    }
+
+    public function test_announcement_explains_broken_format_when_retry_also_fails(): void
+    {
+        Http::fake(['*' => Http::response(['ok' => false, 'description' => "Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 5"], 400)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Test');
+
+        $this->assertFalse($results[0]['ok']);
+        $this->assertStringContainsString('garis bawah', $results[0]['error']);
+    }
+
     public function test_discussion_url_accepts_group_and_topic_deep_links(): void
     {
         $this->assertTrue(TelegramDiscussionUrl::isValid('https://t.me/istanagrup'));
