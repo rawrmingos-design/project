@@ -1356,6 +1356,29 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
 
+                        Toggle::make('telegram_welcome_enabled')
+                            ->label('Sambutan Otomatis Member Baru')
+                            ->helperText('Kirim pesan sambutan saat ada member baru bergabung di grup. Tidak perlu mematikan privacy mode bot, dan bot TIDAK harus admin — event "member baru" termasuk service message yang selalu diterima bot.')
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        Textarea::make('telegram_welcome_template')
+                            ->label('Isi Sambutan')
+                            ->helperText('Kosongkan untuk memakai pesan bawaan. Placeholder: {nama} = nama member, {grup} = nama grup. Contoh: Halo {nama}, selamat datang di {grup}! Baca panduan di topik Announcement ya.')
+                            ->placeholder(\App\Services\Bot\TelegramWelcomeService::DEFAULT_TEMPLATE)
+                            ->rows(4)
+                            ->maxLength(1000)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        TextInput::make('telegram_welcome_thread_id')
+                            ->label('Thread ID Topik Sambutan (opsional)')
+                            ->helperText('Kosongkan untuk mengirim ke chat utama (Topik General). Isi dengan id topik bila sambutan ingin muncul di topik tertentu.')
+                            ->placeholder('12')
+                            ->numeric()
+                            ->minValue(1)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
+
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')

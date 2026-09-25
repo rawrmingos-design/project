@@ -266,6 +266,21 @@ class AppServiceProvider extends ServiceProvider
                         config(['services.telegram-bot-api.announcement_targets' => array_values($announcementTargets)]);
                     }
 
+                    // Sambutan otomatis member baru di grup Telegram.
+                    // Saklar dihormati apa adanya (termasuk `false`), supaya
+                    // admin bisa mematikan dari DB tanpa mengubah .env.
+                    if ($config->telegram_welcome_enabled !== null) {
+                        config(['services.telegram-bot-api.telegram_welcome_enabled' => (bool) $config->telegram_welcome_enabled]);
+                    }
+
+                    if (!empty($config->telegram_welcome_template)) {
+                        config(['services.telegram-bot-api.telegram_welcome_template' => $config->telegram_welcome_template]);
+                    }
+
+                    if (!empty($config->telegram_welcome_thread_id)) {
+                        config(['services.telegram-bot-api.telegram_welcome_thread_id' => (int) $config->telegram_welcome_thread_id]);
+                    }
+
                     // Override bot order flags if set in DB
                     // NOTE: capture config-cache value FIRST — line berikutnya
                     // override services.telegram-bot-api.order_enabled dari DB.

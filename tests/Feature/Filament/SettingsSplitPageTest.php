@@ -306,6 +306,35 @@ class SettingsSplitPageTest extends AdminTestCase
         );
     }
 
+    public function test_notifications_settings_saves_telegram_welcome_config(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_welcome_enabled' => true,
+                'telegram_welcome_template' => 'Halo {nama}, selamat datang di {grup}!',
+                'telegram_welcome_thread_id' => 12,
+            ])
+            ->call('save');
+
+        $row = SettingWeb::query()->findOrFail(1);
+
+        $this->assertTrue((bool) $row->telegram_welcome_enabled, 'Saklar sambutan harus tersimpan.');
+        $this->assertSame('Halo {nama}, selamat datang di {grup}!', $row->telegram_welcome_template);
+        $this->assertSame(12, (int) $row->telegram_welcome_thread_id);
+    }
+
     public function test_notifications_settings_openwa_fields_visible_when_provider_is_openwa(): void
     {
         /** @var User $admin */

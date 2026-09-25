@@ -6,6 +6,8 @@ use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotMessageFormatter;
+use App\Services\Bot\TelegramWelcomeService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +23,12 @@ class TelegramAdapter implements BotAdapterInterface
     public function handle(Request $request): mixed
     {
         $payload = $request->all();
+
+        // Service message "member baru bergabung" menyapa member, lalu
+        // SELESAI — tidak ada teks perintah untuk diproses.
+        if (isset($payload['message']['new_chat_members'])) {
+            return $this->handleNewChatMembers($payload['message']);
+        }
 
         $text = '';
         $chatId = null;
@@ -84,6 +92,67 @@ class TelegramAdapter implements BotAdapterInterface
         $this->sendReply($chatId, $response);
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Sapaan untuk member baru di grup.
+     *
+     * HANYA dipicu oleh service message `new_chat_members`. Update
+     * `chat_member` TIDAK dipakai karena butuh bot jadi admin DAN
+     * `allowed_updates` eksplisit — sedangkan `new_chat_members` diterima
+     * semua bot "regardless of settings" (FAQ resmi Telegram), sehingga
+     * bot biasa dengan privacy mode ON tetap bisa menyapa.
+     *
+     * Tidak pernah menggagalkan webhook: kegagalan cukup dicatat, karena
+     * Telegram akan mengulang kirim bila kita membalas non-2xx.
+     *
+     * @param array<string, mixed> $message
+     */
+    private function handleNewChatMembers(array $message): JsonResponse
+    {
+        $chat = is_array($message['chat'] ?? null) ? $message['chat'] : [];
+        $members = array_values(array_filter(
+            is_array($message['new_chat_members'] ?? null) ? $message['new_chat_members'] : [],
+            'is_array',
+        ));
+
+        if ($members === []) {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        $service = app(TelegramWelcomeService::class);
+
+        if (! $service->isEnabled()) {
+            return response()->json(['status' => 'ignored']);
+        }
+
+        $greeted = 0;
+
+        foreach ($members as $member) {
+            // Saat bot sendiri diundang, `new_chat_members` juga memuat bot.
+            // Jangan menyapa diri sendiri.
+            if (($member['is_bot'] ?? false) === true) {
+                continue;
+            }
+
+            $result = $service->greet($member, $chat);
+
+            if ($result['ok']) {
+                $greeted++;
+                continue;
+            }
+
+            Log::info('Telegram welcome skipped.', [
+                'chat_id' => $chat['id'] ?? null,
+                'member_id' => $member['id'] ?? null,
+                'error' => $result['error'],
+            ]);
+        }
+
+        return response()->json([
+            'status' => $greeted > 0 ? 'welcome_sent' : 'ignored',
+            'greeted' => $greeted,
+        ]);
     }
 
     private function answerCallbackQuery(string $callbackQueryId): void
