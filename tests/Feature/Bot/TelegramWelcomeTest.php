@@ -141,7 +141,22 @@ class TelegramWelcomeTest extends TestCase
 
         $resolved = app(TelegramWelcomeService::class)->resolveText($this->member(), $this->chat());
 
-        $this->assertSame('Yo Budi! Gabung grup Test Jasakoding.', $resolved['text']);
+        // Teks keluar sudah ter-escape untuk MarkdownV2 (parse_mode yang
+        // dipakai saat mengirim). Yang penting: nilai {nama} dan {grup}
+        // masuk dengan benar, dan tanda baca statis di-escape.
+        $this->assertSame('Yo Budi\\! Gabung grup Test Jasakoding\\.', $resolved['text']);
+
+        // Yang DILIHAT member tetap bersih tanpa backslash.
+        $this->assertSame('Yo Budi! Gabung grup Test Jasakoding.', $this->tampilanBersih($resolved['text']));
+    }
+
+    /**
+     * Tebak teks yang dilihat member: buang backslash escape MarkdownV2.
+     * Dipakai untuk mengunci bahwa escape TIDAK merusak isi pesan.
+     */
+    private function tampilanBersih(string $terformat): string
+    {
+        return preg_replace('/\\\\(.)/u', '$1', $terformat);
     }
 
     // ---------------------------------------------------------------

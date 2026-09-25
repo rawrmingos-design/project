@@ -3,6 +3,7 @@
 namespace App\Services\Bot;
 
 use App\Support\TelegramAnnouncementTargets;
+use App\Support\TelegramMarkdown;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -101,7 +102,7 @@ class TelegramAnnouncementService
      * MarkdownV2. Di Markdown lama keduanya cuma tampil mentah.
      *
      * MarkdownV2 mewajibkan SEMUA karakter spesial di-escape, jadi teks
-     * admin di-escape dulu lewat toMarkdownV2(). Efeknya:
+     * admin di-escape dulu lewat App\Support\TelegramMarkdown. Efeknya:
      *  - `@jasakoding_bot` tampil utuh dan tetap jadi sebutan yang bisa
      *    diklik (sebelumnya justru teks biasa, atau malah bikin gagal).
      *  - Admin tetap bisa memakai `*tebal*`, `_miring_`, `**tebal**`,
@@ -114,7 +115,7 @@ class TelegramAnnouncementService
     {
         $payload = [
             'chat_id' => $target['chat_id'],
-            'text' => $markdown ? $this->toMarkdownV2($text) : $text,
+            'text' => $markdown ? TelegramMarkdown::format($text) : $text,
         ];
 
         if ($markdown) {
@@ -186,83 +187,6 @@ class TelegramAnnouncementService
     private function token(): string
     {
         return trim((string) config('services.telegram-bot-api.token'));
-    }
-
-    /**
-     * Escape teks bebas admin agar aman di MarkdownV2, TAPI tetap
-     * membiarkan penanda format yang sengaja ditulis.
-     *
-     * MarkdownV2 mewajibkan semua karakter spesial di-escape, kalau tidak
-     * Telegram menolak dengan "can't parse entities". Di sisi lain admin
-     * perlu bisa menulis tebal/miring. Dua kebutuhan itu diselesaikan
-     * dengan urutan berikut:
-     *
-     *  1. Lindungi penanda format yang MASIH BERGUNA di MarkdownV2
-     *     dengan penanda sementara (karakter kontrol, bukan teks).
-     *  2. Escape SEMUA karakter spesial MarkdownV2.
-     *  3. Kembalikan penanda sementara menjadi sintaks aslinya.
-     *
-     * Hasilnya, contoh nyata:
-     *   'Order lewat @jasakoding_bot — promo_10!'
-     *     -> 'Order lewat @jasakoding\_bot — promo\_10\!'
-     *        (garis bawah muncul apa adanya, bukan bikin pesan gagal)
-     *
-     *   'Baca *Announcement* dulu'
-     *     -> 'Baca *Announcement* dulu'   (tetap tebal)
-     *
-     *   '**Penting** dan __catatan__'
-     *     -> '**Penting** dan __catatan__'  (tebal + garis bawah)
-     *
-     * PENTING — underscore tunggal SENGAJA tidak dibuka sebagai penanda
-     * miring. Percobaan pertama membukanya, dan hasilnya merusak teks:
-     *
-     *   'bot @jasakoding_bot (kode promo_10 tetap berlaku)'
-     *     -> 'bot @jasakodingbot (kode promo10 tetap berlaku)'
-     *                        ^ dua garis bawah HILANG dari teks
-     *
-     * Telegram memasangkan garis bawah pertama dengan berikutnya, jadi
-     * nama bot dan kode promo kehilangan garis bawahnya. Karena teks
-     * bebas admin penuh dengan pola seperti itu, miring tunggal
-     * dikorbankan: untuk tebal pakai *teks* atau **teks**, untuk garis
-     * bawah pakai __teks__.
-     *
-     * Sengaja TIDAK membuka sintaks lain karena di MarkdownV2 berbeda arti:
-     *  - `[teks](url)` -> perlu URL asli, admin bisa pakai tombol Diskusi
-     *  - `>kutipan`, `||spoiler||`, `` `kode` `` -> tampil sebagai teks
-     *    biasa. Lebih baik apa adanya daripada berubah arti diam-diam.
-     */
-    private function toMarkdownV2(string $text): string
-    {
-        // Penanda sementara. Dipilih dari Private Use Area supaya mustahil
-        // bentrok dengan teks admin biasa.
-        $bold = "\u{E000}";
-        $boldDouble = "\u{E002}";
-        $italicDouble = "\u{E003}";
-        $strike = "\u{E004}";
-
-        // 1. Lindungi penanda format yang sengaja ditulis admin.
-        //    Urutan penting: yang lebih panjang didahulukan supaya '**'
-        //    tidak keburu dicomot oleh aturan '*'.
-        $text = str_replace(
-            ['**', '__'],
-            [$boldDouble, $italicDouble],
-            $text,
-        );
-
-        $text = preg_replace('/\*([^*\n]+)\*/u', $bold . '$1' . $bold, $text);
-        $text = preg_replace('/~([^~\n]+)~/u', $strike . '$1' . $strike, $text);
-
-        // 2. Escape SEMUA karakter spesial MarkdownV2.
-        //    Termasuk garis bawah tunggal — itu yang menjaga nama bot dan
-        //    kode promo tetap utuh.
-        $text = preg_replace('/([_*\[\]()~`>#+\-=|{}.!\\\\])/u', '\\\\$1', $text);
-
-        // 3. Kembalikan penanda menjadi sintaks asli.
-        return str_replace(
-            [$boldDouble, $italicDouble, $bold, $strike],
-            ['**', '__', '*', '~'],
-            $text,
-        );
     }
 
     /**

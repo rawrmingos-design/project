@@ -2,6 +2,7 @@
 
 namespace App\Services\Bot;
 
+use App\Support\TelegramMarkdown;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -60,16 +61,30 @@ class TelegramWelcomeService
             $template = self::DEFAULT_TEMPLATE;
         }
 
-        // Nilai dari Telegram di-escape agar nama seperti "Budi_Pratama"
-        // tidak merusak format Markdown (underscore = italic).
+        // Urutan pemrosesan penting:
+        //  1. Nilai yang berasal dari Telegram (nama member, judul grup)
+        //     diganti placeholder dulu. Kalau langsung dimasukkan, proses
+        //     escape di langkah 2 akan meng-escape ulang dan nama
+        //     "Budi_Pratama" muncul sebagai "Budi\_Pratama" di grup.
+        //  2. Baru teks template diformat: bagian statis di-escape, penanda
+        //     format yang sengaja ditulis admin tetap dibuka.
+        //  3. Placeholder diganti nilai aslinya, di-escape penuh karena
+        //     nama member tidak boleh menambah format apa pun.
         $text = str_replace(
             ['{nama}', '{grup}', '{sebutan}'],
-            [
-                $this->escape($name),
-                $this->escape((string) ($chat['title'] ?? '') ?: 'grup kami'),
-                $this->escape($name),
-            ],
+            ["\u{E010}", "\u{E011}", "\u{E010}"],
             $template,
+        );
+
+        $text = TelegramMarkdown::format($text);
+
+        $text = str_replace(
+            ["\u{E010}", "\u{E011}"],
+            [
+                TelegramMarkdown::escapeAll($name),
+                TelegramMarkdown::escapeAll((string) ($chat['title'] ?? '') ?: 'grup kami'),
+            ],
+            $text,
         );
 
         if (mb_strlen($text) > self::MAX_MESSAGE_LENGTH) {
@@ -113,7 +128,7 @@ class TelegramWelcomeService
         $payload = [
             'chat_id' => $chatId,
             'text' => $resolved['text'],
-            'parse_mode' => 'Markdown',
+            'parse_mode' => 'MarkdownV2',
             // Jangan tampilkan preview tautan untuk pesan sambutan.
             'link_preview_options' => ['is_disabled' => true],
         ];
@@ -282,12 +297,5 @@ class TelegramWelcomeService
      * Escape karakter khusus Markdown ala Telegram untuk nilai yang
      * berasal dari pengguna (nama/grup).
      */
-    private function escape(string $value): string
-    {
-        return str_replace(
-            ['\\', '_', '*', '[', ']', '`'],
-            ['\\\\', '\\_', '\\*', '\\[', '\\]', '\\`'],
-            $value,
-        );
-    }
+
 }

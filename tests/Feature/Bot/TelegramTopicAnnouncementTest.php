@@ -370,7 +370,8 @@ class TelegramTopicAnnouncementTest extends TestCase
     public function test_formatting_markers_survive_escaping(): void
     {
         // Admin harus tetap bisa menebalkan teks. Yang diminta user:
-        // `**tebal**` dan `__garis bawah__`.
+        // `**tebal**` dan `__garis bawah__`. Catatan: `**tebal**` di
+        // Telegram tidak berformat, jadi dinormalkan menjadi `*tebal*`.
         Http::fake(['*' => Http::response(['ok' => true], 200)]);
 
         config(['services.telegram-bot-api.announcement_targets' => [
@@ -382,11 +383,12 @@ class TelegramTopicAnnouncementTest extends TestCase
         Http::assertSent(function ($request) {
             $text = $request['text'];
 
-            return str_contains($text, '*A*')      // tebal
-                && str_contains($text, '**B**')    // tebal
-                && str_contains($text, '__C__')    // garis bawah
-                && str_contains($text, '~D~')      // coret
-                && str_contains($text, '@bot\\_x'); // username tetap utuh
+            return str_contains($text, '*A*')       // tebal
+                && str_contains($text, '*B*')       // `**B**` dinormalkan
+                && str_contains($text, '__C__')     // garis bawah
+                && str_contains($text, '~D~')       // coret
+                && ! str_contains($text, '**')      // tidak boleh sisa bintang ganda
+                && str_contains($text, '@bot\\_x');  // username tetap utuh
         });
     }
 
