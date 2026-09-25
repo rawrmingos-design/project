@@ -111,6 +111,7 @@ class TelegramAnnouncementService
             }
 
             $description = (string) ($response->json('description') ?? 'HTTP ' . $response->status());
+            $hint = $this->hintFor($description);
 
             Log::warning('Telegram announcement failed.', [
                 'target' => $target['label'],
@@ -118,7 +119,7 @@ class TelegramAnnouncementService
                 'description' => $description,
             ]);
 
-            return ['label' => $target['label'], 'ok' => false, 'error' => $description];
+            return ['label' => $target['label'], 'ok' => false, 'error' => $hint ?? $description];
         } catch (\Throwable $e) {
             Log::warning('Telegram announcement threw.', [
                 'target' => $target['label'],
@@ -132,5 +133,46 @@ class TelegramAnnouncementService
     private function token(): string
     {
         return trim((string) config('services.telegram-bot-api.token'));
+    }
+
+    /**
+     * Terjemahkan error Telegram yang paling sering muncul menjadi
+     * kalimat yang bisa langsung ditindak admin.
+     *
+     * `TOPIC_CLOSED` itu contoh nyata: topik Announcement sengaja ditutup
+     * supaya member tidak bisa posting, dan Telegram menolak kiriman dari
+     * bot yang belum admin grup. Pesan aslinya tidak menjelaskan itu,
+     * jadi admin akan bingung. Ini yang menerjemahkannya.
+     *
+     * Pesan asli tetap ditampilkan di belakang supaya tidak ada informasi
+     * yang hilang saat menelusuri masalah.
+     */
+    private function hintFor(string $description): ?string
+    {
+        $lower = strtolower($description);
+
+        if (str_contains($lower, 'topic_closed')) {
+            return 'Topik tujuan sedang DITUTUP. Telegram hanya mengizinkan admin grup posting '
+                . 'ke topik tertutup — jadikan bot admin grup (centang "Manage Topics"), '
+                . 'atau pakai topik yang terbuka. [' . $description . ']';
+        }
+
+        if (str_contains($lower, 'not enough rights') || str_contains($lower, 'chat_write_forbidden')) {
+            return 'Bot tidak punya hak menulis di grup/topik itu. Jadikan bot admin grup '
+                . 'dengan hak "Manage Topics" dan "Send Messages". [' . $description . ']';
+        }
+
+        if (str_contains($lower, 'thread not found')) {
+            return 'Thread ID topik tidak ditemukan. Cek kembali Thread ID tujuan; '
+                . 'topik "General" adalah chat utama sehingga TIDAK butuh Thread ID '
+                . '(kosongkan saja). [' . $description . ']';
+        }
+
+        if (str_contains($lower, 'chat not found')) {
+            return 'Bot belum menjadi anggota grup itu, atau Chat ID salah. '
+                . 'Tambahkan bot ke grup dulu. [' . $description . ']';
+        }
+
+        return null;
     }
 }

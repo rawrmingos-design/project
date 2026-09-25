@@ -187,6 +187,59 @@ class TelegramWelcomeTest extends TestCase
         Http::assertSent(fn ($request) => $request['message_thread_id'] === 12);
     }
 
+    public function test_welcome_falls_back_to_main_chat_when_thread_unknown(): void
+    {
+        // REGRESI BUG NYATA: topik "General" adalah chat utama grup, jadi
+        // mengirim dengan message_thread_id = id General DITOLAK Telegram
+        // dengan "message thread not found". Dibuktikan di runtime:
+        //   tanpa thread id -> ok (msg_id=11)
+        //   thread id = 1    -> "message thread not found"
+        // Sambutan harus tetap mendarat, bukan hilang tanpa jejak.
+        $sent = [];
+
+        Http::fake(function ($request) use (&$sent) {
+            $sent[] = $request['message_thread_id'] ?? null;
+
+            // Percobaan dengan thread id gagal; tanpa thread id berhasil.
+            return isset($request['message_thread_id'])
+                ? Http::response(['ok' => false, 'description' => 'Bad Request: message thread not found'], 400)
+                : Http::response(['ok' => true], 200);
+        });
+
+        config([
+            'services.telegram-bot-api.telegram_welcome_enabled' => true,
+            'services.telegram-bot-api.telegram_welcome_thread_id' => 1,
+        ]);
+
+        $result = app(TelegramWelcomeService::class)->greet($this->member(), $this->chat());
+
+        $this->assertTrue($result['ok'], 'Fallback harus menyelamatkan sambutan.');
+        $this->assertSame([1, null], $sent, 'Harus coba dengan thread id dulu, lalu tanpa thread id.');
+    }
+
+    public function test_welcome_does_not_fallback_for_other_errors(): void
+    {
+        // Hanya error thread yang tidak dikenal yang di-fallback. Error lain
+        // (mis. bot bukan anggota) tidak boleh dikirim ulang ke chat utama.
+        $count = 0;
+
+        Http::fake(function () use (&$count) {
+            $count++;
+
+            return Http::response(['ok' => false, 'description' => 'chat not found'], 400);
+        });
+
+        config([
+            'services.telegram-bot-api.telegram_welcome_enabled' => true,
+            'services.telegram-bot-api.telegram_welcome_thread_id' => 1,
+        ]);
+
+        $result = app(TelegramWelcomeService::class)->greet($this->member(), $this->chat());
+
+        $this->assertFalse($result['ok']);
+        $this->assertSame(1, $count, 'Tidak boleh kirim ulang untuk error yang bukan soal thread.');
+    }
+
     public function test_welcome_failure_does_not_throw(): void
     {
         Http::fake(['*' => Http::response(['ok' => false, 'description' => 'chat not found'], 400)]);

@@ -199,6 +199,57 @@ class TelegramTopicAnnouncementTest extends TestCase
     // Deep-link diskusi
     // ---------------------------------------------------------------
 
+    public function test_announcement_explains_closed_topic_in_plain_language(): void
+    {
+        // REGRESI BUG NYATA: mengirim ke topik Announcement yang DITUTUP
+        // ditolak Telegram dengan "TOPIC_CLOSED" — dibuktikan di runtime.
+        // Pesan itu tidak menjelaskan apa pun ke admin, jadi harus
+        // diterjemahkan menjadi instruksi yang bisa langsung ditindak.
+        Http::fake(['*' => Http::response(['ok' => false, 'description' => 'Bad Request: TOPIC_CLOSED'], 400)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Test');
+
+        $this->assertFalse($results[0]['ok']);
+        $this->assertStringContainsString('DITUTUP', $results[0]['error']);
+        $this->assertStringContainsString('admin', $results[0]['error']);
+        // Pesan asli tetap disertakan agar jejak diagnosis tidak hilang.
+        $this->assertStringContainsString('TOPIC_CLOSED', $results[0]['error']);
+    }
+
+    public function test_announcement_explains_missing_thread_in_plain_language(): void
+    {
+        Http::fake(['*' => Http::response(['ok' => false, 'description' => 'Bad Request: message thread not found'], 400)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Salah', 'chat_id' => '-1004406592692', 'thread_id' => 1],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Test');
+
+        $this->assertFalse($results[0]['ok']);
+        $this->assertStringContainsString('Thread ID', $results[0]['error']);
+        $this->assertStringContainsString('General', $results[0]['error']);
+    }
+
+    public function test_unknown_error_is_passed_through_unchanged(): void
+    {
+        // Error yang belum kita kenali HARUS tampil apa adanya — jangan
+        // ditelan atau diganti pesan umum, supaya tetap bisa didiagnosis.
+        Http::fake(['*' => Http::response(['ok' => false, 'description' => 'Bad Request: some new error'], 400)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'X', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        $results = app(TelegramAnnouncementService::class)->send('Test');
+
+        $this->assertSame('Bad Request: some new error', $results[0]['error']);
+    }
+
     public function test_discussion_url_accepts_group_and_topic_deep_links(): void
     {
         $this->assertTrue(TelegramDiscussionUrl::isValid('https://t.me/istanagrup'));

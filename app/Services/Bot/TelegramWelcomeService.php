@@ -125,21 +125,41 @@ class TelegramWelcomeService
         }
 
         try {
-            $response = Http::timeout(15)
-                ->post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
+            $first = $this->send($token, $payload);
 
-            if ($response->successful() && $response->json('ok') === true) {
+            if ($first['ok']) {
                 return ['ok' => true, 'error' => null];
             }
 
-            $description = (string) ($response->json('description') ?? 'HTTP ' . $response->status());
+            // Kalau thread id tidak dikenal Telegram, kirim ulang TANPA
+            // thread id. Dua sebab nyata yang sudah dibuktikan di runtime:
+            //
+            //  1. Topik "General" adalah chat utama grup. Mengirim dengan
+            //     message_thread_id = id General ditolak "message thread
+            //     not found" — memang harus tanpa thread id.
+            //  2. Topik tujuan sudah dihapus / id salah tulis admin.
+            //
+            // Sambutan yang mendarat di chat utama jauh lebih berguna
+            // daripada hilang tanpa jejak, jadi fallback ini disengaja.
+            if ($threadId !== null && $this->isUnknownThread($first['error'])) {
+                Log::warning('Telegram welcome thread tidak valid, kirim ulang ke chat utama.', [
+                    'chat_id' => $chatId,
+                    'thread_id' => $threadId,
+                    'error' => $first['error'],
+                ]);
 
-            Log::warning('Telegram welcome failed.', [
-                'chat_id' => $chatId,
-                'error' => $description,
-            ]);
+                unset($payload['message_thread_id']);
 
-            return ['ok' => false, 'error' => $description];
+                $second = $this->send($token, $payload);
+
+                if ($second['ok']) {
+                    return ['ok' => true, 'error' => null];
+                }
+
+                return ['ok' => false, 'error' => $second['error']];
+            }
+
+            return ['ok' => false, 'error' => $first['error']];
         } catch (\Throwable $e) {
             Log::warning('Telegram welcome threw.', [
                 'chat_id' => $chatId,
@@ -148,6 +168,48 @@ class TelegramWelcomeService
 
             return ['ok' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Kirim satu payload ke sendMessage.
+     *
+     * @param array<string, mixed> $payload
+     * @return array{ok: bool, error: string|null}
+     */
+    private function send(string $token, array $payload): array
+    {
+        $response = Http::timeout(15)
+            ->post("https://api.telegram.org/bot{$token}/sendMessage", $payload);
+
+        if ($response->successful() && $response->json('ok') === true) {
+            return ['ok' => true, 'error' => null];
+        }
+
+        $description = (string) ($response->json('description') ?? 'HTTP ' . $response->status());
+
+        Log::warning('Telegram welcome failed.', [
+            'chat_id' => $payload['chat_id'] ?? null,
+            'thread_id' => $payload['message_thread_id'] ?? null,
+            'error' => $description,
+        ]);
+
+        return ['ok' => false, 'error' => $description];
+    }
+
+    /**
+     * Apakah error menunjukkan thread id tidak dikenal Telegram?
+     *
+     * Frase yang dipakai Telegram: "message thread not found". Dicek
+     * longgar (case-insensitive, "thread not found") supaya tidak rapuh
+     * terhadap perubahan kecil pada kalimatnya.
+     */
+    private function isUnknownThread(?string $error): bool
+    {
+        if ($error === null) {
+            return false;
+        }
+
+        return str_contains(strtolower($error), 'thread not found');
     }
 
     /**
