@@ -65,7 +65,7 @@ class BotCommandHandler
                     $this->clearCheckoutState($context);
 
                     return $this->formatter->formatTelegramMembershipRequired(
-                        (string) ($membership['channel_url'] ?? ''),
+                        (array) ($membership['missing'] ?? []),
                     );
                 }
 

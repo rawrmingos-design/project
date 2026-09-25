@@ -23,6 +23,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -1263,14 +1264,51 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         TextInput::make('telegram_channel_id')
-                            ->label('Channel ID')
-                            ->helperText('ID channel yang wajib diikuti (contoh: @channelku). Kosongkan jika mengambil dari file .env.')
+                            ->label('Channel ID (lama)')
+                            ->helperText('Channel tunggal yang wajib diikuti (contoh: @channelku). Hanya dipakai bila daftar di bawah kosong.')
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         TextInput::make('telegram_channel_url')
-                            ->label('Channel URL')
-                            ->helperText('URL invite channel (contoh: https://t.me/channelku). Kosongkan jika mengambil dari file .env.')
+                            ->label('Channel URL (lama)')
+                            ->helperText('URL invite channel (contoh: https://t.me/channelku). Hanya dipakai bila daftar di bawah kosong.')
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
+
+                        Repeater::make('telegram_required_channels')
+                            ->label('Channel / Grup Wajib (bisa lebih dari satu)')
+                            ->helperText('User harus bergabung ke SEMUA channel di daftar ini sebelum bisa membuka katalog atau membuat order.')
+                            ->addActionLabel('Tambah channel')
+                            ->reorderable()
+                            ->columns(1)
+                            ->columnSpanFull()
+                            ->defaultItems(0)
+                            ->schema([
+                                TextInput::make('label')
+                                    ->label('Nama Tampilan')
+                                    ->placeholder('Channel Info')
+                                    ->helperText('Nama yang muncul di pesan "Akses Terbatas". Boleh dikosongkan.')
+                                    ->maxLength(60),
+                                TextInput::make('id')
+                                    ->label('Channel ID')
+                                    ->placeholder('@channelku')
+                                    ->required()
+                                    ->rule('regex:/^@[A-Za-z0-9_]{5,}$/')
+                                    ->validationMessages([
+                                        'regex' => 'Gunakan format @username (contoh: @mastoredigital).',
+                                    ]),
+                                TextInput::make('url')
+                                    ->label('URL Invite')
+                                    ->placeholder('https://t.me/channelku')
+                                    ->required()
+                                    ->rule('regex:#^https://t\.me/[A-Za-z0-9_/]+$#')
+                                    ->validationMessages([
+                                        'regex' => 'Harus URL https://t.me/... yang cocok dengan Channel ID.',
+                                    ]),
+                            ])
+                            ->itemLabel(fn (array $state): ?string => filled($state['id'] ?? null)
+                                ? (string) ($state['label'] ?? '') . ' ' . (string) $state['id']
+                                : null)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
 
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')

@@ -237,6 +237,19 @@ class AppServiceProvider extends ServiceProvider
                         config(['services.telegram-bot-api.required_channel.url' => $config->telegram_channel_url]);
                     }
 
+                    // Daftar channel wajib versi BARU (banyak channel sekaligus).
+                    // Bila terisi, ini yang dipakai; kolom tunggal di atas tetap
+                    // dihormati sebagai fallback deployment lama.
+                    $requiredChannels = $config->telegram_required_channels ?? null;
+
+                    if (is_string($requiredChannels) && $requiredChannels !== '') {
+                        $requiredChannels = json_decode($requiredChannels, true);
+                    }
+
+                    if (is_array($requiredChannels) && $requiredChannels !== []) {
+                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
+                    }
+
                     // Override bot order flags if set in DB
                     // NOTE: capture config-cache value FIRST — line berikutnya
                     // override services.telegram-bot-api.order_enabled dari DB.

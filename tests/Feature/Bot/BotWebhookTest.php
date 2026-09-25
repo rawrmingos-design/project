@@ -256,9 +256,9 @@ class BotWebhookTest extends TestCase
 
             $keyboard = $request['reply_markup']['inline_keyboard'];
 
-            return str_contains($request['text'], 'Gabung Channel Terlebih Dahulu')
+            return str_contains($request['text'], 'Akses Terbatas')
                 && $keyboard[0][0]['url'] === 'https://t.me/testchannel'
-                && $keyboard[0][1]['callback_data'] === 'menu';
+                && $keyboard[1][0]['callback_data'] === 'menu';
         });
     }
 
@@ -1530,7 +1530,7 @@ class BotWebhookTest extends TestCase
 
         $response = $handler->handle('12345', ['6789'], $context);
 
-        $this->assertStringContainsString('Gabung Channel Terlebih Dahulu', $response['text']);
+        $this->assertStringContainsString('Akses Terbatas', $response['text']);
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 

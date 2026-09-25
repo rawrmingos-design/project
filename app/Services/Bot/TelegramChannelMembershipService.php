@@ -2,6 +2,7 @@
 
 namespace App\Services\Bot;
 
+use App\Support\TelegramRequiredChannels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -14,55 +15,111 @@ class TelegramChannelMembershipService
     public const STATUS_UNAVAILABLE = 'unavailable';
 
     /**
-     * @return array{status: string, channel_url: ?string}
+     * Hasil pemeriksaan keanggotaan.
+     *
+     * `missing` berisi channel yang BELUM diikuti (hanya terisi saat
+     * status not_member) supaya pesan bisa menampilkan tombol Gabung
+     * untuk tiap channel yang kurang.
+     *
+     * @return array{status: string, channel_url: ?string, channels: array<int, array{id: string, url: string, label: string}>, missing: array<int, array{id: string, url: string, label: string}>}
      */
     public function check(array $context): array
     {
         if (($context['source'] ?? null) !== 'telegram_gateway' || ! $this->isEnabled()) {
-            return $this->result(self::STATUS_ALLOWED);
+            return $this->allowedResult();
         }
 
         $token = trim((string) config('services.telegram-bot-api.token'));
-        $channelId = trim((string) config('services.telegram-bot-api.required_channel.id'));
-        $channelUrl = trim((string) config('services.telegram-bot-api.required_channel.url'));
         $userId = filter_var($context['telegram_user_id'] ?? null, FILTER_VALIDATE_INT);
 
-        if ($token === '' || ! $this->isValidPublicChannel($channelId, $channelUrl) || $userId === false) {
+        if ($token === '' || $userId === false) {
             Log::error('Telegram channel membership configuration is invalid.', [
                 'token_configured' => $token !== '',
-                'channel_id_configured' => $channelId !== '',
-                'channel_url_configured' => $channelUrl !== '',
                 'telegram_user_id_valid' => $userId !== false,
             ]);
 
-            return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
+            return $this->unavailableResult();
         }
 
-        $cacheKey = $this->cacheKey($channelId, (int) $userId);
+        $channels = TelegramRequiredChannels::all();
+
+        if ($channels === []) {
+            Log::error('Telegram channel membership requested but no valid channel is configured.');
+
+            return $this->unavailableResult();
+        }
+
+        $missing = [];
+        $unverified = false;
+
+        foreach ($channels as $channel) {
+            $verdict = $this->checkChannel($token, $channel, (int) $userId);
+
+            if ($verdict === self::STATUS_NOT_MEMBER) {
+                $missing[] = $channel;
+
+                continue;
+            }
+
+            if ($verdict === self::STATUS_UNAVAILABLE) {
+                $unverified = true;
+            }
+        }
+
+        if ($missing !== []) {
+            // Penolakan definitif menang atas gangguan: user tetap diminta
+            // bergabung ke channel yang kurang.
+            return [
+                'status' => self::STATUS_NOT_MEMBER,
+                'channel_url' => $missing[0]['url'],
+                'channels' => $channels,
+                'missing' => $missing,
+            ];
+        }
+
+        if ($unverified) {
+            return [
+                'status' => self::STATUS_UNAVAILABLE,
+                'channel_url' => null,
+                'channels' => $channels,
+                'missing' => [],
+            ];
+        }
+
+        return $this->allowedResult($channels);
+    }
+
+    /**
+     * @param array{id: string, url: string, label: string} $channel
+     * @return string salah satu STATUS_ALLOWED | STATUS_NOT_MEMBER | STATUS_UNAVAILABLE
+     */
+    private function checkChannel(string $token, array $channel, int $userId): string
+    {
+        $cacheKey = $this->cacheKey($channel['id'], $userId);
 
         if (Cache::get($cacheKey) === true) {
-            return $this->result(self::STATUS_ALLOWED, $channelUrl);
+            return self::STATUS_ALLOWED;
         }
 
-        // Sebelumnya user ini SUDAH terverifikasi sebagai member. Simpan
-        // fakta itu lebih lama dari TTL verifikasi, supaya gangguan sesaat
-        // pada Telegram tidak mengunci user yang jelas-jelas sudah gabung.
+        // Sebelumnya user ini SUDAH terverifikasi sebagai member channel ini.
+        // Simpan fakta itu lebih lama dari TTL verifikasi, supaya gangguan
+        // sesaat pada Telegram tidak mengunci user yang jelas-jelas gabung.
         if (Cache::get($this->graceKey($cacheKey)) === true) {
-            return $this->result(self::STATUS_ALLOWED, $channelUrl);
+            return self::STATUS_ALLOWED;
         }
 
         try {
-            $response = $this->requestChatMember($token, $channelId, (int) $userId);
-
+            $response = $this->requestChatMember($token, $channel['id'], $userId);
             $payload = $response->json();
 
             if (! $response->successful() || ! is_array($payload) || ($payload['ok'] ?? false) !== true) {
                 Log::warning('Telegram channel membership verification failed.', [
+                    'channel' => $channel['id'],
                     'http_status' => $response->status(),
                     'telegram_ok' => is_array($payload) ? ($payload['ok'] ?? null) : null,
                 ]);
 
-                return $this->unverifiedResult($channelUrl);
+                return self::STATUS_UNAVAILABLE;
             }
 
             $status = (string) data_get($payload, 'result.status', '');
@@ -72,7 +129,7 @@ class TelegramChannelMembershipService
             if ($isMember) {
                 $this->rememberVerified($cacheKey);
 
-                return $this->result(self::STATUS_ALLOWED, $channelUrl);
+                return self::STATUS_ALLOWED;
             }
 
             if (in_array($status, ['left', 'kicked', 'restricted'], true)) {
@@ -80,34 +137,23 @@ class TelegramChannelMembershipService
                 // bergabung. Grace record lama tidak boleh menahannya.
                 Cache::forget($this->graceKey($cacheKey));
 
-                return $this->result(self::STATUS_NOT_MEMBER, $channelUrl);
+                return self::STATUS_NOT_MEMBER;
             }
 
             Log::warning('Telegram channel membership returned an unknown status.', [
+                'channel' => $channel['id'],
                 'membership_status' => $status,
             ]);
 
-            return $this->unverifiedResult($channelUrl);
+            return self::STATUS_UNAVAILABLE;
         } catch (Throwable $exception) {
             Log::warning('Telegram channel membership request failed.', [
+                'channel' => $channel['id'],
                 'exception' => $exception::class,
             ]);
 
-            return $this->unverifiedResult($channelUrl);
+            return self::STATUS_UNAVAILABLE;
         }
-    }
-
-    /**
-     * Hasil saat keanggotaan TIDAK dapat dipastikan (timeout, jaringan,
-     * respons tak dikenal). Selama masa tenggang, user yang sebelumnya
-     * terverifikasi tetap diizinkan; selain itu perilaku lama dipertahankan
-     * (pesan "coba lagi") sehingga gate tidak pernah dibuka untuk umum.
-     *
-     * @return array{status: string, channel_url: ?string}
-     */
-    private function unverifiedResult(?string $channelUrl): array
-    {
-        return $this->result(self::STATUS_UNAVAILABLE, $channelUrl);
     }
 
     private function rememberVerified(string $cacheKey): void
@@ -158,21 +204,30 @@ class TelegramChannelMembershipService
         );
     }
 
-    private function isValidPublicChannel(string $channelId, string $channelUrl): bool
+    /**
+     * @return array{status: string, channel_url: ?string, channels: array, missing: array}
+     */
+    private function allowedResult(?array $channels = null): array
     {
-        if (! preg_match('/^@[A-Za-z0-9_]{5,}$/', $channelId)) {
-            return false;
-        }
+        return [
+            'status' => self::STATUS_ALLOWED,
+            'channel_url' => null,
+            'channels' => $channels ?? [],
+            'missing' => [],
+        ];
+    }
 
-        if (filter_var($channelUrl, FILTER_VALIDATE_URL) === false) {
-            return false;
-        }
-
-        $parts = parse_url($channelUrl);
-
-        return strtolower((string) ($parts['scheme'] ?? '')) === 'https'
-            && strtolower((string) ($parts['host'] ?? '')) === 't.me'
-            && trim((string) ($parts['path'] ?? ''), '/') === ltrim($channelId, '@');
+    /**
+     * @return array{status: string, channel_url: ?string, channels: array, missing: array}
+     */
+    private function unavailableResult(): array
+    {
+        return [
+            'status' => self::STATUS_UNAVAILABLE,
+            'channel_url' => null,
+            'channels' => [],
+            'missing' => [],
+        ];
     }
 
     private function cacheKey(string $channelId, int $userId): string
@@ -183,16 +238,5 @@ class TelegramChannelMembershipService
     private function cacheSeconds(): int
     {
         return max(1, (int) config('services.telegram-bot-api.required_channel.cache_seconds', 120));
-    }
-
-    /**
-     * @return array{status: string, channel_url: ?string}
-     */
-    private function result(string $status, ?string $channelUrl = null): array
-    {
-        return [
-            'status' => $status,
-            'channel_url' => $channelUrl,
-        ];
     }
 }

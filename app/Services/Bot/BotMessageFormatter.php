@@ -65,22 +65,70 @@ class BotMessageFormatter
     ];
 
     /**
+     * Pesan "Akses Terbatas" saat user belum bergabung ke SEMUA channel wajib.
+     *
+     * Channel yang kurang ditampilkan sebagai daftar, masing-masing dengan
+     * tombol Gabung sendiri, sehingga user yang hanya kurang satu channel
+     * tidak perlu menebak mana yang terlewat.
+     *
+     * @param array<int, array{id: string, url: string, label: string}> $missingChannels
      * @return array{text: string, buttons: array}
      */
-    public function formatTelegramMembershipRequired(string $channelUrl): array
+    public function formatTelegramMembershipRequired(array $missingChannels): array
     {
+        $missingChannels = array_values(array_filter(
+            $missingChannels,
+            static fn ($channel): bool => is_array($channel)
+                && trim((string) ($channel['id'] ?? '')) !== ''
+                && trim((string) ($channel['url'] ?? '')) !== '',
+        ));
+
+        if ($missingChannels === []) {
+            // Tidak ada channel yang bisa ditampilkan (konfigurasi kosong).
+            // Jangan tampilkan gerbang tanpa jalan keluar — pakai pesan
+            // gangguan agar user bisa mencoba lagi.
+            return $this->formatTelegramMembershipUnavailable();
+        }
+
+        $single = count($missingChannels) === 1;
+        $lines = [
+            '🔒 *Akses Terbatas*',
+            '',
+            $single
+                ? 'Untuk memakai bot ini, kamu wajib bergabung ke channel berikut:'
+                : 'Untuk memakai bot ini, kamu wajib bergabung ke *semua* channel berikut:',
+            '',
+        ];
+
+        foreach ($missingChannels as $channel) {
+            $id = trim((string) $channel['id']);
+            $label = trim((string) ($channel['label'] ?? ''));
+
+            $lines[] = ($label !== '' && $label !== $id)
+                ? "👥 *{$this->escapeMarkdown($label)}* — {$id}"
+                : "👥 {$id}";
+        }
+
+        $lines[] = '';
+        $lines[] = 'Setelah bergabung ke semuanya, tekan *✅ Sudah Bergabung*.';
+
+        $buttons = [];
+
+        foreach ($missingChannels as $channel) {
+            $id = trim((string) $channel['id']);
+            $label = trim((string) ($channel['label'] ?? ''));
+            $text = ($label !== '' && $label !== $id)
+                ? '📢 Gabung ' . $label
+                : '📢 Gabung ' . $id;
+
+            $buttons[] = [$this->urlButton($text, trim((string) $channel['url']))];
+        }
+
+        $buttons[] = [$this->button('✅ Sudah Bergabung', 'menu')];
+
         return [
-            'text' => implode("\n", [
-                '*Gabung Channel Terlebih Dahulu*',
-                '',
-                'Anda harus bergabung ke channel Telegram kami sebelum membuka menu, melihat produk, atau melakukan transaksi.',
-                '',
-                'Setelah bergabung, tekan tombol *Cek Keanggotaan*.',
-            ]),
-            'buttons' => [[
-                $this->urlButton('Gabung Channel', $channelUrl),
-                $this->button('Cek Keanggotaan', 'menu'),
-            ]],
+            'text' => implode("\n", $lines),
+            'buttons' => $buttons,
         ];
     }
 
