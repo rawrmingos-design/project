@@ -8,6 +8,7 @@ use App\Filament\Admin\Pages\Settings\ProvidersApiSettings;
 use App\Filament\Admin\Pages\Settings\SeoTrackingSettings;
 use App\Models\SettingWeb;
 use App\Models\User;
+use App\Services\Bot\TelegramWelcomeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -303,6 +304,56 @@ class SettingsSplitPageTest extends AdminTestCase
         $this->assertSame(
             ['@mastoredigital', '@mapremiumsinfo'],
             array_column($saved, 'id'),
+        );
+    }
+
+    public function test_welcome_template_column_supports_emoji(): void
+    {
+        // REGRESI BUG NYATA: tabel setting_webs dibuat dengan collation
+        // latin1, sehingga menyimpan emoji gagal dengan MySQL 3988 dan
+        // nilainya TIDAK tersimpan. Test ini mengunci skema, bukan
+        // sekadar perilaku service.
+        $template = 'Halo {nama}, selamat datang di {grup}! 👋';
+
+        $row = SettingWeb::query()->create([
+            'id' => 99,
+            'judul_web' => 'Test',
+            'deskripsi_web' => 'Test',
+            'keywords' => 'test',
+            'url_wa' => 'https://wa.me/628123456789',
+            'url_ig' => 'https://instagram.com/test',
+            'url_tiktok' => 'https://tiktok.com/@test',
+            'url_youtube' => 'https://youtube.com/test',
+            'url_fb' => 'https://facebook.com/test',
+            'topupindo_api' => 'test',
+            'warna1' => '#000000',
+            'warna2' => '#000000',
+            'warna3' => '#000000',
+            'warna4' => '#000000',
+            'paydisini_apikey' => 'test',
+            'order_prefik' => 'TRX',
+            'telegram_welcome_template' => $template,
+        ]);
+
+        $this->assertSame($template, SettingWeb::query()->findOrFail($row->id)->telegram_welcome_template);
+    }
+
+    public function test_default_template_contains_emoji_and_is_storable(): void
+    {
+        // Template bawaan memakai emoji: pastikan kolomnya memang mampu
+        // menyimpannya, kalau tidak fitur ini langsung 500 saat dipakai.
+        $this->assertStringContainsString('👋', TelegramWelcomeService::DEFAULT_TEMPLATE);
+
+        // Baris setting_webs wajib ada lebih dulu.
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        $row = SettingWeb::query()->findOrFail(1);
+        $row->telegram_welcome_template = TelegramWelcomeService::DEFAULT_TEMPLATE;
+        $row->save();
+
+        $this->assertSame(
+            TelegramWelcomeService::DEFAULT_TEMPLATE,
+            SettingWeb::query()->findOrFail(1)->telegram_welcome_template,
         );
     }
 
