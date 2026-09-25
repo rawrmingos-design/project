@@ -283,7 +283,7 @@ class TelegramTopicAnnouncementTest extends TestCase
         $results = app(TelegramAnnouncementService::class)->send('Transaksi lewat bot @jasakoding_bot ya.');
 
         $this->assertTrue($results[0]['ok'], 'Harus berhasil setelah kirim ulang tanpa format.');
-        $this->assertSame(['Markdown', null], $attempts, 'Coba dengan Markdown dulu, lalu tanpa format.');
+        $this->assertSame(['MarkdownV2', null], $attempts, 'Coba dengan format dulu, lalu tanpa format.');
     }
 
     public function test_announcement_does_not_retry_on_permission_error(): void
@@ -319,7 +319,75 @@ class TelegramTopicAnnouncementTest extends TestCase
         $results = app(TelegramAnnouncementService::class)->send('Test');
 
         $this->assertFalse($results[0]['ok']);
-        $this->assertStringContainsString('garis bawah', $results[0]['error']);
+        $this->assertStringContainsString('berpasangan', $results[0]['error']);
+    }
+
+    public function test_announcement_uses_markdown_v2(): void
+    {
+        // Dibuktikan dengan uji langsung ke API Telegram: `**tebal**` dan
+        // `__garis__` HANYA berfungsi di MarkdownV2. Di Markdown lama
+        // keduanya cuma tampil mentah, dan `*tebal*` malah gagal total
+        // begitu teksnya memuat username seperti @jasakoding_bot.
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        app(TelegramAnnouncementService::class)->send('Test');
+
+        Http::assertSent(fn ($request) => $request['parse_mode'] === 'MarkdownV2');
+    }
+
+    public function test_underscore_in_username_is_escaped_not_swallowed(): void
+    {
+        // REGRESI BUG NYATA yang ketangkap saat uji ke grup asli.
+        // Percobaan pertama membuka garis bawah tunggal sebagai penanda
+        // miring. Hasilnya Telegram memasangkan garis bawah pertama dengan
+        // berikutnya, dan teks yang DILIHAT member jadi rusak:
+        //
+        //   asli   : "bot @jasakoding_bot (kode promo_10 tetap berlaku)"
+        //   dilihat: "bot @jasakodingbot (kode promo10 tetap berlaku)"
+        //
+        // Nama bot dan kode promo kehilangan garis bawahnya. Jadi garis
+        // bawah tunggal WAJIB di-escape, bukan dibuka.
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        app(TelegramAnnouncementService::class)->send('Hubungi @jasakoding_bot, pakai promo_10.');
+
+        Http::assertSent(function ($request) {
+            $text = $request['text'];
+
+            return str_contains($text, 'jasakoding\\_bot')
+                && str_contains($text, 'promo\\_10');
+        });
+    }
+
+    public function test_formatting_markers_survive_escaping(): void
+    {
+        // Admin harus tetap bisa menebalkan teks. Yang diminta user:
+        // `**tebal**` dan `__garis bawah__`.
+        Http::fake(['*' => Http::response(['ok' => true], 200)]);
+
+        config(['services.telegram-bot-api.announcement_targets' => [
+            ['label' => 'Announcement', 'chat_id' => '-1004406592692', 'thread_id' => 2],
+        ]]);
+
+        app(TelegramAnnouncementService::class)->send('*A* **B** __C__ ~D~ dan @bot_x');
+
+        Http::assertSent(function ($request) {
+            $text = $request['text'];
+
+            return str_contains($text, '*A*')      // tebal
+                && str_contains($text, '**B**')    // tebal
+                && str_contains($text, '__C__')    // garis bawah
+                && str_contains($text, '~D~')      // coret
+                && str_contains($text, '@bot\\_x'); // username tetap utuh
+        });
     }
 
     public function test_discussion_url_accepts_group_and_topic_deep_links(): void

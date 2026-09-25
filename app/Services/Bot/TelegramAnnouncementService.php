@@ -84,6 +84,29 @@ class TelegramAnnouncementService
     }
 
     /**
+     * Kirim ke satu tujuan.
+     *
+     * Mode format yang dipakai adalah **MarkdownV2**, bukan Markdown lama.
+     * Alasannya dibuktikan dengan uji langsung ke API Telegram:
+     *
+     *   parse_mode   teks masuk                        hasil
+     *   ----------   -------------------------------   ---------------------
+     *   Markdown     *tebal* _miring_ @jasakoding_bot  GAGAL (can't parse entities)
+     *   Markdown     **tebal** __miring__              terkirim, TIDAK ada format
+     *   MarkdownV2   *tebal* _miring_                  bold + italic  ✓
+     *   MarkdownV2   **tebal** __miring__              bold + underline  ✓
+     *   MarkdownV2   **tebal** @jasakoding\_bot        bold + mention  ✓
+     *
+     * Ringkasnya: sintaks `**tebal**` dan `__garis__` HANYA berfungsi di
+     * MarkdownV2. Di Markdown lama keduanya cuma tampil mentah.
+     *
+     * MarkdownV2 mewajibkan SEMUA karakter spesial di-escape, jadi teks
+     * admin di-escape dulu lewat toMarkdownV2(). Efeknya:
+     *  - `@jasakoding_bot` tampil utuh dan tetap jadi sebutan yang bisa
+     *    diklik (sebelumnya justru teks biasa, atau malah bikin gagal).
+     *  - Admin tetap bisa memakai `*tebal*`, `_miring_`, `**tebal**`,
+     *    `__garis bawah__`, `~coret~` karena sengaja dibuka kembali.
+     *
      * @param array{label: string, chat_id: string, thread_id: int|null} $target
      * @return array{label: string, ok: bool, error: string|null}
      */
@@ -91,11 +114,11 @@ class TelegramAnnouncementService
     {
         $payload = [
             'chat_id' => $target['chat_id'],
-            'text' => $text,
+            'text' => $markdown ? $this->toMarkdownV2($text) : $text,
         ];
 
         if ($markdown) {
-            $payload['parse_mode'] = 'Markdown';
+            $payload['parse_mode'] = 'MarkdownV2';
         }
 
         if ($target['thread_id'] !== null) {
@@ -166,6 +189,83 @@ class TelegramAnnouncementService
     }
 
     /**
+     * Escape teks bebas admin agar aman di MarkdownV2, TAPI tetap
+     * membiarkan penanda format yang sengaja ditulis.
+     *
+     * MarkdownV2 mewajibkan semua karakter spesial di-escape, kalau tidak
+     * Telegram menolak dengan "can't parse entities". Di sisi lain admin
+     * perlu bisa menulis tebal/miring. Dua kebutuhan itu diselesaikan
+     * dengan urutan berikut:
+     *
+     *  1. Lindungi penanda format yang MASIH BERGUNA di MarkdownV2
+     *     dengan penanda sementara (karakter kontrol, bukan teks).
+     *  2. Escape SEMUA karakter spesial MarkdownV2.
+     *  3. Kembalikan penanda sementara menjadi sintaks aslinya.
+     *
+     * Hasilnya, contoh nyata:
+     *   'Order lewat @jasakoding_bot — promo_10!'
+     *     -> 'Order lewat @jasakoding\_bot — promo\_10\!'
+     *        (garis bawah muncul apa adanya, bukan bikin pesan gagal)
+     *
+     *   'Baca *Announcement* dulu'
+     *     -> 'Baca *Announcement* dulu'   (tetap tebal)
+     *
+     *   '**Penting** dan __catatan__'
+     *     -> '**Penting** dan __catatan__'  (tebal + garis bawah)
+     *
+     * PENTING — underscore tunggal SENGAJA tidak dibuka sebagai penanda
+     * miring. Percobaan pertama membukanya, dan hasilnya merusak teks:
+     *
+     *   'bot @jasakoding_bot (kode promo_10 tetap berlaku)'
+     *     -> 'bot @jasakodingbot (kode promo10 tetap berlaku)'
+     *                        ^ dua garis bawah HILANG dari teks
+     *
+     * Telegram memasangkan garis bawah pertama dengan berikutnya, jadi
+     * nama bot dan kode promo kehilangan garis bawahnya. Karena teks
+     * bebas admin penuh dengan pola seperti itu, miring tunggal
+     * dikorbankan: untuk tebal pakai *teks* atau **teks**, untuk garis
+     * bawah pakai __teks__.
+     *
+     * Sengaja TIDAK membuka sintaks lain karena di MarkdownV2 berbeda arti:
+     *  - `[teks](url)` -> perlu URL asli, admin bisa pakai tombol Diskusi
+     *  - `>kutipan`, `||spoiler||`, `` `kode` `` -> tampil sebagai teks
+     *    biasa. Lebih baik apa adanya daripada berubah arti diam-diam.
+     */
+    private function toMarkdownV2(string $text): string
+    {
+        // Penanda sementara. Dipilih dari Private Use Area supaya mustahil
+        // bentrok dengan teks admin biasa.
+        $bold = "\u{E000}";
+        $boldDouble = "\u{E002}";
+        $italicDouble = "\u{E003}";
+        $strike = "\u{E004}";
+
+        // 1. Lindungi penanda format yang sengaja ditulis admin.
+        //    Urutan penting: yang lebih panjang didahulukan supaya '**'
+        //    tidak keburu dicomot oleh aturan '*'.
+        $text = str_replace(
+            ['**', '__'],
+            [$boldDouble, $italicDouble],
+            $text,
+        );
+
+        $text = preg_replace('/\*([^*\n]+)\*/u', $bold . '$1' . $bold, $text);
+        $text = preg_replace('/~([^~\n]+)~/u', $strike . '$1' . $strike, $text);
+
+        // 2. Escape SEMUA karakter spesial MarkdownV2.
+        //    Termasuk garis bawah tunggal — itu yang menjaga nama bot dan
+        //    kode promo tetap utuh.
+        $text = preg_replace('/([_*\[\]()~`>#+\-=|{}.!\\\\])/u', '\\\\$1', $text);
+
+        // 3. Kembalikan penanda menjadi sintaks asli.
+        return str_replace(
+            [$boldDouble, $italicDouble, $bold, $strike],
+            ['**', '__', '*', '~'],
+            $text,
+        );
+    }
+
+    /**
      * Apakah error ini soal format Markdown, bukan soal hak akses/topik?
      *
      * Frase nyata dari Telegram: "can't parse entities: Can't find end of
@@ -220,10 +320,11 @@ class TelegramAnnouncementService
         }
 
         if ($this->isParseError($description)) {
-            return 'Format pesan ditolak Telegram. Hindari garis bawah (_) dan tanda bintang (*) '
-                . 'di dalam teks — misalnya username seperti @nama_bot atau kata seperti promo_10. '
-                . 'Garis bawah dibaca Telegram sebagai penanda miring. '
-                . 'Pesan sudah dicoba kirim ulang tanpa format, tapi tetap gagal. [' . $description . ']';
+            return 'Format pesan ditolak Telegram, dan pengiriman ulang tanpa format juga gagal. '
+                . 'Penyebab tersering: penanda format tidak berpasangan — misalnya satu tanda '
+                . 'bintang saja (*teks tanpa penutup). Untuk tebal pakai *teks*, miring _teks_, '
+                . 'garis bawah __teks__; pastikan selalu berpasangan. '
+                . '[' . $description . ']';
         }
 
         return null;
