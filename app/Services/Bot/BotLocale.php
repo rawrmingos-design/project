@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\App;
  *   1. Preferensi eksplisit tersimpan (locale_source = explicit)  → MENGIKAT
  *   2. Benih auto-deteksi (locale_source = detected)
  *   3. Default panel (setting_webs.bot_default_locale)
- *   4. config('app.locale') sebagai jaring terakhir
+ *   4. Literal 'id' — deterministik, BUKAN config('app.locale')
+ *      (lihat catatan di defaultLocale(): app.locale dimutasi per-request
+ *      oleh LanguageDetectMiddleware dari header Telegram, bukan user)
  *
  * ATURAN MENGIKAT: `seed()` tidak pernah menimpa baris yang sudah ada. Sekali
  * user memilih bahasa (atau sekali benih tertulis), `language_code` Telegram
