@@ -452,6 +452,15 @@ class TelegramJoinFlowCopyTest extends TestCase
         $this->assertStringContainsString('Cara Order', $text);
         $this->assertStringContainsString('__🛒 Cara Order__', $text, 'Judul harus digaris-bawahi (underline) di Telegram.');
         $this->assertStringContainsString('1.', $text);
+
+        // Copy sengaja UMUM, bukan khusus top up game: katalog toko juga
+        // memuat layanan aplikasi premium.
+        $this->assertStringContainsString('Pilih layanan, lalu pilih nominalnya', $text);
+        $this->assertStringContainsString('Masukkan detail kontak untuk bukti pembayaran', $text);
+        $this->assertStringNotContainsString('Pilih game, lalu pilih nominalnya', $text);
+        $this->assertStringNotContainsString('ID akun game kamu', $text);
+        $this->assertStringContainsString('Penuhi kebutuhan game & aplikasi premium kamu', $text);
+        $this->assertStringNotContainsString('Mau top up game atau cek pesananmu?', $text);
         $this->assertStringNotContainsString('Gunakan menu dengan membalas angka', $text);
     }
 

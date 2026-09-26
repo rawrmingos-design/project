@@ -24,39 +24,24 @@ class BotMessageFormatter
     /**
      * Sapaan pembuka yang dipakai di pesan menu & panduan.
      *
-     * Kontak admin diambil dari `services.telegram-bot-api.admin_contact_url`
-     * (diisi admin dari panel, kolom `setting_webs.telegram_admin_url`).
+     * SENGAJA tidak memuat kontak admin. Dulu kontak (berupa nomor WhatsApp
+     * mentah) ditempel di sini, padahal di Telegram nomor telepon tidak bisa
+     * dipencet dan membocorkan nomor pribadi. Sekarang kontak admin punya
+     * SATU tempat saja: blok "❓ Butuh Bantuan?" di pesan panduan, lengkap
+     * dengan tautan yang bisa dipencet.
      *
-     * Kenapa TIDAK memakai `nomor_admin` lagi: kolom itu berisi nomor
-     * WhatsApp, jadi user Telegram menerima nomor telepon mentah yang tidak
-     * bisa diketik/dipencet. Yang diharapkan admin adalah tautan ke akun
-     * Telegram mereka. Nomor mentah juga membocorkan nomor pribadi di ruang
-     * publik.
-     *
-     * Di Telegram kontaknya berupa TAUTAN yang bisa dipencet; di WhatsApp
-     * (yang tidak mendukung tautan bertanda) URL-nya ditulis apa adanya.
+     * Nada sapaannya sengaja umum ("game & aplikasi premium"), bukan khusus
+     * top up game — katalog toko mencakup produk game maupun layanan lain.
      */
-    private function storeIntro(?BotGatewayCapabilities $capabilities = null): string
+    private function storeIntro(): string
     {
         $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
-        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
 
-        $lines = [
+        return implode("\n", [
             "👋 *Selamat datang di {$storeName}*",
             '',
-            'Mau top up game atau cek pesananmu? Semua bisa dari sini.',
-        ];
-
-        if ($adminUrl !== '') {
-            $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
-
-            $lines[] = '';
-            $lines[] = $isTelegram
-                ? "Jika ada kendala, hubungi admin: [💬 Klik di sini]({$adminUrl})"
-                : "Jika ada kendala, hubungi admin: {$adminUrl}";
-        }
-
-        return implode("\n", $lines);
+            'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.',
+        ]);
     }
 
     private const GAME_EMOJIS = [
@@ -283,7 +268,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => $this->storeIntro($capabilities) . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
+            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
                 . "\nPilih kategori di bawah untuk mulai. 👇",
             'buttons' => $buttons,
             'numeric_menu' => [
@@ -911,13 +896,16 @@ class BotMessageFormatter
 
         $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
 
+        // Langkah-langkah sengaja memakai kata umum ("layanan", "detail
+        // kontak"), bukan "game" / "ID akun game": katalog toko mencakup
+        // produk game maupun layanan aplikasi premium.
         $lines = [
             $em('📖 Panduan Singkat'),
             '',
             $em('🛒 Cara Order'),
             '1. Tekan *🛍️ Buka Menu*',
-            '2. Pilih game, lalu pilih nominalnya',
-            '3. Masukkan ID akun game kamu',
+            '2. Pilih layanan, lalu pilih nominalnya',
+            '3. Masukkan detail kontak untuk bukti pembayaran',
             '4. Pilih pembayaran, lalu selesaikan pembayaran',
             '',
             $em('🔎 Cek & Kelola'),
@@ -935,12 +923,21 @@ class BotMessageFormatter
 
         $lines[] = '';
         $lines[] = $em('❓ Butuh Bantuan?');
+
+        // Kontak admin hanya ada di SATU tempat: di sini, dan lengkap dengan
+        // tautan yang bisa dipencet. Sebelumnya kontak juga ditempel di
+        // sapaan pembuka sebagai nomor mentah — duplikat yang tidak bisa
+        // dipencet, jadi dihapus.
         $lines[] = $adminUrl !== ''
-            ? 'Ketuk tautan *💬 Klik di sini* di atas, atau ketik /admin untuk membuka kontak admin. 🙏'
+            ? ($isTelegram
+                ? "Ketuk tautan [💬 Klik di sini]({$adminUrl}), atau ketik /admin untuk membuka kontak admin. 🙏"
+                // WhatsApp tidak merender sintaks tautan Telegram, jadi URL
+                // ditulis apa adanya supaya bisa diketuk langsung.
+                : "Hubungi admin di {$adminUrl}, atau ketik /admin. 🙏")
             : 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏';
 
         return [
-            'text' => $this->storeIntro($capabilities) . "\n\n" . implode("\n", $lines),
+            'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];

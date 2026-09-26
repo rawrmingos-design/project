@@ -99,6 +99,32 @@ class TelegramAdminContactTest extends TestCase
         $this->assertStringContainsString('/admin', $help['text']);
     }
 
+    public function test_tautan_admin_hanya_muncul_sekali_di_blok_bantuan(): void
+    {
+        config(['bot.order_enabled' => true]);
+        $this->seedSettings(['telegram_admin_url' => 'https://t.me/alexander_vors']);
+        $this->bridgeAdminUrlFromDatabase();
+
+        $help = app(BotMessageFormatter::class)->formatHelp($this->telegram());
+        $text = (string) $help['text'];
+
+        // Tidak boleh duplikat: dulu tautan ditempel juga di sapaan pembuka.
+        $this->assertSame(
+            1,
+            substr_count($text, '[💬 Klik di sini]('),
+            'Tautan admin harus muncul tepat SATU kali.',
+        );
+
+        // Dan letaknya di blok bantuan, bukan di sapaan pembuka.
+        $posBantuan = strpos($text, 'Butuh Bantuan');
+        $posLink = strpos($text, '[💬 Klik di sini](');
+        $posCaraOrder = strpos($text, 'Cara Order');
+
+        $this->assertNotFalse($posBantuan);
+        $this->assertGreaterThan($posBantuan, $posLink, 'Tautan harus ada DI DALAM blok bantuan.');
+        $this->assertGreaterThan($posCaraOrder, $posBantuan);
+    }
+
     public function test_nomor_wa_tidak_lagi_muncul_di_pesan_telegram(): void
     {
         config(['bot.order_enabled' => true]);
