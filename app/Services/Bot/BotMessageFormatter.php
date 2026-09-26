@@ -32,10 +32,9 @@ class BotMessageFormatter
         $adminNumber = trim((string) ($settings?->nomor_admin ?: $settings?->wa_number));
 
         $lines = [
-            "Selamat datang di {$storeName}.",
+            "👋 *Selamat datang di {$storeName}*",
             '',
-            'Gunakan menu dengan membalas angka yang tersedia.',
-            'Gunakan kata hanya jika diperlukan, misalnya: `deposit`, `leaderboard`, atau `cek status`.',
+            'Mau top up game atau cek pesananmu? Semua bisa dari sini.',
         ];
 
         if ($adminNumber !== '') {
@@ -152,11 +151,14 @@ class BotMessageFormatter
                 '',
                 $sapaan . 'Keanggotaanmu sudah terverifikasi. Sekarang kamu bisa memakai semua fitur bot.',
                 '',
-                'Ketik `menu` untuk mulai belanja, atau `help` untuk melihat panduan.',
+                // Rujuk nama TOMBOL-nya, bukan perintah mentah. Dulu di sini
+                // tertulis `menu`/`help` padahal tombolnya "🛍️ Buka Menu"/
+                // "❓ Panduan" — user tidak tahu keduanya hal yang sama.
+                'Tekan *🛍️ Buka Menu* untuk mulai belanja, atau *❓ Bantuan* untuk melihat panduan.',
             ]),
             'buttons' => [
                 [$this->button('🛍️ Buka Menu', 'menu')],
-                [$this->button('❓ Panduan', 'help')],
+                [$this->button('❓ Bantuan', 'help')],
             ],
         ];
     }
@@ -267,7 +269,8 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination),
+            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
+                . "\nPilih kategori di bawah untuk mulai. 👇",
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
@@ -869,7 +872,18 @@ class BotMessageFormatter
     public function formatHelp(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(null);
-        $buttons = [[$this->button('🛍️ Tampilkan Menu / Produk', 'menu')]];
+        // Telegram punya garis bawah (`__teks__`), WhatsApp tidak — di sana
+        // penanda itu justru tampil mentah bersama garis bawahnya. Jadi
+        // penekanan judul memakai garis bawah hanya di Telegram, dan jatuh ke
+        // tebal di channel lain supaya tetap terlihat menonjol.
+        $isTelegram = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+        $em = static fn (string $text): string => $isTelegram ? "__{$text}__" : "*{$text}*";
+
+        // Label tombol SENGAJA sama persis dengan keyboard tetap
+        // (`defaultReplyKeyboard`) — dulu di sini tertulis "🛍️ Tampilkan Menu /
+        // Produk" padahal keyboard menulis "🛍️ Buka Menu", jadi user melihat
+        // dua nama berbeda untuk tombol yang sama.
+        $buttons = [[$this->button('🛍️ Buka Menu', 'menu')]];
 
         if ($capabilities->supports('leaderboard')) {
             $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
@@ -890,8 +904,42 @@ class BotMessageFormatter
             $buttons[] = [$this->urlButton('💬 Grup Diskusi', $discussionUrl)];
         }
 
+        $lines = [
+            $em('📖 Panduan Singkat'),
+            '',
+            $em('🛒 Cara Order'),
+            '1. Tekan *🛍️ Buka Menu*',
+            '2. Pilih game, lalu pilih nominalnya',
+            '3. Masukkan ID akun game kamu',
+            '4. Pilih pembayaran, lalu selesaikan pembayaran',
+            '',
+            $em('🔎 Cek & Kelola'),
+            '• *📦 Cek Status* — status pesanan terakhir',
+            '• *📜 Riwayat Order* — daftar pesananmu',
+            '• *🔍 Cek ID Game* — pastikan nama akun benar dulu',
+            '• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar',
+        ];
+
+        if ($capabilities->supports('deposit')) {
+            // Ditaruh di dalam daftar supaya urutannya ikut alur, bukan
+            // menggantung di bawah.
+            $lines[] = '• *💰 Deposit* — isi saldo lebih dulu';
+        }
+
+        $lines[] = '';
+        $lines[] = $em('❓ Butuh Bantuan?');
+
+        // Tombol "📞 Hubungi Admin" hanya ada di keyboard kalau admin mengisi
+        // `admin_contact_url`. Menyebutnya saat tombolnya tidak ada akan
+        // membuat user mencari tombol yang tidak pernah muncul — persis
+        // kebingungan yang mau kita hilangkan.
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
+        $lines[] = $adminUrl !== ''
+            ? 'Tekan *📞 Hubungi Admin* kalau ada kendala, atau pilih tombol di bawah. 👇'
+            : 'Pilih tombol di bawah, atau hubungi admin kalau ada kendala. 👇';
+
         return [
-            'text' => $this->storeIntro() . "\n\n*Panduan Transaksi*\nKetik `menu` untuk mulai, atau pilih aksi di bawah.",
+            'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];

@@ -16,6 +16,11 @@ class BotCommandParser
 
         $message = match ($message) {
             '🛍️ Buka Menu'       => 'menu',
+            // Pesan bot yang LEBIH DULU terkirim menulis "🛍️ Tampilkan Menu /
+            // Produk". Tombolnya masih tergeletak di riwayat chat user, jadi
+            // tulisan lama itu tetap harus dikenali — kalau tidak, menekannya
+            // justru dianggap perintah tak dikenal.
+            '🛍️ Tampilkan Menu / Produk' => 'menu',
             '🔎 Cek Status'      => 'status',
             '📦 Cek Status'      => 'status',
             '🔍 Cek ID Game'     => 'cekid',

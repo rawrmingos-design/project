@@ -151,7 +151,7 @@ class TelegramJoinFlowCopyTest extends TestCase
 
                 $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
 
-                return str_contains($text, 'Panduan Transaksi');
+                return str_contains($text, 'Panduan Singkat');
             });
         }
     }
@@ -247,11 +247,13 @@ class TelegramJoinFlowCopyTest extends TestCase
 
             $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
 
-            // Pesan konfirmasi harus menyebut nama user DAN menawarkan jalan
-            // lanjut ke menu.
+            // Pesan konfirmasi harus menyebut nama user DAN menunjuk nama
+            // TOMBOL yang benar-benar dilihat user (dulu di sini tertulis
+            // `menu`/`help` — perintah mentah yang tidak ada di keyboard).
             return str_contains($text, 'Verifikasi Berhasil')
                 && str_contains($text, 'Halo Mings!')
-                && str_contains($text, 'menu');
+                && str_contains($text, '🛍️ Buka Menu')
+                && str_contains($text, '❓ Bantuan');
         });
     }
 
@@ -399,6 +401,72 @@ class TelegramJoinFlowCopyTest extends TestCase
     // ------------------------------------------------------------------
     // Penerjemahan Markdown lama -> MarkdownV2 untuk balasan bot
     // ------------------------------------------------------------------
+
+    /**
+     * User tidak boleh dibuat bingung oleh dua nama berbeda untuk hal yang
+     * sama.
+     *
+     * Keluhan nyata: teks menulis "menu" padahal tombolnya "🛍️ Buka Menu",
+     * dan teks menulis "help" padahal tombolnya "❓ Panduan". Panduan juga
+     * harus benar-benar menuntun (langkah order), bukan satu baris kaku.
+     */
+    public function test_guide_and_verification_use_the_same_names_as_the_buttons(): void
+    {
+        $this->seedInboundPolicy();
+        $formatter = app(\App\Services\Bot\BotMessageFormatter::class);
+        $capabilities = \App\Services\Bot\BotGatewayCapabilities::forSource(
+            \App\Services\Bot\BotGatewayCapabilities::SOURCE_TELEGRAM,
+        );
+
+        $help = $formatter->formatHelp($capabilities);
+        $text = (string) $help['text'];
+        $labels = collect($help['buttons'])->flatten(1)->pluck('text')->all();
+
+        // Label tombol di panduan harus SAMA dengan keyboard tetap.
+        $keyboardLabels = collect($formatter->defaultReplyKeyboard($capabilities)['keyboard'])
+            ->flatten(1)->pluck('text')->all();
+
+        foreach ($labels as $label) {
+            $this->assertContains($label, $keyboardLabels, "Label '{$label}' tidak ada di keyboard.");
+        }
+
+        // Nama tombol disebut di teks, bukan perintah mentah.
+        $this->assertStringContainsString('🛍️ Buka Menu', $text);
+        $this->assertStringContainsString('📦 Cek Status', $text);
+
+        // TIDAK boleh menyebut tombol yang tidak ada di keyboard — tombol
+        // "Hubungi Admin" hanya muncul kalau admin mengisi contact url.
+        config(['services.telegram-bot-api.admin_contact_url' => '']);
+        $withoutAdmin = $formatter->formatHelp($capabilities);
+        $this->assertStringNotContainsString('📞 Hubungi Admin', (string) $withoutAdmin['text']);
+
+        config(['services.telegram-bot-api.admin_contact_url' => 'https://t.me/adminku']);
+        $withAdmin = $formatter->formatHelp($capabilities);
+        $this->assertStringContainsString('📞 Hubungi Admin', (string) $withAdmin['text']);
+
+        // Panduan harus punya langkah order + bagian judul yang menonjol.
+        $this->assertStringContainsString('Cara Order', $text);
+        $this->assertStringContainsString('__🛒 Cara Order__', $text, 'Judul harus digaris-bawahi (underline) di Telegram.');
+        $this->assertStringContainsString('1.', $text);
+        $this->assertStringNotContainsString('Gunakan menu dengan membalas angka', $text);
+    }
+
+    /**
+     * Pesan verifikasi menyebut nama tombol, bukan perintah `menu`/`help`,
+     * dan tombolnya bernama sama dengan keyboard tetap.
+     */
+    public function test_verification_message_uses_button_names(): void
+    {
+        $formatter = app(\App\Services\Bot\BotMessageFormatter::class);
+        $verified = $formatter->formatTelegramMembershipVerified('Mings');
+        $text = (string) $verified['text'];
+        $labels = collect($verified['buttons'])->flatten(1)->pluck('text')->all();
+
+        $this->assertSame(['🛍️ Buka Menu', '❓ Bantuan'], $labels);
+        $this->assertStringContainsString('🛍️ Buka Menu', $text);
+        $this->assertStringContainsString('❓ Bantuan', $text);
+        $this->assertStringNotContainsString('Ketik `menu`', $text);
+    }
 
     public function test_legacy_reply_is_escaped_for_markdown_v2(): void
     {
