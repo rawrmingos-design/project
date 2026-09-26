@@ -174,4 +174,26 @@ return [
     'btn_back_history' => '📜 Back to History',
     'btn_prev' => '⬅️ Previous',
     'btn_next' => 'Next ➡️',
+    // --- Membership gate & verification greeting (Task 1.6) ---
+    // Button labels stay Indonesian here on purpose: `✅ Sudah Bergabung`,
+    // `🛍️ Buka Menu`, `❓ Bantuan`, and `Coba Lagi` are echoed in the copy AND
+    // recognised by the text parser. Translating them before Phase 2 would
+    // break the buttons. Only the prose around them is translated.
+    'gate_title' => '🔒 *Limited Access*',
+    'gate_intro_single' => 'Hi! Before you can use this bot, please join the channel below first:',
+    'gate_intro_multi' => 'Hi! Before you can use this bot, please join *all* of the channels below first:',
+    'gate_verify_hint' => 'Already joined? Tap *✅ Sudah Bergabung* below to verify.',
+    'gate_join_channel' => '📢 Join :label',
+    'gate_verified_title' => '✅ *Verification Successful*',
+    'gate_verified_hello' => 'Hi :name! ',
+    'gate_verified_body' => 'Your membership is verified. You can now use every feature of this bot.',
+    'gate_verified_hint' => 'Tap *🛍️ Buka Menu* to start shopping, or *❓ Bantuan* to read the guide.',
+    'gate_maintenance_title' => '🛠️ *Service Under Maintenance*',
+    'gate_maintenance_body' => 'Sorry, channel membership verification cannot run right now.' . "\n"
+        . 'This is on our side, not because you have not joined.' . "\n\n"
+        . 'We have reported it to the admin. Please try again later,' . "\n"
+        . 'or contact the admin if you need help right away.',
+    'gate_unavailable_title' => '*Membership Verification Problem*',
+    'gate_unavailable_body' => 'Your channel membership could not be verified. Please try again in a moment.',
+    'gate_btn_contact' => '💬 Contact Admin',
 ];

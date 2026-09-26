@@ -91,11 +91,9 @@ class BotMessageFormatter
 
         $single = count($missingChannels) === 1;
         $lines = [
-            '🔒 *Akses Terbatas*',
+            __('bot.gate_title'),
             '',
-            $single
-                ? 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:'
-                : 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke *semua* channel berikut dulu ya:',
+            $single ? __('bot.gate_intro_single') : __('bot.gate_intro_multi'),
             '',
         ];
 
@@ -109,16 +107,18 @@ class BotMessageFormatter
         }
 
         $lines[] = '';
-        $lines[] = 'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah untuk verifikasi.';
+        $lines[] = __('bot.gate_verify_hint');
 
         $buttons = [];
 
         foreach ($missingChannels as $channel) {
             $id = trim((string) $channel['id']);
             $label = trim((string) ($channel['label'] ?? ''));
-            $text = ($label !== '' && $label !== $id)
-                ? '📢 Gabung ' . $label
-                : '📢 Gabung ' . $id;
+            // Label tombol tombol 'Gabung' tidak dikenali parser (URL button),
+            // jadi aman memakai copy lang; hanya namanya yang interpolasi.
+            $text = __('bot.gate_join_channel', [
+                'label' => ($label !== '' && $label !== $id) ? $label : $id,
+            ]);
 
             $buttons[] = [$this->urlButton($text, trim((string) $channel['url']))];
         }
@@ -141,19 +141,20 @@ class BotMessageFormatter
     public function formatTelegramMembershipVerified(string $firstName = ''): array
     {
         $sapaan = trim($firstName) !== ''
-            ? 'Halo ' . $this->escapeMarkdown(trim($firstName)) . '! '
+            ? __('bot.gate_verified_hello', ['name' => $this->escapeMarkdown(trim($firstName))])
             : '';
 
         return [
             'text' => implode("\n", [
-                '✅ *Verifikasi Berhasil*',
+                __('bot.gate_verified_title'),
                 '',
-                $sapaan . 'Keanggotaanmu sudah terverifikasi. Sekarang kamu bisa memakai semua fitur bot.',
+                $sapaan . __('bot.gate_verified_body'),
                 '',
-                // Rujuk nama TOMBOL-nya, bukan perintah mentah. Dulu di sini
-                // tertulis `menu`/`help` padahal tombolnya "🛍️ Buka Menu"/
-                // "❓ Panduan" — user tidak tahu keduanya hal yang sama.
-                'Tekan *🛍️ Buka Menu* untuk mulai belanja, atau *❓ Bantuan* untuk melihat panduan.',
+                // Rujuk nama TOMBOL-nya, bukan perintah mentah. Nama tombol di
+                // dalam copy ini SENGAJA tetap literal Indonesia: parser
+                // mengenali label itu dari teks, jadi menerjemahkannya sebelum
+                // Fase 2 membuat tombolnya mati.
+                __('bot.gate_verified_hint'),
             ]),
             'buttons' => [
                 [$this->button('🛍️ Buka Menu', 'menu')],
@@ -181,18 +182,14 @@ class BotMessageFormatter
         $buttons = [];
 
         if (filter_var($adminUrl, FILTER_VALIDATE_URL) !== false) {
-            $buttons[] = [$this->urlButton('💬 Hubungi Admin', $adminUrl)];
+            $buttons[] = [$this->urlButton(__('bot.gate_btn_contact'), $adminUrl)];
         }
 
         return [
             'text' => implode("\n", [
-                '🛠️ *Layanan Sedang Diperbaiki*',
+                __('bot.gate_maintenance_title'),
                 '',
-                'Maaf, verifikasi keanggotaan channel sedang tidak bisa dijalankan.',
-                'Ini masalah di sisi kami, bukan karena kamu belum bergabung.',
-                '',
-                'Kami sudah melaporkannya ke admin. Silakan coba lagi nanti,',
-                'atau hubungi admin kalau perlu dibantu segera.',
+                __('bot.gate_maintenance_body'),
             ]),
             'buttons' => $buttons,
         ];
@@ -208,10 +205,11 @@ class BotMessageFormatter
     {
         return [
             'text' => implode("\n", [
-                '*Verifikasi Keanggotaan Bermasalah*',
+                __('bot.gate_unavailable_title'),
                 '',
-                'Keanggotaan channel Anda belum dapat diverifikasi. Silakan coba lagi dalam beberapa saat.',
+                __('bot.gate_unavailable_body'),
             ]),
+            // Label 'Coba Lagi' dikenali parser sebagai perintah menu → literal.
             'buttons' => [[$this->button('Coba Lagi', 'menu')]],
         ];
     }

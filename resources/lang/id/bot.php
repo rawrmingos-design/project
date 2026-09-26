@@ -204,4 +204,28 @@ return [
     'btn_back_history' => '📜 Kembali ke Riwayat',
     'btn_prev' => '⬅️ Sebelumnya',
     'btn_next' => 'Berikutnya ➡️',
+    // --- Gate keanggotaan & sapaan verifikasi (Task 1.6) ---
+    // Semua method ini Telegram-only (`formatTelegramMembership*`), jadi tidak
+    // perlu threading `$source` seperti blok lain. Yang WAJIB tetap literal:
+    // LABEL TOMBOL yang juga dikenali parser dari teks (`✅ Sudah Bergabung`,
+    // `🛍️ Buka Menu`, `❓ Bantuan`, `Coba Lagi`) — kalau diterjemahkan
+    // sekarang, tombolnya mati sampai Fase 2 selesai. Jadi label tetap di kode,
+    // hanya prosa di sekitarnya yang masuk sini.
+    'gate_title' => '🔒 *Akses Terbatas*',
+    'gate_intro_single' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:',
+    'gate_intro_multi' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke *semua* channel berikut dulu ya:',
+    'gate_verify_hint' => 'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah untuk verifikasi.',
+    'gate_join_channel' => '📢 Gabung :label',
+    'gate_verified_title' => '✅ *Verifikasi Berhasil*',
+    'gate_verified_hello' => 'Halo :name! ',
+    'gate_verified_body' => 'Keanggotaanmu sudah terverifikasi. Sekarang kamu bisa memakai semua fitur bot.',
+    'gate_verified_hint' => 'Tekan *🛍️ Buka Menu* untuk mulai belanja, atau *❓ Bantuan* untuk melihat panduan.',
+    'gate_maintenance_title' => '🛠️ *Layanan Sedang Diperbaiki*',
+    'gate_maintenance_body' => 'Maaf, verifikasi keanggotaan channel sedang tidak bisa dijalankan.' . "\n"
+        . 'Ini masalah di sisi kami, bukan karena kamu belum bergabung.' . "\n\n"
+        . 'Kami sudah melaporkannya ke admin. Silakan coba lagi nanti,' . "\n"
+        . 'atau hubungi admin kalau perlu dibantu segera.',
+    'gate_unavailable_title' => '*Verifikasi Keanggotaan Bermasalah*',
+    'gate_unavailable_body' => 'Keanggotaan channel Anda belum dapat diverifikasi. Silakan coba lagi dalam beberapa saat.',
+    'gate_btn_contact' => '💬 Hubungi Admin',
 ];

@@ -834,4 +834,121 @@ class TelegramCopyPhaseOneTest extends TestCase
                 || str_contains($text, 'Format salah');
         });
     }
+
+    // ===== Task 1.6 — gate keanggotaan & sapaan verifikasi (Telegram-only) =====
+
+    private function missingChannels(): array
+    {
+        return [
+            ['id' => '@egymarket', 'label' => 'Egymarket', 'url' => 'https://t.me/egymarket'],
+        ];
+    }
+
+    public function test_gate_required_id_identik_baseline(): void
+    {
+        app()->setLocale('id');
+        $msg = app(BotMessageFormatter::class)->formatTelegramMembershipRequired($this->missingChannels());
+
+        $this->assertStringContainsString('🔒 *Akses Terbatas*', $msg['text']);
+        $this->assertStringContainsString(
+            'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:',
+            $msg['text'],
+        );
+        $this->assertStringContainsString(
+            'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah untuk verifikasi.',
+            $msg['text'],
+        );
+        // Label tombol WAJIB tetap Indonesia: parser mengenalinya dari teks.
+        $this->assertSame('✅ Sudah Bergabung', $msg['buttons'][1][0]['text']);
+
+        // Banyak channel → varian "semua channel".
+        $multi = app(BotMessageFormatter::class)->formatTelegramMembershipRequired([
+            ['id' => '@a', 'label' => 'A', 'url' => 'https://t.me/a'],
+            ['id' => '@b', 'label' => 'B', 'url' => 'https://t.me/b'],
+        ]);
+        $this->assertStringContainsString('bergabung ke *semua* channel', $multi['text']);
+    }
+
+    public function test_gate_required_en_diterjemahkan_dan_tombol_utuh(): void
+    {
+        app()->setLocale('en');
+        $msg = app(BotMessageFormatter::class)->formatTelegramMembershipRequired($this->missingChannels());
+
+        $this->assertStringContainsString('🔒 *Limited Access*', $msg['text']);
+        $this->assertStringContainsString('please join the channel below first', $msg['text']);
+        $this->assertStringNotContainsString('Akses Terbatas', $msg['text']);
+
+        // Prosa diterjemahkan, tapi label tombol yang di-parse TIDAK ikut.
+        $this->assertStringContainsString('*✅ Sudah Bergabung*', $msg['text']);
+        $this->assertSame('✅ Sudah Bergabung', $msg['buttons'][1][0]['text']);
+    }
+
+    public function test_gate_verified_id_baseline_dan_en(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+
+        app()->setLocale('id');
+        $id = $fmt->formatTelegramMembershipVerified('Mings');
+        $this->assertStringContainsString('✅ *Verifikasi Berhasil*', $id['text']);
+        $this->assertStringContainsString('Halo Mings! Keanggotaanmu sudah terverifikasi.', $id['text']);
+        $this->assertStringContainsString('*🛍️ Buka Menu*', $id['text']);
+        $this->assertSame('🛍️ Buka Menu', $id['buttons'][0][0]['text']);
+        $this->assertSame('❓ Bantuan', $id['buttons'][1][0]['text']);
+
+        app()->setLocale('en');
+        $en = $fmt->formatTelegramMembershipVerified('Mings');
+        $this->assertStringContainsString('✅ *Verification Successful*', $en['text']);
+        $this->assertStringContainsString('Hi Mings! Your membership is verified.', $en['text']);
+        $this->assertStringNotContainsString('Verifikasi Berhasil', $en['text']);
+        // Nama tombol di dalam prosa tetap literal (parser-driven).
+        $this->assertStringContainsString('*🛍️ Buka Menu*', $en['text']);
+        $this->assertSame('🛍️ Buka Menu', $en['buttons'][0][0]['text']);
+    }
+
+    public function test_gate_verified_tanpa_nama(): void
+    {
+        app()->setLocale('en');
+        $msg = app(BotMessageFormatter::class)->formatTelegramMembershipVerified('');
+
+        $this->assertStringNotContainsString('Hi !', $msg['text']);
+        $this->assertStringContainsString('Your membership is verified.', $msg['text']);
+    }
+
+    public function test_gate_misconfigured_dan_unavailable(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+
+        app()->setLocale('id');
+        $mis = $fmt->formatTelegramMembershipMisconfigured();
+        $this->assertStringContainsString('🛠️ *Layanan Sedang Diperbaiki*', $mis['text']);
+        $this->assertStringContainsString('Ini masalah di sisi kami', $mis['text']);
+
+        $un = $fmt->formatTelegramMembershipUnavailable();
+        $this->assertStringContainsString('*Verifikasi Keanggotaan Bermasalah*', $un['text']);
+        // Dua kondisi ini HARUS beda pesannya: menyuruh user "coba lagi" pada
+        // masalah setelan adalah kebohongan yang membuatnya menunggu.
+        $this->assertNotSame($mis['text'], $un['text']);
+        $this->assertSame('Coba Lagi', $un['buttons'][0][0]['text']);
+
+        app()->setLocale('en');
+        $misEn = $fmt->formatTelegramMembershipMisconfigured();
+        $this->assertStringContainsString('🛠️ *Service Under Maintenance*', $misEn['text']);
+        $this->assertStringContainsString('This is on our side', $misEn['text']);
+        $this->assertStringNotContainsString('Layanan Sedang Diperbaiki', $misEn['text']);
+
+        $unEn = $fmt->formatTelegramMembershipUnavailable();
+        $this->assertStringContainsString('*Membership Verification Problem*', $unEn['text']);
+        // Label tombol parser-driven tetap literal.
+        $this->assertSame('Coba Lagi', $unEn['buttons'][0][0]['text']);
+    }
+
+    /** Channel tanpa daftar valid → jatuh ke pesan "gangguan", bukan gate kosong. */
+    public function test_gate_kosong_jatuh_ke_pesan_unavailable(): void
+    {
+        app()->setLocale('en');
+        $msg = app(BotMessageFormatter::class)->formatTelegramMembershipRequired([]);
+
+        $this->assertStringContainsString('Membership Verification Problem', $msg['text']);
+        $this->assertStringNotContainsString('Limited Access', $msg['text']);
+    }
 }
