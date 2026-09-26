@@ -1979,14 +1979,21 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatDepositAmountPrompt(): array
+    /**
+     * @param string|null $source Lihat catatan di `formatPriceQuote()`.
+     *
+     * Alur numerik deposit dipakai KEDUA channel (WhatsApp & Telegram), tapi
+     * scope terjemahan hanya jalur Telegram — WhatsApp tetap Indonesia.
+     */
+    public function formatDepositAmountPrompt(?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         return [
-            'text' => implode("
-", [
-                '💰 *Pilih Jumlah Deposit*',
+            'text' => implode("\n", [
+                $isTelegram ? __('bot.deposit_amount_title') : '💰 *Pilih Jumlah Deposit*',
                 '',
-                'Silakan pilih nominal deposit (balas angkanya saja):',
+                $isTelegram ? __('bot.deposit_amount_hint') : 'Silakan pilih nominal deposit (balas angkanya saja):',
                 '1. Rp 10.000',
                 '2. Rp 25.000',
                 '3. Rp 50.000',
@@ -1994,7 +2001,7 @@ class BotMessageFormatter
                 '5. Rp 250.000',
                 '6. Rp 500.000',
                 '',
-                'Atau ketik nominal deposit yang kamu inginkan (minimal Rp 10.000).'
+                $isTelegram ? __('bot.deposit_amount_custom') : 'Atau ketik nominal deposit yang kamu inginkan (minimal Rp 10.000).'
             ]),
             'buttons' => [],
             'numeric_menu' => [
@@ -2005,14 +2012,22 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatDepositMethodPrompt(\Illuminate\Support\Collection $methods, int $amount): array
+    /**
+     * @param string|null $source Lihat catatan di `formatPriceQuote()`.
+     */
+    public function formatDepositMethodPrompt(\Illuminate\Support\Collection $methods, int $amount, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+        $amountLine = ($isTelegram ? __('bot.deposit_amount_line') : 'Jumlah: Rp :amount');
+
         $lines = [
-            '💳 *Pilih Metode Pembayaran*',
+            $isTelegram ? __('bot.deposit_method_title') : '💳 *Pilih Metode Pembayaran*',
             '',
-            'Jumlah: Rp ' . number_format($amount, 0, ',', '.'),
+            // Satu kunci dipakai ulang di respons deposit: teksnya identik, dan
+            // parity test melarang dua kunci bernilai sama persis.
+            str_replace(':amount', number_format($amount, 0, ',', '.'), $amountLine),
             '',
-            'Silakan pilih metode pembayaran (balas angkanya saja):',
+            $isTelegram ? __('bot.deposit_method_hint') : 'Silakan pilih metode pembayaran (balas angkanya saja):',
         ];
 
         $idx = 1;

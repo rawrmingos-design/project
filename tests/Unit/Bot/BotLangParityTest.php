@@ -93,7 +93,9 @@ class BotLangParityTest extends TestCase
         // - `skip`/`ya`/`tidak`  : kata perintah, memang tidak diterjemahkan.
         // - `checkout_total`      : 'Total' adalah kata yang sama di id & en,
         //   dan spasi paddingnya harus identik supaya kolom harga tetap rata.
-        $allowedIdentical = ['skip', 'ya', 'tidak', 'checkout_total'];
+        // - `deposit_order_id`    : 'Order ID' adalah istilah internasional,
+        //   dan label `:order_id` harus tetap kode (di-render dalam backtick).
+        $allowedIdentical = ['skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id'];
 
         $identical = [];
         foreach ($id as $key => $value) {

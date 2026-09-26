@@ -350,7 +350,77 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->assertStringContainsString('Choose Server ID:', $en);
     }
 
-    public function test_konfirmasi_checkout_telegram_memakai_lang(): void
+    // ---------------------------------------------------------------
+    // Task 1.4 — deposit
+    // ---------------------------------------------------------------
+
+    public function test_prompt_deposit_telegram_inggris_dan_nominal_tetap_format_indonesia(): void
+    {
+        $fmt = app(\App\Services\Bot\BotMessageFormatter::class);
+        app()->setLocale('en');
+
+        $tg = $fmt->formatDepositAmountPrompt('telegram_gateway');
+        $this->assertStringContainsString('💰 *Choose Deposit Amount*', $tg['text']);
+        $this->assertStringContainsString('Please choose a deposit amount', $tg['text']);
+        $this->assertStringNotContainsString('Pilih Jumlah Deposit', $tg['text']);
+
+        // Nominal uang TIDAK diterjemahkan: format Indonesia di kedua bahasa.
+        // Angka yang ditagih tidak boleh terlihat beda dari yang dibayar user.
+        foreach (['1. Rp 10.000', '4. Rp 100.000', '6. Rp 500.000'] as $line) {
+            $this->assertStringContainsString($line, $tg['text']);
+        }
+
+        // Jalur numerik tetap terpasang — jangan sampai terjemahan merusaknya.
+        $this->assertSame('deposit_amounts', $tg['numeric_menu']['menu']);
+    }
+
+    public function test_prompt_deposit_whatsapp_tetap_indonesia(): void
+    {
+        $fmt = app(\App\Services\Bot\BotMessageFormatter::class);
+        app()->setLocale('en');
+
+        $wa = $fmt->formatDepositAmountPrompt('whatsapp_gateway');
+
+        $this->assertStringContainsString('💰 *Pilih Jumlah Deposit*', $wa['text']);
+        $this->assertStringContainsString('Silakan pilih nominal deposit', $wa['text']);
+        $this->assertStringNotContainsString('Choose Deposit Amount', $wa['text']);
+    }
+
+    public function test_prompt_metode_deposit_telegram_inggris_tanpa_metode_saldo(): void
+    {
+        $fmt = app(\App\Services\Bot\BotMessageFormatter::class);
+        app()->setLocale('en');
+
+        $methods = collect([
+            (object) ['name' => 'QRIS', 'code' => 'qris'],
+            (object) ['name' => 'DANA', 'code' => 'dana'],
+        ]);
+
+        $tg = $fmt->formatDepositMethodPrompt($methods, 50000, 'telegram_gateway');
+
+        $this->assertStringContainsString('💳 *Choose Payment Method*', $tg['text']);
+        // Nominal tetap format Indonesia di locale `en`.
+        $this->assertStringContainsString('Amount: Rp 50.000', $tg['text']);
+        $this->assertStringNotContainsString('Pilih Metode Pembayaran', $tg['text']);
+        // Nama metode dari DB tidak boleh diterjemahkan/diubah.
+        $this->assertStringContainsString('1. QRIS', $tg['text']);
+        $this->assertStringContainsString('2. DANA', $tg['text']);
+        $this->assertSame('deposit_methods', $tg['numeric_menu']['menu']);
+    }
+
+    public function test_prompt_metode_deposit_whatsapp_tetap_indonesia(): void
+    {
+        $fmt = app(\App\Services\Bot\BotMessageFormatter::class);
+        app()->setLocale('en');
+
+        $wa = $fmt->formatDepositMethodPrompt(collect([]), 25000, 'whatsapp_gateway');
+
+        $this->assertStringContainsString('💳 *Pilih Metode Pembayaran*', $wa['text']);
+        $this->assertStringContainsString('Jumlah: Rp 25.000', $wa['text']);
+        $this->assertStringNotContainsString('Choose Payment Method', $wa['text']);
+    }
+
+    public function test_konfirmasi_checkout_telegram_memakai_callback_bukan_label(): void
     {
         [$quote, $payload] = $this->confirmationInput();
 

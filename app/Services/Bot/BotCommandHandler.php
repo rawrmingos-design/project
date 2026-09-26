@@ -287,7 +287,9 @@ class BotCommandHandler
         $capabilities = $this->capabilities($context);
         if (! $capabilities->supports('deposit')) {
             return [
-                'text' => 'Deposit belum tersedia melalui gateway ini.',
+                'text' => $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_unavailable')
+                    : 'Deposit belum tersedia melalui gateway ini.',
                 'buttons' => [],
             ];
         }
@@ -380,7 +382,7 @@ class BotCommandHandler
             );
         }
 
-        return $this->formatter->formatDepositAmountPrompt();
+        return $this->formatter->formatDepositAmountPrompt($context['source'] ?? null);
     }
 
     private function handleTelegramDeposit(array $args, array $context): array
@@ -391,7 +393,7 @@ class BotCommandHandler
             max(1, (int) config('rate_limits.callbacks.deposit_per_sender_per_minute', 10)),
         )) {
             return [
-                'text' => 'Terlalu banyak percobaan deposit. Coba lagi beberapa saat.',
+                'text' => __('bot.deposit_rate_limited'),
                 'buttons' => [],
             ];
         }
@@ -445,7 +447,7 @@ class BotCommandHandler
             );
         }
 
-        return $this->formatter->formatDepositAmountPrompt();
+        return $this->formatter->formatDepositAmountPrompt($context['source'] ?? null);
     }
 
     private function orderDisabled(): array
@@ -456,11 +458,20 @@ class BotCommandHandler
         ];
     }
 
-    private function formatDepositResponse(array $result, int $amount): array
+    /**
+     * @param string|null $source Sumber gateway — lihat `formatPriceQuote()`.
+     *
+     * Nominal uang SELALU format Indonesia (`Rp 10.000`) di kedua bahasa:
+     * angka yang ditagih tidak boleh terlihat berbeda dari yang dibayar user.
+     */
+    private function formatDepositResponse(array $result, int $amount, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($result['success'] ?? false)) {
             return [
-                'text' => (string) ($result['message'] ?? 'Deposit tidak dapat dibuat. Coba lagi nanti.'),
+                'text' => (string) ($result['message']
+                    ?? ($isTelegram ? __('bot.deposit_create_failed') : 'Deposit tidak dapat dibuat. Coba lagi nanti.')),
                 'buttons' => [],
             ];
         }
@@ -468,22 +479,27 @@ class BotCommandHandler
         $paymentCode = trim((string) ($result['payment_code'] ?? ''));
         $qrLink = trim((string) ($result['qr_link'] ?? ''));
         $qrPayload = trim((string) ($result['qr_payload'] ?? ''));
+        $amountValue = number_format((int) ($result['total_amount'] ?? $result['gross_amount'] ?? $amount), 0, ',', '.');
         $lines = [
-            '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
+            $isTelegram ? __('bot.deposit_pending_title') : '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
             '',
-            'Order ID: `' . $this->escapeMarkdownCode((string) $result['order_id']) . '`',
-            'Jumlah: Rp ' . number_format((int) ($result['total_amount'] ?? $result['gross_amount'] ?? $amount), 0, ',', '.'),
+            str_replace(':order_id', $this->escapeMarkdownCode((string) $result['order_id']),
+                $isTelegram ? __('bot.deposit_order_id') : 'Order ID: `:order_id`'),
+            str_replace(':amount', $amountValue,
+                $isTelegram ? __('bot.deposit_amount_line') : 'Jumlah: Rp :amount'),
         ];
 
         if ($paymentCode !== '' && $qrLink === '' && $qrPayload === '') {
-            $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
+            $lines[] = str_replace(':code', $this->escapeMarkdownCode($paymentCode),
+                $isTelegram ? __('bot.deposit_va_line') : 'Kode Bayar / VA: `:code`');
         } elseif ($qrLink !== '' || $qrPayload !== '') {
-            $lines[] = 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
+            $lines[] = $isTelegram ? __('bot.deposit_qr_sent') : 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
         } else {
             $paymentUrl = $result['checkout_url'] ?? $result['pay_url'] ?? null;
             if (filter_var($paymentUrl, FILTER_VALIDATE_URL)
                 && strtolower((string) parse_url((string) $paymentUrl, PHP_URL_SCHEME)) === 'https') {
-                $lines[] = 'Gunakan URL pembayaran berikut: ' . $paymentUrl;
+                $lines[] = str_replace(':url', (string) $paymentUrl,
+                    $isTelegram ? __('bot.deposit_pay_url') : 'Gunakan URL pembayaran berikut: :url');
             }
         }
 
@@ -1852,7 +1868,9 @@ class BotCommandHandler
 
         if ($amount < 10000) {
             return [
-                'text' => 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_amount_invalid')
+                    : 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
                 'buttons' => [],
             ];
         }
@@ -1862,7 +1880,9 @@ class BotCommandHandler
         if ($methods->isEmpty()) {
             \Illuminate\Support\Facades\Cache::forget($this->checkoutStateKey($context));
             return [
-                'text' => 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_no_methods')
+                    : 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
                 'buttons' => [],
             ];
         }
@@ -1873,7 +1893,7 @@ class BotCommandHandler
             now()->addMinutes(15),
         );
 
-        return $this->formatter->formatDepositMethodPrompt($methods, $amount);
+        return $this->formatter->formatDepositMethodPrompt($methods, $amount, $context['source'] ?? null);
     }
 
     private function handleDepositMethodInput(?string $command, array $context, array $state): array
@@ -1883,7 +1903,9 @@ class BotCommandHandler
 
         if ($input === false || $input < 1 || $input > $methods->count()) {
             return [
-                'text' => 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_method_invalid')
+                    : 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
                 'buttons' => [],
             ];
         }
@@ -1898,7 +1920,9 @@ class BotCommandHandler
 
         if ($messageId === null) {
             return [
-                'text' => 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
+                'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_message_id_invalid')
+                    : 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
                 'buttons' => [],
             ];
         }
@@ -1908,7 +1932,14 @@ class BotCommandHandler
             $identity = ($this->whatsappUserResolver ?? app(\App\Services\Whatsapp\WhatsappUserResolver::class))->resolve($sender);
             $user = $identity['user'] ?? null;
 
-            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+            if (!$user) {
+                return [
+                    'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                        ? __('bot.deposit_session_invalid')
+                        : 'Sesi tidak valid. Silakan mulai ulang deposit.',
+                    'buttons' => [],
+                ];
+            }
 
             $result = ($this->depositService ?? app(\App\Services\Deposit\DepositService::class))->create($user, [
                 'jumlah' => $amount,
@@ -1919,7 +1950,7 @@ class BotCommandHandler
                 'external_message_id' => $messageId,
             ]);
 
-            return $this->formatDepositResponse($result, $amount);
+            return $this->formatDepositResponse($result, $amount, $source);
         }
 
         if ($source === \App\Services\Bot\BotGatewayCapabilities::SOURCE_TELEGRAM) {
@@ -1934,7 +1965,14 @@ class BotCommandHandler
             );
             $user = $identity['user'] ?? null;
 
-            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+            if (!$user) {
+                return [
+                    'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                        ? __('bot.deposit_session_invalid')
+                        : 'Sesi tidak valid. Silakan mulai ulang deposit.',
+                    'buttons' => [],
+                ];
+            }
 
             $phone = $user->whatsapp_verified_at !== null
                 ? \App\Support\WhatsappNumberNormalizer::normalize((string) $user->no_wa)
@@ -1959,7 +1997,7 @@ class BotCommandHandler
                 ], static fn (mixed $value): bool => $value !== null),
             ]);
 
-            return $this->formatDepositResponse($result, $amount);
+            return $this->formatDepositResponse($result, $amount, $source);
         }
 
         return ['text' => 'Gateway tidak didukung.', 'buttons' => []];

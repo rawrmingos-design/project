@@ -46,6 +46,40 @@ return [
     'help_manage_title' => '🔎 Cek & Kelola',
     'help_manage_status' => '• *📦 Cek Status* — status pesanan terakhir',
     'help_manage_history' => '• *📜 Riwayat Order* — daftar pesananmu',
+
+    // --- Deposit (Task 1.4) ---
+    // CATATAN: tidak ada markup channel-specific di blok ini (tidak ada
+    // penanda garis bawah), jadi aman dikonversi lurus. Alur numerik
+    // (pilih nominal → pilih metode) dipakai KEDUA channel, tapi copy
+    // WhatsApp tetap ID karena rute webhook-nya di grup `api` — tidak ada
+    // middleware bahasa di sana. Scope terjemahan = Telegram saja.
+    //
+    // `deposit_amount_line` SENGAJA dipakai di dua tempat (prompt metode +
+    // respons deposit): teksnya identik, dan key parity test melarang dua
+    // kunci bernilai sama persis. Satu kunci, dua pemakaian.
+    //
+    // Nominal uang dipertahankan format Indonesia (`Rp 10.000`) di KEDUA
+    // bahasa — angka yang ditagih tidak boleh terlihat berbeda dari yang
+    // dibayar user.
+    'deposit_unavailable' => 'Deposit belum tersedia melalui gateway ini.',
+    'deposit_rate_limited' => 'Terlalu banyak percobaan deposit. Coba lagi beberapa saat.',
+    'deposit_amount_title' => '💰 *Pilih Jumlah Deposit*',
+    'deposit_amount_hint' => 'Silakan pilih nominal deposit (balas angkanya saja):',
+    'deposit_amount_custom' => 'Atau ketik nominal deposit yang kamu inginkan (minimal Rp 10.000).',
+    'deposit_amount_invalid' => 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
+    'deposit_method_title' => '💳 *Pilih Metode Pembayaran*',
+    'deposit_method_hint' => 'Silakan pilih metode pembayaran (balas angkanya saja):',
+    'deposit_method_invalid' => 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
+    'deposit_no_methods' => 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
+    'deposit_pending_title' => '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
+    'deposit_order_id' => 'Order ID: `:order_id`',
+    'deposit_amount_line' => 'Jumlah: Rp :amount',
+    'deposit_va_line' => 'Kode Bayar / VA: `:code`',
+    'deposit_qr_sent' => 'QR pembayaran dikirim sebagai gambar setelah pesan ini.',
+    'deposit_pay_url' => 'Gunakan URL pembayaran berikut: :url',
+    'deposit_create_failed' => 'Deposit tidak dapat dibuat. Coba lagi nanti.',
+    'deposit_session_invalid' => 'Sesi tidak valid. Silakan mulai ulang deposit.',
+    'deposit_message_id_invalid' => 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
     'help_manage_checkid' => '• *🔍 Cek ID Game* — pastikan nama akun benar dulu',
     'help_manage_cancel' => '• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar',
     'help_manage_deposit' => '• *💰 Deposit* — isi saldo lebih dulu',
