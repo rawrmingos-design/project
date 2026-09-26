@@ -57,6 +57,7 @@ class NotificationsSettings extends SettingsSectionPage
             'telegram_welcome_enabled',
             'telegram_welcome_template',
             'telegram_welcome_thread_id',
+            'telegram_admin_url',
             'bot_order_tg_enabled',
             'easywa_email',
             'easywa_secret_key',

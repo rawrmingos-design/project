@@ -237,6 +237,13 @@ class AppServiceProvider extends ServiceProvider
                         config(['services.telegram-bot-api.required_channel.url' => $config->telegram_channel_url]);
                     }
 
+                    // URL kontak admin Telegram — diisi dari panel admin.
+                    // Nilai DB menang atas .env; .env tetap dipakai kalau kolom
+                    // ini kosong supaya deployment lama tidak berubah perilaku.
+                    if (!empty($config->telegram_admin_url)) {
+                        config(['services.telegram-bot-api.admin_contact_url' => $config->telegram_admin_url]);
+                    }
+
                     // Daftar channel wajib versi BARU (banyak channel sekaligus).
                     // Bila terisi, ini yang dipakai; kolom tunggal di atas tetap
                     // dihormati sebagai fallback deployment lama.

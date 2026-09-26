@@ -1356,6 +1356,21 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
 
+                        TextInput::make('telegram_admin_url')
+                            ->label('URL Kontak Admin Telegram')
+                            ->helperText('Tautan yang dibuka tombol "📞 Hubungi Admin" di bot. Boleh URL lengkap (https://t.me/alexander_vors), username saja (@alexander_vors), atau nomor WhatsApp (085792464508) — semuanya dirapikan otomatis. Selama kolom ini KOSONG, tombol hubungi admin tidak dikirim ke user dan teks panduan tidak menyebutnya.')
+                            ->placeholder('https://t.me/alexander_vors')
+                            // Menerima bentuk mentah yang biasa diketik admin:
+                            // URL lengkap, `t.me/...`, `@username`, atau nomor WA.
+                            // Normalisasi ke URL utuh dikerjakan dehydrateStateUsing.
+                            ->rule('regex:#^(https?://\S+|t\.me/\S+|@?[A-Za-z0-9_]{4,32}|\+?\d[\d\s\-]{6,})$#')
+                            ->validationMessages([
+                                'regex' => 'Isi URL lengkap (https://t.me/namamu), username (@namamu), atau nomor WhatsApp.',
+                            ])
+                            ->maxLength(512)
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizeTelegramAdminUrl($state))
+                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
+
                         Toggle::make('telegram_welcome_enabled')
                             ->label('Sambutan Otomatis Member Baru')
                             ->helperText('Kirim pesan sambutan saat ada member baru bergabung di grup. Tidak perlu mematikan privacy mode bot, dan bot TIDAK harus admin — event "member baru" termasuk service message yang selalu diterima bot.')
@@ -1952,6 +1967,47 @@ abstract class SettingsSectionPage extends Page implements HasForms
         }
 
         return $digits;
+    }
+
+    /**
+     * Rapikan URL kontak admin Telegram.
+     *
+     * Admin sering mengetik username saja (`@namaku`, `namaku`) atau nomor
+     * WhatsApp polos. Simpan sebagai URL utuh supaya tombolnya selalu sah.
+     */
+    private static function normalizeTelegramAdminUrl(?string $state): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        $value = trim($state);
+
+        // Sudah URL lengkap.
+        if (preg_match('#^https?://#i', $value) === 1) {
+            return $value;
+        }
+
+        // `t.me/...` tanpa skema.
+        if (preg_match('#^t\.me/#i', $value) === 1) {
+            return 'https://' . $value;
+        }
+
+        // Nomor WhatsApp (0821..., 628..., +628...).
+        if (preg_match('/^\+?\d[\d\s\-]{6,}$/', $value) === 1) {
+            $digits = self::normalizePhoneNumber($value) ?? '';
+
+            return $digits === '' ? null : 'https://wa.me/' . $digits;
+        }
+
+        // Username Telegram: `@namaku` atau `namaku`.
+        $username = ltrim($value, '@');
+
+        if (preg_match('/^[A-Za-z0-9_]{4,32}$/', $username) === 1) {
+            return 'https://t.me/' . $username;
+        }
+
+        return $value;
     }
 
     private function shouldRegeneratePwaIcons(string $previousSource, string $currentSource): bool

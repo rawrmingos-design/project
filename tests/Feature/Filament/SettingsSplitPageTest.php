@@ -357,6 +357,91 @@ class SettingsSplitPageTest extends AdminTestCase
         );
     }
 
+    public function test_notifications_settings_saves_telegram_admin_url(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->assertFormFieldExists('telegram_admin_url')
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_admin_url' => 'https://t.me/alexander_vors',
+            ])
+            ->call('save');
+
+        $this->assertSame(
+            'https://t.me/alexander_vors',
+            SettingWeb::query()->findOrFail(1)->telegram_admin_url,
+            'URL kontak admin harus tersimpan, bukan dibuang whitelist.',
+        );
+    }
+
+    /**
+     * Admin tidak selalu mengetik URL lengkap. Nilai mentah harus dirapikan
+     * supaya tombol Telegram tidak pernah menerima tautan tidak sah.
+     */
+    public function test_telegram_admin_url_is_normalized_from_username_and_number(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        // Nilai HARUS berbeda-beda per kasus: kalau semua menghasilkan nilai
+        // yang sama, test bisa hijau palsu karena save() gagal diam-diam dan
+        // nilai lama tertinggal.
+        $cases = [
+            'https://t.me/alexander_vors' => 'https://t.me/alexander_vors',
+            't.me/alexander_vors' => 'https://t.me/alexander_vors',
+            '@alexander_vors' => 'https://t.me/alexander_vors',
+            'alexander_vors' => 'https://t.me/alexander_vors',
+            'https://wa.me/6285792464508' => 'https://wa.me/6285792464508',
+            '6285792464508' => 'https://wa.me/6285792464508',
+            '085792464508' => 'https://wa.me/6285792464508',
+            '@nama_admin_kedua' => 'https://t.me/nama_admin_kedua',
+            '0899000111222' => 'https://wa.me/62899000111222',
+        ];
+
+        // Seed SEKALI di luar loop: helper ini memakai id tetap (1), jadi
+        // memanggilnya berulang akan melanggar primary key.
+        $this->createTrackingSettings(['wa_provider' => 'fonnte', 'telegram_admin_url' => null]);
+
+        foreach ($cases as $input => $expected) {
+            putenv('BOT_ORDER_ENABLED=true');
+            config(['bot.order_enabled' => true]);
+            Http::fake();
+
+            $component = Livewire::test(NotificationsSettings::class)
+                ->fillForm([
+                    'wa_provider' => 'fonnte',
+                    'mail_mailer' => 'smtp',
+                    'telegram_admin_url' => $input,
+                ]);
+
+            $component->call('save');
+
+            $this->assertSame(
+                [],
+                $component->errors()->toArray(),
+                "Input '{$input}' tidak boleh ditolak validasi form.",
+            );
+
+            $this->assertSame(
+                $expected,
+                SettingWeb::query()->findOrFail(1)->telegram_admin_url,
+                "Input '{$input}' harus dirapikan menjadi '{$expected}'.",
+            );
+        }
+    }
+
     public function test_notifications_settings_saves_telegram_welcome_config(): void
     {
         /** @var User $admin */
