@@ -125,4 +125,83 @@ return [
     'checkid_unavailable' => 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.',
     'checkid_invalid' => 'ID tidak valid: :message',
     'checkid_skip' => 'Produk ini tidak memerlukan validasi ID.',
+    // --- Status pesanan & daftar transaksi (Task 1.5) ---
+    // CATATAN: blok ini dipakai JALUR TELEGRAM saja. Pemanggil non-Telegram
+    // (mis. NotifyBotOrderStatusListener yang jalan di queue tanpa konteks
+    // channel) tetap memakai literal Indonesia di kelasnya — keputusan sadar:
+    // notifikasi transaksi tidak boleh berganti bahasa karena tebakan.
+    // Aturan fase tetap: nilai `id` WAJIB identik karakter-per-karakter
+    // dengan literal lama, termasuk emoji dan penanda `*tebal*`.
+    //
+    // Nominal uang tetap format Indonesia di kedua bahasa. `Order ID`,
+    // `Invoice`, dan `Expired` adalah istilah netral/loanword — didaftarkan
+    // di daftar putih parity test, bukan lupa diterjemahkan.
+    'status_check_failed' => 'Gagal cek status: :message',
+    'status_complete_title' => '✅ *Top Up Berhasil!*',
+    'status_paid_title' => '✅ *Pembayaran Berhasil*',
+    'status_complete_body' => 'Pesanan sudah berhasil diproses dan masuk ke akun kamu 🎉',
+    'status_paid_body' => 'Pesanan kamu sudah diterima dan sedang diproses.',
+    'status_paid_note' => 'Kami akan mengirimkan notifikasi setelah top up selesai.',
+    'status_thanks' => 'Terima kasih sudah berbelanja di *:store*.',
+    'status_more' => 'Butuh produk lain? Cek katalog kami kapan saja.',
+    'status_invoice_missing' => 'Invoice tidak ditemukan',
+    'active_orders_title' => '📦 *Pesanan Aktif*',
+    'active_orders_hint' => 'Ketik `status <invoice>` untuk detail.',
+    'label_awaiting_payment' => 'Menunggu Pembayaran',
+    'status_generic_title' => '*Status Pesanan*',
+    'status_generic_order_id' => 'Order ID: :order_id',
+    'status_generic_product' => 'Produk: :product (:nickname)',
+    'status_generic_total' => 'Total: Rp :amount',
+    'status_generic_payment' => 'Status Pembayaran: *:status*',
+    'status_generic_order' => 'Status Pesanan: *:status*',
+    'status_generic_sn' => '*SN / Keterangan:*',
+    'status_unpaid_title' => '⏳ *Menunggu Pembayaran*',
+    'status_unpaid_amount' => '💰 *Rp :amount*',
+    'status_unpaid_method' => '💳 Metode: *:method*',
+    'status_unpaid_check' => 'Ketik `status` untuk cek pembayaran.',
+    'status_expired_title' => '❌ *Pembayaran Kadaluarsa*',
+    'status_expired_body' => 'Silakan buat pesanan ulang.',
+    'status_no_orders' => 'Kamu belum punya transaksi. Ketik *menu* untuk mulai top up 🛍️',
+    'status_usage' => 'Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.',
+
+    // Label status yang dipakai bersama daftar transaksi & riwayat.
+    'label_paid' => 'Lunas',
+    'label_unpaid' => 'Belum Bayar',
+    'label_expired' => 'Expired',
+    'label_success' => 'Sukses',
+    'label_failed' => 'Gagal',
+    'label_processing' => 'Diproses',
+    'sender_list_title' => '📦 *Transaksi Kamu*',
+    'sender_list_product_fallback' => 'Produk',
+    'sender_list_pagination' => 'Menampilkan halaman :page dari :pages · total :total transaksi.',
+    'sender_list_hint' => 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.',
+
+    // --- Riwayat order (Task 1.5) ---
+    'history_rate_limited' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.',
+    'history_telegram_not_linked' => 'Riwayat order belum tersedia. Tautkan akun Telegram melalui Pengaturan terlebih dahulu.',
+    'history_invalid' => 'Riwayat sudah kedaluwarsa atau tidak valid. Buka riwayat terbaru.',
+    'history_load_latest' => '📜 Muat Riwayat Terbaru',
+    'history_empty_title' => '📦 *RIWAYAT ORDER*',
+    'history_empty_body' => 'Belum ada order yang dapat ditampilkan untuk akun ini.',
+    'history_title' => '📦 *Riwayat Order*',
+    'history_detail_btn' => 'Detail #:number',
+    'history_detail_missing' => 'Order tidak ditemukan atau tidak dapat ditampilkan.',
+    'history_detail_title' => '🧾 *DETAIL ORDER*',
+    'history_detail_invoice' => 'Invoice: `:order_id`',
+    'history_detail_product' => 'Produk: :product',
+    'history_detail_total' => 'Total: Rp :amount',
+    'history_detail_date' => 'Tanggal: :date',
+    'history_detail_status' => 'Status Order: :status',
+    'history_detail_payment_status' => 'Status Pembayaran: :status',
+    'history_detail_game_id' => 'ID Game: :game_id',
+
+    // --- Tombol bersama ---
+    // Semua label di bawah ini CALLBACK-DRIVEN: yang dikirim balik ke bot
+    // adalah `callback`-nya (`menu`, `order_history`, `history nav …`), bukan
+    // teks label. Jadi aman diterjemahkan. Yang parser-driven (`YA`,
+    // `TIDAK`, `❌ Batal Transaksi`) TETAP ditahan sampai Fase 2.
+    'btn_back_menu' => '🔙 Kembali ke Menu',
+    'btn_back_history' => '📜 Kembali ke Riwayat',
+    'btn_prev' => '⬅️ Sebelumnya',
+    'btn_next' => 'Berikutnya ➡️',
 ];

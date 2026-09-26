@@ -95,7 +95,19 @@ class BotLangParityTest extends TestCase
         //   dan spasi paddingnya harus identik supaya kolom harga tetap rata.
         // - `deposit_order_id`    : 'Order ID' adalah istilah internasional,
         //   dan label `:order_id` harus tetap kode (di-render dalam backtick).
-        $allowedIdentical = ['skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id'];
+        // - `status_generic_order_id` / `history_detail_invoice` : idem, label
+        //   kode dalam backtick; istilah internasional.
+        // - `status_generic_total` / `history_detail_total` : 'Total' sama di
+        //   id & en, dan nominal WAJIB tampil format Indonesia di kedua bahasa.
+        // - `status_unpaid_amount` : baris uang murni (`💰 *Rp :amount*`), angka
+        //   yang ditagih harus terbaca sama persis.
+        // - `label_expired`       : 'Expired' adalah loanword yang sudah dipakai
+        //   user Indonesia; menerjemahkannya justru mengubah arti status.
+        $allowedIdentical = [
+            'skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id',
+            'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
+            'history_detail_invoice', 'history_detail_total', 'label_expired',
+        ];
 
         $identical = [];
         foreach ($id as $key => $value) {

@@ -696,11 +696,22 @@ class BotMessageFormatter
         return $response;
     }
 
-    public function formatStatus(array $data): array
+    /**
+     * Non-Telegram (WhatsApp + listener notifikasi) tetap literal Indonesia:
+     * notifikasi transaksi tidak boleh berganti bahasa karena tebakan
+     * channel, jadi default `null` = perilaku lama persis.
+     */
+    public function formatStatus(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false)) {
             return [
-                'text' => "Gagal cek status: " . ($data['message'] ?? 'Invoice tidak ditemukan'),
+                'text' => $isTelegram
+                    ? __('bot.status_check_failed', [
+                        'message' => $data['message'] ?? __('bot.status_invoice_missing'),
+                    ])
+                    : "Gagal cek status: " . ($data['message'] ?? 'Invoice tidak ditemukan'),
                 'buttons' => [],
             ];
         }
@@ -718,17 +729,23 @@ class BotMessageFormatter
 
             $lines = [
                 $isComplete
-                    ? '✅ *Top Up Berhasil!*'
-                    : '✅ *Pembayaran Berhasil*',
+                    ? ($isTelegram ? __('bot.status_complete_title') : '✅ *Top Up Berhasil!*')
+                    : ($isTelegram ? __('bot.status_paid_title') : '✅ *Pembayaran Berhasil*'),
                 '',
             ];
 
             if ($isComplete) {
-                $lines[] = 'Pesanan sudah berhasil diproses dan masuk ke akun kamu 🎉';
+                $lines[] = $isTelegram
+                    ? __('bot.status_complete_body')
+                    : 'Pesanan sudah berhasil diproses dan masuk ke akun kamu 🎉';
             } else {
-                $lines[] = 'Pesanan kamu sudah diterima dan sedang diproses.';
+                $lines[] = $isTelegram
+                    ? __('bot.status_paid_body')
+                    : 'Pesanan kamu sudah diterima dan sedang diproses.';
                 $lines[] = '';
-                $lines[] = 'Kami akan mengirimkan notifikasi setelah top up selesai.';
+                $lines[] = $isTelegram
+                    ? __('bot.status_paid_note')
+                    : 'Kami akan mengirimkan notifikasi setelah top up selesai.';
             }
 
             $lines[] = '';
@@ -744,30 +761,41 @@ class BotMessageFormatter
             if ($isComplete) {
                 $storeName = trim((string) config('app.name', 'Store')) ?: 'Store';
                 $lines[] = '';
-                $lines[] = 'Terima kasih sudah berbelanja di *' . $this->escapeMarkdown($storeName) . '*.';
-                $lines[] = 'Butuh produk lain? Cek katalog kami kapan saja.';
+                $lines[] = $isTelegram
+                    ? __('bot.status_thanks', ['store' => $this->escapeMarkdown($storeName)])
+                    : 'Terima kasih sudah berbelanja di *' . $this->escapeMarkdown($storeName) . '*.';
+                $lines[] = $isTelegram
+                    ? __('bot.status_more')
+                    : 'Butuh produk lain? Cek katalog kami kapan saja.';
             }
 
             return [
                 'text' => implode("\n", $lines),
                 'buttons' => [
                     [
-                        $this->button('🔙 Kembali ke Menu', 'menu'),
+                        $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
                     ],
                 ],
             ];
         }
 
         if ($paymentStatus === 'belum lunas') {
-            return $this->formatUnpaidStatus($d);
+            return $this->formatUnpaidStatus($d, $source);
         }
 
         if (in_array($paymentStatus, ['expired', 'kadaluarsa'], true)) {
-            return $this->formatExpiredStatus($d);
+            return $this->formatExpiredStatus($d, $source);
         }
 
         $amount = number_format($d['amount'], 0, ',', '.');
-        $lines = [
+        $lines = $isTelegram ? [
+            __('bot.status_generic_title'),
+            __('bot.status_generic_order_id', ['order_id' => $d['order_id']]),
+            __('bot.status_generic_product', ['product' => $d['product'], 'nickname' => $d['nickname']]),
+            __('bot.status_generic_total', ['amount' => $amount]),
+            __('bot.status_generic_payment', ['status' => $d['payment']['status']]),
+            __('bot.status_generic_order', ['status' => $d['status']]),
+        ] : [
             "*Status Pesanan*",
             "Order ID: {$d['order_id']}",
             "Produk: {$d['product']} ({$d['nickname']})",
@@ -777,14 +805,16 @@ class BotMessageFormatter
         ];
 
         if ($d['sn']) {
-            $lines[] = "\n*SN / Keterangan:* \n{$d['sn']}";
+            $lines[] = $isTelegram
+                ? "\n" . __('bot.status_generic_sn') . " \n" . $d['sn']
+                : "\n*SN / Keterangan:* \n{$d['sn']}";
         }
 
         return [
             'text' => implode("\n", $lines),
             'buttons' => [
                 [
-                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                    $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
                 ],
             ]
         ];
@@ -804,9 +834,14 @@ class BotMessageFormatter
         int $totalPages = 1,
         int $total = 0,
         int $perPage = 5,
+        ?string $source = null,
     ): array {
+        // Non-Telegram (WhatsApp) tetap literal Indonesia — keputusan fase:
+        // scope terjemahan Telegram saja, dan copy WA wajib identik.
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         $lines = [
-            '📦 *Transaksi Kamu*',
+            $isTelegram ? __('bot.sender_list_title') : '📦 *Transaksi Kamu*',
             '',
         ];
         $buttons = [];
@@ -819,20 +854,27 @@ class BotMessageFormatter
             $paymentStatus = strtolower(trim((string) ($order['payment_status'] ?? '')));
 
             $paymentLabel = match (true) {
-                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) => 'Lunas',
-                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) => 'Expired',
-                default => 'Belum Bayar',
+                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) =>
+                    $isTelegram ? __('bot.label_paid') : 'Lunas',
+                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) =>
+                    $isTelegram ? __('bot.label_expired') : 'Expired',
+                default => $isTelegram ? __('bot.label_unpaid') : 'Belum Bayar',
             };
 
             $orderLabel = match (true) {
-                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) => 'Sukses',
-                in_array($orderStatus, ['gagal', 'failed'], true) => 'Gagal',
-                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) => 'Expired',
-                default => 'Diproses',
+                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) =>
+                    $isTelegram ? __('bot.label_success') : 'Sukses',
+                in_array($orderStatus, ['gagal', 'failed'], true) =>
+                    $isTelegram ? __('bot.label_failed') : 'Gagal',
+                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) =>
+                    $isTelegram ? __('bot.label_expired') : 'Expired',
+                default => $isTelegram ? __('bot.label_processing') : 'Diproses',
             };
 
             $lines[] = $number . '. `' . $this->escapeMarkdownCode($orderId) . '`';
-            $lines[] = '   💎 ' . $this->escapeMarkdown((string) ($order['product'] ?? 'Produk'))
+            $lines[] = '   💎 ' . $this->escapeMarkdown(
+                (string) ($order['product'] ?? ($isTelegram ? __('bot.sender_list_product_fallback') : 'Produk')),
+            )
                 . ' · ' . $paymentLabel . ' · ' . $orderLabel;
             $lines[] = '   💰 Rp ' . number_format((int) ($order['amount'] ?? 0), 0, ',', '.');
 
@@ -858,26 +900,42 @@ class BotMessageFormatter
 
         if ($total > 0) {
             $lines[] = '';
-            $lines[] = 'Menampilkan halaman ' . $page . ' dari ' . $totalPages
-                . ' · total ' . $total . ' transaksi.';
+            $lines[] = $isTelegram
+                ? __('bot.sender_list_pagination', [
+                    'page' => $page,
+                    'pages' => $totalPages,
+                    'total' => $total,
+                ])
+                : 'Menampilkan halaman ' . $page . ' dari ' . $totalPages
+                    . ' · total ' . $total . ' transaksi.';
         }
 
-        $lines[] = 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
+        $lines[] = $isTelegram
+            ? __('bot.sender_list_hint')
+            : 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
 
         if ($totalPages > 1) {
             $row = [];
             if ($page > 1) {
-                $row[] = $this->button('⬅️ Sebelumnya', 'status page:' . ($page - 1), 'navigation_previous');
+                $row[] = $this->button(
+                    $isTelegram ? __('bot.btn_prev') : '⬅️ Sebelumnya',
+                    'status page:' . ($page - 1),
+                    'navigation_previous',
+                );
             }
             if ($page < $totalPages) {
-                $row[] = $this->button('Berikutnya ➡️', 'status page:' . ($page + 1), 'navigation_next');
+                $row[] = $this->button(
+                    $isTelegram ? __('bot.btn_next') : 'Berikutnya ➡️',
+                    'status page:' . ($page + 1),
+                    'navigation_next',
+                );
             }
             if ($row !== []) {
                 $buttons[] = $row;
             }
         }
 
-        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu')];
+        $buttons[] = [$this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu')];
 
         return [
             'text' => implode("\n", $lines),
@@ -885,10 +943,14 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatActiveOrders(iterable $orders, string $title = '📦 *Pesanan Aktif*'): array
-    {
+    public function formatActiveOrders(
+        iterable $orders,
+        ?string $title = null,
+        ?string $source = null,
+    ): array {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $lines = [
-            $title,
+            $title ?? ($isTelegram ? __('bot.active_orders_title') : '📦 *Pesanan Aktif*'),
             '',
         ];
         $number = 1;
@@ -898,34 +960,43 @@ class BotMessageFormatter
             $orderStatus = strtolower(trim((string) ($order['order_status'] ?? '')));
 
             $paymentLabel = match (true) {
-                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) => 'Lunas',
-                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) => 'Expired',
-                default => 'Menunggu Pembayaran',
+                in_array($paymentStatus, ['lunas', 'paid', 'success'], true) =>
+                    $isTelegram ? __('bot.label_paid') : 'Lunas',
+                in_array($paymentStatus, ['expired', 'kadaluarsa'], true) =>
+                    $isTelegram ? __('bot.label_expired') : 'Expired',
+                default => $isTelegram ? __('bot.label_awaiting_payment') : 'Menunggu Pembayaran',
             };
 
             // Daftar recent memuat semua status, jadi label harus
             // menggambarkan status asli — bukan selalu "Diproses".
             $orderLabel = match (true) {
-                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) => 'Sukses',
-                in_array($orderStatus, ['gagal', 'failed'], true) => 'Gagal',
-                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) => 'Expired',
-                default => 'Diproses',
+                in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true) =>
+                    $isTelegram ? __('bot.label_success') : 'Sukses',
+                in_array($orderStatus, ['gagal', 'failed'], true) =>
+                    $isTelegram ? __('bot.label_failed') : 'Gagal',
+                in_array($orderStatus, ['expired', 'kadaluarsa', 'batal', 'canceled', 'cancelled'], true) =>
+                    $isTelegram ? __('bot.label_expired') : 'Expired',
+                default => $isTelegram ? __('bot.label_processing') : 'Diproses',
             };
 
             $lines[] = $number . '. `' . $this->escapeMarkdownCode((string) ($order['order_id'] ?? '')) . '`';
-            $lines[] = '   💎 ' . $this->escapeMarkdown((string) ($order['product'] ?? 'Produk'))
+            $lines[] = '   💎 ' . $this->escapeMarkdown(
+                (string) ($order['product'] ?? ($isTelegram ? __('bot.sender_list_product_fallback') : 'Produk')),
+            )
                 . ' · ' . $paymentLabel . ' · ' . $orderLabel;
             $number++;
         }
 
         $lines[] = '';
-        $lines[] = 'Ketik `status <invoice>` untuk detail.';
+        $lines[] = $isTelegram
+            ? __('bot.active_orders_hint')
+            : 'Ketik `status <invoice>` untuk detail.';
 
         return [
             'text' => implode("\n", $lines),
             'buttons' => [
                 [
-                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                    $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
                 ],
             ],
         ];
@@ -1051,12 +1122,19 @@ class BotMessageFormatter
     /**
      * @param array{items: array<int, array<string, mixed>>, previous_cursor: string|null, next_cursor: string|null, current_cursor: string|null, invalid_cursor: bool, previous_handle?: string|null, next_handle?: string|null, current_handle?: string|null} $data
      */
-    public function formatOrderHistory(array $data): array
+    public function formatOrderHistory(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if ($data['invalid_cursor'] ?? false) {
             return [
-                'text' => 'Riwayat sudah kedaluwarsa atau tidak valid. Buka riwayat terbaru.',
-                'buttons' => [[$this->button('📜 Muat Riwayat Terbaru', 'order_history')]],
+                'text' => $isTelegram
+                    ? __('bot.history_invalid')
+                    : 'Riwayat sudah kedaluwarsa atau tidak valid. Buka riwayat terbaru.',
+                'buttons' => [[$this->button(
+                    $isTelegram ? __('bot.history_load_latest') : '📜 Muat Riwayat Terbaru',
+                    'order_history',
+                )]],
                 'numeric_menu' => [
                     'menu' => 'order_history_invalid',
                     'parent_menu' => 'menu',
@@ -1068,8 +1146,14 @@ class BotMessageFormatter
         $items = is_array($data['items'] ?? null) ? $data['items'] : [];
         if ($items === []) {
             return [
-                'text' => '📦 *RIWAYAT ORDER*\n\nBelum ada order yang dapat ditampilkan untuk akun ini.',
-                'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu', 'back')]],
+                'text' => $isTelegram
+                    ? __('bot.history_empty_title') . "\n\n" . __('bot.history_empty_body')
+                    : '📦 *RIWAYAT ORDER*\n\nBelum ada order yang dapat ditampilkan untuk akun ini.',
+                'buttons' => [[$this->button(
+                    $isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu',
+                    'menu',
+                    'back',
+                )]],
                 'numeric_menu' => [
                     'menu' => 'order_history',
                     'parent_menu' => 'menu',
@@ -1079,7 +1163,7 @@ class BotMessageFormatter
         }
 
         $lines = [
-            '📦 *Riwayat Order*',
+            $isTelegram ? __('bot.history_title') : '📦 *Riwayat Order*',
             '',
         ];
         $buttons = [];
@@ -1091,31 +1175,41 @@ class BotMessageFormatter
             $number = $index + 1;
             $status = $this->orderStatusLabel($item);
             $amount = number_format((int) ($item['amount'] ?? 0), 0, ',', '.');
-            $lines[] = "{$number}. {$status} " . $this->escapeMarkdown((string) ($item['service'] ?? 'Produk'));
+            $lines[] = "{$number}. {$status} " . $this->escapeMarkdown(
+                (string) ($item['service'] ?? ($isTelegram ? __('bot.sender_list_product_fallback') : 'Produk')),
+            );
             $lines[] = '   `' . $this->escapeMarkdownCode((string) ($item['order_id'] ?? '')) . '` · Rp ' . $amount . ' · ' . $this->escapeMarkdown((string) ($item['created_at'] ?? '-'));
             $lines[] = '';
             $detailCallback = 'history detail ' . (string) ($item['reference'] ?? '');
             if ($currentHandle !== null) {
                 $detailCallback .= ' ' . $currentHandle;
             }
-            $buttons[] = [$this->button('Detail #' . $number, $detailCallback, 'content')];
+            $buttons[] = [$this->button(
+                $isTelegram ? __('bot.history_detail_btn', ['number' => $number]) : 'Detail #' . $number,
+                $detailCallback,
+                'content',
+            )];
         }
 
         if (is_string($data['previous_handle'] ?? null)) {
             $buttons[] = [$this->button(
-                '⬅️ Sebelumnya',
+                $isTelegram ? __('bot.btn_prev') : '⬅️ Sebelumnya',
                 'history nav ' . $data['previous_handle'],
                 'navigation_previous',
             )];
         }
         if (is_string($data['next_handle'] ?? null)) {
             $buttons[] = [$this->button(
-                'Berikutnya ➡️',
+                $isTelegram ? __('bot.btn_next') : 'Berikutnya ➡️',
                 'history nav ' . $data['next_handle'],
                 'navigation_next',
             )];
         }
-        $buttons[] = [$this->button('🔙 Kembali ke Menu', 'menu', 'back')];
+        $buttons[] = [$this->button(
+            $isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu',
+            'menu',
+            'back',
+        )];
 
         return [
             'text' => implode("\n", $lines),
@@ -1134,16 +1228,24 @@ class BotMessageFormatter
     public function formatOrderHistoryDetail(
         ?array $data,
         ?string $returnHandle = null,
+        ?string $source = null,
     ): array {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $returnCallback = $returnHandle === null
             ? 'order_history'
             : 'history nav ' . $returnHandle;
 
         if ($data === null) {
             return [
-                'text' => 'Order tidak ditemukan atau tidak dapat ditampilkan.',
+                'text' => $isTelegram
+                    ? __('bot.history_detail_missing')
+                    : 'Order tidak ditemukan atau tidak dapat ditampilkan.',
                 'buttons' => [[
-                    $this->button('📜 Kembali ke Riwayat', $returnCallback, 'back'),
+                    $this->button(
+                        $isTelegram ? __('bot.btn_back_history') : '📜 Kembali ke Riwayat',
+                        $returnCallback,
+                        'back',
+                    ),
                 ]],
                 'numeric_menu' => [
                     'menu' => 'order_history_detail',
@@ -1154,28 +1256,54 @@ class BotMessageFormatter
         }
 
         $amount = number_format((int) ($data['amount'] ?? 0), 0, ',', '.');
-        $lines = [
+        $product = $this->escapeMarkdown(
+            (string) ($data['service'] ?? ($isTelegram ? __('bot.sender_list_product_fallback') : 'Produk')),
+        );
+        $date = $this->escapeMarkdown((string) ($data['created_at'] ?? '-'));
+        $statusLabel = $this->escapeMarkdown((string) ($data['status_label'] ?? 'Unknown'));
+
+        $lines = $isTelegram ? [
+            __('bot.history_detail_title'),
+            '',
+            __('bot.history_detail_invoice', [
+                'order_id' => $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')),
+            ]),
+            __('bot.history_detail_product', ['product' => $product]),
+            __('bot.history_detail_date', ['date' => $date]),
+            __('bot.history_detail_total', ['amount' => $amount]),
+            __('bot.history_detail_status', ['status' => $statusLabel]),
+        ] : [
             '🧾 *DETAIL ORDER*',
             '',
             'Invoice: `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
-            'Produk: ' . $this->escapeMarkdown((string) ($data['service'] ?? 'Produk')),
-            'Tanggal: ' . $this->escapeMarkdown((string) ($data['created_at'] ?? '-')),
+            'Produk: ' . $product,
+            'Tanggal: ' . $date,
             'Total: Rp ' . $amount,
-            'Status Order: ' . $this->escapeMarkdown((string) ($data['status_label'] ?? 'Unknown')),
+            'Status Order: ' . $statusLabel,
         ];
 
         if (filled($data['payment_status'] ?? null)) {
-            $lines[] = 'Status Pembayaran: ' . $this->escapeMarkdown((string) $data['payment_status']);
+            $paymentStatus = $this->escapeMarkdown((string) $data['payment_status']);
+            $lines[] = $isTelegram
+                ? __('bot.history_detail_payment_status', ['status' => $paymentStatus])
+                : 'Status Pembayaran: ' . $paymentStatus;
         }
 
         if (filled($data['target_game_account_id'] ?? null)) {
-            $lines[] = 'ID Game: ' . $this->escapeMarkdown((string) $data['target_game_account_id']);
+            $gameId = $this->escapeMarkdown((string) $data['target_game_account_id']);
+            $lines[] = $isTelegram
+                ? __('bot.history_detail_game_id', ['game_id' => $gameId])
+                : 'ID Game: ' . $gameId;
         }
 
         return [
             'text' => implode("\n", $lines),
             'buttons' => [[
-                $this->button('📜 Kembali ke Riwayat', $returnCallback, 'back'),
+                $this->button(
+                    $isTelegram ? __('bot.btn_back_history') : '📜 Kembali ke Riwayat',
+                    $returnCallback,
+                    'back',
+                ),
             ]],
             'numeric_menu' => [
                 'menu' => 'order_history_detail',
@@ -1346,31 +1474,33 @@ class BotMessageFormatter
         return $lines;
     }
 
-    private function formatExpiredStatus(array $data): array
+    private function formatExpiredStatus(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $storeName = $this->escapeMarkdown(trim((string) config('app.name', 'Laravel')) ?: 'Laravel');
         $orderId = $this->escapeMarkdown((string) ($data['order_id'] ?? ''));
         $product = $this->escapeMarkdown((string) ($data['product'] ?? 'Produk'));
 
         return [
             'text' => implode("\n", [
-                '❌ *Pembayaran Kadaluarsa*',
+                $isTelegram ? __('bot.status_expired_title') : '❌ *Pembayaran Kadaluarsa*',
                 '',
                 '💎 ' . $product,
                 '🧾 `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
                 '',
-                'Silakan buat pesanan ulang.',
+                $isTelegram ? __('bot.status_expired_body') : 'Silakan buat pesanan ulang.',
             ]),
             'buttons' => [
                 [
-                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                    $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
                 ],
             ],
         ];
     }
 
-    private function formatUnpaidStatus(array $data): array
+    private function formatUnpaidStatus(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $payment = is_array($data['payment'] ?? null) ? $data['payment'] : [];
         $orderId = $this->escapeMarkdown((string) ($data['order_id'] ?? ''));
         $product = $this->escapeMarkdown((string) ($data['product'] ?? 'Produk'));
@@ -1379,18 +1509,22 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", [
-                '⏳ *Menunggu Pembayaran*',
+                $isTelegram ? __('bot.status_unpaid_title') : '⏳ *Menunggu Pembayaran*',
                 '',
                 '💎 ' . $product,
-                '💰 *Rp ' . number_format($amount, 0, ',', '.') . '*',
+                $isTelegram
+                    ? __('bot.status_unpaid_amount', ['amount' => number_format($amount, 0, ',', '.')])
+                    : '💰 *Rp ' . number_format($amount, 0, ',', '.') . '*',
                 '🧾 `' . $this->escapeMarkdownCode((string) ($data['order_id'] ?? '')) . '`',
                 '',
-                '💳 Metode: *' . $method . '*',
-                'Ketik `status` untuk cek pembayaran.',
+                $isTelegram
+                    ? __('bot.status_unpaid_method', ['method' => $method])
+                    : '💳 Metode: *' . $method . '*',
+                $isTelegram ? __('bot.status_unpaid_check') : 'Ketik `status` untuk cek pembayaran.',
             ]),
             'buttons' => [
                 [
-                    $this->button('🔙 Kembali ke Menu', 'menu'),
+                    $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
                 ],
             ],
         ];

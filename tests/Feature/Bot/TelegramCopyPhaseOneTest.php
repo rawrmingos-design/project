@@ -555,4 +555,283 @@ class TelegramCopyPhaseOneTest extends TestCase
             'Kategori tanpa nama harus dapat fallback "Kategori". Label: ' . implode(' | ', $labels),
         );
     }
+
+    // ===== Task 1.5 — status pesanan, daftar transaksi, riwayat order =====
+
+    private function statusPayload(string $paymentStatus, string $orderStatus = 'sukses'): array
+    {
+        return [
+            'ok' => true,
+            'data' => [
+                'order_id' => 'INV-456',
+                'product' => 'Mobile Legends',
+                'nickname' => 'Player',
+                'sn' => 'SN-123456789',
+                'status' => $orderStatus,
+                'amount' => 12500,
+                'payment' => [
+                    'status' => $paymentStatus,
+                    'amount' => 12500,
+                    'method' => 'BCA_VA',
+                ],
+            ],
+        ];
+    }
+
+    /** Baseline ID: locale `id` hasilnya harus byte-identik dengan sebelum refactor. */
+    public function test_status_id_identik_baseline(): void
+    {
+        app()->setLocale('id');
+        $fmt = app(BotMessageFormatter::class);
+
+        $complete = $fmt->formatStatus($this->statusPayload('lunas'), 'telegram_gateway');
+        $this->assertSame(
+            "✅ *Top Up Berhasil!*\n\nPesanan sudah berhasil diproses dan masuk ke akun kamu 🎉\n\n"
+            . "💎 Mobile Legends\n👤 Player\n🔑 SN: `SN-123456789`\n\n🧾 `INV-456`\n\n"
+            . 'Terima kasih sudah berbelanja di *Test Store*.' . "\nButuh produk lain? Cek katalog kami kapan saja.",
+            $complete['text'],
+        );
+        $this->assertSame('🔙 Kembali ke Menu', $complete['buttons'][0][0]['text']);
+
+        $unpaid = $fmt->formatStatus($this->statusPayload('belum lunas'), 'telegram_gateway');
+        $this->assertSame(
+            "⏳ *Menunggu Pembayaran*\n\n💎 Mobile Legends\n💰 *Rp 12.500*\n🧾 `INV-456`\n\n"
+            . '💳 Metode: *BCA\\_VA*' . "\nKetik `status` untuk cek pembayaran.",
+            $unpaid['text'],
+        );
+
+        $expired = $fmt->formatStatus($this->statusPayload('expired'), 'telegram_gateway');
+        $this->assertStringContainsString('❌ *Pembayaran Kadaluarsa*', $expired['text']);
+        $this->assertStringContainsString('Silakan buat pesanan ulang.', $expired['text']);
+
+        $generic = $fmt->formatStatus($this->statusPayload('pending', 'diproses'), 'telegram_gateway');
+        $this->assertStringContainsString('*Status Pesanan*', $generic['text']);
+        $this->assertStringContainsString('Order ID: INV-456', $generic['text']);
+        $this->assertStringContainsString('Produk: Mobile Legends (Player)', $generic['text']);
+        $this->assertStringContainsString('Status Pesanan: *diproses*', $generic['text']);
+    }
+
+    /** Telegram + locale en → benar-benar diterjemahkan (bukan literal ID). */
+    public function test_status_telegram_locale_en_diterjemahkan(): void
+    {
+        app()->setLocale('en');
+        $fmt = app(BotMessageFormatter::class);
+
+        $complete = $fmt->formatStatus($this->statusPayload('lunas'), 'telegram_gateway')['text'];
+        $this->assertStringContainsString('✅ *Top Up Successful!*', $complete);
+        $this->assertStringContainsString('delivered to your account', $complete);
+        $this->assertStringContainsString('Thank you for shopping at *Test Store*.', $complete);
+        $this->assertStringNotContainsString('Selamat', $complete);
+        $this->assertStringNotContainsString('Terima kasih', $complete);
+
+        $paid = $fmt->formatStatus($this->statusPayload('lunas', 'diproses'), 'telegram_gateway')['text'];
+        $this->assertStringContainsString('✅ *Payment Successful*', $paid);
+        $this->assertStringContainsString('being processed', $paid);
+
+        $unpaid = $fmt->formatStatus($this->statusPayload('belum lunas'), 'telegram_gateway')['text'];
+        $this->assertStringContainsString('⏳ *Awaiting Payment*', $unpaid);
+        $this->assertStringContainsString('💳 Method: *BCA\\_VA*', $unpaid);
+        $this->assertStringNotContainsString('Menunggu Pembayaran', $unpaid);
+
+        $expired = $fmt->formatStatus($this->statusPayload('expired'), 'telegram_gateway')['text'];
+        $this->assertStringContainsString('❌ *Payment Expired*', $expired);
+        $this->assertStringContainsString('place a new order', $expired);
+
+        $generic = $fmt->formatStatus($this->statusPayload('pending', 'diproses'), 'telegram_gateway')['text'];
+        $this->assertStringContainsString('*Order Status*', $generic);
+        $this->assertStringContainsString('Product: Mobile Legends (Player)', $generic);
+    }
+
+    /**
+     * JARING PENGAMAN TERPENTING Task 1.5: `NotifyBotOrderStatusListener`
+     * memanggil `formatStatus($payload)` TANPA argumen source, dari queue.
+     * Kalau default-nya bukan perilaku lama, notifikasi transaksi ke user
+     * Indonesia bisa berubah bahasa sendiri.
+     */
+    public function test_status_pemanggil_tanpa_source_tetap_indonesia_walau_locale_en(): void
+    {
+        app()->setLocale('en');
+
+        $text = app(BotMessageFormatter::class)->formatStatus($this->statusPayload('lunas'))['text'];
+
+        $this->assertStringContainsString('✅ *Top Up Berhasil!*', $text);
+        $this->assertStringContainsString('Pesanan sudah berhasil diproses', $text);
+        $this->assertStringNotContainsString('Top Up Successful', $text);
+    }
+
+    public function test_status_whatsapp_tetap_indonesia_walau_locale_en(): void
+    {
+        app()->setLocale('en');
+
+        $text = app(BotMessageFormatter::class)
+            ->formatStatus($this->statusPayload('lunas'), 'whatsapp_gateway')['text'];
+
+        $this->assertStringContainsString('✅ *Top Up Berhasil!*', $text);
+        $this->assertStringNotContainsString('Top Up Successful', $text);
+    }
+
+    /** Nominal uang harus terbaca sama di kedua bahasa. */
+    public function test_status_nominal_uang_tetap_format_indonesia_di_en(): void
+    {
+        app()->setLocale('en');
+        $text = app(BotMessageFormatter::class)
+            ->formatStatus($this->statusPayload('belum lunas'), 'telegram_gateway')['text'];
+
+        $this->assertStringContainsString('Rp 12.500', $text);
+        $this->assertStringNotContainsString('Rp 12,500', $text);
+    }
+
+    private function historyData(): array
+    {
+        return [
+            'items' => [[
+                'status' => 'success',
+                'service' => 'Mobile Legends',
+                'amount' => 12500,
+                'order_id' => 'INV-1',
+                'created_at' => '2026-09-26 10:00',
+                'reference' => 'REF-1',
+            ]],
+            'invalid_cursor' => false,
+            'current_handle' => null,
+            'previous_handle' => null,
+            'next_handle' => null,
+        ];
+    }
+
+    public function test_riwayat_telegram_en_dan_id_baseline(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+
+        app()->setLocale('id');
+        $id = $fmt->formatOrderHistory($this->historyData(), 'telegram_gateway');
+        $this->assertStringContainsString('📦 *Riwayat Order*', $id['text']);
+        $this->assertStringContainsString('1. ✅ Mobile Legends', $id['text']);
+        $this->assertSame('Detail #1', $id['buttons'][0][0]['text']);
+        $this->assertSame('🔙 Kembali ke Menu', $id['buttons'][1][0]['text']);
+
+        app()->setLocale('en');
+        $en = $fmt->formatOrderHistory($this->historyData(), 'telegram_gateway');
+        $this->assertStringContainsString('📦 *Order History*', $en['text']);
+        $this->assertStringContainsString('1. ✅ Mobile Legends', $en['text']);
+        $this->assertStringNotContainsString('Riwayat Order', $en['text']);
+        $this->assertSame('Details #1', $en['buttons'][0][0]['text']);
+        $this->assertSame('🔙 Back to Menu', $en['buttons'][1][0]['text']);
+    }
+
+    /**
+     * Label yang diterjemahkan TIDAK boleh dipakai bot untuk mengenali input:
+     * yang dikirim balik ke bot adalah `callback`-nya. Dikunci di sini supaya
+     * penerjemahan label tidak pernah mematikan tombol.
+     */
+    public function test_tombol_riwayat_callback_identik_di_semua_bahasa(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+        $data = $this->historyData();
+        $data['previous_handle'] = 'H-PREV';
+        $data['next_handle'] = 'H-NEXT';
+
+        $callbacks = [];
+        foreach (['id', 'en'] as $locale) {
+            app()->setLocale($locale);
+            $callbacks[$locale] = collect($fmt->formatOrderHistory($data, 'telegram_gateway')['buttons'])
+                ->flatten(1)->pluck('callback')->all();
+        }
+
+        $this->assertSame($callbacks['id'], $callbacks['en']);
+        $this->assertNotEmpty($callbacks['id']);
+    }
+
+    public function test_riwayat_whatsapp_tetap_indonesia_walau_locale_en(): void
+    {
+        app()->setLocale('en');
+
+        $text = app(BotMessageFormatter::class)
+            ->formatOrderHistory($this->historyData(), 'whatsapp_gateway')['text'];
+
+        $this->assertStringContainsString('📦 *Riwayat Order*', $text);
+        $this->assertStringNotContainsString('Order History', $text);
+    }
+
+    public function test_detail_riwayat_telegram_en_dan_whatsapp_id(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+        $detail = [
+            'order_id' => 'INV-1',
+            'service' => 'Mobile Legends',
+            'created_at' => '2026-09-26 10:00',
+            'amount' => 12500,
+            'status_label' => 'Sukses',
+            'payment_status' => 'Lunas',
+            'target_game_account_id' => '12345',
+        ];
+
+        app()->setLocale('en');
+        $en = $fmt->formatOrderHistoryDetail($detail, null, 'telegram_gateway')['text'];
+        $this->assertStringContainsString('🧾 *ORDER DETAIL*', $en);
+        $this->assertStringContainsString('Product: Mobile Legends', $en);
+        $this->assertStringContainsString('Date: 2026-09-26 10:00', $en);
+        $this->assertStringContainsString('Game ID: 12345', $en);
+
+        $wa = $fmt->formatOrderHistoryDetail($detail, null, 'whatsapp_gateway')['text'];
+        $this->assertStringContainsString('🧾 *DETAIL ORDER*', $wa);
+        $this->assertStringContainsString('Tanggal: 2026-09-26 10:00', $wa);
+    }
+
+    public function test_daftar_transaksi_telegram_en_dan_wa_id(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+        $orders = collect([[
+            'order_id' => 'INV-1',
+            'product' => 'Mobile Legends',
+            'amount' => 12500,
+            'payment_status' => 'lunas',
+            'order_status' => 'sukses',
+        ]]);
+
+        app()->setLocale('en');
+        $en = $fmt->formatSenderOrderList($orders, 1, 1, 1, 5, 'telegram_gateway');
+        $this->assertStringContainsString('📦 *Your Transactions*', $en['text']);
+        $this->assertStringContainsString('Paid · Success', $en['text']);
+        $this->assertStringContainsString('Showing page 1 of 1 · 1 transactions total.', $en['text']);
+        $this->assertSame('🔙 Back to Menu', collect($en['buttons'])->last()[0]['text']);
+
+        app()->setLocale('id');
+        $id = $fmt->formatSenderOrderList($orders, 1, 1, 1, 5, 'telegram_gateway');
+        $this->assertStringContainsString('📦 *Transaksi Kamu*', $id['text']);
+        $this->assertStringContainsString('Lunas · Sukses', $id['text']);
+
+        app()->setLocale('en');
+        $wa = $fmt->formatSenderOrderList($orders, 1, 1, 1, 5, 'whatsapp_gateway');
+        $this->assertStringContainsString('📦 *Transaksi Kamu*', $wa['text']);
+        $this->assertStringNotContainsString('Your Transactions', $wa['text']);
+    }
+
+    /** Halaman webhook: `status` tanpa ID di Telegram tidak boleh bocor bahasa lain. */
+    public function test_perintah_status_telegram_lewat_webhook_tetap_indonesia(): void
+    {
+        // Tanpa ini, handler jatuh ke `orderDisabled()` dan test tidak
+        // menyentuh copy yang sedang diuji (pola sama dengan BotWebhookTest).
+        config(['services.telegram-bot-api.order_enabled' => true]);
+
+        Http::fake([
+            'https://api.telegram.org/*/sendMessage' => Http::response(['ok' => true]),
+        ]);
+
+        $this->postTelegramAsBot([
+            'message' => [
+                'chat' => ['id' => 12345, 'type' => 'private'],
+                'from' => ['id' => 9876, 'language_code' => 'en'],
+                'text' => '/status',
+                'message_id' => 222,
+            ],
+        ], ['Accept-Language' => 'en-US,en;q=0.9'])->assertOk();
+
+        Http::assertSent(function ($request) {
+            $text = $this->visibleText((string) ($request['text'] ?? ''));
+
+            return str_contains($text, 'Kamu belum punya transaksi')
+                || str_contains($text, 'Format salah');
+        });
+    }
 }

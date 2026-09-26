@@ -580,6 +580,7 @@ class BotCommandHandler
             return $this->formatter->formatOrderHistoryDetail(
                 $service->findForUserByReference($user, (string) $args[1]),
                 $returnHandle,
+                'whatsapp_gateway',
             );
         }
 
@@ -602,7 +603,7 @@ class BotCommandHandler
         $key = 'bot-telegram-history:' . $this->senderFingerprint($context);
         $limit = max(1, (int) config('rate_limits.callbacks.history_per_sender_per_minute', 10));
         if (RateLimiter::tooManyAttempts($key, $limit)) {
-            return ['text' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.', 'buttons' => []];
+            return ['text' => __('bot.history_rate_limited'), 'buttons' => []];
         }
         RateLimiter::hit($key, 60);
 
@@ -615,7 +616,7 @@ class BotCommandHandler
 
         if (($identity['status'] ?? null) !== TelegramUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
             return [
-                'text' => 'Riwayat order belum tersedia. Tautkan akun Telegram melalui Pengaturan terlebih dahulu.',
+                'text' => __('bot.history_telegram_not_linked'),
                 'buttons' => [],
             ];
         }
@@ -634,6 +635,7 @@ class BotCommandHandler
             return $this->formatter->formatOrderHistoryDetail(
                 $service->findForUserByReference($user, (string) $args[1]),
                 $returnHandle,
+                'telegram_gateway',
             );
         }
 
@@ -669,7 +671,7 @@ class BotCommandHandler
                     'next_cursor' => null,
                     'current_cursor' => null,
                     'invalid_cursor' => true,
-                ]);
+                ], $source);
             }
 
             $cursor = $state['cursor'];
@@ -678,7 +680,7 @@ class BotCommandHandler
         $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
         $data = $service->listForUser($user, $cursor, $source);
         if ($data['invalid_cursor']) {
-            return $this->formatter->formatOrderHistory($data);
+            return $this->formatter->formatOrderHistory($data, $source);
         }
 
         $data['current_handle'] = $navigation->store(
@@ -693,7 +695,7 @@ class BotCommandHandler
             ? null
             : $navigation->store($user, $source, $data['next_cursor']);
 
-        return $this->formatter->formatOrderHistory($data);
+        return $this->formatter->formatOrderHistory($data, $source);
     }
 
     private function validHistoryReturnHandle(
@@ -1622,6 +1624,7 @@ class BotCommandHandler
 
     private function handleStatus(array $args, array $context): array
     {
+        $isTelegram = ($context['source'] ?? null) === 'telegram_gateway';
         $orderId = '';
 
         if (count($args) >= 1 && ! str_starts_with((string) $args[0], 'page:')) {
@@ -1654,18 +1657,23 @@ class BotCommandHandler
                     $list['total_pages'],
                     $list['total'],
                     (int) \App\Services\Gateway\GatewayInvoiceService::SENDER_LIST_PER_PAGE,
+                    (string) ($context['source'] ?? ''),
                 );
             }
 
             return [
-                'text' => "Kamu belum punya transaksi. Ketik *menu* untuk mulai top up 🛍️",
+                'text' => $isTelegram
+                    ? __('bot.status_no_orders')
+                    : "Kamu belum punya transaksi. Ketik *menu* untuk mulai top up 🛍️",
                 'buttons' => [],
             ];
         }
 
         if ($orderId === '') {
             return [
-                'text' => "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",
+                'text' => $isTelegram
+                    ? __('bot.status_usage')
+                    : "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",
                 'buttons' => [],
             ];
         }
@@ -1675,7 +1683,7 @@ class BotCommandHandler
             'external_user_id' => $context['external_user_id'],
         ]);
 
-        return $this->formatter->formatStatus($res);
+        return $this->formatter->formatStatus($res, (string) ($context['source'] ?? ''));
     }
 
     /**
