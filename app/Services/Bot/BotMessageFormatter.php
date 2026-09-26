@@ -38,9 +38,9 @@ class BotMessageFormatter
         $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
 
         return implode("\n", [
-            "👋 *Selamat datang di {$storeName}*",
+            __('bot.intro_welcome', ['store' => $storeName]),
             '',
-            'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.',
+            __('bot.intro_tagline'),
         ]);
     }
 
@@ -228,7 +228,7 @@ class BotMessageFormatter
         $capabilities ??= BotGatewayCapabilities::forSource(null);
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
-                'text' => "Maaf, daftar tipe kategori sedang tidak tersedia.",
+                'text' => __('bot.menu_categories_unavailable'),
                 'buttons' => [],
             ];
         }
@@ -239,7 +239,11 @@ class BotMessageFormatter
         foreach ($pagination['items'] as $type) {
             $slug = (string) ($type['slug'] ?? '');
             $items[] = $this->button(
-                $this->categoryButtonLabel((string) ($type['name'] ?? 'Kategori'), $slug, $type['icon'] ?? null),
+                $this->categoryButtonLabel(
+                    (string) ($type['name'] ?? '') !== '' ? (string) $type['name'] : __('bot.menu_category_fallback'),
+                    $slug,
+                    $type['icon'] ?? null,
+                ),
                 'kategori ' . $slug,
                 'content',
             );
@@ -268,8 +272,8 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
-                . "\nPilih kategori di bawah untuk mulai. 👇",
+            'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
+                . "\n" . __('bot.menu_pick_category'),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
