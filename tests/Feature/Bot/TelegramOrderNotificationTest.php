@@ -274,4 +274,125 @@ class TelegramOrderNotificationTest extends TestCase
 
         Http::assertNothingSent();
     }
+
+    /**
+     * JARING PENGAMAN Fase 1 (Task 1.5) — di level LISTENER, bukan formatter.
+     *
+     * `NotifyBotOrderStatusListener` memanggil `formatStatus($payload)` TANPA
+     * argumen source, dari QUEUE. Di sana tidak ada konteks channel maupun
+     * locale user, jadi bahasa TIDAK boleh ikut berubah — keputusan user
+     * 2026-09-26 (opsi 1): notifikasi status tetap Indonesia.
+     *
+     * Test ini menutup celah yang tidak tertutup oleh test formatter: kalau
+     * suatu hari resolusi locale disambungkan ke listener (mis. lewat
+     * `BotLocale::apply()`), pesan transaksi akan berganti bahasa dan test ini
+     * yang menangkapnya. Ini jalur UANG — user harus bisa membaca status
+     * pembayarannya.
+     */
+    public function test_notifikasi_listener_tetap_indonesia_walau_locale_en(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        // Locale request disetel Inggris — meniru kondisi nyata kalau ada
+        // middleware/bridge yang membocorkan locale ke proses ini.
+        app()->setLocale('en');
+
+        try {
+            (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+                'order_id' => 'TG-NOTIF-001',
+            ]));
+        } finally {
+            app()->setLocale('id');
+        }
+
+        Http::assertSent(function ($request) {
+            $text = (string) $request['text'];
+
+            return str_contains($request->url(), '/sendMessage')
+                && str_contains($text, 'Top Up Berhasil')
+                && str_contains($text, 'Terima kasih sudah berbelanja')
+                // Inti test: TIDAK boleh ikut Inggris walau locale EN.
+                && ! str_contains($text, 'Top Up Successful')
+                && ! str_contains($text, 'Thank you for shopping');
+        });
+    }
+
+    /**
+     * Transisi `failed` (order Gagal, pembayaran Lunas) juga harus terkirim,
+     * dan anti-spam-nya terpisah dari transisi lain.
+     *
+     * ⚠️ CATATAN TEMUAN: saat test ini ditulis, teksnya IDENTIK dengan transisi
+     * `paid` (`✅ *Pembayaran Berhasil*`) karena `formatStatus()` tidak punya
+     * cabang khusus "order Gagal" — order Gagal+lunas jatuh ke cabang
+     * "pembayaran berhasil, sedang diproses". Variabel `$summary`
+     * ('Order Gagal') di listener adalah DEAD CODE (di-assign, tidak dipakai).
+     * Assertion di bawah mengunci PERILAKU SAAT INI supaya perubahan tak
+     * sengaja terdeteksi; perbaikan copy-nya adalah keputusan terpisah.
+     */
+    public function test_transisi_failed_terkirim_dengan_cache_key_terpisah(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Gagal']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        Http::assertSentCount(1);
+
+        // Cache key memakai `failed`, bukan `paid`/`success`.
+        $this->assertTrue(Cache::has('bot:notif:TG-NOTIF-001:failed'));
+        $this->assertFalse(Cache::has('bot:notif:TG-NOTIF-001:paid'));
+        $this->assertFalse(Cache::has('bot:notif:TG-NOTIF-001:success'));
+    }
+
+    /**
+     * Transisi `paid` (Lunas, order masih diproses) terkirim dan anti-spam-nya
+     * TERPISAH dari `success` — supaya user tetap dapat kabar saat pembayaran
+     * diterima, lalu kabar kedua saat top up selesai.
+     */
+    public function test_transisi_paid_terkirim_dan_tidak_menutup_notifikasi_success(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $order = $this->createTelegramOrder(['status' => 'Pending']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        $this->assertTrue(Cache::has('bot:notif:TG-NOTIF-001:paid'));
+        $this->assertFalse(Cache::has('bot:notif:TG-NOTIF-001:success'));
+
+        // Order menyelesaikan proses → notifikasi KEDUA harus tetap bisa kirim.
+        $order->update(['status' => 'Sukses']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        $this->assertTrue(Cache::has('bot:notif:TG-NOTIF-001:success'));
+        Http::assertSentCount(2);
+    }
 }
