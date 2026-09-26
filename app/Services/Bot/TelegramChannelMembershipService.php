@@ -158,17 +158,16 @@ class TelegramChannelMembershipService
     {
         $cacheKey = $this->cacheKey($channel['id'], $userId);
 
-        if (Cache::get($cacheKey) === true) {
-            return self::STATUS_ALLOWED;
-        }
-
-        // Sebelumnya user ini SUDAH terverifikasi sebagai member channel ini.
-        // Simpan fakta itu lebih lama dari TTL verifikasi, supaya gangguan
-        // sesaat pada Telegram tidak mengunci user yang jelas-jelas gabung.
-        if (Cache::get($this->graceKey($cacheKey)) === true) {
-            return self::STATUS_ALLOWED;
-        }
-
+        // PENTING: keanggotaan SELALU dicek ulang ke Telegram pada SETIAP
+        // request. Sebelumnya hasil positif di-cache (120 detik) DAN ada
+        // "grace record" 24 jam yang diperiksa LEBIH DULU sebelum memanggil
+        // Telegram — akibatnya user yang sudah KELUAR dari channel tetap
+        // lolos gate sampai 24 jam.
+        //   Reproduksi: join → chat/auto-order → leave → /start → tetap lolos.
+        // Pencabutan keanggotaan harus langsung terasa, jadi jalan pintas itu
+        // dihapus. Grace record kini HANYA dipakai sebagai cadangan ketika
+        // pemeriksaan GAGAL karena gangguan sesaat (lihat blok failure di
+        // bawah), supaya outage Telegram tidak mengunci user yang sah.
         try {
             $response = $this->requestChatMember($token, $channel['id'], $userId);
             $payload = $response->json();
@@ -195,7 +194,7 @@ class TelegramChannelMembershipService
                     'telegram_ok' => is_array($payload) ? ($payload['ok'] ?? null) : null,
                 ]);
 
-                return self::STATUS_UNAVAILABLE;
+                return $this->transientFailureVerdict($cacheKey);
             }
 
             $status = (string) data_get($payload, 'result.status', '');
@@ -228,7 +227,7 @@ class TelegramChannelMembershipService
                 'exception' => $exception::class,
             ]);
 
-            return self::STATUS_UNAVAILABLE;
+            return $this->transientFailureVerdict($cacheKey);
         }
     }
 
@@ -357,9 +356,40 @@ class TelegramChannelMembershipService
         }
     }
 
+    /**
+     * Keanggotaan TIDAK BISA dicek ke Telegram karena gangguan sesaat.
+     *
+     * Di sini — dan HANYA di sini — "grace record" dipakai: kalau user ini
+     * pernah terbukti bergabung, kita percayai fakta lama itu daripada
+     * mengunci user yang sah akibat Telegram/jaringan sedang bermasalah.
+     *
+     * Sebaliknya, kalau user TIDAK punya riwayat pernah bergabung, gangguan
+     * tetap berarti "belum bisa dipastikan" (fail-closed) — bukan lolos.
+     */
+    private function transientFailureVerdict(string $cacheKey): string
+    {
+        if (Cache::get($this->graceKey($cacheKey)) === true) {
+            Log::info('Telegram channel membership unavailable; trusting previous verified membership.', [
+                'cache_key' => $cacheKey,
+            ]);
+
+            return self::STATUS_ALLOWED;
+        }
+
+        return self::STATUS_UNAVAILABLE;
+    }
+
+    /**
+     * Catat bahwa user ini TERBUKTI bergabung.
+     *
+     * Hasilnya sengaja TIDAK dipakai untuk meloloskan request berikutnya —
+     * setiap request tetap dicek ke Telegram. Rekaman ini hanya jaring
+     * pengaman saat Telegram sedang tidak bisa dihubungi (lihat
+     * `transientFailureVerdict()`), dan dihapus begitu Telegram menyatakan
+     * user sudah keluar.
+     */
     private function rememberVerified(string $cacheKey): void
     {
-        Cache::put($cacheKey, true, max(1, $this->cacheSeconds()));
         Cache::put(
             $this->graceKey($cacheKey),
             true,
@@ -436,10 +466,5 @@ class TelegramChannelMembershipService
     private function cacheKey(string $channelId, int $userId): string
     {
         return 'telegram:required-channel:' . hash('sha256', $channelId . '|' . $userId);
-    }
-
-    private function cacheSeconds(): int
-    {
-        return max(1, (int) config('services.telegram-bot-api.required_channel.cache_seconds', 120));
     }
 }

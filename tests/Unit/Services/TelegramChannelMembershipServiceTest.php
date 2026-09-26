@@ -21,7 +21,6 @@ class TelegramChannelMembershipServiceTest extends TestCase
             'services.telegram-bot-api.required_channel.enabled' => true,
             'services.telegram-bot-api.required_channel.id' => '@testchannel',
             'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
-            'services.telegram-bot-api.required_channel.cache_seconds' => 120,
         ]);
     }
 
@@ -310,7 +309,17 @@ class TelegramChannelMembershipServiceTest extends TestCase
         $this->assertStringContainsString('member list is inaccessible', (string) $probe['error']);
     }
 
-    public function test_positive_membership_is_cached(): void
+    /**
+     * BUG YANG PERNAH TERJADI: hasil positif di-cache 120 detik DAN ada
+     * "grace record" 24 jam yang diperiksa lebih dulu sebelum memanggil
+     * Telegram. Akibatnya user yang sudah KELUAR dari channel tetap lolos
+     * gate sampai 24 jam.
+     *   Reproduksi: join → auto-order → leave → /start → tetap lolos.
+     *
+     * Keanggotaan sekarang diperiksa ulang ke Telegram pada SETIAP request,
+     * jadi pencabutan langsung terasa.
+     */
+    public function test_membership_is_rechecked_on_every_request(): void
     {
         Http::fake([
             '*' => Http::response([
@@ -320,11 +329,102 @@ class TelegramChannelMembershipServiceTest extends TestCase
         ]);
 
         $service = app(TelegramChannelMembershipService::class);
-        $service->check($this->context());
-        $result = $service->check($this->context());
 
-        $this->assertSame(TelegramChannelMembershipService::STATUS_ALLOWED, $result['status']);
-        Http::assertSentCount(1);
+        $service->check($this->context());
+        $service->check($this->context());
+
+        // Dua request = dua pemeriksaan. Tidak ada jalan pintas cache.
+        Http::assertSentCount(2);
+    }
+
+    /**
+     * Skenario persis yang dilaporkan: user join, lalu KELUAR. Request
+     * berikutnya harus ditahan — bukan diloloskan oleh rekaman lama.
+     */
+    public function test_user_who_leaves_the_channel_is_blocked_on_the_next_request(): void
+    {
+        $joined = true;
+
+        Http::fake(function ($request) use (&$joined) {
+            if (str_contains($request->url(), 'getChatMember')) {
+                return Http::response([
+                    'ok' => true,
+                    'result' => ['status' => $joined ? 'member' : 'left'],
+                ]);
+            }
+
+            return Http::response(['ok' => true]);
+        });
+
+        $service = app(TelegramChannelMembershipService::class);
+
+        $first = $service->check($this->context());
+        $this->assertSame(TelegramChannelMembershipService::STATUS_ALLOWED, $first['status']);
+
+        // User keluar dari channel.
+        $joined = false;
+
+        $second = $service->check($this->context());
+        $this->assertSame(
+            TelegramChannelMembershipService::STATUS_NOT_MEMBER,
+            $second['status'],
+            'User yang sudah keluar TIDAK boleh lolos gate pada request berikutnya.',
+        );
+    }
+
+    /**
+     * Rekaman "pernah bergabung" tetap berguna — tapi HANYA saat Telegram
+     * sedang tidak bisa dihubungi. Outage sesaat tidak boleh mengunci user
+     * yang jelas-jelas sudah bergabung.
+     */
+    public function test_previous_membership_is_trusted_only_when_telegram_is_unreachable(): void
+    {
+        $joined = true;
+
+        Http::fake(function ($request) use (&$joined) {
+            if (str_contains($request->url(), 'getChatMember')) {
+                if ($joined) {
+                    return Http::response([
+                        'ok' => true,
+                        'result' => ['status' => 'member'],
+                    ]);
+                }
+
+                throw new ConnectionException('timeout');
+            }
+
+            return Http::response(['ok' => true]);
+        });
+
+        $service = app(TelegramChannelMembershipService::class);
+
+        $first = $service->check($this->context());
+        $this->assertSame(TelegramChannelMembershipService::STATUS_ALLOWED, $first['status']);
+
+        // Telegram mendadak tidak bisa dihubungi.
+        $joined = false;
+
+        $second = $service->check($this->context());
+        $this->assertSame(
+            TelegramChannelMembershipService::STATUS_ALLOWED,
+            $second['status'],
+            'Gangguan sesaat tidak boleh mengunci user yang sudah terbukti bergabung.',
+        );
+    }
+
+    /**
+     * Kebalikannya juga harus benar: user TANPA riwayat bergabung tetap
+     * fail-closed saat Telegram error — bukan ikut lolos.
+     */
+    public function test_user_without_history_stays_blocked_when_telegram_is_unreachable(): void
+    {
+        Http::fake(function (): void {
+            throw new ConnectionException('timeout');
+        });
+
+        $result = app(TelegramChannelMembershipService::class)->check($this->context());
+
+        $this->assertSame(TelegramChannelMembershipService::STATUS_UNAVAILABLE, $result['status']);
     }
 
     private function context(int $userId = 12345): array

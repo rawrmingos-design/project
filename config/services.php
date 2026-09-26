@@ -64,9 +64,12 @@ return [
             'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
             'id' => env('TELEGRAM_REQUIRED_CHANNEL_ID'),
             'url' => env('TELEGRAM_REQUIRED_CHANNEL_URL'),
-            'cache_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_CACHE_SECONDS', 120),
-            // Berapa lama fakta "user ini pernah lolos" diingat, supaya
-            // gangguan sesaat pada Telegram tidak mengunci user yang sah.
+            // Keanggotaan SELALU dicek ulang ke Telegram pada setiap request,
+            // jadi tidak ada TTL hasil positif. Pencabutan keanggotaan harus
+            // langsung terasa (bug: user keluar channel masih lolos 24 jam).
+            // Berapa lama fakta "user ini pernah lolos" diingat sebagai jaring
+            // pengaman saat Telegram TIDAK BISA dihubungi. Tidak pernah dipakai
+            // untuk meloloskan request yang berhasil diperiksa.
             'grace_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_GRACE_SECONDS', 86400),
             // Tujuan laporan saat gate TIDAK BISA berfungsi (bot belum ada di
             // channel). Kosong = cukup lewat log.

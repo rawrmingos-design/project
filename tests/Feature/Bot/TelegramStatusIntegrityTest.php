@@ -41,7 +41,6 @@ class TelegramStatusIntegrityTest extends TestCase
             'services.telegram-bot-api.required_channel.enabled' => true,
             'services.telegram-bot-api.required_channel.id' => '@testchannel',
             'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
-            'services.telegram-bot-api.required_channel.cache_seconds' => 120,
         ]);
 
         // AppServiceProvider membaca flag dari DB dan menimpa config().
