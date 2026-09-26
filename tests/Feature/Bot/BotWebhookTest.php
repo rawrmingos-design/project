@@ -153,7 +153,6 @@ class BotWebhookTest extends TestCase
             return $request['chat_id'] === 12345
                 && str_contains($text, 'Selamat datang di Test Store')
                 && str_contains($text, 'Mau top up game atau cek pesananmu?')
-                && str_contains($text, 'Jika ada kendala, hubungi admin: 628123456789')
                 && str_contains($text, '🏠 *Menu Utama*')
                 && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
                     && ($button['callback_data'] ?? null) === 'leaderboard')

@@ -1320,9 +1320,11 @@ class BotCommandHandler
 
     private function handleAdmin(): array
     {
-        $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
 
-        if ($adminUrl === '') {
+        if ($adminUrl === '' || filter_var($adminUrl, FILTER_VALIDATE_URL) === false) {
+            // Tidak ada tautan yang bisa dipencet. Jangan tampilkan tombol
+            // yang tidak menuju ke mana-mana — cukup arahkan ke admin.
             return [
                 'text' => 'Hubungi admin melalui channel resmi kami.',
                 'buttons' => [],
@@ -1330,9 +1332,9 @@ class BotCommandHandler
         }
 
         return [
-            'text' => '📞 Klik tombol di bawah untuk menghubungi admin:',
+            'text' => "📞 *Hubungi Admin*\n\nTekan tombol di bawah untuk membuka profil admin secara langsung.",
             'buttons' => [[
-                ['text' => '📞 Chat Admin', 'url' => $adminUrl],
+                ['text' => '💬 Chat Admin', 'url' => $adminUrl],
             ]],
         ];
     }

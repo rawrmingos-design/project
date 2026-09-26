@@ -247,6 +247,22 @@ class TelegramAdapter implements BotAdapterInterface
     /**
      * Susun inline keyboard / reply keyboard dari respons handler.
      *
+     * Telegram hanya mengizinkan SATU `reply_markup` per pesan: reply
+     * keyboard (`keyboard`) ATAU inline keyboard (`inline_keyboard`).
+     *
+     * Urutan prioritasnya SENGAJA reply keyboard lebih dulu kalau diminta.
+     * Reply keyboard bersifat MENETAP: sekali terkirim, tombolnya bertahan di
+     * bawah layar untuk percakapan berikutnya. Kalau inline yang menang,
+     * keyboard tetap tidak akan pernah terkirim dan user kehilangan menu
+     * bawahnya — itu regresi yang lebih besar daripada sekadar kehilangan
+     * satu tombol.
+     *
+     * Karena reply keyboard HANYA bisa memuat teks (tidak bisa membawa URL),
+     * tautan ke admin tidak dikirim lewat sini: di pesan panduan tautannya
+     * ditulis sebagai tautan bertanda di dalam TEKS (bisa dipencet), dan
+     * perintah `admin` mengirim tombol inline bertipe `url` — jalur itu tidak
+     * memakai reply keyboard sehingga tombolnya benar-benar terkirim.
+     *
      * @return array<string, mixed>|null
      */
     private function buildReplyMarkup(array $response): ?array

@@ -143,6 +143,29 @@ class TelegramMarkdown
                 }
             }
 
+            // 2b. Tautan inline `[label](url)` — dibiarkan hidup supaya bisa
+            //     DIPENCET di Telegram. Tanpa cabang ini, `[` dan `]`
+            //     di-escape sebagai teks biasa dan tautannya tampil mentah,
+            //     jadi tidak ada yang bisa diketuk user.
+            if ($ch === '[') {
+                $labelEnd = self::findClosing($chars, $i + 1, ']');
+
+                if ($labelEnd !== null && $labelEnd > $i + 1 && ($chars[$labelEnd + 1] ?? '') === '(') {
+                    $urlEnd = self::findClosing($chars, $labelEnd + 2, ')');
+
+                    if ($urlEnd !== null && $urlEnd > $labelEnd + 2) {
+                        $label = implode('', array_slice($chars, $i + 1, $labelEnd - $i - 1));
+                        $url = implode('', array_slice($chars, $labelEnd + 2, $urlEnd - $labelEnd - 2));
+
+                        $flush();
+                        $out .= '[' . self::escapeAll($label) . '](' . self::escapeLinkUrl($url) . ')';
+                        $i = $urlEnd;
+
+                        continue;
+                    }
+                }
+            }
+
             // 3. Tebal `*...*`, coret `~...~`, garis bawah `__...__`.
             $marker = null;
 
@@ -174,6 +197,18 @@ class TelegramMarkdown
         $flush();
 
         return $out;
+    }
+
+    /**
+     * Escape isi URL pada tautan inline.
+     *
+     * Di dalam `( )` Telegram hanya melarang `)` dan `\` mentah, jadi `.`
+     * dan `_` pada `https://t.me/nama_akun` TIDAK boleh di-escape — kalau
+     * di-escape, alamatnya jadi rusak dan tautannya gagal dibuka.
+     */
+    private static function escapeLinkUrl(string $url): string
+    {
+        return str_replace(['\\', ')'], ['\\\\', '\\)'], trim($url));
     }
 
     /**

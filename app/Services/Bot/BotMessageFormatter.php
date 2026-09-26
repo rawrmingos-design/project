@@ -2,8 +2,6 @@
 
 namespace App\Services\Bot;
 
-use App\Models\SettingWeb;
-
 class BotMessageFormatter
 {
     private const PAGE_SIZE = 8;
@@ -23,12 +21,25 @@ class BotMessageFormatter
         'streaming' => '🎬',
     ];
 
-    private function storeIntro(): string
+    /**
+     * Sapaan pembuka yang dipakai di pesan menu & panduan.
+     *
+     * Kontak admin diambil dari `services.telegram-bot-api.admin_contact_url`
+     * (diisi admin dari panel, kolom `setting_webs.telegram_admin_url`).
+     *
+     * Kenapa TIDAK memakai `nomor_admin` lagi: kolom itu berisi nomor
+     * WhatsApp, jadi user Telegram menerima nomor telepon mentah yang tidak
+     * bisa diketik/dipencet. Yang diharapkan admin adalah tautan ke akun
+     * Telegram mereka. Nomor mentah juga membocorkan nomor pribadi di ruang
+     * publik.
+     *
+     * Di Telegram kontaknya berupa TAUTAN yang bisa dipencet; di WhatsApp
+     * (yang tidak mendukung tautan bertanda) URL-nya ditulis apa adanya.
+     */
+    private function storeIntro(?BotGatewayCapabilities $capabilities = null): string
     {
         $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
-        $settings = SettingWeb::query()->first();
-        // setting_webs currently stores the support WhatsApp number in nomor_admin.
-        $adminNumber = trim((string) ($settings?->nomor_admin ?: $settings?->wa_number));
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
 
         $lines = [
             "👋 *Selamat datang di {$storeName}*",
@@ -36,9 +47,13 @@ class BotMessageFormatter
             'Mau top up game atau cek pesananmu? Semua bisa dari sini.',
         ];
 
-        if ($adminNumber !== '') {
+        if ($adminUrl !== '') {
+            $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
             $lines[] = '';
-            $lines[] = "Jika ada kendala, hubungi admin: {$adminNumber}";
+            $lines[] = $isTelegram
+                ? "Jika ada kendala, hubungi admin: [💬 Klik di sini]({$adminUrl})"
+                : "Jika ada kendala, hubungi admin: {$adminUrl}";
         }
 
         return implode("\n", $lines);
@@ -268,7 +283,7 @@ class BotMessageFormatter
         }
 
         return [
-            'text' => $this->storeIntro() . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
+            'text' => $this->storeIntro($capabilities) . "\n\n🏠 *Menu Utama*" . $this->pageSuffix($pagination)
                 . "\nPilih kategori di bawah untuk mulai. 👇",
             'buttons' => $buttons,
             'numeric_menu' => [
@@ -894,6 +909,8 @@ class BotMessageFormatter
             $buttons[] = [$this->button('💰 Deposit', 'deposit')];
         }
 
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
+
         $lines = [
             $em('📖 Panduan Singkat'),
             '',
@@ -918,18 +935,12 @@ class BotMessageFormatter
 
         $lines[] = '';
         $lines[] = $em('❓ Butuh Bantuan?');
-
-        // Tombol "📞 Hubungi Admin" hanya ada di keyboard kalau admin mengisi
-        // `admin_contact_url`. Menyebutnya saat tombolnya tidak ada akan
-        // membuat user mencari tombol yang tidak pernah muncul — persis
-        // kebingungan yang mau kita hilangkan.
-        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
         $lines[] = $adminUrl !== ''
-            ? 'Tekan *📞 Hubungi Admin* kalau ada kendala, atau pilih tombol di bawah. 👇'
-            : 'Pilih tombol di bawah, atau hubungi admin kalau ada kendala. 👇';
+            ? 'Ketuk tautan *💬 Klik di sini* di atas, atau ketik /admin untuk membuka kontak admin. 🙏'
+            : 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏';
 
         return [
-            'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+            'text' => $this->storeIntro($capabilities) . "\n\n" . implode("\n", $lines),
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];
@@ -1121,7 +1132,6 @@ class BotMessageFormatter
     public function defaultReplyKeyboard(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM);
-        $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
         $keyboard = [[['text' => '🛍️ Buka Menu']]];
 
         if ($capabilities->supports('leaderboard')) {
@@ -1136,10 +1146,19 @@ class BotMessageFormatter
 
         $keyboard[] = [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']];
         $keyboard[] = [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']];
-        if ($adminUrl !== '') {
-            $keyboard[] = [['text' => '📞 Hubungi Admin']];
-        }
 
+        // TIDAK ada tombol "📞 Hubungi Admin" di sini.
+        //
+        // Reply keyboard Telegram hanya bisa memuat callback/data — labelnya
+        // cuma TEKS yang dikirim kembali sebagai pesan, jadi tidak bisa
+        // dijadikan tautan ke profil admin. Sebelumnya label itu tetap
+        // dipasang ketika `admin_contact_url` terisi, dan hasilnya menyesatkan:
+        // user menekannya, bot menerima balasan "📞 Hubungi Admin", lalu
+        // perintah `admin` membalas dengan tautan yang harus diketuk pada
+        // pesan BARU.
+        //
+        // Kontak admin sekarang dikirim sebagai tombol inline bertipe `url`
+        // di pesan panduan/menu — itu benar-benar bisa dipencet sekali klik.
         return [
             'keyboard' => $keyboard,
             'resize_keyboard' => true,

@@ -434,15 +434,19 @@ class TelegramJoinFlowCopyTest extends TestCase
         $this->assertStringContainsString('🛍️ Buka Menu', $text);
         $this->assertStringContainsString('📦 Cek Status', $text);
 
-        // TIDAK boleh menyebut tombol yang tidak ada di keyboard — tombol
-        // "Hubungi Admin" hanya muncul kalau admin mengisi contact url.
+        // TIDAK boleh menyebut tombol yang tidak ada. Kontak admin dikirim
+        // sebagai tombol inline bertipe url, bukan label di keyboard tetap.
         config(['services.telegram-bot-api.admin_contact_url' => '']);
         $withoutAdmin = $formatter->formatHelp($capabilities);
         $this->assertStringNotContainsString('📞 Hubungi Admin', (string) $withoutAdmin['text']);
 
         config(['services.telegram-bot-api.admin_contact_url' => 'https://t.me/adminku']);
         $withAdmin = $formatter->formatHelp($capabilities);
-        $this->assertStringContainsString('📞 Hubungi Admin', (string) $withAdmin['text']);
+        // Kontak admin harus TAUTAN yang bisa dipencet, bukan nomor mentah.
+        $this->assertStringContainsString(
+            '[💬 Klik di sini](https://t.me/adminku)',
+            (string) $withAdmin['text'],
+        );
 
         // Panduan harus punya langkah order + bagian judul yang menonjol.
         $this->assertStringContainsString('Cara Order', $text);
