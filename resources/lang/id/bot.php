@@ -16,6 +16,10 @@
  * CATATAN TEKNIS: nilai di sini harus IDENTIK dengan yang ada di
  * BotMessageFormatter sebelum dipindah — termasuk `*tebal*` dan emoji. Fase 1
  * tidak boleh mengubah satu karakter pun (aturan fase: perilaku identik).
+ *
+ * Penanda `__garis bawah__` TIDAK ditulis di sini untuk judul panduan:
+ * penekanan itu channel-specific (Telegram punya `__`, WhatsApp tidak) dan
+ * ditambahkan `$em()` di formatter. Di sini cukup teksnya saja.
  */
 return [
     // --- Sapaan (dipakai di menu & panduan) ---
@@ -27,4 +31,25 @@ return [
     'menu_pick_category' => 'Pilih kategori di bawah untuk mulai. 👇',
     'menu_categories_unavailable' => 'Maaf, daftar tipe kategori sedang tidak tersedia.',
     'menu_category_fallback' => 'Kategori',
+
+    // --- Panduan /help ---
+    // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang
+    // ditulis ulang di dalam teks. Label tombol belum boleh diterjemahkan
+    // sampai Fase 2 (parser lintas bahasa) selesai — kalau label diterjemahkan
+    // lebih dulu, parser tidak lagi mengenali tombol yang diketuk user.
+    'help_title' => '📖 Panduan Singkat',
+    'help_order_title' => '🛒 Cara Order',
+    'help_order_step_1' => '1. Tekan *🛍️ Buka Menu*',
+    'help_order_step_2' => '2. Pilih layanan, lalu pilih nominalnya',
+    'help_order_step_3' => '3. Masukkan detail kontak untuk bukti pembayaran',
+    'help_order_step_4' => '4. Pilih pembayaran, lalu selesaikan pembayaran',
+    'help_manage_title' => '🔎 Cek & Kelola',
+    'help_manage_status' => '• *📦 Cek Status* — status pesanan terakhir',
+    'help_manage_history' => '• *📜 Riwayat Order* — daftar pesananmu',
+    'help_manage_checkid' => '• *🔍 Cek ID Game* — pastikan nama akun benar dulu',
+    'help_manage_cancel' => '• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar',
+    'help_manage_deposit' => '• *💰 Deposit* — isi saldo lebih dulu',
+    'help_help_title' => '❓ Butuh Bantuan?',
+    'help_admin_link' => 'Ketuk tautan [💬 Klik di sini](:url), atau ketik /admin untuk membuka kontak admin. 🙏',
+    'help_admin_no_link' => 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏',
 ];

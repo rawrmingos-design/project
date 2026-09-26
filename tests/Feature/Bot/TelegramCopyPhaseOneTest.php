@@ -124,6 +124,73 @@ class TelegramCopyPhaseOneTest extends TestCase
         }, 'Balasan ke user Telegram harus tetap Bahasa Indonesia (baseline sebelum refactor).');
     }
 
+    /**
+     * Task 1.2: panduan `/help`.
+     *
+     * Karena `formatHelp()` channel-aware (garis bawah hanya di Telegram),
+     * cabangnya dipisah eksplisit: Telegram ambil dari file lang, WhatsApp
+     * tetap literal. Test ini mengunci DUA-DUANYA.
+     */
+    public function test_panduan_telegram_identik_dengan_baseline(): void
+    {
+        config(['services.telegram-bot-api.admin_contact_url' => 'https://t.me/alexander_vors']);
+
+        $help = app(BotMessageFormatter::class)->formatHelp(
+            \App\Services\Bot\BotGatewayCapabilities::forSource('telegram_gateway'),
+        );
+
+        $text = $help['text'];
+
+        // Judul pakai garis bawah (khusus Telegram), bukan tebal.
+        $this->assertStringContainsString('__📖 Panduan Singkat__', $text);
+        $this->assertStringContainsString('__🛒 Cara Order__', $text);
+        $this->assertStringContainsString('__🔎 Cek & Kelola__', $text);
+        $this->assertStringContainsString('__❓ Butuh Bantuan?__', $text);
+
+        // Empat langkah order.
+        $this->assertStringContainsString('1. Tekan *🛍️ Buka Menu*', $text);
+        $this->assertStringContainsString('2. Pilih layanan, lalu pilih nominalnya', $text);
+        $this->assertStringContainsString('3. Masukkan detail kontak untuk bukti pembayaran', $text);
+        $this->assertStringContainsString('4. Pilih pembayaran, lalu selesaikan pembayaran', $text);
+
+        // Daftar cek & kelola, termasuk label tombol yang BELUM diterjemahkan.
+        $this->assertStringContainsString('• *📦 Cek Status* — status pesanan terakhir', $text);
+        $this->assertStringContainsString('• *📜 Riwayat Order* — daftar pesananmu', $text);
+        $this->assertStringContainsString('• *🔍 Cek ID Game* — pastikan nama akun benar dulu', $text);
+        $this->assertStringContainsString('• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar', $text);
+
+        // Tautan admin bisa dipencet dan URL-nya masuk utuh (placeholder :url).
+        $this->assertStringContainsString('[💬 Klik di sini](https://t.me/alexander_vors)', $text);
+    }
+
+    public function test_panduan_tanpa_url_admin_memakai_teks_fallback(): void
+    {
+        config(['services.telegram-bot-api.admin_contact_url' => '']);
+
+        $text = app(BotMessageFormatter::class)->formatHelp(
+            \App\Services\Bot\BotGatewayCapabilities::forSource('telegram_gateway'),
+        )['text'];
+
+        $this->assertStringContainsString('Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏', $text);
+        $this->assertStringNotContainsString('Klik di sini', $text);
+    }
+
+    public function test_panduan_whatsapp_tetap_literal_indonesia(): void
+    {
+        config(['services.telegram-bot-api.admin_contact_url' => 'https://t.me/alexander_vors']);
+
+        $text = app(BotMessageFormatter::class)->formatHelp(
+            \App\Services\Bot\BotGatewayCapabilities::forSource('whatsapp_gateway'),
+        )['text'];
+
+        // WhatsApp tidak punya `__garis bawah__` — judul harus TETAP tebal.
+        $this->assertStringContainsString('*📖 Panduan Singkat*', $text);
+        $this->assertStringNotContainsString('__', $text, 'WhatsApp tidak boleh menerima penanda garis bawah Telegram.');
+
+        // URL mentah, bukan sintaks tautan Telegram.
+        $this->assertStringContainsString('Hubungi admin di https://t.me/alexander_vors, atau ketik /admin. 🙏', $text);
+    }
+
     public function test_formatter_langsung_tetap_indonesia(): void
     {
         $menu = app(BotMessageFormatter::class)->formatCategories([

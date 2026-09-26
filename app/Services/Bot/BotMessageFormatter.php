@@ -903,6 +903,48 @@ class BotMessageFormatter
         // Langkah-langkah sengaja memakai kata umum ("layanan", "detail
         // kontak"), bukan "game" / "ID akun game": katalog toko mencakup
         // produk game maupun layanan aplikasi premium.
+        // Ayat panduan diambil dari file lang HANYA untuk Telegram. WhatsApp
+        // tetap memakai literal Indonesia di bawah: fase ini mengunci perilaku
+        // WhatsApp supaya tidak berubah sama sekali. Kalau nanti WhatsApp ikut
+        // diterjemahkan, itu keputusan terpisah — bukan efek samping.
+        // Judul di-`$em()` setelah diterjemahkan agar penekanan tetap
+        // channel-specific (`__` di Telegram, `*` di channel lain).
+        if ($isTelegram) {
+            $lines = [
+                $em(__('bot.help_title')),
+                '',
+                $em(__('bot.help_order_title')),
+                __('bot.help_order_step_1'),
+                __('bot.help_order_step_2'),
+                __('bot.help_order_step_3'),
+                __('bot.help_order_step_4'),
+                '',
+                $em(__('bot.help_manage_title')),
+                __('bot.help_manage_status'),
+                __('bot.help_manage_history'),
+                __('bot.help_manage_checkid'),
+                __('bot.help_manage_cancel'),
+            ];
+
+            if ($capabilities->supports('deposit')) {
+                // Ditaruh di dalam daftar supaya urutannya ikut alur, bukan
+                // menggantung di bawah.
+                $lines[] = __('bot.help_manage_deposit');
+            }
+
+            $lines[] = '';
+            $lines[] = $em(__('bot.help_help_title'));
+            $lines[] = $adminUrl !== ''
+                ? __('bot.help_admin_link', ['url' => $adminUrl])
+                : __('bot.help_admin_no_link');
+
+            return [
+                'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+                'buttons' => $buttons,
+                'use_reply_keyboard' => true,
+            ];
+        }
+
         $lines = [
             $em('📖 Panduan Singkat'),
             '',
@@ -932,12 +974,12 @@ class BotMessageFormatter
         // tautan yang bisa dipencet. Sebelumnya kontak juga ditempel di
         // sapaan pembuka sebagai nomor mentah — duplikat yang tidak bisa
         // dipencet, jadi dihapus.
+        //
+        // Cabang Telegram sudah ditangani di atas, jadi di sini murni WhatsApp:
+        // URL ditulis apa adanya karena WhatsApp tidak merender sintaks tautan
+        // Telegram, sehingga bisa diketuk langsung.
         $lines[] = $adminUrl !== ''
-            ? ($isTelegram
-                ? "Ketuk tautan [💬 Klik di sini]({$adminUrl}), atau ketik /admin untuk membuka kontak admin. 🙏"
-                // WhatsApp tidak merender sintaks tautan Telegram, jadi URL
-                // ditulis apa adanya supaya bisa diketuk langsung.
-                : "Hubungi admin di {$adminUrl}, atau ketik /admin. 🙏")
+            ? "Hubungi admin di {$adminUrl}, atau ketik /admin. 🙏"
             : 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏';
 
         return [
