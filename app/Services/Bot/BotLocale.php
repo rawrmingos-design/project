@@ -130,12 +130,22 @@ class BotLocale
         return in_array($base, self::SUPPORTED, true) ? $base : null;
     }
 
-    /** Locale default dari panel admin, dengan jaring terakhir config. */
+    /**
+     * Locale default dari panel admin.
+     *
+     * Sengaja TIDAK memakai `config('app.locale')` sebagai jaring terakhir:
+     * nilai itu dimutasi per-request oleh `LanguageDetectMiddleware` dari header
+     * `Accept-Language`. Di webhook bot, header itu berasal dari Telegram —
+     * bukan dari user — sehingga hasilnya non-deterministik. Terbukti saat
+     * probe runtime: dengan kolom panel berisi nilai tak dikenal, resolusi
+     * jatuh ke `en` hanya karena `app.locale` request itu `en`.
+     *
+     * Jaring terakhir yang deterministik: 'id' (pasar sebenarnya, sama dengan
+     * default kolom `setting_webs.bot_default_locale`).
+     */
     public function defaultLocale(): string
     {
-        $panel = $this->normalize($this->panelDefault());
-
-        return $panel ?? $this->normalize((string) config('app.locale')) ?? 'id';
+        return $this->normalize($this->panelDefault()) ?? 'id';
     }
 
     /**

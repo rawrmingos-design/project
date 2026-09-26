@@ -191,6 +191,22 @@ class BotLocalePreferenceTest extends TestCase
         $this->assertSame('id', app()->getLocale(), 'Locale harus dipulihkan setelah request selesai.');
     }
 
+    public function test_default_tidak_bergantung_locale_request(): void
+    {
+        // app.locale dimutasi per-request oleh LanguageDetectMiddleware dari
+        // header Accept-Language. Di webhook bot header itu milik Telegram,
+        // bukan user → default bahasa TIDAK BOLEH ikut berubah.
+        config(['services.telegram-bot-api.default_locale' => 'klingon']);
+
+        app()->setLocale('en');
+        $this->assertSame('id', app(BotLocale::class)->defaultLocale());
+
+        app()->setLocale('id');
+        $this->assertSame('id', app(BotLocale::class)->defaultLocale());
+
+        app()->setLocale('id');
+    }
+
     public function test_konteks_tanpa_identitas_tidak_meledak(): void
     {
         $loc = app(BotLocale::class);
