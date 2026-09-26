@@ -19,8 +19,9 @@ class TelegramChannelMembershipServiceTest extends TestCase
         config([
             'services.telegram-bot-api.token' => 'test-token',
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
     }
 
@@ -110,7 +111,10 @@ class TelegramChannelMembershipServiceTest extends TestCase
 
     public function test_invalid_configuration_fails_closed(): void
     {
-        config(['services.telegram-bot-api.required_channel.url' => 'https://t.me/otherchannel']);
+        // Gate AKTIF tapi daftar channel kosong (atau semua entri rusak).
+        // Tidak boleh fail-open: user tanpa channel wajib yang sah harus
+        // ditahan, bukan dibiarkan lewat.
+        config(['services.telegram-bot-api.required_channel.channels' => []]);
 
         $result = app(TelegramChannelMembershipService::class)->check($this->context());
 

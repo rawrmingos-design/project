@@ -21,7 +21,6 @@ class SettingWeb extends Model
     protected $casts = [
         'tiktok_tracking_enabled' => 'boolean',
         'telegram_required_channels' => 'array',
-        'telegram_announcement_targets' => 'array',
         'telegram_welcome_enabled' => 'boolean',
         'profit_member' => 'integer',
         'profit_platinum' => 'integer',

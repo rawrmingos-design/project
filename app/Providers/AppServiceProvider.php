@@ -230,11 +230,18 @@ class AppServiceProvider extends ServiceProvider
                     if (!empty($config->telegram_webhook_secret)) {
                         config(['services.telegram-bot-api.webhook_secret' => $config->telegram_webhook_secret]);
                     }
-                    if (!empty($config->telegram_channel_id)) {
-                        config(['services.telegram-bot-api.required_channel.id' => $config->telegram_channel_id]);
+                    // Daftar grup/channel wajib — SATU sumber: kolom JSON
+                    // `setting_webs.telegram_required_channels` dari panel.
+                    // Tidak ada fallback .env: dulu dua sumber ini membuat
+                    // admin bingung karena isian panel diabaikan.
+                    $requiredChannels = $config->telegram_required_channels ?? null;
+
+                    if (is_string($requiredChannels) && $requiredChannels !== '') {
+                        $requiredChannels = json_decode($requiredChannels, true);
                     }
-                    if (!empty($config->telegram_channel_url)) {
-                        config(['services.telegram-bot-api.required_channel.url' => $config->telegram_channel_url]);
+
+                    if (is_array($requiredChannels) && $requiredChannels !== []) {
+                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
                     }
 
                     // URL kontak admin Telegram — diisi dari panel admin.
@@ -255,22 +262,6 @@ class AppServiceProvider extends ServiceProvider
 
                     if (is_array($requiredChannels) && $requiredChannels !== []) {
                         config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
-                    }
-
-                    // Deep-link grup diskusi (opsional).
-                    if (!empty($config->telegram_discussion_url)) {
-                        config(['services.telegram-bot-api.discussion_url' => $config->telegram_discussion_url]);
-                    }
-
-                    // Tujuan pengumuman admin (grup + topik forum).
-                    $announcementTargets = $config->telegram_announcement_targets ?? null;
-
-                    if (is_string($announcementTargets) && $announcementTargets !== '') {
-                        $announcementTargets = json_decode($announcementTargets, true);
-                    }
-
-                    if (is_array($announcementTargets) && $announcementTargets !== []) {
-                        config(['services.telegram-bot-api.announcement_targets' => array_values($announcementTargets)]);
                     }
 
                     // Sambutan otomatis member baru di grup Telegram.

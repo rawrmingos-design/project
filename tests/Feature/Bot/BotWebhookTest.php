@@ -233,8 +233,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
@@ -279,8 +280,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
@@ -549,8 +551,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.fonnte.com/send' => Http::response(['status' => true]),
@@ -1512,8 +1515,9 @@ class BotWebhookTest extends TestCase
         Cache::flush();
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([

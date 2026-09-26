@@ -60,28 +60,24 @@ return [
         'deposit_enabled' => env('TELEGRAM_DEPOSIT_ENABLED', false),
         'order_enabled' => env('BOT_ORDER_ENABLED', false),
         'admin_contact_url' => env('TELEGRAM_ADMIN_CONTACT_URL', ''),
+        // Daftar grup/channel wajib. SATU sumber: kolom JSON
+        // `setting_webs.telegram_required_channels` (panel admin).
+        // Tidak ada fallback .env — saklar hidup/mati TETAP di
+        // TELEGRAM_REQUIRED_CHANNEL_ENABLED supaya tidak bisa dimatikan
+        // diam-diam dari UI saat produksi.
         'required_channel' => [
             'enabled' => env('TELEGRAM_REQUIRED_CHANNEL_ENABLED', false),
-            'id' => env('TELEGRAM_REQUIRED_CHANNEL_ID'),
-            'url' => env('TELEGRAM_REQUIRED_CHANNEL_URL'),
+            'channels' => [],
             // Keanggotaan SELALU dicek ulang ke Telegram pada setiap request,
-            // jadi tidak ada TTL hasil positif. Pencabutan keanggotaan harus
-            // langsung terasa (bug: user keluar channel masih lolos 24 jam).
-            // Berapa lama fakta "user ini pernah lolos" diingat sebagai jaring
-            // pengaman saat Telegram TIDAK BISA dihubungi. Tidak pernah dipakai
-            // untuk meloloskan request yang berhasil diperiksa.
+            // jadi tidak ada TTL hasil positif. Berapa lama fakta "user ini
+            // pernah lolos" diingat sebagai jaring pengaman saat Telegram
+            // TIDAK BISA dihubungi. Tidak pernah dipakai untuk meloloskan
+            // request yang berhasil diperiksa.
             'grace_seconds' => env('TELEGRAM_REQUIRED_CHANNEL_GRACE_SECONDS', 86400),
             // Tujuan laporan saat gate TIDAK BISA berfungsi (bot belum ada di
             // channel). Kosong = cukup lewat log.
             'admin_alert_chat_id' => env('TELEGRAM_ADMIN_ALERT_CHAT_ID'),
         ],
-        // Deep-link grup diskusi (opsional) untuk tombol "Diskusi".
-        // Catatan: Bot API TIDAK bisa membuat post di topik General; tautan
-        // ini yang dipakai agar user bisa masuk ke topik diskusi.
-        'discussion_url' => env('TELEGRAM_DISCUSSION_URL'),
-        // Tujuan pengumuman admin: daftar {label, chat_id, thread_id}.
-        // Diisi dari kolom JSON setting_webs.telegram_announcement_targets.
-        'announcement_targets' => [],
     ],
 
     'fonnte' => [

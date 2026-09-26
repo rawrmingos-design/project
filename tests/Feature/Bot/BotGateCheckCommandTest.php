@@ -25,8 +25,6 @@ class BotGateCheckCommandTest extends TestCase
         config([
             'services.telegram-bot-api.token' => 'dummy-token',
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => null,
-            'services.telegram-bot-api.required_channel.url' => null,
             'services.telegram-bot-api.required_channel.channels' => [
                 ['id' => '@jasakodings', 'url' => 'https://t.me/jasakodings', 'label' => 'Jasakoding'],
             ],

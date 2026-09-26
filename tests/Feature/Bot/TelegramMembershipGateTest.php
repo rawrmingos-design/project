@@ -29,8 +29,6 @@ class TelegramMembershipGateTest extends TestCase
         config([
             'services.telegram-bot-api.token' => 'dummy-token',
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => null,
-            'services.telegram-bot-api.required_channel.url' => null,
             'services.telegram-bot-api.required_channel.channels' => [],
         ]);
     }
@@ -73,26 +71,55 @@ class TelegramMembershipGateTest extends TestCase
         ];
     }
 
-    public function test_resolver_falls_back_to_legacy_single_channel_config(): void
+    public function test_resolver_accepts_numeric_id_for_private_group(): void
     {
+        // Grup privat tidak punya username, jadi satu-satunya cara gate bisa
+        // bekerja adalah ID numerik. Link undangannya berbentuk +hash yang
+        // TIDAK mungkin sama dengan ID — jadi keduanya tidak boleh
+        // dibandingkan satu sama lain.
         config([
-            'services.telegram-bot-api.required_channel.id' => '@legacychan',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/legacychan',
-            'services.telegram-bot-api.required_channel.channels' => [],
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '-1001234567890', 'url' => 'https://t.me/+AbCdEfGhIjK', 'label' => 'Grup Privat'],
+            ],
         ]);
 
         $channels = TelegramRequiredChannels::all();
 
         $this->assertCount(1, $channels);
-        $this->assertSame('@legacychan', $channels[0]['id']);
-        $this->assertSame('https://t.me/legacychan', $channels[0]['url']);
+        $this->assertSame('-1001234567890', $channels[0]['id']);
+        $this->assertSame('https://t.me/+AbCdEfGhIjK', $channels[0]['url']);
+        $this->assertSame('Grup Privat', $channels[0]['label']);
     }
 
-    public function test_resolver_prefers_multi_channel_list_over_legacy_single(): void
+    public function test_resolver_accepts_legacy_joinchat_invite_link(): void
     {
         config([
-            'services.telegram-bot-api.required_channel.id' => '@legacychan',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/legacychan',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '-1009876543210', 'url' => 'https://t.me/joinchat/AbCdEfGhIjK'],
+            ],
+        ]);
+
+        $this->assertCount(1, TelegramRequiredChannels::all());
+    }
+
+    public function test_resolver_has_no_env_fallback(): void
+    {
+        // Dulu nilai bisa datang dari .env, dan itu membuat admin bingung
+        // karena isian panel diam-diam diabaikan. Sekarang daftar channel
+        // HANYA dari DB.
+        config([
+            'services.telegram-bot-api.required_channel.channels' => [],
+            // Nilai .env sengaja diisi: TIDAK boleh dipakai lagi.
+            'services.telegram-bot-api.required_channel.id' => '@envchan',
+            'services.telegram-bot-api.required_channel.url' => 'https://t.me/envchan',
+        ]);
+
+        $this->assertSame([], TelegramRequiredChannels::all());
+    }
+
+    public function test_resolver_returns_all_valid_channels(): void
+    {
+        config([
             'services.telegram-bot-api.required_channel.channels' => [
                 ['id' => '@mastoredigital', 'url' => 'https://t.me/mastoredigital', 'label' => 'Channel Info'],
                 ['id' => '@mapremiumsinfo', 'url' => 'https://t.me/mapremiumsinfo', 'label' => 'Grup Info'],
@@ -105,15 +132,17 @@ class TelegramMembershipGateTest extends TestCase
         $this->assertSame(['@mastoredigital', '@mapremiumsinfo'], array_column($channels, 'id'));
     }
 
-    public function test_resolver_drops_channel_whose_url_does_not_match_id(): void
+    public function test_resolver_drops_malformed_entries_instead_of_passing_them_to_telegram(): void
     {
         config([
             'services.telegram-bot-api.required_channel.channels' => [
                 ['id' => '@goodchannel', 'url' => 'https://t.me/goodchannel'],
-                // URL menunjuk channel lain -> entri ini tidak boleh dipakai,
-                // kalau tidak user diarahkan ke channel yang salah.
-                ['id' => '@badchannel', 'url' => 'https://t.me/otherchannel'],
+                // ID tanpa awalan @ dan bukan numerik.
                 ['id' => 'bukanusername', 'url' => 'https://t.me/bukanusername'],
+                // Domain selain t.me.
+                ['id' => '@other', 'url' => 'https://telegram.me/other'],
+                // Tanpa ID.
+                ['id' => '', 'url' => 'https://t.me/kosong'],
             ],
         ]);
 

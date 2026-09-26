@@ -9,6 +9,7 @@ use App\Services\OptimizedImageService;
 use App\Services\PwaIconGeneratorService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PublicThemeRegistry;
+use App\Support\TelegramRequiredChannels;
 use App\Support\MediaAssetPicker;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -1263,20 +1264,10 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).')
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
-                        TextInput::make('telegram_channel_id')
-                            ->label('Channel ID (lama)')
-                            ->helperText('Channel tunggal yang wajib diikuti (contoh: @channelku). Hanya dipakai bila daftar di bawah kosong.')
-                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
-
-                        TextInput::make('telegram_channel_url')
-                            ->label('Channel URL (lama)')
-                            ->helperText('URL invite channel (contoh: https://t.me/channelku). Hanya dipakai bila daftar di bawah kosong.')
-                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
-
                         Repeater::make('telegram_required_channels')
-                            ->label('Channel / Grup Wajib (bisa lebih dari satu)')
-                            ->helperText('User harus bergabung ke SEMUA channel di daftar ini sebelum bisa membuka katalog atau membuat order. Untuk GRUP TOPIK Telegram, isi grupnya di sini supaya user wajib bergabung ke grup tersebut.')
-                            ->addActionLabel('Tambah channel')
+                            ->label('Grup / Channel Wajib (bisa lebih dari satu)')
+                            ->helperText('User harus bergabung ke SEMUA grup/channel di daftar ini sebelum bisa membuka katalog atau membuat order. Untuk grup privat, isi ID numeriknya (mis. -1001234567890) dan tempel link undangannya di kolom URL.')
+                            ->addActionLabel('Tambah grup / channel')
                             ->reorderable()
                             ->columns(1)
                             ->columnSpanFull()
@@ -1284,74 +1275,32 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->schema([
                                 TextInput::make('label')
                                     ->label('Nama Tampilan')
-                                    ->placeholder('Channel Info')
+                                    ->placeholder('Grup Info')
                                     ->helperText('Nama yang muncul di pesan "Akses Terbatas". Boleh dikosongkan.')
                                     ->maxLength(60),
                                 TextInput::make('id')
-                                    ->label('Channel ID')
-                                    ->placeholder('@channelku')
+                                    ->label('ID Grup / Channel')
+                                    ->placeholder('@namagrup  atau  -1001234567890')
                                     ->required()
-                                    ->rule('regex:/^@[A-Za-z0-9_]{5,}$/')
-                                    ->validationMessages([
-                                        'regex' => 'Gunakan format @username (contoh: @mastoredigital).',
-                                    ]),
+                                    ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail): void {
+                                        if (! TelegramRequiredChannels::isValidId((string) $value)) {
+                                            $fail('Isi @username (grup publik) atau ID numerik seperti -1001234567890 (wajib untuk grup privat).');
+                                        }
+                                    })
+                                    ->helperText('Grup publik: @username. Grup privat: ID numerik dari @userinfobot. Bot WAJIB sudah jadi anggota di sini, kalau tidak gate tidak bisa jalan.'),
                                 TextInput::make('url')
-                                    ->label('URL Invite')
-                                    ->placeholder('https://t.me/channelku')
+                                    ->label('URL Undangan')
+                                    ->placeholder('https://t.me/namagrup  atau  https://t.me/+AbCdEfGh')
                                     ->required()
-                                    ->rule('regex:#^https://t\.me/[A-Za-z0-9_/]+$#')
-                                    ->validationMessages([
-                                        'regex' => 'Harus URL https://t.me/... yang cocok dengan Channel ID.',
-                                    ]),
+                                    ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail): void {
+                                        if (! TelegramRequiredChannels::isValidUrl((string) $value)) {
+                                            $fail('Gunakan https://t.me/namagrup (publik) atau https://t.me/+AbCdEfGh (undangan privat).');
+                                        }
+                                    })
+                                    ->helperText('Link yang diklik user untuk bergabung. Untuk grup privat, salin link undangan dari Telegram.'),
                             ])
                             ->itemLabel(fn (array $state): ?string => filled($state['id'] ?? null)
-                                ? (string) ($state['label'] ?? '') . ' ' . (string) $state['id']
-                                : null)
-                            ->visible(fn () => (bool) config('bot.order_enabled', false))
-                            ->columnSpanFull(),
-
-                        TextInput::make('telegram_discussion_url')
-                            ->label('Link Grup Diskusi (opsional)')
-                            ->helperText('Deep-link ke topik diskusi, contoh: https://t.me/namagrup/12. Dipakai untuk tombol "Diskusi". Catatan: Telegram TIDAK mengizinkan bot membuat post di topik General, jadi ini berupa tautan, bukan posting otomatis.')
-                            ->placeholder('https://t.me/namagrup/12')
-                            ->rule('regex:#^https://t\.me/[A-Za-z0-9_]{4,}(/\d+)?$#')
-                            ->validationMessages([
-                                'regex' => 'Harus https://t.me/namagrup atau https://t.me/namagrup/<id topik>.',
-                            ])
-                            ->visible(fn () => (bool) config('bot.order_enabled', false)),
-
-                        Repeater::make('telegram_announcement_targets')
-                            ->label('Tujuan Pengumuman (grup + topik)')
-                            ->helperText('Ke mana pengumuman admin dikirim. Isi "Thread ID" dengan id TOPIK (mis. Announcement); kosongkan bila ingin masuk ke chat utama. Bot harus sudah jadi anggota grup dan punya izin kirim pesan. Ambil ID grup numerik (mis. -1001234567890) lewat bot seperti @userinfobot.')
-                            ->addActionLabel('Tambah tujuan')
-                            ->reorderable()
-                            ->columns(1)
-                            ->columnSpanFull()
-                            ->defaultItems(0)
-                            ->schema([
-                                TextInput::make('label')
-                                    ->label('Nama Tujuan')
-                                    ->placeholder('Announcement')
-                                    ->helperText('Hanya untuk membedakan tujuan di daftar ini.')
-                                    ->maxLength(60),
-                                TextInput::make('chat_id')
-                                    ->label('Chat ID Grup')
-                                    ->placeholder('-1001234567890')
-                                    ->required()
-                                    ->rule('regex:/^-?\d{5,}$/')
-                                    ->validationMessages([
-                                        'regex' => 'Harus ID numerik grup, contoh: -1001234567890. Username @grup tidak dipakai untuk tujuan kirim.',
-                                    ]),
-                                TextInput::make('thread_id')
-                                    ->label('Thread ID Topik (opsional)')
-                                    ->placeholder('12')
-                                    ->helperText('Kosongkan untuk chat utama / Topik General.')
-                                    ->numeric()
-                                    ->minValue(1),
-                            ])
-                            ->itemLabel(fn (array $state): ?string => filled($state['chat_id'] ?? null)
-                                ? trim((string) ($state['label'] ?? '')) . ' → ' . (string) $state['chat_id']
-                                    . (filled($state['thread_id'] ?? null) ? ' / topik ' . (string) $state['thread_id'] : ' / utama')
+                                ? trim((string) ($state['label'] ?? '') . ' ') . (string) $state['id']
                                 : null)
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),

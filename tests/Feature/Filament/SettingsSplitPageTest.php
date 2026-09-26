@@ -307,6 +307,110 @@ class SettingsSplitPageTest extends AdminTestCase
         );
     }
 
+    public function test_notifications_settings_saves_private_group_with_numeric_id(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_required_channels' => [
+                    [
+                        'label' => 'Grup Privat',
+                        'id' => '-1001234567890',
+                        'url' => 'https://t.me/+AbCdEfGhIjK',
+                    ],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $saved = SettingWeb::query()->findOrFail(1)->telegram_required_channels;
+
+        $this->assertCount(1, $saved);
+        $this->assertSame('-1001234567890', $saved[0]['id']);
+        $this->assertSame('https://t.me/+AbCdEfGhIjK', $saved[0]['url']);
+    }
+
+    public function test_required_channel_rejects_id_that_telegram_cannot_read(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        // Simpan dulu nilai yang SAH. Tanpa langkah ini, "nilai kosong" di
+        // akhir test bisa berarti "tidak pernah diset" — hijau palsu.
+        Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_required_channels' => [
+                    ['label' => 'Sah', 'id' => '@mastoredigital', 'url' => 'https://t.me/mastoredigital'],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertCount(1, SettingWeb::query()->findOrFail(1)->telegram_required_channels);
+
+        // Link undangan BUKAN identitas yang bisa dibaca getChatMember.
+        // Harus ditolak di form, bukan gagal diam-diam saat gate berjalan.
+        $component = Livewire::test(NotificationsSettings::class)
+            ->fillForm([
+                'wa_provider' => 'fonnte',
+                'mail_mailer' => 'smtp',
+                'telegram_required_channels' => [
+                    ['label' => 'Salah', 'id' => 'https://t.me/+AbCdEfGhIjK', 'url' => 'https://t.me/+AbCdEfGhIjK'],
+                ],
+            ])
+            ->call('save');
+
+        $component->assertHasErrors();
+
+        // Nilai SAH yang lama tetap utuh: bukti mutasi ditolak, bukan
+        // menggantinya jadi kosong.
+        $saved = SettingWeb::query()->findOrFail(1)->telegram_required_channels;
+
+        $this->assertCount(1, $saved, 'Isian tidak sah tidak boleh mengganti data yang sudah benar.');
+        $this->assertSame('@mastoredigital', $saved[0]['id']);
+    }
+
+    public function test_notifications_settings_no_longer_shows_removed_telegram_fields(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'Admin']);
+        $this->actingAs($admin);
+
+        $this->createTrackingSettings(['wa_provider' => 'fonnte']);
+
+        putenv('BOT_ORDER_ENABLED=true');
+        config(['bot.order_enabled' => true]);
+        Http::fake();
+
+        // Field lama ini dihapus supaya tidak ada lagi dua sumber kebenaran
+        // yang membingungkan admin.
+        Livewire::test(NotificationsSettings::class)
+            ->assertFormFieldDoesNotExist('telegram_channel_id')
+            ->assertFormFieldDoesNotExist('telegram_channel_url')
+            ->assertFormFieldDoesNotExist('telegram_discussion_url')
+            ->assertFormFieldDoesNotExist('telegram_announcement_targets');
+    }
+
     public function test_welcome_template_column_supports_emoji(): void
     {
         // REGRESI BUG NYATA: tabel setting_webs dibuat dengan collation
