@@ -251,6 +251,14 @@ class AppServiceProvider extends ServiceProvider
                         config(['services.telegram-bot-api.admin_contact_url' => $config->telegram_admin_url]);
                     }
 
+                    // Default bahasa bot (setting_webs.bot_default_locale).
+                    // Diisi APA ADANYA kalau tidak kosong; BotLocale yang
+                    // memvalidasi lewat whitelist id/en, jadi nilai aneh dari
+                    // DB tidak bisa membuat chat berbahasa tak dikenal.
+                    if (!empty($config->bot_default_locale)) {
+                        config(['services.telegram-bot-api.default_locale' => $config->bot_default_locale]);
+                    }
+
                     // Daftar channel wajib versi BARU (banyak channel sekaligus).
                     // Bila terisi, ini yang dipakai; kolom tunggal di atas tetap
                     // dihormati sebagai fallback deployment lama.

@@ -60,6 +60,10 @@ return [
         'deposit_enabled' => env('TELEGRAM_DEPOSIT_ENABLED', false),
         'order_enabled' => env('BOT_ORDER_ENABLED', false),
         'admin_contact_url' => env('TELEGRAM_ADMIN_CONTACT_URL', ''),
+        // Default bahasa bot; nilai DB (setting_webs.bot_default_locale)
+        // menimpanya lewat AppServiceProvider. Dipakai BotLocale sebagai
+        // jaring terakhir rantai resolusi.
+        'default_locale' => env('TELEGRAM_BOT_DEFAULT_LOCALE', 'id'),
         // Daftar grup/channel wajib. SATU sumber: kolom JSON
         // `setting_webs.telegram_required_channels` (panel admin).
         // Tidak ada fallback .env — saklar hidup/mati TETAP di

@@ -55,6 +55,9 @@ class NotificationsSettings extends SettingsSectionPage
             'telegram_welcome_thread_id',
             'telegram_admin_url',
             'bot_order_tg_enabled',
+            // Default bahasa bot (ID/EN). Tanpa entri whitelist, field baru ini
+            // dibuang filterStateByWhitelist() dan tersimpan NULL.
+            'bot_default_locale',
             'easywa_email',
             'easywa_secret_key',
             'easywa_send_type',

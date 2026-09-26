@@ -1348,6 +1348,19 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
+
+                        Select::make('bot_default_locale')
+                            ->label('Bahasa Default Bot')
+                            ->helperText('Bahasa cadangan kalau bahasa perangkat user tidak dikenali, atau percakapan terjadi di grup. User bisa menggantinya sendiri kapan saja lewat /bahasa di dalam bot.')
+                            ->options([
+                                'id' => '🇮🇩 Bahasa Indonesia',
+                                'en' => '🇬🇧 English',
+                            ])
+                            ->default('id')
+                            ->selectablePlaceholder(false)
+                            ->required()
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->collapsed(),
