@@ -58,7 +58,7 @@ class BotCommandHandler
             // membuka katalog / membuat order) tidak boleh diblokir gate
             // keanggotaan. Sebelumnya gangguan verifikasi sesaat membuat
             // user tidak bisa mengecek transaksinya sendiri.
-            if (! $this->isMembershipExemptCommand($command)) {
+            if (! $this->isMembershipExemptCommand($command, $args)) {
                 $membership = $this->telegramMembership->check($context);
                 $status = (string) ($membership['status'] ?? '');
 
@@ -1638,19 +1638,35 @@ class BotCommandHandler
     }
 
     /**
-     * Perintah yang TIDAK memerlukan keanggotaan channel: perintah yang
-     * hanya menampilkan data milik sender sendiri (status transaksi,
-     * riwayat, bantuan) atau yang justru dipakai untuk memperbaiki
-     * keadaan (start/batal). Gate keanggotaan tetap berlaku untuk
-     * membuka katalog dan membuat order.
+     * Perintah yang TIDAK memerlukan keanggotaan channel.
+     *
+     * Kriteria: hanya menyentuh data milik sender sendiri (status transaksi,
+     * riwayat) atau justru dipakai untuk memperbaiki keadaan (batal, hubungi
+     * admin). Perintah yang menampilkan KATALOG, PANDUAN, atau KEYBOARD MENU
+     * WAJIB lewat gate.
+     *
+     * `start` dan `help`/`bantuan` SENGAJA tidak lagi ada di daftar ini:
+     * keduanya dulu dikecualikan karena dianggap "perintah milik sendiri",
+     * padahal `start`/`help` menampilkan panduan BESERTA keyboard menu
+     * (`formatHelp()` mengirim `use_reply_keyboard`). Akibatnya user yang
+     * belum bergabung cukup menekan START untuk melihat layar pembuka dan
+     * tombol menu, tanpa pernah melewati gate — akun baru "langsung bisa
+     * buka menu". Panduan tetap tersedia setelah user bergabung.
+     *
+     * Pengecualian khusus: deeplink `start <token>` (menautkan akun web ke
+     * Telegram) tetap dibebaskan. Itu jalur identitas, bukan akses katalog,
+     * dan token-nya hanya bisa didapat dari halaman web yang sudah login.
      *
      * @param string|null $command
+     * @param array<int, mixed> $args
      */
-    private function isMembershipExemptCommand(?string $command): bool
+    private function isMembershipExemptCommand(?string $command, array $args = []): bool
     {
+        if ($command === 'start' && trim((string) ($args[0] ?? '')) !== '') {
+            return true;
+        }
+
         return in_array($command, [
-            'start',
-            'help', 'bantuan',
             'status',
             'order_history', 'history', 'riwayat', 'pesanan',
             'batal', 'cancel',

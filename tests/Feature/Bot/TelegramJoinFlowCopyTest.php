@@ -113,6 +113,98 @@ class TelegramJoinFlowCopyTest extends TestCase
         );
     }
 
+    /**
+     * BUG YANG PERNAH TERJADI: akun Telegram baru cukup menekan START untuk
+     * melihat layar pembuka + keyboard menu, tanpa pernah bergabung ke channel
+     * wajib. Penyebabnya `/start` dan `/help` dikecualikan dari gate, padahal
+     * keduanya menampilkan panduan BESERTA keyboard menu.
+     *
+     * Kontrak: user yang BELUM bergabung tidak boleh menerima panduan/katalog
+     * dari `/start` maupun `/help` — keduanya harus berhenti di gerbang.
+     */
+    public function test_start_and_help_do_not_bypass_the_gate(): void
+    {
+        $this->seedInboundPolicy();
+
+        foreach (['/start', '/help', '/bantuan'] as $index => $command) {
+            $joined = false;
+            $this->fakeGate($joined);
+
+            $this->sendUpdate(11 + $index, $command);
+
+            // Wajib berhenti di gerbang.
+            Http::assertSent(function ($request) use ($command): bool {
+                if (! str_contains($request->url(), 'sendMessage')) {
+                    return false;
+                }
+
+                $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
+
+                return str_contains($text, 'Akses Terbatas');
+            });
+
+            // Dan TIDAK boleh membocorkan panduan/katalog.
+            Http::assertNotSent(function ($request) use ($command): bool {
+                if (! str_contains($request->url(), 'sendMessage')) {
+                    return false;
+                }
+
+                $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
+
+                return str_contains($text, 'Panduan Transaksi');
+            });
+        }
+    }
+
+    /**
+     * Deeplink `start <token>` (menautkan akun web ke Telegram) tetap boleh
+     * lewat gate — itu jalur identitas, bukan akses katalog. Token hanya bisa
+     * didapat dari halaman web yang sudah login.
+     */
+    public function test_start_deeplink_still_works_without_membership(): void
+    {
+        $this->seedInboundPolicy();
+        $joined = false;
+        $this->fakeGate($joined);
+
+        $this->sendUpdate(12, '/start abcdef123456');
+
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), 'sendMessage')) {
+                return false;
+            }
+
+            $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
+
+            // Bukan pesan gate: deeplink diproses sebagai proses linking.
+            return ! str_contains($text, 'Akses Terbatas');
+        });
+    }
+
+    /**
+     * `status`, `order_history`, dan `batal` tetap dibebaskan: itu data milik
+     * sender sendiri dan justru dipakai memperbaiki keadaan. Kalau gate
+     * bermasalah, user tetap harus bisa mengecek transaksinya.
+     */
+    public function test_own_data_commands_remain_exempt_from_the_gate(): void
+    {
+        $this->seedInboundPolicy();
+        $joined = false;
+        $this->fakeGate($joined);
+
+        $this->sendUpdate(13, '/status');
+
+        Http::assertSent(function ($request): bool {
+            if (! str_contains($request->url(), 'sendMessage')) {
+                return false;
+            }
+
+            $text = preg_replace('/\\\\(.)/u', '$1', (string) $request['text']);
+
+            return ! str_contains($text, 'Akses Terbatas');
+        });
+    }
+
     public function test_user_blocked_by_gate_sees_membership_message(): void
     {
         $this->seedInboundPolicy();
