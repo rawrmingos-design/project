@@ -852,7 +852,11 @@ class BotCommandHandler
             ], now()->addMinutes(15));
         }
 
-        return $this->formatter->formatPriceQuote($res, $this->supportsConversationalCheckout($context));
+        return $this->formatter->formatPriceQuote(
+            $res,
+            $this->supportsConversationalCheckout($context),
+            $context['source'] ?? null,
+        );
     }
 
     private function handleUnknownInput(?string $command, array $args, array $context): array
@@ -940,15 +944,30 @@ class BotCommandHandler
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
         if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         if ($requiresZoneId && ! $this->isValidZoneValue($zone, $customInputs)) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         if ($isEmailInput && filter_var($uid, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         // Validate the destination before creating a checkout intent. This keeps
@@ -961,10 +980,14 @@ class BotCommandHandler
         ]);
 
         if (! ($checkResult['ok'] ?? false)) {
-            $failure = $this->formatter->formatCheckId($checkResult);
+            $failure = $this->formatter->formatCheckId($checkResult, $context['source'] ?? null);
+            // Tombol ini callback-driven (`batal` / `layanan <kode>`), bukan
+            // teks yang di-parse, jadi aman diterjemahkan — kalau dibiarkan
+            // Indonesia, pesan retry-nya Inggris tapi tombolnya Indonesia.
+            $isTelegram = ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM;
             $failure['buttons'] = [[
-                ['text' => '❌ Batal', 'callback' => 'batal'],
-                ['text' => '🔙 Kembali', 'callback' => $backCallback],
+                ['text' => $isTelegram ? __('bot.checkout_btn_cancel') : '❌ Batal', 'callback' => 'batal'],
+                ['text' => $isTelegram ? __('bot.checkout_btn_back') : '🔙 Kembali', 'callback' => $backCallback],
             ]];
 
             return $failure;
@@ -1399,7 +1422,7 @@ class BotCommandHandler
         ];
 
         $res = $this->checkId->check($payload);
-        return $this->formatter->formatCheckId($res);
+        return $this->formatter->formatCheckId($res, $context['source'] ?? null);
     }
 
     private function handleInvoice(
@@ -1483,7 +1506,7 @@ class BotCommandHandler
             $quote,
             $payload,
             $token,
-            $inputLabel,
+            $context['source'] ?? null,
         );
     }
 

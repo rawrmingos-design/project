@@ -44,4 +44,41 @@ return [
     'help_help_title' => '❓ Need Help?',
     'help_admin_link' => 'Tap the link [💬 Click here](:url), or type /admin to open the admin contact. 🙏',
     'help_admin_no_link' => 'Type /admin to reach the admin if you run into trouble. 🙏',
+
+    // --- Checkout: price quote & confirmation ---
+    // Column padding is kept so totals still line up. `Rp` stays — it is the
+    // store's currency, not a language.
+    'checkout_title' => '🧾 *Order Summary*',
+    'checkout_price' => 'Price       Rp :amount',
+    'checkout_discount' => 'Discount    -Rp :amount',
+    'checkout_admin_fee' => 'Fee         Rp :amount',
+    'checkout_total' => '*Total      Rp :amount*',
+    'checkout_default_payment' => 'Payment',
+    // The typed command stays in its canonical form: `invoice` and the
+    // positional argument order are command dialect, not prose. Only the
+    // surrounding words are translated.
+    'checkout_send_command' => 'Send: `invoice :service :method <UID> [Zone_ID]`',
+    'checkout_example_command' => 'Example: `invoice :service :method 1234567 1234`',
+
+    'checkout_confirm_expiry' => 'This confirmation is valid for 15 minutes.',
+    'checkout_btn_confirm' => '✅ Confirm',
+    'checkout_btn_cancel' => '❌ Cancel',
+    'checkout_btn_back' => '🔙 Back',
+    'checkout_invalid_format' => 'That ID format does not look right.',
+
+    // --- Checkout: destination input lines ---
+    'checkout_input_title' => '🎮 *Enter :label*',
+    'checkout_input_title_email' => '📧 *Enter :label*',
+    'checkout_input_example_uid' => 'Example: `12345`',
+    'checkout_input_example_zone' => 'Example: `12345 6789`',
+    'checkout_input_example_email' => 'Example: `you@email.com`',
+    'checkout_input_zone_options' => 'Choose :label:',
+
+    // --- Check ID ---
+    // Clearly separates "your ID is wrong" from "the provider is down" — the
+    // first is the user's mistake, the second is not.
+    'checkid_valid_title' => '✅ *Valid ID*',
+    'checkid_unavailable' => 'ID validation is unavailable right now. Please try again shortly.',
+    'checkid_invalid' => 'Invalid ID: :message',
+    'checkid_skip' => 'This product does not need ID validation.',
 ];

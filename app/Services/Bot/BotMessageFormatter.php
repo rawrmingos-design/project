@@ -422,8 +422,19 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatPriceQuote(array $data, bool $isConversationalCheckout = false): array
-    {
+    /**
+     * @param string|null $source Sumber gateway (`telegram_gateway` /
+     *   `whatsapp_gateway`). Dipakai untuk memilih teks dari file lang: fase
+     *   ini sengaja memindahkan copy Telegram saja, WhatsApp tetap literal
+     *   Indonesia supaya perilakunya tidak berubah sama sekali.
+     */
+    public function formatPriceQuote(
+        array $data,
+        bool $isConversationalCheckout = false,
+        ?string $source = null,
+    ): array {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false)) {
             return [
                 'text' => "Gagal cek harga: " . ($data['message'] ?? 'Tidak diketahui'),
@@ -439,7 +450,15 @@ class BotMessageFormatter
         $discount = number_format($d['discount'], 0, ',', '.');
         $backCallback = 'layanan ' . ($d['category_code'] ?? '');
 
-        $lines = [
+        $lines = $isTelegram ? [
+            __('bot.checkout_title'),
+            '',
+            '💎 ' . $this->escapeMarkdown((string) $d['service_name']),
+            '👤 ' . $this->escapeMarkdown((string) ($d['category_name'] ?? '')),
+            '💳 ' . $this->escapeMarkdown((string) ($d['payment_method']['name'] ?? __('bot.checkout_default_payment'))),
+            '',
+            __('bot.checkout_price', ['amount' => $base]),
+        ] : [
             '🧾 *Cek Pesanan*',
             '',
             '💎 ' . $this->escapeMarkdown((string) $d['service_name']),
@@ -450,41 +469,57 @@ class BotMessageFormatter
         ];
 
         if ($d['discount'] > 0) {
-            $lines[] = 'Diskon      -Rp ' . $discount;
+            $lines[] = $isTelegram
+                ? __('bot.checkout_discount', ['amount' => $discount])
+                : 'Diskon      -Rp ' . $discount;
         }
 
-        $lines[] = 'Admin       Rp ' . $fee;
+        $lines[] = $isTelegram
+            ? __('bot.checkout_admin_fee', ['amount' => $fee])
+            : 'Admin       Rp ' . $fee;
         $lines[] = '──────────────';
-        $lines[] = '*Total      Rp ' . $total . '*';
+        $lines[] = $isTelegram
+            ? __('bot.checkout_total', ['amount' => $total])
+            : '*Total      Rp ' . $total . '*';
 
         if ($isConversationalCheckout) {
             $lines[] = '';
             $lines = [...$lines, ...$this->conversationalInputLines(
                 (bool) ($d['requires_zone_id'] ?? false),
                 $d['custom_inputs'] ?? [],
+                $isTelegram,
             )];
         } else {
             $lines[] = '';
-            $lines[] = 'Kirim: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' <UID> [Zone_ID]`';
-            $lines[] = 'Contoh: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' 1234567 1234`';
+            $lines[] = $isTelegram
+                ? __('bot.checkout_send_command', ['service' => $d['service_id'], 'method' => $d['payment_method']['code']])
+                : 'Kirim: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' <UID> [Zone_ID]`';
+            $lines[] = $isTelegram
+                ? __('bot.checkout_example_command', ['service' => $d['service_id'], 'method' => $d['payment_method']['code']])
+                : 'Contoh: `invoice ' . $d['service_id'] . ' ' . $d['payment_method']['code'] . ' 1234567 1234`';
         }
 
         return [
             'text' => implode("\n", $lines),
             'buttons' => $isConversationalCheckout
                 ? [[
-                    $this->button('❌ Batal', 'batal'),
-                    $this->button('🔙 Kembali', $backCallback),
+                    $this->button($isTelegram ? __('bot.checkout_btn_cancel') : '❌ Batal', 'batal'),
+                    $this->button($isTelegram ? __('bot.checkout_btn_back') : '🔙 Kembali', $backCallback),
                 ]]
-                : [[$this->button('🔙 Kembali', $backCallback)]],
+                : [[$this->button($isTelegram ? __('bot.checkout_btn_back') : '🔙 Kembali', $backCallback)]],
         ];
     }
 
+    /**
+     * @param string|null $source Lihat catatan di `formatPriceQuote()`.
+     */
     public function formatCheckoutConfirmation(
         array $quote,
         array $payload,
         string $token,
+        ?string $source = null,
     ): array {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $data = is_array($quote['data'] ?? null)
             ? $quote['data']
             : $quote;
@@ -502,7 +537,7 @@ class BotMessageFormatter
             (string) data_get(
                 $data,
                 'payment_method.name',
-                'Pembayaran',
+                $isTelegram ? __('bot.checkout_default_payment') : 'Pembayaran',
             ),
         );
         $total = number_format(
@@ -516,21 +551,23 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", [
-                '🧾 *Cek Pesanan*',
+                $isTelegram ? __('bot.checkout_title') : '🧾 *Cek Pesanan*',
                 '',
                 '💎 ' . $serviceName,
                 '👤 ' . $this->escapeMarkdown($inputLabel) . ': `' . $this->escapeMarkdownCode($target) . '`',
                 ...($nickname !== '' ? ['🏷️ Nickname: ' . $this->escapeMarkdown($nickname)] : []),
                 '💳 ' . $methodName,
                 '',
-                '*Total      Rp ' . $total . '*',
+                $isTelegram
+                    ? __('bot.checkout_total', ['amount' => $total])
+                    : '*Total      Rp ' . $total . '*',
                 '',
-                'Konfirmasi berlaku 15 menit.',
+                $isTelegram ? __('bot.checkout_confirm_expiry') : 'Konfirmasi berlaku 15 menit.',
             ]),
             'buttons' => [
                 [
-                    $this->button('✅ Konfirmasi', $confirmCommand, 'content'),
-                    $this->button('❌ Batal', $cancelCommand, 'content'),
+                    $this->button($isTelegram ? __('bot.checkout_btn_confirm') : '✅ Konfirmasi', $confirmCommand, 'content'),
+                    $this->button($isTelegram ? __('bot.checkout_btn_cancel') : '❌ Batal', $cancelCommand, 'content'),
                 ],
             ],
             'numeric_menu' => [
@@ -540,41 +577,63 @@ class BotMessageFormatter
         ];
     }
 
-    public function formatCheckoutInputRetry(bool $requiresZoneId, array $customInputs, string $backCallback): array
-    {
+    /**
+     * @param string|null $source Lihat catatan di `formatPriceQuote()`.
+     */
+    public function formatCheckoutInputRetry(
+        bool $requiresZoneId,
+        array $customInputs,
+        string $backCallback,
+        ?string $source = null,
+    ): array {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         return [
             'text' => implode("\n", [
-                'Format ID belum sesuai.',
+                $isTelegram ? __('bot.checkout_invalid_format') : 'Format ID belum sesuai.',
                 '',
-                ...$this->conversationalInputLines($requiresZoneId, $customInputs),
+                ...$this->conversationalInputLines($requiresZoneId, $customInputs, $isTelegram),
             ]),
             'buttons' => [[
-                $this->button('❌ Batal', 'batal'),
-                $this->button('🔙 Kembali', $backCallback),
+                $this->button($isTelegram ? __('bot.checkout_btn_cancel') : '❌ Batal', 'batal'),
+                $this->button($isTelegram ? __('bot.checkout_btn_back') : '🔙 Kembali', $backCallback),
             ]],
         ];
     }
 
-    public function formatCheckId(array $data): array
+    /**
+     * @param string|null $source Lihat catatan di `formatPriceQuote()`.
+     */
+    public function formatCheckId(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false)) {
             return [
                 'text' => ($data['error_code'] ?? '') === 'CHECK_ID_UNAVAILABLE'
-                    ? 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.'
-                    : "ID tidak valid: " . ($data['message'] ?? 'User ID tidak ditemukan atau tidak valid.'),
+                    ? ($isTelegram
+                        ? __('bot.checkid_unavailable')
+                        : 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.')
+                    : ($isTelegram
+                        ? __('bot.checkid_invalid', ['message' => $data['message'] ?? 'User ID tidak ditemukan atau tidak valid.'])
+                        : "ID tidak valid: " . ($data['message'] ?? 'User ID tidak ditemukan atau tidak valid.')),
                 'buttons' => [],
             ];
         }
 
         if ($data['data']['skip_check']) {
             return [
-                'text' => "Produk ini tidak memerlukan validasi ID.",
+                'text' => $isTelegram
+                    ? __('bot.checkid_skip')
+                    : "Produk ini tidak memerlukan validasi ID.",
                 'buttons' => [],
             ];
         }
 
+        $validTitle = $isTelegram ? __('bot.checkid_valid_title') : '✅ *ID Valid*';
+
         return [
-            'text' => "✅ *ID Valid*\n👤 Nickname: {$data['data']['nickname']}",
+            'text' => "{$validTitle}\n👤 Nickname: {$data['data']['nickname']}",
             'buttons' => [],
         ];
     }
@@ -1213,8 +1272,15 @@ class BotMessageFormatter
     /**
      * @return array<int, string>
      */
-    private function conversationalInputLines(bool $requiresZoneId, array $customInputs): array
-    {
+    /**
+     * @param bool $isTelegram true = ambil teks dari file lang (Telegram),
+     *   false = literal Indonesia (WhatsApp, perilaku lama).
+     */
+    private function conversationalInputLines(
+        bool $requiresZoneId,
+        array $customInputs,
+        bool $isTelegram = false,
+    ): array {
         $userInput = is_array($customInputs['user_id'] ?? null) ? $customInputs['user_id'] : [];
         $zoneInput = is_array($customInputs['zone'] ?? null) ? $customInputs['zone'] : [];
         $userLabel = trim((string) ($userInput['label'] ?? 'User ID')) ?: 'User ID';
@@ -1226,10 +1292,17 @@ class BotMessageFormatter
 
         if (! $requiresZoneId) {
             return [
-                ($isEmail ? '📧' : '🎮') . ' *Masukkan ' . $userLabelText . '*',
+                $isTelegram
+                    ? __($isEmail ? 'bot.checkout_input_title_email' : 'bot.checkout_input_title', ['label' => $userLabelText])
+                    : ($isEmail ? '📧' : '🎮') . ' *Masukkan ' . $userLabelText . '*',
                 '',
+                // 'Format: `UID`' dan 'Format: `email@contoh.com`' identik di
+                // kedua bahasa — dibiarkan literal supaya parity guard tetap
+                // bermakna. Contohnya yang beda, itu yang diterjemahkan.
                 $isEmail ? 'Format: `email@contoh.com`' : 'Format: `UID`',
-                $isEmail ? 'Contoh: `nama@email.com`' : 'Contoh: `12345`',
+                $isTelegram
+                    ? __($isEmail ? 'bot.checkout_input_example_email' : 'bot.checkout_input_example_uid')
+                    : ($isEmail ? 'Contoh: `nama@email.com`' : 'Contoh: `12345`'),
             ];
         }
 
@@ -1237,14 +1310,22 @@ class BotMessageFormatter
         $zonePlaceholder = trim((string) ($zoneInput['placeholder'] ?? 'Masukkan Server ID')) ?: 'Masukkan Server ID';
         $zoneLabelText = $this->escapeMarkdown($zoneLabel);
 
-        $lines[] = '🎮 *Masukkan ' . $userLabelText . '*';
+        $lines[] = $isTelegram
+            ? __('bot.checkout_input_title', ['label' => $userLabelText])
+            : '🎮 *Masukkan ' . $userLabelText . '*';
         $lines[] = '';
+        // Netral di kedua bahasa ('Format' == 'Format'), jadi dibiarkan
+        // literal — sama seperti 'Format: `UID`' di cabang tanpa zone.
         $lines[] = 'Format: `UID <' . $this->escapeMarkdownCode($zoneLabel) . '>`';
-        $lines[] = 'Contoh: `12345 6789`';
+        $lines[] = $isTelegram
+            ? __('bot.checkout_input_example_zone')
+            : 'Contoh: `12345 6789`';
 
         if (($zoneInput['is_select'] ?? false) && ! empty($zoneInput['options']) && is_array($zoneInput['options'])) {
             $lines[] = '';
-            $lines[] = "Pilihan {$zoneLabelText}:";
+            $lines[] = $isTelegram
+                ? __('bot.checkout_input_zone_options', ['label' => $zoneLabelText])
+                : "Pilihan {$zoneLabelText}:";
 
             foreach ($zoneInput['options'] as $option) {
                 if (! is_array($option)) {

@@ -90,7 +90,10 @@ class BotLangParityTest extends TestCase
         // Kunci yang nilainya identik di dua bahasa = kemungkinan belum
         // diterjemahkan (kecuali emoji/simbol). Ini peringatan dini, bukan
         // hukuman: daftar putih untuk teks netral.
-        $allowedIdentical = ['skip', 'ya', 'tidak'];
+        // - `skip`/`ya`/`tidak`  : kata perintah, memang tidak diterjemahkan.
+        // - `checkout_total`      : 'Total' adalah kata yang sama di id & en,
+        //   dan spasi paddingnya harus identik supaya kolom harga tetap rata.
+        $allowedIdentical = ['skip', 'ya', 'tidak', 'checkout_total'];
 
         $identical = [];
         foreach ($id as $key => $value) {

@@ -52,4 +52,43 @@ return [
     'help_help_title' => '❓ Butuh Bantuan?',
     'help_admin_link' => 'Ketuk tautan [💬 Klik di sini](:url), atau ketik /admin untuk membuka kontak admin. 🙏',
     'help_admin_no_link' => 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏',
+
+    // --- Checkout: kutipan harga & konfirmasi ---
+    // Spasi pada 'Harga       Rp' SENGAJA dipertahankan (perataan kolom harga),
+    // jadi jangan dirapikan editor. Placeholder :amount memakai number_format
+    // ribuan titik, output identik dengan sebelum dipindah.
+    'checkout_title' => '🧾 *Cek Pesanan*',
+    'checkout_price' => 'Harga       Rp :amount',
+    'checkout_discount' => 'Diskon      -Rp :amount',
+    'checkout_admin_fee' => 'Admin       Rp :amount',
+    'checkout_total' => '*Total      Rp :amount*',
+    'checkout_default_payment' => 'Pembayaran',
+    'checkout_send_command' => 'Kirim: `invoice :service :method <UID> [Zone_ID]`',
+    'checkout_example_command' => 'Contoh: `invoice :service :method 1234567 1234`',
+
+    // Konfirmasi berlaku 15 menit — angkanya berasal dari masa hidup cache
+    // state checkout, jadi kalau TTL-nya diubah, copy ini ikut diubah.
+    'checkout_confirm_expiry' => 'Konfirmasi berlaku 15 menit.',
+    'checkout_btn_confirm' => '✅ Konfirmasi',
+    'checkout_btn_cancel' => '❌ Batal',
+    'checkout_btn_back' => '🔙 Kembali',
+    'checkout_invalid_format' => 'Format ID belum sesuai.',
+
+    // --- Checkout: baris input tujuan ---
+    // 'Format: `UID`' dan 'Nickname' tidak diterjemahkan karena identik di
+    // kedua bahasa — biarkan literal supaya parity guard tetap bermakna.
+    'checkout_input_title' => '🎮 *Masukkan :label*',
+    'checkout_input_title_email' => '📧 *Masukkan :label*',
+    'checkout_input_example_uid' => 'Contoh: `12345`',
+    'checkout_input_example_zone' => 'Contoh: `12345 6789`',
+    'checkout_input_example_email' => 'Contoh: `nama@email.com`',
+    'checkout_input_zone_options' => 'Pilihan :label:',
+
+    // --- Cek ID Game ---
+    // Bedakan "ID salah" dari "provider sedang mati": yang pertama kesalahan
+    // user, yang kedua bukan — jangan sampai user mengira ID-nya salah.
+    'checkid_valid_title' => '✅ *ID Valid*',
+    'checkid_unavailable' => 'Validasi ID sedang tidak tersedia. Coba lagi beberapa saat.',
+    'checkid_invalid' => 'ID tidak valid: :message',
+    'checkid_skip' => 'Produk ini tidak memerlukan validasi ID.',
 ];
