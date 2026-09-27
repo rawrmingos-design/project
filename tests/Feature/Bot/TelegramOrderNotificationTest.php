@@ -4,6 +4,7 @@ namespace Tests\Feature\Bot;
 
 use App\Events\InvoiceStatusUpdated;
 use App\Listeners\NotifyBotOrderStatusListener;
+use App\Models\BotLocalePreference;
 use App\Models\Pembayaran;
 use App\Models\Pembelian;
 use App\Models\SettingWeb;
@@ -278,16 +279,17 @@ class TelegramOrderNotificationTest extends TestCase
     /**
      * JARING PENGAMAN Fase 1 (Task 1.5) — di level LISTENER, bukan formatter.
      *
-     * `NotifyBotOrderStatusListener` memanggil `formatStatus($payload)` TANPA
-     * argumen source, dari QUEUE. Di sana tidak ada konteks channel maupun
-     * locale user, jadi bahasa TIDAK boleh ikut berubah — keputusan user
-     * 2026-09-26 (opsi 1): notifikasi status tetap Indonesia.
+     * Notifikasi order Telegram TIDAK boleh ikut `app()->getLocale()`.
      *
-     * Test ini menutup celah yang tidak tertutup oleh test formatter: kalau
-     * suatu hari resolusi locale disambungkan ke listener (mis. lewat
-     * `BotLocale::apply()`), pesan transaksi akan berganti bahasa dan test ini
-     * yang menangkapnya. Ini jalur UANG — user harus bisa membaca status
-     * pembayarannya.
+     * `NotifyBotOrderStatusListener` jalan di QUEUE; `app()->getLocale()` di
+     * worker berisi sisa locale job SEBELUMNYA, bukan bahasa user ini. Kalau
+     * locale bocor ke pesan, user A bisa menerima kabar pembayarannya dalam
+     * bahasa user B.
+     *
+     * Test ini TIDAK memakai preferensi tersimpan (`bot_locale_preferences`
+     * kosong) — jadi sekaligus menetapkan bahwa tanpa preferensi, notifikasi
+     * tetap Indonesia apa pun locale proses. Pasangan test-nya:
+     * `test_notifikasi_ikut_preferensi_tersimpan_user`.
      */
     public function test_notifikasi_listener_tetap_indonesia_walau_locale_en(): void
     {
@@ -323,6 +325,300 @@ class TelegramOrderNotificationTest extends TestCase
                 && ! str_contains($text, 'Top Up Successful')
                 && ! str_contains($text, 'Thank you for shopping');
         });
+    }
+
+    /**
+     * Preferensi tersimpan `en` → notifikasi Telegram berbahasa Inggris.
+     *
+     * Ini pasangan langsung test di atas: yang membedakan keduanya HANYA
+     * keberadaan baris `bot_locale_preferences`, bukan `language_code` maupun
+     * locale proses.
+     */
+    public function test_notifikasi_ikut_preferensi_tersimpan_user(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        // Kunci HARUS bentuk yang ditulis `BotLocale::setForContext()` —
+        // `telegram:<bot_scope>:<user_id>`, bukan bentuk kanonik principal.
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:98765',
+            'locale' => 'en',
+            'locale_source' => BotLocalePreference::SOURCE_EXPLICIT,
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        Http::assertSent(function ($request) {
+            $text = (string) $request['text'];
+
+            return str_contains($request->url(), '/sendMessage')
+                && str_contains($text, 'Top Up Successful')
+                && str_contains($text, 'Thank you for shopping');
+        });
+    }
+
+    /**
+     * Preferensi tersimpan `id` harus MENANG atas locale proses `en`.
+     *
+     * Tanpa test ini, implementasi yang membaca `app()->getLocale()` (bukan
+     * baris preferensi) akan tetap hijau di test sebelumnya — dan di produksi
+     * mencampur bahasa antar user di worker yang sama.
+     */
+    public function test_preferensi_indonesia_menang_atas_locale_proses_en(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:98765',
+            'locale' => 'id',
+            'locale_source' => BotLocalePreference::SOURCE_EXPLICIT,
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        app()->setLocale('en');
+
+        try {
+            (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+                'order_id' => 'TG-NOTIF-001',
+            ]));
+        } finally {
+            app()->setLocale('id');
+        }
+
+        Http::assertSent(function ($request) {
+            $text = (string) $request['text'];
+
+            return str_contains($text, 'Top Up Berhasil')
+                && ! str_contains($text, 'Top Up Successful');
+        });
+    }
+
+    /**
+     * Notifikasi user A (preferensi `en`) TIDAK boleh mengubah bahasa
+     * notifikasi user B (preferensi `id`) di worker yang sama.
+     *
+     * Ini bahaya nyata dari `App::setLocale()` yang bersifat global-per-proses:
+     * dua job berurutan di satu worker tanpa restorasi akan membuat user
+     * terakhir "menang". Order ids HARUS dibedakan supaya sekaligus bisa
+     * membuktikan cache anti-spam tidak menutupi job kedua.
+     */
+    public function test_bahasa_tidak_bocor_antar_job_di_worker_yang_sama(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:98765',
+            'locale' => 'en',
+            'locale_source' => BotLocalePreference::SOURCE_EXPLICIT,
+        ]);
+
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:11111',
+            'locale' => 'id',
+            'locale_source' => BotLocalePreference::SOURCE_EXPLICIT,
+        ]);
+
+        $this->createTelegramOrder([
+            'order_id' => 'TG-NOTIF-A',
+            'gateway_principal' => 'telegram:default:98765',
+            'email_pembeli' => '98765@telegram.user',
+            'status' => 'Sukses',
+        ]);
+        $this->createTelegramOrder([
+            'order_id' => 'TG-NOTIF-B',
+            'gateway_principal' => 'telegram:default:11111',
+            'email_pembeli' => '11111@telegram.user',
+            'status' => 'Sukses',
+        ]);
+
+        $listener = new NotifyBotOrderStatusListener;
+
+        // Sentinel: locale proses disetel ke nilai yang TIDAK dipakai preferensi
+        // mana pun (`fr`) — jadi kalau listener membaca locale proses alih-alih
+        // baris preferensi, hasilnya `fr` dan langsung ketahuan. Memakai `id` di
+        // sini akan menyamarkan bug karena kebetulan sama dengan default.
+        app()->setLocale('fr');
+
+        // Job `en` didahulukan, job `id` terakhir: kalau locale tidak dipulihkan
+        // setelah job `en`, job `id` ikut Inggris. Urutan ini yang membuat
+        // kebocoran antar-job terlihat.
+        $listener->handle(new InvoiceStatusUpdated(['order_id' => 'TG-NOTIF-A']));
+        $listener->handle(new InvoiceStatusUpdated(['order_id' => 'TG-NOTIF-B']));
+
+        // Dipulihkan ke `fr` (locale sebelum job), bukan ke `id`.
+        $this->assertSame('fr', app()->getLocale());
+
+        app()->setLocale('id');
+
+        $sent = [];
+        Http::assertSent(function ($request) use (&$sent) {
+            $sent[] = (string) $request['text'];
+
+            return true;
+        });
+
+        $toA = collect($sent)->first(fn ($t) => str_contains($t, 'TG-NOTIF-A'));
+        $toB = collect($sent)->first(fn ($t) => str_contains($t, 'TG-NOTIF-B'));
+
+        $this->assertNotNull($toA, 'Notifikasi user A tidak terkirim');
+        $this->assertNotNull($toB, 'Notifikasi user B tidak terkirim');
+
+        // A: preferensi en. B: preferensi id — HARUS tetap id walau job
+        // sebelumnya menyetel locale ke en.
+        $this->assertStringContainsString('Top Up Successful', $toA);
+        $this->assertStringContainsString('Top Up Berhasil', $toB);
+        $this->assertStringNotContainsString('Top Up Successful', $toB);
+    }
+
+    /**
+     * Benih AUTO-DETEKSI (`locale_source = detected`) juga dihormati.
+     *
+     * Ini keputusan sadar: user yang Telegram-nya berbahasa Inggris melihat bot
+     * berbahasa Inggris, jadi notifikasi order-nya harus sama — kalau tidak,
+     * satu percakapan jadi dua bahasa. Risikonya diakui: `detected` adalah
+     * tebakan perangkat, dan tebakan yang salah akan terbawa ke notifikasi
+     * jalur uang. Karena itu seed hanya ditulis di chat PRIVAT dan selalu bisa
+     * ditimpa user lewat `/bahasa` (jadi `explicit`).
+     *
+     * Kalau suatu saat keputusannya berubah jadi "hanya pilihan eksplisit yang
+     * dihormati di jalur uang", test ini yang harus diubah lebih dulu —
+     * itu penanda perubahan kebijakan, bukan sekadar refactor.
+     */
+    public function test_benih_auto_deteksi_juga_dihormati(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:98765',
+            'locale' => 'en',
+            'locale_source' => BotLocalePreference::SOURCE_DETECTED,
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+            'order_id' => 'TG-NOTIF-001',
+        ]));
+
+        Http::assertSent(fn ($request) => str_contains((string) $request['text'], 'Top Up Successful'));
+    }
+
+    /**
+     * Order LAMA tanpa baris preferensi (semua order produksi sebelum fitur ini)
+     * → tetap Indonesia, tidak error, tidak notifikasi kosong.
+     */
+    public function test_order_tanpa_preferensi_tetap_indonesia(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        $this->createTelegramOrder(['status' => 'Sukses']);
+
+        app()->setLocale('en');
+
+        try {
+            (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+                'order_id' => 'TG-NOTIF-001',
+            ]));
+        } finally {
+            app()->setLocale('id');
+        }
+
+        Http::assertSent(function ($request) {
+            $text = (string) $request['text'];
+
+            return str_contains($text, 'Top Up Berhasil')
+                && ! str_contains($text, 'Top Up Successful');
+        });
+    }
+
+    /**
+     * WhatsApp TIDAK ikut switch bahasa — tetap jalur WA, bukan Telegram,
+     * walau ada preferensi `en` dan locale proses `en`.
+     *
+     * Scope switch bahasa adalah Telegram saja; ini penjaga invarian itu di
+     * level listener.
+     */
+    public function test_whatsapp_tetap_indonesia_walau_ada_preferensi_en(): void
+    {
+        config(['services.telegram-bot-api.token' => null]);
+        $this->createSetting(['telegram_bot_token' => 'TEST-TG-TOKEN']);
+
+        Cache::flush();
+        Http::fake([
+            'api.telegram.org/*' => Http::response(['ok' => true, 'result' => []]),
+        ]);
+
+        BotLocalePreference::create([
+            'source' => 'telegram_gateway',
+            'external_user_id' => 'telegram:default:98765',
+            'locale' => 'en',
+            'locale_source' => BotLocalePreference::SOURCE_EXPLICIT,
+        ]);
+
+        $waOrder = $this->createTelegramOrder([
+            'order_id' => 'WA-NOTIF-001',
+            'traffic_source' => 'whatsapp_gateway',
+            'gateway_principal' => null,
+            'email_pembeli' => null,
+            'username' => '628123456789',
+        ]);
+        $waOrder->pembayaran->update(['no_pembeli' => '628123456789']);
+
+        app()->setLocale('en');
+
+        try {
+            (new NotifyBotOrderStatusListener)->handle(new InvoiceStatusUpdated([
+                'order_id' => 'WA-NOTIF-001',
+            ]));
+        } finally {
+            app()->setLocale('id');
+        }
+
+        // Pesan WA dikirim lewat WhatsappNotificationService (mock-free di sini:
+        // tidak ada sesi WA di test), jadi yang bisa dipastikan adalah jalur
+        // Telegram TIDAK dipakai dan bahasa proses dipulihkan.
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api.telegram.org'));
+        $this->assertSame('id', app()->getLocale());
     }
 
     /**
