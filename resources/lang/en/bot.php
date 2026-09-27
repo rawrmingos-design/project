@@ -10,15 +10,22 @@
  * Keep `*bold*` markers and emoji in the same positions as the Indonesian
  * source — the Telegram renderer depends on them.
  *
- * BUTTON LABELS ARE INTENTIONALLY LEFT IN INDONESIAN (`🛍️ Buka Menu`,
- * `📦 Cek Status`, …) — and since Phase 3 this is a DELIBERATE COPY DECISION,
- * not a parser limitation. The multi-language parser can recognise both
- * variants now, but `BotMessageFormatter::defaultReplyKeyboard()` still renders
- * Indonesian labels in every locale, and button text is echoed inside this
- * copy. Translating a label here without localising the keyboard first would
- * tell the user to tap a button that is not on their screen. Copy around the
- * label is translated; the label itself is not. If the keyboard is ever
- * localised, these strings must change in the same commit.
+ * KEYBOARD LABELS FOLLOW THE ACTIVE LANGUAGE. `kbd_*` holds the labels the
+ * reply keyboard renders, and `BotMessageFormatter::defaultReplyKeyboard()` /
+ * `formatHelp()` take them from here — so any copy that names a button can
+ * never point at a button that is not on screen.
+ *
+ * Those labels travel BACK to the bot as plain text when tapped, so every
+ * variant must exist in `BotCommandParser::LABELS`. The parser has carried the
+ * ID + EN variants since Phase 2, and a guard test renders the keyboard in both
+ * locales and asserts the parser recognises every label — a dead button fails
+ * CI instead of failing silently in a user's chat.
+ *
+ * WhatsApp still renders Indonesian literals (scope is locked to Telegram).
+ *
+ * Labels that read the same in both languages (`🏆 Leaderboard`, `💰 Deposit`)
+ * stay single literals in the formatter on purpose — duplicating identical
+ * values would only force them onto the parity allow-list.
  */
 return [
     // --- Greeting (used by menu & help) ---
@@ -34,13 +41,13 @@ return [
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',
     'help_order_title' => '🛒 How to Order',
-    'help_order_step_1' => '1. Tap *🛍️ Buka Menu*',
+    'help_order_step_1' => '1. Tap *:menu*',
     'help_order_step_2' => '2. Choose a service, then pick the amount',
     'help_order_step_3' => '3. Enter your contact details for the payment receipt',
     'help_order_step_4' => '4. Choose a payment method, then complete the payment',
     'help_manage_title' => '🔎 Check & Manage',
-    'help_manage_status' => '• *📦 Cek Status* — latest order status',
-    'help_manage_history' => '• *📜 Riwayat Order* — your order list',
+    'help_manage_status' => '• *:status* — latest order status',
+    'help_manage_history' => '• *:history* — your order list',
 
     // --- Deposit (Task 1.4) ---
     // Amounts keep the Indonesian numeric convention (`Rp 10.000`) on purpose:
@@ -64,9 +71,9 @@ return [
     'deposit_create_failed' => 'The deposit could not be created. Please try again later.',
     'deposit_session_invalid' => 'Invalid session. Please restart the deposit.',
     'deposit_message_id_invalid' => 'The message has no valid ID. Please resend the deposit command.',
-    'help_manage_checkid' => '• *🔍 Cek ID Game* — verify the account name first',
-    'help_manage_cancel' => '• *❌ Batal Transaksi* — cancel an unpaid order',
-    'help_manage_deposit' => '• *💰 Deposit* — top up your balance first',
+    'help_manage_checkid' => '• *:cekid* — verify the account name first',
+    'help_manage_cancel' => '• *:cancel* — cancel an unpaid order',
+    'help_manage_deposit' => '• *:deposit* — top up your balance first',
     'help_help_title' => '❓ Need Help?',
     'help_admin_link' => 'Tap the link [💬 Click here](:url), or type /admin to open the admin contact. 🙏',
     'help_admin_no_link' => 'Type /admin to reach the admin if you run into trouble. 🙏',
@@ -171,20 +178,30 @@ return [
 
     // --- Shared buttons ---
     // Callback-driven labels: the bot receives the `callback` value, not the
-    // label text, so translating these is safe. Parser-driven labels (`YA`,
-    // `TIDAK`, `❌ Batal Transaksi`) stay Indonesian because the reply keyboard
-    // that renders them is not localised yet (see the file header).
+    // label text, so translating these is safe. Parser-driven labels are safe
+    // too since Phase 2 — see the `kbd_*` block below.
     'btn_back_menu' => '🔙 Back to Menu',
     'btn_back_history' => '📜 Back to History',
     'btn_prev' => '⬅️ Previous',
     'btn_next' => 'Next ➡️',
+
+    // --- Reply keyboard labels (`defaultReplyKeyboard`) ---
+    // Tapping these sends the LABEL back as text, so the parser must know every
+    // variant. It has carried all of these since Phase 2, which is what makes
+    // translating the keyboard safe: the old Indonesian labels stay registered,
+    // so buttons still sitting in users' chat history keep working.
+    'kbd_menu' => '🛍️ Open Menu',
+    'kbd_status' => '📦 Check Status',
+    'kbd_cekid' => '🔍 Check Game ID',
+    'kbd_help' => '❓ Help',
+    'kbd_cancel' => '❌ Cancel Order',
+    'kbd_history' => '📜 Order History',
+    'kbd_placeholder' => 'Choose an action...',
     // --- Membership gate & verification greeting (Task 1.6) ---
-    // Button labels stay Indonesian here on purpose: `🛍️ Buka Menu` and
-    // `❓ Bantuan` are echoed in the copy AND must match what the reply keyboard
-    // renders, which is Indonesian in every locale (see the file header).
+    // Button labels quoted here come from `kbd_*`, so they always match what the
+    // reply keyboard actually renders — in whatever language is active.
     // (`✅ Sudah Bergabung` and `Coba Lagi` are inline/callback-driven, so their
     // labels never travel back as text — only the echoed prose is quoted here.)
-    // Only the prose around them is translated.
     'gate_title' => '🔒 *Limited Access*',
     'gate_intro_single' => 'Hi! Before you can use this bot, please join the channel below first:',
     'gate_intro_multi' => 'Hi! Before you can use this bot, please join *all* of the channels below first:',
@@ -193,7 +210,7 @@ return [
     'gate_verified_title' => '✅ *Verification Successful*',
     'gate_verified_hello' => 'Hi :name! ',
     'gate_verified_body' => 'Your membership is verified. You can now use every feature of this bot.',
-    'gate_verified_hint' => 'Tap *🛍️ Buka Menu* to start shopping, or *❓ Bantuan* to read the guide.',
+    'gate_verified_hint' => 'Tap *:menu* to start shopping, or *:help* to read the guide.',
     'gate_maintenance_title' => '🛠️ *Service Under Maintenance*',
     'gate_maintenance_body' => 'Sorry, channel membership verification cannot run right now.' . "\n"
         . 'This is on our side, not because you have not joined.' . "\n\n"
@@ -208,7 +225,7 @@ return [
     'lang_pick' => 'Pick the language you want. It is saved and used for all following messages.',
     'lang_set_ok' => '✅ Language switched to *:label*.',
     'lang_already' => 'Your language is already *:label*.',
-    'help_manage_language' => '• *🌐 Language* — change the bot language (Indonesian / English)',
+    'help_manage_language' => '• *🇮🇩 Indonesian* / *🇬🇧 English* — change the bot language. The buttons are on the keyboard below.',
 
     // --- Failed order + language hint in group welcome (Task 4.x) ---
     // A Failed order whose payment was paid previously fell into the "Payment
@@ -221,6 +238,6 @@ return [
     // `language_code` from), so the language escape hatch is announced here.
     // Double-quoted: single-quoted PHP does not interpret \n, so `'\n\n'`
     // would show up literally as "\n\n" in the chat.
-    'welcome_language_hint' => "\n\n🌐 *Change language?* Tap *🇮🇩 Indonesian* or *🇬🇧 English* in the keyboard below.",
+    'welcome_language_hint' => "\n\n🌐 *Change language?* Open this bot's private chat, then tap *:id* or *:en* — or type /bahasa.",
 ];
 

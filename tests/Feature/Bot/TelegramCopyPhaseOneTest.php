@@ -974,9 +974,20 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->assertStringContainsString('✅ *Verification Successful*', $en['text']);
         $this->assertStringContainsString('Hi Mings! Your membership is verified.', $en['text']);
         $this->assertStringNotContainsString('Verifikasi Berhasil', $en['text']);
-        // Nama tombol di dalam prosa tetap literal (parser-driven).
-        $this->assertStringContainsString('*🛍️ Buka Menu*', $en['text']);
-        $this->assertSame('🛍️ Buka Menu', $en['buttons'][0][0]['text']);
+
+        // Sejak keyboard ikut dilokalkan, prosa EN menyebut nama tombol EN —
+        // dan yang WAJIB: nama di prosa == nama tombol yang benar-benar
+        // dirender. Kalau menyimpang, user disuruh menekan tombol yang tidak
+        // ada di layarnya.
+        $this->assertStringContainsString('*🛍️ Open Menu*', $en['text']);
+        $this->assertSame('🛍️ Open Menu', $en['buttons'][0][0]['text']);
+        $this->assertStringContainsString(
+            '*❓ Help*',
+            $en['text'],
+            'Prosa harus menyebut tombol bantuan dengan nama EN-nya.',
+        );
+
+        app()->setLocale('id');
     }
 
     public function test_gate_verified_tanpa_nama(): void

@@ -63,7 +63,15 @@ class TelegramWelcomeService
         try {
             app()->setLocale($panelDefault);
 
-            return (string) __('bot.welcome_language_hint');
+            // Nama tombolnya diambil dari formatter supaya persis sama dengan
+            // yang dirender panel `/bahasa` — petunjuk yang menyebut tombol
+            // dengan nama berbeda itu menyesatkan.
+            $labels = app(BotMessageFormatter::class)->languageButtonLabels($panelDefault);
+
+            return (string) __('bot.welcome_language_hint', [
+                'id' => $labels['id'],
+                'en' => $labels['en'],
+            ]);
         } finally {
             app()->setLocale($previous);
         }

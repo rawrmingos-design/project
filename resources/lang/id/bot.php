@@ -39,13 +39,13 @@ return [
     // lebih dulu, parser tidak lagi mengenali tombol yang diketuk user.
     'help_title' => '📖 Panduan Singkat',
     'help_order_title' => '🛒 Cara Order',
-    'help_order_step_1' => '1. Tekan *🛍️ Buka Menu*',
+    'help_order_step_1' => '1. Tekan *:menu*',
     'help_order_step_2' => '2. Pilih layanan, lalu pilih nominalnya',
     'help_order_step_3' => '3. Masukkan detail kontak untuk bukti pembayaran',
     'help_order_step_4' => '4. Pilih pembayaran, lalu selesaikan pembayaran',
     'help_manage_title' => '🔎 Cek & Kelola',
-    'help_manage_status' => '• *📦 Cek Status* — status pesanan terakhir',
-    'help_manage_history' => '• *📜 Riwayat Order* — daftar pesananmu',
+    'help_manage_status' => '• *:status* — status pesanan terakhir',
+    'help_manage_history' => '• *:history* — daftar pesananmu',
 
     // --- Deposit (Task 1.4) ---
     // CATATAN: tidak ada markup channel-specific di blok ini (tidak ada
@@ -80,9 +80,9 @@ return [
     'deposit_create_failed' => 'Deposit tidak dapat dibuat. Coba lagi nanti.',
     'deposit_session_invalid' => 'Sesi tidak valid. Silakan mulai ulang deposit.',
     'deposit_message_id_invalid' => 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
-    'help_manage_checkid' => '• *🔍 Cek ID Game* — pastikan nama akun benar dulu',
-    'help_manage_cancel' => '• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar',
-    'help_manage_deposit' => '• *💰 Deposit* — isi saldo lebih dulu',
+    'help_manage_checkid' => '• *:cekid* — pastikan nama akun benar dulu',
+    'help_manage_cancel' => '• *:cancel* — batalkan pesanan yang belum dibayar',
+    'help_manage_deposit' => '• *:deposit* — isi saldo lebih dulu',
     'help_help_title' => '❓ Butuh Bantuan?',
     'help_admin_link' => 'Ketuk tautan [💬 Klik di sini](:url), atau ketik /admin untuk membuka kontak admin. 🙏',
     'help_admin_no_link' => 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏',
@@ -198,19 +198,42 @@ return [
     // --- Tombol bersama ---
     // Semua label di bawah ini CALLBACK-DRIVEN: yang dikirim balik ke bot
     // adalah `callback`-nya (`menu`, `order_history`, `history nav …`), bukan
-    // teks label. Jadi aman diterjemahkan. Yang parser-driven (`YA`,
-    // `TIDAK`, `❌ Batal Transaksi`) TETAP ditahan sampai Fase 2.
+    // teks label. Jadi aman diterjemahkan. Label parser-driven juga sudah aman
+    // sejak Fase 2 (parser mengenali varian ID + EN) — lihat blok `kbd_*`.
     'btn_back_menu' => '🔙 Kembali ke Menu',
     'btn_back_history' => '📜 Kembali ke Riwayat',
     'btn_prev' => '⬅️ Sebelumnya',
     'btn_next' => 'Berikutnya ➡️',
+
+    // --- Label keyboard tetap (`defaultReplyKeyboard`) ---
+    // Label ini DIKETIK-BALIK ke bot sebagai TEKS saat tombolnya ditekan, jadi
+    // setiap varian WAJIB dikenali `BotCommandParser::LABELS` — kalau tidak,
+    // menekannya jadi "perintah tak dikenal". Parser sudah memuat varian ID + EN
+    // sejak Fase 2, dan ada test yang merender keyboard di KEDUA locale lalu
+    // memastikan tiap labelnya dikenali; itu jaring anti tombol mati.
+    //
+    // Label netral (`🏆 Leaderboard`, `💰 Deposit`) sengaja TIDAK dipindah ke
+    // sini: ejaannya memang sama di kedua bahasa, jadi satu literal lebih jujur
+    // daripada dua nilai kembar yang membuat parity guard butuh daftar putih.
+    //
+    // WhatsApp TETAP literal Indonesia (scope terkunci) — `kbd_*` hanya dibaca
+    // saat jalur Telegram.
+    'kbd_menu' => '🛍️ Buka Menu',
+    'kbd_status' => '📦 Cek Status',
+    'kbd_cekid' => '🔍 Cek ID Game',
+    'kbd_help' => '❓ Bantuan',
+    'kbd_cancel' => '❌ Batal Transaksi',
+    'kbd_history' => '📜 Riwayat Order',
+    'kbd_placeholder' => 'Pilih aksi...',
     // --- Gate keanggotaan & sapaan verifikasi (Task 1.6) ---
     // Semua method ini Telegram-only (`formatTelegramMembership*`), jadi tidak
-    // perlu threading `$source` seperti blok lain. Yang WAJIB tetap literal:
-    // LABEL TOMBOL yang juga dikenali parser dari teks (`✅ Sudah Bergabung`,
-    // `🛍️ Buka Menu`, `❓ Bantuan`, `Coba Lagi`) — kalau diterjemahkan
-    // sekarang, tombolnya mati sampai Fase 2 selesai. Jadi label tetap di kode,
-    // hanya prosa di sekitarnya yang masuk sini.
+    // perlu threading `$source` seperti blok lain.
+    // Label yang CALLBACK-DRIVEN (`✅ Sudah Bergabung`, `Coba Lagi`) tetap
+    // literal di kode: yang dikirim balik ke bot `callback`-nya, dan label itu
+    // memang tidak pernah diterjemahkan.
+    // Label yang muncul DI KEYBOARD (`🛍️ Buka Menu`, `❓ Bantuan`) diambil dari
+    // `kbd_*` supaya copy ini tidak pernah menyebut tombol yang tidak ada di
+    // layar user.
     'gate_title' => '🔒 *Akses Terbatas*',
     'gate_intro_single' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:',
     'gate_intro_multi' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke *semua* channel berikut dulu ya:',
@@ -219,7 +242,7 @@ return [
     'gate_verified_title' => '✅ *Verifikasi Berhasil*',
     'gate_verified_hello' => 'Halo :name! ',
     'gate_verified_body' => 'Keanggotaanmu sudah terverifikasi. Sekarang kamu bisa memakai semua fitur bot.',
-    'gate_verified_hint' => 'Tekan *🛍️ Buka Menu* untuk mulai belanja, atau *❓ Bantuan* untuk melihat panduan.',
+    'gate_verified_hint' => 'Tekan *:menu* untuk mulai belanja, atau *:help* untuk melihat panduan.',
     'gate_maintenance_title' => '🛠️ *Layanan Sedang Diperbaiki*',
     'gate_maintenance_body' => 'Maaf, verifikasi keanggotaan channel sedang tidak bisa dijalankan.' . "\n"
         . 'Ini masalah di sisi kami, bukan karena kamu belum bergabung.' . "\n\n"
@@ -234,7 +257,7 @@ return [
     'lang_pick' => 'Pilih bahasa yang kamu mau. Pilihan ini tersimpan dan dipakai untuk semua pesan berikutnya.',
     'lang_set_ok' => '✅ Bahasa diganti ke *:label*.',
     'lang_already' => 'Bahasa kamu sudah *:label*.',
-    'help_manage_language' => '• *🌐 Bahasa* — ganti bahasa bot (Indonesia / English)',
+    'help_manage_language' => '• *🇮🇩 Bahasa* / *🇬🇧 English* — ganti bahasa bot. Tombolnya ada di keyboard bawah.',
 
     // --- Order gagal + petunjuk bahasa di sambutan grup (Task 4.x) ---
     // Order Gagal + pembayaran lunas sebelumnya jatuh ke cabang "Pembayaran
@@ -247,6 +270,6 @@ return [
     // benih `language_code`), jadi jalan keluar ganti bahasa disebut di sini.
     // Double-quoted: single quote PHP tidak menafsirkan \n, jadi `'\n\n'`
     // akan muncul mentah sebagai "\n\n" di chat.
-    'welcome_language_hint' => "\n\n🌐 *Ganti bahasa?* Tekan *🇮🇩 Bahasa* atau *🇬🇧 English* di keyboard bawah.",
+    'welcome_language_hint' => "\n\n🌐 *Ganti bahasa?* Buka chat pribadi bot ini, lalu tekan *:id* atau *:en* — atau ketik /bahasa.",
 ];
 

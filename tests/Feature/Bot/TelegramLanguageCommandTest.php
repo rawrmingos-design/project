@@ -464,6 +464,180 @@ class TelegramLanguageCommandTest extends TestCase
     }
 
     // ---------------------------------------------------------------------
+    // 4b. KEYBOARD IKUT BAHASA AKTIF
+    // ---------------------------------------------------------------------
+
+    /** @return array<int, string> */
+    private function keyboardLabels(): array
+    {
+        $keyboard = app(BotMessageFormatter::class)->defaultReplyKeyboard($this->telegram());
+
+        $labels = [];
+        foreach ($keyboard['keyboard'] as $row) {
+            foreach ($row as $button) {
+                $labels[] = (string) $button['text'];
+            }
+        }
+
+        return $labels;
+    }
+
+    /**
+     * Inti Fase 5: keyboard tetap IKUT bahasa aktif.
+     *
+     * Sebelumnya label keyboard literal Indonesia di semua bahasa, jadi user
+     * berbahasa Inggris melihat teks Inggris dengan tombol Indonesia.
+     */
+    public function test_keyboard_ikut_bahasa_aktif(): void
+    {
+        $formatter = app(BotMessageFormatter::class);
+
+        app()->setLocale('en');
+        $en = $this->keyboardLabels();
+
+        $this->assertContains('🛍️ Open Menu', $en);
+        $this->assertContains('❓ Help', $en);
+        $this->assertContains('📦 Check Status', $en);
+        $this->assertContains('🔍 Check Game ID', $en);
+        $this->assertContains('❌ Cancel Order', $en);
+        $this->assertNotContains('🛍️ Buka Menu', $en, 'Locale en tidak boleh merender label Indonesia.');
+        $this->assertNotContains('❓ Bantuan', $en);
+        $this->assertSame('Choose an action...', $formatter->defaultReplyKeyboard($this->telegram())['input_field_placeholder']);
+
+        app()->setLocale('id');
+        $id = $this->keyboardLabels();
+
+        $this->assertContains('🛍️ Buka Menu', $id);
+        $this->assertContains('❓ Bantuan', $id);
+        $this->assertContains('📦 Cek Status', $id);
+        $this->assertContains('🔍 Cek ID Game', $id);
+        $this->assertContains('❌ Batal Transaksi', $id);
+        $this->assertNotContains('🛍️ Open Menu', $id, 'Locale id tidak boleh merender label Inggris.');
+        $this->assertSame('Pilih aksi...', $formatter->defaultReplyKeyboard($this->telegram())['input_field_placeholder']);
+    }
+
+    /**
+     * SETIAP label keyboard yang dirender di KEDUA locale harus dikenal parser.
+     *
+     * Ini jaring yang paling penting untuk fase ini: keyboard sekarang berubah
+     * bahasa, jadi himpunan label yang dikirim ke user berlipat. Satu label baru
+     * yang lupa didaftarkan = tombol yang diam saat ditekan, dan itu di keyboard
+     * yang MENETAP di layar.
+     */
+    public function test_semua_label_keyboard_kedua_locale_dikenali_parser(): void
+    {
+        $formatter = app(BotMessageFormatter::class);
+
+        foreach (['id', 'en'] as $locale) {
+            app()->setLocale($locale);
+            $labels = $this->keyboardLabels();
+
+            $this->assertNotEmpty($labels, "Keyboard locale {$locale} kosong.");
+
+            foreach ($labels as $label) {
+                $this->assertTrue(
+                    BotCommandParser::anyLabel($label),
+                    "Label keyboard '{$label}' (locale {$locale}) tidak dikenali parser — tombol mati.",
+                );
+            }
+
+            // Locale default harus tetap terpakai setelah render.
+            app()->setLocale($locale);
+        }
+
+        app()->setLocale('id');
+    }
+
+    /**
+     * Copy yang MENTION nama tombol harus memakai nama itu — bukan nama versi
+     * bahasa lain, dan bukan perintah mentah.
+     *
+     * Ini yang menangkap copy basi: dulu prosa EN menulis `*🛍️ Buka Menu*`
+     * sementara keyboard (kini) menulis `*🛍️ Open Menu*`.
+     */
+    public function test_copy_menyebut_nama_tombol_yang_benar(): void
+    {
+        $formatter = app(BotMessageFormatter::class);
+
+        app()->setLocale('en');
+        $help = (string) $formatter->formatHelp($this->telegram())['text'];
+
+        foreach ($this->keyboardLabels() as $label) {
+            // Setiap tombol yang disebut di panduan harus ada di keyboard.
+            if (str_contains($help, "*{$label}*")) {
+                $this->assertContains($label, $this->keyboardLabels());
+            }
+        }
+
+        $this->assertStringContainsString('*🛍️ Open Menu*', $help);
+        $this->assertStringContainsString('*📦 Check Status*', $help);
+        $this->assertStringNotContainsString('*🛍️ Buka Menu*', $help, 'Panduan EN menyebut tombol berbahasa Indonesia.');
+        $this->assertStringNotContainsString('*❌ Batal Transaksi*', $help);
+        // Petunjuk bahasa menyebut tombol yang memang ada di keyboard.
+        $this->assertStringContainsString('*🇬🇧 English*', $help);
+        $this->assertStringContainsString('*🇮🇩 Indonesian*', $help);
+
+        app()->setLocale('id');
+        $helpId = (string) $formatter->formatHelp($this->telegram())['text'];
+
+        $this->assertStringContainsString('*🛍️ Buka Menu*', $helpId);
+        $this->assertStringContainsString('*❌ Batal Transaksi*', $helpId);
+        $this->assertStringNotContainsString('*🛍️ Open Menu*', $helpId);
+    }
+
+    /**
+     * Tombol INLINE di panduan dan keyboard tetap harus memakai label yang sama.
+     *
+     * Tombol yang sama tampil dua kali (inline di pesan, tetap di bawah layar) —
+     * dua nama berbeda untuk satu tombol itu membingungkan.
+     */
+    public function test_tombol_panduan_sama_dengan_keyboard_di_kedua_locale(): void
+    {
+        $formatter = app(BotMessageFormatter::class);
+
+        foreach (['id', 'en'] as $locale) {
+            app()->setLocale($locale);
+
+            $keyboard = $this->keyboardLabels();
+            $help = $formatter->formatHelp($this->telegram());
+
+            foreach ($this->labelsIn($help) as $label) {
+                // Label bahasa & navigasi callback juga harus ada di keyboard.
+                $this->assertContains(
+                    $label,
+                    $keyboard,
+                    "Tombol panduan '{$label}' (locale {$locale}) tidak ada di keyboard tetap.",
+                );
+            }
+        }
+
+        app()->setLocale('id');
+    }
+
+    /** WhatsApp tetap literal Indonesia walau locale en (scope terkunci). */
+    public function test_keyboard_whatsapp_tetap_indonesia_walau_locale_en(): void
+    {
+        app()->setLocale('en');
+
+        $capabilities = BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_WHATSAPP);
+        $keyboard = app(BotMessageFormatter::class)->defaultReplyKeyboard($capabilities)['keyboard'];
+
+        $labels = [];
+        foreach ($keyboard as $row) {
+            foreach ($row as $button) {
+                $labels[] = (string) $button['text'];
+            }
+        }
+
+        $this->assertContains('🛍️ Buka Menu', $labels);
+        $this->assertContains('📦 Cek Status', $labels);
+        $this->assertNotContains('🛍️ Open Menu', $labels);
+        $this->assertNotContains('📦 Check Status', $labels);
+
+        app()->setLocale('id');
+    }
+
+    // ---------------------------------------------------------------------
     // 5. PANDUAN MENYEBUTKAN JALAN KELUARNYA
     // ---------------------------------------------------------------------
 

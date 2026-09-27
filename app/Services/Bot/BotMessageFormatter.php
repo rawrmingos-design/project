@@ -144,23 +144,21 @@ class BotMessageFormatter
             ? __('bot.gate_verified_hello', ['name' => $this->escapeMarkdown(trim($firstName))])
             : '';
 
+        $names = $this->buttonNamePlaceholders();
+
         return [
             'text' => implode("\n", [
                 __('bot.gate_verified_title'),
                 '',
                 $sapaan . __('bot.gate_verified_body'),
                 '',
-                // Rujuk nama TOMBOL-nya, bukan perintah mentah. Nama tombol di
-                // sini tetap literal Indonesia karena `defaultReplyKeyboard()`
-                // merender label keyboard secara literal Indonesia di SEMUA
-                // bahasa — copy harus menyebut nama yang benar-benar ada di
-                // layar user. Kalau keyboard-nya kelak ikut dilokalkan, copy
-                // ini WAJIB ikut berubah di saat yang sama.
-                __('bot.gate_verified_hint'),
+                // Rujuk nama TOMBOL-nya, bukan perintah mentah, dan ambil dari
+                // `kbd_*` sehingga selalu sama dengan keyboard yang dirender.
+                __('bot.gate_verified_hint', $names),
             ]),
             'buttons' => [
-                [$this->button('🛍️ Buka Menu', 'menu')],
-                [$this->button('❓ Bantuan', 'help')],
+                [$this->button($names['menu'], 'menu')],
+                [$this->button($names['help'], 'help')],
             ],
         ];
     }
@@ -1070,6 +1068,69 @@ class BotMessageFormatter
         return $labels;
     }
 
+    /**
+     * Label tombol keyboard tetap, sesuai locale AKTIF.
+     *
+     * Satu sumber untuk `defaultReplyKeyboard()` DAN copy yang menyebut nama
+     * tombol (`formatHelp`, `formatTelegramMembershipVerified`). Kalau label
+     * dibaca dari tempat berbeda, copy bisa menyuruh user menekan tombol yang
+     * tidak ada di layarnya — persis keluhan yang pernah terjadi.
+     *
+     * Label netral (leaderboard/deposit) sengaja literal di pemanggilnya: sama
+     * di kedua bahasa, jadi menduplikasinya hanya menambah nilai kembar.
+     */
+    private function keyboardLabel(string $key, string $fallback): string
+    {
+        $label = __($key);
+
+        // `__()` mengembalikan kunci mentah kalau terjemahannya hilang — itu
+        // tampil sebagai `bot.kbd_menu` di chat. Teks apa pun lebih baik.
+        return str_starts_with($label, 'bot.') ? $fallback : $label;
+    }
+
+    /**
+     * Placeholder untuk copy yang MENYEBUT nama tombol (`:menu`, `:status`, …).
+     *
+     * Dipakai supaya nama tombol di dalam kalimat selalu mengikuti label yang
+     * benar-benar dirender keyboard di bahasa aktif — diterjemahkan sekali, di
+     * satu tempat.
+     *
+     * @return array<string, string>
+     */
+    private function buttonNamePlaceholders(): array
+    {
+        return [
+            'menu' => $this->keyboardLabel('bot.kbd_menu', '🛍️ Buka Menu'),
+            'status' => $this->keyboardLabel('bot.kbd_status', '📦 Cek Status'),
+            'cekid' => $this->keyboardLabel('bot.kbd_cekid', '🔍 Cek ID Game'),
+            'help' => $this->keyboardLabel('bot.kbd_help', '❓ Bantuan'),
+            'cancel' => $this->keyboardLabel('bot.kbd_cancel', '❌ Batal Transaksi'),
+            'history' => $this->keyboardLabel('bot.kbd_history', '📜 Riwayat Order'),
+            'deposit' => '💰 Deposit',
+            'id' => $this->languageButtonLabels()['id'],
+            'en' => $this->languageButtonLabels()['en'],
+        ];
+    }
+
+    /**
+     * Label tombol bahasa untuk locale tertentu.
+     *
+     * Publik karena `TelegramWelcomeService` juga memakainya: sambutan grup
+     * menyebut tombol ganti bahasa, dan nama itu harus persis sama dengan yang
+     * dirender panel/keyboard — kalau menyimpang, petunjuknya menyesatkan.
+     *
+     * @return array{id: string, en: string}
+     */
+    public function languageButtonLabels(?string $locale = null): array
+    {
+        $buttons = $this->languageButtons($locale);
+
+        return [
+            'id' => (string) ($buttons[0]['text'] ?? '🇮🇩 Bahasa'),
+            'en' => (string) ($buttons[1]['text'] ?? '🇬🇧 English'),
+        ];
+    }
+
     /** Locale yang dikenal formatter; di luar itu → 'id'. */
     private function normalizeLocale(?string $locale): string
     {
@@ -1129,11 +1190,12 @@ class BotMessageFormatter
         $isTelegram = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
         $em = static fn (string $text): string => $isTelegram ? "__{$text}__" : "*{$text}*";
 
-        // Label tombol SENGAJA sama persis dengan keyboard tetap
-        // (`defaultReplyKeyboard`) — dulu di sini tertulis "🛍️ Tampilkan Menu /
-        // Produk" padahal keyboard menulis "🛍️ Buka Menu", jadi user melihat
-        // dua nama berbeda untuk tombol yang sama.
-        $buttons = [[$this->button('🛍️ Buka Menu', 'menu')]];
+        // Label tombol diambil dari SUMBER YANG SAMA dengan keyboard tetap
+        // (`keyboardLabel()`). Dulu di sini tertulis literal, dan pernah
+        // menyimpang dari keyboard → user melihat dua nama untuk tombol yang
+        // sama.
+        $names = $this->buttonNamePlaceholders();
+        $buttons = [[$this->button($names['menu'], 'menu')]];
 
         // Tombol bahasa di panduan — kompensasi WAJIB dari auto-deteksi. Ini
         // yang bikin user yang salah-terdeteksi punya jalan keluar 1 tap tanpa
@@ -1146,10 +1208,10 @@ class BotMessageFormatter
             $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
         }
         if ($capabilities->supports('order_history')) {
-            $buttons[] = [$this->button('📜 Riwayat Order', 'order_history')];
+            $buttons[] = [$this->button($names['history'], 'order_history')];
         }
         if ($capabilities->supports('deposit')) {
-            $buttons[] = [$this->button('💰 Deposit', 'deposit')];
+            $buttons[] = [$this->button($names['deposit'], 'deposit')];
         }
 
         $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
@@ -1168,22 +1230,25 @@ class BotMessageFormatter
                 $em(__('bot.help_title')),
                 '',
                 $em(__('bot.help_order_title')),
-                __('bot.help_order_step_1'),
+                // Nama tombol di dalam kalimat diisi dari `kbd_*` (locale aktif).
+                // Kalau ditulis literal, user berbahasa Inggris disuruh menekan
+                // tombol yang tulisannya berbeda dari yang ada di layarnya.
+                __('bot.help_order_step_1', $names),
                 __('bot.help_order_step_2'),
                 __('bot.help_order_step_3'),
                 __('bot.help_order_step_4'),
                 '',
                 $em(__('bot.help_manage_title')),
-                __('bot.help_manage_status'),
-                __('bot.help_manage_history'),
-                __('bot.help_manage_checkid'),
-                __('bot.help_manage_cancel'),
+                __('bot.help_manage_status', $names),
+                __('bot.help_manage_history', $names),
+                __('bot.help_manage_checkid', $names),
+                __('bot.help_manage_cancel', $names),
             ];
 
             if ($capabilities->supports('deposit')) {
                 // Ditaruh di dalam daftar supaya urutannya ikut alur, bukan
                 // menggantung di bawah.
-                $lines[] = __('bot.help_manage_deposit');
+                $lines[] = __('bot.help_manage_deposit', $names);
             }
 
             // Bahasa ikut terdaftar di panduan supaya user tahu jalan keluarnya
@@ -1492,19 +1557,34 @@ class BotMessageFormatter
     public function defaultReplyKeyboard(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM);
-        $keyboard = [[['text' => '🛍️ Buka Menu']]];
+
+        // Label mengikuti bahasa aktif — TAPI hanya di jalur Telegram. Reply
+        // keyboard memang cuma dipakai Telegram, dan `defaultReplyKeyboard()`
+        // selalu dipanggil dengan source Telegram; penjagaan eksplisit di sini
+        // bikin scope-nya tidak bergantung pada fakta itu.
+        $isTelegram = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
+        $pick = fn (string $key, string $fallback): string => $isTelegram
+            ? $this->keyboardLabel($key, $fallback)
+            : $fallback;
+
+        $keyboard = [[['text' => $pick('bot.kbd_menu', '🛍️ Buka Menu')]]];
 
         if ($capabilities->supports('leaderboard')) {
             $keyboard[] = [['text' => '🏆 Leaderboard']];
         }
         if ($capabilities->supports('order_history')) {
-            $keyboard[] = [['text' => '📜 Riwayat Order']];
+            // Dibaca dari `kbd_*` juga: copy panduan menyebut tombol ini.
+            $keyboard[] = [['text' => $pick('bot.kbd_history', '📜 Riwayat Order')]];
         }
         if ($capabilities->supports('deposit')) {
             $keyboard[] = [['text' => '💰 Deposit']];
         }
 
-        $keyboard[] = [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']];
+        $keyboard[] = [
+            ['text' => $pick('bot.kbd_status', '📦 Cek Status')],
+            ['text' => $pick('bot.kbd_cekid', '🔍 Cek ID Game')],
+        ];
 
         // Baris bahasa — Telegram saja, dan dijaga EKSPLISIT pada source-nya.
         // Reply keyboard memang cuma dipakai Telegram, tapi penjagaan ini bikin
@@ -1521,7 +1601,10 @@ class BotMessageFormatter
             $keyboard[] = $languageRow;
         }
 
-        $keyboard[] = [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']];
+        $keyboard[] = [
+            ['text' => $pick('bot.kbd_help', '❓ Bantuan')],
+            ['text' => $pick('bot.kbd_cancel', '❌ Batal Transaksi')],
+        ];
 
         // TIDAK ada tombol "📞 Hubungi Admin" di sini.
         //
@@ -1539,7 +1622,7 @@ class BotMessageFormatter
             'keyboard' => $keyboard,
             'resize_keyboard' => true,
             'is_persistent' => true,
-            'input_field_placeholder' => 'Pilih aksi...',
+            'input_field_placeholder' => $pick('bot.kbd_placeholder', 'Pilih aksi...'),
         ];
     }
 

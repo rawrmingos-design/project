@@ -170,6 +170,23 @@ class TelegramWelcomeTest extends TestCase
         $this->assertStringContainsString('🇬🇧 English', $resolved['text']);
     }
 
+    /**
+     * Nama tombol di petunjuk sambutan harus PERSIS sama dengan label yang
+     * dirender panel `/bahasa`.
+     *
+     * Petunjuk yang menyebut tombol dengan nama berbeda itu menyesatkan: user
+     * berbahasa Inggris disuruh menekan `🇮🇩 Bahasa` padahal tombolnya bertulis
+     * `🇮🇩 Indonesian`. Labelnya diambil dari formatter, jadi satu sumber.
+     */
+    public function test_nama_tombol_di_petunjuk_sama_dengan_panel_bahasa(): void
+    {
+        $resolved = app(TelegramWelcomeService::class)->resolveText($this->member(), $this->chat());
+        $labels = app(\App\Services\Bot\BotMessageFormatter::class)->languageButtonLabels('id');
+
+        $this->assertStringContainsString($labels['id'], $resolved['text']);
+        $this->assertStringContainsString($labels['en'], $resolved['text']);
+    }
+
     /** Template kustom TIDAK boleh meniadakan petunjuk bahasa. */
     public function test_petunjuk_bahasa_tetap_ada_saat_template_kustom(): void
     {
