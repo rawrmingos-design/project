@@ -951,10 +951,22 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->assertStringContainsString('🔒 *Limited Access*', $msg['text']);
         $this->assertStringContainsString('please join the channel below first', $msg['text']);
         $this->assertStringNotContainsString('Akses Terbatas', $msg['text']);
+        $this->assertStringNotContainsString('Sudah Bergabung', $msg['text']);
 
-        // Prosa diterjemahkan, tapi label tombol yang di-parse TIDAK ikut.
-        $this->assertStringContainsString('*✅ Sudah Bergabung*', $msg['text']);
-        $this->assertSame('✅ Sudah Bergabung', $msg['buttons'][1][0]['text']);
+        // Label tombol gerbang IKUT bahasa aktif: tombol ini dikirim sebagai
+        // CALLBACK, bukan label yang di-parse dari teks, jadi tidak terikat
+        // peta label parser. Sebelumnya literal Indonesia → layar Inggris
+        // dengan tombol Indonesia di gerbang yang justru menghalangi user.
+        $this->assertSame('✅ Joined', $msg['buttons'][1][0]['text']);
+
+        // ★ Invarian: nama tombol di dalam kalimat == label tombol yang
+        // benar-benar dirender. Kalau menyimpang, user disuruh menekan tombol
+        // yang tulisannya berbeda dari yang ada di layarnya.
+        $this->assertStringContainsString(
+            '*' . $msg['buttons'][1][0]['text'] . '*',
+            $msg['text'],
+            'Kalimat harus menyebut tombol dengan nama yang sama persis.',
+        );
     }
 
     public function test_gate_verified_id_baseline_dan_en(): void
@@ -1023,8 +1035,9 @@ class TelegramCopyPhaseOneTest extends TestCase
 
         $unEn = $fmt->formatTelegramMembershipUnavailable();
         $this->assertStringContainsString('*Membership Verification Problem*', $unEn['text']);
-        // Label tombol parser-driven tetap literal.
-        $this->assertSame('Coba Lagi', $unEn['buttons'][0][0]['text']);
+        // Tombol "coba lagi" dikirim sebagai callback (bukan label parser),
+        // jadi mengikuti bahasa aktif. Sebelumnya literal Indonesia.
+        $this->assertSame('Try Again', $unEn['buttons'][0][0]['text']);
     }
 
     /** Channel tanpa daftar valid → jatuh ke pesan "gangguan", bukan gate kosong. */
@@ -1035,5 +1048,68 @@ class TelegramCopyPhaseOneTest extends TestCase
 
         $this->assertStringContainsString('Membership Verification Problem', $msg['text']);
         $this->assertStringNotContainsString('Limited Access', $msg['text']);
+    }
+
+    /**
+     * Seluruh LAYAR GERBANG tidak boleh campur bahasa.
+     *
+     * Ini kelas bug yang lolos dari fase-fase sebelumnya: prosa sudah Inggris,
+     * tapi tombolnya masih literal Indonesia — persis di layar yang menghalangi
+     * user. Menambal satu tombol saja tidak cukup; test ini merayapi SETIAP
+     * pesan gerbang dan menolak sisa kata Indonesia di prosa MAUPUN tombol.
+     */
+    public function test_seluruh_layar_gerbang_tidak_campur_bahasa(): void
+    {
+        $fmt = app(BotMessageFormatter::class);
+        $channels = $this->missingChannels();
+
+        // Frasa Indonesia yang TIDAK boleh muncul di locale en. Dipilih yang
+        // benar-benar khas; kata pinjaman netral (`Order`, `Status`, `Menu`)
+        // tidak dimasukkan supaya test tidak menuduh teks Inggris sah.
+        $indonesia = [
+            'Sudah Bergabung', 'Coba Lagi', 'Hubungi Admin', 'Akses Terbatas',
+            'Bergabung', 'Verifikasi', 'Keanggotaan', 'Silakan', 'Layanan',
+            'Diperbaiki', 'Kamu', 'Gagal',
+        ];
+
+        $assertBersih = function (string $nama, array $pesan) use ($indonesia): void {
+            $bagian = ['prosa' => (string) $pesan['text'], 'tombol' => []];
+            foreach ($pesan['buttons'] ?? [] as $row) {
+                foreach ((array) $row as $b) {
+                    $bagian['tombol'][] = (string) ($b['text'] ?? '');
+                }
+            }
+
+            foreach ($bagian as $jenis => $isi) {
+                foreach ((array) $isi as $teks) {
+                    foreach ($indonesia as $kata) {
+                        $this->assertStringNotContainsString(
+                            $kata,
+                            (string) $teks,
+                            $nama . ': ' . $jenis . ' masih Indonesia [' . $kata . ']: '
+                                . mb_substr((string) $teks, 0, 100),
+                        );
+                    }
+                }
+            }
+        };
+
+        app()->setLocale('en');
+        $assertBersih('gateRequired', $fmt->formatTelegramMembershipRequired($channels));
+        $assertBersih('gateUnavailable', $fmt->formatTelegramMembershipUnavailable());
+        $assertBersih('gateMisconfigured', $fmt->formatTelegramMembershipMisconfigured());
+        $assertBersih('gateVerified', $fmt->formatTelegramMembershipVerified('Mings'));
+
+        // Sisi lain: locale id TIDAK boleh kemasukan Inggris.
+        app()->setLocale('id');
+        $idRequired = $fmt->formatTelegramMembershipRequired($channels);
+        $this->assertStringContainsString('Akses Terbatas', $idRequired['text']);
+        $this->assertSame('✅ Sudah Bergabung', $idRequired['buttons'][1][0]['text']);
+        $this->assertSame('Coba Lagi', $fmt->formatTelegramMembershipUnavailable()['buttons'][0][0]['text']);
+        $this->assertStringContainsString(
+            'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah',
+            $idRequired['text'],
+            'Kalimat locale id harus utuh dan menyebut tombol Indonesia.',
+        );
     }
 }

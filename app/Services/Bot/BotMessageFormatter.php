@@ -107,7 +107,7 @@ class BotMessageFormatter
         }
 
         $lines[] = '';
-        $lines[] = __('bot.gate_verify_hint');
+        $lines[] = __('bot.gate_verify_hint', $this->buttonNamePlaceholders());
 
         $buttons = [];
 
@@ -123,7 +123,12 @@ class BotMessageFormatter
             $buttons[] = [$this->urlButton($text, trim((string) $channel['url']))];
         }
 
-        $buttons[] = [$this->button('✅ Sudah Bergabung', 'menu')];
+        // Label dari `kbd_gate_verified` (bahasa aktif): tombol ini
+        // dikirim sebagai CALLBACK, jadi tidak terikat peta label parser.
+        $buttons[] = [$this->button(
+            $this->keyboardLabel('bot.kbd_gate_verified', '✅ Sudah Bergabung'),
+            'menu',
+        )];
 
         return [
             'text' => implode("\n", $lines),
@@ -209,8 +214,11 @@ class BotMessageFormatter
                 '',
                 __('bot.gate_unavailable_body'),
             ]),
-            // Label 'Coba Lagi' dikenali parser sebagai perintah menu → literal.
-            'buttons' => [[$this->button('Coba Lagi', 'menu')]],
+            // Komentar lama salah: 'Coba Lagi' BUKAN label parser — tombol ini
+            // dikirim sebagai callback (dikunci
+            // `test_label_callback_driven_bukan_perintah_teks`), jadi aman
+            // mengikuti bahasa aktif.
+            'buttons' => [[$this->button(__('bot.gate_btn_retry'), 'menu')]],
         ];
     }
 
@@ -290,10 +298,14 @@ class BotMessageFormatter
         int $page = 1,
         ?BotGatewayCapabilities $capabilities = null,
     ): array {
+        $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
-                'text' => "Kategori tidak ditemukan atau belum ada produk.",
-                'buttons' => [[$this->button('🔙 Kembali', 'menu')]],
+                'text' => $isTelegram
+                    ? __('bot.catalog_products_empty')
+                    : 'Kategori tidak ditemukan atau belum ada produk.',
+                'buttons' => [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', 'menu')]],
             ];
         }
 
@@ -317,10 +329,12 @@ class BotMessageFormatter
 
         $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'kategori ' . $typeSlug, $pagination);
-        $buttons = $this->appendBack($buttons, 'menu');
+        $buttons = $this->appendBack($buttons, 'menu', $capabilities?->source());
 
         return [
-            'text' => '🎮 *Pilih Game* · ' . $firstType . $this->pageSuffix($pagination),
+            'text' => ($isTelegram
+                ? __('bot.catalog_products_title') . ' · ' . $firstType
+                : '🎮 *Pilih Game* · ' . $firstType) . $this->pageSuffix($pagination),
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'products',
@@ -335,10 +349,14 @@ class BotMessageFormatter
         int $page = 1,
         ?BotGatewayCapabilities $capabilities = null,
     ): array {
+        $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false) || empty($data['data']['services'])) {
             return [
-                'text' => "Produk tidak ditemukan atau belum ada layanan.",
-                'buttons' => [[$this->button('🔙 Kembali', 'menu')]],
+                'text' => $isTelegram
+                    ? __('bot.catalog_services_empty')
+                    : 'Produk tidak ditemukan atau belum ada layanan.',
+                'buttons' => [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', 'menu')]],
             ];
         }
 
@@ -364,7 +382,11 @@ class BotMessageFormatter
 
         $buttons = array_chunk($items, 2);
         $buttons = $this->appendPagination($buttons, 'layanan ' . $categoryCode, $pagination);
-        $buttons = $this->appendBack($buttons, $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu');
+        $buttons = $this->appendBack(
+            $buttons,
+            $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
+            $capabilities->source(),
+        );
 
         return [
             'text' => '💎 *' . $productName . '*' . $this->pageSuffix($pagination),
@@ -384,10 +406,16 @@ class BotMessageFormatter
         ?string $backCallback = null,
         ?BotGatewayCapabilities $capabilities = null,
     ): array {
+        $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false) || empty($data['data'])) {
             return [
-                'text' => "Metode pembayaran sedang tidak tersedia.",
-                'buttons' => $backCallback ? [[$this->button('🔙 Kembali', $backCallback)]] : [],
+                'text' => $isTelegram
+                    ? __('bot.catalog_payments_empty')
+                    : 'Metode pembayaran sedang tidak tersedia.',
+                'buttons' => $backCallback
+                    ? [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', $backCallback)]]
+                    : [],
             ];
         }
 
@@ -410,7 +438,7 @@ class BotMessageFormatter
         $buttons = $this->appendPagination($buttons, 'metode ' . $serviceId, $pagination);
 
         if ($backCallback) {
-            $buttons = $this->appendBack($buttons, $backCallback);
+            $buttons = $this->appendBack($buttons, $backCallback, $capabilities?->source());
         }
 
         return [
@@ -642,9 +670,20 @@ class BotMessageFormatter
 
     public function formatInvoice(array $data, string $source = 'telegram_gateway'): array
     {
+        // Jalur Telegram memakai lang (bahasa aktif). Default param adalah
+        // telegram_gateway karena invoice memang dikirim ke Telegram; WhatsApp
+        // tetap literal Indonesia agar perilakunya tidak berubah.
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($data['ok'] ?? false)) {
+            // Pesan mentah dari provider TIDAK diterjemahkan — hanya
+            // pembungkusnya. Alasan teknisnya tetap harus terbaca admin.
+            $reason = (string) ($data['message'] ?? 'Error internal');
+
             return [
-                'text' => "Gagal membuat invoice: " . ($data['message'] ?? 'Error internal'),
+                'text' => $isTelegram
+                    ? __('bot.invoice_create_failed', ['reason' => $reason])
+                    : 'Gagal membuat invoice: ' . $reason,
                 'buttons' => [],
             ];
         }
@@ -662,7 +701,7 @@ class BotMessageFormatter
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
         $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode) || $this->isQrisPayload($qrPayload);
         $lines = [
-            '⏳ *Menunggu Pembayaran*',
+            $isTelegram ? __('bot.invoice_pending_title') : '⏳ *Menunggu Pembayaran*',
             '',
             '💎 ' . $this->escapeMarkdown($serviceName . ' (' . $categoryName . ')'),
             '💰 *Rp ' . $amount . '*',
@@ -671,21 +710,29 @@ class BotMessageFormatter
 
         if (! $isQrPayment && $paymentCode !== '') {
             $lines[] = '';
-            $lines[] = '💳 Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
+            $lines[] = $isTelegram
+                ? __('bot.invoice_va_line', ['code' => $this->escapeMarkdownCode($paymentCode)])
+                : '💳 Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
         }
 
         $lines[] = '';
         $lines[] = $isQrPayment
-            ? 'Scan QRIS untuk membayar.'
-            : 'Selesaikan pembayaran agar pesanan diproses otomatis.';
-        $lines[] = 'Ketik `status` untuk cek pembayaran.';
+            ? ($isTelegram ? __('bot.invoice_qr_hint') : 'Scan QRIS untuk membayar.')
+            : ($isTelegram ? __('bot.invoice_pay_hint') : 'Selesaikan pembayaran agar pesanan diproses otomatis.');
+        $lines[] = $isTelegram ? __('bot.invoice_status_hint') : 'Ketik `status` untuk cek pembayaran.';
         $buttons = [];
 
         if ($invoiceUrl !== null && $source !== 'whatsapp_gateway') {
-            $buttons[] = [$this->urlButton('🔗 Buka Halaman Invoice', $invoiceUrl)];
+            $buttons[] = [$this->urlButton(
+                $isTelegram ? __('bot.invoice_btn_open') : '🔗 Buka Halaman Invoice',
+                $invoiceUrl,
+            )];
         }
 
-        $buttons[] = [$this->button('🔎 Cek Status Pembayaran', "status {$orderId}")];
+        $buttons[] = [$this->button(
+            $isTelegram ? __('bot.invoice_btn_check') : '🔎 Cek Status Pembayaran',
+            "status {$orderId}",
+        )];
         $response = [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
@@ -1109,6 +1156,7 @@ class BotMessageFormatter
             'deposit' => '💰 Deposit',
             'id' => $this->languageButtonLabels()['id'],
             'en' => $this->languageButtonLabels()['en'],
+            'gate_verified' => $this->keyboardLabel('bot.kbd_gate_verified', '✅ Sudah Bergabung'),
         ];
     }
 
@@ -1519,12 +1567,19 @@ class BotMessageFormatter
         };
     }
 
-    public function formatLeaderboard(array $data): array
+    /**
+     * @param string|null $source Jalur `telegram_gateway` memakai lang (bahasa
+     *   aktif); channel lain tetap literal Indonesia (leaderboard WhatsApp
+     *   berbagi method ini).
+     */
+    public function formatLeaderboard(array $data, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         $sections = [
-            'today' => 'Hari Ini',
-            'week' => 'Minggu Ini',
-            'month' => 'Bulan Ini',
+            'today' => $isTelegram ? __('bot.leaderboard_today') : 'Hari Ini',
+            'week' => $isTelegram ? __('bot.leaderboard_week') : 'Minggu Ini',
+            'month' => $isTelegram ? __('bot.leaderboard_month') : 'Bulan Ini',
         ];
         $lines = ['🏆 *Leaderboard*'];
 
@@ -1534,7 +1589,7 @@ class BotMessageFormatter
             $rows = is_array($data[$key] ?? null) ? $data[$key] : [];
 
             if ($rows === []) {
-                $lines[] = 'Belum ada transaksi sukses.';
+                $lines[] = $isTelegram ? __('bot.leaderboard_empty') : 'Belum ada transaksi sukses.';
                 continue;
             }
 
@@ -1547,7 +1602,9 @@ class BotMessageFormatter
 
         return [
             'text' => implode("\n", $lines),
-            'buttons' => [[$this->button('🔙 Kembali ke Menu', 'menu')]],
+            'buttons' => [[
+                $this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu'),
+            ]],
         ];
     }
 
@@ -2055,9 +2112,19 @@ class BotMessageFormatter
         return $buttons;
     }
 
-    private function appendBack(array $buttons, string $callback): array
+    /**
+     * Tombol "kembali" generik.
+     *
+     * @param string|null $source Jalur `telegram_gateway` memakai label dari
+     *   lang (bahasa aktif); channel lain tetap literal Indonesia supaya
+     *   perilakunya tidak berubah sama sekali.
+     */
+    private function appendBack(array $buttons, string $callback, ?string $source = null): array
     {
-        $buttons[] = [$this->button('🔙 Kembali', $callback, 'back')];
+        $label = $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+            ? __('bot.btn_back')
+            : '🔙 Kembali';
+        $buttons[] = [$this->button($label, $callback, 'back')];
 
         return $buttons;
     }
@@ -2218,13 +2285,16 @@ class BotMessageFormatter
      */
     public function formatTgRegisterPrompt(): array
     {
+        // Prompt ini HANYA dirender di jalur Telegram (registrasi otomatis
+        // Telegram), jadi tidak perlu threading `$source`. Prompt WhatsApp
+        // punya method sendiri (`formatWaRegisterPrompt`) yang tetap Indonesia.
         return [
             'text' => implode("\n", [
-                '⚠️ *Akun Telegram belum tertaut.*',
+                __('bot.tg_register_prompt_title'),
                 '',
-                'Untuk melakukan deposit, kamu perlu membuat akun baru.',
+                __('bot.tg_register_prompt_body'),
                 '',
-                'Ketik *YA* untuk daftar sekarang, atau *TIDAK* untuk batalkan.',
+                __('bot.tg_register_prompt_confirm'),
             ]),
             'buttons' => [],
         ];
@@ -2239,12 +2309,12 @@ class BotMessageFormatter
     {
         return [
             'text' => implode("\n", [
-                '📝 *Pendaftaran Akun*',
+                __('bot.tg_register_username_title'),
                 '',
-                'Ketik username yang ingin kamu gunakan.',
+                __('bot.tg_register_username_prompt'),
                 '',
-                '_Contoh: fahmi123_',
-                '_Catatan: Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter)._',
+                __('bot.tg_register_username_example'),
+                __('bot.tg_register_username_note'),
             ]),
             'buttons' => [],
         ];
@@ -2260,14 +2330,14 @@ class BotMessageFormatter
     public function formatTgRegisterUsernameRetry(int $attemptsLeft, string $reason): array
     {
         $reasonText = $reason === 'taken'
-            ? 'Username sudah digunakan. Silakan pilih username lain.'
-            : 'Username tidak valid. Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter).';
+            ? __('bot.tg_register_username_taken')
+            : __('bot.tg_register_username_invalid');
 
         return [
             'text' => implode("\n", [
                 "❌ {$reasonText}",
                 '',
-                "Ketik username baru. (Sisa percobaan: {$attemptsLeft})",
+                __('bot.tg_register_username_retry', ['left' => $attemptsLeft]),
             ]),
             'buttons' => [],
         ];
@@ -2282,11 +2352,11 @@ class BotMessageFormatter
     {
         return [
             'text' => implode("\n", [
-                '✅ *Username diterima.*',
+                __('bot.tg_register_email_title'),
                 '',
-                'Mau daftarkan email? Ketik alamat email kamu, atau ketik *SKIP* untuk lewati.',
+                __('bot.tg_register_email_prompt'),
                 '',
-                '_Email bersifat opsional dan bisa ditambahkan nanti via website._',
+                __('bot.tg_register_email_note'),
             ]),
             'buttons' => [],
         ];
@@ -2302,14 +2372,14 @@ class BotMessageFormatter
     public function formatTgRegisterEmailRetry(int $attemptsLeft, string $reason): array
     {
         $reasonText = $reason === 'duplicate'
-            ? 'Email sudah digunakan oleh akun lain.'
-            : 'Format email tidak valid.';
+            ? __('bot.tg_register_email_duplicate')
+            : __('bot.tg_register_email_invalid');
 
         return [
             'text' => implode("\n", [
                 "❌ {$reasonText}",
                 '',
-                "Coba email lain, atau ketik *SKIP* untuk lewati. (Sisa percobaan: {$attemptsLeft})",
+                __('bot.tg_register_email_retry', ['left' => $attemptsLeft]),
             ]),
             'buttons' => [],
         ];
@@ -2327,16 +2397,16 @@ class BotMessageFormatter
     {
         return [
             'text' => implode("\n", [
-                '🎉 *Akun berhasil dibuat dan dihubungkan ke Telegram!*',
+                __('bot.tg_register_success_title'),
                 '',
                 "Username: `{$username}`",
                 "Password: `{$password}`",
                 '',
-                '⚠️ _Simpan password ini sekarang, tidak akan dikirim ulang._',
+                __('bot.tg_register_success_note'),
                 '',
                 "Reset password: {$appUrl}/forgot-password",
                 '',
-                'Silakan ulangi perintah *deposit* untuk melanjutkan.',
+                __('bot.tg_register_success_retry'),
             ]),
             'buttons' => [],
         ];

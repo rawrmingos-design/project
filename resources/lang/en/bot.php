@@ -66,6 +66,52 @@ return [
     'deposit_order_id' => 'Order ID: `:order_id`',
     'deposit_amount_line' => 'Amount: Rp :amount',
     'deposit_va_line' => 'Payment Code / VA: `:code`',
+    // Invoice buttons & lines (Telegram path). `deposit_pending_title` is not
+    // reused: the word order differs in English, and identical values are
+    // rejected by the parity test.
+    'invoice_pending_title' => '⏳ *Awaiting Payment*',
+    'invoice_va_line' => '💳 Payment Code / VA: `:code`',
+    'invoice_qr_hint' => 'Scan the QRIS code to pay.',
+    'invoice_pay_hint' => 'Complete the payment so the order is processed automatically.',
+    'invoice_status_hint' => 'Type `status` to check the payment.',
+    'invoice_btn_open' => '🔗 Open Invoice Page',
+    'invoice_btn_check' => '🔎 Check Payment Status',
+    'invoice_create_failed' => 'Failed to create the invoice: :reason',
+    // Catalog titles & empty states. Identical values are rejected by the
+    // parity test, so each key stands on its own.
+    'catalog_products_title' => '🎮 *Choose a Game*',
+    'catalog_products_empty' => 'Category not found or it has no products yet.',
+    'catalog_services_empty' => 'Product not found or it has no services yet.',
+    'catalog_payments_empty' => 'No payment methods are available right now.',
+    'leaderboard_today' => 'Today',
+    'leaderboard_week' => 'This Week',
+    'leaderboard_month' => 'This Month',
+    'leaderboard_empty' => 'No successful transactions yet.',
+    'usage_kategori' => 'Wrong format. Use: `kategori <category_code>`' . "\n" . 'Example: `kategori top-up-games`',
+    'usage_layanan' => 'Wrong format. Use: `layanan <product_code>`',
+    'usage_pembayaran' => 'Wrong format. Pick a service first.',
+    'usage_harga' => 'Wrong format. Use: `harga <service_id> <payment_code>`',
+    'usage_cekid' => 'Wrong format. Use: `cekid <product_code> <uid> [zone]`' . "\n" . 'Example: `cekid mobile-legends 1234567 1234`',
+    'tg_register_prompt_title' => '⚠️ *Telegram account not linked yet.*',
+    'tg_register_prompt_body' => 'To make a deposit, you need to create an account first.',
+    'tg_register_prompt_confirm' => 'Type *YES* to register now, or *NO* to cancel.',
+    'tg_register_username_title' => '📝 *Account Registration*',
+    'tg_register_username_prompt' => 'Type the username you want to use.',
+    'tg_register_username_example' => '_Example: fahmi123_',
+    'tg_register_username_note' => '_Note: letters and numbers only, no spaces (4-20 characters)._',
+    'tg_register_username_taken' => 'That username is already taken. Please pick another one.',
+    'tg_register_username_invalid' => 'Invalid username. Letters and numbers only, no spaces (4-20 characters).',
+    'tg_register_username_retry' => 'Type a new username. (Attempts left: :left)',
+    'tg_register_email_title' => '✅ *Username accepted.*',
+    'tg_register_email_prompt' => 'Want to add an email? Send your email address, or type *SKIP* to skip.',
+    'tg_register_email_note' => '_Email is optional and can be added later on the website._',
+    'tg_register_email_duplicate' => 'That email is already used by another account.',
+    'tg_register_email_invalid' => 'Invalid email format.',
+    'tg_register_email_retry' => 'Try another email, or type *SKIP* to skip. (Attempts left: :left)',
+    'tg_register_success_title' => '🎉 *Account created and linked to Telegram!*',
+    'tg_register_success_note' => '⚠️ _Save this password now, it will not be sent again._',
+    'tg_register_success_retry' => 'Run the *deposit* command again to continue.',
+    'btn_back' => '🔙 Back',
     'deposit_qr_sent' => 'The payment QR is sent as an image after this message.',
     'deposit_pay_url' => 'Use the following payment URL: :url',
     'deposit_create_failed' => 'The deposit could not be created. Please try again later.',
@@ -197,6 +243,12 @@ return [
     'kbd_cancel' => '❌ Cancel Order',
     'kbd_history' => '📜 Order History',
     'kbd_placeholder' => 'Choose an action...',
+    // Gate button labels. Sent as CALLBACKS (not parser labels — see
+    // `test_label_callback_driven_bukan_perintah_teks`), so they may follow
+    // the active language. They used to be Indonesian literals, which put an
+    // Indonesian button on an English screen — right at the gate that blocks
+    // the user.
+    'kbd_gate_verified' => '✅ Joined',
     // --- Membership gate & verification greeting (Task 1.6) ---
     // Button labels quoted here come from `kbd_*`, so they always match what the
     // reply keyboard actually renders — in whatever language is active.
@@ -205,7 +257,9 @@ return [
     'gate_title' => '🔒 *Limited Access*',
     'gate_intro_single' => 'Hi! Before you can use this bot, please join the channel below first:',
     'gate_intro_multi' => 'Hi! Before you can use this bot, please join *all* of the channels below first:',
-    'gate_verify_hint' => 'Already joined? Tap *✅ Sudah Bergabung* below to verify.',
+    // Button name filled from `kbd_gate_verified` (active language). The
+    // literal here used to tell English users to tap an Indonesian button.
+    'gate_verify_hint' => 'Already joined? Tap *:gate_verified* below to verify.',
     'gate_join_channel' => '📢 Join :label',
     'gate_verified_title' => '✅ *Verification Successful*',
     'gate_verified_hello' => 'Hi :name! ',
@@ -219,6 +273,7 @@ return [
     'gate_unavailable_title' => '*Membership Verification Problem*',
     'gate_unavailable_body' => 'Your channel membership could not be verified. Please try again in a moment.',
     'gate_btn_contact' => '💬 Contact Admin',
+    'gate_btn_retry' => 'Try Again',
     // --- Language settings (Task 3.1) ---
     'lang_title' => '🌐 *Language Settings*',
     'lang_current' => 'Current language: *:label*',

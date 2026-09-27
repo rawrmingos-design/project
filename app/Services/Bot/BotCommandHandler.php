@@ -108,7 +108,10 @@ class BotCommandHandler
                 'start' => $this->handleStart($args, $context),
                 'help', 'bantuan' => $this->formatter->formatHelp($this->capabilities($context)),
                 'menu' => $this->handleMenu($args, $context),
-                'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
+                'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(
+                    ($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings(),
+                    $context['source'] ?? null,
+                ),
                 'link' => $this->handleLink($args, $context),
                 'deposit', 'topup', 'isi_saldo' => $this->handleDeposit($args, $context),
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
@@ -845,8 +848,10 @@ class BotCommandHandler
         $type = $args[0] ?? null;
         if (! $type) {
             return [
-                'text' => "Format salah. Gunakan: `kategori <kode_tipe>`\nContoh: `kategori top-up-games`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_kategori')
+                    : "Format salah. Gunakan: `kategori <kode_tipe>`\nContoh: `kategori top-up-games`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -863,8 +868,10 @@ class BotCommandHandler
         $catCode = $args[0] ?? null;
         if (! $catCode) {
             return [
-                'text' => "Format salah. Gunakan: `layanan <kode_produk>`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_layanan')
+                    : "Format salah. Gunakan: `layanan <kode_produk>`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -881,8 +888,10 @@ class BotCommandHandler
         $serviceId = (int) ($args[0] ?? 0);
         if ($serviceId <= 0) {
             return [
-                'text' => "Format salah. Pilih layanan terlebih dahulu.",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_pembayaran')
+                    : "Format salah. Pilih layanan terlebih dahulu.",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -910,8 +919,10 @@ class BotCommandHandler
     {
         if (count($args) < 2) {
             return [
-                'text' => "Format salah. Gunakan: `harga <ID_Layanan> <Kode_Bayar>`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_harga')
+                    : "Format salah. Gunakan: `harga <ID_Layanan> <Kode_Bayar>`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -1919,6 +1930,25 @@ class BotCommandHandler
         }
 
         return 1;
+    }
+
+    /**
+     * Tombol pintas ke menu untuk pesan galat format perintah.
+     *
+     * Label dari lang (bahasa aktif) di jalur Telegram; channel lain tetap
+     * literal Indonesia. Tombol ini dikirim sebagai CALLBACK, jadi tidak
+     * terikat peta label parser.
+     *
+     * @return array{text: string, callback: string}
+     */
+    private function menuShortcutButton(array $context): array
+    {
+        $isTelegram = ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
+        return [
+            'text' => $isTelegram ? __('bot.btn_back_menu') : 'Lihat Menu',
+            'callback' => 'menu',
+        ];
     }
 
     private function handleDepositAmountInput(?string $command, array $context, array $state): array

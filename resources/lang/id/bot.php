@@ -75,6 +75,52 @@ return [
     'deposit_order_id' => 'Order ID: `:order_id`',
     'deposit_amount_line' => 'Jumlah: Rp :amount',
     'deposit_va_line' => 'Kode Bayar / VA: `:code`',
+    // Tombol & baris invoice (jalur Telegram). Template `deposit_pending_title`
+    // tidak dipakai ulang karena urutan katanya beda di Inggris; nilai kembar
+    // dilarang parity test.
+    'invoice_pending_title' => '⏳ *Menunggu Pembayaran*',
+    'invoice_va_line' => '💳 Kode Bayar / VA: `:code`',
+    'invoice_qr_hint' => 'Scan QRIS untuk membayar.',
+    'invoice_pay_hint' => 'Selesaikan pembayaran agar pesanan diproses otomatis.',
+    'invoice_status_hint' => 'Ketik `status` untuk cek pembayaran.',
+    'invoice_btn_open' => '🔗 Buka Halaman Invoice',
+    'invoice_btn_check' => '🔎 Cek Status Pembayaran',
+    'invoice_create_failed' => 'Gagal membuat invoice: :reason',
+    // Judul & pesan kosong katalog. Nilai kembar dilarang parity test, jadi
+    // tiap kunci berdiri sendiri meski maknanya berdekatan.
+    'catalog_products_title' => '🎮 *Pilih Game*',
+    'catalog_products_empty' => 'Kategori tidak ditemukan atau belum ada produk.',
+    'catalog_services_empty' => 'Produk tidak ditemukan atau belum ada layanan.',
+    'catalog_payments_empty' => 'Metode pembayaran sedang tidak tersedia.',
+    'leaderboard_today' => 'Hari Ini',
+    'leaderboard_week' => 'Minggu Ini',
+    'leaderboard_month' => 'Bulan Ini',
+    'leaderboard_empty' => 'Belum ada transaksi sukses.',
+    'usage_kategori' => 'Format salah. Gunakan: `kategori <kode_tipe>`' . "\n" . 'Contoh: `kategori top-up-games`',
+    'usage_layanan' => 'Format salah. Gunakan: `layanan <kode_produk>`',
+    'usage_pembayaran' => 'Format salah. Pilih layanan terlebih dahulu.',
+    'usage_harga' => 'Format salah. Gunakan: `harga <ID_Layanan> <Kode_Bayar>`',
+    'usage_cekid' => 'Format salah. Gunakan: `cekid <kode_produk> <uid> [zone]`' . "\n" . 'Contoh: `cekid mobile-legends 1234567 1234`',
+    'tg_register_prompt_title' => '⚠️ *Akun Telegram belum tertaut.*',
+    'tg_register_prompt_body' => 'Untuk melakukan deposit, kamu perlu membuat akun baru.',
+    'tg_register_prompt_confirm' => 'Ketik *YA* untuk daftar sekarang, atau *TIDAK* untuk batalkan.',
+    'tg_register_username_title' => '📝 *Pendaftaran Akun*',
+    'tg_register_username_prompt' => 'Ketik username yang ingin kamu gunakan.',
+    'tg_register_username_example' => '_Contoh: fahmi123_',
+    'tg_register_username_note' => '_Catatan: Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter)._',
+    'tg_register_username_taken' => 'Username sudah digunakan. Silakan pilih username lain.',
+    'tg_register_username_invalid' => 'Username tidak valid. Hanya boleh huruf dan angka, tanpa spasi (4-20 karakter).',
+    'tg_register_username_retry' => 'Ketik username baru. (Sisa percobaan: :left)',
+    'tg_register_email_title' => '✅ *Username diterima.*',
+    'tg_register_email_prompt' => 'Mau daftarkan email? Ketik alamat email kamu, atau ketik *SKIP* untuk lewati.',
+    'tg_register_email_note' => '_Email bersifat opsional dan bisa ditambahkan nanti via website._',
+    'tg_register_email_duplicate' => 'Email sudah digunakan oleh akun lain.',
+    'tg_register_email_invalid' => 'Format email tidak valid.',
+    'tg_register_email_retry' => 'Coba email lain, atau ketik *SKIP* untuk lewati. (Sisa percobaan: :left)',
+    'tg_register_success_title' => '🎉 *Akun berhasil dibuat dan dihubungkan ke Telegram!*',
+    'tg_register_success_note' => '⚠️ _Simpan password ini sekarang, tidak akan dikirim ulang._',
+    'tg_register_success_retry' => 'Silakan ulangi perintah *deposit* untuk melanjutkan.',
+    'btn_back' => '🔙 Kembali',
     'deposit_qr_sent' => 'QR pembayaran dikirim sebagai gambar setelah pesan ini.',
     'deposit_pay_url' => 'Gunakan URL pembayaran berikut: :url',
     'deposit_create_failed' => 'Deposit tidak dapat dibuat. Coba lagi nanti.',
@@ -225,6 +271,12 @@ return [
     'kbd_cancel' => '❌ Batal Transaksi',
     'kbd_history' => '📜 Riwayat Order',
     'kbd_placeholder' => 'Pilih aksi...',
+    // Label tombol gerbang keanggotaan. Dikirim sebagai CALLBACK (bukan
+    // label parser — lihat test `test_label_callback_driven_bukan_perintah_teks`),
+    // jadi aman ikut bahasa aktif. Sebelumnya literal Indonesia, sehingga
+    // user berbahasa Inggris melihat layar Inggris dengan tombol Indonesia
+    // tepat di gerbang yang menghalanginya.
+    'kbd_gate_verified' => '✅ Sudah Bergabung',
     // --- Gate keanggotaan & sapaan verifikasi (Task 1.6) ---
     // Semua method ini Telegram-only (`formatTelegramMembership*`), jadi tidak
     // perlu threading `$source` seperti blok lain.
@@ -237,7 +289,9 @@ return [
     'gate_title' => '🔒 *Akses Terbatas*',
     'gate_intro_single' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke channel berikut dulu ya:',
     'gate_intro_multi' => 'Halo! Sebelum bisa memakai bot ini, kamu perlu bergabung ke *semua* channel berikut dulu ya:',
-    'gate_verify_hint' => 'Sudah bergabung? Tekan *✅ Sudah Bergabung* di bawah untuk verifikasi.',
+    // Nama tombol diisi dari `kbd_gate_verified` (bahasa aktif) — literal di
+    // sini pernah menyuruh user EN menekan tombol berbahasa Indonesia.
+    'gate_verify_hint' => 'Sudah bergabung? Tekan *:gate_verified* di bawah untuk verifikasi.',
     'gate_join_channel' => '📢 Gabung :label',
     'gate_verified_title' => '✅ *Verifikasi Berhasil*',
     'gate_verified_hello' => 'Halo :name! ',
@@ -251,6 +305,7 @@ return [
     'gate_unavailable_title' => '*Verifikasi Keanggotaan Bermasalah*',
     'gate_unavailable_body' => 'Keanggotaan channel Anda belum dapat diverifikasi. Silakan coba lagi dalam beberapa saat.',
     'gate_btn_contact' => '💬 Hubungi Admin',
+    'gate_btn_retry' => 'Coba Lagi',
     // --- Pengaturan bahasa (Task 3.1) ---
     'lang_title' => '🌐 *Pengaturan Bahasa*',
     'lang_current' => 'Bahasa aktif saat ini: *:label*',
