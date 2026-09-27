@@ -329,13 +329,13 @@ class TelegramOrderNotificationTest extends TestCase
      * Transisi `failed` (order Gagal, pembayaran Lunas) juga harus terkirim,
      * dan anti-spam-nya terpisah dari transisi lain.
      *
-     * ⚠️ CATATAN TEMUAN: saat test ini ditulis, teksnya IDENTIK dengan transisi
-     * `paid` (`✅ *Pembayaran Berhasil*`) karena `formatStatus()` tidak punya
-     * cabang khusus "order Gagal" — order Gagal+lunas jatuh ke cabang
-     * "pembayaran berhasil, sedang diproses". Variabel `$summary`
-     * ('Order Gagal') di listener adalah DEAD CODE (di-assign, tidak dipakai).
-     * Assertion di bawah mengunci PERILAKU SAAT INI supaya perubahan tak
-     * sengaja terdeteksi; perbaikan copy-nya adalah keputusan terpisah.
+     * ✅ Hutang D6 SUDAH DIBAYAR (Fase 4): `formatStatus()` kini punya cabang
+     * khusus order Gagal. Sebelumnya teksnya IDENTIK dengan transisi `paid`
+     * (`✅ *Pembayaran Berhasil*` / "sedang diproses"), jadi user yang uangnya
+     * sudah masuk diberi tahu pesanannya masih jalan padahal provider sudah
+     * menyatakan GAGAL. Variabel `$summary` ('Order Gagal') di listener dulu
+     * DEAD CODE; sekarang tidak lagi dibutuhkan karena formatnya dari
+     * `status` di payload.
      */
     public function test_transisi_failed_terkirim_dengan_cache_key_terpisah(): void
     {
@@ -355,10 +355,33 @@ class TelegramOrderNotificationTest extends TestCase
 
         Http::assertSentCount(1);
 
+        // Teks yang benar-benar dikirim ke Telegram TIDAK boleh menyebut
+        // "sedang diproses" — itu inti hutang D6.
+        $sent = $this->sentTexts();
+        $this->assertNotEmpty($sent);
+        $this->assertStringNotContainsString('sedang diproses', implode("\n", $sent));
+
         // Cache key memakai `failed`, bukan `paid`/`success`.
         $this->assertTrue(Cache::has('bot:notif:TG-NOTIF-001:failed'));
         $this->assertFalse(Cache::has('bot:notif:TG-NOTIF-001:paid'));
         $this->assertFalse(Cache::has('bot:notif:TG-NOTIF-001:success'));
+    }
+
+    /** @return array<int, string> Teks mentah dari semua permintaan sendMessage. */
+    private function sentTexts(): array
+    {
+        $texts = [];
+
+        Http::recorded(function ($request) use (&$texts) {
+            $body = $request->data();
+            if (isset($body['text'])) {
+                $texts[] = (string) $body['text'];
+            }
+
+            return true;
+        });
+
+        return $texts;
     }
 
     /**

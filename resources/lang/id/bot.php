@@ -235,5 +235,18 @@ return [
     'lang_set_ok' => '✅ Bahasa diganti ke *:label*.',
     'lang_already' => 'Bahasa kamu sudah *:label*.',
     'help_manage_language' => '• *🌐 Bahasa* — ganti bahasa bot (Indonesia / English)',
+
+    // --- Order gagal + petunjuk bahasa di sambutan grup (Task 4.x) ---
+    // Order Gagal + pembayaran lunas sebelumnya jatuh ke cabang "Pembayaran
+    // Berhasil / sedang diproses" — user diberi tahu pesanannya jalan padahal
+    // provider sudah menyatakan gagal.
+    'status_failed_title' => '❌ *Order Gagal*',
+    'status_failed_body' => 'Pembayaran kamu sudah diterima, tapi pesanan *tidak berhasil diproses* oleh penyedia layanan.',
+    'status_failed_note' => 'Dana kamu akan dikembalikan. Hubungi admin kalau dalam 1x24 jam belum diterima.',
+    // Sambutan grup tidak punya bahasa per-user (tidak ada chat privat untuk
+    // benih `language_code`), jadi jalan keluar ganti bahasa disebut di sini.
+    // Double-quoted: single quote PHP tidak menafsirkan \n, jadi `'\n\n'`
+    // akan muncul mentah sebagai "\n\n" di chat.
+    'welcome_language_hint' => "\n\n🌐 *Ganti bahasa?* Tekan *🇮🇩 Bahasa* atau *🇬🇧 English* di keyboard bawah.",
 ];
 

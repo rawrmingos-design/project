@@ -11,11 +11,14 @@
  * source — the Telegram renderer depends on them.
  *
  * BUTTON LABELS ARE INTENTIONALLY LEFT IN INDONESIAN (`🛍️ Buka Menu`,
- * `📦 Cek Status`, …). Button text is echoed inside the help copy, and tapping
- * a button sends that exact string back to the bot. Until the multi-language
- * parser (Phase 2) can recognise both variants, translating a label here would
- * silently break the button. Copy around the label is translated; the label
- * itself is not.
+ * `📦 Cek Status`, …) — and since Phase 3 this is a DELIBERATE COPY DECISION,
+ * not a parser limitation. The multi-language parser can recognise both
+ * variants now, but `BotMessageFormatter::defaultReplyKeyboard()` still renders
+ * Indonesian labels in every locale, and button text is echoed inside this
+ * copy. Translating a label here without localising the keyboard first would
+ * tell the user to tap a button that is not on their screen. Copy around the
+ * label is translated; the label itself is not. If the keyboard is ever
+ * localised, these strings must change in the same commit.
  */
 return [
     // --- Greeting (used by menu & help) ---
@@ -169,16 +172,19 @@ return [
     // --- Shared buttons ---
     // Callback-driven labels: the bot receives the `callback` value, not the
     // label text, so translating these is safe. Parser-driven labels (`YA`,
-    // `TIDAK`, `❌ Batal Transaksi`) stay Indonesian until Phase 2.
+    // `TIDAK`, `❌ Batal Transaksi`) stay Indonesian because the reply keyboard
+    // that renders them is not localised yet (see the file header).
     'btn_back_menu' => '🔙 Back to Menu',
     'btn_back_history' => '📜 Back to History',
     'btn_prev' => '⬅️ Previous',
     'btn_next' => 'Next ➡️',
     // --- Membership gate & verification greeting (Task 1.6) ---
-    // Button labels stay Indonesian here on purpose: `✅ Sudah Bergabung`,
-    // `🛍️ Buka Menu`, `❓ Bantuan`, and `Coba Lagi` are echoed in the copy AND
-    // recognised by the text parser. Translating them before Phase 2 would
-    // break the buttons. Only the prose around them is translated.
+    // Button labels stay Indonesian here on purpose: `🛍️ Buka Menu` and
+    // `❓ Bantuan` are echoed in the copy AND must match what the reply keyboard
+    // renders, which is Indonesian in every locale (see the file header).
+    // (`✅ Sudah Bergabung` and `Coba Lagi` are inline/callback-driven, so their
+    // labels never travel back as text — only the echoed prose is quoted here.)
+    // Only the prose around them is translated.
     'gate_title' => '🔒 *Limited Access*',
     'gate_intro_single' => 'Hi! Before you can use this bot, please join the channel below first:',
     'gate_intro_multi' => 'Hi! Before you can use this bot, please join *all* of the channels below first:',
@@ -203,5 +209,18 @@ return [
     'lang_set_ok' => '✅ Language switched to *:label*.',
     'lang_already' => 'Your language is already *:label*.',
     'help_manage_language' => '• *🌐 Language* — change the bot language (Indonesian / English)',
+
+    // --- Failed order + language hint in group welcome (Task 4.x) ---
+    // A Failed order whose payment was paid previously fell into the "Payment
+    // Received / processing" branch — the user was told the order was moving
+    // ahead while the provider had already reported failure.
+    'status_failed_title' => '❌ *Order Failed*',
+    'status_failed_body' => 'Your payment was received, but the order *could not be processed* by the service provider.',
+    'status_failed_note' => 'Your money will be refunded. Contact admin if it has not arrived within 24 hours.',
+    // Group welcomes have no per-user language (no private chat to seed
+    // `language_code` from), so the language escape hatch is announced here.
+    // Double-quoted: single-quoted PHP does not interpret \n, so `'\n\n'`
+    // would show up literally as "\n\n" in the chat.
+    'welcome_language_hint' => "\n\n🌐 *Change language?* Tap *🇮🇩 Indonesian* or *🇬🇧 English* in the keyboard below.",
 ];
 

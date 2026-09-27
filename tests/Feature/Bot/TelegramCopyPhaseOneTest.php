@@ -624,6 +624,62 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->assertStringContainsString('Status Pesanan: *diproses*', $generic['text']);
     }
 
+    /**
+     * BUG NYATA (hutang D6): order Gagal + pembayaran LUNAS.
+     *
+     * Sebelum diperbaiki, `formatStatus()` tidak punya cabang untuk order gagal:
+     * `$isComplete` false → pesannya jatuh ke cabang "Pembayaran Berhasil /
+     * sedang diproses". User yang pembayarannya sudah masuk diberi tahu
+     * pesanannya masih jalan, padahal provider sudah menyatakan GAGAL — dan
+     * justru di kasus ini uangnya sudah berpindah, jadi salah informasi ini
+     * yang paling mahal.
+     *
+     * Test ini mengunci cabang barunya, dan mengunci bahwa pesan "sedang
+     * diproses" TIDAK muncul.
+     */
+    public function test_order_gagal_lunas_tidak_disebut_sedang_diproses(): void
+    {
+        app()->setLocale('id');
+        $fmt = app(BotMessageFormatter::class);
+
+        $text = $fmt->formatStatus($this->statusPayload('lunas', 'Gagal'), 'telegram_gateway')['text'];
+
+        $this->assertStringContainsString('❌ *Order Gagal*', $text);
+        $this->assertStringContainsString('tidak berhasil diproses', $text);
+        // Bagian paling penting: jangan pernah bilang masih diproses.
+        $this->assertStringNotContainsString('sedang diproses', $text);
+        $this->assertStringNotContainsString('Pembayaran Berhasil', $text);
+        // Dana sudah masuk → refund itu bagian dari kabar, bukan tambahan.
+        $this->assertStringContainsString('Dana kamu akan dikembalikan', $text);
+        // Tidak boleh ditutup ajakan belanja lagi.
+        $this->assertStringNotContainsString('Terima kasih sudah berbelanja', $text);
+    }
+
+    /** Order gagal juga benar di locale en (bukan literal ID). */
+    public function test_order_gagal_lunas_locale_en(): void
+    {
+        app()->setLocale('en');
+        $fmt = app(BotMessageFormatter::class);
+
+        $text = $fmt->formatStatus($this->statusPayload('lunas', 'Gagal'), 'telegram_gateway')['text'];
+
+        $this->assertStringContainsString('❌ *Order Failed*', $text);
+        $this->assertStringContainsString('could not be processed', $text);
+        $this->assertStringNotContainsString('being processed', $text);
+        $this->assertStringNotContainsString('Order Gagal', $text);
+    }
+
+    /** Order sukses tidak boleh ikut terpengaruh cabang gagal. */
+    public function test_order_sukses_bukan_cabang_gagal(): void
+    {
+        app()->setLocale('id');
+        $text = app(BotMessageFormatter::class)
+            ->formatStatus($this->statusPayload('lunas', 'Sukses'), 'telegram_gateway')['text'];
+
+        $this->assertStringContainsString('✅ *Top Up Berhasil!*', $text);
+        $this->assertStringNotContainsString('Order Gagal', $text);
+    }
+
     /** Telegram + locale en → benar-benar diterjemahkan (bukan literal ID). */
     public function test_status_telegram_locale_en_diterjemahkan(): void
     {

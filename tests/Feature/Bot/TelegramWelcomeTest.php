@@ -144,10 +144,66 @@ class TelegramWelcomeTest extends TestCase
         // Teks keluar sudah ter-escape untuk MarkdownV2 (parse_mode yang
         // dipakai saat mengirim). Yang penting: nilai {nama} dan {grup}
         // masuk dengan benar, dan tanda baca statis di-escape.
-        $this->assertSame('Yo Budi\\! Gabung grup Test Jasakoding\\.', $resolved['text']);
+        // Sejak Fase 4 petunjuk ganti bahasa ditambahkan SETELAH template
+        // (grup tidak punya bahasa per-user), jadi bagian kustom di-assert
+        // sebagai awalan yang identik — bukan lagi kesamaan seluruh pesan.
+        $this->assertStringStartsWith('Yo Budi\\! Gabung grup Test Jasakoding\\.', $resolved['text']);
+        $this->assertNotSame('Yo Budi\\! Gabung grup Test Jasakoding\\.', $resolved['text']);
 
         // Yang DILIHAT member tetap bersih tanpa backslash.
-        $this->assertSame('Yo Budi! Gabung grup Test Jasakoding.', $this->tampilanBersih($resolved['text']));
+        $this->assertStringContainsString('Yo Budi! Gabung grup Test Jasakoding.', $this->tampilanBersih($resolved['text']));
+    }
+
+    /**
+     * Grup tidak bisa dibenihkan (tidak ada chat privat → tidak ada
+     * `language_code`), jadi satu-satunya jalan keluar ganti bahasa adalah
+     * disebutkan di sambutannya. Tanpa ini, anggota grup terjebak di bahasa
+     * tebakan perangkat tanpa tahu ada switch — dan sambutan grup adalah
+     * pesan PERTAMA yang mereka baca.
+     */
+    public function test_petunjuk_bahasa_ikut_di_sambutan_grup(): void
+    {
+        $resolved = app(TelegramWelcomeService::class)->resolveText($this->member(), $this->chat());
+
+        $this->assertTrue($resolved['ok']);
+        $this->assertStringContainsString('Ganti bahasa', $resolved['text']);
+        $this->assertStringContainsString('🇬🇧 English', $resolved['text']);
+    }
+
+    /** Template kustom TIDAK boleh meniadakan petunjuk bahasa. */
+    public function test_petunjuk_bahasa_tetap_ada_saat_template_kustom(): void
+    {
+        config(['services.telegram-bot-api.telegram_welcome_template' => 'Yo {nama}!']);
+
+        $resolved = app(TelegramWelcomeService::class)->resolveText($this->member(), $this->chat());
+
+        $this->assertStringContainsString('Ganti bahasa', $resolved['text']);
+    }
+
+    /**
+     * Sambutan grup mengikuti DEFAULT PANEL, bukan bahasa pelaku yang bergabung
+     * maupun sisa locale request. Satu pesan dibaca semua anggota, dan jalur
+     * `new_chat_members` keluar dari adapter SEBELUM locale diterapkan.
+     */
+    public function test_bahasa_sambutan_mengikuti_default_panel(): void
+    {
+        DB::table('setting_webs')->updateOrInsert(['id' => 1], [
+            'bot_default_locale' => 'en',
+            'updated_at' => now(),
+            'created_at' => now(),
+        ]);
+
+        app()->setLocale('en');
+
+        $resolved = app(TelegramWelcomeService::class)->resolveText($this->member(), $this->chat());
+
+        $this->assertStringContainsString('Change language', $resolved['text']);
+
+        DB::table('setting_webs')->updateOrInsert(['id' => 1], [
+            'bot_default_locale' => 'id',
+            'updated_at' => now(),
+            'created_at' => now(),
+        ]);
     }
 
     /**

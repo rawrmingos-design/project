@@ -2,7 +2,9 @@
 
 namespace App\Services\Bot;
 
+use App\Models\SettingWeb;
 use App\Support\TelegramMarkdown;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -35,6 +37,39 @@ class TelegramWelcomeService
     }
 
     /**
+     * Petunjuk ganti bahasa untuk sambutan grup, dalam bahasa DEFAULT PANEL.
+     *
+     * Tidak memakai `app()->getLocale()`: jalur `new_chat_members` keluar dari
+     * adapter sebelum locale request diterapkan, jadi nilainya akan selalu
+     * default aplikasi (`id`) dan mengabaikan setelan panel.
+     */
+    private function languageHint(): string
+    {
+        $locale = app(BotLocale::class);
+        $service = app(SettingWeb::class);
+
+        // Dibaca LANGSUNG dari DB, bukan lewat `config()`. Bridge DB→config
+        // hanya aktif di SAPI web (`! runningInConsole()`), jadi di console /
+        // worker antrean nilainya diam-diam kembali ke default `.env` dan
+        // setelan panel terabaikan. Pola yang sama dipakai listener status
+        // order saat membaca token Telegram.
+        $raw = SettingWeb::query()->value('bot_default_locale');
+        $panelDefault = $locale->normalize(is_string($raw) ? $raw : null) ?? $locale->defaultLocale();
+
+        // Terjemahan dibaca dengan locale yang dipulihkan: `__()` global, jadi
+        // harus dibalikkan supaya tidak bocor ke job/request berikutnya.
+        $previous = app()->getLocale();
+
+        try {
+            app()->setLocale($panelDefault);
+
+            return (string) __('bot.welcome_language_hint');
+        } finally {
+            app()->setLocale($previous);
+        }
+    }
+
+    /**
      * Susun isi sambutan. Dipisah dari pengiriman supaya bisa diuji tanpa
      * memanggil Telegram, dan supaya penolakan (mis. nama kosong) terlihat
      * di test — bukan diam-diam mengirim "Halo ,".
@@ -60,6 +95,19 @@ class TelegramWelcomeService
         if ($template === '') {
             $template = self::DEFAULT_TEMPLATE;
         }
+
+        // Sambutan grup TIDAK punya bahasa per-user: tidak ada chat privat, jadi
+        // tidak ada `language_code` untuk dibenihkan, dan satu pesan ini dibaca
+        // SEMUA anggota sekaligus. Karena itu bahasanya mengikuti DEFAULT PANEL
+        // (`setting_webs.bot_default_locale`), bukan bahasa pelaku yang bergabung
+        // — diambil eksplisit, bukan dari `app()->getLocale()`, karena locale
+        // request di jalur `new_chat_members` belum pernah di-apply (adapter
+        // keluar lebih awal sebelum blok locale) sehingga nilainya masih default
+        // aplikasi `id`.
+        //
+        // Jalan keluar ganti bahasa disebut di sini karena grup memang tidak bisa
+        // dibenihkan: kompensasi auto-deteksi yang sama seperti di panduan.
+        $template .= $this->languageHint();
 
         // Urutan pemrosesan penting:
         //  1. Nilai yang berasal dari Telegram (nama member, judul grup)

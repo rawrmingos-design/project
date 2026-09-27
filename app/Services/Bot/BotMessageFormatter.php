@@ -151,9 +151,11 @@ class BotMessageFormatter
                 $sapaan . __('bot.gate_verified_body'),
                 '',
                 // Rujuk nama TOMBOL-nya, bukan perintah mentah. Nama tombol di
-                // dalam copy ini SENGAJA tetap literal Indonesia: parser
-                // mengenali label itu dari teks, jadi menerjemahkannya sebelum
-                // Fase 2 membuat tombolnya mati.
+                // sini tetap literal Indonesia karena `defaultReplyKeyboard()`
+                // merender label keyboard secara literal Indonesia di SEMUA
+                // bahasa — copy harus menyebut nama yang benar-benar ada di
+                // layar user. Kalau keyboard-nya kelak ikut dilokalkan, copy
+                // ini WAJIB ikut berubah di saat yang sama.
                 __('bot.gate_verified_hint'),
             ]),
             'buttons' => [
@@ -728,11 +730,19 @@ class BotMessageFormatter
             $sn = trim((string) ($d['sn'] ?? ''));
             $orderStatus = strtolower(trim((string) ($d['status'] ?? '')));
             $isComplete = in_array($orderStatus, ['sukses', 'success', 'berhasil', 'selesai', 'completed', 'delivered'], true);
+            // Order Gagal + pembayaran lunas itu NYATA dan sebelumnya salah
+            // disajikan: `$isComplete` false → jatuh ke cabang "Pembayaran
+            // Berhasil / sedang diproses", sehingga user diberi tahu pesanannya
+            // masih jalan padahal provider sudah menyatakan gagal. Dana sudah
+            // masuk di kasus ini, jadi salah informasi ini yang paling mahal.
+            $isFailed = in_array($orderStatus, ['gagal', 'failed', 'batal', 'cancelled', 'canceled'], true);
 
             $lines = [
                 $isComplete
                     ? ($isTelegram ? __('bot.status_complete_title') : '✅ *Top Up Berhasil!*')
-                    : ($isTelegram ? __('bot.status_paid_title') : '✅ *Pembayaran Berhasil*'),
+                    : ($isFailed
+                        ? ($isTelegram ? __('bot.status_failed_title') : '❌ *Order Gagal*')
+                        : ($isTelegram ? __('bot.status_paid_title') : '✅ *Pembayaran Berhasil*')),
                 '',
             ];
 
@@ -740,6 +750,17 @@ class BotMessageFormatter
                 $lines[] = $isTelegram
                     ? __('bot.status_complete_body')
                     : 'Pesanan sudah berhasil diproses dan masuk ke akun kamu 🎉';
+            } elseif ($isFailed) {
+                // JANGAN menulis "sedang diproses" di sini: order sudah gagal.
+                // Dan jangan pula menyuruh "coba lagi" tanpa menyebut dana —
+                // pembayarannya sudah lunas, jadi refund itu bagian dari kabar.
+                $lines[] = $isTelegram
+                    ? __('bot.status_failed_body')
+                    : 'Pembayaran kamu sudah diterima, tapi pesanan *tidak berhasil diproses* oleh penyedia layanan.';
+                $lines[] = '';
+                $lines[] = $isTelegram
+                    ? __('bot.status_failed_note')
+                    : 'Dana kamu akan dikembalikan. Hubungi admin kalau dalam 1x24 jam belum diterima.';
             } else {
                 $lines[] = $isTelegram
                     ? __('bot.status_paid_body')
@@ -760,6 +781,7 @@ class BotMessageFormatter
             $lines[] = '';
             $lines[] = '🧾 `' . $this->escapeMarkdownCode((string) ($d['order_id'] ?? '')) . '`';
 
+            // Order gagal tidak boleh ditutup dengan ajakan belanja lagi.
             if ($isComplete) {
                 $storeName = trim((string) config('app.name', 'Store')) ?: 'Store';
                 $lines[] = '';
@@ -1097,7 +1119,6 @@ class BotMessageFormatter
     {
         return $locale === 'en' ? 'English' : 'Bahasa Indonesia';
     }
-
     public function formatHelp(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(null);

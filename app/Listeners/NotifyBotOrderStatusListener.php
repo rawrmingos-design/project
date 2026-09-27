@@ -20,6 +20,24 @@ class NotifyBotOrderStatusListener implements ShouldQueue
      *  - Payment Lunas (order masih diproses)
      *  - Order Sukses (provider balas sukses)
      *  - Order Gagal/Batal (provider balas gagal)
+     *
+     * BAHASA: SELALU INDONESIA — keputusan sadar, bukan kelalaian.
+     *
+     * Listener ini jalan di QUEUE, tanpa konteks channel maupun pembaca. Kalau
+     * bahasanya diambil dari preferensi user, notifikasi jalur UANG ini akan
+     * berganti bahasa berdasarkan tebakan `language_code` perangkat — dan yang
+     * paling berbahaya: user yang salah-terdeteksi bisa menerima kabar
+     * "pembayaran gagal" dalam bahasa yang tidak ia kuasai.
+     *
+     * Dua alasan teknis tambahan:
+     *  1. `formatStatus($payload)` dipanggil TANPA `$source`, jadi jalurnya
+     *     memang default Indonesia (lihat `BotMessageFormatter::formatStatus`).
+     *  2. `formatStatus()` membaca `__()` = `app()->getLocale()`, yang di worker
+     *     antrean bisa berisi sisa locale job sebelumnya.
+     *
+     * Tombol di pesan status juga aksi murni (`menu`), jadi tidak ada label
+     * yang perlu diterjemahkan. Dikunci test
+     * `test_notifikasi_listener_tetap_indonesia_walau_locale_en` — JANGAN hapus.
      */
     public function handle(InvoiceStatusUpdated $event): void
     {
@@ -55,15 +73,16 @@ class NotifyBotOrderStatusListener implements ShouldQueue
         $isSuccess = in_array($orderStatus, ['sukses', 'success', 'completed', 'complete'], true);
         $isFailed = in_array($orderStatus, ['gagal', 'failed', 'batal', 'cancelled', 'canceled'], true);
 
+        // Hanya `transition` yang dipakai: label yang dilihat user datang dari
+        // `formatStatus()` atas `payload.status` (payload di bawah), bukan dari
+        // sini. Versi lama juga meng-assign `$summary` yang TIDAK PERNAH dibaca
+        // — dead code yang menyesatkan pembaca berikutnya (hutang D6, Fase 4).
         if ($isSuccess) {
             $transition = 'success';
-            $summary = 'Top Up Berhasil';
         } elseif ($isFailed) {
             $transition = 'failed';
-            $summary = 'Order Gagal';
         } else {
             $transition = 'paid';
-            $summary = 'Pembayaran Diterima';
         }
 
         // 3) Anti-spam: event bisa dispatch berulang (callback berulang/poller).
