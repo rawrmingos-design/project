@@ -83,6 +83,19 @@ class BotCommandParser
         'ya' => ['YA', 'ya', 'YES', 'yes'],
         'tidak' => ['TIDAK', 'tidak', 'NO', 'no'],
         'skip' => ['SKIP', 'skip'],
+        // --- Pengaturan bahasa (Task 3.1) ---
+        // Label picker bahasa DIKETIK-BALIK seperti label keyboard lain: tap-nya
+        // mengirim TEKS, bukan callback. Jadi keempatnya wajib dikenali parser,
+        // kalau tidak user menekan pilihan bahasa dan bot menjawab "perintah tak
+        // dikenal" — persis kegagalan yang fase ini ada untuk mencegahnya.
+        // Label callback-driven murni (mis. `🌐 Bahasa`, `🇬🇧 English` yang
+        // dikirim sebagai `data`) tetap TIDAK perlu masuk sini.
+        // TIGA varian, karena nama tombol "pindah ke Indonesia" bergantung pada
+        // bahasa yang sedang aktif: `🇮🇩 Bahasa` saat locale id, `🇮🇩 Indonesian`
+        // saat locale en. Keduanya mengirim TEKS yang sama-sama harus dikenali.
+        // (Ketinggalan varian ini langsung ketahuan dari test penjaga Fase 2.)
+        'bahasa_id' => ['🇮🇩 Bahasa', '🇮🇩 Bahasa Indonesia', '🇮🇩 Indonesian'],
+        'bahasa_en' => ['🇬🇧 English'],
     ];
 
     /** @var array<string, string>|null Peta terbalik label → perintah kanonik. */
@@ -154,6 +167,25 @@ class BotCommandParser
     /**
      * @return array<string, string>
      */
+    /**
+     * Apakah teks ini label yang dikenal — kapan pun jadi perintah yang mana?
+     *
+     * Dipakai renderer untuk MEMVERIFIKASI tombol yang akan dikirim. Bedanya
+     * dengan `isKnownLabel()`: di sini label boleh sudah dicadangkan untuk
+     * bahasa/perintah lain. Selama tombolnya mengirim TEKS dan parser mengenali
+     * teks itu, tap-nya tidak akan pernah jadi "perintah tak dikenal" — dan
+     * itulah satu-satunya hal yang membuat tombol aman dipasang di reply
+     * keyboard.
+     *
+     * Perbedaan ini nyata: `🇮🇩 Indonesian` dicadangkan untuk `bahasa_id`, tapi
+     * kegunaannya yang sebenarnya adalah tombol "pindah ke Indonesia" saat
+     * bahasa aktif `en`. Pemetaan statis per-locale tidak bisa menyatakannya.
+     */
+    public static function anyLabel(string $message): bool
+    {
+        return isset(self::reverseMap()[trim($message)]);
+    }
+
     private static function reverseMap(): array
     {
         if (self::$reverseMap === null) {

@@ -269,6 +269,10 @@ class BotMessageFormatter
             $buttons[] = $capabilityButtons;
         }
 
+        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            $buttons[] = $this->languageButtons();
+        }
+
         return [
             'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
                 . "\n" . __('bot.menu_pick_category'),
@@ -1000,6 +1004,100 @@ class BotMessageFormatter
         ];
     }
 
+    /**
+     * Tombol pemilih bahasa — SATU sumber label untuk panel `/bahasa` DAN untuk
+     * keyboard tetap Telegram.
+     *
+     * Kenapa harus satu sumber: label ini dikirim BALIK sebagai teks saat user
+     * menekannya, jadi tiap label wajib dikenali `BotCommandParser`. Kalau panel
+     * dan keyboard menyusunnya sendiri-sendiri, cepat atau lambat salah satunya
+     * menyimpang dan tombolnya mati.
+     *
+     * `Bahasa` (ID) / `Indonesian` (EN) sengaja BUKAN `🇮🇩 Bahasa Indonesia` di
+     * kedua bahasa: `Bahasa Indonesia` tanpa emoji bukan label yang dikenal
+     * parser (pencocokan exact), jadi tombol itu akan jadi tombol mati.
+     *
+     * Nama tombolnya bergantung pada bahasa yang SEDANG AKTIF: user berbahasa
+     * Indonesia melihat `🇮🇩 Bahasa` / `🇬🇧 English`, user berbahasa Inggris
+     * melihat `🇮🇩 Indonesian` / `🇬🇧 English`. Keduanya tetap mengirim TEKS yang
+     * sama (`bahasa id` tidak pernah berubah), jadi perpindahan bahasa tidak
+     * pernah bergantung pada nama tombol yang terlihat.
+     *
+     * @return array{0: array{text: string, callback: string}, 1: array{text: string, callback: string}}
+     */
+    private function languageButtons(?string $currentLocale = null): array
+    {
+        $currentLocale ??= app()->getLocale();
+
+        $byLocale = [
+            'id' => [$this->button('🇮🇩 Bahasa', 'bahasa id'), $this->button('🇬🇧 English', 'bahasa en')],
+            'en' => [$this->button('🇮🇩 Indonesian', 'bahasa id'), $this->button('🇬🇧 English', 'bahasa en')],
+        ];
+
+        $labels = $byLocale[$this->normalizeLocale($currentLocale)] ?? $byLocale['id'];
+
+        // Jaring pengaman: jangan pernah mengirim tombol yang tidak dikenali
+        // parser. Lebih baik jatuh ke pasangan default daripada mengirim tombol
+        // mati yang membuat user bingung karena tap-nya tidak dijawab.
+        foreach ($labels as $button) {
+            if (! BotCommandParser::anyLabel((string) $button['text'])) {
+                return $byLocale['id'];
+            }
+        }
+
+        return $labels;
+    }
+
+    /** Locale yang dikenal formatter; di luar itu → 'id'. */
+    private function normalizeLocale(?string $locale): string
+    {
+        return in_array($locale, BotLocale::SUPPORTED, true) ? (string) $locale : 'id';
+    }
+
+    /**
+     * Panel pemilih bahasa (dipakai `/bahasa` dan saat bahasa benar-benar ganti).
+     *
+     * @param  array<int, string>  $locales
+     * @return array{text: string, buttons: array<int, array<int, array>>}
+     */
+    public function languagePanel(string $current, bool $withPicker = true, ?string $note = null): array
+    {
+        $lines = [
+            __('bot.lang_title'),
+            '',
+            __('bot.lang_current', ['label' => $this->languageLabel($current)]),
+        ];
+
+        if ($note !== null && $note !== '') {
+            $lines[] = '';
+            $lines[] = $note;
+        }
+
+        $lines[] = '';
+        $lines[] = __('bot.lang_pick');
+
+        $rows = [];
+
+        if ($withPicker) {
+            // Satu baris: [🇮🇩 Bahasa] [🇬🇧 English]. Ini juga yang dipakai
+            // keyboard tetap, supaya nama tombolnya tidak pernah menyimpang.
+            $rows[] = $this->languageButtons($current);
+        }
+
+        $rows[] = [$this->button(__('bot.btn_back_menu'), 'menu')];
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => $rows,
+        ];
+    }
+
+    /** Nama bahasa yang ditampilkan ke user. Bukan label tombol. */
+    private function languageLabel(string $locale): string
+    {
+        return $locale === 'en' ? 'English' : 'Bahasa Indonesia';
+    }
+
     public function formatHelp(?BotGatewayCapabilities $capabilities = null): array
     {
         $capabilities ??= BotGatewayCapabilities::forSource(null);
@@ -1015,6 +1113,13 @@ class BotMessageFormatter
         // Produk" padahal keyboard menulis "🛍️ Buka Menu", jadi user melihat
         // dua nama berbeda untuk tombol yang sama.
         $buttons = [[$this->button('🛍️ Buka Menu', 'menu')]];
+
+        // Tombol bahasa di panduan — kompensasi WAJIB dari auto-deteksi. Ini
+        // yang bikin user yang salah-terdeteksi punya jalan keluar 1 tap tanpa
+        // harus tahu perintah `/bahasa` ada.
+        if ($isTelegram) {
+            $buttons[] = $this->languageButtons();
+        }
 
         if ($capabilities->supports('leaderboard')) {
             $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
@@ -1059,6 +1164,12 @@ class BotMessageFormatter
                 // menggantung di bawah.
                 $lines[] = __('bot.help_manage_deposit');
             }
+
+            // Bahasa ikut terdaftar di panduan supaya user tahu jalan keluarnya
+            // TANPA harus menebak `/bahasa`. Ini kompensasi wajib dari
+            // auto-deteksi: kalau tebakan bahasa perangkat salah, user harus
+            // bisa menemukan penggantinya.
+            $lines[] = __('bot.help_manage_language');
 
             $lines[] = '';
             $lines[] = $em(__('bot.help_help_title'));
@@ -1373,6 +1484,22 @@ class BotMessageFormatter
         }
 
         $keyboard[] = [['text' => '📦 Cek Status'], ['text' => '🔍 Cek ID Game']];
+
+        // Baris bahasa — Telegram saja, dan dijaga EKSPLISIT pada source-nya.
+        // Reply keyboard memang cuma dipakai Telegram, tapi penjagaan ini bikin
+        // scope-nya tidak bergantung pada fakta itu: kalau suatu saat channel
+        // lain ikut memakai reply keyboard, ia tidak otomatis kena switch bahasa
+        // yang di luar scope.
+        // Label diambil dari `languageButtons()` supaya TIDAK PERNAH menyimpang
+        // dari panel `/bahasa`; label yang menyimpang = tombol mati.
+        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            $languageRow = [];
+            foreach ($this->languageButtons() as $button) {
+                $languageRow[] = ['text' => (string) $button['text']];
+            }
+            $keyboard[] = $languageRow;
+        }
+
         $keyboard[] = [['text' => '❓ Bantuan'], ['text' => '❌ Batal Transaksi']];
 
         // TIDAK ada tombol "📞 Hubungi Admin" di sini.

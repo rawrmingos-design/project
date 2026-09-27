@@ -380,7 +380,9 @@ class BotWebhookTest extends TestCase
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
             return str_contains($request['text'], '· 1/2')
-                && count($keyboard) === 6
+                // 7 baris: 6 baris katalog + 1 baris pilihan bahasa
+                // (kompensasi auto-deteksi; lihat `languageButtons()`).
+                && count($keyboard) === 7
                 && count($keyboard[0]) === 2
                 && $keyboard[0][0]['text'] === '🎮 Top Up 1'
                 && $callbacks->contains('menu page:2')

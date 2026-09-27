@@ -19,6 +19,7 @@ use App\Services\Whatsapp\WhatsappUserResolver;
 use App\Services\Telegram\TelegramLinkService;
 use App\Services\Telegram\TelegramUserResolver;
 use App\Support\WhatsappNumberNormalizer;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -43,6 +44,7 @@ class BotCommandHandler
         private readonly ?TelegramUserResolver $telegramUserResolver = null,
         private readonly ?TelegramLinkService $telegramLinkService = null,
         private readonly ?OrderHistoryNavigationStateService $orderHistoryNavigation = null,
+        private readonly ?BotLocale $botLocale = null,
     ) {}
 
     /**
@@ -139,6 +141,19 @@ class BotCommandHandler
                 'batal', 'cancel' => $this->capabilities($context)->supports('order')
                     ? $this->cancelCheckout($context, $args)
                     : $this->orderDisabled(),
+                // `bahasa` = buka panel. `bahasa en` = PILIH (jalur callback
+                // dari tombol picker inline). Keduanya perintah yang sama, jadi
+                // argumennya yang menentukan — kalau argumen diabaikan, tombol
+                // picker akan tampak seperti tidak berfungsi: panel terbuka
+                // ulang tanpa bahasa berubah.
+                'bahasa', 'language' => $this->capabilities($context)->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? (in_array($args[0] ?? null, BotLocale::SUPPORTED, true)
+                        ? $this->handleLanguageSet((string) $args[0], $context)
+                        : $this->handleLanguage($context))
+                    : $this->handleUnknownInput($command, $args, $context),
+                // Label tombol keyboard tetap (dikirim balik sebagai TEKS).
+                'bahasa_id' => $this->handleLanguageSet('id', $context),
+                'bahasa_en' => $this->handleLanguageSet('en', $context),
                 'admin' => $this->handleAdmin(),
                 default => $this->handleUnknownInput($command, $args, $context),
             };
@@ -161,6 +176,52 @@ class BotCommandHandler
                 'buttons' => [],
             ];
         }
+    }
+
+    /**
+     * Tampilkan panel pemilih bahasa. Tidak mengubah apa pun.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{text: string, buttons: array}
+     */
+    private function handleLanguage(array $context): array
+    {
+        return $this->formatter->languagePanel($this->localeService()->resolve($context));
+    }
+
+    /**
+     * Simpan pilihan bahasa eksplisit, lalu balas panel dalam bahasa BARU.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{text: string, buttons: array}
+     */
+    private function handleLanguageSet(string $locale, array $context): array
+    {
+        $service = $this->localeService();
+        $already = $service->resolve($context) === $locale;
+
+        $service->setForContext($context, $locale);
+        // Terapkan SEBELUM merender panel supaya panelnya sendiri sudah dalam
+        // bahasa baru — kalau tidak, user menekan "English" lalu tetap menerima
+        // panel Indonesia dan wajar mengira tombolnya rusak.
+        $service->apply($locale);
+
+        $note = $already
+            ? __('bot.lang_already', ['label' => $this->languageLabel($locale)])
+            : __('bot.lang_set_ok', ['label' => $this->languageLabel($locale)]);
+
+        return $this->formatter->languagePanel($locale, true, $note);
+    }
+
+    /** Nama bahasa yang ditampilkan ke user (bukan label tombol). */
+    private function languageLabel(string $locale): string
+    {
+        return $locale === 'en' ? 'English' : 'Bahasa Indonesia';
+    }
+
+    private function localeService(): BotLocale
+    {
+        return $this->botLocale ?? app(BotLocale::class);
     }
 
     private function handleStart(array $args, array $context): array
@@ -1720,6 +1781,10 @@ class BotCommandHandler
             'order_history', 'history', 'riwayat', 'pesanan',
             'batal', 'cancel',
             'admin',
+            // Pengaturan bahasa adalah preferensi akun sendiri — tidak boleh
+            // terkunci di belakang verifikasi channel, karena ini justru jalan
+            // keluar kalau user salah-deteksi bahasa.
+            'bahasa', 'language', 'bahasa_id', 'bahasa_en',
         ], true);
     }
 

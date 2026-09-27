@@ -196,4 +196,12 @@ return [
     'gate_unavailable_title' => '*Membership Verification Problem*',
     'gate_unavailable_body' => 'Your channel membership could not be verified. Please try again in a moment.',
     'gate_btn_contact' => '💬 Contact Admin',
+    // --- Language settings (Task 3.1) ---
+    'lang_title' => '🌐 *Language Settings*',
+    'lang_current' => 'Current language: *:label*',
+    'lang_pick' => 'Pick the language you want. It is saved and used for all following messages.',
+    'lang_set_ok' => '✅ Language switched to *:label*.',
+    'lang_already' => 'Your language is already *:label*.',
+    'help_manage_language' => '• *🌐 Language* — change the bot language (Indonesian / English)',
 ];
+

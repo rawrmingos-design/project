@@ -89,6 +89,19 @@ class TelegramCopyPhaseOneTest extends TestCase
         return preg_replace('/\\\\(.)/u', '$1', (string) $escaped);
     }
 
+    /**
+     * FASE 3 mengaktifkan otomatisasi bahasa, jadi test ini DIPERSEMPIT ke
+     * intent aslinya — yang masih berlaku dan masih penting:
+     *
+     *   **Header HTTP `Accept-Language` BUKAN penentu bahasa bot.**
+     *
+     * Dulu (Fase 1) test ini memakai `language_code: 'en'` karena belum ada
+     * mesin locale sama sekali. Sekarang `language_code` privat MEMANG menjadi
+     * benih bahasa (itu keputusan Fase 3), sehingga memakai 'en' di sini akan
+     * menguji perilaku baru, bukan lagi melindungi dari header. Karena itu
+     * benihnya dibuat 'id' + header 'en': kalau suatu saat header ikut
+     * menentukan, test ini merah.
+     */
     public function test_intro_dan_tagline_tetap_indonesia_walau_header_minta_inggris(): void
     {
         CategoryType::query()->create(['name' => '🎮 Top Up', 'slug' => 'top-up', 'sort' => 1]);
@@ -102,7 +115,7 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->postTelegramAsBot([
             'message' => [
                 'chat' => ['id' => 12345, 'type' => 'private'],
-                'from' => ['id' => 9876, 'language_code' => 'en'],
+                'from' => ['id' => 9876, 'language_code' => 'id'],
                 'text' => '/menu',
                 'message_id' => 111,
             ],
@@ -818,10 +831,15 @@ class TelegramCopyPhaseOneTest extends TestCase
             'https://api.telegram.org/*/sendMessage' => Http::response(['ok' => true]),
         ]);
 
+        // Benih 'id': test ini menjaga COPY INDONESIA pada `/status` (maksud
+        // aslinya di Task 1.5). Sejak Fase 3, `language_code: 'en'` privat akan
+        // (dan memang seharusnya) menghasilkan copy Inggris — jadi memakai 'en'
+        // di sini akan menguji hal lain. Varian Inggrisnya diuji di
+        // `TelegramLanguageCommandTest`.
         $this->postTelegramAsBot([
             'message' => [
                 'chat' => ['id' => 12345, 'type' => 'private'],
-                'from' => ['id' => 9876, 'language_code' => 'en'],
+                'from' => ['id' => 9876, 'language_code' => 'id'],
                 'text' => '/status',
                 'message_id' => 222,
             ],

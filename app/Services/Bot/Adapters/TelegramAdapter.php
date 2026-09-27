@@ -5,11 +5,13 @@ namespace App\Services\Bot\Adapters;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
 use App\Services\Bot\BotGatewayCapabilities;
+use App\Services\Bot\BotLocale;
 use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\TelegramWelcomeService;
 use App\Support\TelegramMarkdown;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +21,7 @@ class TelegramAdapter implements BotAdapterInterface
         private readonly BotCommandParser $parser,
         private readonly BotCommandHandler $handler,
         private readonly BotMessageFormatter $formatter,
+        private readonly ?BotLocale $botLocale = null,
     ) {}
 
     public function handle(Request $request): mixed
@@ -36,6 +39,12 @@ class TelegramAdapter implements BotAdapterInterface
         $fromId = null;
         $messageId = null;
         $metadata = [];
+        // `chat.type` dipakai untuk memutuskan boleh-tidaknya MENYEMAI bahasa
+        // dari `language_code`: di grup, `language_code` milik PENGIRIM, bukan
+        // audiens — menyemainya akan membuat satu anggota menentukan bahasa
+        // semua orang. Nilai null (payload lama / tak terduga) diperlakukan
+        // sebagai non-privat → tidak disemai (fail closed).
+        $chatType = null;
         $updateId = $payload['update_id'] ?? null;
 
         // Handle Callback Query (Button clicks)
@@ -46,6 +55,7 @@ class TelegramAdapter implements BotAdapterInterface
             $fromId = $callback['from']['id'] ?? null;
             $messageId = $callback['message']['message_id'] ?? null;
             $metadata = $callback['from'] ?? [];
+            $chatType = $callback['message']['chat']['type'] ?? null;
 
             // Optional: answerCallbackQuery to remove loading state on button
             $this->answerCallbackQuery($callback['id'] ?? '');
@@ -58,6 +68,7 @@ class TelegramAdapter implements BotAdapterInterface
             $fromId = $message['from']['id'] ?? null;
             $messageId = $message['message_id'] ?? null;
             $metadata = $message['from'] ?? [];
+            $chatType = $message['chat']['type'] ?? null;
         }
         // Ignore others
         else {
@@ -78,21 +89,50 @@ class TelegramAdapter implements BotAdapterInterface
             'telegram_message_id' => $messageId,
             'telegram_update_id' => $updateId,
             'telegram_metadata' => $metadata,
+            'telegram_chat_type' => $chatType,
             'message_id' => $messageId === null ? null : 'telegram:' . $botScope . ':' . $chatId . ':' . $messageId,
             'correlation_id' => $request->attributes->get('bot_correlation_id'),
             'email' => $fromId . '@telegram.user',
         ];
 
         $parsed = $this->parser->parse($text);
-        $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
 
-        if (($response['status'] ?? null) === 'ignored') {
-            return response()->json(['status' => 'ignored']);
+        // Bahasa: benih dulu (pra-pilihan, hanya chat privat), lalu resolve
+        // (preferensi eksplisit menang), lalu terapkan.
+        //
+        // WAJIB try/finally: `App::setLocale()` bersifat global per-proses. Di
+        // worker antrean nilainya bisa bocor ke job berikutnya kalau tidak
+        // dipulihkan. Pemulihan dilakukan di `finally` — bukan di akhir blok
+        // sukses — supaya exception dari handler pun tidak meninggalkan locale
+        // asing menempel di request berikutnya.
+        $locale = app()->getLocale();
+
+        try {
+            $this->localeService()->seed($context, $metadata['language_code'] ?? null);
+            $this->localeService()->apply($this->localeService()->resolve($context));
+
+            $response = $this->handler->handle($parsed['command'], $parsed['args'], $context);
+
+            if (($response['status'] ?? null) === 'ignored') {
+                return response()->json(['status' => 'ignored']);
+            }
+
+            // `sendReply()` HARUS di dalam blok locale: ia membangun reply
+            // keyboard lewat `defaultReplyKeyboard()`, yang memilih label dari
+            // locale AKTIF. Kalau dipanggil setelah locale dipulihkan, keyboard
+            // user berbahasa Inggris akan tetap berlabel Indonesia — tombolnya
+            // tetap berfungsi, tapi terlihat seperti bahasanya tidak berganti.
+            $this->sendReply($chatId, $response);
+        } finally {
+            app()->setLocale($locale);
         }
 
-        $this->sendReply($chatId, $response);
-
         return response()->json(['status' => 'ok']);
+    }
+
+    private function localeService(): BotLocale
+    {
+        return $this->botLocale ?? app(BotLocale::class);
     }
 
     /**

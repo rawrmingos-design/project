@@ -228,4 +228,12 @@ return [
     'gate_unavailable_title' => '*Verifikasi Keanggotaan Bermasalah*',
     'gate_unavailable_body' => 'Keanggotaan channel Anda belum dapat diverifikasi. Silakan coba lagi dalam beberapa saat.',
     'gate_btn_contact' => '💬 Hubungi Admin',
+    // --- Pengaturan bahasa (Task 3.1) ---
+    'lang_title' => '🌐 *Pengaturan Bahasa*',
+    'lang_current' => 'Bahasa aktif saat ini: *:label*',
+    'lang_pick' => 'Pilih bahasa yang kamu mau. Pilihan ini tersimpan dan dipakai untuk semua pesan berikutnya.',
+    'lang_set_ok' => '✅ Bahasa diganti ke *:label*.',
+    'lang_already' => 'Bahasa kamu sudah *:label*.',
+    'help_manage_language' => '• *🌐 Bahasa* — ganti bahasa bot (Indonesia / English)',
 ];
+
