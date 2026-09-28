@@ -22,6 +22,7 @@ class SyncMediaAssetFolders extends Command
         $this->newLine();
         $this->info("Created: {$result['created']}");
         $this->info("Skipped: {$result['skipped']}");
+        $this->info('Isi duplikat dilewati: ' . ($result['skipped_duplicate_content'] ?? 0));
 
         return self::SUCCESS;
     }

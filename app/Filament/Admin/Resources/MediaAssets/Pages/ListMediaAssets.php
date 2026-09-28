@@ -42,7 +42,7 @@ class ListMediaAssets extends ListRecords
 
                     Notification::make()
                         ->title('Sync asset folders selesai')
-                        ->body("Created: {$result['created']}, skipped: {$result['skipped']}")
+                        ->body("Created: {$result['created']}, skipped: {$result['skipped']}, isi duplikat dilewati: " . ($result['skipped_duplicate_content'] ?? 0))
                         ->success()
                         ->send();
                 }),
