@@ -120,6 +120,53 @@ class ArticleLayoutParityTest extends TestCase
             ->assertViewIs('template.id.artikel.show-default');
     }
 
+    /**
+     * Regresi nyata: bundle Tailwind legacy memuat preflight
+     * `menu, ol, ul { list-style: none }`, sehingga bullet dan nomor pada
+     * konten artikel layout `default` tidak tampil. Layout `modern` lolos
+     * karena memakai `.prose` (specificity 0,1,0 > 0,0,1); wrapper default
+     * harus mengembalikan marker-nya sendiri.
+     */
+    public function test_legacy_default_article_restores_list_markers_reset_by_tailwind_preflight(): void
+    {
+        SettingWeb::query()->whereKey(1)->update(['public_theme' => 'default']);
+        $article = $this->createArticle([
+            'slug' => 'legacy-list-markers',
+            'content' => '<p>Panduan:</p><ul><li>Satu</li><li>Dua</li></ul><ol><li>Pertama</li></ol>',
+        ]);
+
+        $html = $this->get("/id/artikel/{$article->slug}")->assertOk()->getContent();
+
+        // Konten list benar-benar ter-render (bukan dibuang sanitizer).
+        $this->assertStringContainsString('<ul>', $html);
+        $this->assertStringContainsString('<ol>', $html);
+        $this->assertStringContainsString('<li>', $html);
+
+        // Komentar CSS boleh menyebut nama properti (blok wrapper mendokumentasikan
+        // preflight Tailwind di dalamnya), jadi deklarasi nyata diperiksa dari
+        // salinan tanpa komentar — kalau tidak, assertion ini membaca prosa.
+        $css = preg_replace('#/\*.*?\*/#s', '', $html);
+
+        // Marker dikembalikan, dan ditulis per-tag supaya `decimal` pada <ol>
+        // tidak dikosongkan oleh shorthand `list-style` bawaan.
+        $this->assertMatchesRegularExpression(
+            '/\.public-article-content ul\s*\{[^}]*list-style-type:\s*disc/s',
+            $css,
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.public-article-content ol\s*\{[^}]*list-style-type:\s*decimal/s',
+            $css,
+        );
+
+        // Tidak ada shorthand `list-style` yang bocor ke wrapper default:
+        // shorthand pada <ol> akan menimpa `list-style-type: decimal` karena
+        // kedua selector punya specificity sama dan aturan terakhir menang.
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.public-article-content (?:ul|ol)\s*\{[^}]*list-style:\s*(?:none|disc|decimal|circle|square)\s*[;}]/s',
+            $css,
+        );
+    }
+
     private function createArticle(array $overrides = []): Artikel
     {
         return Artikel::query()->create(array_merge([

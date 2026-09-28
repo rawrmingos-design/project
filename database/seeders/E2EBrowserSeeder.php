@@ -24,6 +24,9 @@ class E2EBrowserSeeder extends Seeder
 
     public const ARTICLE_FAQ_SLUG = 'e2e-faq-parity';
 
+    /** Artikel dengan <ul>/<ol> untuk menguji marker list layout legacy. */
+    public const ARTICLE_DEFAULT_LIST_SLUG = 'e2e-default-list-markers';
+
     public function run(): void
     {
         DB::table('setting_webs')->updateOrInsert(
@@ -391,6 +394,26 @@ class E2EBrowserSeeder extends Seeder
                     . '<h2>Catatan</h2><p>Halaman ini dipakai untuk uji paritas schema.</p>',
                 'meta_description' => 'Artikel E2E untuk uji paritas FAQPage schema.',
                 'keywords' => 'e2e,faq,top up',
+                'layout' => 'default',
+                'status' => 'active',
+                'views' => 0,
+            ],
+        );
+
+        // Artikel dengan list, untuk menguji marker bullet/nomor pada layout
+        // `default` — rancangan tema legacy memuat preflight Tailwind
+        // `menu, ol, ul { list-style: none }` yang menghapus marker.
+        Artikel::query()->updateOrCreate(
+            ['slug' => self::ARTICLE_DEFAULT_LIST_SLUG],
+            [
+                'title' => 'E2E Default List Markers',
+                'thumbnail' => 'assets/logo/favicon.webp',
+                'content' => '<p>Panduan singkat:</p>'
+                    . '<ul><li>Langkah satu</li><li>Langkah dua</li></ul>'
+                    . '<p>Urutan:</p>'
+                    . '<ol><li>Pertama</li><li>Kedua</li></ol>',
+                'meta_description' => 'Artikel E2E untuk uji marker list pada layout default.',
+                'keywords' => 'e2e,list,top up',
                 'layout' => 'default',
                 'status' => 'active',
                 'views' => 0,

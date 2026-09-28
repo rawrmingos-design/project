@@ -182,6 +182,46 @@
     .public-article-content ol {
         padding-left: 20px;
         margin: 0 0 12px;
+        /*
+         * Preflight Tailwind di bundle legacy (pjojikhhoyutyrtd.css) memuat
+         * `menu, ol, ul { list-style: none }`, jadi bullet dan nomor hilang di
+         * layout default. Layout `.prose` (modern) lolos karena specificity
+         * 0,1,0 miliknya mengalahkan selector `ul` (0,0,1); wrapper default
+         * tidak ikut `prose`, jadi harus mengembalikannya sendiri di sini.
+         * Ditulis per-tag: `list-style: disc` pada <ol> akan menimpa
+         * `list-style-type: decimal` (shorthand mengosongkan type-nya).
+         */
+        list-style-position: outside;
+    }
+
+    .public-article-content ul {
+        list-style-type: disc;
+    }
+
+    .public-article-content ol {
+        list-style-type: decimal;
+    }
+
+    /* `ul`/`ol` bersarang: turunkan gaya agar hierarki konten tetap terbaca. */
+    .public-article-content ul ul {
+        list-style-type: circle;
+    }
+
+    .public-article-content ul ul ul {
+        list-style-type: square;
+    }
+
+    .public-article-content ol ol {
+        list-style-type: lower-alpha;
+    }
+
+    .public-article-content ul ol,
+    .public-article-content ol ul {
+        list-style-type: disc;
+    }
+
+    .public-article-content li::marker {
+        color: var(--article-primary);
     }
 
     .public-article-content li + li {

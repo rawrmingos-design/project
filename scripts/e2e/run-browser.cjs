@@ -142,6 +142,57 @@ async function withSsrServer(callback) {
     }
 }
 
+/**
+ * Tema legacy (`public_theme=default`) dirender Blade, bukan Inertia, jadi
+ * butuh server + database sendiri dengan tema default dan port terpisah supaya
+ * tidak menabrak suite tema `bangjeff`.
+ */
+function runLegacyLayout() {
+    const legacyPort = process.env.E2E_LEGACY_PORT || '4174';
+    const legacyEnv = {
+        E2E_PORT: legacyPort,
+        E2E_PUBLIC_THEME: 'default',
+        E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,
+    };
+
+    const server = spawn(process.execPath, ['scripts/e2e/run-browser.cjs', 'serve'], {
+        cwd: root,
+        env: { ...e2eEnvironment, ...legacyEnv },
+        stdio: 'inherit',
+    });
+
+    const stop = (signal = 'SIGTERM') => {
+        if (!server.killed) {
+            server.kill(signal);
+        }
+    };
+
+    process.once('exit', () => stop('SIGKILL'));
+
+    return waitForServer(`http://127.0.0.1:${legacyPort}/id`)
+        .then(() => {
+            runPlaywright(['tests/e2e/article-default-list-markers.spec.js'], false, legacyEnv);
+        })
+        .finally(() => stop());
+}
+
+async function waitForServer(url, attempts = 80) {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                return true;
+            }
+        } catch {
+            // server belum siap
+        }
+    }
+
+    throw new Error(`Server tidak siap pada ${url}`);
+}
+
 function serve() {
     // Playwright menjalankan mode ini sebagai webServer. Mode `ssr` sengaja
     // mempertahankan bundle yang baru di-build, jadi penghapusan harus
@@ -236,6 +287,14 @@ switch (mode) {
             'tests/e2e/storefront-google-signup.spec.js',
             'tests/e2e/article-faq-schema.spec.js',
         ]);
+        runLegacyLayout();
+        break;
+    case 'legacy':
+        // Tema legacy (`public_theme=default`) adalah Blade, bukan Inertia —
+        // halaman tidak dirender oleh bundle React, jadi butuh server sendiri.
+        removeSsrBundle();
+        buildAssets();
+        runLegacyLayout();
         break;
     case 'all':
         removeSsrBundle();
@@ -254,6 +313,7 @@ switch (mode) {
             'tests/e2e/storefront-google-signup.spec.js',
             'tests/e2e/article-faq-schema.spec.js',
         ]);
+        runLegacyLayout();
         break;
     default:
         console.error(`Unknown E2E mode: ${mode}`);
