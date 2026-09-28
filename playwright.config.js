@@ -5,7 +5,9 @@ const { defineConfig, devices } = require('@playwright/test');
 const port = process.env.E2E_PORT || '4173';
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${port}`;
 const serverless = process.env.E2E_SERVERLESS === '1';
-const suite = serverless ? 'tracking' : 'app';
+// `app` dan `legacy` punya artefak terpisah supaya laporan/jejak suite tema
+// default tidak menimpa suite tema `bangjeff`.
+const suite = serverless ? 'tracking' : (process.env.E2E_SUITE || 'app');
 
 module.exports = defineConfig({
     testDir: './tests/e2e',
