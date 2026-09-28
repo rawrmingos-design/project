@@ -122,4 +122,9 @@
         
     </div>
 </div>
+
+{{-- Halaman lain (beranda, detail artikel) memuat footer ini; halaman daftar
+     artikel sebelumnya terlewat sehingga halaman berakhir tepat di bawah
+     pagination tanpa footer sama sekali. --}}
+@include('../footer')
 @endsection

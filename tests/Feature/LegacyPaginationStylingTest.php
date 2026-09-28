@@ -184,51 +184,131 @@ class LegacyPaginationStylingTest extends TestCase
     }
 
     /**
-     * Label Previous/Next dirender lewat @lang() tanpa escaping tambahan.
+     * Tombol prev/next hanya boleh punya SATU panah.
      *
-     * File lang/en/pagination.php berisi entity HTML (`&laquo; Previous`,
-     * `Next &raquo;`). Kalau dirender dengan `{{ }}` ia ter-escape dua kali
-     * menjadi `&amp;laquo;` sehingga yang tampil di layar adalah teks mentah
-     * "&laquo; Previous" — bukan tanda panah. View bawaan Laravel pun memakai
-     * `{!! !!}` / `@lang()` untuk alasan yang sama.
+     * Riwayat bug: label dirender dari lang/en/pagination.php yang memuat
+     * entitas HTML (`&laquo; Previous`, `Next &raquo;`). View ini juga sudah
+     * merender ikon panah SVG di samping label, sehingga tombol menampilkan
+     * PANAH DOBEL — keluhan client "tombol previous/next kurang rapi".
+     * Entitasnya juga pernah ter-escape ganda (`&amp;laquo;`) saat dirender
+     * dengan `{{ }}`.
+     *
+     * Kontrak sekarang: label adalah teks polos (tanpa entitas), dan tiap
+     * tombol prev/next punya tepat satu ikon SVG.
      */
-    public function test_legacy_pagination_labels_are_not_double_escaped(): void
+    public function test_legacy_pagination_navigation_buttons_show_single_arrow(): void
+    {
+        // 27 artikel / 9 per halaman = 3 halaman, jadi halaman 2 punya prev
+        // DAN next sebagai link aktif.
+        $this->createArticles(27);
+
+        $html = $this->get('/id/artikel?page=2')->assertOk()->getContent();
+        $pagination = $this->extractPaginationHtml($html);
+
+        // Tidak boleh ada entitas panah (mentah maupun ter-escape ganda).
+        foreach (['&laquo;', '&raquo;', '&amp;laquo;', '&amp;raquo;', '«', '»'] as $entity) {
+            $this->assertStringNotContainsString(
+                $entity,
+                $pagination,
+                "Label pagination masih memuat entitas panah '{$entity}' — tombol akan tampil dengan panah dobel.",
+            );
+        }
+
+        // Setiap tombol prev/next harus punya tepat satu ikon.
+        foreach (['rel="prev"', 'rel="next"'] as $rel) {
+            $this->assertMatchesRegularExpression(
+                '/' . preg_quote($rel, '/') . '.*?<\/li>/s',
+                $pagination,
+                "Tombol {$rel} tidak ditemukan.",
+            );
+        }
+
+        $this->assertSame(
+            2,
+            substr_count($pagination, 'legacy-pagination__icon'),
+            'Setiap tombol prev/next harus punya tepat satu ikon panah.',
+        );
+    }
+
+    /**
+     * Halaman daftar artikel harus memuat footer, sama seperti halaman lain
+     * (beranda, detail artikel). Sebelum diperbaiki, halaman ini berakhir
+     * tepat di bawah pagination tanpa footer sama sekali.
+     */
+    public function test_legacy_article_list_renders_the_footer(): void
     {
         $this->createArticles(12);
 
         $html = $this->get('/id/artikel')->assertOk()->getContent();
-        $pagination = $this->extractPaginationHtml($html);
 
-        $this->assertStringNotContainsString(
-            '&amp;laquo;',
-            $pagination,
-            'Label "Previous" ter-escape ganda (&amp;laquo;) — pakai @lang() / {!! !!}, bukan {{ }}.',
-        );
-        $this->assertStringNotContainsString(
-            '&amp;raquo;',
-            $pagination,
-            'Label "Next" ter-escape ganda (&amp;raquo;) — pakai @lang() / {!! !!}, bukan {{ }}.',
+        $this->assertStringContainsString(
+            '<footer',
+            $html,
+            'Halaman daftar artikel theme legacy tidak merender footer.',
         );
 
-        // Entity harus benar-benar merender panah, bukan teks mentah.
-        // Catatan format: label previous = "&laquo; Previous" (entity di depan),
-        // label next = "Next &raquo;" (entity di belakang) — sesuai
-        // lang/en/pagination.php.
+        // Footer harus berada SETELAH pagination, bukan menggantikannya.
+        $paginationPos = strpos($html, 'legacy-pagination');
+        $footerPos = strpos($html, '<footer');
+
+        $this->assertNotFalse($paginationPos, 'Pagination tidak dirender.');
+        $this->assertNotFalse($footerPos, 'Footer tidak dirender.');
+        $this->assertGreaterThan(
+            $paginationPos,
+            $footerPos,
+            'Footer harus dirender setelah pagination.',
+        );
+    }
+
+    /**
+     * Ringkasan pagination harus mengikuti locale aktif, bukan teks Inggris
+     * hardcoded.
+     *
+     * Catatan penting: `LanguageDetectMiddleware` menetapkan locale dari header
+     * `Accept-Language` request, jadi locale di-set lewat HEADER — bukan lewat
+     * config. Di produksi pengunjung Indonesia mengirim `id`; request tanpa
+     * header itu jatuh ke `en`. Karena itu kedua jalur diuji eksplisit.
+     */
+    public function test_legacy_pagination_summary_follows_active_locale(): void
+    {
+        $this->createArticles(12);
+
+        foreach (['id' => 'id-ID,id;q=0.9', 'en' => 'en-US,en;q=0.9'] as $locale => $header) {
+            $html = $this->withHeaders(['Accept-Language' => $header])
+                ->get('/id/artikel')
+                ->assertOk()
+                ->getContent();
+            $pagination = $this->extractPaginationHtml($html);
+
+            $lang = require resource_path("lang/{$locale}/pagination.php");
+
+            $this->assertStringContainsString(
+                $lang['showing'],
+                $pagination,
+                "Ringkasan pagination tidak memakai baris bahasa locale '{$locale}'.",
+            );
+            $this->assertStringContainsString(
+                $lang['results'],
+                $pagination,
+                "Ringkasan pagination tidak memakai baris bahasa locale '{$locale}'.",
+            );
+        }
+
+        // Teks Inggris tidak boleh muncul untuk pengunjung berbahasa Indonesia.
+        $paginationId = $this->extractPaginationHtml(
+            $this->withHeaders(['Accept-Language' => 'id-ID,id;q=0.9'])
+                ->get('/id/artikel')
+                ->assertOk()
+                ->getContent(),
+        );
+
         $this->assertStringNotContainsString(
-            '&amp;#039;',
-            $pagination,
-            'Ada entity yang ter-escape ganda di markup pagination.',
+            'Showing',
+            $paginationId,
+            'Ringkasan pagination masih memakai teks Inggris hardcoded pada locale id.',
         );
-        $this->assertMatchesRegularExpression(
-            '/legacy-pagination__label">\s*(&laquo;|«)/',
-            $pagination,
-            'Label "Previous" tidak dirender sebagai tanda panah.',
-        );
-        $this->assertMatchesRegularExpression(
-            '/legacy-pagination__label">\s*Next\s*(&raquo;|»)/',
-            $pagination,
-            'Label "Next" tidak dirender sebagai tanda panah.',
-        );
+        $this->assertStringContainsString('Menampilkan', $paginationId);
+        $this->assertStringContainsString('Sebelumnya', $paginationId);
     }
 
     /**

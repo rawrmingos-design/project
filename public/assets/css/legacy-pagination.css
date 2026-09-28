@@ -37,13 +37,22 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 40px;
+    /*
+     * Jarak atas dari daftar, dan jarak bawah supaya pagination tidak menempel
+     * langsung ke footer/konten berikutnya. Sebelumnya halaman berakhir persis
+     * di bawah pagination (terukur: 0px) sehingga tampak "terpotong".
+     */
+    margin: 40px 0 48px;
     padding: 0;
     font-size: 14px;
     line-height: 1.25;
     color: rgba(255, 255, 255, 0.75);
 }
 
+/*
+ * Ringkasan ("Menampilkan 1 sampai 9 dari 49 hasil") sengaja disembunyikan di
+ * layar sempit, tapi tetap dibaca screen reader supaya konteks tetap ada.
+ */
 .legacy-pagination__summary {
     margin: 0;
     font-size: 13px;
@@ -65,6 +74,12 @@
     list-style: none;
 }
 
+/*
+ * Tombol prev/next: sekarang HANYA berisi ikon panah + teks polos. Sebelumnya
+ * label memuat entitas `&laquo;`/`&raquo;` sehingga tampil panah kedua.
+ * Padding dibuat sedikit lebih tebal dari tombol nomor supaya seimbang.
+ */
+
 .legacy-pagination__item {
     display: inline-flex;
     align-items: center;
@@ -83,6 +98,14 @@
     font-weight: 600;
     text-decoration: none;
     transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+/*
+ * Tombol prev/next berisi ikon + teks, jadi butuh padding horizontal lebih
+ * lega daripada tombol nomor (yang hanya 1-2 digit).
+ */
+.legacy-pagination__item:has(.legacy-pagination__label) {
+    padding: 0 14px;
 }
 
 /* `bg-white` bawaan view Laravel diganti transparan sesuai permintaan client */
