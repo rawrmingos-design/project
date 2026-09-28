@@ -49,7 +49,15 @@ class NotificationsSettings extends SettingsSectionPage
             'openwa_webhook_secret',
             'telegram_bot_token',
             'telegram_webhook_secret',
+            'telegram_required_channels',
+            'telegram_welcome_enabled',
+            'telegram_welcome_template',
+            'telegram_welcome_thread_id',
+            'telegram_admin_url',
             'bot_order_tg_enabled',
+            // Default bahasa bot (ID/EN). Tanpa entri whitelist, field baru ini
+            // dibuang filterStateByWhitelist() dan tersimpan NULL.
+            'bot_default_locale',
             'easywa_email',
             'easywa_secret_key',
             'easywa_send_type',

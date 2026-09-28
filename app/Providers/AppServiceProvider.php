@@ -230,11 +230,61 @@ class AppServiceProvider extends ServiceProvider
                     if (!empty($config->telegram_webhook_secret)) {
                         config(['services.telegram-bot-api.webhook_secret' => $config->telegram_webhook_secret]);
                     }
-                    if (!empty($config->telegram_channel_id)) {
-                        config(['services.telegram-bot-api.required_channel.id' => $config->telegram_channel_id]);
+                    // Daftar grup/channel wajib — SATU sumber: kolom JSON
+                    // `setting_webs.telegram_required_channels` dari panel.
+                    // Tidak ada fallback .env: dulu dua sumber ini membuat
+                    // admin bingung karena isian panel diabaikan.
+                    $requiredChannels = $config->telegram_required_channels ?? null;
+
+                    if (is_string($requiredChannels) && $requiredChannels !== '') {
+                        $requiredChannels = json_decode($requiredChannels, true);
                     }
-                    if (!empty($config->telegram_channel_url)) {
-                        config(['services.telegram-bot-api.required_channel.url' => $config->telegram_channel_url]);
+
+                    if (is_array($requiredChannels) && $requiredChannels !== []) {
+                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
+                    }
+
+                    // URL kontak admin Telegram — diisi dari panel admin.
+                    // Nilai DB menang atas .env; .env tetap dipakai kalau kolom
+                    // ini kosong supaya deployment lama tidak berubah perilaku.
+                    if (!empty($config->telegram_admin_url)) {
+                        config(['services.telegram-bot-api.admin_contact_url' => $config->telegram_admin_url]);
+                    }
+
+                    // Default bahasa bot (setting_webs.bot_default_locale).
+                    // Diisi APA ADANYA kalau tidak kosong; BotLocale yang
+                    // memvalidasi lewat whitelist id/en, jadi nilai aneh dari
+                    // DB tidak bisa membuat chat berbahasa tak dikenal.
+                    if (!empty($config->bot_default_locale)) {
+                        config(['services.telegram-bot-api.default_locale' => $config->bot_default_locale]);
+                    }
+
+                    // Daftar channel wajib versi BARU (banyak channel sekaligus).
+                    // Bila terisi, ini yang dipakai; kolom tunggal di atas tetap
+                    // dihormati sebagai fallback deployment lama.
+                    $requiredChannels = $config->telegram_required_channels ?? null;
+
+                    if (is_string($requiredChannels) && $requiredChannels !== '') {
+                        $requiredChannels = json_decode($requiredChannels, true);
+                    }
+
+                    if (is_array($requiredChannels) && $requiredChannels !== []) {
+                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
+                    }
+
+                    // Sambutan otomatis member baru di grup Telegram.
+                    // Saklar dihormati apa adanya (termasuk `false`), supaya
+                    // admin bisa mematikan dari DB tanpa mengubah .env.
+                    if ($config->telegram_welcome_enabled !== null) {
+                        config(['services.telegram-bot-api.telegram_welcome_enabled' => (bool) $config->telegram_welcome_enabled]);
+                    }
+
+                    if (!empty($config->telegram_welcome_template)) {
+                        config(['services.telegram-bot-api.telegram_welcome_template' => $config->telegram_welcome_template]);
+                    }
+
+                    if (!empty($config->telegram_welcome_thread_id)) {
+                        config(['services.telegram-bot-api.telegram_welcome_thread_id' => (int) $config->telegram_welcome_thread_id]);
                     }
 
                     // Override bot order flags if set in DB

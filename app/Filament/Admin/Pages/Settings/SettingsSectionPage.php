@@ -9,6 +9,7 @@ use App\Services\OptimizedImageService;
 use App\Services\PwaIconGeneratorService;
 use App\Services\WhatsappNotificationService;
 use App\Support\PublicThemeRegistry;
+use App\Support\TelegramRequiredChannels;
 use App\Support\MediaAssetPicker;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -23,6 +24,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -1262,19 +1264,101 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->helperText('Secret token untuk mengamankan endpoint webhook (opsional, disarankan sama dengan .env).')
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
-                        TextInput::make('telegram_channel_id')
-                            ->label('Channel ID')
-                            ->helperText('ID channel yang wajib diikuti (contoh: @channelku). Kosongkan jika mengambil dari file .env.')
+                        Repeater::make('telegram_required_channels')
+                            ->label('Grup / Channel Wajib (bisa lebih dari satu)')
+                            ->helperText('User harus bergabung ke SEMUA grup/channel di daftar ini sebelum bisa membuka katalog atau membuat order. Untuk grup privat, isi ID numeriknya (mis. -1001234567890) dan tempel link undangannya di kolom URL.')
+                            ->addActionLabel('Tambah grup / channel')
+                            ->reorderable()
+                            ->columns(1)
+                            ->columnSpanFull()
+                            ->defaultItems(0)
+                            ->schema([
+                                TextInput::make('label')
+                                    ->label('Nama Tampilan')
+                                    ->placeholder('Grup Info')
+                                    ->helperText('Nama yang muncul di pesan "Akses Terbatas". Boleh dikosongkan.')
+                                    ->maxLength(60),
+                                TextInput::make('id')
+                                    ->label('ID Grup / Channel')
+                                    ->placeholder('@namagrup  atau  -1001234567890')
+                                    ->required()
+                                    ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail): void {
+                                        if (! TelegramRequiredChannels::isValidId((string) $value)) {
+                                            $fail('Isi @username (grup publik) atau ID numerik seperti -1001234567890 (wajib untuk grup privat).');
+                                        }
+                                    })
+                                    ->helperText('Grup publik: @username. Grup privat: ID numerik dari @userinfobot. Bot WAJIB sudah jadi anggota di sini, kalau tidak gate tidak bisa jalan.'),
+                                TextInput::make('url')
+                                    ->label('URL Undangan')
+                                    ->placeholder('https://t.me/namagrup  atau  https://t.me/+AbCdEfGh')
+                                    ->required()
+                                    ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail): void {
+                                        if (! TelegramRequiredChannels::isValidUrl((string) $value)) {
+                                            $fail('Gunakan https://t.me/namagrup (publik) atau https://t.me/+AbCdEfGh (undangan privat).');
+                                        }
+                                    })
+                                    ->helperText('Link yang diklik user untuk bergabung. Untuk grup privat, salin link undangan dari Telegram.'),
+                            ])
+                            ->itemLabel(fn (array $state): ?string => filled($state['id'] ?? null)
+                                ? trim((string) ($state['label'] ?? '') . ' ') . (string) $state['id']
+                                : null)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        TextInput::make('telegram_admin_url')
+                            ->label('URL Kontak Admin Telegram')
+                            ->helperText('Tautan yang dibuka tombol "📞 Hubungi Admin" di bot. Boleh URL lengkap (https://t.me/alexander_vors), username saja (@alexander_vors), atau nomor WhatsApp (085792464508) — semuanya dirapikan otomatis. Selama kolom ini KOSONG, tombol hubungi admin tidak dikirim ke user dan teks panduan tidak menyebutnya.')
+                            ->placeholder('https://t.me/alexander_vors')
+                            // Menerima bentuk mentah yang biasa diketik admin:
+                            // URL lengkap, `t.me/...`, `@username`, atau nomor WA.
+                            // Normalisasi ke URL utuh dikerjakan dehydrateStateUsing.
+                            ->rule('regex:#^(https?://\S+|t\.me/\S+|@?[A-Za-z0-9_]{4,32}|\+?\d[\d\s\-]{6,})$#')
+                            ->validationMessages([
+                                'regex' => 'Isi URL lengkap (https://t.me/namamu), username (@namamu), atau nomor WhatsApp.',
+                            ])
+                            ->maxLength(512)
+                            ->dehydrateStateUsing(fn (?string $state): ?string => self::normalizeTelegramAdminUrl($state))
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
-                        TextInput::make('telegram_channel_url')
-                            ->label('Channel URL')
-                            ->helperText('URL invite channel (contoh: https://t.me/channelku). Kosongkan jika mengambil dari file .env.')
+                        Toggle::make('telegram_welcome_enabled')
+                            ->label('Sambutan Otomatis Member Baru')
+                            ->helperText('Kirim pesan sambutan saat ada member baru bergabung di grup. Tidak perlu mematikan privacy mode bot, dan bot TIDAK harus admin — event "member baru" termasuk service message yang selalu diterima bot.')
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        Textarea::make('telegram_welcome_template')
+                            ->label('Isi Sambutan')
+                            ->helperText('Kosongkan untuk memakai pesan bawaan. Placeholder: {nama} = nama member, {grup} = nama grup. Contoh: Halo {nama}, selamat datang di {grup}! Baca panduan di topik Announcement ya.')
+                            ->placeholder(\App\Services\Bot\TelegramWelcomeService::DEFAULT_TEMPLATE)
+                            ->rows(4)
+                            ->maxLength(1000)
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        TextInput::make('telegram_welcome_thread_id')
+                            ->label('Thread ID Topik Sambutan (opsional)')
+                            ->helperText('Kosongkan untuk mengirim ke chat utama (Topik General). Isi dengan id topik bila sambutan ingin muncul di topik tertentu.')
+                            ->placeholder('12')
+                            ->numeric()
+                            ->minValue(1)
                             ->visible(fn () => (bool) config('bot.order_enabled', false)),
 
                         Toggle::make('bot_order_tg_enabled')
                             ->label('Terima Order via Telegram')
                             ->helperText('Izinkan pelanggan melakukan order produk langsung melalui bot Telegram.')
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        Select::make('bot_default_locale')
+                            ->label('Bahasa Default Bot')
+                            ->helperText('Bahasa cadangan kalau bahasa perangkat user tidak dikenali, atau percakapan terjadi di grup. User bisa menggantinya sendiri kapan saja lewat /bahasa di dalam bot.')
+                            ->options([
+                                'id' => '🇮🇩 Bahasa Indonesia',
+                                'en' => '🇬🇧 English',
+                            ])
+                            ->default('id')
+                            ->selectablePlaceholder(false)
+                            ->required()
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
                     ])
@@ -1845,6 +1929,47 @@ abstract class SettingsSectionPage extends Page implements HasForms
         }
 
         return $digits;
+    }
+
+    /**
+     * Rapikan URL kontak admin Telegram.
+     *
+     * Admin sering mengetik username saja (`@namaku`, `namaku`) atau nomor
+     * WhatsApp polos. Simpan sebagai URL utuh supaya tombolnya selalu sah.
+     */
+    private static function normalizeTelegramAdminUrl(?string $state): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        $value = trim($state);
+
+        // Sudah URL lengkap.
+        if (preg_match('#^https?://#i', $value) === 1) {
+            return $value;
+        }
+
+        // `t.me/...` tanpa skema.
+        if (preg_match('#^t\.me/#i', $value) === 1) {
+            return 'https://' . $value;
+        }
+
+        // Nomor WhatsApp (0821..., 628..., +628...).
+        if (preg_match('/^\+?\d[\d\s\-]{6,}$/', $value) === 1) {
+            $digits = self::normalizePhoneNumber($value) ?? '';
+
+            return $digits === '' ? null : 'https://wa.me/' . $digits;
+        }
+
+        // Username Telegram: `@namaku` atau `namaku`.
+        $username = ltrim($value, '@');
+
+        if (preg_match('/^[A-Za-z0-9_]{4,32}$/', $username) === 1) {
+            return 'https://t.me/' . $username;
+        }
+
+        return $value;
     }
 
     private function shouldRegeneratePwaIcons(string $previousSource, string $currentSource): bool

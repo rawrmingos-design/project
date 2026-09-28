@@ -70,7 +70,11 @@ class MediaAssetsTable
                     ->limit(45)
                     ->copyable()
                     ->copyMessage('Path disalin')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    // Kolom ini satu-satunya pembeda antara dua baris yang
+                    // isinya identik (nama, folder, ext, ukuran sama semua).
+                    // Default tersembunyi membuat admin melihat "gambar
+                    // dobel" tanpa cara membedakannya.
+                    ->toggleable(),
 
                 TextColumn::make('file_url')
                     ->label('URL')

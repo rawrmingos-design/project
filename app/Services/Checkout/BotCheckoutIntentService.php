@@ -4,9 +4,11 @@ namespace App\Services\Checkout;
 
 use App\Models\BotCheckoutIntent;
 use App\Models\User;
+use App\Support\TelegramIdentity;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -154,7 +156,37 @@ class BotCheckoutIntentService
             }
 
             if ($intent->status === BotCheckoutIntent::STATUS_PROCESSING) {
-                return ['status' => 'processing', 'intent' => $intent];
+                // Intent yang macet di `processing` TANPA jejak dispatch
+                // provider berarti checkout mati di tengah jalan sebelum
+                // side-effect apa pun (mis. exception di dalam
+                // createInvoice). Tanpa pemulihan, user terjebak permanen:
+                // token-nya sudah "terpakai" tapi tidak ada order, dan
+                // pesan berikutnya hanya bilang "sedang diproses".
+                //
+                // Aman untuk dipulihkan HANYA kalau provider belum
+                // dipanggil — kalau sudah, statusnya ambigu dan wajib
+                // direkonsiliasi, bukan diulang.
+                if (
+                    $intent->provider_dispatched_at === null
+                    && $intent->order_id === null
+                    && ($intent->processing_at?->diffInMinutes(now()) ?? 0) >= 1
+                ) {
+                    $intent->forceFill([
+                        'status' => BotCheckoutIntent::STATUS_FAILED_RETRYABLE,
+                        'failure_code' => 'pre_dispatch_failure',
+                    ])->save();
+
+                    Log::warning('Bot checkout intent macet di processing tanpa dispatch — dipulihkan.', [
+                        'intent_id' => (string) $intent->intent_id,
+                        'source' => $source,
+                        'stuck_since' => (string) $intent->processing_at,
+                    ]);
+
+                    // Lanjut ke blok di bawah: status sekarang
+                    // failed_retryable sehingga bisa di-claim ulang.
+                } else {
+                    return ['status' => 'processing', 'intent' => $intent];
+                }
             }
 
             if ($intent->expires_at?->isPast()) {
@@ -422,6 +454,22 @@ class BotCheckoutIntentService
 
         if (! in_array($source, self::ALLOWED_SOURCES, true) || $externalUserId === '') {
             throw ValidationException::withMessages(['intent' => 'Identitas gateway checkout tidak lengkap.']);
+        }
+
+        // Normalisasi identitas ke bentuk kanonik SEBELUM di-hash.
+        //
+        // KRITIS: fingerprint ini dipakai dua kali di dua jalur berbeda —
+        // saat membuat intent (context mentah dari adapter: identitas
+        // ber-scope `telegram:<scope>:<id>`) dan saat `prepareMutation()`
+        // mencari intent (context sudah lewat `GatewayInvoiceService::normalizeContext()`
+        // sehingga identitasnya sudah dinormalisasi). Kalau basis hashing
+        // berbeda, intent yang SUDAH ter-claim tidak akan ditemukan dan
+        // checkout gagal dengan "Checkout belum dikonfirmasi atau tidak valid."
+        //
+        // Normalisasi di sini = satu basis kanonik untuk kedua jalur, jadi
+        // tidak peduli apakah context datang mentah atau sudah dinormalisasi.
+        if ($source === 'telegram_gateway') {
+            $externalUserId = TelegramIdentity::principal($externalUserId) ?? $externalUserId;
         }
 
         if ($requireMessage && $messageId === '') {

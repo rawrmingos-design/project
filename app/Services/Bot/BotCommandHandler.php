@@ -19,6 +19,7 @@ use App\Services\Whatsapp\WhatsappUserResolver;
 use App\Services\Telegram\TelegramLinkService;
 use App\Services\Telegram\TelegramUserResolver;
 use App\Support\WhatsappNumberNormalizer;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -43,6 +44,7 @@ class BotCommandHandler
         private readonly ?TelegramUserResolver $telegramUserResolver = null,
         private readonly ?TelegramLinkService $telegramLinkService = null,
         private readonly ?OrderHistoryNavigationStateService $orderHistoryNavigation = null,
+        private readonly ?BotLocale $botLocale = null,
     ) {}
 
     /**
@@ -54,20 +56,48 @@ class BotCommandHandler
     public function handle(?string $command, array $args, array $context): array
     {
         try {
-            $membership = $this->telegramMembership->check($context);
+            // Perintah yang hanya membaca data milik sender sendiri (bukan
+            // membuka katalog / membuat order) tidak boleh diblokir gate
+            // keanggotaan. Sebelumnya gangguan verifikasi sesaat membuat
+            // user tidak bisa mengecek transaksinya sendiri.
+            if (! $this->isMembershipExemptCommand($command, $args)) {
+                $membership = $this->telegramMembership->check($context);
+                $status = (string) ($membership['status'] ?? '');
 
-            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
-                $this->clearCheckoutState($context);
+                // Daftar "status yang boleh lolos" TIDAK dipakai di sini.
+                // Sebaliknya: user ditahan KECUALI statusnya jelas `allowed`.
+                // Alasannya keamanan — status baru yang belum dikenal handler
+                // (mis. saat kelas service sudah diperbarui tapi handler belum)
+                // tidak boleh otomatis dianggap boleh lewat.
+                if ($status !== TelegramChannelMembershipService::STATUS_ALLOWED) {
+                    $this->clearCheckoutState($context);
 
-                return $this->formatter->formatTelegramMembershipRequired(
-                    (string) ($membership['channel_url'] ?? ''),
-                );
-            }
+                    if ($status === TelegramChannelMembershipService::STATUS_NOT_MEMBER) {
+                        $this->markGatePending($context);
 
-            if (($membership['status'] ?? null) === TelegramChannelMembershipService::STATUS_UNAVAILABLE) {
-                $this->clearCheckoutState($context);
+                        return $this->formatter->formatTelegramMembershipRequired(
+                            (array) ($membership['missing'] ?? []),
+                        );
+                    }
 
-                return $this->formatter->formatTelegramMembershipUnavailable();
+                    if ($status === TelegramChannelMembershipService::STATUS_MISCONFIGURED) {
+                        return $this->formatter->formatTelegramMembershipMisconfigured();
+                    }
+
+                    // Gangguan sesaat, atau status yang tidak dikenal sama sekali.
+                    return $this->formatter->formatTelegramMembershipUnavailable();
+                }
+
+                // Ambang gate TERLEWATI — keanggotaan terverifikasi. Kalau user
+                // ini sebelumnya tertahan di gerbang, sekarang saatnya memberi
+                // kepastian bahwa verifikasinya berhasil. Sebelumnya user
+                // dilempar langsung ke menu tanpa penjelasan apa pun, jadi
+                // tidak ada tanda bahwa syaratnya sudah terpenuhi.
+                if ($this->pullGatePending($context)) {
+                    return $this->formatter->formatTelegramMembershipVerified(
+                        (string) ($context['telegram_metadata']['first_name'] ?? ''),
+                    );
+                }
             }
 
             if ($this->shouldClearCheckoutState($command, $context)) {
@@ -78,7 +108,10 @@ class BotCommandHandler
                 'start' => $this->handleStart($args, $context),
                 'help', 'bantuan' => $this->formatter->formatHelp($this->capabilities($context)),
                 'menu' => $this->handleMenu($args, $context),
-                'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings()),
+                'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(
+                    ($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings(),
+                    $context['source'] ?? null,
+                ),
                 'link' => $this->handleLink($args, $context),
                 'deposit', 'topup', 'isi_saldo' => $this->handleDeposit($args, $context),
                 'order_history', 'history', 'riwayat', 'pesanan' => $this->handleOrderHistory($args, $context),
@@ -111,6 +144,19 @@ class BotCommandHandler
                 'batal', 'cancel' => $this->capabilities($context)->supports('order')
                     ? $this->cancelCheckout($context, $args)
                     : $this->orderDisabled(),
+                // `bahasa` = buka panel. `bahasa en` = PILIH (jalur callback
+                // dari tombol picker inline). Keduanya perintah yang sama, jadi
+                // argumennya yang menentukan — kalau argumen diabaikan, tombol
+                // picker akan tampak seperti tidak berfungsi: panel terbuka
+                // ulang tanpa bahasa berubah.
+                'bahasa', 'language' => $this->capabilities($context)->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? (in_array($args[0] ?? null, BotLocale::SUPPORTED, true)
+                        ? $this->handleLanguageSet((string) $args[0], $context)
+                        : $this->handleLanguage($context))
+                    : $this->handleUnknownInput($command, $args, $context),
+                // Label tombol keyboard tetap (dikirim balik sebagai TEKS).
+                'bahasa_id' => $this->handleLanguageSet('id', $context),
+                'bahasa_en' => $this->handleLanguageSet('en', $context),
                 'admin' => $this->handleAdmin(),
                 default => $this->handleUnknownInput($command, $args, $context),
             };
@@ -133,6 +179,52 @@ class BotCommandHandler
                 'buttons' => [],
             ];
         }
+    }
+
+    /**
+     * Tampilkan panel pemilih bahasa. Tidak mengubah apa pun.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{text: string, buttons: array}
+     */
+    private function handleLanguage(array $context): array
+    {
+        return $this->formatter->languagePanel($this->localeService()->resolve($context));
+    }
+
+    /**
+     * Simpan pilihan bahasa eksplisit, lalu balas panel dalam bahasa BARU.
+     *
+     * @param  array<string, mixed>  $context
+     * @return array{text: string, buttons: array}
+     */
+    private function handleLanguageSet(string $locale, array $context): array
+    {
+        $service = $this->localeService();
+        $already = $service->resolve($context) === $locale;
+
+        $service->setForContext($context, $locale);
+        // Terapkan SEBELUM merender panel supaya panelnya sendiri sudah dalam
+        // bahasa baru — kalau tidak, user menekan "English" lalu tetap menerima
+        // panel Indonesia dan wajar mengira tombolnya rusak.
+        $service->apply($locale);
+
+        $note = $already
+            ? __('bot.lang_already', ['label' => $this->languageLabel($locale)])
+            : __('bot.lang_set_ok', ['label' => $this->languageLabel($locale)]);
+
+        return $this->formatter->languagePanel($locale, true, $note);
+    }
+
+    /** Nama bahasa yang ditampilkan ke user (bukan label tombol). */
+    private function languageLabel(string $locale): string
+    {
+        return $locale === 'en' ? 'English' : 'Bahasa Indonesia';
+    }
+
+    private function localeService(): BotLocale
+    {
+        return $this->botLocale ?? app(BotLocale::class);
     }
 
     private function handleStart(array $args, array $context): array
@@ -259,7 +351,9 @@ class BotCommandHandler
         $capabilities = $this->capabilities($context);
         if (! $capabilities->supports('deposit')) {
             return [
-                'text' => 'Deposit belum tersedia melalui gateway ini.',
+                'text' => $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_unavailable')
+                    : 'Deposit belum tersedia melalui gateway ini.',
                 'buttons' => [],
             ];
         }
@@ -352,7 +446,7 @@ class BotCommandHandler
             );
         }
 
-        return $this->formatter->formatDepositAmountPrompt();
+        return $this->formatter->formatDepositAmountPrompt($context['source'] ?? null);
     }
 
     private function handleTelegramDeposit(array $args, array $context): array
@@ -363,7 +457,7 @@ class BotCommandHandler
             max(1, (int) config('rate_limits.callbacks.deposit_per_sender_per_minute', 10)),
         )) {
             return [
-                'text' => 'Terlalu banyak percobaan deposit. Coba lagi beberapa saat.',
+                'text' => __('bot.deposit_rate_limited'),
                 'buttons' => [],
             ];
         }
@@ -417,7 +511,7 @@ class BotCommandHandler
             );
         }
 
-        return $this->formatter->formatDepositAmountPrompt();
+        return $this->formatter->formatDepositAmountPrompt($context['source'] ?? null);
     }
 
     private function orderDisabled(): array
@@ -428,11 +522,20 @@ class BotCommandHandler
         ];
     }
 
-    private function formatDepositResponse(array $result, int $amount): array
+    /**
+     * @param string|null $source Sumber gateway — lihat `formatPriceQuote()`.
+     *
+     * Nominal uang SELALU format Indonesia (`Rp 10.000`) di kedua bahasa:
+     * angka yang ditagih tidak boleh terlihat berbeda dari yang dibayar user.
+     */
+    private function formatDepositResponse(array $result, int $amount, ?string $source = null): array
     {
+        $isTelegram = $source === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
         if (! ($result['success'] ?? false)) {
             return [
-                'text' => (string) ($result['message'] ?? 'Deposit tidak dapat dibuat. Coba lagi nanti.'),
+                'text' => (string) ($result['message']
+                    ?? ($isTelegram ? __('bot.deposit_create_failed') : 'Deposit tidak dapat dibuat. Coba lagi nanti.')),
                 'buttons' => [],
             ];
         }
@@ -440,22 +543,27 @@ class BotCommandHandler
         $paymentCode = trim((string) ($result['payment_code'] ?? ''));
         $qrLink = trim((string) ($result['qr_link'] ?? ''));
         $qrPayload = trim((string) ($result['qr_payload'] ?? ''));
+        $amountValue = number_format((int) ($result['total_amount'] ?? $result['gross_amount'] ?? $amount), 0, ',', '.');
         $lines = [
-            '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
+            $isTelegram ? __('bot.deposit_pending_title') : '*⏳ DEPOSIT MENUNGGU PEMBAYARAN*',
             '',
-            'Order ID: `' . $this->escapeMarkdownCode((string) $result['order_id']) . '`',
-            'Jumlah: Rp ' . number_format((int) ($result['total_amount'] ?? $result['gross_amount'] ?? $amount), 0, ',', '.'),
+            str_replace(':order_id', $this->escapeMarkdownCode((string) $result['order_id']),
+                $isTelegram ? __('bot.deposit_order_id') : 'Order ID: `:order_id`'),
+            str_replace(':amount', $amountValue,
+                $isTelegram ? __('bot.deposit_amount_line') : 'Jumlah: Rp :amount'),
         ];
 
         if ($paymentCode !== '' && $qrLink === '' && $qrPayload === '') {
-            $lines[] = 'Kode Bayar / VA: `' . $this->escapeMarkdownCode($paymentCode) . '`';
+            $lines[] = str_replace(':code', $this->escapeMarkdownCode($paymentCode),
+                $isTelegram ? __('bot.deposit_va_line') : 'Kode Bayar / VA: `:code`');
         } elseif ($qrLink !== '' || $qrPayload !== '') {
-            $lines[] = 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
+            $lines[] = $isTelegram ? __('bot.deposit_qr_sent') : 'QR pembayaran dikirim sebagai gambar setelah pesan ini.';
         } else {
             $paymentUrl = $result['checkout_url'] ?? $result['pay_url'] ?? null;
             if (filter_var($paymentUrl, FILTER_VALIDATE_URL)
                 && strtolower((string) parse_url((string) $paymentUrl, PHP_URL_SCHEME)) === 'https') {
-                $lines[] = 'Gunakan URL pembayaran berikut: ' . $paymentUrl;
+                $lines[] = str_replace(':url', (string) $paymentUrl,
+                    $isTelegram ? __('bot.deposit_pay_url') : 'Gunakan URL pembayaran berikut: :url');
             }
         }
 
@@ -536,6 +644,7 @@ class BotCommandHandler
             return $this->formatter->formatOrderHistoryDetail(
                 $service->findForUserByReference($user, (string) $args[1]),
                 $returnHandle,
+                'whatsapp_gateway',
             );
         }
 
@@ -558,7 +667,7 @@ class BotCommandHandler
         $key = 'bot-telegram-history:' . $this->senderFingerprint($context);
         $limit = max(1, (int) config('rate_limits.callbacks.history_per_sender_per_minute', 10));
         if (RateLimiter::tooManyAttempts($key, $limit)) {
-            return ['text' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.', 'buttons' => []];
+            return ['text' => __('bot.history_rate_limited'), 'buttons' => []];
         }
         RateLimiter::hit($key, 60);
 
@@ -571,7 +680,7 @@ class BotCommandHandler
 
         if (($identity['status'] ?? null) !== TelegramUserResolver::STATUS_LINKED || ! isset($identity['user'])) {
             return [
-                'text' => 'Riwayat order belum tersedia. Tautkan akun Telegram melalui Pengaturan terlebih dahulu.',
+                'text' => __('bot.history_telegram_not_linked'),
                 'buttons' => [],
             ];
         }
@@ -590,6 +699,7 @@ class BotCommandHandler
             return $this->formatter->formatOrderHistoryDetail(
                 $service->findForUserByReference($user, (string) $args[1]),
                 $returnHandle,
+                'telegram_gateway',
             );
         }
 
@@ -625,7 +735,7 @@ class BotCommandHandler
                     'next_cursor' => null,
                     'current_cursor' => null,
                     'invalid_cursor' => true,
-                ]);
+                ], $source);
             }
 
             $cursor = $state['cursor'];
@@ -634,7 +744,7 @@ class BotCommandHandler
         $service = $this->orderHistory ?? app(\App\Services\Order\OrderHistoryService::class);
         $data = $service->listForUser($user, $cursor, $source);
         if ($data['invalid_cursor']) {
-            return $this->formatter->formatOrderHistory($data);
+            return $this->formatter->formatOrderHistory($data, $source);
         }
 
         $data['current_handle'] = $navigation->store(
@@ -649,7 +759,7 @@ class BotCommandHandler
             ? null
             : $navigation->store($user, $source, $data['next_cursor']);
 
-        return $this->formatter->formatOrderHistory($data);
+        return $this->formatter->formatOrderHistory($data, $source);
     }
 
     private function validHistoryReturnHandle(
@@ -738,8 +848,10 @@ class BotCommandHandler
         $type = $args[0] ?? null;
         if (! $type) {
             return [
-                'text' => "Format salah. Gunakan: `kategori <kode_tipe>`\nContoh: `kategori top-up-games`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_kategori')
+                    : "Format salah. Gunakan: `kategori <kode_tipe>`\nContoh: `kategori top-up-games`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -756,8 +868,10 @@ class BotCommandHandler
         $catCode = $args[0] ?? null;
         if (! $catCode) {
             return [
-                'text' => "Format salah. Gunakan: `layanan <kode_produk>`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_layanan')
+                    : "Format salah. Gunakan: `layanan <kode_produk>`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -774,8 +888,10 @@ class BotCommandHandler
         $serviceId = (int) ($args[0] ?? 0);
         if ($serviceId <= 0) {
             return [
-                'text' => "Format salah. Pilih layanan terlebih dahulu.",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_pembayaran')
+                    : "Format salah. Pilih layanan terlebih dahulu.",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -803,8 +919,10 @@ class BotCommandHandler
     {
         if (count($args) < 2) {
             return [
-                'text' => "Format salah. Gunakan: `harga <ID_Layanan> <Kode_Bayar>`",
-                'buttons' => [['text' => 'Lihat Menu', 'callback' => 'menu']]
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.usage_harga')
+                    : "Format salah. Gunakan: `harga <ID_Layanan> <Kode_Bayar>`",
+                'buttons' => [$this->menuShortcutButton($context)],
             ];
         }
 
@@ -824,7 +942,11 @@ class BotCommandHandler
             ], now()->addMinutes(15));
         }
 
-        return $this->formatter->formatPriceQuote($res, $this->supportsConversationalCheckout($context));
+        return $this->formatter->formatPriceQuote(
+            $res,
+            $this->supportsConversationalCheckout($context),
+            $context['source'] ?? null,
+        );
     }
 
     private function handleUnknownInput(?string $command, array $args, array $context): array
@@ -912,15 +1034,30 @@ class BotCommandHandler
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
         if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         if ($requiresZoneId && ! $this->isValidZoneValue($zone, $customInputs)) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         if ($isEmailInput && filter_var($uid, FILTER_VALIDATE_EMAIL) === false) {
-            return $this->formatter->formatCheckoutInputRetry($requiresZoneId, $customInputs, $backCallback);
+            return $this->formatter->formatCheckoutInputRetry(
+                $requiresZoneId,
+                $customInputs,
+                $backCallback,
+                $context['source'] ?? null,
+            );
         }
 
         // Validate the destination before creating a checkout intent. This keeps
@@ -933,10 +1070,14 @@ class BotCommandHandler
         ]);
 
         if (! ($checkResult['ok'] ?? false)) {
-            $failure = $this->formatter->formatCheckId($checkResult);
+            $failure = $this->formatter->formatCheckId($checkResult, $context['source'] ?? null);
+            // Tombol ini callback-driven (`batal` / `layanan <kode>`), bukan
+            // teks yang di-parse, jadi aman diterjemahkan — kalau dibiarkan
+            // Indonesia, pesan retry-nya Inggris tapi tombolnya Indonesia.
+            $isTelegram = ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM;
             $failure['buttons'] = [[
-                ['text' => '❌ Batal', 'callback' => 'batal'],
-                ['text' => '🔙 Kembali', 'callback' => $backCallback],
+                ['text' => $isTelegram ? __('bot.checkout_btn_cancel') : '❌ Batal', 'callback' => 'batal'],
+                ['text' => $isTelegram ? __('bot.checkout_btn_back') : '🔙 Kembali', 'callback' => $backCallback],
             ]];
 
             return $failure;
@@ -1292,9 +1433,11 @@ class BotCommandHandler
 
     private function handleAdmin(): array
     {
-        $adminUrl = config('services.telegram-bot-api.admin_contact_url', '');
+        $adminUrl = trim((string) config('services.telegram-bot-api.admin_contact_url', ''));
 
-        if ($adminUrl === '') {
+        if ($adminUrl === '' || filter_var($adminUrl, FILTER_VALIDATE_URL) === false) {
+            // Tidak ada tautan yang bisa dipencet. Jangan tampilkan tombol
+            // yang tidak menuju ke mana-mana — cukup arahkan ke admin.
             return [
                 'text' => 'Hubungi admin melalui channel resmi kami.',
                 'buttons' => [],
@@ -1302,9 +1445,9 @@ class BotCommandHandler
         }
 
         return [
-            'text' => '📞 Klik tombol di bawah untuk menghubungi admin:',
+            'text' => "📞 *Hubungi Admin*\n\nTekan tombol di bawah untuk membuka profil admin secara langsung.",
             'buttons' => [[
-                ['text' => '📞 Chat Admin', 'url' => $adminUrl],
+                ['text' => '💬 Chat Admin', 'url' => $adminUrl],
             ]],
         ];
     }
@@ -1369,7 +1512,7 @@ class BotCommandHandler
         ];
 
         $res = $this->checkId->check($payload);
-        return $this->formatter->formatCheckId($res);
+        return $this->formatter->formatCheckId($res, $context['source'] ?? null);
     }
 
     private function handleInvoice(
@@ -1453,7 +1596,7 @@ class BotCommandHandler
             $quote,
             $payload,
             $token,
-            $inputLabel,
+            $context['source'] ?? null,
         );
     }
 
@@ -1553,63 +1696,56 @@ class BotCommandHandler
 
     private function handleStatus(array $args, array $context): array
     {
+        $isTelegram = ($context['source'] ?? null) === 'telegram_gateway';
         $orderId = '';
 
-        if (count($args) >= 1) {
+        if (count($args) >= 1 && ! str_starts_with((string) $args[0], 'page:')) {
             $orderId = trim((string) $args[0]);
-        } elseif (
-            ($context['source'] ?? null) === 'whatsapp_gateway'
-            || ($context['source'] ?? null) === 'telegram_gateway'
-        ) {
-            // `status` tanpa order ID → cek order milik sender.
-            $source = (string) $context['source'];
-            $externalUserId = (string) ($context['external_user_id'] ?? '');
-
-            $orders = $this->invoice->activeOrdersForSender($source, $externalUserId);
-
-            if ($orders->count() > 1) {
-                return $this->formatter->formatActiveOrders(
-                    $orders->map(fn (Pembelian $order): array => [
-                        'order_id' => (string) $order->order_id,
-                        'product' => (string) ($order->layanan ?? 'Produk'),
-                        'amount' => (int) $order->harga,
-                        'payment_status' => (string) ($order->pembayaran?->status ?? ''),
-                        'order_status' => (string) $order->status,
-                    ]),
-                );
-            }
-
-            if ($orders->count() === 1) {
-                $orderId = (string) $orders->first()->order_id;
-            }
         }
 
         if ($orderId === '' && in_array(($context['source'] ?? null), ['whatsapp_gateway', 'telegram_gateway'], true)) {
-            // Tidak ada order aktif: tampilkan ringkasan N order
-            // terakhir milik sender (semua status) supaya user tidak
-            // perlu hafal order ID untuk melihat statusnya.
-            $recent = $this->invoice->recentOrdersForSender(
+            // Tidak ada order ID: tampilkan SEMUA checkout milik sender
+            // (semua status) secara terpaginasi, supaya user tidak perlu
+            // hafal order ID dan tidak ada transaksi yang "hilang" hanya
+            // karena statusnya final (mis. Gagal/Expired).
+            $page = $this->pageFromArgs($args);
+            $list = $this->invoice->senderOrdersForSender(
                 (string) $context['source'],
                 (string) ($context['external_user_id'] ?? ''),
+                $page,
+                (int) \App\Services\Gateway\GatewayInvoiceService::SENDER_LIST_PER_PAGE,
             );
 
-            if ($recent->isNotEmpty()) {
-                return $this->formatter->formatActiveOrders(
-                    $recent->map(fn (Pembelian $order): array => [
+            if ($list['total'] > 0) {
+                return $this->formatter->formatSenderOrderList(
+                    $list['items']->map(fn (Pembelian $order): array => [
                         'order_id' => (string) $order->order_id,
                         'product' => (string) ($order->layanan ?? 'Produk'),
                         'amount' => (int) $order->harga,
                         'payment_status' => (string) ($order->pembayaran?->status ?? ''),
                         'order_status' => (string) $order->status,
                     ]),
-                    '📦 *Pesanan Terakhirmu*',
+                    $list['page'],
+                    $list['total_pages'],
+                    $list['total'],
+                    (int) \App\Services\Gateway\GatewayInvoiceService::SENDER_LIST_PER_PAGE,
+                    (string) ($context['source'] ?? ''),
                 );
             }
+
+            return [
+                'text' => $isTelegram
+                    ? __('bot.status_no_orders')
+                    : "Kamu belum punya transaksi. Ketik *menu* untuk mulai top up 🛍️",
+                'buttons' => [],
+            ];
         }
 
         if ($orderId === '') {
             return [
-                'text' => "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",
+                'text' => $isTelegram
+                    ? __('bot.status_usage')
+                    : "Format salah. Gunakan: `status <order_id>` — atau ketik `status` saja untuk cek order terakhirmu.",
                 'buttons' => [],
             ];
         }
@@ -1619,7 +1755,48 @@ class BotCommandHandler
             'external_user_id' => $context['external_user_id'],
         ]);
 
-        return $this->formatter->formatStatus($res);
+        return $this->formatter->formatStatus($res, (string) ($context['source'] ?? ''));
+    }
+
+    /**
+     * Perintah yang TIDAK memerlukan keanggotaan channel.
+     *
+     * Kriteria: hanya menyentuh data milik sender sendiri (status transaksi,
+     * riwayat) atau justru dipakai untuk memperbaiki keadaan (batal, hubungi
+     * admin). Perintah yang menampilkan KATALOG, PANDUAN, atau KEYBOARD MENU
+     * WAJIB lewat gate.
+     *
+     * `start` dan `help`/`bantuan` SENGAJA tidak lagi ada di daftar ini:
+     * keduanya dulu dikecualikan karena dianggap "perintah milik sendiri",
+     * padahal `start`/`help` menampilkan panduan BESERTA keyboard menu
+     * (`formatHelp()` mengirim `use_reply_keyboard`). Akibatnya user yang
+     * belum bergabung cukup menekan START untuk melihat layar pembuka dan
+     * tombol menu, tanpa pernah melewati gate — akun baru "langsung bisa
+     * buka menu". Panduan tetap tersedia setelah user bergabung.
+     *
+     * Pengecualian khusus: deeplink `start <token>` (menautkan akun web ke
+     * Telegram) tetap dibebaskan. Itu jalur identitas, bukan akses katalog,
+     * dan token-nya hanya bisa didapat dari halaman web yang sudah login.
+     *
+     * @param string|null $command
+     * @param array<int, mixed> $args
+     */
+    private function isMembershipExemptCommand(?string $command, array $args = []): bool
+    {
+        if ($command === 'start' && trim((string) ($args[0] ?? '')) !== '') {
+            return true;
+        }
+
+        return in_array($command, [
+            'status',
+            'order_history', 'history', 'riwayat', 'pesanan',
+            'batal', 'cancel',
+            'admin',
+            // Pengaturan bahasa adalah preferensi akun sendiri — tidak boleh
+            // terkunci di belakang verifikasi channel, karena ini justru jalan
+            // keluar kalau user salah-deteksi bahasa.
+            'bahasa', 'language', 'bahasa_id', 'bahasa_en',
+        ], true);
     }
 
     private function shouldClearCheckoutState(?string $command, array $context): bool
@@ -1657,6 +1834,58 @@ class BotCommandHandler
     private function checkoutStateKey(array $context): string
     {
         return 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
+    }
+
+    /**
+     * Tandai bahwa user ini sedang tertahan di gerbang keanggotaan.
+     *
+     * Ditulis saat gate menolak, dibaca sekali saat gate terlewati — dipakai
+     * untuk membedakan user yang BARU bergabung dari user yang memang sudah
+     * lama jadi member. Tanpa penanda ini, sapaan "verifikasi berhasil" akan
+     * muncul di setiap percakapan yang gagal terverifikasi sementara.
+     */
+    private function markGatePending(array $context): void
+    {
+        Cache::put($this->gatePendingKey($context), true, now()->addMinutes(30));
+    }
+
+    /**
+     * Ambil-dan-hapus penanda gate.
+     *
+     * Sekali ambil supaya sapaan verifikasi hanya muncul sekali. Kalau
+     * penyimpanan gagal, dikembalikan false — lebih baik tidak menyapa
+     * daripada salah menyapa.
+     */
+    private function pullGatePending(array $context): bool
+    {
+        $key = $this->gatePendingKey($context);
+
+        try {
+            if (Cache::get($key) !== true) {
+                return false;
+            }
+
+            Cache::forget($key);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Bot gate pending state could not be read.', [
+                'exception' => $e::class,
+            ]);
+
+            return false;
+        }
+    }
+
+    private function gatePendingKey(array $context): string
+    {
+        return 'bot:gate-pending:' . hash(
             'sha256',
             implode('|', [
                 (string) ($context['source'] ?? ''),
@@ -1703,6 +1932,25 @@ class BotCommandHandler
         return 1;
     }
 
+    /**
+     * Tombol pintas ke menu untuk pesan galat format perintah.
+     *
+     * Label dari lang (bahasa aktif) di jalur Telegram; channel lain tetap
+     * literal Indonesia. Tombol ini dikirim sebagai CALLBACK, jadi tidak
+     * terikat peta label parser.
+     *
+     * @return array{text: string, callback: string}
+     */
+    private function menuShortcutButton(array $context): array
+    {
+        $isTelegram = ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM;
+
+        return [
+            'text' => $isTelegram ? __('bot.btn_back_menu') : 'Lihat Menu',
+            'callback' => 'menu',
+        ];
+    }
+
     private function handleDepositAmountInput(?string $command, array $context, array $state): array
     {
         $input = trim((string) $command);
@@ -1723,7 +1971,9 @@ class BotCommandHandler
 
         if ($amount < 10000) {
             return [
-                'text' => 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_amount_invalid')
+                    : 'Nominal tidak valid. Pilih angka 1-6 atau ketik nominal minimal 10000 (contoh: 15000).',
                 'buttons' => [],
             ];
         }
@@ -1733,7 +1983,9 @@ class BotCommandHandler
         if ($methods->isEmpty()) {
             \Illuminate\Support\Facades\Cache::forget($this->checkoutStateKey($context));
             return [
-                'text' => 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_no_methods')
+                    : 'Saat ini tidak ada metode pembayaran yang tersedia untuk deposit.',
                 'buttons' => [],
             ];
         }
@@ -1744,7 +1996,7 @@ class BotCommandHandler
             now()->addMinutes(15),
         );
 
-        return $this->formatter->formatDepositMethodPrompt($methods, $amount);
+        return $this->formatter->formatDepositMethodPrompt($methods, $amount, $context['source'] ?? null);
     }
 
     private function handleDepositMethodInput(?string $command, array $context, array $state): array
@@ -1754,7 +2006,9 @@ class BotCommandHandler
 
         if ($input === false || $input < 1 || $input > $methods->count()) {
             return [
-                'text' => 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
+                'text' => ($context['source'] ?? null) === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_method_invalid')
+                    : 'Pilihan metode pembayaran tidak valid. Silakan balas dengan angka yang sesuai (contoh: 1).',
                 'buttons' => [],
             ];
         }
@@ -1769,7 +2023,9 @@ class BotCommandHandler
 
         if ($messageId === null) {
             return [
-                'text' => 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
+                'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                    ? __('bot.deposit_message_id_invalid')
+                    : 'Pesan tidak memiliki ID yang valid. Kirim ulang perintah deposit.',
                 'buttons' => [],
             ];
         }
@@ -1779,7 +2035,14 @@ class BotCommandHandler
             $identity = ($this->whatsappUserResolver ?? app(\App\Services\Whatsapp\WhatsappUserResolver::class))->resolve($sender);
             $user = $identity['user'] ?? null;
 
-            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+            if (!$user) {
+                return [
+                    'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                        ? __('bot.deposit_session_invalid')
+                        : 'Sesi tidak valid. Silakan mulai ulang deposit.',
+                    'buttons' => [],
+                ];
+            }
 
             $result = ($this->depositService ?? app(\App\Services\Deposit\DepositService::class))->create($user, [
                 'jumlah' => $amount,
@@ -1790,7 +2053,7 @@ class BotCommandHandler
                 'external_message_id' => $messageId,
             ]);
 
-            return $this->formatDepositResponse($result, $amount);
+            return $this->formatDepositResponse($result, $amount, $source);
         }
 
         if ($source === \App\Services\Bot\BotGatewayCapabilities::SOURCE_TELEGRAM) {
@@ -1805,7 +2068,14 @@ class BotCommandHandler
             );
             $user = $identity['user'] ?? null;
 
-            if (!$user) return ['text' => 'Sesi tidak valid. Silakan mulai ulang deposit.', 'buttons' => []];
+            if (!$user) {
+                return [
+                    'text' => $source === BotGatewayCapabilities::SOURCE_TELEGRAM
+                        ? __('bot.deposit_session_invalid')
+                        : 'Sesi tidak valid. Silakan mulai ulang deposit.',
+                    'buttons' => [],
+                ];
+            }
 
             $phone = $user->whatsapp_verified_at !== null
                 ? \App\Support\WhatsappNumberNormalizer::normalize((string) $user->no_wa)
@@ -1830,7 +2100,7 @@ class BotCommandHandler
                 ], static fn (mixed $value): bool => $value !== null),
             ]);
 
-            return $this->formatDepositResponse($result, $amount);
+            return $this->formatDepositResponse($result, $amount, $source);
         }
 
         return ['text' => 'Gateway tidak didukung.', 'buttons' => []];

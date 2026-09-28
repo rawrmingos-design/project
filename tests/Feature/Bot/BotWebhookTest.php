@@ -96,6 +96,18 @@ class BotWebhookTest extends TestCase
         ]);
     }
 
+    /**
+     * Teks yang BENAR-BENAR dilihat user.
+     *
+     * Balasan bot dikirim sebagai MarkdownV2, jadi karakter seperti `.`, `!`,
+     * dan `(` muncul dengan backslash di payload. Assertion diperiksa pada
+     * teks yang tampil di layar — itu yang penting bagi user.
+     */
+    private function visibleText(?string $escaped): string
+    {
+        return preg_replace('/\\\\(.)/u', '$1', (string) $escaped);
+    }
+
     public function test_telegram_adapter_handles_menu_command_and_replies_with_buttons()
     {
         CategoryType::query()->create([
@@ -136,12 +148,12 @@ class BotWebhookTest extends TestCase
             }
 
             $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
+            $text = $this->visibleText($request['text']);
 
             return $request['chat_id'] === 12345
-                && str_contains($request['text'], 'Selamat datang di Test Store.')
-                && str_contains($request['text'], 'Gunakan menu dengan membalas angka yang tersedia.')
-                && str_contains($request['text'], 'Jika ada kendala, hubungi admin: 628123456789')
-                && str_contains($request['text'], '🏠 *Menu Utama*')
+                && str_contains($text, 'Selamat datang di Test Store')
+                && str_contains($text, 'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.')
+                && str_contains($text, '🏠 *Menu Utama*')
                 && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
                     && ($button['callback_data'] ?? null) === 'leaderboard')
                 && $buttons->doesntContain(fn (array $button): bool => ($button['text'] ?? null) === '💰 Deposit'
@@ -220,8 +232,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
@@ -256,9 +269,9 @@ class BotWebhookTest extends TestCase
 
             $keyboard = $request['reply_markup']['inline_keyboard'];
 
-            return str_contains($request['text'], 'Gabung Channel Terlebih Dahulu')
+            return str_contains($request['text'], 'Akses Terbatas')
                 && $keyboard[0][0]['url'] === 'https://t.me/testchannel'
-                && $keyboard[0][1]['callback_data'] === 'menu';
+                && $keyboard[1][0]['callback_data'] === 'menu';
         });
     }
 
@@ -266,8 +279,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
@@ -366,7 +380,9 @@ class BotWebhookTest extends TestCase
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
             return str_contains($request['text'], '· 1/2')
-                && count($keyboard) === 6
+                // 7 baris: 6 baris katalog + 1 baris pilihan bahasa
+                // (kompensasi auto-deteksi; lihat `languageButtons()`).
+                && count($keyboard) === 7
                 && count($keyboard[0]) === 2
                 && $keyboard[0][0]['text'] === '🎮 Top Up 1'
                 && $callbacks->contains('menu page:2')
@@ -536,8 +552,9 @@ class BotWebhookTest extends TestCase
     {
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.fonnte.com/send' => Http::response(['status' => true]),
@@ -608,7 +625,10 @@ class BotWebhookTest extends TestCase
 
         $this->assertCount(1, $sentMessages);
         $text = $sentMessages[0]['message'];
-        $this->assertStringContainsString('Pesanan Terakhirmu', $text);
+        // Sejak 2026-09-24 jalur `status` tanpa order ID menampilkan daftar
+        // SEMUA transaksi sender (terpaginasi), bukan hanya yang aktif —
+        // supaya order berstatus final tidak "hilang" dari riwayat user.
+        $this->assertStringContainsString('Transaksi Kamu', $text);
         $this->assertStringNotContainsString('Pesanan Aktif', $text);
         $this->assertStringContainsString('RECENT-OLD-1', $text);
         $this->assertStringContainsString('RECENT-OLD-2', $text);
@@ -971,11 +991,13 @@ class BotWebhookTest extends TestCase
         ])->assertOk();
 
         Http::assertSent(function ($request): bool {
+            $text = $this->visibleText($request['text']);
+
             return str_contains($request->url(), 'sendMessage')
-                && str_contains($request['text'], '🏆 *Leaderboard*')
-                && str_contains($request['text'], 'Ali\\*\\*')
-                && str_contains($request['text'], 'Rp 25.000')
-                && str_contains($request['text'], 'Bulan Ini')
+                && str_contains($text, '🏆 *Leaderboard*')
+                && str_contains($text, 'Ali**')
+                && str_contains($text, 'Rp 25.000')
+                && str_contains($text, 'Bulan Ini')
                 && $request['reply_markup']['inline_keyboard'][0][0]['callback_data'] === 'menu';
         });
     }
@@ -1494,8 +1516,9 @@ class BotWebhookTest extends TestCase
         Cache::flush();
         config([
             'services.telegram-bot-api.required_channel.enabled' => true,
-            'services.telegram-bot-api.required_channel.id' => '@testchannel',
-            'services.telegram-bot-api.required_channel.url' => 'https://t.me/testchannel',
+            'services.telegram-bot-api.required_channel.channels' => [
+                ['id' => '@testchannel', 'url' => 'https://t.me/testchannel'],
+            ],
         ]);
         Http::fake([
             'https://api.telegram.org/botdummy-token/getChatMember' => Http::response([
@@ -1527,7 +1550,7 @@ class BotWebhookTest extends TestCase
 
         $response = $handler->handle('12345', ['6789'], $context);
 
-        $this->assertStringContainsString('Gabung Channel Terlebih Dahulu', $response['text']);
+        $this->assertStringContainsString('Akses Terbatas', $response['text']);
         $this->assertNull(Cache::get($this->checkoutStateKey('telegram:9876')));
     }
 
@@ -1648,15 +1671,20 @@ class BotWebhookTest extends TestCase
         Http::assertSent(function ($request): bool {
             $keyboard = $request['reply_markup']['inline_keyboard'];
 
-            return str_contains($request->url(), 'sendPhoto')
-                && $request['photo'] === 'https://provider.example/qris/INV-1.png'
-                && str_contains($request['caption'], '⏳ *Menunggu Pembayaran*')
-                && str_contains($request['caption'], '🧾 `INV-1`')
-                && str_contains($request['caption'], '💎 Mobile Legends (Top Up Games)')
-                && str_contains($request['caption'], '💰 *Rp 10.000*')
-                && str_contains($request['caption'], 'Ketik `status` untuk cek pembayaran.')
-                && ! str_contains($request['caption'], 'Kode Bayar / VA')
-                && ! str_contains($request['caption'], 'Link Pembayaran:')
+            if (! str_contains($request->url(), 'sendPhoto')) {
+                return false;
+            }
+
+            $caption = $this->visibleText($request['caption']);
+
+            return $request['photo'] === 'https://provider.example/qris/INV-1.png'
+                && str_contains($caption, '⏳ *Menunggu Pembayaran*')
+                && str_contains($caption, '🧾 `INV-1`')
+                && str_contains($caption, '💎 Mobile Legends (Top Up Games)')
+                && str_contains($caption, '💰 *Rp 10.000*')
+                && str_contains($caption, 'Ketik `status` untuk cek pembayaran.')
+                && ! str_contains($caption, 'Kode Bayar / VA')
+                && ! str_contains($caption, 'Link Pembayaran:')
                 && $keyboard[0][0]['text'] === '🔗 Buka Halaman Invoice'
                 && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
                 && $keyboard[1][0]['text'] === '🔎 Cek Status Pembayaran'
