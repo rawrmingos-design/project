@@ -3,9 +3,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..', '..');
-const runtimeDir = path.join(root, '.tmp', 'e2e');
+// Tiap mode punya direktori runtime sendiri: `serve()` menghapus direktori ini
+// di awal, jadi berbagi path dengan server lain akan menghapus database yang
+// sedang dipakai (dan dua penulis sqlite pada satu file bisa saling lock).
+const runtimeDir = path.join(root, process.env.E2E_RUNTIME_DIR || '.tmp/e2e');
 const databasePath = path.join(runtimeDir, 'browser.sqlite');
 const cacheDir = path.join(runtimeDir, 'cache');
+// Cache Laravel mengikuti direktori runtime yang sama; kalau tidak, dua server
+// tema berbeda akan saling menimpa cache config/route milik tema lainnya.
+const runtimeDirRelative = path.relative(root, runtimeDir).split(path.sep).join('/');
 const port = process.env.E2E_PORT || '4173';
 const baseURL = `http://127.0.0.1:${port}`;
 const mode = process.argv[2] || 'all';
@@ -39,11 +45,11 @@ const e2eEnvironment = {
     PHP_CLI_SERVER_WORKERS: '4',
     E2E_BASE_URL: baseURL,
     E2E_PORT: port,
-    APP_CONFIG_CACHE: '.tmp/e2e/cache/config.php',
-    APP_EVENTS_CACHE: '.tmp/e2e/cache/events.php',
-    APP_PACKAGES_CACHE: '.tmp/e2e/cache/packages.php',
-    APP_ROUTES_CACHE: '.tmp/e2e/cache/routes.php',
-    APP_SERVICES_CACHE: '.tmp/e2e/cache/services.php',
+    APP_CONFIG_CACHE: `${runtimeDirRelative}/cache/config.php`,
+    APP_EVENTS_CACHE: `${runtimeDirRelative}/cache/events.php`,
+    APP_PACKAGES_CACHE: `${runtimeDirRelative}/cache/packages.php`,
+    APP_ROUTES_CACHE: `${runtimeDirRelative}/cache/routes.php`,
+    APP_SERVICES_CACHE: `${runtimeDirRelative}/cache/services.php`,
 };
 
 function run(command, args, environment = e2eEnvironment) {
@@ -142,6 +148,45 @@ async function withSsrServer(callback) {
     }
 }
 
+/**
+ * Cari port TCP yang bebas. Suite legacy memakai port dinamis supaya sisa
+ * proses dari run sebelumnya (mis. suite yang gagal dan servernya belum mati)
+ * tidak bisa menabrak run berikutnya — pola ini juga menghindari kegagalan
+ * "port is already used" di CI yang berjalan pada runner yang sama.
+ */
+function findFreePort() {
+    const net = require('node:net');
+
+    return new Promise((resolve, reject) => {
+        const probe = net.createServer();
+        probe.unref();
+        probe.on('error', reject);
+        probe.listen(0, '127.0.0.1', () => {
+            const { port: freePort } = probe.address();
+            probe.close(() => resolve(String(freePort)));
+        });
+    });
+}
+
+/**
+ * Tema legacy (`public_theme=default`) dirender Blade, bukan Inertia, jadi
+ * butuh database + tema sendiri. Servernya dikelola Playwright lewat `webServer`
+ * (lihat playwright.config.js) persis seperti suite tema `bangjeff`; yang
+ * berbeda hanya port, tema, dan direktori runtime supaya kedua server tidak
+ * saling menghapus database atau berebut file sqlite yang sama.
+ */
+async function runLegacyLayout() {
+    const legacyPort = process.env.E2E_LEGACY_PORT || await findFreePort();
+
+    runPlaywright(['tests/e2e/article-default-list-markers.spec.js'], false, {
+        E2E_PORT: legacyPort,
+        E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,
+        E2E_PUBLIC_THEME: 'default',
+        E2E_RUNTIME_DIR: '.tmp/e2e-legacy',
+        E2E_SUITE: 'legacy',
+    });
+}
+
 function serve() {
     // Playwright menjalankan mode ini sebagai webServer. Mode `ssr` sengaja
     // mempertahankan bundle yang baru di-build, jadi penghapusan harus
@@ -199,63 +244,68 @@ function serve() {
     });
 }
 
-switch (mode) {
-    case 'serve':
-        serve();
-        break;
-    case 'ssr':
-        // Mode khusus: render server-side + bukti konten di HTML awal.
-        withSsrServer(async () => {
+async function main() {
+    switch (mode) {
+        case 'serve':
+            serve();
+            break;
+        case 'ssr':
+            // Mode khusus: render server-side + bukti konten di HTML awal.
+            await withSsrServer(async () => {
+                buildAssets();
+                runPlaywright(
+                    ['tests/e2e/ssr-content.spec.js', 'tests/e2e/anti-fouc.spec.js'],
+                    false,
+                    { E2E_KEEP_SSR_BUNDLE: '1' }
+                );
+            });
+            break;
+        case 'tracking':
+            runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
+            break;
+        case 'legacy':
+            // Tema legacy (`public_theme=default`) adalah Blade, bukan Inertia —
+            // halaman tidak dirender oleh bundle React, jadi butuh server sendiri.
+            removeSsrBundle();
             buildAssets();
-            runPlaywright(
-                ['tests/e2e/ssr-content.spec.js', 'tests/e2e/anti-fouc.spec.js'],
-                false,
-                { E2E_KEEP_SSR_BUNDLE: '1' }
-            );
-        }).catch((error) => {
-            console.error(error);
+            await runLegacyLayout();
+            break;
+        case 'app':
+        case 'all': {
+            removeSsrBundle();
+            buildAssets();
+
+            const specs = [
+                'tests/e2e/homepage-popup.spec.js',
+                'tests/e2e/storefront-order.spec.js',
+                'tests/e2e/deposit-flow.spec.js',
+                'tests/e2e/deposit-pricing-sync.spec.js',
+                'tests/e2e/invoice-detail.spec.js',
+                'tests/e2e/member-settings.spec.js',
+                'tests/e2e/seo-boundaries.spec.js',
+                'tests/e2e/storefront-navbar.spec.js',
+                'tests/e2e/storefront-order-mobile-gutter.spec.js',
+                'tests/e2e/storefront-google-signup.spec.js',
+                'tests/e2e/article-faq-schema.spec.js',
+            ];
+
+            if (mode === 'all') {
+                runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
+            }
+
+            runPlaywright(specs);
+            // Dijalankan setelah suite tema `bangjeff` selesai supaya servernya
+            // sudah berhenti dan kedua tema tidak saling berebut port.
+            await runLegacyLayout();
+            break;
+        }
+        default:
+            console.error(`Unknown E2E mode: ${mode}`);
             process.exit(1);
-        });
-        break;
-    case 'tracking':
-        runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
-        break;
-    case 'app':
-        removeSsrBundle();
-        buildAssets();
-        runPlaywright([
-            'tests/e2e/homepage-popup.spec.js',
-            'tests/e2e/storefront-order.spec.js',
-            'tests/e2e/deposit-flow.spec.js',
-            'tests/e2e/deposit-pricing-sync.spec.js',
-            'tests/e2e/invoice-detail.spec.js',
-            'tests/e2e/member-settings.spec.js',
-            'tests/e2e/seo-boundaries.spec.js',
-            'tests/e2e/storefront-navbar.spec.js',
-            'tests/e2e/storefront-order-mobile-gutter.spec.js',
-            'tests/e2e/storefront-google-signup.spec.js',
-            'tests/e2e/article-faq-schema.spec.js',
-        ]);
-        break;
-    case 'all':
-        removeSsrBundle();
-        buildAssets();
-        runPlaywright(['tests/e2e/tracking-bootstrap.spec.js'], true);
-        runPlaywright([
-            'tests/e2e/homepage-popup.spec.js',
-            'tests/e2e/storefront-order.spec.js',
-            'tests/e2e/deposit-flow.spec.js',
-            'tests/e2e/deposit-pricing-sync.spec.js',
-            'tests/e2e/invoice-detail.spec.js',
-            'tests/e2e/member-settings.spec.js',
-            'tests/e2e/seo-boundaries.spec.js',
-            'tests/e2e/storefront-navbar.spec.js',
-            'tests/e2e/storefront-order-mobile-gutter.spec.js',
-            'tests/e2e/storefront-google-signup.spec.js',
-            'tests/e2e/article-faq-schema.spec.js',
-        ]);
-        break;
-    default:
-        console.error(`Unknown E2E mode: ${mode}`);
-        process.exit(1);
+    }
 }
+
+main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+});

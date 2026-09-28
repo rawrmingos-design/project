@@ -5,6 +5,7 @@
         "build": "vite build",
         "test:e2e": "node scripts/e2e/run-browser.cjs all",
         "test:e2e:app": "node scripts/e2e/run-browser.cjs app",
+        "test:e2e:legacy": "node scripts/e2e/run-browser.cjs legacy",
         "test:e2e:tracking": "node scripts/e2e/run-browser.cjs tracking",
         "test:e2e:auth": "playwright test tests/e2e/dashboard-affiliate.spec.js",
         "test:e2e:headed": "node scripts/e2e/run-browser.cjs app --headed",
