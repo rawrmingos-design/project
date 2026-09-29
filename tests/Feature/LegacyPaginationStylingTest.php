@@ -103,6 +103,44 @@ class LegacyPaginationStylingTest extends TestCase
         );
     }
 
+    /**
+     * Stylesheet legacy wajib di-link dengan query versi.
+     *
+     * Tanpa versi, URL-nya tetap sama antar-deploy sementara Cloudflare
+     * menyimpannya di edge dengan `max-age=2592000` (30 hari). Perubahan CSS
+     * jadi tidak sampai ke pengunjung: terukur di produksi, edge masih
+     * menyajikan `legacy-pagination.css` lama (4.548 byte) padahal origin sudah
+     * versi baru (5.410 byte). Versi = `filemtime` supaya URL berubah tiap file
+     * berubah.
+     */
+    public function test_legacy_stylesheets_are_linked_with_a_version_query(): void
+    {
+        $this->createArticles(12);
+
+        $html = $this->get('/id/artikel')->assertOk()->getContent();
+
+        foreach ([
+            'pjojikhhoyutyrtd.css',
+            'barrsopaosocas.css',
+            'owihdagowdhqo.css',
+            'seasonal-themes.css',
+            'legacy-pagination.css',
+        ] as $file) {
+            $path = public_path('assets/css/' . $file);
+
+            $this->assertFileExists($path, "Stylesheet legacy {$file} tidak ditemukan.");
+
+            $expected = preg_quote($file, '#') . '\?v=' . filemtime($path);
+
+            $this->assertMatchesRegularExpression(
+                '#' . $expected . '#',
+                $html,
+                "Stylesheet legacy {$file} tidak di-link dengan query versi, "
+                . 'sehingga perubahan CSS-nya tertahan cache edge Cloudflare.',
+            );
+        }
+    }
+
     public function test_legacy_pagination_renders_the_windowed_pages_not_every_page(): void
     {
         // UrlWindow::get() memakai small slider (SEMUA halaman, tanpa pemisah)

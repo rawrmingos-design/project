@@ -357,11 +357,30 @@
         }
     }
     </style>  
-    <link rel="stylesheet" href="{{ asset('/assets/css/pjojikhhoyutyrtd.css') }}">
-    <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}">
-    <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}">
-    <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}">
-    <link rel="stylesheet" href="{{ asset('/assets/css/legacy-pagination.css') }}">
+    @php
+        /*
+         * Kelima CSS legacy ini di-link tanpa versi, sementara Cloudflare
+         * menyimpannya di edge dengan `max-age=2592000` (30 hari). Akibatnya
+         * perubahan CSS tidak sampai ke pengunjung sampai cache edge kedaluwarsa
+         * atau di-purge manual — pernah terjadi: perbaikan
+         * `legacy-pagination.css` masih disajikan versi lama (4.548 byte) dari
+         * edge padahal origin sudah versi baru (5.410 byte).
+         *
+         * Versi = waktu modifikasi file, mengikuti pola yang sudah dipakai di
+         * `resources/views/filament/admin/onboarding/partials/shell.blade.php`.
+         * URL berubah setiap deploy sehingga browser & edge mengambil file baru.
+         */
+        $legacyCssVersion = static function (string $file): string {
+            $path = public_path('assets/css/' . $file);
+
+            return file_exists($path) ? '?v=' . filemtime($path) : '';
+        };
+    @endphp
+    <link rel="stylesheet" href="{{ asset('/assets/css/pjojikhhoyutyrtd.css') }}{{ $legacyCssVersion('pjojikhhoyutyrtd.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/barrsopaosocas.css') }}{{ $legacyCssVersion('barrsopaosocas.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}{{ $legacyCssVersion('owihdagowdhqo.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}{{ $legacyCssVersion('seasonal-themes.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/legacy-pagination.css') }}{{ $legacyCssVersion('legacy-pagination.css') }}">
 
     @php
         $needsPublicDashboardStyles = request()->routeIs([

@@ -38,11 +38,18 @@
     justify-content: space-between;
     gap: 12px;
     /*
-     * Jarak atas dari daftar, dan jarak bawah supaya pagination tidak menempel
-     * langsung ke footer/konten berikutnya. Sebelumnya halaman berakhir persis
-     * di bawah pagination (terukur: 0px) sehingga tampak "terpotong".
+     * Jarak ATAS saja dari daftar artikel. TIDAK ada margin bawah dengan
+     * sengaja: `resources/views/footer.blade.php` sudah membuka dengan
+     * `<div class="mt-12">` (3rem = 48px). Menambah margin bawah di sini
+     * membuat jarak pagination→footer jadi 96px (terukur di produksi:
+     * 48px → 96px) dan halaman terlihat berlubang. Biarkan footer yang
+     * mengatur jaraknya supaya ritme halaman artikel sama dengan halaman lain.
+     *
+     * Catatan diagnosis awal: dulu terukur "gap bawah = 0px" karena halaman
+     * artikel memang tidak memuat footer sama sekali; itu masalah footer yang
+     * hilang, bukan masalah jarak pagination.
      */
-    margin: 40px 0 48px;
+    margin: 40px 0 0;
     padding: 0;
     font-size: 14px;
     line-height: 1.25;

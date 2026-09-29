@@ -44,6 +44,15 @@ test.describe('Pagination & footer halaman daftar artikel (theme legacy)', () =>
             return Math.round(document.documentElement.scrollHeight - bottom);
         });
         expect(gapBelow, 'pagination menempel di ujung halaman tanpa jarak').toBeGreaterThan(0);
+
+        // --- 3. jarak ke footer diatur FOOTER, bukan pagination ---
+        // `footer.blade.php` membuka dengan `<div class="mt-12">` (3rem = 48px).
+        // Menambah margin bawah di sini membuat jarak jadi 96px (pernah kejadian).
+        const navMarginBottom = await nav.evaluate((el) => getComputedStyle(el).marginBottom);
+        expect(
+            navMarginBottom,
+            'pagination menambahkan jaraknya sendiri sehingga jarak ke footer jadi dobel',
+        ).toBe('0px');
     });
 
     test('halaman daftar artikel merender footer', async ({ page }) => {
