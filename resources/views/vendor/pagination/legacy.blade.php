@@ -13,22 +13,27 @@
      `public/assets/css/legacy-pagination.css`, jadi tampilannya tidak lagi
      bergantung pada utility Tailwind yang bisa ter-purge.
 
-     Permintaan client: background transparan, border tetap, teks terbaca. --}}
+     Permintaan client: background transparan, border tetap, teks terbaca.
+     Perbaikan lanjutan (keluhan "tombol previous/next kurang rapi"): label
+     prev/next dulu dirender dari lang/en/pagination.php yang memuat entitas
+     `&laquo;`/`&raquo;`, sehingga tombol menampilkan PANAH DOBEL — ikon SVG di
+     samping panah teks. Label sekarang tidak lagi memuat entitas, jadi tiap
+     tombol hanya punya satu panah (ikon). --}}
 @if ($paginator->hasPages())
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="legacy-pagination">
         {{-- Info ringkas: hanya tampil di layar lebar --}}
         <p class="legacy-pagination__summary">
-            {!! __('Showing') !!}
+            {!! __('pagination.showing') !!}
             @if ($paginator->firstItem())
                 <span>{{ $paginator->firstItem() }}</span>
-                {!! __('to') !!}
+                {!! __('pagination.to') !!}
                 <span>{{ $paginator->lastItem() }}</span>
             @else
                 {{ $paginator->count() }}
             @endif
-            {!! __('of') !!}
+            {!! __('pagination.of') !!}
             <span>{{ $paginator->total() }}</span>
-            {!! __('results') !!}
+            {!! __('pagination.results') !!}
         </p>
 
         <ul class="legacy-pagination__list">

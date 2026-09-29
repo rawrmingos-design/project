@@ -27,6 +27,12 @@ class E2EBrowserSeeder extends Seeder
     /** Artikel dengan <ul>/<ol> untuk menguji marker list layout legacy. */
     public const ARTICLE_DEFAULT_LIST_SLUG = 'e2e-default-list-markers';
 
+    /**
+     * Slug artikel yang dipakai untuk mengisi halaman daftar sampai pagination
+     * muncul (controller memakai paginate(9), jadi butuh > 9 artikel).
+     */
+    public const ARTICLE_PAGINATION_PREFIX = 'e2e-pagination-';
+
     public function run(): void
     {
         DB::table('setting_webs')->updateOrInsert(
@@ -419,5 +425,24 @@ class E2EBrowserSeeder extends Seeder
                 'views' => 0,
             ],
         );
+
+        // Artikel tambahan supaya halaman daftar punya lebih dari satu halaman,
+        // sehingga blok pagination legacy benar-benar dirender dan bisa diuji
+        // di browser (controller memakai paginate(9)).
+        for ($i = 1; $i <= 12; $i++) {
+            Artikel::query()->updateOrCreate(
+                ['slug' => self::ARTICLE_PAGINATION_PREFIX . $i],
+                [
+                    'title' => "E2E Artikel Pagination {$i}",
+                    'thumbnail' => 'assets/logo/favicon.webp',
+                    'content' => "<p>Konten artikel pagination {$i}.</p>",
+                    'meta_description' => "Artikel E2E nomor {$i} untuk uji pagination.",
+                    'keywords' => 'e2e,pagination,top up',
+                    'layout' => 'default',
+                    'status' => 'active',
+                    'views' => 0,
+                ],
+            );
+        }
     }
 }

@@ -178,7 +178,10 @@ function findFreePort() {
 async function runLegacyLayout() {
     const legacyPort = process.env.E2E_LEGACY_PORT || await findFreePort();
 
-    runPlaywright(['tests/e2e/article-default-list-markers.spec.js'], false, {
+    runPlaywright([
+        'tests/e2e/article-default-list-markers.spec.js',
+        'tests/e2e/article-list-pagination-footer.spec.js',
+    ], false, {
         E2E_PORT: legacyPort,
         E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,
         E2E_PUBLIC_THEME: 'default',
