@@ -32,11 +32,22 @@
    --------------------------------------------------------------------------- */
 
 .legacy-pagination {
+    /*
+     * Susunan BERTUMPUK, terpusat — permintaan client: ringkasan
+     * ("Menampilkan 1 sampai 9 dari 49 hasil") di ATAS, deretan angka
+     * halaman + prev/next di BAWAHNYA.
+     *
+     * Sebelumnya nav ini `row` + `justify-content: space-between`, sehingga
+     * ringkasan terdorong ke tepi kiri dan tombol ke tepi kanan pada layar
+     * lebar — terlihat berantakan dan tidak berhubungan satu sama lain.
+     * DOM-nya sendiri sudah benar (ringkasan dulu, daftar kemudian), jadi
+     * urutan visual cukup mengikuti urutan DOM: tanpa `order` CSS.
+     */
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: center;
+    gap: 14px;
     /*
      * Jarak ATAS saja dari daftar artikel. TIDAK ada margin bawah dengan
      * sengaja: `resources/views/footer.blade.php` sudah membuka dengan
@@ -57,12 +68,15 @@
 }
 
 /*
- * Ringkasan ("Menampilkan 1 sampai 9 dari 49 hasil") sengaja disembunyikan di
- * layar sempit, tapi tetap dibaca screen reader supaya konteks tetap ada.
+ * Ringkasan ("Menampilkan 1 sampai 9 dari 49 hasil") di ATAS deretan tombol
+ * (permintaan client). Tidak lagi disembunyikan di layar sempit: sejak
+ * ringkasan pindah ke barisnya sendiri, ruangnya cukup dan konteks "hasil ke
+ * berapa dari berapa" justru paling dibutuhkan di layar kecil.
  */
 .legacy-pagination__summary {
     margin: 0;
     font-size: 13px;
+    text-align: center;
     color: rgba(255, 255, 255, 0.6);
 }
 
@@ -165,10 +179,6 @@ a.legacy-pagination__item:active {
 @media (max-width: 640px) {
     .legacy-pagination {
         justify-content: center;
-    }
-
-    .legacy-pagination__summary {
-        display: none;
     }
 
     /* Di layar kecil, tombol prev/next cukup ikon supaya tidak berdesakan */

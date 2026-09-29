@@ -350,6 +350,64 @@ class LegacyPaginationStylingTest extends TestCase
     }
 
     /**
+     * Susunan pagination: ringkasan di ATAS, deretan angka halaman di BAWAH.
+     *
+     * Permintaan client: "showing results nya diatas kemudian angka
+     * paginationnya dibawah". Sebelumnya nav memakai `justify-content:
+     * space-between` pada satu baris, sehingga ringkasan menempel di tepi kiri
+     * dan tombol di tepi kanan pada layar lebar.
+     */
+    public function test_legacy_pagination_stacks_summary_above_the_page_buttons(): void
+    {
+        $this->createArticles(12);
+
+        $css = (string) file_get_contents(public_path('assets/css/legacy-pagination.css'));
+        // Komentar file ini MENJELASKAN aturan lama (`justify-content:
+        // space-between`), jadi assert "tidak boleh ada" harus dijalankan pada
+        // deklarasi saja — kalau tidak, narasinya sendiri yang bikin gagal.
+        $declarations = preg_replace('#/\*.*?\*/#s', '', $css) ?? $css;
+
+        // Kontrak CSS: kolom terpusat, bukan baris dengan space-between.
+        $this->assertMatchesRegularExpression(
+            '/\.legacy-pagination\s*\{[^}]*flex-direction:\s*column/s',
+            $declarations,
+            'Pagination legacy tidak lagi menumpuk isinya secara vertikal.',
+        );
+        $this->assertMatchesRegularExpression(
+            '/\.legacy-pagination\s*\{[^}]*justify-content:\s*center/s',
+            $declarations,
+            'Pagination legacy tidak lagi memusatkan isinya.',
+        );
+        $this->assertDoesNotMatchRegularExpression(
+            '/justify-content:\s*space-between/s',
+            $declarations,
+            'Pagination legacy masih memakai space-between sehingga ringkasan dan tombol terpisah ke dua tepi.',
+        );
+
+        // Ringkasan tidak boleh disembunyikan di layar sempit lagi.
+        $this->assertDoesNotMatchRegularExpression(
+            '/\.legacy-pagination__summary\s*\{[^}]*display:\s*none/s',
+            $declarations,
+            'Ringkasan pagination masih disembunyikan sehingga susunan bertumpuk tidak terlihat.',
+        );
+
+        // Kontrak markup: ringkasan muncul SEBELUM daftar tombol.
+        $html = $this->get('/id/artikel')->assertOk()->getContent();
+        $pagination = $this->extractPaginationHtml($html);
+
+        $summaryPos = strpos($pagination, 'legacy-pagination__summary');
+        $listPos = strpos($pagination, 'legacy-pagination__list');
+
+        $this->assertNotFalse($summaryPos, 'Ringkasan pagination tidak dirender.');
+        $this->assertNotFalse($listPos, 'Daftar tombol pagination tidak dirender.');
+        $this->assertLessThan(
+            $listPos,
+            $summaryPos,
+            'Ringkasan pagination harus berada di atas deretan tombol halaman.',
+        );
+    }
+
+    /**
      * Ambil hanya blok <nav> pagination, supaya assert tidak tertipu oleh
      * markup lain di halaman yang mungkin memang memakai bg-white.
      */
