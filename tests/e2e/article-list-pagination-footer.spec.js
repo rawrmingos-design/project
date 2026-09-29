@@ -53,6 +53,32 @@ test.describe('Pagination & footer halaman daftar artikel (theme legacy)', () =>
             navMarginBottom,
             'pagination menambahkan jaraknya sendiri sehingga jarak ke footer jadi dobel',
         ).toBe('0px');
+
+        // --- 4. susunan bertumpuk: ringkasan di ATAS, tombol di BAWAH ---
+        // Permintaan client. Diukur dari posisi layout sungguhan, bukan markup.
+        const stack = await nav.evaluate((el) => {
+            const summary = el.querySelector('.legacy-pagination__summary');
+            const list = el.querySelector('.legacy-pagination__list');
+            if (!summary || !list) return null;
+            const s = summary.getBoundingClientRect();
+            const l = list.getBoundingClientRect();
+            return {
+                direction: getComputedStyle(el).flexDirection,
+                justify: getComputedStyle(el).justifyContent,
+                summaryBottom: s.bottom,
+                listTop: l.top,
+                summaryHidden: getComputedStyle(summary).display === 'none',
+            };
+        });
+
+        expect(stack, 'ringkasan atau daftar tombol tidak ditemukan').not.toBeNull();
+        expect(stack.direction, 'pagination tidak menumpuk secara vertikal').toBe('column');
+        expect(stack.justify, 'pagination tidak memusatkan isinya').toBe('center');
+        expect(stack.summaryHidden, 'ringkasan disembunyikan sehingga tidak terlihat').toBe(false);
+        expect(
+            stack.summaryBottom,
+            'ringkasan harus berada DI ATAS deretan tombol halaman',
+        ).toBeLessThanOrEqual(stack.listTop);
     });
 
     test('halaman daftar artikel merender footer', async ({ page }) => {

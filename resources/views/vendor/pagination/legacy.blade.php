@@ -21,7 +21,7 @@
      tombol hanya punya satu panah (ikon). --}}
 @if ($paginator->hasPages())
     <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="legacy-pagination">
-        {{-- Info ringkas: hanya tampil di layar lebar --}}
+        {{-- Info ringkas: satu baris sendiri di ATAS tombol halaman --}}
         <p class="legacy-pagination__summary">
             {!! __('pagination.showing') !!}
             @if ($paginator->firstItem())
