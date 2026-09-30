@@ -126,23 +126,23 @@ class TelegramAdapter implements BotAdapterInterface
         if ($numericSelection !== null) {
             $resolved = $this->numericMenu()->resolve((string) $context['external_user_id'], $numericSelection);
 
-            // `expired` SENGAJA TIDAK diintersepsi: kalau tidak ada daftar aktif,
-            // angka yang dikirim user BUKAN pemilihan menu. Bisa ID game yang dia
-            // tempel, nominal, atau nomor lain — dan jalur lama harus tetap
-            // menerimanya utuh. Menelannya di sini pernah membuat test regresi
-            // checkout gagal karena handler tak pernah dipanggil.
+            // HANYA nomor yang BENAR-BENAR ada di daftar aktif yang diintersepsi.
+            //
+            // Nomor di luar daftar SENGAJA diteruskan ke handler, bukan dibalas
+            // "pilihan tidak valid". Alasannya: angka murni di chat ini bukan
+            // hanya nomor menu. ID game, nominal deposit, jumlah tiket, dan
+            // nomor lain semuanya angka murni — dan HANYA sebagian langkah
+            // percakapan yang bisa dikenali sebagai "step" (beberapa layar
+            // memakai inline button sendiri dan tidak menulis step ke cache).
+            // Selama daftar kategori aktif, nomor apa pun yang kebetulan di luar
+            // rentang akan ditelan, dan pesanan user hilang tanpa jejak.
+            //
+            // Menyerahkan keputusan "ini pemilihan atau bukan" ke daftar aktif
+            // membuat fitur ini menelan input yang tidak ada hubungannya dengan
+            // menu. Membalas daftar ulang untuk nomor ngawur jauh lebih murah
+            // daripada menelan pesanan user.
             if ($resolved['status'] === 'ok') {
                 $text = (string) $resolved['command'];
-            } elseif ($resolved['status'] === 'invalid') {
-                // Ada daftar AKTIF tapi nomornya di luar daftar: user jelas
-                // sedang mengetuk keyboard, jadi balas dengan daftarnya supaya
-                // dia bisa memilih ulang.
-                $this->sendReply($chatId, [
-                    'text' => 'Pilihan tidak valid. Gunakan nomor yang tercantum pada daftar aktif.'
-                        . "\n\n" . (string) ($resolved['rendered_text'] ?? ''),
-                ]);
-
-                return response()->json(['status' => 'ok']);
             }
         }
 
@@ -231,6 +231,31 @@ class TelegramAdapter implements BotAdapterInterface
             return;
         }
 
+        // HANYA tombol navigasi yang layak jadi pesan kedua.
+        //
+        // Tombol aksi (Leaderboard/Bahasa/Menu) sudah ada di keyboard angka yang
+        // menetap di bawah layar, jadi mengirimnya lagi di pesan terpisah cuma
+        // menduplikasi tombol yang sudah terlihat — dan di kasus daftar
+        // SATU halaman, pesannya jadi murni noise: teksnya mengajak "pindah
+        // halaman" padahal tidak ada halaman lain untuk dituju.
+        $navigation = [];
+
+        foreach ($inline as $row) {
+            $row = array_values(array_filter(
+                (array) $row,
+                static fn (mixed $button): bool => is_array($button)
+                    && str_starts_with((string) ($button['callback_data'] ?? ''), 'menu page:'),
+            ));
+
+            if ($row !== []) {
+                $navigation[] = $row;
+            }
+        }
+
+        if ($navigation === []) {
+            return;
+        }
+
         $token = config('services.telegram-bot-api.token');
         if (! $token) {
             return;
@@ -240,7 +265,7 @@ class TelegramAdapter implements BotAdapterInterface
             $result = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $this->navigationPrompt(),
-                'reply_markup' => ['inline_keyboard' => $inline],
+                'reply_markup' => ['inline_keyboard' => $navigation],
             ]);
 
             if (! $result->successful() || ! ($result->json('ok') ?? false)) {
