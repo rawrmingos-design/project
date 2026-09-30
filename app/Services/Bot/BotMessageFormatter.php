@@ -1811,9 +1811,19 @@ class BotMessageFormatter
             $keyboard[] = $languageRow;
         }
 
+        // Tombol "❌ Batal Transaksi" TIDAK dirender (keputusan user).
+        //
+        // Dihapus di SUMBERNYA, bukan disaring di keyboard angka saja: keyboard
+        // angka menggantikan keyboard ini begitu user membuka daftar, tapi
+        // sebelum itu (`/start`, layar panduan) yang terpasang adalah keyboard
+        // INI — menyaring di satu tempat saja meninggalkan tombolnya terlihat
+        // di layar-layar awal, dan user mengira tombolnya masih ada.
+        //
+        // Label `bot.kbd_cancel` tetap ada di file lang dan perintah `batal`
+        // tetap dikenali parser: label lama masih tergeletak di riwayat chat
+        // user, dan layar konfirmasi checkout memakai tombol inline-nya sendiri.
         $keyboard[] = [
             ['text' => $pick('bot.kbd_help', '❓ Bantuan')],
-            ['text' => $pick('bot.kbd_cancel', '❌ Batal Transaksi')],
         ];
 
         // TIDAK ada tombol "📞 Hubungi Admin" di sini.
@@ -2384,25 +2394,15 @@ class BotMessageFormatter
             $keyboard = array_chunk($buttons, 5);
         }
 
+        // Tombol aksi diambil UTUH dari keyboard default; batal sudah tidak ada
+        // di sana (dihapus di sumbernya), jadi di sini tidak perlu penyaringan
+        // lagi — dan penyaringan berbasis label literal justru berbahaya: di
+        // locale Inggris labelnya `❌ Cancel Order`, sehingga tombolnya lolos
+        // hanya karena bahasanya berbeda.
         $base = $this->defaultReplyKeyboard($capabilities)['keyboard'];
 
-        // Buang tombol batal dari barisnya. Baris itu juga memuat "❓ Bantuan";
-        // kalau seluruh baris dibuang, Bantuan ikut hilang — jadi tombolnya
-        // disaring per tombol, bukan per baris.
-        $filtered = [];
-        foreach ($base as $row) {
-            $row = array_values(array_filter(
-                $row,
-                static fn (array $button): bool => ($button['text'] ?? '') !== '❌ Batal Transaksi',
-            ));
-
-            if ($row !== []) {
-                $filtered[] = $row;
-            }
-        }
-
         return [
-            'keyboard' => array_merge($keyboard, $filtered),
+            'keyboard' => array_merge($keyboard, $base),
             'resize_keyboard' => true,
             'is_persistent' => true,
             'input_field_placeholder' => $this->keyboardLabel('bot.kbd_placeholder', 'Pilih aksi...'),
