@@ -34,6 +34,7 @@ class MediaAssetDeletionService
             ['table' => 'setting_webs', 'column' => 'logo_favicon', 'label' => 'Logo favicon', 'name' => 'judul_web'],
             ['table' => 'setting_webs', 'column' => 'logo_header', 'label' => 'Logo header', 'name' => 'judul_web'],
             ['table' => 'setting_webs', 'column' => 'logo_footer', 'label' => 'Logo footer', 'name' => 'judul_web'],
+            ['table' => 'setting_webs', 'column' => 'bot_menu_banner', 'label' => 'Banner Menu Utama bot', 'name' => 'judul_web'],
         ];
 
         $references = [];
