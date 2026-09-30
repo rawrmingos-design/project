@@ -35,6 +35,13 @@ return [
     // --- Main menu ---
     'menu_title' => '🏠 *Main Menu*',
     'menu_pick_category' => 'Pick a category below to get started. 👇',
+    // The Main Menu screen is a NUMBERED LIST, not a greeting block.
+    // `menu_title` & `menu_pick_category` are kept on purpose: `storeIntro()` is
+    // still used by `/start`, and removing keys risks leaking raw key literals
+    // to any path that has not been migrated yet.
+    'menu_list_title' => '📋 *Category List*',
+    'menu_page_footer' => '📄 Page :page / :total',
+    'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Sorry, the category list is unavailable right now.',
     'menu_category_fallback' => 'Category',
 

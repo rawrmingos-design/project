@@ -29,6 +29,13 @@ return [
     // --- Menu utama ---
     'menu_title' => '🏠 *Menu Utama*',
     'menu_pick_category' => 'Pilih kategori di bawah untuk mulai. 👇',
+    // Layar Menu Utama berformat DAFTAR BERNOMOR, bukan narasi sapaan.
+    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: `storeIntro()`
+    // masih dipakai `/start`, dan menghapus kunci = risiko literal bocor ke
+    // user kalau ada jalur yang belum ikut berubah.
+    'menu_list_title' => '📋 *Daftar Kategori*',
+    'menu_page_footer' => '📄 Halaman :page / :total',
+    'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Maaf, daftar tipe kategori sedang tidak tersedia.',
     'menu_category_fallback' => 'Kategori',
 

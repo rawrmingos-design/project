@@ -103,10 +103,15 @@ class BotLangParityTest extends TestCase
         //   yang ditagih harus terbaca sama persis.
         // - `label_expired`       : 'Expired' adalah loanword yang sudah dipakai
         //   user Indonesia; menerjemahkannya justru mengubah arti status.
+        // - `menu_item_numbered`  : format baris daftar `[N]. Nama` SENGAJA
+        //   netral bahasa — nomor dalam kurung siku adalah penanda posisi, bukan
+        //   kalimat. Menerjemahkan formatnya justru membuat nomor tidak lagi
+        //   sejajar dengan tombol angka di keyboard.
         $allowedIdentical = [
             'skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id',
             'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
             'history_detail_invoice', 'history_detail_total', 'label_expired',
+            'menu_item_numbered',
         ];
 
         $identical = [];
