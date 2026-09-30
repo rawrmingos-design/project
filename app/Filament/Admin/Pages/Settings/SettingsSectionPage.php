@@ -675,19 +675,6 @@ abstract class SettingsSectionPage extends Page implements HasForms
                                 'lg' => 2,
                             ]),
 
-                        FileUpload::make('bot_menu_banner')
-                            ->label('Banner Menu Utama Bot (Telegram)')
-                            ->image()
-                            ->disk(config('uploads.disk', 'assets'))
-                            ->visibility('public')
-                            ->directory('assets/bot')
-                            ->maxSize(4096)
-                            ->helperText('Tampil sebagai gambar di layar Menu Utama bot Telegram. Rasio bebas — gambar ditampilkan apa adanya, tidak dipotong. Untuk mematikan banner, hapus berkasnya dari Media Manager (mengosongkan field ini saja tidak menghapusnya).')
-                            ->columnSpan([
-                                'sm' => 2,
-                                'lg' => 2,
-                            ]),
-                            
                         ColorPicker::make('warna1')
                             ->label('Warna Utama')
                             ->columnSpan(1),
@@ -1372,6 +1359,17 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->default('id')
                             ->selectablePlaceholder(false)
                             ->required()
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
+
+                        FileUpload::make('bot_menu_banner')
+                            ->label('Banner Menu Utama Bot')
+                            ->image()
+                            ->disk(config('uploads.disk', 'assets'))
+                            ->visibility('public')
+                            ->directory('assets/bot')
+                            ->maxSize(4096)
+                            ->helperText('Gambar yang dikirim di atas teks saat user membuka Menu Utama bot. Rasio bebas — gambar tampil apa adanya, tidak dipotong. Untuk mematikan banner, hapus berkasnya dari Media Manager (mengosongkan field ini saja tidak menghapusnya).')
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
                     ])
