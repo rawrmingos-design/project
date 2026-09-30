@@ -17,6 +17,16 @@ use Illuminate\Support\Facades\Log;
 
 class TelegramAdapter implements BotAdapterInterface
 {
+    /**
+     * Batas caption `sendPhoto`. Berbeda dari batas pesan teks (4096) dan
+     * pelanggarannya fatal: Telegram menolak seluruh pesan, tidak memotongnya.
+     *
+     * @see https://core.telegram.org/bots/api#sendphoto
+     */
+    private const MAX_CAPTION_LENGTH = 1024;
+
+    /** Batas `sendMessage` / `editMessageText`. */
+    private const MAX_MESSAGE_LENGTH = 4096;
     public function __construct(
         private readonly BotCommandParser $parser,
         private readonly BotCommandHandler $handler,
@@ -196,6 +206,50 @@ class TelegramAdapter implements BotAdapterInterface
         ]);
     }
 
+    /**
+     * Panjang teks dalam satuan yang dipakai Telegram: **UTF-16 code unit**,
+     * bukan karakter. Emoji di luar BMP (lazim di teks bot) bernilai 2 unit,
+     * jadi `mb_strlen` membuat pesan penuh emoji terlihat lebih pendek daripada
+     * kenyataannya dan lolos ke Telegram untuk ditolak.
+     */
+    private static function utf16Length(string $value): int
+    {
+        if ($value === '') {
+            return 0;
+        }
+
+        return intdiv(strlen(mb_convert_encoding($value, 'UTF-16LE', 'UTF-8')), 2);
+    }
+
+    /**
+     * Potong teks tepat di batas UTF-16, tanpa membelah emoji.
+     *
+     * Pemotongan buta pada byte/karakter bisa memutus pasangan surrogate dan
+     * menghasilkan karakter rusak (U+FFFD) yang membuat pesan ditolak juga.
+     * Karena itu batasnya digeser mundur sampai potongan tidak lagi menyisakan
+     * surrogate setengah.
+     */
+    private static function truncateToUtf16(string $value, int $limit): string
+    {
+        if (self::utf16Length($value) <= $limit) {
+            return $value;
+        }
+
+        // Sisakan ruang untuk penanda potong supaya admin tahu teksnya terpotong.
+        $limit -= 1;
+
+        $truncated = mb_strcut($value, 0, $limit * 2, 'UTF-8');
+
+        // `mb_strcut` memotong di batas karakter, tapi batas UTF-16 bisa jatuh
+        // di tengah pasangan surrogate pada teks yang bercampur. Buang sisa
+        // setengah pasangan kalau ada.
+        while ($truncated !== '' && self::utf16Length($truncated) > $limit) {
+            $truncated = mb_substr($truncated, 0, -1, 'UTF-8');
+        }
+
+        return $truncated . '…';
+    }
+
     private function answerCallbackQuery(string $callbackQueryId): void
     {
         if ($callbackQueryId === '') return;
@@ -229,6 +283,27 @@ class TelegramAdapter implements BotAdapterInterface
         // Diuji langsung ke API: 7 dari 12 teks bot gagal total. Karena itu
         // teks dikonversi dulu lewat TelegramMarkdown::fromLegacy().
         $formatted = TelegramMarkdown::fromLegacy((string) ($response['text'] ?? ''));
+
+        // Telegram memakai batas BERBEDA untuk caption gambar (1024) dan teks
+        // biasa (4096), dan pelanggarannya FATAL: pesan dengan caption
+        // kepanjangan ditolak SELURUHNYA, bukan dipotong. Di bot ini gambar
+        // dipakai untuk QR pembayaran, jadi caption kepanjangan = user tidak
+        // menerima QR-nya DAN tidak menerima teksnya. Dilepas gambarnya supaya
+        // pesan tetap sampai -- QR-nya sendiri bisa dibuka lewat tombol URL.
+        if ($hasPhoto && self::utf16Length($formatted) > self::MAX_CAPTION_LENGTH) {
+            Log::warning('Telegram caption too long, sending as text instead.', [
+                'limit' => self::MAX_CAPTION_LENGTH,
+                'length' => self::utf16Length($formatted),
+            ]);
+
+            $hasPhoto = false;
+        }
+
+        // Batas pesan biasa juga bisa dilewati (mis. nama produk sangat
+        // panjang). Dipotong di batas, bukan dibiarkan hilang.
+        if (! $hasPhoto) {
+            $formatted = self::truncateToUtf16($formatted, self::MAX_MESSAGE_LENGTH);
+        }
 
         $endpoint = $hasPhoto ? 'sendPhoto' : 'sendMessage';
 
