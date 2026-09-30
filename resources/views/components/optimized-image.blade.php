@@ -11,6 +11,7 @@
                 'loading' => $loading,
                 'decoding' => $decoding,
             ]) }}
+            data-fit="{{ $fit }}"
             @if ($width || $intrinsicWidth) width="{{ $width ?? $intrinsicWidth }}" @endif
             @if ($height || $intrinsicHeight) height="{{ $height ?? $intrinsicHeight }}" @endif
             @if ($fetchpriority) fetchpriority="{{ $fetchpriority }}" @endif
