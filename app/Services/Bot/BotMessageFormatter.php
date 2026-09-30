@@ -281,7 +281,7 @@ class BotMessageFormatter
             $buttons[] = $this->languageButtons();
         }
 
-        return [
+        $response = [
             'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
                 . "\n" . __('bot.menu_pick_category'),
             'buttons' => $buttons,
@@ -291,6 +291,45 @@ class BotMessageFormatter
                 'page' => $pagination['page'],
             ],
         ];
+
+        $bannerUrl = $this->telegramMenuBannerUrl($capabilities);
+        if ($bannerUrl !== null) {
+            $response['photo_url'] = $bannerUrl;
+        }
+
+        return $response;
+    }
+
+    /**
+     * URL gambar banner untuk layar Menu Utama bot Telegram. `null` = jangan
+     * kirim gambar.
+     *
+     * Dua alasan method ini ada, dan keduanya bukan gaya penulisan:
+     *
+     * 1. **Gate Telegram wajib di SINI.** `photo_url` dibaca KETIGA adapter
+     *    (`TelegramAdapter`, `FonnteAdapter`, `OpenWaAdapter`), sedangkan
+     *    `formatCategories()` dipakai bersama Telegram dan WhatsApp. Tanpa gate
+     *    ini, banner ikut terkirim ke WhatsApp.
+     *
+     * 2. **Hanya kirim kalau berkasnya BENAR-BENAR ada.** Telegram menolak
+     *    SELURUH pesan kalau URL gambarnya tidak bisa diambil — jadi banner yang
+     *    hilang akan membuat menu user lenyap, bukan sekadar tanpa gambar.
+     *    `existingUrl()` mengembalikan null untuk berkas yang tidak ada, dan
+     *    menu tetap terkirim sebagai teks.
+     */
+    private function telegramMenuBannerUrl(?BotGatewayCapabilities $capabilities): ?string
+    {
+        if ($capabilities?->source() !== BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            return null;
+        }
+
+        $path = \App\Models\SettingWeb::query()->value('bot_menu_banner');
+
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return app(\App\Services\PublicUploadUrlService::class)->existingUrl($path);
     }
 
     public function formatProducts(
