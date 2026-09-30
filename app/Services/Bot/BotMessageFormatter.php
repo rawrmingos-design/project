@@ -317,7 +317,12 @@ class BotMessageFormatter
 
         $response = [
             'text' => implode("\n", $lines),
-            'buttons' => $this->menuNavigationButtons($pagination),
+            'buttons' => array_merge(
+                $this->menuNavigationButtons($pagination),
+                $this->menuActionButtons(BotGatewayCapabilities::forSource(
+                    BotGatewayCapabilities::SOURCE_TELEGRAM,
+                )),
+            ),
             'numeric_menu' => [
                 'menu' => 'categories',
                 'parent_menu' => null,
@@ -2313,6 +2318,95 @@ class BotMessageFormatter
         $lines[] = '📆 ' . \Illuminate\Support\Carbon::now(config('app.timezone'))->format('h:i:s A');
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Tombol aksi layar Menu Utama Telegram — TANPA tombol kategori.
+     *
+     * Dikembalikan sebagai baris terpisah supaya adapter bisa memutuskan
+     * mengirimnya (sebagai pesan kedua) saat tombol harus bergeser tempat.
+     * Menyertakannya di sini menjaga susunannya satu sumber dengan layar lain.
+     *
+     * @return array<int, array<int, array<string, string>>>
+     */
+    private function menuActionButtons(BotGatewayCapabilities $capabilities): array
+    {
+        $buttons = [];
+
+        if ($capabilities->supports('leaderboard')) {
+            $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
+        }
+
+        if ($capabilities->supports('deposit')) {
+            $buttons[] = [$this->button('💰 Deposit', 'deposit')];
+        }
+
+        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            $buttons[] = $this->languageButtons();
+        }
+
+        return $buttons;
+    }
+
+    /**
+     * Reply keyboard angka untuk Telegram — GLOBAL, dikirim di setiap layar.
+     *
+     * Telegram hanya mengizinkan SATU `reply_markup` per pesan, jadi keyboard
+     * ini MENGGANTIKAN keyboard default saat ada daftar aktif. Tombol aksi lama
+     * TIDAK dibuang: kalau dibuang, user kehilangan akses Menu/Riwayat/Bantuan
+     * dari layar dan hanya bisa lewat perintah ketik — regresi yang jauh lebih
+     * besar daripada manfaat nomornya. Angka DITAMBAHKAN di atasnya.
+     *
+     * Jumlah angka MENGIKUTI daftar, bukan selalu 1..10: mengirim tombol yang
+     * tidak punya item di belakangnya memberi user tombol mati.
+     *
+     * Tombol "❌ Batal Transaksi" sengaja tidak dirender (keputusan user). Label
+     * `bot.kbd_cancel` tetap ada di file lang; perintah `batal` tetap dikenali
+     * parser, dan layar konfirmasi checkout memakai tombol inline-nya sendiri.
+     *
+     * @param  array<int, int|string>  $numbers
+     * @return array<string, mixed>
+     */
+    public function numericReplyKeyboard(array $numbers, ?BotGatewayCapabilities $capabilities = null): array
+    {
+        $capabilities ??= BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM);
+
+        $keyboard = [];
+
+        if ($numbers !== []) {
+            $buttons = [];
+            foreach (array_values($numbers) as $number) {
+                $buttons[] = ['text' => (string) $number];
+            }
+
+            // Lima per baris: cukup rapat supaya keyboard tidak memakan separuh
+            // layar, dan tetap sejajar dengan nomor 1..15 pada daftar terpanjang.
+            $keyboard = array_chunk($buttons, 5);
+        }
+
+        $base = $this->defaultReplyKeyboard($capabilities)['keyboard'];
+
+        // Buang tombol batal dari barisnya. Baris itu juga memuat "❓ Bantuan";
+        // kalau seluruh baris dibuang, Bantuan ikut hilang — jadi tombolnya
+        // disaring per tombol, bukan per baris.
+        $filtered = [];
+        foreach ($base as $row) {
+            $row = array_values(array_filter(
+                $row,
+                static fn (array $button): bool => ($button['text'] ?? '') !== '❌ Batal Transaksi',
+            ));
+
+            if ($row !== []) {
+                $filtered[] = $row;
+            }
+        }
+
+        return [
+            'keyboard' => array_merge($keyboard, $filtered),
+            'resize_keyboard' => true,
+            'is_persistent' => true,
+            'input_field_placeholder' => $this->keyboardLabel('bot.kbd_placeholder', 'Pilih aksi...'),
+        ];
     }
 
     private function button(

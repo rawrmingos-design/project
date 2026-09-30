@@ -7,6 +7,7 @@ use App\Services\Bot\BotCommandParser;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotLocale;
 use App\Services\Bot\BotMessageFormatter;
+use App\Services\Bot\BotNumericMenuStore;
 use App\Services\Bot\TelegramWelcomeService;
 use App\Support\TelegramMarkdown;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +33,7 @@ class TelegramAdapter implements BotAdapterInterface
         private readonly BotCommandHandler $handler,
         private readonly BotMessageFormatter $formatter,
         private readonly ?BotLocale $botLocale = null,
+        private readonly ?BotNumericMenuStore $numericMenuStore = null,
     ) {}
 
     public function handle(Request $request): mixed
@@ -105,6 +107,45 @@ class TelegramAdapter implements BotAdapterInterface
             'email' => $fromId . '@telegram.user',
         ];
 
+        // Pemilihan lewat KEYBOARD ANGKA.
+        //
+        // Keyboard angka bersifat GLOBAL (keputusan user), jadi angka bisa datang
+        // saat user sedang di layar mana pun. Dua penjagaan wajib:
+        //
+        // 1. Jangan telan angka saat user sedang mengisi detail pesanan. ID game
+        //    dan nominal deposit adalah ANGKA murni; tanpa penjagaan ini,
+        //    "12345678" berubah jadi pemilihan kategori dan pesanan user hilang
+        //    tanpa pesan error.
+        // 2. Label tombol tetap diproses parser seperti biasa kalau bukan angka.
+        $numericSelection = $this->numericSelection($text);
+
+        if (BotCommandHandler::isConversationalStep(BotCommandHandler::conversationalStepFor($context))) {
+            $numericSelection = null;
+        }
+
+        if ($numericSelection !== null) {
+            $resolved = $this->numericMenu()->resolve((string) $context['external_user_id'], $numericSelection);
+
+            // `expired` SENGAJA TIDAK diintersepsi: kalau tidak ada daftar aktif,
+            // angka yang dikirim user BUKAN pemilihan menu. Bisa ID game yang dia
+            // tempel, nominal, atau nomor lain — dan jalur lama harus tetap
+            // menerimanya utuh. Menelannya di sini pernah membuat test regresi
+            // checkout gagal karena handler tak pernah dipanggil.
+            if ($resolved['status'] === 'ok') {
+                $text = (string) $resolved['command'];
+            } elseif ($resolved['status'] === 'invalid') {
+                // Ada daftar AKTIF tapi nomornya di luar daftar: user jelas
+                // sedang mengetuk keyboard, jadi balas dengan daftarnya supaya
+                // dia bisa memilih ulang.
+                $this->sendReply($chatId, [
+                    'text' => 'Pilihan tidak valid. Gunakan nomor yang tercantum pada daftar aktif.'
+                        . "\n\n" . (string) ($resolved['rendered_text'] ?? ''),
+                ]);
+
+                return response()->json(['status' => 'ok']);
+            }
+        }
+
         $parsed = $this->parser->parse($text);
 
         // Bahasa: benih dulu (pra-pilihan, hanya chat privat), lalu resolve
@@ -127,12 +168,24 @@ class TelegramAdapter implements BotAdapterInterface
                 return response()->json(['status' => 'ignored']);
             }
 
+            // Peta nomor disimpan DULU, lalu nomornya dipakai untuk keyboard.
+            // Urutannya penting: kalau adapter hanya membaca peta lama, keyboard
+            // angka yang baru saja dirender tidak akan pernah muncul.
+            $numericNumbers = $this->storeNumericMenu((string) $context['external_user_id'], $response);
+
             // `sendReply()` HARUS di dalam blok locale: ia membangun reply
             // keyboard lewat `defaultReplyKeyboard()`, yang memilih label dari
             // locale AKTIF. Kalau dipanggil setelah locale dipulihkan, keyboard
             // user berbahasa Inggris akan tetap berlabel Indonesia — tombolnya
             // tetap berfungsi, tapi terlihat seperti bahasanya tidak berganti.
-            $this->sendReply($chatId, $response);
+            $this->sendReply($chatId, $response, $numericNumbers);
+
+            // Tombol inline TIDAK ikut terkirim bersama pesan menu: Telegram cuma
+            // mengizinkan SATU `reply_markup` per pesan, dan di layar menu yang
+            // menang adalah keyboard angka. Tombol navigasi pindah halaman
+            // dikirim sebagai pesan kedua supaya halaman berikutnya tetap bisa
+            // dicapai tanpa mengetik kode angka.
+            $this->sendNavigationButtons($chatId, $response, $numericNumbers);
         } finally {
             app()->setLocale($locale);
         }
@@ -143,6 +196,145 @@ class TelegramAdapter implements BotAdapterInterface
     private function localeService(): BotLocale
     {
         return $this->botLocale ?? app(BotLocale::class);
+    }
+
+    private function numericMenu(): BotNumericMenuStore
+    {
+        return $this->numericMenuStore ?? app(BotNumericMenuStore::class);
+    }
+
+    /**
+     * Kirim tombol inline sebagai PESAN KEDUA, hanya kalau tombolnya memang
+     * tidak ikut terkirim bersama pesan utama.
+     *
+     * Telegram hanya mengizinkan satu `reply_markup` per pesan. Saat keyboard
+     * angka aktif (bersifat global, jadi praktis selalu), tombol inline di
+     * respons menu kehilangan tempatnya. Tanpa pesan kedua ini, user melihat
+     * "📄 Halaman 1 / 2" TANPA cara berpindah halaman — daftar terlihat lengkap
+     * padahal terpotong.
+     *
+     * Pesannya WAJIB berisi teks: Telegram menolak pesan tanpa teks DAN tanpa
+     * foto, jadi tidak boleh cuma mengirim tombol.
+     *
+     * @param  array<int, int>  $numericNumbers
+     */
+    private function sendNavigationButtons(string|int $chatId, array $response, array $numericNumbers): void
+    {
+        if ($numericNumbers === []) {
+            return;
+        }
+
+        $markup = $this->buildReplyMarkup(array_diff_key($response, ['use_reply_keyboard' => true]));
+        $inline = $markup['inline_keyboard'] ?? null;
+
+        if (! is_array($inline) || $inline === []) {
+            return;
+        }
+
+        $token = config('services.telegram-bot-api.token');
+        if (! $token) {
+            return;
+        }
+
+        try {
+            $result = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
+                'chat_id' => $chatId,
+                'text' => $this->navigationPrompt(),
+                'reply_markup' => ['inline_keyboard' => $inline],
+            ]);
+
+            if (! $result->successful() || ! ($result->json('ok') ?? false)) {
+                Log::warning('Telegram navigation message rejected.', [
+                    'description' => $result->json('description'),
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Navigasi gagal bukan alasan menggagalkan balasan utama: user tetap
+            // menerima daftarnya, dan halaman lain masih bisa diketik.
+            Log::error('Failed to send telegram navigation message: ' . $e->getMessage());
+        }
+    }
+
+    private function navigationPrompt(): string
+    {
+        return 'Pindah halaman: ⬅️ / ➡️';
+    }
+
+    /** Angka murni (pesan teks isinya hanya digit) = kandidat pemilihan. */
+    private function numericSelection(string $text): ?int
+    {
+        $text = trim($text);
+
+        return preg_match('/^\d+$/', $text) === 1 ? (int) $text : null;
+    }
+
+    /**
+     * Simpan peta nomor yang dibawa respons, lalu kembalikan nomor yang harus
+     * ditampilkan di keyboard.
+     *
+     * Nomor yang dipakai keyboard diambil dari daftar TERAKHIR yang dilihat user,
+     * bukan dari respons yang sedang dikirim: keyboard bersifat global, jadi saat
+     * user membuka layar bantuan, tombol angkanya harus tetap menunjuk daftar
+     * yang terakhir dia lihat.
+     *
+     * @return array<int, int>
+     */
+    private function storeNumericMenu(string $externalUserId, array $response): array
+    {
+        $numericMenu = is_array($response['numeric_menu'] ?? null) ? $response['numeric_menu'] : null;
+
+        if ($numericMenu === null) {
+            return $this->activeNumbers($externalUserId);
+        }
+
+        $entries = is_array($numericMenu['entries'] ?? null) ? $numericMenu['entries'] : [];
+
+        // Respons tanpa entri (mis. daftar kosong) JANGAN menghapus peta lama:
+        // user masih melihat keyboard angka dari daftar sebelumnya, dan tombol
+        // itu harus tetap berfungsi.
+        if ($entries === []) {
+            return $this->activeNumbers($externalUserId);
+        }
+
+        $state = $this->numericMenu()->put($externalUserId, $numericMenu, (string) ($response['text'] ?? ''));
+
+        return $this->contentNumbers($state['entries'] ?? []);
+    }
+
+    /** @return array<int, int> */
+    private function activeNumbers(string $externalUserId): array
+    {
+        $state = $this->numericMenu()->get($externalUserId);
+
+        return $this->contentNumbers($state['entries'] ?? []);
+    }
+
+    /**
+     * Nomor yang boleh tampil sebagai tombol di keyboard.
+     *
+     * HANYA entri `content` (item daftar). Nomor 98/99/0 sengaja tidak
+     * ditampilkan sebagai tombol: di keyboard global, tombol "98" tanpa konteks
+     * halaman membingungkan, sedangkan pindah halaman sudah punya tombol inline
+     * sendiri dan tetap bisa diketik.
+     *
+     * @param  array<string, mixed>  $entries
+     * @return array<int, int>
+     */
+    private function contentNumbers(array $entries): array
+    {
+        $numbers = [];
+
+        foreach (array_keys($entries) as $number) {
+            $number = (int) $number;
+
+            if ($number >= 1 && $number <= BotNumericMenuStore::CONTENT_ENTRY_LIMIT) {
+                $numbers[] = $number;
+            }
+        }
+
+        sort($numbers);
+
+        return $numbers;
     }
 
     /**
@@ -266,7 +458,7 @@ class TelegramAdapter implements BotAdapterInterface
         }
     }
 
-    private function sendReply(string|int $chatId, array $response): void
+    private function sendReply(string|int $chatId, array $response, array $numericNumbers = []): void
     {
         $token = config('services.telegram-bot-api.token');
         if (! $token) {
@@ -325,7 +517,7 @@ class TelegramAdapter implements BotAdapterInterface
         };
 
         // Keyboard dibangun terpisah karena sama untuk kedua percobaan.
-        $keyboard = $this->buildReplyMarkup($response);
+        $keyboard = $this->buildReplyMarkup($response, $numericNumbers);
 
         $attempts = $keyboard === null ? [null] : [$keyboard];
 
@@ -380,10 +572,21 @@ class TelegramAdapter implements BotAdapterInterface
      *
      * @return array<string, mixed>|null
      */
-    private function buildReplyMarkup(array $response): ?array
+    private function buildReplyMarkup(array $response, array $numericNumbers = []): ?array
     {
         $hasInlineButtons = ! empty($response['buttons']);
         $wantsReplyKeyboard = ! empty($response['use_reply_keyboard']);
+
+        // Keyboard angka bersifat GLOBAL: begitu user pernah melihat daftar,
+        // keyboard angka menggantikan keyboard default di SEMUA layar.
+        // Telegram hanya mengizinkan satu `reply_markup` per pesan, jadi angka
+        // menang — dan tombol aksi lama tetap ikut di dalam keyboard ini.
+        if ($numericNumbers !== []) {
+            return $this->formatter->numericReplyKeyboard(
+                $numericNumbers,
+                BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM),
+            );
+        }
 
         if ($wantsReplyKeyboard) {
             return $this->formatter->defaultReplyKeyboard(

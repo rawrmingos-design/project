@@ -1831,6 +1831,51 @@ class BotCommandHandler
             : '';
     }
 
+    /**
+     * Status percakapan yang menerima angka sebagai JAWABAN, bukan pilihan menu.
+     *
+     * Dipakai jalur Telegram untuk memutuskan apakah angka yang dikirim user
+     * harus diterjemahkan jadi pemilihan daftar. Tanpa penjagaan ini, ID game
+     * atau nominal deposit yang berupa angka murni akan ditelan jadi pemilihan
+     * kategori — pesanan user berubah jadi kategori yang salah, tanpa pesan
+     * error apa pun.
+     *
+     * `waiting_confirmation` SENGAJA tidak termasuk: layar konfirmasi memakai
+     * tombol inline sendiri (`❌ Batal` / lanjut), bukan angka bebas.
+     */
+    public static function isConversationalStep(?string $step): bool
+    {
+        return in_array((string) $step, [
+            'waiting_game_id',
+            'waiting_deposit_amount',
+            'waiting_deposit_method',
+        ], true);
+    }
+
+    /**
+     * Baca step percakapan yang sedang aktif untuk satu context.
+     *
+     * STATIS dengan sengaja: adapter bot memanggilnya untuk memutuskan apakah
+     * angka yang masuk itu pemilihan menu atau jawaban. Kalau ia method instance,
+     * adapter yang di-mock di test identitas jadi harus menyediakan ekspektasi
+     * tambahan — beban test naik tanpa manfaat, dan mock yang lupa diperbarui
+     * gagal dengan pesan yang tidak ada hubungannya dengan yang sedang diuji.
+     */
+    public static function conversationalStepFor(array $context): string
+    {
+        $key = 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
+
+        $state = Cache::get($key);
+
+        return is_array($state) ? (string) ($state['step'] ?? '') : '';
+    }
+
     private function checkoutStateKey(array $context): string
     {
         return 'bot:checkout-state:' . hash(
