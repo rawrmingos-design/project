@@ -429,12 +429,20 @@ class E2EBrowserSeeder extends Seeder
         // Artikel tambahan supaya halaman daftar punya lebih dari satu halaman,
         // sehingga blok pagination legacy benar-benar dirender dan bisa diuji
         // di browser (controller memakai paginate(9)).
+        //
+        // Thumbnail-nya sengaja dibuat campuran potret/lanskap (lihat
+        // ensureArticleGeometryFixtures) supaya spec geometri kartu benar-benar
+        // menguji KEDUA jalur tampil gambar: `contain` untuk gambar potret dan
+        // `cover` untuk lanskap. Dengan satu jenis gambar saja, salah satu jalur
+        // tidak pernah terukur dan regresinya lolos.
+        $geometryFixtures = $this->ensureArticleGeometryFixtures();
+
         for ($i = 1; $i <= 12; $i++) {
             Artikel::query()->updateOrCreate(
                 ['slug' => self::ARTICLE_PAGINATION_PREFIX . $i],
                 [
                     'title' => "E2E Artikel Pagination {$i}",
-                    'thumbnail' => 'assets/logo/favicon.webp',
+                    'thumbnail' => $geometryFixtures[$i % 3 === 0 ? 'portrait' : 'landscape'],
                     'content' => "<p>Konten artikel pagination {$i}.</p>",
                     'meta_description' => "Artikel E2E nomor {$i} untuk uji pagination.",
                     'keywords' => 'e2e,pagination,top up',
@@ -444,5 +452,57 @@ class E2EBrowserSeeder extends Seeder
                 ],
             );
         }
+    }
+
+    /**
+     * Siapkan gambar uji berukuran tetap untuk spec geometri kartu artikel.
+     *
+     * Ditulis ke `public/assets/e2e/` yang sudah masuk `.gitignore`, jadi tidak
+     * ada berkas biner yang perlu di-commit dan suite tetap deterministik di CI.
+     *
+     * Formatnya PNG (bukan WebP) supaya tidak bergantung pada dukungan GD-WebP:
+     * rasio gambar tetap terbaca oleh `getimagesize()` di lingkungan mana pun,
+     * dan justru itulah yang dipakai untuk memilih mode tampil gambar.
+     *
+     * @return array{portrait: string, landscape: string}
+     */
+    private function ensureArticleGeometryFixtures(): array
+    {
+        $directory = public_path('assets/e2e');
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0777, true);
+        }
+
+        // 515x916 = rasio 0,56 (potret ekstrem, seperti thumbnail produksi);
+        // 1200x630 = rasio 1,90 (lanskap, seperti thumbnail 16:9 pada umumnya).
+        $sizes = [
+            'portrait' => [515, 916],
+            'landscape' => [1200, 630],
+        ];
+
+        foreach ($sizes as $name => [$width, $height]) {
+            $path = $directory . '/article-' . $name . '.png';
+
+            if (is_file($path)) {
+                continue;
+            }
+
+            $canvas = @imagecreatetruecolor($width, $height);
+
+            if ($canvas === false) {
+                continue;
+            }
+
+            $colour = imagecolorallocate($canvas, 30, 90, 160);
+            imagefilledrectangle($canvas, 0, 0, $width - 1, $height - 1, $colour);
+            imagepng($canvas, $path);
+            imagedestroy($canvas);
+        }
+
+        return [
+            'portrait' => 'assets/e2e/article-portrait.png',
+            'landscape' => 'assets/e2e/article-landscape.png',
+        ];
     }
 }

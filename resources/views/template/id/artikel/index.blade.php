@@ -41,7 +41,10 @@
     @if(isset($featured) && $featured)
     @php($featuredThumbnailUrl = app(\App\Services\OptimizedImageService::class)->preferredUrl($featured->thumbnail, 'article'))
     <div class="relative w-full h-[60vh] md:h-[70vh] group overflow-hidden">
-        <div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
+        {{-- `bg-cover bg-center` tidak ada di stylesheet legacy (terukur:
+             background-size:auto, position:0% 0%) sehingga gambar unggulan
+             tampil mentok di sudut. Kelas lokal menggantikannya. --}}
+        <div class="legacy-featured-media absolute inset-0 transition-transform duration-700 group-hover:scale-105"
              style="background-image: url('{{ $featuredThumbnailUrl }}');">
         </div>
         <div class="absolute inset-0 bg-murky-900/40 hero-gradient"></div>
@@ -59,7 +62,7 @@
                 <span class="flex items-center gap-1"><i class="fa fa-calendar"></i> {{ $featured->created_at->format('d M Y') }}</span>
                 <span class="flex items-center gap-1"><i class="fa fa-eye"></i> {{ $featured->views }} Views</span>
             </div>
-            <p class="mt-4 text-lg text-gray-300 line-clamp-2 max-w-3xl">
+            <p class="mt-4 text-lg text-gray-300 legacy-clamp-2 max-w-3xl">
                 {{ $featured->meta_description }}
             </p>
         </div>
@@ -86,22 +89,28 @@
             </h2>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="legacy-article-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             @foreach($articles as $article)
             <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="group relative block rounded-2xl overflow-hidden glass-card transition-all duration-300 hover:-translate-y-2 hover-glow">
-                <div class="aspect-[16/9] w-full overflow-hidden relative">
-                    <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" width="800" height="450" class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60"></div>
-                    <div class="absolute bottom-3 left-4 right-4 flex justify-between text-xs text-white/80 font-medium">
+                {{-- Kotak gambar berasio TETAP 16:9. Utility `aspect-[16/9]` tidak
+                     ada di stylesheet theme legacy sehingga sebelumnya bingkai ini
+                     mengikuti rasio asli file (terukur 0,56 s/d 2,50) dan tinggi
+                     kartu melompat 457/742/894 px. Lihat legacy-article-cards.css. --}}
+                <div class="legacy-article-card__media">
+                    <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" width="800" height="450" fit="auto" class="transition-transform duration-500 group-hover:scale-110" />
+                    {{-- Gradasi gelap: `from-black`/`opacity-60` juga tidak ter-build,
+                         padahal teks di bawahnya berwarna putih. --}}
+                    <div class="legacy-article-card__scrim"></div>
+                    <div class="legacy-article-card__meta">
                         <span>{{ $article->created_at->diffForHumans() }}</span>
                         <span>{{ $article->views }} Views</span>
                     </div>
                 </div>
                 <div class="p-6">
-                    <h3 class="text-xl font-bold text-white mb-3 line-clamp-2 leading-snug group-hover:text-primary-400 transition-colors">
+                    <h3 class="legacy-article-card__title text-xl font-bold text-white mb-3 group-hover:text-primary-400 transition-colors">
                         {{ $article->title }}
                     </h3>
-                    <p class="text-gray-400 text-sm line-clamp-3 mb-4">
+                    <p class="legacy-article-card__excerpt text-gray-400 text-sm mb-4">
                         {{ \Illuminate\Support\Str::limit($article->meta_description ?? strip_tags($article->content), 100) }}
                     </p>
                     <div class="flex items-center text-primary-400 text-sm font-semibold">

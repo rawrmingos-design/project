@@ -381,6 +381,7 @@
     <link rel="stylesheet" href="{{ asset('/assets/css/owihdagowdhqo.css') }}{{ $legacyCssVersion('owihdagowdhqo.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/seasonal-themes.css') }}{{ $legacyCssVersion('seasonal-themes.css') }}">
     <link rel="stylesheet" href="{{ asset('/assets/css/legacy-pagination.css') }}{{ $legacyCssVersion('legacy-pagination.css') }}">
+    <link rel="stylesheet" href="{{ asset('/assets/css/legacy-article-cards.css') }}{{ $legacyCssVersion('legacy-article-cards.css') }}">
 
     @php
         $needsPublicDashboardStyles = request()->routeIs([

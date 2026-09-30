@@ -63,6 +63,7 @@ class OptimizedImageService
             'srcset' => $srcset !== '' ? $srcset : null,
             'width' => $analysis['width'],
             'height' => $analysis['height'],
+            'ratio' => $analysis['ratio'] ?? null,
             'optimizable' => true,
         ];
     }
@@ -195,15 +196,6 @@ class OptimizedImageService
             ];
         }
 
-        if (! function_exists('imagewebp')) {
-            return [
-                'optimizable' => false,
-                'reason' => 'webp_unavailable',
-                'relative' => $relative,
-                'absolute' => $absolute,
-            ];
-        }
-
         $size = @getimagesize($absolute);
 
         if (! $size || empty($size[0]) || empty($size[1])) {
@@ -212,6 +204,22 @@ class OptimizedImageService
                 'reason' => 'invalid_image',
                 'relative' => $relative,
                 'absolute' => $absolute,
+            ];
+        }
+
+        // Pemeriksaan dukungan WebP sengaja SETELAH getimagesize: dimensi dan
+        // rasio gambar harus tetap diketahui walau varian WebP tidak bisa
+        // dibuat, karena pemanggil memakai rasio itu untuk memilih cara
+        // menampilkan gambar (lihat OptimizedImage::$fit).
+        if (! function_exists('imagewebp')) {
+            return [
+                'optimizable' => false,
+                'reason' => 'webp_unavailable',
+                'relative' => $relative,
+                'absolute' => $absolute,
+                'width' => (int) $size[0],
+                'height' => (int) $size[1],
+                'ratio' => $this->ratio($size),
             ];
         }
 
@@ -226,6 +234,7 @@ class OptimizedImageService
                 'mime' => $mime,
                 'width' => (int) $size[0],
                 'height' => (int) $size[1],
+                'ratio' => $this->ratio($size),
             ];
         }
 
@@ -238,8 +247,28 @@ class OptimizedImageService
             'mime' => $mime,
             'width' => (int) $size[0],
             'height' => (int) $size[1],
+            'ratio' => $this->ratio($size),
             'hash' => substr(sha1_file($absolute) ?: sha1($relative), 0, 12),
         ];
+    }
+
+    /**
+     * Rasio lebar/tinggi gambar sumber.
+     *
+     * Dipakai pemanggil untuk memilih cara menampilkan gambar di dalam bingkai
+     * berasio tetap: gambar yang jauh lebih tinggi dari bingkainya tidak boleh
+     * dipaksa `cover` karena akan memotong sebagian besar isinya.
+     */
+    private function ratio(array $size): ?float
+    {
+        $width = (int) ($size[0] ?? 0);
+        $height = (int) ($size[1] ?? 0);
+
+        if ($width <= 0 || $height <= 0) {
+            return null;
+        }
+
+        return round($width / $height, 4);
     }
 
     public function normalizeRelativePath(?string $source): ?string

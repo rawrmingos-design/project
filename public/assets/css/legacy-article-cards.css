@@ -1,0 +1,188 @@
+/*
+ * Kartu artikel theme legacy — geometry gambar yang seragam.
+ *
+ * MASALAH (terukur di produksi, /id/artikel):
+ * Kartu memakai utility Tailwind yang TIDAK ADA di stylesheet theme legacy.
+ * Theme ini tidak menjalankan build Tailwind: markup memakai kelas Tailwind,
+ * sementara asetnya berasal dari 5 stylesheet portabel + beberapa blok
+ * <style> inline. Kelas yang absen kalah diam-diam, sehingga:
+ *
+ *   `aspect-[16/9]` -> tidak terdefinisi di mana pun (hanya aspect-square,
+ *                      aspect-[4/6], aspect-[6/2], aspect-[1080/424] yang ada)
+ *
+ * Akibatnya kotak gambar jatuh ke `aspect-ratio: auto` dan tingginya mengikuti
+ * rasio ASLI tiap file. Thumbnail artikel sendiri liar: terukur 50 berkas,
+ * dari 515x916 (0,56) sampai 1600x640 (2,50). Tinggi kotak gambar di beranda
+ * melompat 153px -> 680px, dan tinggi kartu 457 / 742 / 894 px, sehingga grid
+ * tampak bergerigi — keluhan client "card pada list artikelnya kurang rapi".
+ *
+ * PERBAIKAN: satu bingkai berasio tetap 16:9 + `object-fit`.
+ * 16:9 dipilih dari data, bukan selera: dari 4 kandidat (16:9, 3:2, 4:3, 1:1)
+ * yang diuji ke seluruh korpus, 16:9 memberi crop rata-rata paling kecil
+ * (25,8% vs 27,9% / 29,3% / 34,2%). Berasio tetap juga membuat tinggi kartu
+ * seragam, jadi grid tidak lagi bergerigi.
+ *
+ * Cara gambar mengisi bingkai dipilih per gambar oleh `x-optimized-image`
+ * (`fit="auto"`), memakai rasio asli yang dibaca `OptimizedImageService`:
+ *   - lanskap (rasio >= 1) -> `cover`: bingkai terisi penuh tanpa celah, dan
+ *     karena `cover` memotong bagian terjauh dari titik tengah, subjek yang
+ *     biasanya di tengah tetap terlihat.
+ *   - potret (rasio < 1) -> `contain`: center-crop akan membuang >50% isi
+ *     (terukur pada thumbnail 515x916: hanya 31,7% lebarnya yang tersisa), jadi
+ *     gambar ditampilkan utuh. Permintaan client: "jangan sampai kena crop
+ *     gambarnya biar keliatan semua". Sisa ruang memakai latar gelap bingkai
+ *     supaya menyatu dengan tema, bukan menyisakan celah terang.
+ *
+ * Kelas di bawah juga menggantikan kelas Tailwind lain yang mati:
+ *   `line-clamp-2` / `line-clamp-3` -> judul & ringkasan tidak terpotong
+ *   `from-black` / `opacity-60`     -> gradasi gelap di bawah gambar hilang,
+ *                                      padahal tanggal & "Views" berwarna putih
+ *   `leading-snug`                  -> tinggi baris judul jadi tak tentu
+ *
+ * Dipakai oleh:
+ *   resources/views/template/id/artikel/index.blade.php
+ *   resources/views/livewire/home/articles-skeleton.blade.php
+ */
+
+/* Grid artikel: kolom `1fr` butuh min-width:0 supaya item tidak melebar
+   mengikuti kontennya. */
+.legacy-article-grid > * {
+    min-width: 0;
+}
+
+/* Bingkai gambar: rasio tetap 16:9, tinggi tidak lagi mengikuti file asli. */
+.legacy-article-card__media {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    background-color: rgba(15, 23, 42, 0.55);
+}
+
+.legacy-article-card__media picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.legacy-article-card__media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/*
+ * Gambar yang jauh lebih tinggi daripada bingkainya (thumbnail potret, rasio
+ * 0,56–0,64 pada data produksi) tidak boleh dipaksa `cover`: center-crop akan
+ * membuang lebih dari separuh isinya dan subjeknya terpotong. Komponen
+ * `x-optimized-image` menandai kasus itu dengan `data-fit="contain"`, sehingga
+ * seluruh gambar tetap terlihat dan sisa ruang di kiri-kanan memakai latar
+ * gelap bingkai. Gambar lanskap tetap `cover` supaya tidak ada celah.
+ */
+.legacy-article-card__media img[data-fit="contain"] {
+    object-fit: contain;
+}
+
+/* Gradasi gelap pengganti `bg-gradient-to-t from-black/80 to-transparent`
+   yang tidak ikut ter-build: teks tanggal & jumlah views berwarna putih di
+   atas gambar, tanpa ini kontrasnya hilang di gambar terang. */
+.legacy-article-card__scrim {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+        to top,
+        rgba(15, 23, 42, 0.92) 0%,
+        rgba(15, 23, 42, 0.55) 38%,
+        rgba(15, 23, 42, 0) 72%
+    );
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+.legacy-article-card__meta {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * Tinggi blok teks dikunci supaya semua kartu dalam satu baris sama tinggi.
+ * Tanpa ini tinggi kartu bergantung panjang judul/ringkasan, jadi kartu di
+ * sebelahnya kelihatan tidak sejajar.
+ */
+.legacy-article-card__title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+    min-height: calc(2 * 1.35em);
+}
+
+.legacy-article-card__excerpt {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+    min-height: calc(3 * 1.5em);
+}
+
+/* Di layar sempit kolomnya satu, jadi tinggi seragam tidak diperlukan dan
+   ruang vertikal lebih berharga. Jumlah baris pemotongan tidak diubah — hanya
+   tinggi minimum yang dilepas. */
+@media (max-width: 640px) {
+    .legacy-article-card__title,
+    .legacy-article-card__excerpt {
+        min-height: 0;
+    }
+}
+
+/*
+ * Gambar unggulan (FEATURED NEWS) — cacat yang sama, ditemukan saat mengukur
+ * halaman ini. Blok hero memakai `bg-cover bg-center`, tetapi keduanya juga
+ * tidak ada di stylesheet legacy (terukur: `background-size: auto`,
+ * `background-position: 0% 0%`), sehingga gambar unggulan tampil seukuran
+ * aslinya dan mentok di sudut kiri-atas kotak, bukan memenuhi kotak.
+ *
+ * Catatan: tinggi hero di markup adalah `h-[60vh] md:h-[70vh]`, dan kelas itu
+ * juga tidak terdefinisi (terukur: hero 252px, bukan 60vh). Itu perubahan
+ * desain yang lebih besar dan TIDAK diubah di sini — hanya bagian gambar yang
+ * jelas-jelas salah yang diperbaiki. Lihat laporan ke client.
+ */
+.legacy-featured-media {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* `transition-transform`/`duration-700` juga tidak ada; efek zoom saat hover
+   didefinisikan ulang di sini mengikuti niat markup (`group-hover:scale-105`). */
+.legacy-featured-media {
+    transition: transform 700ms ease;
+}
+
+.group:hover .legacy-featured-media {
+    transform: scale(1.05);
+}
+
+/*
+ * Pemotongan teks generik 2 baris — pengganti `line-clamp-2`, yang juga tidak
+ * ada di stylesheet legacy. Dipakai ringkasan artikel unggulan.
+ */
+.legacy-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+

@@ -181,6 +181,7 @@ async function runLegacyLayout() {
     runPlaywright([
         'tests/e2e/article-default-list-markers.spec.js',
         'tests/e2e/article-list-pagination-footer.spec.js',
+        'tests/e2e/article-card-geometry.spec.js',
     ], false, {
         E2E_PORT: legacyPort,
         E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,

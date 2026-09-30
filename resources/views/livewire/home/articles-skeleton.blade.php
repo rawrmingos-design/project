@@ -10,11 +10,12 @@
     </div>
 
     {{-- Grid Skeleton --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <div class="legacy-article-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         @for($i = 0; $i < 3; $i++)
         <div class="rounded-3xl bg-secondary-900 border border-white/5 overflow-hidden animate-pulse">
-            {{-- Image --}}
-            <div class="aspect-[16/9] w-full bg-gray-700"></div>
+            {{-- Image: rasio harus sama dengan kartu asli (16:9), kalau tidak
+                 grid bergeser saat data Livewire selesai dimuat. --}}
+            <div class="legacy-article-card__media bg-gray-700"></div>
             
             {{-- Content --}}
             <div class="p-6 space-y-3">
