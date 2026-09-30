@@ -204,6 +204,63 @@ class NotificationsBotBannerSettingsTest extends AdminTestCase
     }
 
     /**
+     * Whitelist halaman lama harus BENAR-BENAR bersih, dan halaman baru harus
+     * memuatnya. `assertFormFieldDoesNotExist()` di atas tidak menangkap ini:
+     * entri whitelist yang tertinggal tidak menghasilkan field, jadi schema
+     * tetap bersih sementara nama kolomnya masih lolos filter di halaman lama.
+     *
+     * Kenapa test ini ada: saat memindahkan field, entri whitelist Branding
+     * SEMPAT tertinggal ke commit -- schema-nya sudah benar sehingga seluruh
+     * test tampak hijau, dan baru ketahuan dari probe runtime di staging.
+     *
+     * Dampaknya sudah diukur, dan lebih ringan dari dugaan pertama: karena
+     * whitelist disaring dengan `array_intersect_key($data, ...)`, key yang
+     * TIDAK ADA di state tidak menghasilkan apa pun. `getState()` halaman
+     * Branding tidak memuat `bot_menu_banner`, jadi entri itu INERT -- Simpan
+     * di Branding tidak menghapus maupun menimpa kolomnya (dibuktikan runtime:
+     * banner utuh setelah Simpan Branding). Jadi ini bukan bug yang merusak
+     * data, tapi kode menyesatkan: daftar itu menyatakan halaman Branding
+     * mengelola kolom yang tidak dimilikinya, dan begitu ada yang menambahkan
+     * field-nya kembali ke Branding, whitelist-nya langsung aktif menyimpan.
+     */
+    public function test_whitelist_branding_tidak_memuat_banner_lagi(): void
+    {
+        $this->actingAsAdmin();
+        $this->createSettings();
+
+        $this->assertNotContains(
+            'bot_menu_banner',
+            $this->whitelistOf(BrandingSettings::class),
+            'Whitelist Branding harus bersih -- kalau tidak, halaman itu ikut menulis kolom banner.'
+        );
+    }
+
+    public function test_whitelist_notifications_memuat_banner(): void
+    {
+        $this->actingAsAdmin();
+        $this->createSettings();
+
+        $this->assertContains(
+            'bot_menu_banner',
+            $this->whitelistOf(NotificationsSettings::class),
+            'Tanpa entri whitelist di halaman ini, save() membuang nilai banner diam-diam.'
+        );
+    }
+
+    /**
+     * @param  class-string<\App\Filament\Admin\Pages\Settings\SettingsSectionPage>  $page
+     * @return array<string>
+     */
+    private function whitelistOf(string $page): array
+    {
+        $instance = app($page);
+        $method = new \ReflectionMethod($instance, 'getSettingFieldWhitelist');
+        $method->setAccessible(true);
+
+        return $method->invoke($instance) ?? [];
+    }
+
+    /**
      * FileUpload menyimpan NILAI sebagai ARRAY path, bukan string tunggal.
      * Mengisi dengan string membuat validasi FileUpload melempar TypeError
      * ("Argument #2 ($value) must be of type array") -- dan test jadi gagal di
