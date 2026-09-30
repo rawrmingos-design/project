@@ -35,6 +35,10 @@ class BrandingSettings extends SettingsSectionPage
             'logo_favicon',
             'pwa_icon_source',
             'pwa_icon_generated_at',
+            // Banner gambar layar Menu Utama bot Telegram. Tanpa entri ini
+            // field upload-nya dibuang diam-diam filterStateByWhitelist()
+            // dan tersimpan NULL -- Simpan terlihat sukses, DB tetap kosong.
+            'bot_menu_banner',
             'warna1',
             'warna2',
             'warna3',
