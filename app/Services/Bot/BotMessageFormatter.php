@@ -240,6 +240,110 @@ class BotMessageFormatter
         }
 
         $pagination = $this->paginate($data['data'], $page, $pageSize);
+
+        // Layout dibelah per channel, dan itu BUKAN kerapian belaka.
+        //
+        // Jalur WhatsApp merakit peta nomornya DARI TOMBOL
+        // (`FonnteAdapter::numericEntries()` membaca `response['buttons']`).
+        // Begitu tombol kategori dihapus demi tampilan daftar Telegram, peta
+        // nomor WhatsApp jadi kosong dan SEMUA angka yang diketuk user WA
+        // berbalas "menu kedaluwarsa" — transaksi WhatsApp mati total. Karena
+        // itu jalur WA dipertahankan apa adanya, dan hanya Telegram yang
+        // memakai tampilan daftar bernomor.
+        return $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+            ? $this->telegramCategoryList($pagination)
+            : $this->whatsappCategoryButtons($pagination, $capabilities);
+    }
+
+    /**
+     * Layar Menu Utama Telegram: daftar kategori bernomor di TEKS.
+     *
+     * SENGAJA tanpa sapaan (`storeIntro`), tagline, dan instruksi "pilih
+     * kategori di bawah": item sudah tampil sebagai daftar, jadi kalimat
+     * pengantar hanya mendorong pilihan ke bawah lipatan layar.
+     *
+     * Nama kategori TIDAK lagi masuk tombol, jadi nomor di teks adalah
+     * satu-satunya penanda posisi. `numeric_menu.entries` WAJIB terisi — tanpa
+     * itu user melihat daftar yang tidak bisa dipilih sama sekali.
+     */
+    private function telegramCategoryList(array $pagination): array
+    {
+        $lines = [__('bot.menu_list_title'), ''];
+        $entries = [];
+        $number = 0;
+
+        foreach ($pagination['items'] as $type) {
+            $number++;
+            $name = (string) ($type['name'] ?? '') !== ''
+                ? (string) $type['name']
+                : __('bot.menu_category_fallback');
+
+            $lines[] = __('bot.menu_item_numbered', ['number' => $number, 'name' => $name]);
+
+            // `command` dieksekusi saat nomor dipilih; `label` disimpan supaya
+            // pesan "pilihan tidak valid" bisa menampilkan ulang daftar aktif.
+            $entries[(string) $number] = [
+                'type' => 'content',
+                'label' => $name,
+                'command' => 'kategori ' . (string) ($type['slug'] ?? ''),
+            ];
+        }
+
+        // Halaman berikutnya/sebelumnya memakai nomor yang sama seperti jalur
+        // WhatsApp (98/99), sehingga tombol angka bisa dipakai pindah halaman
+        // walaupun tombol inline tidak terkirim bersama pesan menu.
+        if ((int) ($pagination['total_pages'] ?? 1) > 1) {
+            $page = (int) $pagination['page'];
+            $totalPages = (int) $pagination['total_pages'];
+
+            if ($page > 1) {
+                $entries['98'] = [
+                    'type' => 'navigation_previous',
+                    'label' => '⬅️ Prev',
+                    'command' => 'menu page:' . ($page - 1),
+                ];
+            }
+            if ($page < $totalPages) {
+                $entries['99'] = [
+                    'type' => 'navigation_next',
+                    'label' => 'Next ➡️',
+                    'command' => 'menu page:' . ($page + 1),
+                ];
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = $this->menuListFooter($pagination);
+
+        $response = [
+            'text' => implode("\n", $lines),
+            'buttons' => $this->menuNavigationButtons($pagination),
+            'numeric_menu' => [
+                'menu' => 'categories',
+                'parent_menu' => null,
+                'page' => $pagination['page'],
+                'entries' => $entries,
+            ],
+        ];
+
+        $bannerUrl = $this->telegramMenuBannerUrl(BotGatewayCapabilities::forSource(
+            BotGatewayCapabilities::SOURCE_TELEGRAM,
+        ));
+        if ($bannerUrl !== null) {
+            $response['photo_url'] = $bannerUrl;
+        }
+
+        return $response;
+    }
+
+    /**
+     * Layar Menu Utama WhatsApp — perilaku LAMA, tanpa perubahan apa pun.
+     *
+     * Dipertahankan utuh karena jalur WhatsApp merakit peta nomornya dari
+     * tombol di sini; mengubah susunannya mematikan pemilihan nomor di WA.
+     */
+    private function whatsappCategoryButtons(array $pagination, BotGatewayCapabilities $capabilities): array
+    {
         $items = [];
 
         foreach ($pagination['items'] as $type) {
@@ -260,28 +364,16 @@ class BotMessageFormatter
 
         $capabilityButtons = [];
         if ($capabilities->supports('leaderboard')) {
-            $capabilityButtons[] = $this->button(
-                '🏆 Leaderboard',
-                'leaderboard',
-                'global_action',
-            );
+            $capabilityButtons[] = $this->button('🏆 Leaderboard', 'leaderboard', 'global_action');
         }
         if ($capabilities->supports('deposit')) {
-            $capabilityButtons[] = $this->button(
-                '💰 Deposit',
-                'deposit',
-                'global_action',
-            );
+            $capabilityButtons[] = $this->button('💰 Deposit', 'deposit', 'global_action');
         }
         if ($capabilityButtons !== []) {
             $buttons[] = $capabilityButtons;
         }
 
-        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
-            $buttons[] = $this->languageButtons();
-        }
-
-        $response = [
+        return [
             'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
                 . "\n" . __('bot.menu_pick_category'),
             'buttons' => $buttons,
@@ -291,13 +383,30 @@ class BotMessageFormatter
                 'page' => $pagination['page'],
             ],
         ];
+    }
 
-        $bannerUrl = $this->telegramMenuBannerUrl($capabilities);
-        if ($bannerUrl !== null) {
-            $response['photo_url'] = $bannerUrl;
+    /**
+     * Tombol navigasi layar daftar Telegram — SENGAJA hanya navigasi.
+     *
+     * Telegram hanya mengizinkan SATU `reply_markup` per pesan: reply keyboard
+     * (`keyboard`) ATAU inline (`inline_keyboard`). Karena layar ini harus
+     * mengirim keyboard angka (keputusan user: keyboard angka global), tombol
+     * inline di sini tidak ikut terkirim bersama pesan menu — adapter
+     * mengirimnya sebagai pesan kedua, dan hanya kalau menunya lebih dari satu
+     * halaman.
+     *
+     * Susunan prev/next tetap dibuat di sini supaya satu sumber dengan
+     * `appendPagination()` yang dipakai layar lain.
+     *
+     * @return array<int, array<int, array<string, string>>>
+     */
+    private function menuNavigationButtons(array $pagination): array
+    {
+        if ((int) ($pagination['total_pages'] ?? 1) <= 1) {
+            return [];
         }
 
-        return $response;
+        return $this->appendPagination([], 'menu', $pagination);
     }
 
     /**

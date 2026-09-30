@@ -39,7 +39,7 @@ return [
     // `menu_title` & `menu_pick_category` are kept on purpose: `storeIntro()` is
     // still used by `/start`, and removing keys risks leaking raw key literals
     // to any path that has not been migrated yet.
-    'menu_list_title' => '📋 *Category List*',
+    'menu_list_title' => 'PRODUCT LIST',
     'menu_page_footer' => '📄 Page :page / :total',
     'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Sorry, the category list is unavailable right now.',

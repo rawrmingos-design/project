@@ -115,7 +115,10 @@ class BotMenuBannerTest extends TestCase
 
         $this->assertArrayNotHasKey('photo_url', $response);
         $this->assertNotEmpty($response['text']);
-        $this->assertNotEmpty($response['buttons'], 'Tombol kategori tidak boleh hilang.');
+        $this->assertStringContainsString('[1]. Top Up Games', $response['text']);
+        // Item pindah dari tombol ke TEKS, jadi yang wajib terisi sekarang peta
+        // nomornya — tanpa itu daftar tampil tapi tidak bisa dipilih.
+        $this->assertSame('kategori top-up-games', $response['numeric_menu']['entries']['1']['command']);
     }
 
     public function test_whatsapp_tidak_ikut_kirim_banner(): void

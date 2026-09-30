@@ -128,12 +128,14 @@ class TelegramCopyPhaseOneTest extends TestCase
 
             $text = $this->visibleText($request['text']);
 
-            return str_contains($text, '👋 *Selamat datang di Test Store*')
-                && str_contains($text, 'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.')
-                && str_contains($text, '🏠 *Menu Utama*')
-                && str_contains($text, 'Pilih kategori di bawah untuk mulai. 👇')
-                && ! str_contains($text, 'Welcome to')
-                && ! str_contains($text, 'Main Menu');
+            // Layar menu Telegram sekarang DAFTAR BERNOMOR tanpa narasi. Yang
+            // dijaga test ini bukan lagi sapaan menu, melainkan hal yang
+            // sesungguhnya diuji: header `Accept-Language: en` TIDAK boleh
+            // menyetir bahasa balasan — teks harus tetap Indonesia.
+            return str_contains($text, 'LIST PRODUCT')
+                && str_contains($text, '[1]. 🎮 Top Up')
+                && ! str_contains($text, 'PRODUCT LIST')
+                && ! str_contains($text, 'Welcome to');
         }, 'Balasan ke user Telegram harus tetap Bahasa Indonesia (baseline sebelum refactor).');
     }
 
@@ -537,6 +539,8 @@ class TelegramCopyPhaseOneTest extends TestCase
 
     public function test_formatter_langsung_tetap_indonesia(): void
     {
+        // WhatsApp: narasi lama dipertahankan UTUH. Jalur WA merakit peta
+        // nomornya dari tombol, jadi susunannya tidak boleh ikut berubah.
         $menu = app(BotMessageFormatter::class)->formatCategories([
             'ok' => true,
             'data' => [['name' => 'Top Up Games', 'slug' => 'top-up-games']],
@@ -544,6 +548,26 @@ class TelegramCopyPhaseOneTest extends TestCase
 
         $this->assertStringContainsString('🏠 *Menu Utama*', $menu['text']);
         $this->assertStringContainsString('Pilih kategori di bawah untuk mulai. 👇', $menu['text']);
+        $this->assertSame('kategori top-up-games', $menu['buttons'][0][0]['callback']);
+    }
+
+    public function test_layar_menu_telegram_berupa_daftar_bernomor(): void
+    {
+        $menu = app(BotMessageFormatter::class)->formatCategories(
+            [
+                'ok' => true,
+                'data' => [['name' => 'Top Up Games', 'slug' => 'top-up-games']],
+            ],
+            1,
+            \App\Services\Bot\BotGatewayCapabilities::forSource('telegram_gateway'),
+        );
+
+        // Telegram: daftar bernomor, tanpa narasi sapaan.
+        $this->assertStringContainsString('LIST PRODUCT', $menu['text']);
+        $this->assertStringContainsString('[1]. Top Up Games', $menu['text']);
+        $this->assertStringNotContainsString('🏠 *Menu Utama*', $menu['text']);
+        $this->assertStringNotContainsString('Pilih kategori di bawah', $menu['text']);
+        $this->assertStringNotContainsString('Selamat datang', $menu['text']);
     }
 
     public function test_pesan_kategori_kosong_tetap_indonesia(): void
@@ -556,6 +580,7 @@ class TelegramCopyPhaseOneTest extends TestCase
 
     public function test_nama_kategori_kosong_dapat_fallback_indonesia(): void
     {
+        // WhatsApp: label tombol.
         $menu = app(BotMessageFormatter::class)->formatCategories([
             'ok' => true,
             'data' => [['name' => '', 'slug' => 'top-up-games']],
@@ -567,6 +592,19 @@ class TelegramCopyPhaseOneTest extends TestCase
             collect($labels)->contains(fn (string $l): bool => str_contains($l, 'Kategori')),
             'Kategori tanpa nama harus dapat fallback "Kategori". Label: ' . implode(' | ', $labels),
         );
+
+        // Telegram: fallback yang sama HARUS ikut ke TEKS, karena di sana nama
+        // kategori tidak lagi dirender sebagai tombol.
+        $telegram = app(BotMessageFormatter::class)->formatCategories(
+            [
+                'ok' => true,
+                'data' => [['name' => '', 'slug' => 'top-up-games']],
+            ],
+            1,
+            \App\Services\Bot\BotGatewayCapabilities::forSource('telegram_gateway'),
+        );
+
+        $this->assertStringContainsString('[1]. Kategori', $telegram['text']);
     }
 
     // ===== Task 1.5 — status pesanan, daftar transaksi, riwayat order =====

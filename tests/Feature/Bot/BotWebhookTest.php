@@ -142,22 +142,23 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Layar menu sekarang mengirim DAFTAR BERNOMOR di teks + reply keyboard
+        // angka, bukan narasi sapaan + tombol inline kategori.
         Http::assertSent(function ($request) {
             if (! str_contains($request->url(), 'sendMessage')) {
                 return false;
             }
 
-            $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
             $text = $this->visibleText($request['text']);
 
             return $request['chat_id'] === 12345
-                && str_contains($text, 'Selamat datang di Test Store')
-                && str_contains($text, 'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.')
-                && str_contains($text, '🏠 *Menu Utama*')
-                && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
-                    && ($button['callback_data'] ?? null) === 'leaderboard')
-                && $buttons->doesntContain(fn (array $button): bool => ($button['text'] ?? null) === '💰 Deposit'
-                    || ($button['callback_data'] ?? null) === 'deposit');
+                && str_contains($text, 'LIST PRODUCT')
+                && str_contains($text, '[1]. 🎮 Top Up')
+                // Sapaan + tagline + "pilih kategori di bawah" DIHAPUS.
+                && ! str_contains($text, 'Selamat datang di Test Store')
+                && ! str_contains($text, 'Menu Utama');
+            // Keyboard angka diuji terpisah di `TelegramNumericKeyboardTest`
+            // (fitur terpisah; layar ini sudah benar tanpa keyboard).
         });
     }
 
@@ -219,13 +220,21 @@ class BotWebhookTest extends TestCase
         ], 1, $capabilities);
         $keyboard = $formatter->defaultReplyKeyboard($capabilities);
 
-        $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');
         $keyboardLabels = collect($keyboard['keyboard'])->flatten(1)->pluck('text');
 
-        $this->assertTrue($menuCallbacks->contains('leaderboard'));
-        $this->assertTrue($menuCallbacks->contains('deposit'));
-        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+        // `leaderboard`/`deposit` dulu tombol INLINE di layar menu. Layar menu
+        // sekarang membawa reply keyboard angka (Telegram hanya mengizinkan
+        // satu `reply_markup` per pesan), jadi keduanya hidup di reply keyboard
+        // — dan itulah yang harus dibuktikan masih ada.
+        $this->assertTrue($keyboardLabels->contains('🏆 Leaderboard'));
         $this->assertTrue($keyboardLabels->contains('💰 Deposit'));
+        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+
+        // Menu kategori tidak boleh lagi menyisakan tombol inline kategori.
+        $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');
+        $this->assertTrue($menuCallbacks->every(
+            fn (string $callback): bool => ! str_starts_with($callback, 'kategori '),
+        ));
     }
 
     public function test_telegram_non_member_must_join_before_opening_menu(): void
@@ -375,17 +384,28 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Pesan pertama: daftar bernomor. Delapan item per halaman (Telegram),
+        // jadi 9 tipe = 2 halaman.
         Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+            $text = $this->visibleText($request['text']);
+
+            // Nama kategori di fixture ini TANPA emoji ('Top Up 1'), karena
+            // daftar menampilkan NAMA apa adanya — emoji hanya ada di label
+            // tombol lama (`categoryButtonLabel`), bukan di teks daftar.
+            return str_contains($text, 'Halaman 1 / 2')
+                && str_contains($text, '[1]. Top Up 1')
+                && str_contains($text, '[8]. Top Up 8')
+                && ! str_contains($text, '[9].');
+        });
+
+        // Pesan KEDUA: tombol inline navigasi. Telegram cuma mengizinkan SATU
+        // `reply_markup` per pesan, jadi tombol pindah halaman tidak bisa
+        // menempel di pesan menu yang membawa keyboard angka.
+        Http::assertSent(function ($request) {
+            $keyboard = $request['reply_markup']['inline_keyboard'] ?? [];
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
-            return str_contains($request['text'], '· 1/2')
-                // 7 baris: 6 baris katalog + 1 baris pilihan bahasa
-                // (kompensasi auto-deteksi; lihat `languageButtons()`).
-                && count($keyboard) === 7
-                && count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '🎮 Top Up 1'
-                && $callbacks->contains('menu page:2')
+            return $callbacks->contains('menu page:2')
                 && $callbacks->every(fn (string $callback): bool => strlen($callback) <= 64);
         });
     }

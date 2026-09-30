@@ -33,7 +33,7 @@ return [
     // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: `storeIntro()`
     // masih dipakai `/start`, dan menghapus kunci = risiko literal bocor ke
     // user kalau ada jalur yang belum ikut berubah.
-    'menu_list_title' => '📋 *Daftar Kategori*',
+    'menu_list_title' => 'LIST PRODUCT',
     'menu_page_footer' => '📄 Halaman :page / :total',
     'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Maaf, daftar tipe kategori sedang tidak tersedia.',
