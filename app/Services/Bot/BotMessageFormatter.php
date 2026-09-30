@@ -2177,6 +2177,35 @@ class BotMessageFormatter
         return " · {$pagination['page']}/{$pagination['total_pages']}";
     }
 
+    /**
+     * Footer layar daftar: baris halaman (kalau lebih dari satu) + jam.
+     *
+     * Baris halaman disembunyikan saat cuma ada SATU halaman: "📄 Halaman 1 / 1"
+     * bukan informasi, hanya kebisingan yang membuat daftar pendek terlihat
+     * seperti terpotong.
+     *
+     * Jam diambil lewat `config('app.timezone')`, bukan `now()` mentah. Server
+     * menyimpan waktu UTC, sedangkan user bot ada di WIB; jam yang menyimpang
+     * dari jam HP user membuat pesan terlihat basi — dan user memakai jam ini
+     * untuk menyocokkan dengan riwayat order.
+     */
+    private function menuListFooter(array $pagination): string
+    {
+        $lines = [];
+
+        $total = (int) ($pagination['total_pages'] ?? 1);
+        if ($total > 1) {
+            $lines[] = __('bot.menu_page_footer', [
+                'page' => (int) ($pagination['page'] ?? 1),
+                'total' => $total,
+            ]);
+        }
+
+        $lines[] = '📆 ' . \Illuminate\Support\Carbon::now(config('app.timezone'))->format('h:i:s A');
+
+        return implode("\n", $lines);
+    }
+
     private function button(
         string $text,
         string $callback,
