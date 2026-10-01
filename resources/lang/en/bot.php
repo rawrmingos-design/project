@@ -79,7 +79,6 @@ return [
     'payment_list_free' => ' (fee admin: Rp 0)',
     'payment_list_fee' => ' (fee admin: Rp :fee)',
     'payment_list_fee_later' => ' (fee admin: calculated on the next step)',
-    'payment_list_footer' => 'Type a number to choose a payment method.',
 
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',

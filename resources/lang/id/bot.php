@@ -79,7 +79,6 @@ return [
     // karangan; user diberi tahu bahwa biayanya muncul di langkah berikutnya
     // supaya tidak ada kejutan di total.
     'payment_list_fee_later' => ' (fee admin: dihitung di langkah berikutnya)',
-    'payment_list_footer' => 'Ketik angka untuk memilih pembayaran.',
 
     // --- Panduan /help ---
     // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang

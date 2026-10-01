@@ -821,8 +821,6 @@ class BotMessageFormatter
             ];
         }
 
-        $lines[] = '';
-        $lines[] = __('bot.payment_list_footer');
         $lines[] = $this->menuListFooter(['page' => 1, 'total_pages' => 1]);
 
         if ($backCallback !== null) {
