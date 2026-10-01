@@ -1489,6 +1489,36 @@ class BotCommandHandler
      */
     private function createTelegramAccount(array $state, ?string $email, string $username): array
     {
+        // Batas pembuatan akun per pengirim Telegram. Tanpa ini seorang pengguna
+        // bisa membuat akun massal lewat percakapan bot: tiap akun hanya butuh
+        // 4 pesan, dan tidak ada satu pun penghitung yang membatasinya.
+        // `rate_limits.callbacks.telegram_account_per_sender_per_minute` sudah
+        // ada di config sejak lama tapi TIDAK PERNAH dipakai — kunci yang
+        // berbohong. Di sini ia benar-benar ditegakkan.
+        //
+        // Kuncinya memakai identitas Telegram (bukan `senderFingerprint($context)`,
+        // yang membaca nomor WhatsApp dan tidak tersedia di state ini).
+        $accountKey = 'bot-telegram-account:' . hash_hmac(
+            'sha256',
+            (string) ($state['telegram_bot_scope'] ?? 'default') . ':' . (string) ($state['telegram_user_id'] ?? 'unknown'),
+            (string) config('app.key'),
+        );
+        $accountLimit = max(1, (int) config('rate_limits.callbacks.telegram_account_per_sender_per_minute', 10));
+
+        if (RateLimiter::tooManyAttempts($accountKey, $accountLimit)) {
+            Log::notice('Bot Telegram account creation rate limited.', [
+                'telegram_user_id' => $state['telegram_user_id'] ?? '',
+                'limit' => $accountLimit,
+            ]);
+
+            return [
+                'text' => 'Terlalu banyak pendaftaran akun dari akun Telegram ini. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+
+        RateLimiter::hit($accountKey, 60);
+
         $password = Str::password(12, symbols: false);
 
         try {
