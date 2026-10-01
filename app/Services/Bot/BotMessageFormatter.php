@@ -793,6 +793,14 @@ class BotMessageFormatter
 
             $grup = (string) ($method['group'] ?? '');
             if ($grup !== '' && $grup !== $lastGroup) {
+                // Baris kosong SEBELUM grup berikutnya: tanpa itu nama grup
+                // menempel di baris metode terakhir grup sebelumnya
+                // ("[1]. QRIS — +Rp 863" lalu langsung "E-Wallet"), dan
+                // batasnya jadi tidak terbaca.
+                if ($lastGroup !== null) {
+                    $lines[] = '';
+                }
+
                 $lines[] = __('bot.payment_list_group', ['grup' => $this->escapeMarkdown($grup)]);
                 $lastGroup = $grup;
             }
