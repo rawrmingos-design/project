@@ -67,13 +67,18 @@ return [
     // kosong ("💳 Pilih Pembayaran" tanpa satu pun metode).
     'payment_list_title' => '💳 *Pilih Pembayaran*',
     'payment_list_service' => '💎 :nama',
-    'payment_list_group' => '_\:grup_',
-    'payment_list_free' => ' — tanpa biaya',
-    'payment_list_fee' => ' — +Rp :fee',
+    // Otomatis MIRING: parser Telegram hanya kenal `_..._` sebagai penanda, jadi
+    // penanda lurus (mis. `\:`) ikut ter-escape dan tampil mentah di layar.
+    'payment_list_group' => '_:grup_',
+    // Biaya ditulis eksplisit "(fee admin)": angka telanjang setelah nama metode
+    // tidak menjelaskan itu biaya apa.
+    'payment_list_free' => ' (fee admin: Rp 0)',
+    'payment_list_fee' => ' (fee admin: Rp :fee)',
     // Biaya yang TIDAK bisa dihitung di muka (mis. metode Tripay tanpa jawaban
-    // API) sengaja tidak diberi angka karangan; user diberi tahu bahwa biayanya
-    // muncul di langkah berikutnya supaya tidak ada kejutan di total.
-    'payment_list_fee_later' => ' — biaya dihitung di langkah berikutnya',
+    // API, atau nominal di bawah minimum metode) sengaja tidak diberi angka
+    // karangan; user diberi tahu bahwa biayanya muncul di langkah berikutnya
+    // supaya tidak ada kejutan di total.
+    'payment_list_fee_later' => ' (fee admin: dihitung di langkah berikutnya)',
     'payment_list_footer' => 'Ketik angka untuk memilih pembayaran.',
 
     // --- Panduan /help ---

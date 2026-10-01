@@ -73,10 +73,12 @@ return [
     // empty ("💳 Pilih Pembayaran" with no method at all).
     'payment_list_title' => '💳 *Choose Payment*',
     'payment_list_service' => '💎 :nama',
-    'payment_list_group' => '_\:grup_',
-    'payment_list_free' => ' — no fee',
-    'payment_list_fee' => ' — +Rp :fee',
-    'payment_list_fee_later' => ' — fee calculated on the next step',
+    'payment_list_group' => '_:grup_',
+    // Cost is spelled out as "(fee admin)": a bare number after the method name
+    // does not explain what the charge is.
+    'payment_list_free' => ' (fee admin: Rp 0)',
+    'payment_list_fee' => ' (fee admin: Rp :fee)',
+    'payment_list_fee_later' => ' (fee admin: calculated on the next step)',
     'payment_list_footer' => 'Type a number to choose a payment method.',
 
     // --- Help /help ---

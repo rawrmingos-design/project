@@ -5,6 +5,7 @@ namespace Tests\Feature\Bot;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotMessageFormatter;
 use App\Services\Bot\BotNumericMenuStore;
+use App\Support\TelegramMarkdown;
 use Tests\TestCase;
 
 /**
@@ -85,8 +86,10 @@ class TelegramPaymentScreenTest extends TestCase
             ['name' => 'DANA', 'code' => 'DANA', 'group' => 'E-Wallet', 'group_sort' => 3, 'fee' => 13],
         ])['text'];
 
-        $this->assertStringContainsString('tanpa biaya', $text);
-        $this->assertStringContainsString('+Rp 13', $text);
+        // Angka biaya harus dijelaskan sebagai FEE ADMIN: angka telanjang setelah
+        // nama metode tidak memberi tahu itu biaya apa.
+        $this->assertStringContainsString('(fee admin: Rp 0)', $text);
+        $this->assertStringContainsString('(fee admin: Rp 13)', $text);
     }
 
     public function test_biaya_yang_tak_bisa_dihitung_tidak_dikarang(): void
@@ -97,9 +100,32 @@ class TelegramPaymentScreenTest extends TestCase
             ['name' => 'Indomaret', 'code' => 'INDOMARET', 'group' => 'Convenience Store', 'group_sort' => 5, 'fee' => null],
         ])['text'];
 
-        $this->assertStringContainsString('biaya dihitung di langkah berikutnya', $text);
+        $this->assertStringContainsString('(fee admin: dihitung di langkah berikutnya)', $text);
         $this->assertStringContainsString('Indomaret', $text, 'Metode tetap ditawarkan walau biayanya belum diketahui.');
-        $this->assertStringNotContainsString('+Rp 0', $text);
+    }
+
+    /**
+     * Label grup memakai penanda MIRING underscore TUNGGAL.
+     *
+     * Parser Telegram hanya mengenali `_teks_` sebagai miring; `_\:teks_` atau
+     * penanda lurus lain ikut ter-escape sehingga tampil MENTAH di layar. Test
+     * ini menjaga penandanya tetap satu underscore.
+     */
+    public function test_label_grup_memakai_penanda_miring_yang_didukung_parser(): void
+    {
+        $text = (string) $this->screen([
+            ['name' => 'QRIS', 'code' => 'QRIS', 'group' => 'QRIS', 'group_sort' => 2, 'fee' => 137],
+        ])['text'];
+
+        $this->assertStringContainsString('_QRIS_', $text);
+
+        // Dan penandanya harus benar-benar menjadi miring setelah dikonversi —
+        // inilah yang dulu gagal, sehingga user melihat `_QRIS_` apa adanya.
+        $terkirim = TelegramMarkdown::fromLegacy($text);
+
+        $this->assertStringContainsString('_QRIS_', $terkirim, 'Penanda miring ikut ter-escape dan tampil mentah.');
+        $this->assertStringNotContainsString('\\_QRIS\\_', $terkirim);
+        $this->assertStringContainsString('\\(fee admin: Rp 137\\)', $terkirim);
     }
 
     // ----------------------------------------------------------------- urutan
