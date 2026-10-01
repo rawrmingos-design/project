@@ -588,7 +588,12 @@ class TelegramLanguageCommandTest extends TestCase
         $helpId = (string) $formatter->formatHelp($this->telegram())['text'];
 
         $this->assertStringContainsString('*🛍️ Buka Menu*', $helpId);
-        $this->assertStringContainsString('*❌ Batal Transaksi*', $helpId);
+        // Panduan TIDAK menyebut batal di bahasa mana pun: tombolnya sudah
+        // dicabut dari keyboard, jadi menyebutkannya mengarahkan user ke tombol
+        // yang tidak ada. Dinyatakan di kedua locale supaya pencabutan barisnya
+        // tidak bisa lolos hanya karena labelnya berbeda bahasa.
+        $this->assertStringNotContainsString('*❌ Batal Transaksi*', $helpId);
+        $this->assertStringNotContainsString('*❌ Cancel Order*', $helpId);
         $this->assertStringNotContainsString('*🛍️ Open Menu*', $helpId);
     }
 

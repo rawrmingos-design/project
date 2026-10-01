@@ -1443,8 +1443,18 @@ class BotMessageFormatter
                 __('bot.help_manage_status', $names),
                 __('bot.help_manage_history', $names),
                 __('bot.help_manage_checkid', $names),
-                __('bot.help_manage_cancel', $names),
             ];
+            // Baris "❌ Batal Transaksi" DICABUT dari panduan (keputusan user).
+            //
+            // Tombolnya sudah tidak dirender di keyboard, jadi menyebutkannya di
+            // panduan mengarahkan user menekan tombol yang tidak ada di
+            // layarnya. Perintah `batal` sendiri tetap hidup (perintah ketik +
+            // tombol inline di layar konfirmasi checkout), jadi mencabut baris
+            // ini tidak mematikan fiturnya — hanya berhenti mempromosikannya.
+            //
+            // Kunci lang `bot.help_manage_cancel` SENGAJA tidak dihapus (nol
+            // penghapusan di `resources/lang/`), jadi kuncinya kini tidak dipakai
+            // di jalur Telegram mana pun.
 
             if ($capabilities->supports('deposit')) {
                 // Ditaruh di dalam daftar supaya urutannya ikut alur, bukan

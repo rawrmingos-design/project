@@ -172,7 +172,11 @@ class TelegramCopyPhaseOneTest extends TestCase
         $this->assertStringContainsString('• *📦 Cek Status* — status pesanan terakhir', $text);
         $this->assertStringContainsString('• *📜 Riwayat Order* — daftar pesananmu', $text);
         $this->assertStringContainsString('• *🔍 Cek ID Game* — pastikan nama akun benar dulu', $text);
-        $this->assertStringContainsString('• *❌ Batal Transaksi* — batalkan pesanan yang belum dibayar', $text);
+
+        // Baris batal DICABUT: tombolnya sudah tidak ada di keyboard, jadi
+        // panduan tidak boleh menyuruh user menekan tombol yang tidak terlihat.
+        // Perintah `batal` sendiri tetap hidup — ini soal panduan, bukan fitur.
+        $this->assertStringNotContainsString('*❌ Batal Transaksi*', $text);
 
         // Tautan admin bisa dipencet dan URL-nya masuk utuh (placeholder :url).
         $this->assertStringContainsString('[💬 Klik di sini](https://t.me/alexander_vors)', $text);
