@@ -60,6 +60,22 @@ return [
     'service_item_numbered' => '[:number]. :nama — Rp :harga',
     'nav_page_prompt' => 'Pindah halaman: ⬅️ / ➡️',
 
+    // --- Layar Pilih Pembayaran (Telegram) ---
+    // Daftar metode ada di TEKS, bukan di tombol: Telegram hanya mengizinkan
+    // SATU `reply_markup` per pesan, dan di layar ini keyboard angka menang.
+    // Sebelumnya isi daftar cuma hidup di tombol inline, jadi layarnya tampil
+    // kosong ("💳 Pilih Pembayaran" tanpa satu pun metode).
+    'payment_list_title' => '💳 *Pilih Pembayaran*',
+    'payment_list_service' => '💎 :nama',
+    'payment_list_group' => '_\:grup_',
+    'payment_list_free' => ' — tanpa biaya',
+    'payment_list_fee' => ' — +Rp :fee',
+    // Biaya yang TIDAK bisa dihitung di muka (mis. metode Tripay tanpa jawaban
+    // API) sengaja tidak diberi angka karangan; user diberi tahu bahwa biayanya
+    // muncul di langkah berikutnya supaya tidak ada kejutan di total.
+    'payment_list_fee_later' => ' — biaya dihitung di langkah berikutnya',
+    'payment_list_footer' => 'Ketik angka untuk memilih pembayaran.',
+
     // --- Panduan /help ---
     // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang
     // ditulis ulang di dalam teks. Label tombol belum boleh diterjemahkan

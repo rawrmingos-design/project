@@ -115,6 +115,10 @@ class BotLangParityTest extends TestCase
             'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
             'history_detail_invoice', 'history_detail_total', 'label_expired',
             'menu_item_numbered', 'service_item_numbered',
+            // Layar pembayaran: kerangka daftarnya juga tidak memuat kata yang
+            // bisa diterjemahkan (garis bernomor, garis pemisah biaya).
+            'payment_list_service', 'payment_list_group', 'payment_list_free',
+            'payment_list_fee',
             // Kerangka kartu layanan tidak memuat kata yang bisa diterjemahkan:
             // garis kotak, penanda `┊`, dan judul ber-emoji. Isinya (nama paket,
             // nama layanan, harga) datang dari data dan dari kunci lain, jadi

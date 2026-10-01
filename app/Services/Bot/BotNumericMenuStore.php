@@ -98,6 +98,21 @@ class BotNumericMenuStore
     }
 
     /**
+     * Buang peta nomor yang berlaku.
+     *
+     * Dipakai saat sebuah layar mengirim `numeric_menu` TANPA entri: layar itu
+     * tidak punya nomor sendiri, jadi menahan peta lama membuat keyboard angka
+     * dari layar sebelumnya masih menempel dan menunjuk item yang sudah tidak
+     * terlihat. Yang paling berbahaya: nomor itu dibaca sebagai pemilihan yang
+     * SAH, padahal user sedang mengetik ID game (angka murni) — pesanan bisa
+     * salah sasaran atau hilang.
+     */
+    public function forget(string $externalUserId): void
+    {
+        Cache::forget($this->key($externalUserId));
+    }
+
+    /**
      * Ambil state yang MASIH berlaku. `null` = tidak ada / kedaluwarsa / rusak.
      *
      * @return array<string, mixed>|null

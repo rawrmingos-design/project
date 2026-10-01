@@ -1512,8 +1512,10 @@ class BotWebhookTest extends TestCase
         ];
 
         $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            // Layar pembayaran sekarang menghitung biaya tiap metode, jadi quote
+            // dipanggil lebih dari sekali — bukan cuma sekali oleh `harga`.
             $mock->shouldReceive('quote')
-                ->once()
+                ->atLeast()->once()
                 ->withArgs(fn (array $payload, $user) => $user === null)
                 ->andReturn($this->fakePriceQuote(requiresZoneId: true));
         });
@@ -1526,7 +1528,15 @@ class BotWebhookTest extends TestCase
 
         $backToPayment = $handler->handle('0', [], $context);
         $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
-        $this->assertStringContainsString('harga 123 QRIS', json_encode($backToPayment['buttons']));
+
+        // Metode ada di TEKS, bukan di tombol: tombol inline tidak pernah
+        // terkirim di layar ini karena keyboard angka yang menang. Perintahnya
+        // kini hidup di peta nomor (entri `1`), bukan di `buttons`.
+        $this->assertStringContainsString('QRIS', $backToPayment['text']);
+        $this->assertSame(
+            'harga 123 QRIS',
+            (string) ($backToPayment['numeric_menu']['entries']['1']['command'] ?? ''),
+        );
     }
 
     public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()

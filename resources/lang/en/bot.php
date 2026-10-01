@@ -66,6 +66,19 @@ return [
     'service_item_numbered' => '[:number]. :nama — Rp :harga',
     'nav_page_prompt' => 'Switch page: ⬅️ / ➡️',
 
+    // --- Payment method screen (Telegram) ---
+    // The list lives in TEXT, not in buttons: Telegram allows only ONE
+    // `reply_markup` per message and the numeric keyboard wins here. The list
+    // used to live only in inline buttons, which is why the screen rendered
+    // empty ("💳 Pilih Pembayaran" with no method at all).
+    'payment_list_title' => '💳 *Choose Payment*',
+    'payment_list_service' => '💎 :nama',
+    'payment_list_group' => '_\:grup_',
+    'payment_list_free' => ' — no fee',
+    'payment_list_fee' => ' — +Rp :fee',
+    'payment_list_fee_later' => ' — fee calculated on the next step',
+    'payment_list_footer' => 'Type a number to choose a payment method.',
+
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',
     'help_order_title' => '🛒 How to Order',

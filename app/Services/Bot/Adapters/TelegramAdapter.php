@@ -342,11 +342,20 @@ class TelegramAdapter implements BotAdapterInterface
 
         $entries = is_array($numericMenu['entries'] ?? null) ? $numericMenu['entries'] : [];
 
-        // Respons tanpa entri (mis. daftar kosong) JANGAN menghapus peta lama:
-        // user masih melihat keyboard angka dari daftar sebelumnya, dan tombol
-        // itu harus tetap berfungsi.
+        // Respons TANPA entri = layar ini tidak punya nomor sendiri (mis. layar
+        // harga yang meminta user mengetik ID game). Peta lama WAJIB dibuang:
+        // kalau ditahan, keyboard angka dari layar sebelumnya masih menempel dan
+        // nomornya dibaca sebagai pemilihan sah — padahal user sedang mengetik
+        // ID game.
+        //
+        // Yang TIDAK boleh dihapus adalah respons di mana layar memang tidak
+        // mengirim `numeric_menu` sama sekali (`null`): layar bantuan misalnya,
+        // user masih melihat keyboard angka dari daftar terakhir, dan tombol itu
+        // harus tetap berfungsi.
         if ($entries === []) {
-            return $this->activeNumbers($externalUserId);
+            $this->numericMenu()->forget($externalUserId);
+
+            return [];
         }
 
         $state = $this->numericMenu()->put($externalUserId, $numericMenu, (string) ($response['text'] ?? ''));

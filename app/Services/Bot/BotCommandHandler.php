@@ -940,13 +940,81 @@ class BotCommandHandler
             ? 'layanan ' . $service['data']['category']['code']
             : null;
 
+        $capabilities = $this->capabilities($context);
+
         return $this->formatter->formatPaymentMethods(
             ['ok' => true, 'data' => $methods],
             $serviceId,
             $this->pageFromArgs($args),
             $backCallback,
-            $this->capabilities($context),
+            $capabilities,
+            $this->isTelegram($capabilities)
+                ? $this->paymentMethodsWithFees($serviceId, $methods)
+                : [],
+            (string) ($service['data']['name'] ?? ''),
         );
+    }
+
+    /**
+     * Metode pembayaran + biaya NYATA + grup tipe, untuk layar Telegram.
+     *
+     * Biaya dihitung lewat gateway pricing yang SAMA dengan yang dipakai saat
+     * user memesan, jadi angka di layar ini tidak bisa berbeda dari total di
+     * layar harga. Biaya dari kolom DB saja TIDAK cukup: metode Tripay (QRIS)
+     * menambah fee sisi customer yang hanya diketahui dari API mereka — 0,7% +
+     * Rp 100 di DB, tapi Rp 863 pada layanan Rp 884.
+     *
+     * Biaya dihitung pada jumlah persis seperti yang nanti dipesan user
+     * (`amount_after_discount`), bukan harga katalog mentah, supaya yang
+     * ditampilkan adalah yang benar-benar dibayar.
+     *
+     * Quote bisa GAGAL (mis. nominal di bawah minimum metode — Indomaret
+     * minimum Rp 10.000). Kegagalan itu bukan alasan menyembunyikan metode:
+     * yang dipakai cuma batas atas biaya, dan metode tetap ditawarkan.
+     *
+     * @param  array<int, array{name: string, code: string}>  $methods
+     * @return array<int, array{name: string, code: string, group: string, group_sort: int, fee: int|null}>
+     */
+    private function paymentMethodsWithFees(int $serviceId, array $methods): array
+    {
+        $enriched = [];
+
+        foreach ($methods as $method) {
+            $model = $this->payment->findVisibleByCode((string) $method['code']);
+
+            $grup = (string) ($model?->displayCategory?->label ?? $model?->payment ?? '');
+            $urutGrup = (int) ($model?->displayCategory?->sort_order ?? 99);
+
+            $fee = null;
+
+            try {
+                // SATU quote saja: hasilnya sudah memuat jumlah yang dipakai
+                // menghitung biaya, jadi memanggil dua kali cuma menggandakan
+                // panggilan API Tripay tanpa mengubah angka.
+                $quote = $this->pricing->quote([
+                    'service_id' => $serviceId,
+                    'payment_method' => (string) $method['code'],
+                ], null);
+
+                if ($quote['ok'] ?? false) {
+                    $fee = (int) ($quote['data']['payment_fee'] ?? 0)
+                        + (int) ($quote['data']['gateway_fee'] ?? 0);
+                }
+            } catch (\Throwable $e) {
+                // Termasuk ValidationException batas minimum/maksimum metode.
+                $fee = null;
+            }
+
+            $enriched[] = [
+                'name' => (string) $method['name'],
+                'code' => (string) $method['code'],
+                'group' => $grup,
+                'group_sort' => $urutGrup,
+                'fee' => $fee,
+            ];
+        }
+
+        return $enriched;
     }
 
     private function handleHarga(array $args, array $context): array

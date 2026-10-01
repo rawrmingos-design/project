@@ -718,12 +718,133 @@ class BotMessageFormatter
         ];
     }
 
+    /**
+     * Layar "Pilih Pembayaran" jalur Telegram: daftar rata di TEKS,
+     * dikelompokkan per tipe, di dalam grup diurutkan TERMURAH DULU.
+     *
+     * Kenapa di teks: Telegram cuma menerima SATU `reply_markup` per pesan, dan
+     * di layar ini keyboard angka yang menang. Versi tombol sebelumnya tidak
+     * pernah terkirim, jadi layarnya tampil kosong.
+     *
+     * Kenapa dikelompokkan: web sudah mengelompokkan (QRIS / E-Wallet / Virtual
+     * Account / Convenience Store), dan user memilih berdasarkan tipe. Grupnya
+     * datang dari data (`displayCategory`), BUKAN dari label literal, supaya
+     * penamaan ulang di panel tidak merusak urutan.
+     *
+     * Kenapa biaya ditampilkan: di layar ini biaya antar metode berbeda jauh
+     * (Rp 0 di BCA VA vs +1,5% di e-wallet), jadi ini yang membedakan pilihan,
+     * bukan halaman daftar layanan.
+     *
+     * @param  array<int, array{name: string, code: string, group?: string, group_sort?: int, fee?: int|null}>  $methods
+     */
+    private function telegramPaymentList(
+        array $methods,
+        int $serviceId,
+        int $page,
+        ?string $backCallback,
+        string $serviceLabel,
+    ): array {
+        $lines = [
+            __('bot.payment_list_title'),
+        ];
+
+        if ($serviceLabel !== '') {
+            $lines[] = __('bot.payment_list_service', ['nama' => $this->escapeMarkdown($serviceLabel)]);
+        }
+
+        $lines[] = '';
+
+        // Grup ikut urutan panel (`sort_order`); DI DALAM grup termurah dulu.
+        // Metode tanpa biaya yang bisa dihitung ditaruh paling akhir di grupnya:
+        // memajang angka karangan lebih buruk daripada mengakui biayanya muncul
+        // nanti, dan user yang mengurutkan sendiri tetap melihat yang gratis
+        // lebih dulu.
+        $urut = $methods;
+        usort($urut, function (array $a, array $b): int {
+            $grupA = (int) ($a['group_sort'] ?? 99);
+            $grupB = (int) ($b['group_sort'] ?? 99);
+
+            if ($grupA !== $grupB) {
+                return $grupA <=> $grupB;
+            }
+
+            $feeA = $a['fee'] ?? null;
+            $feeB = $b['fee'] ?? null;
+
+            if ($feeA === null && $feeB !== null) {
+                return 1;
+            }
+            if ($feeB === null && $feeA !== null) {
+                return -1;
+            }
+            if ($feeA !== $feeB) {
+                return ($feeA ?? 0) <=> ($feeB ?? 0);
+            }
+
+            return strcmp((string) $a['name'], (string) $b['name']);
+        });
+
+        $entries = [];
+        $nomor = 0;
+        $lastGroup = null;
+
+        foreach ($urut as $method) {
+            $nomor++;
+
+            $grup = (string) ($method['group'] ?? '');
+            if ($grup !== '' && $grup !== $lastGroup) {
+                $lines[] = __('bot.payment_list_group', ['grup' => $this->escapeMarkdown($grup)]);
+                $lastGroup = $grup;
+            }
+
+            $fee = $method['fee'] ?? null;
+            $biaya = match (true) {
+                $fee === null => __('bot.payment_list_fee_later'),
+                (int) $fee === 0 => __('bot.payment_list_free'),
+                default => __('bot.payment_list_fee', ['fee' => number_format((int) $fee, 0, ',', '.')]),
+            };
+
+            $lines[] = '[' . $nomor . ']. ' . $this->escapeMarkdown((string) $method['name']) . $biaya;
+
+            $entries[(string) $nomor] = [
+                'type' => 'content',
+                'label' => (string) $method['name'],
+                'command' => 'harga ' . $serviceId . ' ' . (string) $method['code'],
+            ];
+        }
+
+        $lines[] = '';
+        $lines[] = __('bot.payment_list_footer');
+        $lines[] = $this->menuListFooter(['page' => 1, 'total_pages' => 1]);
+
+        if ($backCallback !== null) {
+            $entries['0'] = [
+                'type' => 'back',
+                'label' => __('bot.btn_back'),
+                'command' => $backCallback,
+            ];
+        }
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [],
+            'numeric_menu' => [
+                'menu' => 'payments',
+                'parent_menu' => $backCallback,
+                'page' => 1,
+                'entries' => $entries,
+            ],
+        ];
+    }
+
     public function formatPaymentMethods(
         array $data,
         int $serviceId,
         int $page = 1,
         ?string $backCallback = null,
         ?BotGatewayCapabilities $capabilities = null,
+        array $methods = [],
+        string $serviceLabel = '',
     ): array {
         $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
 
@@ -736,6 +857,14 @@ class BotMessageFormatter
                     ? [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', $backCallback)]]
                     : [],
             ];
+        }
+
+        // Jalur Telegram: SATU daftar di TEKS, dikelompokkan per tipe, termurah
+        // dulu. Daftar tombol tidak dipakai di sini — Telegram hanya menerima
+        // satu `reply_markup` per pesan dan keyboard angka yang menang, jadi
+        // daftar berbasis tombol tampil KOSONG (bug lama).
+        if ($isTelegram) {
+            return $this->telegramPaymentList($methods, $serviceId, $page, $backCallback, $serviceLabel);
         }
 
         $pagination = $this->paginate(
