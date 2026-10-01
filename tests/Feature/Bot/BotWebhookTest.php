@@ -453,14 +453,19 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Layar "Pilih Game" Telegram memakai daftar bernomor di TEKS, bukan
+        // tombol: keyboard angka yang menang di layar ini, sehingga tombol inline
+        // tidak pernah terkirim dan daftar yang hanya hidup di tombol akan
+        // tampil sebagai layar kosong.
+        //
+        // Nomornya diperiksa dalam bentuk MarkdownV2 yang benar-benar dikirim
+        // (`\[1\]\.`), bukan `[1].`: `[`, `]`, dan `.` adalah karakter spesial
+        // yang wajib di-escape, dan Telegram MENOLAK pesan kalau lolos mentah.
         Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+            $text = (string) $request['text'];
 
-            return count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '🔫 Free Fire'
-                && $keyboard[0][1]['text'] === '⚔️ Mobile Legends'
-                && $keyboard[array_key_last($keyboard)][0]['text'] === '🔙 Kembali'
-                && $keyboard[array_key_last($keyboard)][0]['callback_data'] === 'menu';
+            return str_contains($text, '\[1\]\. 🔫 Free Fire')
+                && str_contains($text, '\[2\]\. ⚔️ Mobile Legends');
         });
     }
 
@@ -524,21 +529,45 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
-        Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+        // Layar layanan Telegram menaruh isi daftar di TEKS sebagai kartu, dan
+        // pesan kedua "Pindah halaman" membawa tombol navigasinya. Keduanya
+        // diperiksa: kartu tanpa navigasi berarti halaman 2 tidak bisa dicapai,
+        // navigasi tanpa kartu berarti user tidak tahu apa yang sedang dipilih.
+        $main = null;
+        $navigation = null;
 
-            $paginationRow = $keyboard[array_key_last($keyboard) - 1];
-            $backRow = $keyboard[array_key_last($keyboard)];
+        Http::assertSent(function ($request) use (&$main, &$navigation) {
+            if (! isset($request['reply_markup']['inline_keyboard'])) {
+                $main = $request;
 
-            return count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '💎 1 Diamond · Rp 1.000'
-                && $keyboard[0][1]['text'] === '💎 2 Diamond · Rp 2.000'
-                && count($paginationRow) === 1
-                && $paginationRow[0]['text'] === 'Next ➡️'
-                && count($backRow) === 1
-                && $backRow[0]['text'] === '🔙 Kembali'
-                && $backRow[0]['callback_data'] === 'kategori top-up-games';
+                return true;
+            }
+
+            $navigation = $request;
+
+            return true;
         });
+
+        $this->assertNotNull($main, 'Pesan utama berisi kartu layanan tidak terkirim.');
+        $this->assertStringContainsString(
+            '┊・Layanan : 1 Diamond',
+            (string) $main['text'],
+            'Kartu layanan tidak memuat nama layanan di dalam teks.',
+        );
+        // Titik pada harga ter-escape (`Rp 1\.000`) karena itulah bentuk yang
+        // dikirim ke Telegram: titik adalah karakter spesial MarkdownV2.
+        $this->assertStringContainsString('┊・Harga : Rp 1\.000', (string) $main['text']);
+        $this->assertStringContainsString(
+            'Ketik angka untuk memilih layanan',
+            (string) $main['text'],
+            'Petunjuk pemilihan tidak ikut terkirim, jadi user tidak tahu kartu bisa dipilih dengan angka.',
+        );
+
+        $this->assertNotNull($navigation, 'Pesan kedua berisi tombol navigasi tidak terkirim.');
+        $keyboard = $navigation['reply_markup']['inline_keyboard'];
+        $this->assertCount(1, $keyboard);
+        $this->assertSame('Next ➡️', $keyboard[0][0]['text']);
+        $this->assertSame('menu page:2', $keyboard[0][0]['callback_data']);
     }
 
     public function test_fonnte_accepts_payload_without_message_id(): void

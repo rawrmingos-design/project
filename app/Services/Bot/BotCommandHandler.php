@@ -876,11 +876,46 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->services($catCode);
+        $capabilities = $this->capabilities($context);
+
+        // Menampilkan isi satu paket layanan (`layanan <produk> paket:<indeks>`).
+        //
+        // Indeks dipakai sebagai penanda, bukan nama paket: nama paket memuat
+        // emoji dan spasi, dan menitipkannya ke perintah akan membuat callback
+        // tombol maupun entri nomor bergantung pada penyandian teks yang rawan
+        // berubah.
+        //
+        // Paket hanya dibaca untuk jalur Telegram — jalur WhatsApp memakai
+        // tampilan tombolnya sendiri dan tidak memakai data ini, jadi jangan
+        // dibebani query tambahan.
+        $packages = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+            ? $this->catalog->servicePackages($catCode)
+            : [];
+
         return $this->formatter->formatServices(
             $res,
             $this->pageFromArgs($args),
-            $this->capabilities($context),
+            $capabilities,
+            $packages,
+            $this->packageFromArgs($args),
         );
+    }
+
+    /**
+     * Indeks paket dari argumen `paket:<indeks>`, atau `null` kalau tidak ada.
+     *
+     * Nilai negatif dianggap tidak ada: indeks paket selalu berasal dari daftar
+     * yang bot sendiri kirim, jadi nilai aneh tidak perlu ditafsirkan.
+     */
+    private function packageFromArgs(array $args): ?int
+    {
+        foreach ($args as $arg) {
+            if (preg_match('/^paket:(\d+)$/', (string) $arg, $matches)) {
+                return (int) $matches[1];
+            }
+        }
+
+        return null;
     }
 
     private function handlePembayaran(array $args, array $context): array

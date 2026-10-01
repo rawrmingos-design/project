@@ -5,6 +5,8 @@ namespace App\Services\Gateway;
 use App\Models\CategoryType;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use App\Models\Paket;
+use App\Models\PaketLayanan;
 use App\Models\User;
 use App\Services\CheckId\CheckIdResolver;
 use App\Support\CustomInputDefaults;
@@ -389,6 +391,93 @@ class GatewayCatalogService
             'flash_stock' => (int) $service->stock_flash_sale,
             'flash_expires_at' => $service->expired_flash_sale?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Paket layanan + isinya untuk satu kategori, mengikuti pola halaman order
+     * storefront (`OrderController`).
+     *
+     * **Kenapa ada.** Halaman order storefront menampilkan produk dalam bentuk
+     * grup paket ("⭐ Spesial Items", "⚡ Proses Instant") yang masing-masing
+     * berisi nama layanan + harganya. Bot Telegram dulu cuma menampilkan daftar
+     * layanan rata, tanpa pengelompokan itu. Method ini menyediakan bahan yang
+     * sama supaya bot bisa menampilkan pola yang user sudah kenal dari web.
+     *
+     * **Kenapa layanan TANPA paket tidak dikembalikan.** Ini perilaku storefront
+     * apa adanya: begitu kategori punya paket, `Order.jsx` merender
+     * `packages` dan mengabaikan daftar `products` yang rata. Layanan yang tidak
+     * terhubung ke paket mana pun memang tidak bisa dipesan di web, jadi bot
+     * ikut tidak menampilkannya — bukan kehilangan data, tapi menyesuaikan diri
+     * dengan katalog yang memang berlaku.
+     *
+     * **Kenapa paket kosong dibuang.** Paket tanpa satu pun layanan tersedia di
+     * kategori ini hanya menghasilkan header tanpa isi.
+     *
+     * @return array<int, array{nama: string, layanan: array<int, array<string, mixed>>}>
+     */
+    public function servicePackages(string $categoryCode, ?User $user = null): array
+    {
+        $category = Kategori::query()
+            ->where('kode', strtolower(trim($categoryCode)))
+            ->where('status', 'active')
+            ->first();
+
+        if (! $category) {
+            return [];
+        }
+
+        // Nama kategori dipakai berulang di samping tiap harga supaya tiap kartu
+        // bisa dibaca berdiri sendiri tanpa menengok header grup.
+        $categoryName = (string) $category->nama;
+
+        $packages = [];
+
+        foreach (Paket::query()->orderBy('id')->get() as $paket) {
+            $layananIds = $paket->layanan->pluck('id')->all();
+
+            if ($layananIds === []) {
+                continue;
+            }
+
+            $rows = Layanan::query()
+                ->whereIn('id', $layananIds)
+                ->where('kategori_id', $category->id)
+                ->where('status', 'available')
+                ->orderBy('harga_member')
+                ->orderBy('layanan')
+                ->get();
+
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $items = [];
+
+            foreach ($rows as $service) {
+                // `product_logo` melekat pada PASANGAN paket+layanan, bukan pada
+                // layanannya: satu layanan bisa dipakai beberapa paket dengan
+                // logo berbeda. Karena itu dibaca per pasangan, bukan dari model.
+                $logo = PaketLayanan::query()
+                    ->where('paket_id', $paket->id)
+                    ->where('layanan_id', $service->id)
+                    ->value('product_logo');
+
+                $items[] = [
+                    'service_id' => (int) $service->id,
+                    'name' => (string) $service->layanan,
+                    'category_name' => $categoryName,
+                    'price' => $this->rolePrice($service, $user),
+                    'product_logo' => $logo === null || $logo === '' ? null : (string) $logo,
+                ];
+            }
+
+            $packages[] = [
+                'nama' => (string) $paket->nama,
+                'layanan' => $items,
+            ];
+        }
+
+        return $packages;
     }
 
     private function rolePrice(Layanan $service, ?User $user): int

@@ -39,6 +39,26 @@ return [
     'menu_categories_unavailable' => 'Maaf, daftar tipe kategori sedang tidak tersedia.',
     'menu_category_fallback' => 'Kategori',
 
+    // --- Layar layanan: kartu paket layanan ---
+    // Pola kotak yang sama dipakai halaman order storefront, jadi user yang
+    // pernah memesan di web langsung mengenali susunannya.
+    //
+    // Garis kotaknya memakai karakter kotak tipis (U+2500), BUKAN tanda hubung.
+    // `TelegramMarkdown::fromLegacy()` meng-escape `-`, sehingga garis yang
+    // dibuat dari tanda hubung akan lolos sebagai `\-` dan tampil berantakan di
+    // chat. Karakter kotak tidak termasuk karakter spesial MarkdownV2.
+    'service_package_title' => '╭───────────────',
+    'service_card_name' => '┊ :paket',
+    'service_card_spacer' => '┊',
+    'service_card_item' => '┊・Layanan : :nama',
+    'service_card_price' => '┊・Harga : Rp :harga',
+    'service_card_more' => '┊・dan :jumlah lainnya',
+    'service_card_footer' => '╰───────────────',
+    'service_list_title' => '💎 *:produk*',
+    'service_list_footer_packages' => 'Ketik angka untuk melihat isi paket.',
+    'service_list_footer_items' => 'Ketik angka untuk memilih layanan.',
+    'nav_page_prompt' => 'Pindah halaman: ⬅️ / ➡️',
+
     // --- Panduan /help ---
     // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang
     // ditulis ulang di dalam teks. Label tombol belum boleh diterjemahkan

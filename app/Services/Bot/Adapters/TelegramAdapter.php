@@ -185,7 +185,18 @@ class TelegramAdapter implements BotAdapterInterface
             // menang adalah keyboard angka. Tombol navigasi pindah halaman
             // dikirim sebagai pesan kedua supaya halaman berikutnya tetap bisa
             // dicapai tanpa mengetik kode angka.
-            $this->sendNavigationButtons($chatId, $response, $numericNumbers);
+            //
+            // Entri menu diteruskan UTUH, bukan lewat `$numericNumbers`. Nomor
+            // konten yang boleh jadi tombol keyboard dibatasi 1..15, sedangkan
+            // 98/99 sengaja tidak pernah masuk keyboard — kalau keputusan
+            // "kirim pesan navigasi" bersandar pada daftar yang sudah tersaring
+            // itu, halaman kedua tidak punya tombol pindah sama sekali.
+            $this->sendNavigationButtons(
+                $chatId,
+                $response,
+                $numericNumbers,
+                (array) ($response['numeric_menu']['entries'] ?? []),
+            );
         } finally {
             app()->setLocale($locale);
         }
@@ -218,9 +229,25 @@ class TelegramAdapter implements BotAdapterInterface
      *
      * @param  array<int, int>  $numericNumbers
      */
-    private function sendNavigationButtons(string|int $chatId, array $response, array $numericNumbers): void
-    {
+    private function sendNavigationButtons(
+        string|int $chatId,
+        array $response,
+        array $numericNumbers,
+        array $entries = [],
+    ): void {
         if ($numericNumbers === []) {
+            return;
+        }
+
+        // Navigasi hanya dikirim kalau halaman yang SEDANG dirender memang punya
+        // halaman lain untuk dituju.
+        //
+        // Penjaga ini penting justru karena entri dipakai utuh: entri navigasi
+        // berasal dari daftar menu yang barusan dirender, dan `numeric_menu`
+        // juga diisi layar yang TIDAK memetakan nomor apa pun (mis. tombol
+        // ketik seperti `lainnya`). Tanpa penjaga ini layar semacam itu akan
+        // memicu pesan "Pindah halaman" berisi tombol yang tidak menuju apa pun.
+        if (! isset($entries['98']) && ! isset($entries['99'])) {
             return;
         }
 
@@ -235,9 +262,7 @@ class TelegramAdapter implements BotAdapterInterface
         //
         // Tombol aksi (Leaderboard/Bahasa/Menu) sudah ada di keyboard angka yang
         // menetap di bawah layar, jadi mengirimnya lagi di pesan terpisah cuma
-        // menduplikasi tombol yang sudah terlihat — dan di kasus daftar
-        // SATU halaman, pesannya jadi murni noise: teksnya mengajak "pindah
-        // halaman" padahal tidak ada halaman lain untuk dituju.
+        // menduplikasi tombol yang sudah terlihat.
         $navigation = [];
 
         foreach ($inline as $row) {
@@ -282,7 +307,7 @@ class TelegramAdapter implements BotAdapterInterface
 
     private function navigationPrompt(): string
     {
-        return 'Pindah halaman: ⬅️ / ➡️';
+        return __('bot.nav_page_prompt');
     }
 
     /** Angka murni (pesan teks isinya hanya digit) = kandidat pemilihan. */

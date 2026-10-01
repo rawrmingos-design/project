@@ -45,6 +45,26 @@ return [
     'menu_categories_unavailable' => 'Sorry, the category list is unavailable right now.',
     'menu_category_fallback' => 'Category',
 
+    // --- Service screen: service package cards ---
+    // Same box pattern as the storefront order page, so users who have ordered
+    // on the web recognise the layout immediately.
+    //
+    // The box rules use the light box-drawing character (U+2500), NOT a hyphen.
+    // `TelegramMarkdown::fromLegacy()` escapes `-`, so a hyphen rule would go
+    // out as `\-` and render broken in chat. Box characters are not MarkdownV2
+    // special characters.
+    'service_package_title' => '╭───────────────',
+    'service_card_name' => '┊ :paket',
+    'service_card_spacer' => '┊',
+    'service_card_item' => '┊・Service : :nama',
+    'service_card_price' => '┊・Price : Rp :harga',
+    'service_card_more' => '┊・and :jumlah more',
+    'service_card_footer' => '╰───────────────',
+    'service_list_title' => '💎 *:produk*',
+    'service_list_footer_packages' => 'Type a number to see what a package contains.',
+    'service_list_footer_items' => 'Type a number to pick a service.',
+    'nav_page_prompt' => 'Switch page: ⬅️ / ➡️',
+
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',
     'help_order_title' => '🛒 How to Order',

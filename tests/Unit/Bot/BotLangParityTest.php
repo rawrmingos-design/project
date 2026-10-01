@@ -112,6 +112,12 @@ class BotLangParityTest extends TestCase
             'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
             'history_detail_invoice', 'history_detail_total', 'label_expired',
             'menu_item_numbered',
+            // Kerangka kartu layanan tidak memuat kata yang bisa diterjemahkan:
+            // garis kotak, penanda `┊`, dan judul ber-emoji. Isinya (nama paket,
+            // nama layanan, harga) datang dari data dan dari kunci lain, jadi
+            // bentuk yang sama PERSIS di kedua bahasa memang benar.
+            'service_package_title', 'service_card_name', 'service_card_spacer',
+            'service_card_footer', 'service_list_title',
         ];
 
         $identical = [];
