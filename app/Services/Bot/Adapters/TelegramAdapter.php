@@ -235,18 +235,17 @@ class TelegramAdapter implements BotAdapterInterface
         array $numericNumbers,
         array $entries = [],
     ): void {
-        if ($numericNumbers === []) {
-            return;
-        }
-
         // Navigasi hanya dikirim kalau halaman yang SEDANG dirender memang punya
         // halaman lain untuk dituju.
         //
-        // Penjaga ini penting justru karena entri dipakai utuh: entri navigasi
-        // berasal dari daftar menu yang barusan dirender, dan `numeric_menu`
-        // juga diisi layar yang TIDAK memetakan nomor apa pun (mis. tombol
-        // ketik seperti `lainnya`). Tanpa penjaga ini layar semacam itu akan
-        // memicu pesan "Pindah halaman" berisi tombol yang tidak menuju apa pun.
+        // Penjaga ini TIDAK boleh bersandar pada `$numericNumbers`. Daftar angka
+        // keyboard dibatasi 1..15, sedangkan layar bisa memuat nomor di luar
+        // rentang itu (dulu: nomor absolut 21-30 di halaman 3 daftar layanan).
+        // Begitu daftarnya tersaring kosong, pesan navigasi ikut hilang — dan
+        // halaman berikutnya jadi mustahil dicapai.
+        //
+        // Sumber kebenarannya adalah entri 98/99 yang ditulis layar: keduanya
+        // HANYA ada saat ada halaman sebelumnya/berikutnya.
         if (! isset($entries['98']) && ! isset($entries['99'])) {
             return;
         }

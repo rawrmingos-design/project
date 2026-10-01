@@ -669,18 +669,26 @@ class BotMessageFormatter
         foreach ($pagination['items'] as $service) {
             $number++;
 
-            // Nomor memakai POSISI ABSOLUT di seluruh daftar, bukan posisi di
-            // halaman: nomor yang sama juga dipakai tombol angka, dan user
-            // menyebut nomor itu saat berpindah halaman.
-            $absolute = (($pagination['page'] - 1) * self::SERVICE_LIST_PAGE_SIZE) + $number;
-
+            // Nomor = POSISI DI HALAMAN INI (1..10), bukan posisi absolut di
+            // seluruh daftar.
+            //
+            // Nomor absolut tampak lebih ramah ("11" lanjut dari "10"), tapi
+            // BATAS keyboard angka Telegram adalah `CONTENT_ENTRY_LIMIT` (15).
+            // Daftar layanan punya lebih dari 15 item, jadi halaman 3 memakai
+            // nomor 21-30 yang SELURUHNYA ditolak `BotNumericMenuStore` — peta
+            // tersimpan tanpa entri isi, keyboard angka kosong, dan pesan
+            // navigasi ikut hilang. Akibatnya layar mati dan sentuhan angka
+            // ditelan tanpa balasan.
+            //
+            // Dua layar lain (Menu Utama, Pilih Game) memang sudah memakai nomor
+            // per-halaman; layar ini yang tadinya menyimpang.
             $lines[] = __('bot.service_item_numbered', [
-                'number' => $absolute,
+                'number' => $number,
                 'nama' => $this->escapeMarkdown((string) $service['name']),
                 'harga' => number_format((float) $service['price'], 0, ',', '.'),
             ]);
 
-            $entries[(string) $absolute] = [
+            $entries[(string) $number] = [
                 'type' => 'content',
                 'label' => (string) $service['name'],
                 'command' => 'metode ' . (int) $service['service_id'],

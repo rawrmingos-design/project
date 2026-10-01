@@ -8,6 +8,7 @@ use App\Models\Layanan;
 use App\Models\Paket;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotMessageFormatter;
+use App\Services\Bot\BotNumericMenuStore;
 use App\Services\Gateway\GatewayCatalogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -159,19 +160,66 @@ class TelegramServiceListScreenTest extends TestCase
         $this->assertSame('kategori top-up-games', (string) $entries['0']['command']);
     }
 
-    public function test_nomor_halaman_kedua_lanjut_dari_halaman_pertama(): void
+    public function test_nomor_dimulai_ulang_tiap_halaman(): void
     {
         // 12 layanan, 10 per halaman.
         $this->seedCatalog(12, 12);
 
         $entries = (array) ($this->screen('mlbb', 2)['numeric_menu']['entries'] ?? []);
 
-        // Halaman 2 mulai dari 11 — nomor memakai posisi ABSOLUT, bukan 1 lagi.
-        $this->assertArrayHasKey('11', $entries);
-        $this->assertArrayHasKey('12', $entries);
-        $this->assertArrayNotHasKey('1', $entries);
+        // Nomor = posisi DI HALAMAN, jadi halaman 2 juga 1..2.
+        //
+        // Nomor absolut ("11", "12") tampak lebih ramah, tapi batas keyboard
+        // angka adalah `BotNumericMenuStore::CONTENT_ENTRY_LIMIT` (15): halaman 3
+        // daftar layanan memakai nomor 21-30 yang SELURUHNYA ditolak store. Peta
+        // tersimpan jadi tanpa entri isi → keyboard angka kosong → pesan navigasi
+        // hilang → sentuhan angka ditelan tanpa balasan.
+        $this->assertArrayHasKey('1', $entries);
+        $this->assertArrayHasKey('2', $entries);
+        $this->assertArrayNotHasKey('11', $entries);
+        $this->assertArrayNotHasKey('12', $entries);
         $this->assertArrayHasKey('98', $entries);
         $this->assertSame('layanan mlbb page:1', (string) $entries['98']['command']);
+    }
+
+    public function test_nomor_halaman_tiga_masih_diterima_penyimpan_menu(): void
+    {
+        // 30 layanan = 3 halaman PENUH. Ini persis kasus yang dulu mematikan layar.
+        $this->seedCatalog(30, 30);
+
+        $screen = $this->screen('mlbb', 3);
+        $store = app(BotNumericMenuStore::class);
+        $store->put('user-1', (array) $screen['numeric_menu'], (string) $screen['text']);
+
+        // Semua nomor di halaman terakhir harus bisa dipilih. Kalau penomoran
+        // melewati CONTENT_ENTRY_LIMIT, `put()` membuang seluruh entri isi dan
+        // resolve() mengembalikan 'invalid' untuk nomor apa pun.
+        $this->assertSame('ok', $store->resolve('user-1', 1)['status']);
+        $this->assertSame('ok', $store->resolve('user-1', 10)['status']);
+
+        // Dan halaman terakhir tetap punya tombol kembali ke halaman sebelumnya.
+        $entries = (array) $screen['numeric_menu']['entries'];
+        $this->assertArrayHasKey('98', $entries);
+        $this->assertArrayNotHasKey('99', $entries);
+    }
+
+    public function test_nomor_di_luar_daftar_tidak_ditelan_saat_ada_daftar(): void
+    {
+        $this->seedCatalog(30, 30);
+
+        $screen = $this->screen('mlbb', 3);
+        $store = app(BotNumericMenuStore::class);
+        $store->put('user-1', (array) $screen['numeric_menu'], (string) $screen['text']);
+
+        // Nomor di luar daftar mengembalikan 'invalid' TAPI peta tetap ada, jadi
+        // adapter masih punya konteks. Adapter SENGAJA tidak membalasnya: angka
+        // murni juga dipakai untuk ID game / nominal deposit / jumlah tiket, dan
+        // membalas daftar ulang di situ akan menelan input yang bukan pemilihan
+        // menu. Yang wajib dijaga di sini cuma satu: peta lamanya BUKAN dihapus.
+        $resolved = $store->resolve('user-1', 77);
+
+        $this->assertSame('invalid', $resolved['status']);
+        $this->assertNotSame('', (string) $resolved['rendered_text']);
     }
 
     public function test_sepuluh_layanan_per_halaman(): void

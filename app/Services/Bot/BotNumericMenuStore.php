@@ -38,8 +38,16 @@ class BotNumericMenuStore
     /**
      * Nomor maksimum untuk entri `content`.
      *
-     * Sama dengan batas jalur WhatsApp supaya arti nomor konsisten, dan cukup
-     * untuk ukuran halaman terbesar yang dipakai bot (WhatsApp 15/halaman).
+     * Batas ini yang menentukan nomor mana yang boleh dipakai sebuah layar, dan
+     * layar WAJIB menghormatinya: entri di luar rentang ditolak saat disimpan,
+     * sehingga peta tersimpan bisa kehilangan SELURUH entri isi — keyboard angka
+     * kosong, pesan navigasi hilang, dan layarnya mati.
+     *
+     * Karena itu nomor daftar selalu POSISI DI HALAMAN (1..10 untuk layar
+     * layanan Telegram, yang memakai `SERVICE_LIST_PAGE_SIZE = 10`), bukan
+     * posisi absolut di seluruh daftar. Jangan naikkan batas ini untuk
+     * mengakomodasi penomoran absolut: halaman ke-N akan selalu melewatinya,
+     * berapa pun batasnya.
      */
     public const CONTENT_ENTRY_LIMIT = 15;
 
