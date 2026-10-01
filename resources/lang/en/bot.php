@@ -35,8 +35,51 @@ return [
     // --- Main menu ---
     'menu_title' => '🏠 *Main Menu*',
     'menu_pick_category' => 'Pick a category below to get started. 👇',
+    // The Main Menu screen is a NUMBERED LIST, not a greeting block.
+    // `menu_title` & `menu_pick_category` are kept on purpose: `storeIntro()` is
+    // still used by `/start`, and removing keys risks leaking raw key literals
+    // to any path that has not been migrated yet.
+    'menu_list_title' => 'PRODUCT LIST',
+    'menu_page_footer' => '📄 Page :page / :total',
+    'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Sorry, the category list is unavailable right now.',
     'menu_category_fallback' => 'Category',
+
+    // --- Service screen: service package cards ---
+    // Same box pattern as the storefront order page, so users who have ordered
+    // on the web recognise the layout immediately.
+    //
+    // The box rules use the light box-drawing character (U+2500), NOT a hyphen.
+    // `TelegramMarkdown::fromLegacy()` escapes `-`, so a hyphen rule would go
+    // out as `\-` and render broken in chat. Box characters are not MarkdownV2
+    // special characters.
+    'service_package_title' => '╭───────────────',
+    'service_card_name' => '┊ :paket',
+    'service_card_spacer' => '┊',
+    'service_card_item' => '┊・Service : :nama',
+    'service_card_price' => '┊・Price : Rp :harga',
+    'service_card_more' => '┊・and :jumlah more',
+    'service_card_footer' => '╰───────────────',
+    'service_list_title' => '💎 *:produk*',
+    'service_list_footer_packages' => 'Type a number to see what a package contains.',
+    'service_list_footer_items' => 'Type a number to pick a service.',
+    'service_item_numbered' => '[:number]. :nama — Rp :harga',
+    'nav_page_prompt' => 'Switch page: ⬅️ / ➡️',
+
+    // --- Payment method screen (Telegram) ---
+    // The list lives in TEXT, not in buttons: Telegram allows only ONE
+    // `reply_markup` per message and the numeric keyboard wins here. The list
+    // used to live only in inline buttons, which is why the screen rendered
+    // empty ("💳 Pilih Pembayaran" with no method at all).
+    'payment_list_title' => '💳 *Choose Payment*',
+    'payment_list_service' => '💎 :nama',
+    'payment_list_group' => '_:grup_',
+    // Cost is spelled out as "(fee admin)": a bare number after the method name
+    // does not explain what the charge is.
+    'payment_list_free' => ' (fee admin: Rp 0)',
+    'payment_list_fee' => ' (fee admin: Rp :fee)',
+    'payment_list_fee_later' => ' (fee admin: calculated on the next step)',
+    'payment_list_footer' => 'Type a number to choose a payment method.',
 
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',

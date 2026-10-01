@@ -143,7 +143,6 @@ class TelegramCopyPhaseSixTest extends TestCase
         app()->setLocale('en');
         $en = $fmt->formatProducts($products, 1, $caps);
         $this->assertStringContainsString('🎮 *Choose a Game* · Games', $en['text']);
-        $this->assertContains('🔙 Back', $this->buttonTexts($en));
 
         $this->assertStringContainsString(
             'Category not found or it has no products yet.',
@@ -161,7 +160,6 @@ class TelegramCopyPhaseSixTest extends TestCase
         app()->setLocale('id');
         $id = $fmt->formatProducts($products, 1, $caps);
         $this->assertStringContainsString('🎮 *Pilih Game* · Games', $id['text']);
-        $this->assertContains('🔙 Kembali', $this->buttonTexts($id));
     }
 
     // ------------------------------------------------------------ leaderboard

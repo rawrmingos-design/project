@@ -498,8 +498,19 @@ class TelegramLanguageCommandTest extends TestCase
         $this->assertContains('🛍️ Open Menu', $en);
         $this->assertContains('❓ Help', $en);
         $this->assertContains('📦 Check Status', $en);
-        $this->assertContains('🔍 Check Game ID', $en);
-        $this->assertContains('❌ Cancel Order', $en);
+        // Cek ID Game dan Batal sama-sama DIHAPUS dari keyboard (keputusan
+        // user), jadi tidak boleh muncul di bahasa mana pun. Dinyatakan di
+        // KEDUA locale supaya penghapusannya tidak bisa lolos hanya karena
+        // labelnya berbeda bahasa.
+        $this->assertNotContains('🔍 Check Game ID', $en);
+        $this->assertNotContains('🔍 Cek ID Game', $en);
+        // Tombol batal DIHAPUS dari keyboard (keputusan user), jadi ia tidak
+        // boleh muncul di bahasa mana pun. Dinyatakan di kedua locale supaya
+        // penghapusannya tidak bisa lolos hanya karena labelnya berbeda:
+        // penyaringan berbasis literal Indonesia pernah membuat tombol EN
+        // `❌ Cancel Order` tetap terkirim.
+        $this->assertNotContains('❌ Cancel Order', $en);
+        $this->assertNotContains('❌ Batal Transaksi', $en);
         $this->assertNotContains('🛍️ Buka Menu', $en, 'Locale en tidak boleh merender label Indonesia.');
         $this->assertNotContains('❓ Bantuan', $en);
         $this->assertSame('Choose an action...', $formatter->defaultReplyKeyboard($this->telegram())['input_field_placeholder']);
@@ -510,8 +521,10 @@ class TelegramLanguageCommandTest extends TestCase
         $this->assertContains('🛍️ Buka Menu', $id);
         $this->assertContains('❓ Bantuan', $id);
         $this->assertContains('📦 Cek Status', $id);
-        $this->assertContains('🔍 Cek ID Game', $id);
-        $this->assertContains('❌ Batal Transaksi', $id);
+        $this->assertNotContains('🔍 Cek ID Game', $id);
+        $this->assertNotContains('🔍 Check Game ID', $id);
+        $this->assertNotContains('❌ Batal Transaksi', $id);
+        $this->assertNotContains('❌ Cancel Order', $id);
         $this->assertNotContains('🛍️ Open Menu', $id, 'Locale id tidak boleh merender label Inggris.');
         $this->assertSame('Pilih aksi...', $formatter->defaultReplyKeyboard($this->telegram())['input_field_placeholder']);
     }
@@ -581,7 +594,12 @@ class TelegramLanguageCommandTest extends TestCase
         $helpId = (string) $formatter->formatHelp($this->telegram())['text'];
 
         $this->assertStringContainsString('*🛍️ Buka Menu*', $helpId);
-        $this->assertStringContainsString('*❌ Batal Transaksi*', $helpId);
+        // Panduan TIDAK menyebut batal di bahasa mana pun: tombolnya sudah
+        // dicabut dari keyboard, jadi menyebutkannya mengarahkan user ke tombol
+        // yang tidak ada. Dinyatakan di kedua locale supaya pencabutan barisnya
+        // tidak bisa lolos hanya karena labelnya berbeda bahasa.
+        $this->assertStringNotContainsString('*❌ Batal Transaksi*', $helpId);
+        $this->assertStringNotContainsString('*❌ Cancel Order*', $helpId);
         $this->assertStringNotContainsString('*🛍️ Open Menu*', $helpId);
     }
 

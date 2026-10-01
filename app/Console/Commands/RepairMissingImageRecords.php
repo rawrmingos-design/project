@@ -188,6 +188,7 @@ class RepairMissingImageRecords extends Command
             ['label' => 'Setting.logo_favicon', 'table' => 'setting_webs', 'id' => 'id', 'name' => 'judul_web', 'column' => 'logo_favicon'],
             ['label' => 'Setting.logo_header', 'table' => 'setting_webs', 'id' => 'id', 'name' => 'judul_web', 'column' => 'logo_header'],
             ['label' => 'Setting.logo_footer', 'table' => 'setting_webs', 'id' => 'id', 'name' => 'judul_web', 'column' => 'logo_footer'],
+            ['label' => 'Setting.bot_menu_banner', 'table' => 'setting_webs', 'id' => 'id', 'name' => 'judul_web', 'column' => 'bot_menu_banner'],
         ];
 
         $result = [

@@ -230,6 +230,7 @@ class MediaAssetDedupeService
             ['table' => 'setting_webs', 'column' => 'logo_favicon'],
             ['table' => 'setting_webs', 'column' => 'logo_header'],
             ['table' => 'setting_webs', 'column' => 'logo_footer'],
+            ['table' => 'setting_webs', 'column' => 'bot_menu_banner'],
         ];
     }
 

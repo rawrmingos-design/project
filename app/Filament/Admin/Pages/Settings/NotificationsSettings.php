@@ -55,6 +55,10 @@ class NotificationsSettings extends SettingsSectionPage
             'telegram_welcome_thread_id',
             'telegram_admin_url',
             'bot_order_tg_enabled',
+            // Banner gambar Menu Utama bot Telegram. Tanpa entri whitelist di
+            // halaman INI, field-nya dibuang filterStateByWhitelist() dan
+            // tersimpan NULL -- Simpan terlihat sukses, DB tetap kosong.
+            'bot_menu_banner',
             // Default bahasa bot (ID/EN). Tanpa entri whitelist, field baru ini
             // dibuang filterStateByWhitelist() dan tersimpan NULL.
             'bot_default_locale',

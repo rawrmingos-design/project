@@ -674,7 +674,7 @@ abstract class SettingsSectionPage extends Page implements HasForms
                                 'sm' => 2,
                                 'lg' => 2,
                             ]),
-                            
+
                         ColorPicker::make('warna1')
                             ->label('Warna Utama')
                             ->columnSpan(1),
@@ -1361,6 +1361,17 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->required()
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
+
+                        FileUpload::make('bot_menu_banner')
+                            ->label('Banner Menu Utama Bot')
+                            ->image()
+                            ->disk(config('uploads.disk', 'assets'))
+                            ->visibility('public')
+                            ->directory('assets/bot')
+                            ->maxSize(4096)
+                            ->helperText('Gambar yang dikirim di atas teks saat user membuka Menu Utama bot. Rasio bebas — gambar tampil apa adanya, tidak dipotong. Untuk mematikan banner, hapus berkasnya dari Media Manager (mengosongkan field ini saja tidak menghapusnya).')
+                            ->visible(fn () => (bool) config('bot.order_enabled', false))
+                            ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->collapsed(),
@@ -1818,7 +1829,14 @@ abstract class SettingsSectionPage extends Page implements HasForms
         $previousPwaIconSource = (string) ($settings->pwa_icon_source ?? '');
 
         // Jangan timpa logo yang sudah ada dengan nilai kosong.
-        foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image', 'pwa_icon_source'] as $logoField) {
+        // `bot_menu_banner` ikut di daftar ini karena alasan yang sama:
+        // FileUpload mengembalikan state KOSONG baik saat field tidak
+        // disentuh maupun saat sengaja dikosongkan, jadi tanpa proteksi ini
+        // setiap Simpan biasa (mis. admin cuma mengubah warna) akan
+        // MENGHAPUS banner tanpa peringatan. Mematikan banner dilakukan
+        // dengan menghapus berkasnya dari Media Manager -- formatter
+        // berhenti mengirim gambar begitu berkasnya tidak ada.
+        foreach (['logo_header', 'logo_footer', 'logo_favicon', 'seasonal_background_image', 'pwa_icon_source', 'bot_menu_banner'] as $logoField) {
             if (empty($data[$logoField]) && !empty($settings->{$logoField})) {
                 $data[$logoField] = $settings->{$logoField};
             }

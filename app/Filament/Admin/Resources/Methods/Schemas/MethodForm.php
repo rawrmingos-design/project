@@ -135,12 +135,20 @@ class MethodForm
                         TextInput::make('min_pembelian')
                             ->label('Minimum Pembelian')
                             ->numeric()
-                            ->prefix('Rp'),
+                            ->integer()
+                            ->minValue(0)
+                            ->maxValue(999999999999)
+                            ->prefix('Rp')
+                            ->helperText('Kosongkan atau isi 0 untuk tanpa batas minimum.'),
 
                         TextInput::make('max_pembelian')
                             ->label('Maximum Pembelian')
                             ->numeric()
-                            ->prefix('Rp'),
+                            ->integer()
+                            ->minValue(0)
+                            ->maxValue(999999999999)
+                            ->prefix('Rp')
+                            ->helperText('Kosongkan atau isi 0 untuk tanpa batas maksimum.'),
                     ])
                     ->columns(2),
 

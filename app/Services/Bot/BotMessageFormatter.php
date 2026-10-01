@@ -240,6 +240,115 @@ class BotMessageFormatter
         }
 
         $pagination = $this->paginate($data['data'], $page, $pageSize);
+
+        // Layout dibelah per channel, dan itu BUKAN kerapian belaka.
+        //
+        // Jalur WhatsApp merakit peta nomornya DARI TOMBOL
+        // (`FonnteAdapter::numericEntries()` membaca `response['buttons']`).
+        // Begitu tombol kategori dihapus demi tampilan daftar Telegram, peta
+        // nomor WhatsApp jadi kosong dan SEMUA angka yang diketuk user WA
+        // berbalas "menu kedaluwarsa" — transaksi WhatsApp mati total. Karena
+        // itu jalur WA dipertahankan apa adanya, dan hanya Telegram yang
+        // memakai tampilan daftar bernomor.
+        return $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
+            ? $this->telegramCategoryList($pagination)
+            : $this->whatsappCategoryButtons($pagination, $capabilities);
+    }
+
+    /**
+     * Layar Menu Utama Telegram: daftar kategori bernomor di TEKS.
+     *
+     * SENGAJA tanpa sapaan (`storeIntro`), tagline, dan instruksi "pilih
+     * kategori di bawah": item sudah tampil sebagai daftar, jadi kalimat
+     * pengantar hanya mendorong pilihan ke bawah lipatan layar.
+     *
+     * Nama kategori TIDAK lagi masuk tombol, jadi nomor di teks adalah
+     * satu-satunya penanda posisi. `numeric_menu.entries` WAJIB terisi — tanpa
+     * itu user melihat daftar yang tidak bisa dipilih sama sekali.
+     */
+    private function telegramCategoryList(array $pagination): array
+    {
+        $lines = [__('bot.menu_list_title'), ''];
+        $entries = [];
+        $number = 0;
+
+        foreach ($pagination['items'] as $type) {
+            $number++;
+            $name = (string) ($type['name'] ?? '') !== ''
+                ? (string) $type['name']
+                : __('bot.menu_category_fallback');
+
+            $lines[] = __('bot.menu_item_numbered', ['number' => $number, 'name' => $name]);
+
+            // `command` dieksekusi saat nomor dipilih; `label` disimpan supaya
+            // pesan "pilihan tidak valid" bisa menampilkan ulang daftar aktif.
+            $entries[(string) $number] = [
+                'type' => 'content',
+                'label' => $name,
+                'command' => 'kategori ' . (string) ($type['slug'] ?? ''),
+            ];
+        }
+
+        // Halaman berikutnya/sebelumnya memakai nomor yang sama seperti jalur
+        // WhatsApp (98/99), sehingga tombol angka bisa dipakai pindah halaman
+        // walaupun tombol inline tidak terkirim bersama pesan menu.
+        if ((int) ($pagination['total_pages'] ?? 1) > 1) {
+            $page = (int) $pagination['page'];
+            $totalPages = (int) $pagination['total_pages'];
+
+            if ($page > 1) {
+                $entries['98'] = [
+                    'type' => 'navigation_previous',
+                    'label' => '⬅️ Prev',
+                    'command' => 'menu page:' . ($page - 1),
+                ];
+            }
+            if ($page < $totalPages) {
+                $entries['99'] = [
+                    'type' => 'navigation_next',
+                    'label' => 'Next ➡️',
+                    'command' => 'menu page:' . ($page + 1),
+                ];
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = $this->menuListFooter($pagination);
+
+        $response = [
+            'text' => implode("\n", $lines),
+            'buttons' => array_merge(
+                $this->menuNavigationButtons($pagination),
+                $this->menuActionButtons(BotGatewayCapabilities::forSource(
+                    BotGatewayCapabilities::SOURCE_TELEGRAM,
+                )),
+            ),
+            'numeric_menu' => [
+                'menu' => 'categories',
+                'parent_menu' => null,
+                'page' => $pagination['page'],
+                'entries' => $entries,
+            ],
+        ];
+
+        $bannerUrl = $this->telegramMenuBannerUrl(BotGatewayCapabilities::forSource(
+            BotGatewayCapabilities::SOURCE_TELEGRAM,
+        ));
+        if ($bannerUrl !== null) {
+            $response['photo_url'] = $bannerUrl;
+        }
+
+        return $response;
+    }
+
+    /**
+     * Layar Menu Utama WhatsApp — perilaku LAMA, tanpa perubahan apa pun.
+     *
+     * Dipertahankan utuh karena jalur WhatsApp merakit peta nomornya dari
+     * tombol di sini; mengubah susunannya mematikan pemilihan nomor di WA.
+     */
+    private function whatsappCategoryButtons(array $pagination, BotGatewayCapabilities $capabilities): array
+    {
         $items = [];
 
         foreach ($pagination['items'] as $type) {
@@ -260,25 +369,13 @@ class BotMessageFormatter
 
         $capabilityButtons = [];
         if ($capabilities->supports('leaderboard')) {
-            $capabilityButtons[] = $this->button(
-                '🏆 Leaderboard',
-                'leaderboard',
-                'global_action',
-            );
+            $capabilityButtons[] = $this->button('🏆 Leaderboard', 'leaderboard', 'global_action');
         }
         if ($capabilities->supports('deposit')) {
-            $capabilityButtons[] = $this->button(
-                '💰 Deposit',
-                'deposit',
-                'global_action',
-            );
+            $capabilityButtons[] = $this->button('💰 Deposit', 'deposit', 'global_action');
         }
         if ($capabilityButtons !== []) {
             $buttons[] = $capabilityButtons;
-        }
-
-        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
-            $buttons[] = $this->languageButtons();
         }
 
         return [
@@ -291,6 +388,62 @@ class BotMessageFormatter
                 'page' => $pagination['page'],
             ],
         ];
+    }
+
+    /**
+     * Tombol navigasi layar daftar Telegram — SENGAJA hanya navigasi.
+     *
+     * Telegram hanya mengizinkan SATU `reply_markup` per pesan: reply keyboard
+     * (`keyboard`) ATAU inline (`inline_keyboard`). Karena layar ini harus
+     * mengirim keyboard angka (keputusan user: keyboard angka global), tombol
+     * inline di sini tidak ikut terkirim bersama pesan menu — adapter
+     * mengirimnya sebagai pesan kedua, dan hanya kalau menunya lebih dari satu
+     * halaman.
+     *
+     * Susunan prev/next tetap dibuat di sini supaya satu sumber dengan
+     * `appendPagination()` yang dipakai layar lain.
+     *
+     * @return array<int, array<int, array<string, string>>>
+     */
+    private function menuNavigationButtons(array $pagination): array
+    {
+        if ((int) ($pagination['total_pages'] ?? 1) <= 1) {
+            return [];
+        }
+
+        return $this->appendPagination([], 'menu', $pagination);
+    }
+
+    /**
+     * URL gambar banner untuk layar Menu Utama bot Telegram. `null` = jangan
+     * kirim gambar.
+     *
+     * Dua alasan method ini ada, dan keduanya bukan gaya penulisan:
+     *
+     * 1. **Gate Telegram wajib di SINI.** `photo_url` dibaca KETIGA adapter
+     *    (`TelegramAdapter`, `FonnteAdapter`, `OpenWaAdapter`), sedangkan
+     *    `formatCategories()` dipakai bersama Telegram dan WhatsApp. Tanpa gate
+     *    ini, banner ikut terkirim ke WhatsApp.
+     *
+     * 2. **Hanya kirim kalau berkasnya BENAR-BENAR ada.** Telegram menolak
+     *    SELURUH pesan kalau URL gambarnya tidak bisa diambil — jadi banner yang
+     *    hilang akan membuat menu user lenyap, bukan sekadar tanpa gambar.
+     *    `existingUrl()` mengembalikan null untuk berkas yang tidak ada, dan
+     *    menu tetap terkirim sebagai teks.
+     */
+    private function telegramMenuBannerUrl(?BotGatewayCapabilities $capabilities): ?string
+    {
+        if ($capabilities?->source() !== BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            return null;
+        }
+
+        $path = \App\Models\SettingWeb::query()->value('bot_menu_banner');
+
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return app(\App\Services\PublicUploadUrlService::class)->existingUrl($path);
     }
 
     public function formatProducts(
@@ -316,6 +469,18 @@ class BotMessageFormatter
             $page,
             $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
         );
+
+        // Layar "Pilih Game" di Telegram memakai daftar bernomor di TEKS, sama
+        // seperti Menu Utama.
+        //
+        // Sebelumnya isinya hanya ada di tombol inline, dan tombol itu TIDAK
+        // pernah terkirim: di layar ini keyboard angka yang menang, sementara
+        // Telegram cuma mengizinkan satu `reply_markup` per pesan. Hasilnya user
+        // melihat layar kosong berisi judul saja.
+        if ($isTelegram) {
+            return $this->telegramGameList($pagination, $firstType, $typeSlug);
+        }
+
         $items = [];
 
         foreach ($pagination['items'] as $product) {
@@ -344,19 +509,82 @@ class BotMessageFormatter
         ];
     }
 
+    /**
+     * Layar "Pilih Game" Telegram: daftar game bernomor di dalam teks.
+     *
+     * Bentuknya sengaja sama dengan Menu Utama (`telegramCategoryList`) supaya
+     * cara memilih tidak berubah saat user masuk lebih dalam: nomor, bukan
+     * tombol.
+     */
+    private function telegramGameList(array $pagination, string $firstType, string $typeSlug): array
+    {
+        $lines = [
+            __('bot.catalog_products_title') . ' · ' . $firstType . $this->pageSuffix($pagination),
+            '',
+        ];
+        $entries = [];
+        $number = 0;
+
+        foreach ($pagination['items'] as $product) {
+            $number++;
+            $name = (string) ($product['name'] ?? '') !== ''
+                ? (string) $product['name']
+                : __('bot.menu_category_fallback');
+
+            $lines[] = __('bot.menu_item_numbered', [
+                'number' => $number,
+                'name' => $this->gameButtonLabel($name, (string) ($product['code'] ?? '')),
+            ]);
+
+            $entries[(string) $number] = [
+                'type' => 'content',
+                'label' => $name,
+                'command' => 'layanan ' . (string) ($product['code'] ?? ''),
+            ];
+        }
+
+        $entries = $this->serviceNavigationEntries($entries, $pagination, 'kategori ' . $typeSlug);
+        $entries['0'] = [
+            'type' => 'back',
+            'label' => __('bot.btn_back'),
+            'command' => 'menu',
+        ];
+
+        $lines[] = '';
+        $lines[] = $this->menuListFooter($pagination);
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => $this->serviceNavigationButtons($pagination, 'kategori ' . $typeSlug),
+            'numeric_menu' => [
+                'menu' => 'products',
+                'parent_menu' => 'menu',
+                'page' => $pagination['page'],
+                'entries' => $entries,
+            ],
+        ];
+    }
+
     public function formatServices(
         array $data,
         int $page = 1,
         ?BotGatewayCapabilities $capabilities = null,
+        array $services = [],
     ): array {
         $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
 
+        // Jalur Telegram: SATU daftar rata, isinya layanan yang bisa dipesan
+        // lewat bot (handler mengirim hasil `packagedServices()`). Nama paket
+        // TIDAK ditampilkan: satu paket dengan 48 layanan akan mencetak nama
+        // paketnya 48 kali tanpa menambah informasi apa pun.
+        if ($isTelegram) {
+            return $this->telegramServiceList($data, $services, $page);
+        }
+
         if (! ($data['ok'] ?? false) || empty($data['data']['services'])) {
             return [
-                'text' => $isTelegram
-                    ? __('bot.catalog_services_empty')
-                    : 'Produk tidak ditemukan atau belum ada layanan.',
-                'buttons' => [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', 'menu')]],
+                'text' => 'Produk tidak ditemukan atau belum ada layanan.',
+                'buttons' => [[$this->button('🔙 Kembali', 'menu')]],
             ];
         }
 
@@ -369,6 +597,7 @@ class BotMessageFormatter
             $page,
             $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
         );
+
         $items = [];
 
         foreach ($pagination['items'] as $service) {
@@ -399,12 +628,231 @@ class BotMessageFormatter
         ];
     }
 
+    /**
+     * Layar layanan Telegram: SATU daftar rata, satu baris per layanan.
+     *
+     * Nama paket TIDAK ditampilkan (keputusan user). Paket tetap menentukan ISI
+     * daftar — layanan yang tidak terikat paket mana pun tidak muncul di sini —
+     * tapi label paketnya tidak diulang di tiap baris.
+     *
+     * `$services` datang dari handler hasil `GatewayCatalogService::packagedServices()`,
+     * yang sudah rata dan sudah dipin (paket "spesial" di atas).
+     *
+     * Kategori yang tidak punya satu pun layanan berpaket TIDAK sampai ke sini:
+     * penyaringnya ada di Menu Utama dan Pilih Game, jadi kategori begitu tidak
+     * pernah dipajang untuk dibuka.
+     */
+    private function telegramServiceList(array $data, array $services, int $page): array
+    {
+        $category = $data['data']['category'] ?? [];
+        $productName = (string) ($category['name'] ?? 'Produk');
+        $categoryCode = (string) ($category['code'] ?? '');
+        $typeSlug = (string) ($category['category_type']['slug'] ?? '');
+
+        if (! ($data['ok'] ?? false) || $services === []) {
+            return [
+                'text' => __('bot.catalog_services_empty'),
+                'buttons' => [[$this->button(__('bot.btn_back'), 'menu')]],
+            ];
+        }
+
+        $pagination = $this->paginate($services, $page, self::SERVICE_LIST_PAGE_SIZE);
+
+        $lines = [
+            __('bot.service_list_title', ['produk' => $this->escapeMarkdown($productName)])
+                . $this->pageSuffix($pagination),
+            '',
+        ];
+        $entries = [];
+        $number = 0;
+
+        foreach ($pagination['items'] as $service) {
+            $number++;
+
+            // Nomor = POSISI DI HALAMAN INI (1..10), bukan posisi absolut di
+            // seluruh daftar.
+            //
+            // Nomor absolut tampak lebih ramah ("11" lanjut dari "10"), tapi
+            // BATAS keyboard angka Telegram adalah `CONTENT_ENTRY_LIMIT` (15).
+            // Daftar layanan punya lebih dari 15 item, jadi halaman 3 memakai
+            // nomor 21-30 yang SELURUHNYA ditolak `BotNumericMenuStore` — peta
+            // tersimpan tanpa entri isi, keyboard angka kosong, dan pesan
+            // navigasi ikut hilang. Akibatnya layar mati dan sentuhan angka
+            // ditelan tanpa balasan.
+            //
+            // Dua layar lain (Menu Utama, Pilih Game) memang sudah memakai nomor
+            // per-halaman; layar ini yang tadinya menyimpang.
+            $lines[] = __('bot.service_item_numbered', [
+                'number' => $number,
+                'nama' => $this->escapeMarkdown((string) $service['name']),
+                'harga' => number_format((float) $service['price'], 0, ',', '.'),
+            ]);
+
+            $entries[(string) $number] = [
+                'type' => 'content',
+                'label' => (string) $service['name'],
+                'command' => 'metode ' . (int) $service['service_id'],
+            ];
+        }
+
+        $entries = $this->serviceNavigationEntries($entries, $pagination, 'layanan ' . $categoryCode);
+        $entries['0'] = [
+            'type' => 'back',
+            'label' => __('bot.btn_back'),
+            'command' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
+        ];
+
+        $lines[] = '';
+        $lines[] = __('bot.service_list_footer_items');
+        $lines[] = $this->menuListFooter($pagination);
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => $this->serviceNavigationButtons($pagination, 'layanan ' . $categoryCode),
+            'numeric_menu' => [
+                'menu' => 'services',
+                'parent_menu' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
+                'page' => $pagination['page'],
+                'entries' => $entries,
+            ],
+        ];
+    }
+
+    /**
+     * Layar "Pilih Pembayaran" jalur Telegram: daftar rata di TEKS,
+     * dikelompokkan per tipe, di dalam grup diurutkan TERMURAH DULU.
+     *
+     * Kenapa di teks: Telegram cuma menerima SATU `reply_markup` per pesan, dan
+     * di layar ini keyboard angka yang menang. Versi tombol sebelumnya tidak
+     * pernah terkirim, jadi layarnya tampil kosong.
+     *
+     * Kenapa dikelompokkan: web sudah mengelompokkan (QRIS / E-Wallet / Virtual
+     * Account / Convenience Store), dan user memilih berdasarkan tipe. Grupnya
+     * datang dari data (`displayCategory`), BUKAN dari label literal, supaya
+     * penamaan ulang di panel tidak merusak urutan.
+     *
+     * Kenapa biaya ditampilkan: di layar ini biaya antar metode berbeda jauh
+     * (Rp 0 di BCA VA vs +1,5% di e-wallet), jadi ini yang membedakan pilihan,
+     * bukan halaman daftar layanan.
+     *
+     * @param  array<int, array{name: string, code: string, group?: string, group_sort?: int, fee?: int|null}>  $methods
+     */
+    private function telegramPaymentList(
+        array $methods,
+        int $serviceId,
+        int $page,
+        ?string $backCallback,
+        string $serviceLabel,
+    ): array {
+        $lines = [
+            __('bot.payment_list_title'),
+        ];
+
+        if ($serviceLabel !== '') {
+            $lines[] = __('bot.payment_list_service', ['nama' => $this->escapeMarkdown($serviceLabel)]);
+        }
+
+        $lines[] = '';
+
+        // Grup ikut urutan panel (`sort_order`); DI DALAM grup termurah dulu.
+        // Metode tanpa biaya yang bisa dihitung ditaruh paling akhir di grupnya:
+        // memajang angka karangan lebih buruk daripada mengakui biayanya muncul
+        // nanti, dan user yang mengurutkan sendiri tetap melihat yang gratis
+        // lebih dulu.
+        $urut = $methods;
+        usort($urut, function (array $a, array $b): int {
+            $grupA = (int) ($a['group_sort'] ?? 99);
+            $grupB = (int) ($b['group_sort'] ?? 99);
+
+            if ($grupA !== $grupB) {
+                return $grupA <=> $grupB;
+            }
+
+            $feeA = $a['fee'] ?? null;
+            $feeB = $b['fee'] ?? null;
+
+            if ($feeA === null && $feeB !== null) {
+                return 1;
+            }
+            if ($feeB === null && $feeA !== null) {
+                return -1;
+            }
+            if ($feeA !== $feeB) {
+                return ($feeA ?? 0) <=> ($feeB ?? 0);
+            }
+
+            return strcmp((string) $a['name'], (string) $b['name']);
+        });
+
+        $entries = [];
+        $nomor = 0;
+        $lastGroup = null;
+
+        foreach ($urut as $method) {
+            $nomor++;
+
+            $grup = (string) ($method['group'] ?? '');
+            if ($grup !== '' && $grup !== $lastGroup) {
+                // Baris kosong SEBELUM grup berikutnya: tanpa itu nama grup
+                // menempel di baris metode terakhir grup sebelumnya
+                // ("[1]. QRIS — +Rp 863" lalu langsung "E-Wallet"), dan
+                // batasnya jadi tidak terbaca.
+                if ($lastGroup !== null) {
+                    $lines[] = '';
+                }
+
+                $lines[] = __('bot.payment_list_group', ['grup' => $this->escapeMarkdown($grup)]);
+                $lastGroup = $grup;
+            }
+
+            $fee = $method['fee'] ?? null;
+            $biaya = match (true) {
+                $fee === null => __('bot.payment_list_fee_later'),
+                (int) $fee === 0 => __('bot.payment_list_free'),
+                default => __('bot.payment_list_fee', ['fee' => number_format((int) $fee, 0, ',', '.')]),
+            };
+
+            $lines[] = '[' . $nomor . ']. ' . $this->escapeMarkdown((string) $method['name']) . $biaya;
+
+            $entries[(string) $nomor] = [
+                'type' => 'content',
+                'label' => (string) $method['name'],
+                'command' => 'harga ' . $serviceId . ' ' . (string) $method['code'],
+            ];
+        }
+
+        $lines[] = '';
+        $lines[] = __('bot.payment_list_footer');
+        $lines[] = $this->menuListFooter(['page' => 1, 'total_pages' => 1]);
+
+        if ($backCallback !== null) {
+            $entries['0'] = [
+                'type' => 'back',
+                'label' => __('bot.btn_back'),
+                'command' => $backCallback,
+            ];
+        }
+
+        return [
+            'text' => implode("\n", $lines),
+            'buttons' => [],
+            'numeric_menu' => [
+                'menu' => 'payments',
+                'parent_menu' => $backCallback,
+                'page' => 1,
+                'entries' => $entries,
+            ],
+        ];
+    }
+
     public function formatPaymentMethods(
         array $data,
         int $serviceId,
         int $page = 1,
         ?string $backCallback = null,
         ?BotGatewayCapabilities $capabilities = null,
+        array $methods = [],
+        string $serviceLabel = '',
     ): array {
         $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
 
@@ -417,6 +865,14 @@ class BotMessageFormatter
                     ? [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', $backCallback)]]
                     : [],
             ];
+        }
+
+        // Jalur Telegram: SATU daftar di TEKS, dikelompokkan per tipe, termurah
+        // dulu. Daftar tombol tidak dipakai di sini — Telegram hanya menerima
+        // satu `reply_markup` per pesan dan keyboard angka yang menang, jadi
+        // daftar berbasis tombol tampil KOSONG (bug lama).
+        if ($isTelegram) {
+            return $this->telegramPaymentList($methods, $serviceId, $page, $backCallback, $serviceLabel);
         }
 
         $pagination = $this->paginate(
@@ -1289,9 +1745,23 @@ class BotMessageFormatter
                 $em(__('bot.help_manage_title')),
                 __('bot.help_manage_status', $names),
                 __('bot.help_manage_history', $names),
-                __('bot.help_manage_checkid', $names),
-                __('bot.help_manage_cancel', $names),
             ];
+            // Baris "🔍 Cek ID Game" DICABUT dari panduan (keputusan user), sama
+            // seperti baris batal: tombolnya sudah tidak ada di keyboard, jadi
+            // panduan tidak boleh mengarahkan user ke tombol yang tidak terlihat.
+            // Perintah `cekid` tetap bisa diketik dan tetap didokumentasikan di
+            // balasan perintah itu sendiri (`handleCekId()`).
+            // Baris "❌ Batal Transaksi" DICABUT dari panduan (keputusan user).
+            //
+            // Tombolnya sudah tidak dirender di keyboard, jadi menyebutkannya di
+            // panduan mengarahkan user menekan tombol yang tidak ada di
+            // layarnya. Perintah `batal` sendiri tetap hidup (perintah ketik +
+            // tombol inline di layar konfirmasi checkout), jadi mencabut baris
+            // ini tidak mematikan fiturnya — hanya berhenti mempromosikannya.
+            //
+            // Kunci lang `bot.help_manage_cancel` SENGAJA tidak dihapus (nol
+            // penghapusan di `resources/lang/`), jadi kuncinya kini tidak dipakai
+            // di jalur Telegram mana pun.
 
             if ($capabilities->supports('deposit')) {
                 // Ditaruh di dalam daftar supaya urutannya ikut alur, bukan
@@ -1638,9 +2108,14 @@ class BotMessageFormatter
             $keyboard[] = [['text' => '💰 Deposit']];
         }
 
+        // Tombol "🔍 Cek ID Game" TIDAK dirender (keputusan user).
+        //
+        // Perintah `cekid` sendiri tetap hidup: parser tetap mengenali labelnya
+        // (label lama masih tergeletak di riwayat chat user) dan `handleCekId()`
+        // tidak disentuh. Jadi ini soal berhenti MEMPROMOSIKAN tombolnya, bukan
+        // mematikan fiturnya.
         $keyboard[] = [
             ['text' => $pick('bot.kbd_status', '📦 Cek Status')],
-            ['text' => $pick('bot.kbd_cekid', '🔍 Cek ID Game')],
         ];
 
         // Baris bahasa — Telegram saja, dan dijaga EKSPLISIT pada source-nya.
@@ -1658,9 +2133,19 @@ class BotMessageFormatter
             $keyboard[] = $languageRow;
         }
 
+        // Tombol "❌ Batal Transaksi" TIDAK dirender (keputusan user).
+        //
+        // Dihapus di SUMBERNYA, bukan disaring di keyboard angka saja: keyboard
+        // angka menggantikan keyboard ini begitu user membuka daftar, tapi
+        // sebelum itu (`/start`, layar panduan) yang terpasang adalah keyboard
+        // INI — menyaring di satu tempat saja meninggalkan tombolnya terlihat
+        // di layar-layar awal, dan user mengira tombolnya masih ada.
+        //
+        // Label `bot.kbd_cancel` tetap ada di file lang dan perintah `batal`
+        // tetap dikenali parser: label lama masih tergeletak di riwayat chat
+        // user, dan layar konfirmasi checkout memakai tombol inline-nya sendiri.
         $keyboard[] = [
             ['text' => $pick('bot.kbd_help', '❓ Bantuan')],
-            ['text' => $pick('bot.kbd_cancel', '❌ Batal Transaksi')],
         ];
 
         // TIDAK ada tombol "📞 Hubungi Admin" di sini.
@@ -1857,6 +2342,104 @@ class BotMessageFormatter
     private function escapeMarkdownCode(string $value): string
     {
         return str_replace(['\\', '`'], ['\\\\', '\\`'], $value);
+    }
+
+    // ============================================================= daftar layanan
+    //
+    // Layar layanan Telegram adalah SATU daftar rata di dalam TEKS, satu baris
+    // per layanan. Bukan kartu per item, dan tanpa nama paket.
+    //
+    // **Kenapa di TEKS.** Telegram hanya mengizinkan SATU `reply_markup` per
+    // pesan, dan begitu keyboard angka dipakai (keputusan user: keyboard angka
+    // global), tombol inline TIDAK ikut terkirim sama sekali. Daftar yang
+    // disimpan di tombol karena itu tidak pernah terlihat user — layarnya
+    // tampak kosong, hanya tersisa judul.
+    //
+    // **Kenapa tanpa nama paket.** Kartu per item mencetak nama paketnya di
+    // SETIAP kartu ("Proses Instant" 48 kali untuk Free Fire) dan memakai 5
+    // baris untuk satu layanan. Setelah user berada di dalam kategorinya, nama
+    // paket tidak menambah informasi apa pun.
+
+    /**
+     * Jumlah layanan per halaman layar layanan Telegram.
+     *
+     * Sepuluh, bukan delapan: dengan satu baris per layanan, sepuluh baris
+     * masih nyaman dibaca sekali lihat, dan keyboard angka menampungnya dalam
+     * dua baris (5 per baris).
+     *
+     * SENGAJA terpisah dari `BotGatewayCapabilities::menuPageSize()`: konstanta
+     * itu dipakai bersama Menu Utama dan Pilih Game, yang isinya kategori
+     * (pendek-pendek) dan tidak boleh ikut bergeser.
+     */
+    private const SERVICE_LIST_PAGE_SIZE = 10;
+
+    /**
+     * Nomor 98/99 untuk pindah halaman, dengan arti yang sama seperti jalur
+     * WhatsApp supaya kebiasaan user tidak perlu diubah antar channel.
+     *
+     * @param  array<string, array<string, string>>  $entries
+     * @return array<string, array<string, string>>
+     */
+    private function serviceNavigationEntries(array $entries, array $pagination, string $baseCommand): array
+    {
+        $page = (int) ($pagination['page'] ?? 1);
+        $totalPages = (int) ($pagination['total_pages'] ?? 1);
+
+        if ($page > 1) {
+            $entries['98'] = [
+                'type' => 'navigation_previous',
+                'label' => '⬅️ Prev',
+                'command' => $baseCommand . ' page:' . ($page - 1),
+            ];
+        }
+
+        if ($page < $totalPages) {
+            $entries['99'] = [
+                'type' => 'navigation_next',
+                'label' => 'Next ➡️',
+                'command' => $baseCommand . ' page:' . ($page + 1),
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Tombol pindah halaman untuk pesan kedua “Pindah halaman”.
+     *
+     * Tombol ini menyimpan DUA perintah, dan itu disengaja:
+     *
+     * - `callback` memakai pola `menu page:N`. Adapter mengirim pesan kedua
+     *   HANYA untuk tombol berpola itu, jadi tanpa pola ini navigasinya ikut
+     *   terbuang dan halaman berikutnya cuma bisa dicapai dengan mengetik `99`.
+     * - `page_command` memuat perintah layar yang SEBENARNYA (`layanan mlbb
+     *   page:2`). Inilah yang dipakai adapter sebagai isi tombol di pesan
+     *   kedua. Sebelumnya `callback` yang dipakai, sehingga menekan “Next ➡️”
+     *   membuka Menu Utama halaman 2 — bukan lanjutan daftar layanan yang
+     *   sedang dilihat user.
+     *
+     * @return array<int, array<int, array<string, string>>>
+     */
+    private function serviceNavigationButtons(array $pagination, string $baseCommand): array
+    {
+        if ((int) ($pagination['total_pages'] ?? 1) <= 1) {
+            return [];
+        }
+
+        $page = (int) $pagination['page'];
+        $row = [];
+
+        if ($page > 1) {
+            $row[] = $this->button('⬅️ Prev', 'menu page:' . ($page - 1), 'navigation_previous')
+                + ['page_command' => $baseCommand . ' page:' . ($page - 1)];
+        }
+
+        if ($page < (int) $pagination['total_pages']) {
+            $row[] = $this->button('Next ➡️', 'menu page:' . ($page + 1), 'navigation_next')
+                + ['page_command' => $baseCommand . ' page:' . ($page + 1)];
+        }
+
+        return $row === [] ? [] : [$row];
     }
 
     private function invoicePhotoUrl(array $invoice, string $paymentCode): ?string
@@ -2136,6 +2719,114 @@ class BotMessageFormatter
         }
 
         return " · {$pagination['page']}/{$pagination['total_pages']}";
+    }
+
+    /**
+     * Footer layar daftar: baris halaman (kalau lebih dari satu) + jam.
+     *
+     * Baris halaman disembunyikan saat cuma ada SATU halaman: "📄 Halaman 1 / 1"
+     * bukan informasi, hanya kebisingan yang membuat daftar pendek terlihat
+     * seperti terpotong.
+     *
+     * Jam diambil lewat `config('app.timezone')`, bukan `now()` mentah. Server
+     * menyimpan waktu UTC, sedangkan user bot ada di WIB; jam yang menyimpang
+     * dari jam HP user membuat pesan terlihat basi — dan user memakai jam ini
+     * untuk menyocokkan dengan riwayat order.
+     */
+    private function menuListFooter(array $pagination): string
+    {
+        $lines = [];
+
+        $total = (int) ($pagination['total_pages'] ?? 1);
+        if ($total > 1) {
+            $lines[] = __('bot.menu_page_footer', [
+                'page' => (int) ($pagination['page'] ?? 1),
+                'total' => $total,
+            ]);
+        }
+
+        $lines[] = '📆 ' . \Illuminate\Support\Carbon::now(config('app.timezone'))->format('h:i:s A');
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Tombol aksi layar Menu Utama Telegram — TANPA tombol kategori.
+     *
+     * Dikembalikan sebagai baris terpisah supaya adapter bisa memutuskan
+     * mengirimnya (sebagai pesan kedua) saat tombol harus bergeser tempat.
+     * Menyertakannya di sini menjaga susunannya satu sumber dengan layar lain.
+     *
+     * @return array<int, array<int, array<string, string>>>
+     */
+    private function menuActionButtons(BotGatewayCapabilities $capabilities): array
+    {
+        $buttons = [];
+
+        if ($capabilities->supports('leaderboard')) {
+            $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
+        }
+
+        if ($capabilities->supports('deposit')) {
+            $buttons[] = [$this->button('💰 Deposit', 'deposit')];
+        }
+
+        if ($capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM) {
+            $buttons[] = $this->languageButtons();
+        }
+
+        return $buttons;
+    }
+
+    /**
+     * Reply keyboard angka untuk Telegram — GLOBAL, dikirim di setiap layar.
+     *
+     * Telegram hanya mengizinkan SATU `reply_markup` per pesan, jadi keyboard
+     * ini MENGGANTIKAN keyboard default saat ada daftar aktif. Tombol aksi lama
+     * TIDAK dibuang: kalau dibuang, user kehilangan akses Menu/Riwayat/Bantuan
+     * dari layar dan hanya bisa lewat perintah ketik — regresi yang jauh lebih
+     * besar daripada manfaat nomornya. Angka DITAMBAHKAN di atasnya.
+     *
+     * Jumlah angka MENGIKUTI daftar, bukan selalu 1..10: mengirim tombol yang
+     * tidak punya item di belakangnya memberi user tombol mati.
+     *
+     * Tombol "❌ Batal Transaksi" sengaja tidak dirender (keputusan user). Label
+     * `bot.kbd_cancel` tetap ada di file lang; perintah `batal` tetap dikenali
+     * parser, dan layar konfirmasi checkout memakai tombol inline-nya sendiri.
+     *
+     * @param  array<int, int|string>  $numbers
+     * @return array<string, mixed>
+     */
+    public function numericReplyKeyboard(array $numbers, ?BotGatewayCapabilities $capabilities = null): array
+    {
+        $capabilities ??= BotGatewayCapabilities::forSource(BotGatewayCapabilities::SOURCE_TELEGRAM);
+
+        $keyboard = [];
+
+        if ($numbers !== []) {
+            $buttons = [];
+            foreach (array_values($numbers) as $number) {
+                $buttons[] = ['text' => (string) $number];
+            }
+
+            // Lima per baris: cukup rapat supaya keyboard tidak memakan separuh
+            // layar, dan tetap sejajar dengan nomor 1..15 pada daftar terpanjang.
+            $keyboard = array_chunk($buttons, 5);
+        }
+
+        // Tombol aksi diambil UTUH dari keyboard default; batal sudah tidak ada
+        // di sana (dihapus di sumbernya), jadi di sini tidak perlu penyaringan
+        // lagi — dan penyaringan berbasis label literal justru berbahaya: di
+        // locale Inggris labelnya `❌ Cancel Order`, sehingga tombolnya lolos
+        // hanya karena bahasanya berbeda.
+        $base = $this->defaultReplyKeyboard($capabilities)['keyboard'];
+
+        return [
+            'keyboard' => array_merge($keyboard, $base),
+            'resize_keyboard' => true,
+            'is_persistent' => true,
+            'input_field_placeholder' => $this->keyboardLabel('bot.kbd_placeholder', 'Pilih aksi...'),
+        ];
     }
 
     private function button(

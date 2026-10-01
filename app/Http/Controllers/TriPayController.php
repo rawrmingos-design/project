@@ -123,7 +123,17 @@ class TriPayController extends Controller
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HEADER         => false,
             CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $api->tripay_api],
-            CURLOPT_FAILONERROR    => false
+            CURLOPT_FAILONERROR    => false,
+            // BATAS WAKTU WAJIB. Tanpa ini, saat Tripay tidak terjangkau,
+            // panggilan menggantung ~125 detik dan menyandera worker PHP-FPM —
+            // seluruh bot ikut mati, termasuk perintah yang tidak menyentuh
+            // Tripay sama sekali ("menu"). Sudah kejadian di staging.
+            //
+            // Fee sisi customer hanya AKSESORIS: kegagalannya tidak boleh
+            // menahan apa pun. Lebih baik kehilangan angkanya (biaya dianggap 0)
+            // daripada kehilangan seluruh bot.
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => 6,
         ]);
 
         $response = json_decode(curl_exec($curl));

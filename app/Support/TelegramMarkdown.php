@@ -166,13 +166,26 @@ class TelegramMarkdown
                 }
             }
 
-            // 3. Tebal `*...*`, coret `~...~`, garis bawah `__...__`.
+            // 3. Tebal `*...*`, coret `~...~`, garis bawah `__...__`,
+            //    dan miring `_..._`.
+            //
+            // CABANG `__` HARUS DI ATAS `_`: dua underscore adalah GARIS BAWAH di
+            // MarkdownV2, sedangkan satu underscore adalah MIRING. Kalau urutannya
+            // dibalik, `__teks__` dibaca sebagai miring kosong dan penandanya
+            // berakhir sebagai teks mentah.
+            //
+            // Dukungan `_..._` ditambahkan karena teks bot sendiri memakainya
+            // (mis. catatan di layar registrasi). Selama parser ini belum
+            // mengenalinya, seluruh underscore di-escape sehingga penandanya
+            // TAMPIL MENTAH di layar — bukan miring, tapi literal `_teks_`.
             $marker = null;
 
             if ($ch === '*' || $ch === '~') {
                 $marker = $ch;
             } elseif ($ch === '_' && ($chars[$i + 1] ?? '') === '_') {
                 $marker = '__';
+            } elseif ($ch === '_') {
+                $marker = '_';
             }
 
             if ($marker !== null) {

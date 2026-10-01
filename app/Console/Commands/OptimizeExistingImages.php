@@ -99,6 +99,7 @@ class OptimizeExistingImages extends Command
         yield from $this->tableColumnPaths('setting_webs', 'logo_footer', 'thumbnail');
         yield from $this->tableColumnPaths('setting_webs', 'logo_favicon', 'thumbnail');
         yield from $this->tableColumnPaths('setting_webs', 'seasonal_background_image', 'banner');
+        yield from $this->tableColumnPaths('setting_webs', 'bot_menu_banner', 'banner');
     }
 
     private function tableColumnPaths(string $table, string $column, string $profile): \Generator

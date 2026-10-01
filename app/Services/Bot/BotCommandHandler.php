@@ -836,10 +836,16 @@ class BotCommandHandler
 
     private function handleMenu(array $args = [], array $context = []): array
     {
+        $capabilities = $this->capabilities($context);
+
+        // Bot Telegram hanya bisa memesan layanan yang terikat paket, jadi Menu
+        // Utama memakai hitungan "layanan yang bisa dipesan", bukan jumlah
+        // layanan mentah. Tanpa itu, tipe kategori yang isinya cuma kategori
+        // tanpa paket tetap muncul di daftar lalu membuka layar kosong.
         return $this->formatter->formatCategories(
-            $this->catalog->categoryTypes(),
+            $this->catalog->categoryTypes([], $this->isTelegram($capabilities)),
             $this->pageFromArgs($args),
-            $this->capabilities($context),
+            $capabilities,
         );
     }
 
@@ -855,12 +861,24 @@ class BotCommandHandler
             ];
         }
 
-        $res = $this->catalog->categories(null, ['type' => $type]);
+        $res = $this->catalog->categories(null, ['type' => $type], $this->isTelegram($this->capabilities($context)));
+
         return $this->formatter->formatProducts(
             $res,
             $this->pageFromArgs($args),
             $this->capabilities($context),
         );
+    }
+
+    /**
+     * Jalur Telegram menyembunyikan kategori yang tidak punya layanan berpaket:
+     * bot hanya bisa memesan layanan terikat paket, jadi kategori begitu
+     * membuka layar kosong. Jalur WhatsApp TIDAK disaring — WA memakai
+     * tombolnya sendiri dan perilakunya tidak boleh berubah.
+     */
+    private function isTelegram(?BotGatewayCapabilities $capabilities): bool
+    {
+        return $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
     }
 
     private function handleLayanan(array $args, array $context): array
@@ -876,10 +894,26 @@ class BotCommandHandler
         }
 
         $res = $this->catalog->services($catCode);
+        $capabilities = $this->capabilities($context);
+
+        // Isi daftar untuk jalur Telegram: layanan yang BISA DIPESAN lewat bot,
+        // rata, dengan paket "spesial" dipin di atas.
+        //
+        // Paket tidak lagi ditampilkan sebagai langkah tersendiri. Sebelumnya
+        // user harus memilih paket dulu, padahal 17 dari 22 kategori cuma punya
+        // SATU paket — satu langkah tambahan tanpa alternatif.
+        //
+        // Hanya jalur Telegram yang membaca ini: jalur WhatsApp memakai
+        // tampilan tombolnya sendiri, jadi jangan dibebani query tambahan.
+        $services = $this->isTelegram($capabilities)
+            ? $this->catalog->packagedServices($catCode)
+            : [];
+
         return $this->formatter->formatServices(
             $res,
             $this->pageFromArgs($args),
-            $this->capabilities($context),
+            $capabilities,
+            $services,
         );
     }
 
@@ -906,13 +940,100 @@ class BotCommandHandler
             ? 'layanan ' . $service['data']['category']['code']
             : null;
 
+        $capabilities = $this->capabilities($context);
+
         return $this->formatter->formatPaymentMethods(
             ['ok' => true, 'data' => $methods],
             $serviceId,
             $this->pageFromArgs($args),
             $backCallback,
-            $this->capabilities($context),
+            $capabilities,
+            $this->isTelegram($capabilities)
+                ? $this->paymentMethodsWithFees($serviceId, $methods)
+                : [],
+            (string) ($service['data']['name'] ?? ''),
         );
+    }
+
+    /**
+     * Anggaran waktu TOTAL untuk menghitung biaya di layar pembayaran.
+     *
+     * Hanya metode Tripay yang butuh panggilan API (metode lain dihitung lokal,
+     * ~4 ms). Kalau Tripay tidak menjawab, tiap metode memakan waktu sampai
+     * batas cURL-nya, dan beberapa metode bisa menumpuk sampai melewati batas
+     * tunggu Telegram — layarnya tidak terkirim sama sekali.
+     *
+     * Lewat anggaran ini, sisa metode cukup ditandai "biaya dihitung di langkah
+     * berikutnya". Kehilangan angka biaya jauh lebih ringan daripada kehilangan
+     * seluruh layar.
+     */
+    private const PAYMENT_FEE_BUDGET_SECONDS = 8.0;
+
+    /**
+     * Metode pembayaran + biaya NYATA + grup tipe, untuk layar Telegram.
+     *
+     * Biaya dihitung lewat gateway pricing yang SAMA dengan yang dipakai saat
+     * user memesan, jadi angka di layar ini tidak bisa berbeda dari total di
+     * layar harga. Biaya dari kolom DB saja TIDAK cukup: metode Tripay (QRIS)
+     * menambah fee sisi customer yang hanya diketahui dari API mereka — 0,7% +
+     * Rp 100 di DB, tapi Rp 863 pada layanan Rp 884.
+     *
+     * Biaya dihitung pada jumlah persis seperti yang nanti dipesan user
+     * (`amount_after_discount`), bukan harga katalog mentah, supaya yang
+     * ditampilkan adalah yang benar-benar dibayar.
+     *
+     * Quote bisa GAGAL (mis. nominal di bawah minimum metode — Indomaret
+     * minimum Rp 10.000). Kegagalan itu bukan alasan menyembunyikan metode:
+     * yang dipakai cuma batas atas biaya, dan metode tetap ditawarkan.
+     *
+     * @param  array<int, array{name: string, code: string}>  $methods
+     * @return array<int, array{name: string, code: string, group: string, group_sort: int, fee: int|null}>
+     */
+    private function paymentMethodsWithFees(int $serviceId, array $methods): array
+    {
+        $enriched = [];
+        $batas = microtime(true) + self::PAYMENT_FEE_BUDGET_SECONDS;
+
+        foreach ($methods as $method) {
+            $model = $this->payment->findVisibleByCode((string) $method['code']);
+
+            $grup = (string) ($model?->displayCategory?->label ?? $model?->payment ?? '');
+            $urutGrup = (int) ($model?->displayCategory?->sort_order ?? 99);
+
+            $fee = null;
+
+            // Anggaran waktu HABIS: jangan panggil API lagi. Sisa metode tetap
+            // ditampilkan, hanya biayanya yang menyusul di langkah berikutnya.
+            if (microtime(true) < $batas) {
+                try {
+                    // SATU quote saja: hasilnya sudah memuat jumlah yang dipakai
+                    // menghitung biaya, jadi memanggil dua kali cuma menggandakan
+                    // panggilan API Tripay tanpa mengubah angka.
+                    $quote = $this->pricing->quote([
+                        'service_id' => $serviceId,
+                        'payment_method' => (string) $method['code'],
+                    ], null);
+
+                    if ($quote['ok'] ?? false) {
+                        $fee = (int) ($quote['data']['payment_fee'] ?? 0)
+                            + (int) ($quote['data']['gateway_fee'] ?? 0);
+                    }
+                } catch (\Throwable $e) {
+                    // Termasuk ValidationException batas minimum/maksimum metode.
+                    $fee = null;
+                }
+            }
+
+            $enriched[] = [
+                'name' => (string) $method['name'],
+                'code' => (string) $method['code'],
+                'group' => $grup,
+                'group_sort' => $urutGrup,
+                'fee' => $fee,
+            ];
+        }
+
+        return $enriched;
     }
 
     private function handleHarga(array $args, array $context): array
@@ -1829,6 +1950,51 @@ class BotCommandHandler
         return is_array($state)
             ? trim((string) ($state['intent_token'] ?? ''))
             : '';
+    }
+
+    /**
+     * Status percakapan yang menerima angka sebagai JAWABAN, bukan pilihan menu.
+     *
+     * Dipakai jalur Telegram untuk memutuskan apakah angka yang dikirim user
+     * harus diterjemahkan jadi pemilihan daftar. Tanpa penjagaan ini, ID game
+     * atau nominal deposit yang berupa angka murni akan ditelan jadi pemilihan
+     * kategori — pesanan user berubah jadi kategori yang salah, tanpa pesan
+     * error apa pun.
+     *
+     * `waiting_confirmation` SENGAJA tidak termasuk: layar konfirmasi memakai
+     * tombol inline sendiri (`❌ Batal` / lanjut), bukan angka bebas.
+     */
+    public static function isConversationalStep(?string $step): bool
+    {
+        return in_array((string) $step, [
+            'waiting_game_id',
+            'waiting_deposit_amount',
+            'waiting_deposit_method',
+        ], true);
+    }
+
+    /**
+     * Baca step percakapan yang sedang aktif untuk satu context.
+     *
+     * STATIS dengan sengaja: adapter bot memanggilnya untuk memutuskan apakah
+     * angka yang masuk itu pemilihan menu atau jawaban. Kalau ia method instance,
+     * adapter yang di-mock di test identitas jadi harus menyediakan ekspektasi
+     * tambahan — beban test naik tanpa manfaat, dan mock yang lupa diperbarui
+     * gagal dengan pesan yang tidak ada hubungannya dengan yang sedang diuji.
+     */
+    public static function conversationalStepFor(array $context): string
+    {
+        $key = 'bot:checkout-state:' . hash(
+            'sha256',
+            implode('|', [
+                (string) ($context['source'] ?? ''),
+                (string) ($context['external_user_id'] ?? ''),
+            ]),
+        );
+
+        $state = Cache::get($key);
+
+        return is_array($state) ? (string) ($state['step'] ?? '') : '';
     }
 
     private function checkoutStateKey(array $context): string

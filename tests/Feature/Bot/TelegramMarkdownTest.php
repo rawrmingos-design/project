@@ -137,4 +137,50 @@ class TelegramMarkdownTest extends TestCase
         $this->assertStringContainsString('Budi\\_Pratama', $hasil);
         $this->assertStringContainsString('\\*hebat\\*', $hasil);
     }
+
+    // ------------------------------------------------- dari Markdown gaya lama
+
+    /**
+     * Penanda MIRING satu underscore harus hidup.
+     *
+     * Teks bot sendiri memakai `_teks_` (mis. catatan di layar registrasi).
+     * Selama `fromLegacy` belum mengenalinya, semua underscore di-escape dan
+     * penandanya TAMPIL MENTAH — bukan miring, tapi literal `_teks_`.
+     */
+    public function test_single_underscore_becomes_italic(): void
+    {
+        $this->assertSame('_QRIS_', TelegramMarkdown::fromLegacy('_QRIS_'));
+
+        // Isi yang punya karakter spesial tetap harus di-escape, kalau tidak
+        // Telegram menolak pesannya.
+        $this->assertSame('_Convenience Store_', TelegramMarkdown::fromLegacy('_Convenience Store_'));
+        $this->assertSame('_\\(fee admin\\)_', TelegramMarkdown::fromLegacy('_(fee admin)_'));
+    }
+
+    /**
+     * `__teks__` tetap GARIS BAWAH, bukan miring.
+     *
+     * Cabang `__` wajib diperiksa sebelum `_`; kalau tidak, dua underscore
+     * dibaca sebagai miring kosong dan penandanya berakhir jadi teks mentah.
+     */
+    public function test_double_underscore_is_still_underline(): void
+    {
+        $this->assertSame('__garis__', TelegramMarkdown::fromLegacy('__garis__'));
+    }
+
+    public function test_italic_does_not_swallow_the_rest_of_the_line(): void
+    {
+        // Isi layar nyata: label grup miring diikuti baris metode dengan tanda
+        // hubung dan tanda tambah, yang keduanya WAJIB di-escape di MarkdownV2.
+        $hasil = TelegramMarkdown::fromLegacy("_QRIS_\n[1]. QRIS (fee admin: Rp 137)");
+
+        $this->assertSame("_QRIS_\n\\[1\\]\\. QRIS \\(fee admin: Rp 137\\)", $hasil);
+    }
+
+    public function test_unpaired_underscore_stays_literal_text(): void
+    {
+        // Nama akun ber-underscore tidak boleh membuka format: tanpa pasangan,
+        // underscore harus tetap di-escape seperti teks biasa.
+        $this->assertSame('@jasa\\_koding', TelegramMarkdown::fromLegacy('@jasa_koding'));
+    }
 }

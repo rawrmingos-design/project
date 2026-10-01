@@ -8,6 +8,7 @@ use App\Models\Kategori;
 use App\Models\InboundSourcePolicy;
 use App\Models\Layanan;
 use App\Models\Method;
+use App\Models\Paket;
 use App\Models\User;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
@@ -108,6 +109,25 @@ class BotWebhookTest extends TestCase
         return preg_replace('/\\\\(.)/u', '$1', (string) $escaped);
     }
 
+    /**
+     * Lampirkan layanan ke paket.
+     *
+     * Bot Telegram hanya memajang kategori yang punya layanan berpaket, dan
+     * hanya menampilkan layanan yang terikat paket. Fixture test lama menyemai
+     * layanan TANPA paket, jadi menu-nya kini kosong — bukan karena regresi,
+     * tapi karena katalognya memang tidak bisa dipesan lewat bot.
+     */
+    private function attachToPackage(array $services, string $packageName = '⚡ Proses Instant'): Paket
+    {
+        $paket = Paket::query()->firstOrCreate(['nama' => $packageName]);
+
+        foreach ($services as $service) {
+            $paket->layanan()->syncWithoutDetaching([$service->id => ['product_logo' => null]]);
+        }
+
+        return $paket;
+    }
+
     public function test_telegram_adapter_handles_menu_command_and_replies_with_buttons()
     {
         CategoryType::query()->create([
@@ -122,9 +142,13 @@ class BotWebhookTest extends TestCase
             'kode' => 'mlbb',
             'status' => 'active'
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $kategori->id,
-            'status' => 'available'
+        // Paket wajib: bot Telegram hanya memajang kategori yang punya layanan
+        // berpaket, dan hanya merender layanan terikat paket.
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $kategori->id,
+                'status' => 'available'
+            ]),
         ]);
 
         Http::fake([
@@ -142,22 +166,23 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Layar menu sekarang mengirim DAFTAR BERNOMOR di teks + reply keyboard
+        // angka, bukan narasi sapaan + tombol inline kategori.
         Http::assertSent(function ($request) {
             if (! str_contains($request->url(), 'sendMessage')) {
                 return false;
             }
 
-            $buttons = collect($request['reply_markup']['inline_keyboard'])->flatten(1);
             $text = $this->visibleText($request['text']);
 
             return $request['chat_id'] === 12345
-                && str_contains($text, 'Selamat datang di Test Store')
-                && str_contains($text, 'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.')
-                && str_contains($text, '🏠 *Menu Utama*')
-                && $buttons->contains(fn (array $button): bool => ($button['text'] ?? null) === '🏆 Leaderboard'
-                    && ($button['callback_data'] ?? null) === 'leaderboard')
-                && $buttons->doesntContain(fn (array $button): bool => ($button['text'] ?? null) === '💰 Deposit'
-                    || ($button['callback_data'] ?? null) === 'deposit');
+                && str_contains($text, 'LIST PRODUCT')
+                && str_contains($text, '[1]. 🎮 Top Up')
+                // Sapaan + tagline + "pilih kategori di bawah" DIHAPUS.
+                && ! str_contains($text, 'Selamat datang di Test Store')
+                && ! str_contains($text, 'Menu Utama');
+            // Keyboard angka diuji terpisah di `TelegramNumericKeyboardTest`
+            // (fitur terpisah; layar ini sudah benar tanpa keyboard).
         });
     }
 
@@ -219,13 +244,21 @@ class BotWebhookTest extends TestCase
         ], 1, $capabilities);
         $keyboard = $formatter->defaultReplyKeyboard($capabilities);
 
-        $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');
         $keyboardLabels = collect($keyboard['keyboard'])->flatten(1)->pluck('text');
 
-        $this->assertTrue($menuCallbacks->contains('leaderboard'));
-        $this->assertTrue($menuCallbacks->contains('deposit'));
-        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+        // `leaderboard`/`deposit` dulu tombol INLINE di layar menu. Layar menu
+        // sekarang membawa reply keyboard angka (Telegram hanya mengizinkan
+        // satu `reply_markup` per pesan), jadi keduanya hidup di reply keyboard
+        // — dan itulah yang harus dibuktikan masih ada.
+        $this->assertTrue($keyboardLabels->contains('🏆 Leaderboard'));
         $this->assertTrue($keyboardLabels->contains('💰 Deposit'));
+        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+
+        // Menu kategori tidak boleh lagi menyisakan tombol inline kategori.
+        $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');
+        $this->assertTrue($menuCallbacks->every(
+            fn (string $callback): bool => ! str_starts_with($callback, 'kategori '),
+        ));
     }
 
     public function test_telegram_non_member_must_join_before_opening_menu(): void
@@ -354,9 +387,11 @@ class BotWebhookTest extends TestCase
                 'category_type_id' => $type->id,
                 'status' => 'active',
             ]);
-            Layanan::factory()->create([
-                'kategori_id' => $category->id,
-                'status' => 'available',
+            $this->attachToPackage([
+                Layanan::factory()->create([
+                    'kategori_id' => $category->id,
+                    'status' => 'available',
+                ]),
             ]);
         }
 
@@ -375,17 +410,28 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Pesan pertama: daftar bernomor. Delapan item per halaman (Telegram),
+        // jadi 9 tipe = 2 halaman.
         Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+            $text = $this->visibleText($request['text']);
+
+            // Nama kategori di fixture ini TANPA emoji ('Top Up 1'), karena
+            // daftar menampilkan NAMA apa adanya — emoji hanya ada di label
+            // tombol lama (`categoryButtonLabel`), bukan di teks daftar.
+            return str_contains($text, 'Halaman 1 / 2')
+                && str_contains($text, '[1]. Top Up 1')
+                && str_contains($text, '[8]. Top Up 8')
+                && ! str_contains($text, '[9].');
+        });
+
+        // Pesan KEDUA: tombol inline navigasi. Telegram cuma mengizinkan SATU
+        // `reply_markup` per pesan, jadi tombol pindah halaman tidak bisa
+        // menempel di pesan menu yang membawa keyboard angka.
+        Http::assertSent(function ($request) {
+            $keyboard = $request['reply_markup']['inline_keyboard'] ?? [];
             $callbacks = collect($keyboard)->flatten(1)->pluck('callback_data');
 
-            return str_contains($request['text'], '· 1/2')
-                // 7 baris: 6 baris katalog + 1 baris pilihan bahasa
-                // (kompensasi auto-deteksi; lihat `languageButtons()`).
-                && count($keyboard) === 7
-                && count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '🎮 Top Up 1'
-                && $callbacks->contains('menu page:2')
+            return $callbacks->contains('menu page:2')
                 && $callbacks->every(fn (string $callback): bool => strlen($callback) <= 64);
         });
     }
@@ -403,9 +449,11 @@ class BotWebhookTest extends TestCase
             'kode' => 'mlbb',
             'status' => 'active',
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $category->id,
-            'status' => 'available',
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $category->id,
+                'status' => 'available',
+            ]),
         ]);
         $secondCategory = Kategori::factory()->create([
             'category_type_id' => $type->id,
@@ -413,9 +461,11 @@ class BotWebhookTest extends TestCase
             'kode' => 'free-fire',
             'status' => 'active',
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $secondCategory->id,
-            'status' => 'available',
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $secondCategory->id,
+                'status' => 'available',
+            ]),
         ]);
 
         Http::fake([
@@ -433,14 +483,19 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
+        // Layar "Pilih Game" Telegram memakai daftar bernomor di TEKS, bukan
+        // tombol: keyboard angka yang menang di layar ini, sehingga tombol inline
+        // tidak pernah terkirim dan daftar yang hanya hidup di tombol akan
+        // tampil sebagai layar kosong.
+        //
+        // Nomornya diperiksa dalam bentuk MarkdownV2 yang benar-benar dikirim
+        // (`\[1\]\.`), bukan `[1].`: `[`, `]`, dan `.` adalah karakter spesial
+        // yang wajib di-escape, dan Telegram MENOLAK pesan kalau lolos mentah.
         Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+            $text = (string) $request['text'];
 
-            return count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '🔫 Free Fire'
-                && $keyboard[0][1]['text'] === '⚔️ Mobile Legends'
-                && $keyboard[array_key_last($keyboard)][0]['text'] === '🔙 Kembali'
-                && $keyboard[array_key_last($keyboard)][0]['callback_data'] === 'menu';
+            return str_contains($text, '\[1\]\. 🔫 Free Fire')
+                && str_contains($text, '\[2\]\. ⚔️ Mobile Legends');
         });
     }
 
@@ -480,12 +535,15 @@ class BotWebhookTest extends TestCase
             'status' => 'active',
         ]);
 
-        foreach (range(1, 9) as $index) {
-            Layanan::factory()->create([
-                'kategori_id' => $category->id,
-                'layanan' => "{$index} Diamond",
-                'harga_member' => $index * 1000,
-                'status' => 'available',
+        // 12 layanan = 2 halaman (batas 10 per halaman).
+        foreach (range(1, 12) as $index) {
+            $this->attachToPackage([
+                Layanan::factory()->create([
+                    'kategori_id' => $category->id,
+                    'layanan' => "{$index} Diamond",
+                    'harga_member' => $index * 1000,
+                    'status' => 'available',
+                ]),
             ]);
         }
 
@@ -504,21 +562,54 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
-        Http::assertSent(function ($request) {
-            $keyboard = $request['reply_markup']['inline_keyboard'];
+        // Layar layanan Telegram = SATU daftar rata di TEKS, satu baris per
+        // layanan (`[N]. Nama — Rp X`), keyboard angka membawa pilihannya, dan
+        // pesan kedua hanya untuk pindah halaman. Dua-duanya diperiksa: daftar
+        // tanpa navigasi berarti halaman 2 tidak bisa dicapai, navigasi tanpa
+        // daftar berarti user tidak tahu apa yang sedang dipilih.
+        $main = null;
+        $navigation = null;
 
-            $paginationRow = $keyboard[array_key_last($keyboard) - 1];
-            $backRow = $keyboard[array_key_last($keyboard)];
+        Http::assertSent(function ($request) use (&$main, &$navigation) {
+            if (! isset($request['reply_markup']['inline_keyboard'])) {
+                $main = $request;
 
-            return count($keyboard[0]) === 2
-                && $keyboard[0][0]['text'] === '💎 1 Diamond · Rp 1.000'
-                && $keyboard[0][1]['text'] === '💎 2 Diamond · Rp 2.000'
-                && count($paginationRow) === 1
-                && $paginationRow[0]['text'] === 'Next ➡️'
-                && count($backRow) === 1
-                && $backRow[0]['text'] === '🔙 Kembali'
-                && $backRow[0]['callback_data'] === 'kategori top-up-games';
+                return true;
+            }
+
+            $navigation = $request;
+
+            return true;
         });
+
+        $this->assertNotNull($main, 'Pesan utama berisi daftar layanan tidak terkirim.');
+
+        // Teks diperiksa SETELAH escape dilepas. `[1].` dikirim ke Telegram
+        // sebagai versi ter-escape MarkdownV2, dan yang penting bagi user
+        // adalah bentuk yang terbaca di layar.
+        $visible = $this->visibleText($main['text']);
+
+        $this->assertStringContainsString(
+            '[1]. 1 Diamond — Rp 1.000',
+            $visible,
+            'Daftar layanan tidak memuat baris bernomor di teks.',
+        );
+        // Halaman 1 berhenti di nomor 10 — itu batas yang disepakati.
+        $this->assertStringContainsString('[10]. 10 Diamond', $visible);
+        $this->assertStringNotContainsString('[11].', $visible);
+        // Nama paket tidak lagi ditampilkan di daftar.
+        $this->assertStringNotContainsString('┊・Layanan :', (string) $main['text']);
+        $this->assertStringContainsString(
+            'Ketik angka untuk memilih layanan',
+            (string) $main['text'],
+            'Petunjuk pemilihan tidak ikut terkirim, jadi user tidak tahu daftar bisa dipilih dengan angka.',
+        );
+
+        $this->assertNotNull($navigation, 'Pesan kedua berisi tombol navigasi tidak terkirim.');
+        $keyboard = $navigation['reply_markup']['inline_keyboard'];
+        $this->assertCount(1, $keyboard);
+        $this->assertSame('Next ➡️', $keyboard[0][0]['text']);
+        $this->assertSame('layanan mlbb page:2', $keyboard[0][0]['callback_data']);
     }
 
     public function test_fonnte_accepts_payload_without_message_id(): void
@@ -1421,8 +1512,10 @@ class BotWebhookTest extends TestCase
         ];
 
         $pricing = $this->mock(GatewayPricingService::class, function (MockInterface $mock): void {
+            // Layar pembayaran sekarang menghitung biaya tiap metode, jadi quote
+            // dipanggil lebih dari sekali — bukan cuma sekali oleh `harga`.
             $mock->shouldReceive('quote')
-                ->once()
+                ->atLeast()->once()
                 ->withArgs(fn (array $payload, $user) => $user === null)
                 ->andReturn($this->fakePriceQuote(requiresZoneId: true));
         });
@@ -1435,7 +1528,15 @@ class BotWebhookTest extends TestCase
 
         $backToPayment = $handler->handle('0', [], $context);
         $this->assertStringContainsString('Pilih Pembayaran', $backToPayment['text']);
-        $this->assertStringContainsString('harga 123 QRIS', json_encode($backToPayment['buttons']));
+
+        // Metode ada di TEKS, bukan di tombol: tombol inline tidak pernah
+        // terkirim di layar ini karena keyboard angka yang menang. Perintahnya
+        // kini hidup di peta nomor (entri `1`), bukan di `buttons`.
+        $this->assertStringContainsString('QRIS', $backToPayment['text']);
+        $this->assertSame(
+            'harga 123 QRIS',
+            (string) ($backToPayment['numeric_menu']['entries']['1']['command'] ?? ''),
+        );
     }
 
     public function test_telegram_checkout_state_survives_invalid_input_and_clears_on_cancel()

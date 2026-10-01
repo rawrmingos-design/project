@@ -103,10 +103,28 @@ class BotLangParityTest extends TestCase
         //   yang ditagih harus terbaca sama persis.
         // - `label_expired`       : 'Expired' adalah loanword yang sudah dipakai
         //   user Indonesia; menerjemahkannya justru mengubah arti status.
+        // - `menu_item_numbered`  : format baris daftar `[N]. Nama` SENGAJA
+        //   netral bahasa — nomor dalam kurung siku adalah penanda posisi, bukan
+        //   kalimat. Menerjemahkan formatnya justru membuat nomor tidak lagi
+        //   sejajar dengan tombol angka di keyboard.
+        // - `service_item_numbered` : alasannya sama persis — `[N]. Nama — Rp X`.
+        //   Satuan harga tetap 'Rp' di kedua bahasa (nominal memang rupiah), dan
+        //   `:nama` diisi dari data katalog, bukan dari kunci lang.
         $allowedIdentical = [
             'skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id',
             'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
             'history_detail_invoice', 'history_detail_total', 'label_expired',
+            'menu_item_numbered', 'service_item_numbered',
+            // Layar pembayaran: kerangka daftarnya juga tidak memuat kata yang
+            // bisa diterjemahkan (garis bernomor, garis pemisah biaya).
+            'payment_list_service', 'payment_list_group', 'payment_list_free',
+            'payment_list_fee',
+            // Kerangka kartu layanan tidak memuat kata yang bisa diterjemahkan:
+            // garis kotak, penanda `┊`, dan judul ber-emoji. Isinya (nama paket,
+            // nama layanan, harga) datang dari data dan dari kunci lain, jadi
+            // bentuk yang sama PERSIS di kedua bahasa memang benar.
+            'service_package_title', 'service_card_name', 'service_card_spacer',
+            'service_card_footer', 'service_list_title',
         ];
 
         $identical = [];

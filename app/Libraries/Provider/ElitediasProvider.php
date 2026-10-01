@@ -85,7 +85,11 @@ class ElitediasProvider
         curl_setopt($ch, CURLOPT_URL, "https://dev.api.elitedias.com" . $path);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        // Batas waktu WAJIB. Tanpa ini provider yang tidak terjangkau membuat
+        // panggilan menggantung tanpa henti dan menyandera worker PHP-FPM —
+        // seluruh aplikasi ikut mati (sudah kejadian pada fee Tripay).
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
         if ($data) {
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));

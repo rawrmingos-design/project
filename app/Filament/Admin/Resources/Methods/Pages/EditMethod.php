@@ -43,6 +43,20 @@ class EditMethod extends EditRecord
 
         unset($data['images_media_asset_id'], $data['images_input_mode']);
 
+        // Logo yang dibiarkan kosong TIDAK BOLEH menghapus logo lama.
+        //
+        // FileUpload mengirim null saat admin tidak mengunggah apa pun, dan
+        // `images` adalah kolom NOT NULL. Akibatnya menyimpan form edit gagal
+        // dengan "Column 'images' cannot be null" — terbukti pada 4 dari 5
+        // metode di staging (DANA, OVO, BC, INDOMARET) yang logonya masih
+        // berupa path lama dan tidak terdaftar sebagai Media Asset, sehingga
+        // tidak bisa dipertahankan lewat jalur Media Asset di bawah.
+        //
+        // Menghapus key-nya membuat Eloquent membiarkan nilai lama apa adanya.
+        if (blank($data['images'] ?? null) && filled($this->getRecord()?->images)) {
+            unset($data['images']);
+        }
+
         // Sync tipe from selected display category's code when category is set.
         if (! empty($data['payment_display_category_id'])) {
             $category = PaymentDisplayCategory::find((int) $data['payment_display_category_id']);

@@ -27,7 +27,7 @@ class LogTriageCommand extends Command
         'order_gateway_failed' => 2,
         'duitku_failed' => 2,
         'bangjeff_webhook' => 3,
-        'provider_balance_job' => 50, // Higher threshold for noisy staging warnings
+        'provider_balance_job' => 50, // Sisa versi lama; jalur ini kini dicatat INFO (lihat CheckProviderBalanceJob)
     ];
 
     public function handle(): int
@@ -35,19 +35,25 @@ class LogTriageCommand extends Command
         $this->info('🔍 Log Triage Analysis');
         $this->newLine();
 
-        $logPath = storage_path('logs/laravel.log');
+        $logPaths = $this->resolveLogPaths();
 
-        if (!File::exists($logPath)) {
-            $this->error("❌ Log file not found: $logPath");
+        if (empty($logPaths)) {
+            $this->error('❌ Log file not found in: ' . storage_path('logs'));
             return 1;
         }
 
         $hours = (int) $this->option('hours');
-        $this->line("📅 Analyzing logs from last {$hours} hours...");
+        $this->line('📅 Analyzing logs from last ' . $hours . ' hours...');
         $this->newLine();
 
-        // Parse log file
-        $stats = $this->parseLogFile($logPath, $hours);
+        // Parse log file(s)
+        $stats = $this->parseLogFile($logPaths[0], $hours);
+
+        foreach (array_slice($logPaths, 1) as $path) {
+            foreach ($this->parseLogFile($path, $hours) as $key => $value) {
+                $stats[$key] = ($stats[$key] ?? 0) + $value;
+            }
+        }
 
         // Display console report
         $this->displayReport($stats);
@@ -77,6 +83,36 @@ class LogTriageCommand extends Command
         }
 
         return 0;
+    }
+
+    /**
+     * Semua berkas log yang relevan untuk periode yang dianalisis.
+     *
+     * JANGAN hanya membaca `laravel.log`. Dengan `LOG_CHANNEL=daily` berkas itu
+     * TIDAK PERNAH ditulis — log hidup di `laravel-YYYY-MM-DD.log`. Versi lama
+     * perintah ini membaca berkas yang salah, sehingga selalu melaporkan 0 di
+     * semua kategori dan tidak pernah mengirim alert, berapa pun parahnya
+     * keadaan. Kegagalan mode senyap: tidak ada error, tidak ada peringatan.
+     *
+     * Berkas disaring berdasarkan mtime (bukan namanya) supaya berkas daily
+     * yang lebih tua dari jendela `--hours` tidak ikut dihitung.
+     *
+     * @return list<string>
+     */
+    protected function resolveLogPaths(): array
+    {
+        $files = File::glob(storage_path('logs') . '/laravel*.log');
+        $cutoff = Carbon::now()->subHours(max(1, (int) $this->option('hours')));
+
+        $paths = array_values(array_filter($files, static function (string $path) use ($cutoff): bool {
+            $modified = File::lastModified($path);
+
+            return $modified !== false && Carbon::createFromTimestamp($modified)->gte($cutoff);
+        }));
+
+        sort($paths);
+
+        return $paths;
     }
 
     /**
@@ -117,11 +153,22 @@ class LogTriageCommand extends Command
                 continue; // Skip old logs
             }
 
+            $isError = str_contains($line, '.ERROR:');
+            $isWarning = str_contains($line, '.WARNING:');
+
             // Count by severity
-            if (str_contains($line, '.ERROR:')) {
+            if ($isError) {
                 $stats['total_errors']++;
-            } elseif (str_contains($line, '.WARNING:')) {
+            } elseif ($isWarning) {
                 $stats['total_warnings']++;
+            }
+
+            // HANYA baris ERROR/WARNING yang boleh masuk kategori. Tanpa penjaga
+            // ini, baris INFO yang kebetulan memuat frasa seperti "not
+            // configured" dicap kegagalan dan menyalakan alarm Telegram —
+            // alarm palsu yang membuat alarm asli tidak lagi dipercaya.
+            if (! $isError && ! $isWarning) {
+                continue;
             }
 
             // Categorize
@@ -129,7 +176,7 @@ class LogTriageCommand extends Command
 
             if ($category) {
                 $stats[$category]++;
-            } elseif (str_contains($line, '.ERROR:')) {
+            } elseif ($isError) {
                 $stats['other_errors']++;
             }
         }

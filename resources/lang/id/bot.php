@@ -29,8 +29,57 @@ return [
     // --- Menu utama ---
     'menu_title' => '🏠 *Menu Utama*',
     'menu_pick_category' => 'Pilih kategori di bawah untuk mulai. 👇',
+    // Layar Menu Utama berformat DAFTAR BERNOMOR, bukan narasi sapaan.
+    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: `storeIntro()`
+    // masih dipakai `/start`, dan menghapus kunci = risiko literal bocor ke
+    // user kalau ada jalur yang belum ikut berubah.
+    'menu_list_title' => 'LIST PRODUCT',
+    'menu_page_footer' => '📄 Halaman :page / :total',
+    'menu_item_numbered' => '[:number]. :name',
     'menu_categories_unavailable' => 'Maaf, daftar tipe kategori sedang tidak tersedia.',
     'menu_category_fallback' => 'Kategori',
+
+    // --- Layar layanan: kartu paket layanan ---
+    // Pola kotak yang sama dipakai halaman order storefront, jadi user yang
+    // pernah memesan di web langsung mengenali susunannya.
+    //
+    // Garis kotaknya memakai karakter kotak tipis (U+2500), BUKAN tanda hubung.
+    // `TelegramMarkdown::fromLegacy()` meng-escape `-`, sehingga garis yang
+    // dibuat dari tanda hubung akan lolos sebagai `\-` dan tampil berantakan di
+    // chat. Karakter kotak tidak termasuk karakter spesial MarkdownV2.
+    'service_package_title' => '╭───────────────',
+    'service_card_name' => '┊ :paket',
+    'service_card_spacer' => '┊',
+    'service_card_item' => '┊・Layanan : :nama',
+    'service_card_price' => '┊・Harga : Rp :harga',
+    'service_card_more' => '┊・dan :jumlah lainnya',
+    'service_card_footer' => '╰───────────────',
+    'service_list_title' => '💎 *:produk*',
+    'service_list_footer_packages' => 'Ketik angka untuk melihat isi paket.',
+    'service_list_footer_items' => 'Ketik angka untuk memilih layanan.',
+    'service_item_numbered' => '[:number]. :nama — Rp :harga',
+    'nav_page_prompt' => 'Pindah halaman: ⬅️ / ➡️',
+
+    // --- Layar Pilih Pembayaran (Telegram) ---
+    // Daftar metode ada di TEKS, bukan di tombol: Telegram hanya mengizinkan
+    // SATU `reply_markup` per pesan, dan di layar ini keyboard angka menang.
+    // Sebelumnya isi daftar cuma hidup di tombol inline, jadi layarnya tampil
+    // kosong ("💳 Pilih Pembayaran" tanpa satu pun metode).
+    'payment_list_title' => '💳 *Pilih Pembayaran*',
+    'payment_list_service' => '💎 :nama',
+    // Otomatis MIRING: parser Telegram hanya kenal `_..._` sebagai penanda, jadi
+    // penanda lurus (mis. `\:`) ikut ter-escape dan tampil mentah di layar.
+    'payment_list_group' => '_:grup_',
+    // Biaya ditulis eksplisit "(fee admin)": angka telanjang setelah nama metode
+    // tidak menjelaskan itu biaya apa.
+    'payment_list_free' => ' (fee admin: Rp 0)',
+    'payment_list_fee' => ' (fee admin: Rp :fee)',
+    // Biaya yang TIDAK bisa dihitung di muka (mis. metode Tripay tanpa jawaban
+    // API, atau nominal di bawah minimum metode) sengaja tidak diberi angka
+    // karangan; user diberi tahu bahwa biayanya muncul di langkah berikutnya
+    // supaya tidak ada kejutan di total.
+    'payment_list_fee_later' => ' (fee admin: dihitung di langkah berikutnya)',
+    'payment_list_footer' => 'Ketik angka untuk memilih pembayaran.',
 
     // --- Panduan /help ---
     // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang
