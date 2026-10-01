@@ -1442,8 +1442,12 @@ class BotMessageFormatter
                 $em(__('bot.help_manage_title')),
                 __('bot.help_manage_status', $names),
                 __('bot.help_manage_history', $names),
-                __('bot.help_manage_checkid', $names),
             ];
+            // Baris "🔍 Cek ID Game" DICABUT dari panduan (keputusan user), sama
+            // seperti baris batal: tombolnya sudah tidak ada di keyboard, jadi
+            // panduan tidak boleh mengarahkan user ke tombol yang tidak terlihat.
+            // Perintah `cekid` tetap bisa diketik dan tetap didokumentasikan di
+            // balasan perintah itu sendiri (`handleCekId()`).
             // Baris "❌ Batal Transaksi" DICABUT dari panduan (keputusan user).
             //
             // Tombolnya sudah tidak dirender di keyboard, jadi menyebutkannya di
@@ -1801,9 +1805,14 @@ class BotMessageFormatter
             $keyboard[] = [['text' => '💰 Deposit']];
         }
 
+        // Tombol "🔍 Cek ID Game" TIDAK dirender (keputusan user).
+        //
+        // Perintah `cekid` sendiri tetap hidup: parser tetap mengenali labelnya
+        // (label lama masih tergeletak di riwayat chat user) dan `handleCekId()`
+        // tidak disentuh. Jadi ini soal berhenti MEMPROMOSIKAN tombolnya, bukan
+        // mematikan fiturnya.
         $keyboard[] = [
             ['text' => $pick('bot.kbd_status', '📦 Cek Status')],
-            ['text' => $pick('bot.kbd_cekid', '🔍 Cek ID Game')],
         ];
 
         // Baris bahasa — Telegram saja, dan dijaga EKSPLISIT pada source-nya.

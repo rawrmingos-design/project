@@ -171,7 +171,7 @@ class TelegramCopyPhaseOneTest extends TestCase
         // Daftar cek & kelola, termasuk label tombol yang BELUM diterjemahkan.
         $this->assertStringContainsString('• *📦 Cek Status* — status pesanan terakhir', $text);
         $this->assertStringContainsString('• *📜 Riwayat Order* — daftar pesananmu', $text);
-        $this->assertStringContainsString('• *🔍 Cek ID Game* — pastikan nama akun benar dulu', $text);
+        $this->assertStringNotContainsString('*🔍 Cek ID Game*', $text);
 
         // Baris batal DICABUT: tombolnya sudah tidak ada di keyboard, jadi
         // panduan tidak boleh menyuruh user menekan tombol yang tidak terlihat.
