@@ -956,6 +956,20 @@ class BotCommandHandler
     }
 
     /**
+     * Anggaran waktu TOTAL untuk menghitung biaya di layar pembayaran.
+     *
+     * Hanya metode Tripay yang butuh panggilan API (metode lain dihitung lokal,
+     * ~4 ms). Kalau Tripay tidak menjawab, tiap metode memakan waktu sampai
+     * batas cURL-nya, dan beberapa metode bisa menumpuk sampai melewati batas
+     * tunggu Telegram — layarnya tidak terkirim sama sekali.
+     *
+     * Lewat anggaran ini, sisa metode cukup ditandai "biaya dihitung di langkah
+     * berikutnya". Kehilangan angka biaya jauh lebih ringan daripada kehilangan
+     * seluruh layar.
+     */
+    private const PAYMENT_FEE_BUDGET_SECONDS = 8.0;
+
+    /**
      * Metode pembayaran + biaya NYATA + grup tipe, untuk layar Telegram.
      *
      * Biaya dihitung lewat gateway pricing yang SAMA dengan yang dipakai saat
@@ -978,6 +992,7 @@ class BotCommandHandler
     private function paymentMethodsWithFees(int $serviceId, array $methods): array
     {
         $enriched = [];
+        $batas = microtime(true) + self::PAYMENT_FEE_BUDGET_SECONDS;
 
         foreach ($methods as $method) {
             $model = $this->payment->findVisibleByCode((string) $method['code']);
@@ -987,22 +1002,26 @@ class BotCommandHandler
 
             $fee = null;
 
-            try {
-                // SATU quote saja: hasilnya sudah memuat jumlah yang dipakai
-                // menghitung biaya, jadi memanggil dua kali cuma menggandakan
-                // panggilan API Tripay tanpa mengubah angka.
-                $quote = $this->pricing->quote([
-                    'service_id' => $serviceId,
-                    'payment_method' => (string) $method['code'],
-                ], null);
+            // Anggaran waktu HABIS: jangan panggil API lagi. Sisa metode tetap
+            // ditampilkan, hanya biayanya yang menyusul di langkah berikutnya.
+            if (microtime(true) < $batas) {
+                try {
+                    // SATU quote saja: hasilnya sudah memuat jumlah yang dipakai
+                    // menghitung biaya, jadi memanggil dua kali cuma menggandakan
+                    // panggilan API Tripay tanpa mengubah angka.
+                    $quote = $this->pricing->quote([
+                        'service_id' => $serviceId,
+                        'payment_method' => (string) $method['code'],
+                    ], null);
 
-                if ($quote['ok'] ?? false) {
-                    $fee = (int) ($quote['data']['payment_fee'] ?? 0)
-                        + (int) ($quote['data']['gateway_fee'] ?? 0);
+                    if ($quote['ok'] ?? false) {
+                        $fee = (int) ($quote['data']['payment_fee'] ?? 0)
+                            + (int) ($quote['data']['gateway_fee'] ?? 0);
+                    }
+                } catch (\Throwable $e) {
+                    // Termasuk ValidationException batas minimum/maksimum metode.
+                    $fee = null;
                 }
-            } catch (\Throwable $e) {
-                // Termasuk ValidationException batas minimum/maksimum metode.
-                $fee = null;
             }
 
             $enriched[] = [
