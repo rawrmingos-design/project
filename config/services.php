@@ -53,6 +53,15 @@ return [
     'telegram-bot-api' => [
         'token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        // Batas waktu panggilan keluar ke api.telegram.org dari jalur BALASAN.
+        //
+        // Telegram membalas REST API-nya jauh lebih lambat daripada yang
+        // diasumsikan: terukur dari staging, satu panggilan SUKSES makan ~0,54 s
+        // dan satu panggilan DITOLAK (400) makan ~1,05 s. Karena itu jalur
+        // balasan tidak boleh menumpuk panggilan berurutan tanpa batas waktu —
+        // satu `Http::post()` tanpa timeout bisa menggantung request webhook
+        // sampai FPM/nginx menyerah, dan itulah bentuk "Read timeout expired".
+        'outbound_timeout_seconds' => env('TELEGRAM_OUTBOUND_TIMEOUT_SECONDS', 5),
         'bot_scope' => env('TELEGRAM_BOT_SCOPE', 'default'),
         'bot_username' => env('TELEGRAM_BOT_USERNAME', ''),
         'link_challenge_expiry_minutes' => env('TELEGRAM_LINK_CHALLENGE_EXPIRY_MINUTES', 10),

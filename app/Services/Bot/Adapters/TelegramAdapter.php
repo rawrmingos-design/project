@@ -290,11 +290,13 @@ class TelegramAdapter implements BotAdapterInterface
         }
 
         try {
-            $result = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
-                'chat_id' => $chatId,
-                'text' => $this->navigationPrompt(),
-                'reply_markup' => ['inline_keyboard' => $navigation],
-            ]);
+            $result = Http::connectTimeout($this->outboundConnectTimeout())
+                ->timeout($this->outboundTimeout())
+                ->post("https://api.telegram.org/bot{$token}/sendMessage", [
+                    'chat_id' => $chatId,
+                    'text' => $this->navigationPrompt(),
+                    'reply_markup' => ['inline_keyboard' => $navigation],
+                ]);
 
             if (! $result->successful() || ! ($result->json('ok') ?? false)) {
                 Log::warning('Telegram navigation message rejected.', [
@@ -512,12 +514,36 @@ class TelegramAdapter implements BotAdapterInterface
         if (! $token) return;
 
         try {
-            Http::post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
-                'callback_query_id' => $callbackQueryId,
-            ]);
+            Http::connectTimeout($this->outboundConnectTimeout())
+                ->timeout($this->outboundTimeout())
+                ->post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackQueryId,
+                ]);
         } catch (\Exception) {
             // ignore
         }
+    }
+
+    /**
+     * Batas waktu panggilan keluar ke api.telegram.org dari jalur balasan.
+     *
+     * Sebelum ini seluruh jalur balasan memakai `Http::post()` TANPA timeout,
+     * artinya satu panggilan yang menggantung (bukan gagal cepat, tapi diam)
+     * menahan request webhook sampai FPM atau nginx menyerah. Telegram lalu
+     * mencatat "Read timeout expired" dan mengirim ulang update yang sama.
+     *
+     * Angka default 5 detik sengaja di atas waktu normal terukur (~0,55-1,05 s)
+     * supaya Telegram yang sedang lambat tetap dilayani, tapi tetap jauh di
+     * bawah ambang menyerah Telegram (~10 detik).
+     */
+    private function outboundTimeout(): int
+    {
+        return max(1, (int) config('services.telegram-bot-api.outbound_timeout_seconds', 5));
+    }
+
+    private function outboundConnectTimeout(): int
+    {
+        return max(1, min(3, $this->outboundTimeout()));
     }
 
     private function sendReply(string|int $chatId, array $response, array $numericNumbers = []): void
@@ -595,7 +621,9 @@ class TelegramAdapter implements BotAdapterInterface
                 }
 
                 try {
-                    $result = Http::post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
+                    $result = Http::connectTimeout($this->outboundConnectTimeout())
+                        ->timeout($this->outboundTimeout())
+                        ->post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
 
                     if ($result->successful() && ($result->json('ok') ?? false)) {
                         return;
