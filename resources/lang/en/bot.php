@@ -63,6 +63,7 @@ return [
     'service_list_title' => '💎 *:produk*',
     'service_list_footer_packages' => 'Type a number to see what a package contains.',
     'service_list_footer_items' => 'Type a number to pick a service.',
+    'service_item_numbered' => '[:number]. :nama — Rp :harga',
     'nav_page_prompt' => 'Switch page: ⬅️ / ➡️',
 
     // --- Help /help ---

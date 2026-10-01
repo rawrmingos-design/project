@@ -569,27 +569,23 @@ class BotMessageFormatter
         array $data,
         int $page = 1,
         ?BotGatewayCapabilities $capabilities = null,
-        array $packages = [],
-        ?int $selectedPackage = null,
+        array $services = [],
     ): array {
         $isTelegram = $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
 
-        if (! ($data['ok'] ?? false) || empty($data['data']['services'])) {
-            return [
-                'text' => $isTelegram
-                    ? __('bot.catalog_services_empty')
-                    : 'Produk tidak ditemukan atau belum ada layanan.',
-                'buttons' => [[$this->button($isTelegram ? __('bot.btn_back') : '🔙 Kembali', 'menu')]],
-            ];
+        // Jalur Telegram: SATU daftar rata, isinya layanan yang bisa dipesan
+        // lewat bot (handler mengirim hasil `packagedServices()`). Nama paket
+        // TIDAK ditampilkan: satu paket dengan 48 layanan akan mencetak nama
+        // paketnya 48 kali tanpa menambah informasi apa pun.
+        if ($isTelegram) {
+            return $this->telegramServiceList($data, $services, $page);
         }
 
-        // Jalur Telegram memakai pola paket layanan (kartu di dalam teks).
-        //
-        // `$packages` kosong = kategori ini memang belum punya paket sama sekali.
-        // Dalam kasus itu bot menampilkan daftar layanan apa adanya (perilaku
-        // lama), supaya kategori yang belum ditata paketnya tetap bisa dibeli.
-        if ($isTelegram && $packages !== []) {
-            return $this->telegramServicePackages($data, $packages, $selectedPackage, $page);
+        if (! ($data['ok'] ?? false) || empty($data['data']['services'])) {
+            return [
+                'text' => 'Produk tidak ditemukan atau belum ada layanan.',
+                'buttons' => [[$this->button('🔙 Kembali', 'menu')]],
+            ];
         }
 
         $category = $data['data']['category'] ?? [];
@@ -601,16 +597,6 @@ class BotMessageFormatter
             $page,
             $capabilities?->menuPageSize() ?? self::PAGE_SIZE,
         );
-
-        // Kategori yang belum punya paket tetap memakai daftar layanan rata,
-        // TAPI isinya ditaruh di TEKS dan dipetakan ke nomor.
-        //
-        // Alasannya sama dengan mode paket: di jalur Telegram yang menang adalah
-        // keyboard angka, sehingga tombol inline tidak pernah terkirim dan
-        // daftar yang hanya hidup di tombol berakhir sebagai layar kosong.
-        if ($isTelegram) {
-            return $this->telegramFlatServices($productName, $categoryCode, $typeSlug, $pagination);
-        }
 
         $items = [];
 
@@ -643,31 +629,58 @@ class BotMessageFormatter
     }
 
     /**
-     * Layar layanan Telegram untuk kategori yang BELUM punya paket.
+     * Layar layanan Telegram: SATU daftar rata, satu baris per layanan.
      *
-     * Tanpa baris nama paket, karena memang tidak ada paket yang menaunginya —
-     * kartunya langsung berisi layanan. Nomornya tetap dipetakan supaya
-     * keyboard angka bekerja seperti di mode paket.
+     * Nama paket TIDAK ditampilkan (keputusan user). Paket tetap menentukan ISI
+     * daftar — layanan yang tidak terikat paket mana pun tidak muncul di sini —
+     * tapi label paketnya tidak diulang di tiap baris.
+     *
+     * `$services` datang dari handler hasil `GatewayCatalogService::packagedServices()`,
+     * yang sudah rata dan sudah dipin (paket "spesial" di atas).
+     *
+     * Kategori yang tidak punya satu pun layanan berpaket TIDAK sampai ke sini:
+     * penyaringnya ada di Menu Utama dan Pilih Game, jadi kategori begitu tidak
+     * pernah dipajang untuk dibuka.
      */
-    private function telegramFlatServices(
-        string $productName,
-        string $categoryCode,
-        string $typeSlug,
-        array $pagination,
-    ): array {
-        $cards = [];
+    private function telegramServiceList(array $data, array $services, int $page): array
+    {
+        $category = $data['data']['category'] ?? [];
+        $productName = (string) ($category['name'] ?? 'Produk');
+        $categoryCode = (string) ($category['code'] ?? '');
+        $typeSlug = (string) ($category['category_type']['slug'] ?? '');
+
+        if (! ($data['ok'] ?? false) || $services === []) {
+            return [
+                'text' => __('bot.catalog_services_empty'),
+                'buttons' => [[$this->button(__('bot.btn_back'), 'menu')]],
+            ];
+        }
+
+        $pagination = $this->paginate($services, $page, self::SERVICE_LIST_PAGE_SIZE);
+
+        $lines = [
+            __('bot.service_list_title', ['produk' => $this->escapeMarkdown($productName)])
+                . $this->pageSuffix($pagination),
+            '',
+        ];
         $entries = [];
         $number = 0;
 
         foreach ($pagination['items'] as $service) {
             $number++;
 
-            $cards[] = $this->serviceCard(null, [[
-                'name' => (string) $service['name'],
-                'price' => (int) $service['price'],
-            ]]);
+            // Nomor memakai POSISI ABSOLUT di seluruh daftar, bukan posisi di
+            // halaman: nomor yang sama juga dipakai tombol angka, dan user
+            // menyebut nomor itu saat berpindah halaman.
+            $absolute = (($pagination['page'] - 1) * self::SERVICE_LIST_PAGE_SIZE) + $number;
 
-            $entries[(string) $number] = [
+            $lines[] = __('bot.service_item_numbered', [
+                'number' => $absolute,
+                'nama' => $this->escapeMarkdown((string) $service['name']),
+                'harga' => number_format((float) $service['price'], 0, ',', '.'),
+            ]);
+
+            $entries[(string) $absolute] = [
                 'type' => 'content',
                 'label' => (string) $service['name'],
                 'command' => 'metode ' . (int) $service['service_id'],
@@ -681,12 +694,12 @@ class BotMessageFormatter
             'command' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
         ];
 
+        $lines[] = '';
+        $lines[] = __('bot.service_list_footer_items');
+        $lines[] = $this->menuListFooter($pagination);
+
         return [
-            'text' => __('bot.service_list_title', ['produk' => $this->escapeMarkdown($productName)])
-                . $this->pageSuffix($pagination)
-                . "\n\n" . implode("\n", $cards)
-                . "\n\n" . __('bot.service_list_footer_items')
-                . "\n" . $this->menuListFooter($pagination),
+            'text' => implode("\n", $lines),
             'buttons' => $this->serviceNavigationButtons($pagination, 'layanan ' . $categoryCode),
             'numeric_menu' => [
                 'menu' => 'services',
@@ -2186,193 +2199,34 @@ class BotMessageFormatter
         return str_replace(['\\', '`'], ['\\\\', '\\`'], $value);
     }
 
-    // ============================================================= kartu paket
+    // ============================================================= daftar layanan
     //
-    // Layar layanan Telegram menampilkan paket layanan sebagai KARTU DI DALAM
-    // TEKS, bukan sebagai tombol.
+    // Layar layanan Telegram adalah SATU daftar rata di dalam TEKS, satu baris
+    // per layanan. Bukan kartu per item, dan tanpa nama paket.
     //
-    // **Kenapa bukan tombol.** Telegram hanya mengizinkan SATU `reply_markup`
-    // per pesan, dan begitu keyboard angka dipakai (keputusan user: keyboard
-    // angka global), tombol inline TIDAK ikut terkirim sama sekali. Daftar yang
+    // **Kenapa di TEKS.** Telegram hanya mengizinkan SATU `reply_markup` per
+    // pesan, dan begitu keyboard angka dipakai (keputusan user: keyboard angka
+    // global), tombol inline TIDAK ikut terkirim sama sekali. Daftar yang
     // disimpan di tombol karena itu tidak pernah terlihat user — layarnya
-    // tampak kosong, hanya tersisa judul. Isi daftar harus berada di TEKS.
+    // tampak kosong, hanya tersisa judul.
     //
-    // **Kenapa bentuknya kotak.** Polanya sama dengan halaman order storefront
-    // yang sudah dipakai user, jadi susunannya langsung dikenali.
-
-    /** Jumlah kartu per halaman layar layanan. */
-    private const SERVICE_CARD_PAGE_SIZE = 8;
-
-    /** Jumlah layanan yang ditampilkan di dalam satu kartu paket. */
-    private const SERVICE_CARD_PREVIEW_ITEMS = 2;
+    // **Kenapa tanpa nama paket.** Kartu per item mencetak nama paketnya di
+    // SETIAP kartu ("Proses Instant" 48 kali untuk Free Fire) dan memakai 5
+    // baris untuk satu layanan. Setelah user berada di dalam kategorinya, nama
+    // paket tidak menambah informasi apa pun.
 
     /**
-     * Satu kartu layanan.
+     * Jumlah layanan per halaman layar layanan Telegram.
      *
-     * `$packageName` kosong = kartu tanpa baris nama paket (dipakai kategori
-     * yang layanannya tidak terikat paket mana pun).
+     * Sepuluh, bukan delapan: dengan satu baris per layanan, sepuluh baris
+     * masih nyaman dibaca sekali lihat, dan keyboard angka menampungnya dalam
+     * dua baris (5 per baris).
      *
-     * @param  array<int, array{name: string, price: int}>  $items
-     * @param  int  $perItem  Batas item per kartu; `0` = semua item.
+     * SENGAJA terpisah dari `BotGatewayCapabilities::menuPageSize()`: konstanta
+     * itu dipakai bersama Menu Utama dan Pilih Game, yang isinya kategori
+     * (pendek-pendek) dan tidak boleh ikut bergeser.
      */
-    private function serviceCard(?string $packageName, array $items, int $perItem = 0): string
-    {
-        $lines = [__('bot.service_package_title')];
-
-        if ($packageName !== null && $packageName !== '') {
-            $lines[] = __('bot.service_card_name', ['paket' => $this->escapeMarkdown($packageName)]);
-            $lines[] = __('bot.service_card_spacer');
-        }
-
-        $shown = $perItem > 0 ? array_slice($items, 0, $perItem) : $items;
-
-        foreach ($shown as $item) {
-            $lines[] = __('bot.service_card_item', ['nama' => $this->escapeMarkdown((string) $item['name'])]);
-            $lines[] = __('bot.service_card_price', [
-                'harga' => number_format((float) $item['price'], 0, ',', '.'),
-            ]);
-        }
-
-        if ($perItem > 0 && count($items) > $perItem) {
-            $lines[] = __('bot.service_card_more', ['jumlah' => count($items) - $perItem]);
-        }
-
-        $lines[] = __('bot.service_card_footer');
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * Layar layanan Telegram: daftar bernomor untuk paket, kartu untuk isinya.
-     *
-     * Dua mode, dan nomor yang sama berarti hal berbeda di masing-masing mode —
-     * itu disengaja: nomor `1` selalu berarti "entri pertama yang SEDANG
-     * terlihat". Peta nomor disimpan ulang tiap render oleh adapter, jadi arti
-     * nomor mengikuti layar terakhir yang user lihat.
-     *
-     * - mode paket  : nomor menunjuk paket; pilih satu untuk melihat isinya
-     * - mode isi    : nomor menunjuk layanan; pilih satu untuk lanjut bayar
-     *
-     * @param  array<int, array{nama: string, layanan: array<int, array<string, mixed>>}>  $packages
-     * @param  int|null  $selectedPackage  Indeks paket yang dibuka, `null` = daftar paket.
-     */
-    private function telegramServicePackages(
-        array $data,
-        array $packages,
-        ?int $selectedPackage,
-        int $page,
-    ): array {
-        $category = $data['data']['category'] ?? [];
-        $productName = (string) ($category['name'] ?? 'Produk');
-        $categoryCode = (string) ($category['code'] ?? '');
-        $typeSlug = (string) ($category['category_type']['slug'] ?? '');
-
-        // Indeks paket dipakai apa adanya sebagai penanda di `callback`/entri
-        // nomor: daftar paket urut dan stabil selama katalog tidak berubah.
-        // Mode isi dipilih lewat `paket:<indeks>`.
-        $items = $selectedPackage !== null && isset($packages[$selectedPackage])
-            ? array_values((array) ($packages[$selectedPackage]['layanan'] ?? []))
-            : [];
-
-        $inItemsMode = $selectedPackage !== null && isset($packages[$selectedPackage]);
-
-        if ($inItemsMode) {
-            $packageName = (string) ($packages[$selectedPackage]['nama'] ?? '');
-            $pagination = $this->paginate($items, $page, self::SERVICE_CARD_PAGE_SIZE);
-
-            $cards = [];
-            foreach ($pagination['items'] as $item) {
-                $cards[] = $this->serviceCard($packageName, [$item]);
-            }
-
-            $headerLines = [
-                __('bot.service_list_title', ['produk' => $this->escapeMarkdown($productName)]),
-                '📦 *' . $this->escapeMarkdown($packageName) . '*' . $this->pageSuffix($pagination),
-            ];
-
-            $entries = [];
-            $number = 0;
-            foreach ($pagination['items'] as $item) {
-                $number++;
-                $entries[(string) $number] = [
-                    'type' => 'content',
-                    'label' => (string) $item['name'],
-                    'command' => 'metode ' . (int) $item['service_id'],
-                ];
-            }
-
-            $entries = $this->serviceNavigationEntries(
-                $entries,
-                $pagination,
-                'layanan ' . $categoryCode . ' paket:' . $selectedPackage,
-            );
-
-            $entries['0'] = [
-                'type' => 'back',
-                'label' => __('bot.btn_back'),
-                'command' => 'layanan ' . $categoryCode,
-            ];
-
-            return [
-                'text' => implode("\n", $headerLines)
-                    . "\n\n" . implode("\n", $cards)
-                    . "\n\n" . __('bot.service_list_footer_items')
-                    . "\n" . $this->menuListFooter($pagination),
-                'buttons' => $this->serviceNavigationButtons($pagination, 'layanan ' . $categoryCode . ' paket:' . $selectedPackage),
-                'numeric_menu' => [
-                    'menu' => 'services',
-                    'parent_menu' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
-                    'page' => $pagination['page'],
-                    'entries' => $entries,
-                ],
-            ];
-        }
-
-        // --- mode daftar paket ---
-        $pagination = $this->paginate($packages, $page, self::SERVICE_CARD_PAGE_SIZE);
-
-        $cards = [];
-        foreach ($pagination['items'] as $package) {
-            $cards[] = $this->serviceCard(
-                (string) $package['nama'],
-                array_values((array) $package['layanan']),
-                self::SERVICE_CARD_PREVIEW_ITEMS,
-            );
-        }
-
-        $entries = [];
-        $number = 0;
-
-        foreach ($pagination['items'] as $package) {
-            $number++;
-            // Indeks ABSOLUT di dalam daftar paket penuh, bukan indeks halaman:
-            // nomor halaman bergeser setiap kali user pindah halaman, indeks
-            // katalog tidak.
-            $absolute = array_search($package, $packages, true);
-            $entries[(string) $number] = [
-                'type' => 'content',
-                'label' => (string) $package['nama'],
-                'command' => 'layanan ' . $categoryCode . ' paket:' . $absolute,
-            ];
-        }
-
-        $entries = $this->serviceNavigationEntries($entries, $pagination, 'layanan ' . $categoryCode);
-
-        return [
-            'text' => __('bot.service_list_title', ['produk' => $this->escapeMarkdown($productName)])
-                . $this->pageSuffix($pagination)
-                . "\n\n" . implode("\n", $cards)
-                . "\n\n" . __('bot.service_list_footer_packages')
-                . "\n" . $this->menuListFooter($pagination),
-            'buttons' => $this->serviceNavigationButtons($pagination, 'layanan ' . $categoryCode),
-            'numeric_menu' => [
-                'menu' => 'services',
-                'parent_menu' => $typeSlug !== '' ? 'kategori ' . $typeSlug : 'menu',
-                'page' => $pagination['page'],
-                'entries' => $entries,
-            ],
-        ];
-    }
+    private const SERVICE_LIST_PAGE_SIZE = 10;
 
     /**
      * Nomor 98/99 untuk pindah halaman, dengan arti yang sama seperti jalur
@@ -2408,11 +2262,16 @@ class BotMessageFormatter
     /**
      * Tombol pindah halaman untuk pesan kedua “Pindah halaman”.
      *
-     * Labelnya SENGAJA berawalan `menu page:` pada `callback`, walaupun
-     * perintahnya milik layar layanan. Adapter mengirim pesan kedua HANYA untuk
-     * tombol berpola itu, dan layar ini butuh tombol itu terkirim — kalau
-     * callback-nya memakai awalan lain, navigasinya ikut terbuang dan halaman
-     * berikutnya hanya bisa dicapai dengan mengetik `99`.
+     * Tombol ini menyimpan DUA perintah, dan itu disengaja:
+     *
+     * - `callback` memakai pola `menu page:N`. Adapter mengirim pesan kedua
+     *   HANYA untuk tombol berpola itu, jadi tanpa pola ini navigasinya ikut
+     *   terbuang dan halaman berikutnya cuma bisa dicapai dengan mengetik `99`.
+     * - `page_command` memuat perintah layar yang SEBENARNYA (`layanan mlbb
+     *   page:2`). Inilah yang dipakai adapter sebagai isi tombol di pesan
+     *   kedua. Sebelumnya `callback` yang dipakai, sehingga menekan “Next ➡️”
+     *   membuka Menu Utama halaman 2 — bukan lanjutan daftar layanan yang
+     *   sedang dilihat user.
      *
      * @return array<int, array<int, array<string, string>>>
      */
@@ -2426,11 +2285,13 @@ class BotMessageFormatter
         $row = [];
 
         if ($page > 1) {
-            $row[] = $this->button('⬅️ Prev', 'menu page:' . ($page - 1), 'navigation_previous');
+            $row[] = $this->button('⬅️ Prev', 'menu page:' . ($page - 1), 'navigation_previous')
+                + ['page_command' => $baseCommand . ' page:' . ($page - 1)];
         }
 
         if ($page < (int) $pagination['total_pages']) {
-            $row[] = $this->button('Next ➡️', 'menu page:' . ($page + 1), 'navigation_next');
+            $row[] = $this->button('Next ➡️', 'menu page:' . ($page + 1), 'navigation_next')
+                + ['page_command' => $baseCommand . ' page:' . ($page + 1)];
         }
 
         return $row === [] ? [] : [$row];

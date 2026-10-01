@@ -8,6 +8,7 @@ use App\Models\Kategori;
 use App\Models\InboundSourcePolicy;
 use App\Models\Layanan;
 use App\Models\Method;
+use App\Models\Paket;
 use App\Models\User;
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotMessageFormatter;
@@ -108,6 +109,25 @@ class BotWebhookTest extends TestCase
         return preg_replace('/\\\\(.)/u', '$1', (string) $escaped);
     }
 
+    /**
+     * Lampirkan layanan ke paket.
+     *
+     * Bot Telegram hanya memajang kategori yang punya layanan berpaket, dan
+     * hanya menampilkan layanan yang terikat paket. Fixture test lama menyemai
+     * layanan TANPA paket, jadi menu-nya kini kosong — bukan karena regresi,
+     * tapi karena katalognya memang tidak bisa dipesan lewat bot.
+     */
+    private function attachToPackage(array $services, string $packageName = '⚡ Proses Instant'): Paket
+    {
+        $paket = Paket::query()->firstOrCreate(['nama' => $packageName]);
+
+        foreach ($services as $service) {
+            $paket->layanan()->syncWithoutDetaching([$service->id => ['product_logo' => null]]);
+        }
+
+        return $paket;
+    }
+
     public function test_telegram_adapter_handles_menu_command_and_replies_with_buttons()
     {
         CategoryType::query()->create([
@@ -122,9 +142,13 @@ class BotWebhookTest extends TestCase
             'kode' => 'mlbb',
             'status' => 'active'
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $kategori->id,
-            'status' => 'available'
+        // Paket wajib: bot Telegram hanya memajang kategori yang punya layanan
+        // berpaket, dan hanya merender layanan terikat paket.
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $kategori->id,
+                'status' => 'available'
+            ]),
         ]);
 
         Http::fake([
@@ -363,9 +387,11 @@ class BotWebhookTest extends TestCase
                 'category_type_id' => $type->id,
                 'status' => 'active',
             ]);
-            Layanan::factory()->create([
-                'kategori_id' => $category->id,
-                'status' => 'available',
+            $this->attachToPackage([
+                Layanan::factory()->create([
+                    'kategori_id' => $category->id,
+                    'status' => 'available',
+                ]),
             ]);
         }
 
@@ -423,9 +449,11 @@ class BotWebhookTest extends TestCase
             'kode' => 'mlbb',
             'status' => 'active',
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $category->id,
-            'status' => 'available',
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $category->id,
+                'status' => 'available',
+            ]),
         ]);
         $secondCategory = Kategori::factory()->create([
             'category_type_id' => $type->id,
@@ -433,9 +461,11 @@ class BotWebhookTest extends TestCase
             'kode' => 'free-fire',
             'status' => 'active',
         ]);
-        Layanan::factory()->create([
-            'kategori_id' => $secondCategory->id,
-            'status' => 'available',
+        $this->attachToPackage([
+            Layanan::factory()->create([
+                'kategori_id' => $secondCategory->id,
+                'status' => 'available',
+            ]),
         ]);
 
         Http::fake([
@@ -505,12 +535,15 @@ class BotWebhookTest extends TestCase
             'status' => 'active',
         ]);
 
-        foreach (range(1, 9) as $index) {
-            Layanan::factory()->create([
-                'kategori_id' => $category->id,
-                'layanan' => "{$index} Diamond",
-                'harga_member' => $index * 1000,
-                'status' => 'available',
+        // 12 layanan = 2 halaman (batas 10 per halaman).
+        foreach (range(1, 12) as $index) {
+            $this->attachToPackage([
+                Layanan::factory()->create([
+                    'kategori_id' => $category->id,
+                    'layanan' => "{$index} Diamond",
+                    'harga_member' => $index * 1000,
+                    'status' => 'available',
+                ]),
             ]);
         }
 
@@ -529,10 +562,11 @@ class BotWebhookTest extends TestCase
 
         $response->assertOk();
 
-        // Layar layanan Telegram menaruh isi daftar di TEKS sebagai kartu, dan
-        // pesan kedua "Pindah halaman" membawa tombol navigasinya. Keduanya
-        // diperiksa: kartu tanpa navigasi berarti halaman 2 tidak bisa dicapai,
-        // navigasi tanpa kartu berarti user tidak tahu apa yang sedang dipilih.
+        // Layar layanan Telegram = SATU daftar rata di TEKS, satu baris per
+        // layanan (`[N]. Nama — Rp X`), keyboard angka membawa pilihannya, dan
+        // pesan kedua hanya untuk pindah halaman. Dua-duanya diperiksa: daftar
+        // tanpa navigasi berarti halaman 2 tidak bisa dicapai, navigasi tanpa
+        // daftar berarti user tidak tahu apa yang sedang dipilih.
         $main = null;
         $navigation = null;
 
@@ -548,26 +582,34 @@ class BotWebhookTest extends TestCase
             return true;
         });
 
-        $this->assertNotNull($main, 'Pesan utama berisi kartu layanan tidak terkirim.');
+        $this->assertNotNull($main, 'Pesan utama berisi daftar layanan tidak terkirim.');
+
+        // Teks diperiksa SETELAH escape dilepas. `[1].` dikirim ke Telegram
+        // sebagai versi ter-escape MarkdownV2, dan yang penting bagi user
+        // adalah bentuk yang terbaca di layar.
+        $visible = $this->visibleText($main['text']);
+
         $this->assertStringContainsString(
-            '┊・Layanan : 1 Diamond',
-            (string) $main['text'],
-            'Kartu layanan tidak memuat nama layanan di dalam teks.',
+            '[1]. 1 Diamond — Rp 1.000',
+            $visible,
+            'Daftar layanan tidak memuat baris bernomor di teks.',
         );
-        // Titik pada harga ter-escape (`Rp 1\.000`) karena itulah bentuk yang
-        // dikirim ke Telegram: titik adalah karakter spesial MarkdownV2.
-        $this->assertStringContainsString('┊・Harga : Rp 1\.000', (string) $main['text']);
+        // Halaman 1 berhenti di nomor 10 — itu batas yang disepakati.
+        $this->assertStringContainsString('[10]. 10 Diamond', $visible);
+        $this->assertStringNotContainsString('[11].', $visible);
+        // Nama paket tidak lagi ditampilkan di daftar.
+        $this->assertStringNotContainsString('┊・Layanan :', (string) $main['text']);
         $this->assertStringContainsString(
             'Ketik angka untuk memilih layanan',
             (string) $main['text'],
-            'Petunjuk pemilihan tidak ikut terkirim, jadi user tidak tahu kartu bisa dipilih dengan angka.',
+            'Petunjuk pemilihan tidak ikut terkirim, jadi user tidak tahu daftar bisa dipilih dengan angka.',
         );
 
         $this->assertNotNull($navigation, 'Pesan kedua berisi tombol navigasi tidak terkirim.');
         $keyboard = $navigation['reply_markup']['inline_keyboard'];
         $this->assertCount(1, $keyboard);
         $this->assertSame('Next ➡️', $keyboard[0][0]['text']);
-        $this->assertSame('menu page:2', $keyboard[0][0]['callback_data']);
+        $this->assertSame('layanan mlbb page:2', $keyboard[0][0]['callback_data']);
     }
 
     public function test_fonnte_accepts_payload_without_message_id(): void

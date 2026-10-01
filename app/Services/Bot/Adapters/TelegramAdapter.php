@@ -251,33 +251,37 @@ class TelegramAdapter implements BotAdapterInterface
             return;
         }
 
-        $markup = $this->buildReplyMarkup(array_diff_key($response, ['use_reply_keyboard' => true]));
-        $inline = $markup['inline_keyboard'] ?? null;
-
-        if (! is_array($inline) || $inline === []) {
-            return;
-        }
-
+        // Navigasi dibangun dari `$response['buttons']`, BUKAN dari markup yang
+        // sudah jadi: `page_command` hanya ada di tombol mentah, dan kalau
+        // tombolnya dibaca dari markup, perintah halaman itu ikut hilang.
+        //
         // HANYA tombol navigasi yang layak jadi pesan kedua.
         //
         // Tombol aksi (Leaderboard/Bahasa/Menu) sudah ada di keyboard angka yang
         // menetap di bawah layar, jadi mengirimnya lagi di pesan terpisah cuma
         // menduplikasi tombol yang sudah terlihat.
+        //
+        // Tombol navigasi MEMBEDAKAN dua perintah: `callback` memakai pola
+        // `menu page:` (penanda bahwa tombol ini navigasi), sedangkan
+        // `page_command` memuat perintah layar yang sebenarnya. Yang dikirim ke
+        // Telegram adalah `page_command` — kalau `callback` yang dipakai, tombol
+        // “Next” di layar layanan justru membuka Menu Utama halaman berikutnya.
         $navigation = [];
 
-        foreach ($inline as $row) {
-            $row = array_values(array_filter(
-                (array) $row,
-                static fn (mixed $button): bool => is_array($button)
-                    && str_starts_with((string) ($button['callback_data'] ?? ''), 'menu page:'),
-            ));
+        foreach ($this->buttonList((array) ($response['buttons'] ?? [])) as $btn) {
+            $callback = (string) $btn['callback'];
 
-            if ($row !== []) {
-                $navigation[] = $row;
+            if (! str_starts_with($callback, 'menu page:')) {
+                continue;
             }
+
+            $navigation[0][] = [
+                'text' => $btn['text'],
+                'callback_data' => (string) ($btn['page_command'] ?? $callback),
+            ];
         }
 
-        if ($navigation === []) {
+        if (! isset($navigation[0])) {
             return;
         }
 
@@ -700,5 +704,26 @@ class TelegramAdapter implements BotAdapterInterface
         $hasUrl = isset($value['url']) && filter_var($value['url'], FILTER_VALIDATE_URL) !== false;
 
         return $hasCallback xor $hasUrl;
+    }
+
+    /**
+     * Tombol mentah layar jadi daftar datar untuk dibaca ulang.
+     *
+     * @param  array<int, mixed>  $buttons
+     * @return array<int, array<string, mixed>>
+     */
+    private function buttonList(array $buttons): array
+    {
+        $flat = [];
+
+        foreach ($buttons as $row) {
+            foreach ($this->isButton($row) ? [$row] : (array) $row as $button) {
+                if ($this->isButton($button)) {
+                    $flat[] = $button;
+                }
+            }
+        }
+
+        return $flat;
     }
 }

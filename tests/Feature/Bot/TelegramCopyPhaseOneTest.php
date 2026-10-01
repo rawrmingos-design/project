@@ -6,6 +6,7 @@ use App\Models\CategoryType;
 use App\Models\InboundSourcePolicy;
 use App\Models\Kategori;
 use App\Models\Layanan;
+use App\Models\Paket;
 use App\Services\Bot\BotMessageFormatter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -106,7 +107,15 @@ class TelegramCopyPhaseOneTest extends TestCase
     {
         CategoryType::query()->create(['name' => '🎮 Top Up', 'slug' => 'top-up', 'sort' => 1]);
         $kategori = Kategori::factory()->create(['category_type_id' => 1, 'kode' => 'mlbb', 'status' => 'active']);
-        Layanan::factory()->create(['kategori_id' => $kategori->id, 'status' => 'available']);
+
+        // WAJIB berpaket: bot Telegram hanya memajang kategori yang punya layanan
+        // berpaket (kategori begitu membuka layar kosong), jadi katalog tanpa
+        // paket membuat Menu Utama kosong dan TIDAK ADA pesan terkirim — test
+        // ini lalu merah karena alasan yang tidak ada hubungannya dengan header
+        // `Accept-Language` yang sebenarnya diuji.
+        $layanan = Layanan::factory()->create(['kategori_id' => $kategori->id, 'status' => 'available']);
+        $paket = Paket::query()->firstOrCreate(['nama' => '⚡ Proses Instant']);
+        $paket->layanan()->syncWithoutDetaching([$layanan->id => ['product_logo' => null]]);
 
         Http::fake([
             'https://api.telegram.org/*/sendMessage' => Http::response(['ok' => true]),

@@ -57,6 +57,7 @@ return [
     'service_list_title' => '💎 *:produk*',
     'service_list_footer_packages' => 'Ketik angka untuk melihat isi paket.',
     'service_list_footer_items' => 'Ketik angka untuk memilih layanan.',
+    'service_item_numbered' => '[:number]. :nama — Rp :harga',
     'nav_page_prompt' => 'Pindah halaman: ⬅️ / ➡️',
 
     // --- Panduan /help ---

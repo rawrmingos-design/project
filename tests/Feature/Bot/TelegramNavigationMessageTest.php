@@ -4,6 +4,8 @@ namespace Tests\Feature\Bot;
 
 use App\Models\CategoryType;
 use App\Models\Kategori;
+use App\Models\Layanan;
+use App\Models\Paket;
 use App\Services\Bot\Adapters\TelegramAdapter;
 use App\Services\Bot\BotNumericMenuStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +26,11 @@ use Tests\TestCase;
  * Daftar satu halaman tidak punya halaman lain, jadi pesannya murni noise —
  * teksnya mengajak "pindah halaman" padahal tidak ada halaman tujuan, dan
  * tombol aksi di dalamnya sudah terlihat di keyboard yang menetap di bawah.
+ *
+ * Fixture WAJIB menyemai layanan + paket, bukan kategori kosong. Bot Telegram
+ * hanya memajang kategori yang punya layanan berpaket (kategori begitu membuka
+ * layar kosong), jadi katalog tanpa paket membuat Menu Utama kosong dan test
+ * ini hijau/hampa karena alasan yang tidak ada hubungannya dengan navigasi.
  */
 class TelegramNavigationMessageTest extends TestCase
 {
@@ -67,14 +74,37 @@ class TelegramNavigationMessageTest extends TestCase
                 'sort' => $i,
             ]);
 
-            Kategori::query()->create([
+            $kategori = Kategori::query()->create([
                 'nama' => "Kategori {$i}",
                 'sub_nama' => "Kategori {$i}",
                 'category_type_id' => $type->id,
                 'status' => 'active',
                 'tipe' => 'game',
             ]);
+
+            $this->seedPackagedService($kategori->id, "Layanan {$i}");
         }
+    }
+
+    /**
+     * Semai satu layanan yang terikat paket.
+     *
+     * Bot Telegram hanya memajang kategori yang punya layanan berpaket: kategori
+     * tanpa paket membuka layar KOSONG, jadi menu menyembunyikannya. Fixture yang
+     * cuma menyemai kategori kosong membuat daftar menu kosong, dan test
+     * navigasi jadi hijau/hampa.
+     */
+    private function seedPackagedService(int $kategoriId, string $nama): void
+    {
+        $layanan = Layanan::factory()->create([
+            'kategori_id' => $kategoriId,
+            'layanan' => $nama,
+            'harga_member' => 1000,
+            'status' => 'available',
+        ]);
+
+        $paket = Paket::query()->firstOrCreate(['nama' => '⚡ Proses Instant']);
+        $paket->layanan()->syncWithoutDetaching([$layanan->id => ['product_logo' => null]]);
     }
 
     /** Satu tipe dengan beberapa kategori. */
@@ -90,13 +120,15 @@ class TelegramNavigationMessageTest extends TestCase
         // TIDAK nullable — fixture yang mengarang nama kolom gagal sebelum
         // perilaku bot sempat diuji.
         foreach (range(1, $count) as $i) {
-            Kategori::query()->create([
+            $kategori = Kategori::query()->create([
                 'nama' => "Game {$i}",
                 'sub_nama' => "Game {$i}",
                 'category_type_id' => $type->id,
                 'status' => 'active',
                 'tipe' => 'game',
             ]);
+
+            $this->seedPackagedService($kategori->id, "Diamond {$i}");
         }
     }
 
@@ -231,7 +263,10 @@ class TelegramNavigationMessageTest extends TestCase
 
         $joined = implode("\n", $this->flatTexts());
 
-        $this->assertStringContainsString('Top Up Games', $joined, 'Nomor 1 harus menghasilkan kategori pertama.');
+        // Tekan 1 di Menu Utama membuka layar "Pilih Game" milik TIPE pertama
+        // (bukan langsung daftar layanan): Menu Utama berisi TIPE, layar
+        // berikutnya berisi kategori di dalamnya.
+        $this->assertStringContainsString('Top Up Games', $joined, 'Nomor 1 harus membuka tipe kategori pertama.');
         $this->assertStringNotContainsString('kedaluwarsa', $joined, 'Peta nomor tidak boleh dianggap kedaluwarsa.');
     }
 

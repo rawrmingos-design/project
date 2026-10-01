@@ -107,11 +107,14 @@ class BotLangParityTest extends TestCase
         //   netral bahasa — nomor dalam kurung siku adalah penanda posisi, bukan
         //   kalimat. Menerjemahkan formatnya justru membuat nomor tidak lagi
         //   sejajar dengan tombol angka di keyboard.
+        // - `service_item_numbered` : alasannya sama persis — `[N]. Nama — Rp X`.
+        //   Satuan harga tetap 'Rp' di kedua bahasa (nominal memang rupiah), dan
+        //   `:nama` diisi dari data katalog, bukan dari kunci lang.
         $allowedIdentical = [
             'skip', 'ya', 'tidak', 'checkout_total', 'deposit_order_id',
             'status_generic_order_id', 'status_generic_total', 'status_unpaid_amount',
             'history_detail_invoice', 'history_detail_total', 'label_expired',
-            'menu_item_numbered',
+            'menu_item_numbered', 'service_item_numbered',
             // Kerangka kartu layanan tidak memuat kata yang bisa diterjemahkan:
             // garis kotak, penanda `┊`, dan judul ber-emoji. Isinya (nama paket,
             // nama layanan, harga) datang dari data dan dari kunci lain, jadi

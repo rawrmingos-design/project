@@ -836,10 +836,16 @@ class BotCommandHandler
 
     private function handleMenu(array $args = [], array $context = []): array
     {
+        $capabilities = $this->capabilities($context);
+
+        // Bot Telegram hanya bisa memesan layanan yang terikat paket, jadi Menu
+        // Utama memakai hitungan "layanan yang bisa dipesan", bukan jumlah
+        // layanan mentah. Tanpa itu, tipe kategori yang isinya cuma kategori
+        // tanpa paket tetap muncul di daftar lalu membuka layar kosong.
         return $this->formatter->formatCategories(
-            $this->catalog->categoryTypes(),
+            $this->catalog->categoryTypes([], $this->isTelegram($capabilities)),
             $this->pageFromArgs($args),
-            $this->capabilities($context),
+            $capabilities,
         );
     }
 
@@ -855,12 +861,24 @@ class BotCommandHandler
             ];
         }
 
-        $res = $this->catalog->categories(null, ['type' => $type]);
+        $res = $this->catalog->categories(null, ['type' => $type], $this->isTelegram($this->capabilities($context)));
+
         return $this->formatter->formatProducts(
             $res,
             $this->pageFromArgs($args),
             $this->capabilities($context),
         );
+    }
+
+    /**
+     * Jalur Telegram menyembunyikan kategori yang tidak punya layanan berpaket:
+     * bot hanya bisa memesan layanan terikat paket, jadi kategori begitu
+     * membuka layar kosong. Jalur WhatsApp TIDAK disaring — WA memakai
+     * tombolnya sendiri dan perilakunya tidak boleh berubah.
+     */
+    private function isTelegram(?BotGatewayCapabilities $capabilities): bool
+    {
+        return $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
     }
 
     private function handleLayanan(array $args, array $context): array
@@ -878,44 +896,25 @@ class BotCommandHandler
         $res = $this->catalog->services($catCode);
         $capabilities = $this->capabilities($context);
 
-        // Menampilkan isi satu paket layanan (`layanan <produk> paket:<indeks>`).
+        // Isi daftar untuk jalur Telegram: layanan yang BISA DIPESAN lewat bot,
+        // rata, dengan paket "spesial" dipin di atas.
         //
-        // Indeks dipakai sebagai penanda, bukan nama paket: nama paket memuat
-        // emoji dan spasi, dan menitipkannya ke perintah akan membuat callback
-        // tombol maupun entri nomor bergantung pada penyandian teks yang rawan
-        // berubah.
+        // Paket tidak lagi ditampilkan sebagai langkah tersendiri. Sebelumnya
+        // user harus memilih paket dulu, padahal 17 dari 22 kategori cuma punya
+        // SATU paket — satu langkah tambahan tanpa alternatif.
         //
-        // Paket hanya dibaca untuk jalur Telegram — jalur WhatsApp memakai
-        // tampilan tombolnya sendiri dan tidak memakai data ini, jadi jangan
-        // dibebani query tambahan.
-        $packages = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM
-            ? $this->catalog->servicePackages($catCode)
+        // Hanya jalur Telegram yang membaca ini: jalur WhatsApp memakai
+        // tampilan tombolnya sendiri, jadi jangan dibebani query tambahan.
+        $services = $this->isTelegram($capabilities)
+            ? $this->catalog->packagedServices($catCode)
             : [];
 
         return $this->formatter->formatServices(
             $res,
             $this->pageFromArgs($args),
             $capabilities,
-            $packages,
-            $this->packageFromArgs($args),
+            $services,
         );
-    }
-
-    /**
-     * Indeks paket dari argumen `paket:<indeks>`, atau `null` kalau tidak ada.
-     *
-     * Nilai negatif dianggap tidak ada: indeks paket selalu berasal dari daftar
-     * yang bot sendiri kirim, jadi nilai aneh tidak perlu ditafsirkan.
-     */
-    private function packageFromArgs(array $args): ?int
-    {
-        foreach ($args as $arg) {
-            if (preg_match('/^paket:(\d+)$/', (string) $arg, $matches)) {
-                return (int) $matches[1];
-            }
-        }
-
-        return null;
     }
 
     private function handlePembayaran(array $args, array $context): array
