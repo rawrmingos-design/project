@@ -56,7 +56,10 @@ class TomePaymentGateway
         curl_setopt($ch, CURLOPT_COOKIE, '' );
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data );
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+        // Batas waktu WAJIB (dulu connect 30s TANPA timeout total = bisa
+        // menggantung selamanya dan menyandera worker checkout).
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
         curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.2; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0');
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             'Content-Length:'.strlen($post_data),

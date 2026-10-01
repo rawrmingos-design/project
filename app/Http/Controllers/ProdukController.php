@@ -104,6 +104,10 @@ class ProdukController extends Controller
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            // Batas waktu WAJIB: tanpa ini API yang tidak terjangkau
+            // menggantung tanpa henti dan menyandera worker PHP-FPM.
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
             $response = curl_exec($ch);
 
             $buka = fopen(storage_path('logging.txt'), 'w');
