@@ -4,6 +4,7 @@ namespace App\Services\Bot\Adapters;
 
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
+use App\Services\Settings\DatabaseSettingsBridge;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotLocale;
 use App\Services\Bot\BotMessageFormatter;
@@ -202,6 +203,24 @@ class TelegramAdapter implements BotAdapterInterface
         }
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Terapkan setelan panel (tabel `setting_webs`) ke config proses ini.
+     *
+     * WAJIB dipanggil di awal pekerjaan bot. Di jalur web ini sudah dilakukan
+     * middleware `bot.inbound`, tetapi proses ANTREAN (queue worker) adalah
+     * proses console — dan di sana jembatan config bawaan AppServiceProvider
+     * sengaja tidak jalan (`! app()->runningInConsole()`). Tanpa panggilan ini,
+     * job yang berjalan di worker kehilangan token bot, webhook secret, dan
+     * daftar grup wajib, sehingga bot tampak "mati" padahal hanya kehilangan
+     * setelan.
+     *
+     * Aman dipanggil berkali-kali: bridge punya guard per proses.
+     */
+    public function applySettings(): void
+    {
+        app(DatabaseSettingsBridge::class)->apply();
     }
 
     private function localeService(): BotLocale

@@ -202,116 +202,14 @@ class AppServiceProvider extends ServiceProvider
 
         $config = (object) $defaultConfig;
 
+        // Setelan panel -> config. Logikanya tinggal di DatabaseSettingsBridge
+        // karena jalur ANTREAN (queue worker) juga membutuhkannya: worker
+        // adalah proses console, jadi dulu jembatan ini mati di sana dan bot
+        // yang diproses worker kehilangan token, webhook secret, dan daftar
+        // grup wajib. Di jalur web, webhook memanggilnya dari controller
+        // (guard di dalam bridge mencegah penerapan ganda dalam satu proses).
         if (! app()->runningInConsole()) {
-            try {
-                $dbConfig = \DB::table('setting_webs')->where('id', 1)->first();
-
-                if ($dbConfig) {
-                    $dbConfig = (array) $dbConfig;
-                    unset($dbConfig['tiktok_access_token_encrypted']);
-                    $config = (object) array_merge($defaultConfig, $dbConfig);
-
-                    config([
-                        'mail.default' => $config->mail_mailer ?: env('MAIL_MAILER', 'smtp'),
-                        'mail.mailers.smtp.host' => $config->mail_host ?: env('MAIL_HOST', 'smtp.mailgun.org'),
-                        'mail.mailers.smtp.port' => $config->mail_port ?: env('MAIL_PORT', 587),
-                        'mail.mailers.smtp.encryption' => $config->mail_encryption ?: env('MAIL_ENCRYPTION', 'tls'),
-                        'mail.mailers.smtp.username' => $config->mail_username ?: env('MAIL_USERNAME'),
-                        'mail.mailers.smtp.password' => $config->mail_password ?: env('MAIL_PASSWORD'),
-                        'mail.from.address' => $config->mail_from_address ?: env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-                        'mail.from.name' => $config->mail_from_name ?: env('MAIL_FROM_NAME', 'Example'),
-                        'captcha.sitekey' => $config->captcha_site_key ?: env('NOCAPTCHA_SITEKEY'),
-                        'captcha.secret' => $config->captcha_secret ?: env('NOCAPTCHA_SECRET'),
-                    ]);
-
-                    if (!empty($config->telegram_bot_token)) {
-                        config(['services.telegram-bot-api.token' => $config->telegram_bot_token]);
-                    }
-                    if (!empty($config->telegram_webhook_secret)) {
-                        config(['services.telegram-bot-api.webhook_secret' => $config->telegram_webhook_secret]);
-                    }
-                    // Daftar grup/channel wajib — SATU sumber: kolom JSON
-                    // `setting_webs.telegram_required_channels` dari panel.
-                    // Tidak ada fallback .env: dulu dua sumber ini membuat
-                    // admin bingung karena isian panel diabaikan.
-                    $requiredChannels = $config->telegram_required_channels ?? null;
-
-                    if (is_string($requiredChannels) && $requiredChannels !== '') {
-                        $requiredChannels = json_decode($requiredChannels, true);
-                    }
-
-                    if (is_array($requiredChannels) && $requiredChannels !== []) {
-                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
-                    }
-
-                    // URL kontak admin Telegram — diisi dari panel admin.
-                    // Nilai DB menang atas .env; .env tetap dipakai kalau kolom
-                    // ini kosong supaya deployment lama tidak berubah perilaku.
-                    if (!empty($config->telegram_admin_url)) {
-                        config(['services.telegram-bot-api.admin_contact_url' => $config->telegram_admin_url]);
-                    }
-
-                    // Default bahasa bot (setting_webs.bot_default_locale).
-                    // Diisi APA ADANYA kalau tidak kosong; BotLocale yang
-                    // memvalidasi lewat whitelist id/en, jadi nilai aneh dari
-                    // DB tidak bisa membuat chat berbahasa tak dikenal.
-                    if (!empty($config->bot_default_locale)) {
-                        config(['services.telegram-bot-api.default_locale' => $config->bot_default_locale]);
-                    }
-
-                    // Daftar channel wajib versi BARU (banyak channel sekaligus).
-                    // Bila terisi, ini yang dipakai; kolom tunggal di atas tetap
-                    // dihormati sebagai fallback deployment lama.
-                    $requiredChannels = $config->telegram_required_channels ?? null;
-
-                    if (is_string($requiredChannels) && $requiredChannels !== '') {
-                        $requiredChannels = json_decode($requiredChannels, true);
-                    }
-
-                    if (is_array($requiredChannels) && $requiredChannels !== []) {
-                        config(['services.telegram-bot-api.required_channel.channels' => array_values($requiredChannels)]);
-                    }
-
-                    // Sambutan otomatis member baru di grup Telegram.
-                    // Saklar dihormati apa adanya (termasuk `false`), supaya
-                    // admin bisa mematikan dari DB tanpa mengubah .env.
-                    if ($config->telegram_welcome_enabled !== null) {
-                        config(['services.telegram-bot-api.telegram_welcome_enabled' => (bool) $config->telegram_welcome_enabled]);
-                    }
-
-                    if (!empty($config->telegram_welcome_template)) {
-                        config(['services.telegram-bot-api.telegram_welcome_template' => $config->telegram_welcome_template]);
-                    }
-
-                    if (!empty($config->telegram_welcome_thread_id)) {
-                        config(['services.telegram-bot-api.telegram_welcome_thread_id' => (int) $config->telegram_welcome_thread_id]);
-                    }
-
-                    // Override bot order flags if set in DB
-                    // NOTE: capture config-cache value FIRST — line berikutnya
-                    // override services.telegram-bot-api.order_enabled dari DB.
-                    // config:cache aktif → env() di runtime return null, jadi baca
-                    // nilai asli dari config cache (bukan env()).
-                    $orderEnabled = (bool) config('services.telegram-bot-api.order_enabled', false);
-                    config(['services.telegram-bot-api.order_enabled' => (bool) $config->bot_order_tg_enabled]);
-                    config(['bot.order_wa_enabled' => (bool) $config->bot_order_wa_enabled]);
-                    config(['bot.order_enabled' => $orderEnabled]);
-
-                    config([
-                        'bot.use_separate_bot_wa' => (bool) ($config->use_separate_bot_wa ?? false),
-                        'bot.wa_bot_key' => $config->wa_bot_key ?? null,
-                        'bot.wa_bot_number' => $config->wa_bot_number ?? null,
-                        'bot.openwa_session_id' => $config->openwa_session_id ?? null,
-                        'bot.openwa_webhook_secret' => $config->openwa_webhook_secret ?? null,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                // Fallback to default config when database is unavailable.
-                Log::warning('AppServiceProvider: DB config load failed, using defaults.', [
-                    'exception' => $e::class,
-                    'message' => $e->getMessage(),
-                ]);
-            }
+            $config = app(\App\Services\Settings\DatabaseSettingsBridge::class)->apply($defaultConfig);
         }
 
         $uploadUrl = app(PublicUploadUrlService::class);

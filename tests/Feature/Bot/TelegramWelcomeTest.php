@@ -66,6 +66,21 @@ class TelegramWelcomeTest extends TestCase
         ]);
     }
 
+    /**
+     * Nyalakan saklar sambutan di SUMBERNYA (kolom `setting_webs`).
+     *
+     * Menyetel `config()` saja tidak cukup: bridge setelan panel kini berlaku
+     * juga di jalur web, jadi nilai dari DB-lah yang menang - persis seperti di
+     * produksi. Dulu jembatan itu hanya jalan saat bukan console, sehingga test
+     * bisa "menang" dengan config walau panel sebenarnya mematikannya.
+     */
+    private function nyalakanSambutanDiPanel(): void
+    {
+        \Illuminate\Support\Facades\DB::table('setting_webs')
+            ->where('id', 1)
+            ->update(['telegram_welcome_enabled' => true]);
+    }
+
     private function chat(array $overrides = []): array
     {
         return array_merge([
@@ -84,6 +99,14 @@ class TelegramWelcomeTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * Tembak webhook.
+     *
+     * Pengiriman sambutan member baru ditangani DI DALAM adapter, dan adapter
+     * kini dijalankan oleh worker lewat antrean - bukan lagi di siklus request.
+     * Driver antrean saat test = `sync`, jadi job berjalan inline tepat setelah
+     * webhook dijawab, dan pemeriksaan efek samping (Http::assertSent) tetap sah.
+     */
     private function webhook(array $message): \Illuminate\Testing\TestResponse
     {
         return $this->postJson('/api/webhooks/bot/telegram', [
@@ -91,6 +114,7 @@ class TelegramWelcomeTest extends TestCase
             'message' => $message,
         ], ['X-Telegram-Bot-Api-Secret-Token' => 'secret']);
     }
+
 
     // ---------------------------------------------------------------
     // resolveText — tanpa memanggil Telegram
@@ -346,15 +370,17 @@ class TelegramWelcomeTest extends TestCase
     public function test_webhook_greets_new_member(): void
     {
         Http::fake(['*' => Http::response(['ok' => true], 200)]);
-        config(['services.telegram-bot-api.telegram_welcome_enabled' => true]);
+        $this->nyalakanSambutanDiPanel();
 
         $this->webhook([
             'message_id' => 10,
             'chat' => $this->chat(),
             'from' => $this->member(['id' => 555001]),
             'new_chat_members' => [$this->member()],
-        ])->assertOk()->assertJson(['status' => 'welcome_sent', 'greeted' => 1]);
+        ])->assertOk()->assertJson(['status' => 'queued']);
 
+        // Balasan webhook melaporkan PENERIMAAN; fakta bahwa adapter benar-benar
+        // menyapa dikunci oleh panggilan keluar di bawah ini.
         Http::assertSent(fn ($request) => str_contains($request->url(), '/sendMessage'));
     }
 
@@ -368,15 +394,16 @@ class TelegramWelcomeTest extends TestCase
             'message_id' => 11,
             'chat' => $this->chat(),
             'new_chat_members' => [$this->member(['id' => 999, 'is_bot' => true, 'first_name' => 'jasakoding_bot'])],
-        ])->assertOk()->assertJson(['status' => 'ignored', 'greeted' => 0]);
+        ])->assertOk()->assertJson(['status' => 'queued']);
 
+        // Update tetap diantrekan; yang penting bot TIDAK menyapa dirinya sendiri.
         Http::assertNothingSent();
     }
 
     public function test_webhook_greets_human_but_skips_bot_in_same_update(): void
     {
         Http::fake(['*' => Http::response(['ok' => true], 200)]);
-        config(['services.telegram-bot-api.telegram_welcome_enabled' => true]);
+        $this->nyalakanSambutanDiPanel();
 
         $this->webhook([
             'message_id' => 12,
@@ -385,8 +412,9 @@ class TelegramWelcomeTest extends TestCase
                 $this->member(['id' => 999, 'is_bot' => true, 'first_name' => 'jasakoding_bot']),
                 $this->member(['id' => 555002, 'first_name' => 'Siti']),
             ],
-        ])->assertOk()->assertJson(['status' => 'welcome_sent', 'greeted' => 1]);
+        ])->assertOk()->assertJson(['status' => 'queued']);
 
+        // Tepat satu sambutan: manusia disapa, bot dilewati.
         Http::assertSentCount(1);
     }
 
@@ -398,8 +426,9 @@ class TelegramWelcomeTest extends TestCase
             'message_id' => 13,
             'chat' => $this->chat(),
             'new_chat_members' => [$this->member()],
-        ])->assertOk()->assertJson(['status' => 'ignored']);
+        ])->assertOk()->assertJson(['status' => 'queued']);
 
+        // Saklar sambutan mati: update diterima, tidak ada pesan yang dikirim.
         Http::assertNothingSent();
     }
 

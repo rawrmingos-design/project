@@ -652,10 +652,15 @@ class BotSecurityAndRateLimitTest extends TestCase
     public function test_payload_kosong_tidak_memicu_pemrosesan(): void
     {
         // Webhook kosong (mis. probe) harus diabaikan, bukan diproses jadi menu.
+        // Penilaian "ada pekerjaan atau tidak" milik adapter: webhook hanya
+        // memastikan Telegram tidak menunggu, lalu meneruskannya ke antrean.
         $res = $this->postTelegram([]);
 
         $res->assertStatus(200);
-        $res->assertJsonPath('status', 'ignored');
+        $res->assertJsonPath('status', 'queued');
+
+        // Yang penting: tidak ada balasan apa pun yang dikirim ke Telegram.
+        Http::assertNothingSent();
     }
 
     public function test_pesan_tanpa_pengirim_tidak_diproses(): void
@@ -669,8 +674,12 @@ class BotSecurityAndRateLimitTest extends TestCase
             ],
         ]);
 
+        // Ada tujuan, jadi update diterima dan diteruskan ke pemrosesan.
         $res->assertStatus(200);
-        $res->assertJsonPath('status', 'ignored');
+        $res->assertJsonPath('status', 'queued');
+
+        // Yang penting: tanpa pengirim, tidak ada balasan yang dikirim ke siapa pun.
+        Http::assertNothingSent();
     }
 
     public function test_angka_telanjang_dari_user_asing_tidak_membuat_pesanan(): void
