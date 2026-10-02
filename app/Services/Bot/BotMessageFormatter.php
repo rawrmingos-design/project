@@ -1149,9 +1149,6 @@ class BotMessageFormatter
         $serviceName = trim((string) ($data['data']['service_name'] ?? '')) ?: 'Produk';
         $categoryName = trim((string) ($data['data']['category_name'] ?? '')) ?: 'Kategori';
         $quantity = max(1, (int) ($data['data']['quantity'] ?? 1));
-        $invoiceUrl = filter_var($data['data']['invoice_url'] ?? $data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
-            ? (string) ($data['data']['invoice_url'] ?? $data['data']['payment_url'])
-            : null;
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
         $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode) || $this->isQrisPayload($qrPayload);
         $lines = [
@@ -1174,19 +1171,18 @@ class BotMessageFormatter
             ? ($isTelegram ? __('bot.invoice_qr_hint') : 'Scan QRIS untuk membayar.')
             : ($isTelegram ? __('bot.invoice_pay_hint') : 'Selesaikan pembayaran agar pesanan diproses otomatis.');
         $lines[] = $isTelegram ? __('bot.invoice_status_hint') : 'Ketik `status` untuk cek pembayaran.';
-        $buttons = [];
 
-        if ($invoiceUrl !== null && $source !== 'whatsapp_gateway') {
-            $buttons[] = [$this->urlButton(
-                $isTelegram ? __('bot.invoice_btn_open') : '🔗 Buka Halaman Invoice',
-                $invoiceUrl,
-            )];
-        }
-
-        $buttons[] = [$this->button(
+        // SATU tombol saja: cek status.
+        //
+        // Tombol "Buka Halaman Invoice" dihapus atas permintaan pemilik produk.
+        // Alasannya bukan cuma kosmetik: URL yang dulu dipakai (`payment_url`
+        // milik gateway) mengarah ke halaman checkout PIHAK KETIGA, sehingga
+        // pelanggan keluar dari bot dan pembayaran lepas dari alur yang kita
+        // kendalikan - padahal QR-nya sudah tampil di chat ini.
+        $buttons = [[$this->button(
             $isTelegram ? __('bot.invoice_btn_check') : '🔎 Cek Status Pembayaran',
             "status {$orderId}",
-        )];
+        )]];
         $response = [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,

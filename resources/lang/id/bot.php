@@ -131,7 +131,6 @@ return [
     'invoice_qr_hint' => 'Scan QRIS untuk membayar.',
     'invoice_pay_hint' => 'Selesaikan pembayaran agar pesanan diproses otomatis.',
     'invoice_status_hint' => 'Ketik `status` untuk cek pembayaran.',
-    'invoice_btn_open' => '🔗 Buka Halaman Invoice',
     'invoice_btn_check' => '🔎 Cek Status Pembayaran',
     'invoice_create_failed' => 'Gagal membuat invoice: :reason',
     // Judul & pesan kosong katalog. Nilai kembar dilarang parity test, jadi

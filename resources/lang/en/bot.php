@@ -116,7 +116,6 @@ return [
     'invoice_qr_hint' => 'Scan the QRIS code to pay.',
     'invoice_pay_hint' => 'Complete the payment so the order is processed automatically.',
     'invoice_status_hint' => 'Type `status` to check the payment.',
-    'invoice_btn_open' => '🔗 Open Invoice Page',
     'invoice_btn_check' => '🔎 Check Payment Status',
     'invoice_create_failed' => 'Failed to create the invoice: :reason',
     // Catalog titles & empty states. Identical values are rejected by the

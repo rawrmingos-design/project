@@ -1786,10 +1786,10 @@ class BotWebhookTest extends TestCase
                 && str_contains($caption, 'Ketik `status` untuk cek pembayaran.')
                 && ! str_contains($caption, 'Kode Bayar / VA')
                 && ! str_contains($caption, 'Link Pembayaran:')
-                && $keyboard[0][0]['text'] === '🔗 Buka Halaman Invoice'
-                && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
-                && $keyboard[1][0]['text'] === '🔎 Cek Status Pembayaran'
-                && isset($keyboard[1][0]['callback_data']);
+                // TIDAK ada tombol keluar ke halaman invoice pihak ketiga.
+                && count($keyboard) === 1
+                && $keyboard[0][0]['text'] === '🔎 Cek Status Pembayaran'
+                && isset($keyboard[0][0]['callback_data']);
         });
     }
 
@@ -1838,8 +1838,9 @@ class BotWebhookTest extends TestCase
             return str_contains($request->url(), 'sendPhoto')
                 && $request['photo'] === $qrisUrl
                 && ! str_contains($request['caption'], 'Kode Bayar / VA')
-                && $keyboard[0][0]['url'] === 'https://pay.example/inv-1'
-                && isset($keyboard[1][0]['callback_data']);
+                && count($keyboard) === 1
+                && $keyboard[0][0]['text'] === '🔎 Cek Status Pembayaran'
+                && isset($keyboard[0][0]['callback_data']);
         });
     }
 
@@ -1867,7 +1868,13 @@ class BotWebhookTest extends TestCase
             ]);
 
             $this->assertSame($case['url'], $response['photo_url']);
-            $this->assertSame('https://app.example/invoice', $response['buttons'][0][0]['url']);
+
+            // Meski gateway mengirim `invoice_url`/`payment_url`, bot TIDAK
+            // menawarkan tombol keluar ke halaman invoice. Satu tombol saja:
+            // cek status.
+            $this->assertSame('🔎 Cek Status Pembayaran', $response['buttons'][0][0]['text']);
+            $this->assertArrayNotHasKey('url', $response['buttons'][0][0]);
+            $this->assertCount(1, $response['buttons'], 'Hanya tombol cek status yang boleh tampil.');
         }
     }
 
@@ -1932,7 +1939,13 @@ class BotWebhookTest extends TestCase
         ]);
 
         $this->assertArrayNotHasKey('photo_url', $response);
-        $this->assertSame($checkoutUrl, $response['buttons'][0][0]['url']);
+
+        // URL checkout yang tidak tepercaya tidak boleh bocor dalam bentuk apa
+        // pun - dan tidak ada tombol keluar sama sekali.
+        $this->assertSame('🔎 Cek Status Pembayaran', $response['buttons'][0][0]['text']);
+        $this->assertSame('status INV-1', $response['buttons'][0][0]['callback']);
+        $this->assertCount(1, $response['buttons']);
+        $this->assertStringNotContainsString($checkoutUrl, json_encode($response));
     }
 
     public function test_fonnte_invoice_sends_direct_qris_url_as_media(): void
