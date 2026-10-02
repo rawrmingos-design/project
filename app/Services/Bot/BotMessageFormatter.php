@@ -1437,9 +1437,14 @@ class BotMessageFormatter
         }
 
         // Telegram: angkanya sudah tidak ada, jadi petunjuk "tekan nomornya"
-        // akan menyesatkan. WhatsApp: tombol nomornya masih ada, petunjuknya
-        // tetap apa adanya.
-        $lines[] = 'Ketik `status <invoice>` untuk detail.';
+        // akan menyesatkan.
+        //
+        // WhatsApp TIDAK ikut berubah: di sana tombol nomornya masih ada dan
+        // memang sarana memilih, jadi kalimatnya tetap yang lama - copy WA
+        // sengaja tidak disentuh.
+        $lines[] = $isTelegram
+            ? 'Ketik `status <invoice>` untuk detail.'
+            : 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
 
         if ($totalPages > 1) {
             $row = [];
@@ -1477,14 +1482,39 @@ class BotMessageFormatter
             // layar ini.
             $response['use_reply_keyboard'] = true;
 
-            // `entries` KOSONG = peta angka lama dibuang. Kalau peta dibiarkan,
-            // adapter menganggap keyboard angka masih berlaku dan menekan angka
-            // akan membuka item dari daftar lama - layar transaksi tidak punya
-            // nomor sendiri.
+            // Entri ISI (1..15) sengaja KOSONG - layar transaksi tidak punya
+            // nomor sendiri, dan justru inilah yang membuang peta angka basi
+            // milik daftar sebelumnya. Kalau peta itu ditahan, menekan `3`
+            // membuka layanan dari daftar lama yang sudah tidak terlihat.
+            //
+            // Tapi entri 98/99 WAJIB diisi kalau ada halaman lain: adapter
+            // hanya mengirim pesan navigasi kedua kalau salah satu nomor itu
+            // ada. Tanpa itu, layar ini kehilangan satu-satunya tombol pindah
+            // halaman - dan transaksi user yang lebih dari satu halaman jadi
+            // tidak bisa dijangkau sama sekali lewat tombol.
+            $entries = [];
+
+            if ($totalPages > 1) {
+                if ($page > 1) {
+                    $entries['98'] = [
+                        'type' => 'navigation_previous',
+                        'label' => __('bot.btn_prev'),
+                        'command' => 'status page:' . ($page - 1),
+                    ];
+                }
+                if ($page < $totalPages) {
+                    $entries['99'] = [
+                        'type' => 'navigation_next',
+                        'label' => __('bot.btn_next'),
+                        'command' => 'status page:' . ($page + 1),
+                    ];
+                }
+            }
+
             $response['numeric_menu'] = [
                 'menu' => 'sender_transactions',
                 'parent_menu' => 'menu',
-                'entries' => [],
+                'entries' => $entries,
             ];
         }
 

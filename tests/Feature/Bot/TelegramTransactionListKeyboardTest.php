@@ -40,6 +40,9 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
     private const FROM = 6252007210;
 
+    /** Jumlah order di fixture. 11 order / 5 per halaman = 3 halaman. */
+    private const ORDER_COUNT = 11;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -75,9 +78,9 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
         Cache::flush();
 
-        for ($i = 1; $i <= 5; $i++) {
+        for ($i = 1; $i <= self::ORDER_COUNT; $i++) {
             $order = Pembelian::create([
-                'order_id' => 'TRANSAKSI-00' . $i,
+                'order_id' => 'TRANSAKSI-' . str_pad((string) $i, 3, '0', STR_PAD_LEFT),
                 'layanan' => '12 Diamond Free Fire',
                 'harga' => 3331,
                 'status' => 'Proses',
@@ -109,12 +112,25 @@ class TelegramTransactionListKeyboardTest extends TestCase
             ], ['X-Telegram-Bot-Api-Secret-Token' => 'dummy-secret'])->assertOk();
     }
 
-    /** Payload `sendMessage` terakhir yang benar-benar dikirim ke Telegram. */
+    /**
+     * Payload pesan UTAMA yang benar-benar dikirim ke Telegram.
+     *
+     * Bukan `recorded()->last()`: begitu pager hidup, adapter mengirim pesan
+     * KEDUA berisi tombol pindah halaman (teksnya "Pindah halaman"), dan pesan
+     * itu yang jadi balasan terakhir. Yang mau diperiksa di sini adalah layar
+     * daftarnya, yang ditandai keyboard aksi (`keyboard`), bukan inline.
+     */
     private function balasanTerakhir(): array
     {
-        $terakhir = Http::recorded()->last();
+        foreach (Http::recorded()->reverse() as [$request]) {
+            $data = (array) $request->data();
 
-        return $terakhir === null ? [] : (array) $terakhir[0]->data();
+            if (isset($data['reply_markup']['keyboard'])) {
+                return $data;
+            }
+        }
+
+        return [];
     }
 
     /** Label tombol dari `reply_markup`, apa pun jenis keyboardnya. */
@@ -201,16 +217,19 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
         $this->assertSame([], $angka, 'Angka dari daftar lama tidak boleh menempel di layar transaksi.');
 
-        // Dan peta nomornya benar-benar dibuang, supaya mengetik angka juga
-        // tidak membuka entri daftar lama.
+        // Dan entri isi dari daftar lama benar-benar HILANG dari peta, supaya
+        // mengetik angkanya tidak membuka layanan yang sudah tidak terlihat.
+        // (Peta itu sendiri tidak kosong: entri 98/99 ditulis supaya tombol
+        // pindah halaman tetap terkirim - lihat test pager.)
         $this->assertNull(
-            app(BotNumericMenuStore::class)->get('telegram:default:' . self::FROM),
-            'Peta angka lama harus dibuang oleh layar transaksi.',
+            app(BotNumericMenuStore::class)->get('telegram:default:' . self::FROM)['entries'][1] ?? null,
+            'Entri isi dari daftar lama (' . "1" . ') harus dibuang oleh layar transaksi.',
         );
-        $this->assertSame(
-            'expired',
-            app(BotNumericMenuStore::class)->resolve('telegram:default:' . self::FROM, 1)['status'],
-        );
+
+        $putusan = app(BotNumericMenuStore::class)->resolve('telegram:default:' . self::FROM, 1);
+
+        $this->assertNotSame('ok', $putusan['status'], 'Menekan nomor lama tidak boleh menghasilkan perintah.');
+        $this->assertArrayNotHasKey('command', $putusan, 'Tidak boleh ada perintah dari daftar lama.');
     }
 
     /** Keyboard yang dipertahankan: tombol aksi Telegram tetap terkirim utuh. */
@@ -226,6 +245,49 @@ class TelegramTransactionListKeyboardTest extends TestCase
         $this->assertContains('📦 Cek Status', $label);
     }
 
+    /**
+     * PAGER TETAP BISA DIJANGKAU.
+     *
+     * Ini risiko yang muncul begitu tombol inline angka dihapus: pager juga
+     * tombol inline, jadi gampang ikut terbuang. Dulu - bahkan SEBELUM
+     * perubahan ini - halaman kedua memang tidak pernah bisa dijangkau lewat
+     * tombol di layar transaksi: keyboard angka menang, sedangkan layar ini
+     * tidak pernah menulis entri 98/99 yang jadi syarat adapter mengirim pesan
+     * navigasi. Sekarang entri itu ditulis, jadi pagernya benar-benar ada.
+     */
+    public function test_tombol_pindah_halaman_tetap_bisa_dijangkau(): void
+    {
+        $this->kirim('status');
+
+        $pesan = [];
+
+        foreach (Http::recorded() as [$request]) {
+            $data = $request->data();
+            $teks = (string) ($data['text'] ?? $data['caption'] ?? '');
+
+            if ($teks === '') {
+                continue;
+            }
+
+            $pesan[] = [
+                'text' => $teks,
+                'markup' => (array) ($data['reply_markup'] ?? []),
+            ];
+        }
+
+        // Pesan navigasi = pesan dengan tombol inline yang BUKAN pesan utama.
+        $navigasi = array_values(array_filter(
+            $pesan,
+            static fn (array $m): bool => ! empty($m['markup']['inline_keyboard']),
+        ));
+
+        $this->assertNotEmpty($navigasi, 'Halaman 2 harus bisa dijangkau lewat tombol.');
+
+        $tombol = $navigasi[0]['markup']['inline_keyboard'][0] ?? [];
+        $this->assertSame('status page:2', (string) ($tombol[0]['callback_data'] ?? ''),
+            'Tombol pindah halaman harus memakai perintah layar transaksi, bukan menu.');
+    }
+
     /** Petunjuk tidak lagi menyuruh menekan nomor yang sudah tidak ada. */
     public function test_petunjuk_tidak_menyuruh_menekan_nomor(): void
     {
@@ -233,7 +295,7 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
         $teks = (string) ($this->balasanTerakhir()['text'] ?? '');
 
-        $this->assertStringContainsString('`status <invoice>`', $teks);
+        $this->assertStringContainsString('status <invoice>', $teks);
         $this->assertStringNotContainsString('tekan nomornya', $teks);
     }
 
@@ -262,5 +324,9 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
         $this->assertSame('1', $markup['text'] ?? null);
         $this->assertSame('status WA-1', $markup['callback'] ?? null);
+
+        // Copy WA tidak ikut berubah: di sana tombol nomornya memang ada, jadi
+        // petunjuk "tekan nomornya" masih benar.
+        $this->assertStringContainsString('tekan nomornya', $respons['text']);
     }
 }

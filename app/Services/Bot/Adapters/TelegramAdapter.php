@@ -284,12 +284,17 @@ class TelegramAdapter implements BotAdapterInterface
         // `page_command` memuat perintah layar yang sebenarnya. Yang dikirim ke
         // Telegram adalah `page_command` — kalau `callback` yang dipakai, tombol
         // “Next” di layar layanan justru membuka Menu Utama halaman berikutnya.
+        // DUA pola, bukan satu: layar daftar (menu/layanan) memakai `menu
+        // page:N`, sedangkan layar riwayat transaksi memakai `status page:N` —
+        // perintah halamannya memang `status`, bukan `menu`. Menyaring hanya
+        // `menu page:` membuat riwayat transaksi kehilangan tombol pindah
+        // halaman sepenuhnya begitu keyboard angka tidak lagi aktif di sana.
         $navigation = [];
 
         foreach ($this->buttonList((array) ($response['buttons'] ?? [])) as $btn) {
             $callback = (string) $btn['callback'];
 
-            if (! str_starts_with($callback, 'menu page:')) {
+            if (! str_starts_with($callback, 'menu page:') && ! str_starts_with($callback, 'status page:')) {
                 continue;
             }
 
