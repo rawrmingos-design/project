@@ -2148,7 +2148,35 @@ class BotMessageFormatter
             ? $this->keyboardLabel($key, $fallback)
             : $fallback;
 
-        $keyboard = [[['text' => $pick('bot.kbd_menu', '🛍️ Buka Menu')]]];
+        $keyboard = [];
+
+        // Tombol "kembali" di keyboard bawah — Telegram saja.
+        //
+        // Kenapa di KEYBOARD, bukan tombol inline: Telegram hanya mengizinkan
+        // SATU `reply_markup` per pesan, dan di layar daftar yang menang adalah
+        // keyboard nomor. Tombol inline `back` yang sudah ditulis layar-layar itu
+        // karena sebab yang sama TIDAK PERNAH terkirim — dibuktikan runtime
+        // (semua layar daftar nol tombol inline). Menaruhnya di keyboard membuat
+        // "kembali" benar-benar terlihat, tanpa memperebutkan slot dengan tombol
+        // pindah halaman.
+        //
+        // Tombol reply keyboard MENGIRIM LABELNYA sebagai pesan biasa, jadi
+        // label ini wajib dikenali parser. `⬅️ Kembali` dipakai — BUKAN
+        // `bot.btn_back` (`🔙 Kembali`) yang sudah ada: label itu milik tombol
+        // INLINE, dan ada test yang mengunci bahwa ia memang bukan perintah teks
+        // (tombol inline mengirim callback, bukan label). Memberi arti teks pada
+        // label itu akan membuat test tersebut benar-benar salah.
+        //
+        // Labelnya lewat `pick()` supaya ikut bahasa aktif, sama seperti tombol
+        // tetangganya (`kbd_menu`, `kbd_history`). Satu label tetap valid di
+        // semua bahasa karena KEDUA varian didaftarkan di parser — jadi user
+        // yang mengganti bahasa sementara keyboard lama masih terpasang tidak
+        // menemukan tombol mati.
+        if ($isTelegram) {
+            $keyboard[] = [['text' => $pick('bot.kbd_back', '⬅️ Kembali')]];
+        }
+
+        $keyboard[] = [['text' => $pick('bot.kbd_menu', '🛍️ Buka Menu')]];
 
         if ($capabilities->supports('leaderboard')) {
             $keyboard[] = [['text' => '🏆 Leaderboard']];

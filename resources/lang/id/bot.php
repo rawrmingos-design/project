@@ -311,6 +311,10 @@ return [
     // WhatsApp TETAP literal Indonesia (scope terkunci) — `kbd_*` hanya dibaca
     // saat jalur Telegram.
     'kbd_menu' => '🛍️ Buka Menu',
+    // Tombol "kembali" di keyboard bawah — label ID. Label EN-nya di file `en`
+    // (keduanya didaftarkan di parser) supaya satu label tetap valid walau user
+    // mengganti bahasa setelah keyboard lama masih terpasang.
+    'kbd_back' => '⬅️ Kembali',
     'kbd_status' => '📦 Cek Status',
     'kbd_cekid' => '🔍 Cek ID Game',
     'kbd_help' => '❓ Bantuan',

@@ -96,6 +96,22 @@ class BotCommandParser
         // (Ketinggalan varian ini langsung ketahuan dari test penjaga Fase 2.)
         'bahasa_id' => ['🇮🇩 Bahasa', '🇮🇩 Bahasa Indonesia', '🇮🇩 Indonesian'],
         'bahasa_en' => ['🇬🇧 English'],
+
+        // Tombol "kembali" di keyboard bawah. Reply keyboard mengirim LABELNYA
+        // sebagai pesan biasa, jadi label ini wajib terdaftar atau tombolnya
+        // mati.
+        //
+        // Dua varian (id + en) DIDAftarkan sekaligus: label pada tombol user bisa
+        // tertinggal dari bahasa yang sedang aktif (user mengganti bahasa setelah
+        // keyboard terpasang), dan label lama tetap harus berfungsi. Ini juga
+        // menghindari `__()` di jalur pesan masuk, yang locale-nya belum tentu
+        // sudah di-resolve.
+        //
+        // BUKAN `🔙 Kembali`/`🔙 Back` (`bot.btn_back`): label itu milik tombol
+        // INLINE yang mengirim callback. Ada test yang mengunci bahwa ia memang
+        // bukan perintah teks; memberinya arti teks justru membuat test itu
+        // salah.
+        'back' => ['⬅️ Kembali', '⬅️ Back'],
     ];
 
     /** @var array<string, string>|null Peta terbalik label → perintah kanonik. */

@@ -277,6 +277,10 @@ return [
     // translating the keyboard safe: the old Indonesian labels stay registered,
     // so buttons still sitting in users' chat history keep working.
     'kbd_menu' => '🛍️ Open Menu',
+    // Label tombol "kembali" versi Inggris. Varian ID-nya tetap terdaftar di
+    // parser: label lama masih tergeletak di riwayat chat user yang berganti
+    // bahasa, dan tombol itu harus tetap berfungsi.
+    'kbd_back' => '⬅️ Back',
     'kbd_status' => '📦 Check Status',
     'kbd_cekid' => '🔍 Check Game ID',
     'kbd_help' => '❓ Help',
