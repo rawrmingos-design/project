@@ -39,17 +39,22 @@ use Tests\TestCase;
  *  2. memakai format internasional (+62) sebagai contoh,
  *  3. MENOLAK input yang bukan nomor WhatsApp yang sah (mis. `123456` yang
  *     selama ini lolos sebagai "UID"), dan
- *  4. menyimpan nomor yang sudah dinormalkan ke bentuk internasional.
+ *  4. menyimpan nomor dalam digit telanjang tanpa mengubah prefix-nya.
  *
  * Gejala nyata (laporan pemilik produk): layar checkout produk Alight Motion
  * menulis "🎮 Masukkan No WhatsApp" lalu "Format: `UID`" + "Contoh: `12345`" —
  * pengguna dipandu mengisi game ID ke kolom nomor telepon. Di DB staging
  * memang ada order produk itu dengan `user_id = 123456`.
  *
- * ⚠️ Deteksi sengaja HANYA pada kata "whatsapp". Produk pulsa berlabel
- * "Nomor Telepon" dan nomornya diteruskan apa adanya ke Digiflazz sebagai
- * `customer_no` — menormalkannya ke +62 akan merusak order pulsa yang sah.
- * Karena itu ada test negatif untuk itu di bawah.
+ * ⚠️ Prefix TIDAK diubah jadi +62, dan deteksi sengaja HANYA pada kata
+ * "whatsapp" (bukan "nomor"/"telepon"). Alasannya sama: nomor tujuan
+ * diteruskan apa adanya ke Digiflazz sebagai `customer_no`, dan provider itu
+ * menerima nomor lokal — order prod terbukti Sukses dengan `08116073802`, dan
+ * responsnya menggema `customer_no` itu apa adanya (`rc: 00`). Rewriting ke
+ * `+62` berisiko kena rc 52 "Prefix Tidak Sesuai Dengan Operator" pada produk
+ * topup, dan produk pulsa/voucher (Google Play/Steam) memang berlabel
+ * "No WhatsApp" tetapi berisi nomor pelanggan. Karena itu ada test negatif
+ * untuk keduanya di bawah.
  */
 class TelegramWhatsappInputTest extends TestCase
 {
@@ -258,27 +263,46 @@ class TelegramWhatsappInputTest extends TestCase
     }
 
     /**
-     * Nomor lokal (08xx) dinormalkan ke +62 dan ikut ke intent.
+     * Nomor lokal (08xx) dibuang separatornya dan disimpan dalam digit
+     * telanjang — prefix TIDAK diubah, karena itulah bentuk yang selama ini
+     * diterima Digiflazz.
      */
-    public function test_nomor_lokal_dinormalkan_ke_format_internasional(): void
+    public function test_nomor_lokal_disimpan_digit_telanjang_tanpa_ubah_prefix(): void
     {
         $service = $this->makeProduct('alight-motion-vip', 'Alight Motion', 'app', 'No WhatsApp,Ketikan No,number');
 
         $handler = $this->handler();
         $handler->handle('harga', [(string) $service->id, 'QRIS'], $this->context());
-        $confirmation = $handler->handle('08123456789', [], $this->context());
+        $confirmation = $handler->handle('0812-3456-789', [], $this->context());
 
         $intent = BotCheckoutIntent::query()->firstOrFail();
-        $this->assertSame('+628123456789', $intent->payload['uid'], 'Nomor harus tersimpan dalam bentuk internasional.');
+        $this->assertSame('08123456789', $intent->payload['uid'], 'Prefix lokal dipertahankan; hanya separator yang dibuang.');
 
-        // Ringkasan konfirmasi memakai label produk + nomor yang sudah
-        // dinormalkan — bukan 'UID' dengan angka apa adanya.
+        // Ringkasan konfirmasi memakai label produk + nomor — bukan 'UID'.
         $this->assertStringContainsString('No WhatsApp', (string) $confirmation['text']);
         $this->assertStringNotContainsString('UID', (string) $confirmation['text']);
     }
 
     /**
-     * Nomor yang sudah dalam format internasional tetap diterima apa adanya.
+     * Voucher yang meminta nomor pelanggan (Google Play/Steam) bukan nomor
+     * WhatsApp pribadi: digitnya harus diteruskan apa adanya ke provider,
+     * bukan ditulis ulang ke +62.
+     */
+    public function test_voucher_nomor_pelanggan_tidak_ditulis_ulang_ke_62(): void
+    {
+        $service = $this->makeProduct('google-play', 'Google Play (ID)', 'voucher', 'No WhatsApp,Masukkan Nomor Telp,number');
+
+        $handler = $this->handler();
+        $handler->handle('harga', [(string) $service->id, 'QRIS'], $this->context());
+        $handler->handle('08788761254', [], $this->context());
+
+        $intent = BotCheckoutIntent::query()->firstOrFail();
+        $this->assertSame('08788761254', $intent->payload['uid'], 'Nomor pelanggan voucher diteruskan apa adanya.');
+    }
+
+    /**
+     * Nomor yang sudah dalam format internasional tetap diterima, dan
+     * disimpan sebagai digit telanjang (tanpa `+`).
      */
     public function test_nomor_internasional_diterima(): void
     {
@@ -289,7 +313,7 @@ class TelegramWhatsappInputTest extends TestCase
         $handler->handle('+628123456789', [], $this->context());
 
         $intent = BotCheckoutIntent::query()->firstOrFail();
-        $this->assertSame('+628123456789', $intent->payload['uid']);
+        $this->assertSame('628123456789', $intent->payload['uid']);
     }
 
     /**

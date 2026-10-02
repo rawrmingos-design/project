@@ -1245,16 +1245,20 @@ class BotCommandHandler
             );
         }
 
-        // Nomor WhatsApp dinormalkan ke format internasional (+62) SEBELUM
-        // disimpan, supaya nomor yang tersimpan tidak ambigu antara 08xx dan
-        // +62xx. `WhatsappNumberNormalizer` sudah jadi konvensi di jalur lain
-        // (registrasi/Google/Settings), jadi produk bot pun ikut konvensi itu.
-        // Nomor yang tidak bisa dinormalkan → minta input ulang, jangan teruskan
-        // angka asal ke provider.
+        // Nomor WhatsApp divalidasi SEBELUM disimpan, supaya nomor sampah
+        // (mis. "123456" yang dulu lolos sebagai "UID") tidak dikirim ke
+        // provider sebagai nomor tujuan.
+        //
+        // ⚠️ Prefix TIDAK diubah jadi +62. Kabupaten/format tujuan diteruskan
+        // apa adanya ke Digiflazz sebagai `customer_no`, dan provider itu
+        // menerima nomor lokal (`08…`, lihat contoh di test case resminya)
+        // serta menggema string yang dikirim di respons. Rewriting ke `+62`
+        // berisiko kena "Prefix Tidak Sesuai Dengan Operator" (rc 52) pada
+        // produk topup, sementara petunjuk ke user tetap menampilkan bentuk
+        // internasional. Yang dilakukan di sini hanya: buang separator dan
+        // tolak bentuk yang tidak sah.
         if ($isWhatsappInput) {
-            $normalized = WhatsappNumberNormalizer::normalize($uid);
-
-            if ($normalized === null) {
+            if (WhatsappNumberNormalizer::normalize($uid) === null) {
                 return $this->formatter->formatCheckoutInputRetry(
                     $requiresZoneId,
                     $customInputs,
@@ -1263,9 +1267,7 @@ class BotCommandHandler
                 );
             }
 
-            // Form yang dilihat user (dan provider yang menerima) selalu bentuk
-            // internasional, jadi yang disimpan pun +62 — bukan digit telanjang.
-            $uid = '+' . $normalized;
+            $uid = (string) preg_replace('/\D+/', '', trim($uid));
         }
 
         // Validate the destination before creating a checkout intent. This keeps
