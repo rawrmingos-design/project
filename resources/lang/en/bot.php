@@ -189,9 +189,11 @@ return [
     // --- Checkout: destination input lines ---
     'checkout_input_title' => '🎮 *Enter :label*',
     'checkout_input_title_email' => '📧 *Enter :label*',
+    'checkout_input_title_whatsapp' => '📱 *Enter :label*',
     'checkout_input_example_uid' => 'Example: `12345`',
     'checkout_input_example_zone' => 'Example: `12345 6789`',
     'checkout_input_example_email' => 'Example: `you@email.com`',
+    'checkout_input_example_whatsapp' => 'Example: `+628123456789`',
     'checkout_input_zone_options' => 'Choose :label:',
 
     // --- Check ID ---

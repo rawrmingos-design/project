@@ -206,9 +206,11 @@ return [
     // kedua bahasa — biarkan literal supaya parity guard tetap bermakna.
     'checkout_input_title' => '🎮 *Masukkan :label*',
     'checkout_input_title_email' => '📧 *Masukkan :label*',
+    'checkout_input_title_whatsapp' => '📱 *Masukkan :label*',
     'checkout_input_example_uid' => 'Contoh: `12345`',
     'checkout_input_example_zone' => 'Contoh: `12345 6789`',
     'checkout_input_example_email' => 'Contoh: `nama@email.com`',
+    'checkout_input_example_whatsapp' => 'Contoh: `+628123456789`',
     'checkout_input_zone_options' => 'Pilihan :label:',
 
     // --- Cek ID Game ---

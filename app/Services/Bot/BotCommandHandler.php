@@ -1204,6 +1204,18 @@ class BotCommandHandler
         $userLabel = strtolower(trim((string) ($userInputSpec['label'] ?? '')));
         $userPlaceholder = strtolower(trim((string) ($userInputSpec['placeholder'] ?? '')));
         $isEmailInput = str_contains($userLabel, 'email') || str_contains($userPlaceholder, 'email');
+        // Field "No WhatsApp" (mis. Alight Motion) TIDAK boleh diperlakukan
+        // sebagai UID: game ID numerik akan lolos apa adanya dan dikirim ke
+        // provider sebagai nomor tujuan. Kriterianya sama dengan formatter —
+        // hanya kata "whatsapp", JANGAN "nomor"/"telepon" (produk pulsa
+        // meneruskan nomornya apa adanya ke Digiflazz).
+        $isWhatsappInput = ! $isEmailInput
+            && str_contains($userLabel . ' ' . $userPlaceholder, 'whatsapp');
+        $inputLabel = match (true) {
+            $isEmailInput => 'Email',
+            $isWhatsappInput => 'No WhatsApp',
+            default => 'UID',
+        };
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
         if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
@@ -1231,6 +1243,29 @@ class BotCommandHandler
                 $backCallback,
                 $context['source'] ?? null,
             );
+        }
+
+        // Nomor WhatsApp dinormalkan ke format internasional (+62) SEBELUM
+        // disimpan, supaya nomor yang tersimpan tidak ambigu antara 08xx dan
+        // +62xx. `WhatsappNumberNormalizer` sudah jadi konvensi di jalur lain
+        // (registrasi/Google/Settings), jadi produk bot pun ikut konvensi itu.
+        // Nomor yang tidak bisa dinormalkan → minta input ulang, jangan teruskan
+        // angka asal ke provider.
+        if ($isWhatsappInput) {
+            $normalized = WhatsappNumberNormalizer::normalize($uid);
+
+            if ($normalized === null) {
+                return $this->formatter->formatCheckoutInputRetry(
+                    $requiresZoneId,
+                    $customInputs,
+                    $backCallback,
+                    $context['source'] ?? null,
+                );
+            }
+
+            // Form yang dilihat user (dan provider yang menerima) selalu bentuk
+            // internasional, jadi yang disimpan pun +62 — bukan digit telanjang.
+            $uid = '+' . $normalized;
         }
 
         // Validate the destination before creating a checkout intent. This keeps
@@ -1261,7 +1296,7 @@ class BotCommandHandler
             (string) $state['payment_method'],
             $uid,
             $requiresZoneId ? $zone : null,
-        ], $context, (string) ($checkResult['data']['nickname'] ?? ''), $isEmailInput ? 'Email' : 'UID');
+        ], $context, (string) ($checkResult['data']['nickname'] ?? ''), $inputLabel);
     }
 
     /**

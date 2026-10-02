@@ -2289,21 +2289,53 @@ class BotMessageFormatter
         $userLabelText = $this->escapeMarkdown($userLabel);
         $isEmail = str_contains(strtolower($userLabel), 'email')
             || str_contains(strtolower($userPlaceholder), 'email');
+        // Produk seperti Alight Motion meminta NOMOR WHATSAPP, bukan User ID.
+        // Label & placeholder adalah satu-satunya penanda yang tersedia, jadi
+        // deteksinya dari situ — sama seperti jalur email di atas.
+        //
+        // ⚠️ JANGAN melebarkan deteksi ini ke kata "nomor"/"telepon": produk
+        // pulsa (XL/Indosat/Telkomsel) juga berlabel begitu TAPI nomornya
+        // diteruskan apa adanya ke provider sebagai `customer_no`, sehingga
+        // menormalkannya ke +62 justru merusak order yang sah.
+        $isWhatsapp = ! $isEmail
+            && str_contains(strtolower($userLabel . ' ' . $userPlaceholder), 'whatsapp');
         $lines = [];
 
         if (! $requiresZoneId) {
             return [
                 $isTelegram
-                    ? __($isEmail ? 'bot.checkout_input_title_email' : 'bot.checkout_input_title', ['label' => $userLabelText])
-                    : ($isEmail ? '📧' : '🎮') . ' *Masukkan ' . $userLabelText . '*',
+                    ? __(match (true) {
+                        $isEmail => 'bot.checkout_input_title_email',
+                        $isWhatsapp => 'bot.checkout_input_title_whatsapp',
+                        default => 'bot.checkout_input_title',
+                    }, ['label' => $userLabelText])
+                    : match (true) {
+                        $isEmail => '📧',
+                        $isWhatsapp => '📱',
+                        default => '🎮',
+                    } . ' *Masukkan ' . $userLabelText . '*',
                 '',
                 // 'Format: `UID`' dan 'Format: `email@contoh.com`' identik di
                 // kedua bahasa — dibiarkan literal supaya parity guard tetap
                 // bermakna. Contohnya yang beda, itu yang diterjemahkan.
-                $isEmail ? 'Format: `email@contoh.com`' : 'Format: `UID`',
+                // Nomor WhatsApp selalu format internasional (+62) di kedua
+                // bahasa, jadi baris Format-nya pun netral bahasa.
+                match (true) {
+                    $isEmail => 'Format: `email@contoh.com`',
+                    $isWhatsapp => 'Format: `+62xxxxxxxxxx`',
+                    default => 'Format: `UID`',
+                },
                 $isTelegram
-                    ? __($isEmail ? 'bot.checkout_input_example_email' : 'bot.checkout_input_example_uid')
-                    : ($isEmail ? 'Contoh: `nama@email.com`' : 'Contoh: `12345`'),
+                    ? __(match (true) {
+                        $isEmail => 'bot.checkout_input_example_email',
+                        $isWhatsapp => 'bot.checkout_input_example_whatsapp',
+                        default => 'bot.checkout_input_example_uid',
+                    })
+                    : match (true) {
+                        $isEmail => 'Contoh: `nama@email.com`',
+                        $isWhatsapp => 'Contoh: `+628123456789`',
+                        default => 'Contoh: `12345`',
+                    },
             ];
         }
 
