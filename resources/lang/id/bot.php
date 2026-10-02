@@ -266,6 +266,13 @@ return [
     'label_processing' => 'Diproses',
     'sender_list_title' => '📦 *Transaksi Kamu*',
     'sender_list_product_fallback' => 'Produk',
+    // Petunjuk buka detail dari layar riwayat transaksi.
+    //
+    // Ada DUA kunci, bukan satu: di WhatsApp tombol nomornya memang masih ada
+    // dan itu sarana memilih, di Telegram tidak. Kalau digabung, salah satu
+    // channel menyuruh user melakukan sesuatu yang tidak bisa dilakukannya.
+    'sender_list_hint_telegram' => 'Ketik `status <invoice>` untuk detail.',
+    'sender_list_hint_whatsapp' => 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.',
     'sender_list_pagination' => 'Menampilkan halaman :page dari :pages · total :total transaksi.',
 
     // --- Riwayat order (Task 1.5) ---

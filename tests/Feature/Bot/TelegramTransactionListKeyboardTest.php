@@ -241,8 +241,12 @@ class TelegramTransactionListKeyboardTest extends TestCase
 
         $this->assertContains('🛍️ Buka Menu', $label);
         $this->assertContains('🏆 Leaderboard', $label);
-        $this->assertContains('📜 Riwayat Order', $label);
         $this->assertContains('📦 Cek Status', $label);
+
+        // "Riwayat Order" DICABUT dari Telegram: layar ini sendiri sudah
+        // menampilkan transaksi terakhir sender, jadi tombolnya hanya
+        // menduplikasi "Cek Status".
+        $this->assertNotContains('📜 Riwayat Order', $label);
     }
 
     /**

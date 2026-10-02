@@ -241,6 +241,8 @@ return [
     'label_processing' => 'Processing',
     'sender_list_title' => '📦 *Your Transactions*',
     'sender_list_product_fallback' => 'Product',
+    'sender_list_hint_telegram' => 'Type `status <invoice>` for details.',
+    'sender_list_hint_whatsapp' => 'Type `status <invoice>` for details, or tap its number.',
     'sender_list_pagination' => 'Showing page :page of :pages · :total transactions total.',
 
     // --- Order history (Task 1.5) ---

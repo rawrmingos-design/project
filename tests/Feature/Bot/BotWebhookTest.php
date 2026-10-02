@@ -203,7 +203,7 @@ class BotWebhookTest extends TestCase
         $this->assertSame([], $response['buttons']);
     }
 
-    public function test_telegram_help_uses_shared_reply_keyboard_with_history_and_without_disabled_deposit(): void
+    public function test_telegram_help_uses_shared_reply_keyboard_without_history_and_disabled_deposit(): void
     {
         config(['services.telegram-bot-api.deposit_enabled' => false]);
         Http::fake([
@@ -228,7 +228,7 @@ class BotWebhookTest extends TestCase
 
             return $labels->contains('🛍️ Buka Menu')
                 && $labels->contains('🏆 Leaderboard')
-                && $labels->contains('📜 Riwayat Order')
+                && ! $labels->contains('📜 Riwayat Order')
                 && ! $labels->contains('💰 Deposit');
         });
     }
@@ -252,7 +252,7 @@ class BotWebhookTest extends TestCase
         // — dan itulah yang harus dibuktikan masih ada.
         $this->assertTrue($keyboardLabels->contains('🏆 Leaderboard'));
         $this->assertTrue($keyboardLabels->contains('💰 Deposit'));
-        $this->assertTrue($keyboardLabels->contains('📜 Riwayat Order'));
+        $this->assertFalse($keyboardLabels->contains('📜 Riwayat Order'));
 
         // Menu kategori tidak boleh lagi menyisakan tombol inline kategori.
         $menuCallbacks = collect($menu['buttons'])->flatten(1)->pluck('callback');

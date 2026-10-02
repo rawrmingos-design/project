@@ -1443,8 +1443,8 @@ class BotMessageFormatter
         // memang sarana memilih, jadi kalimatnya tetap yang lama - copy WA
         // sengaja tidak disentuh.
         $lines[] = $isTelegram
-            ? 'Ketik `status <invoice>` untuk detail.'
-            : 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
+            ? __('bot.sender_list_hint_telegram')
+            : __('bot.sender_list_hint_whatsapp');
 
         if ($totalPages > 1) {
             $row = [];
@@ -1568,7 +1568,7 @@ class BotMessageFormatter
         $lines[] = '';
         $lines[] = $isTelegram
             ? __('bot.active_orders_hint')
-            : 'Ketik `status <invoice>` untuk detail.';
+            : __('bot.sender_list_hint_whatsapp');
 
         return [
             'text' => implode("\n", $lines),
@@ -1764,7 +1764,11 @@ class BotMessageFormatter
         if ($capabilities->supports('leaderboard')) {
             $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
         }
-        if ($capabilities->supports('order_history')) {
+        // Tombol panduan "Riwayat Order" IKUT DICABUT di Telegram, sama seperti
+        // barisnya di atas: panduan dan keyboard tetap harus memakai daftar
+        // tombol yang sama (ada test yang mengunci itu). WhatsApp tetap
+        // mendapatkannya — di sana tombolnya memang masih ada.
+        if (! $isTelegram && $capabilities->supports('order_history')) {
             $buttons[] = [$this->button($names['history'], 'order_history')];
         }
         if ($capabilities->supports('deposit')) {
@@ -1797,8 +1801,14 @@ class BotMessageFormatter
                 '',
                 $em(__('bot.help_manage_title')),
                 __('bot.help_manage_status', $names),
-                __('bot.help_manage_history', $names),
             ];
+            // Baris "Riwayat Order" IKUT DICABUT bersama tombolnya (keputusan
+            // pemilik produk): panduan tidak boleh mengarahkan user menekan
+            // tombol yang sudah tidak ada di layarnya — preseden yang sama
+            // dipakai untuk "Cek ID Game" dan "Batal Transaksi" di bawah.
+            //
+            // Kunci `bot.help_manage_history` SENGAJA tidak dihapus: WhatsApp
+            // masih memakainya di barisnya sendiri.
             // Baris "🔍 Cek ID Game" DICABUT dari panduan (keputusan user), sama
             // seperti baris batal: tombolnya sudah tidak ada di keyboard, jadi
             // panduan tidak boleh mengarahkan user ke tombol yang tidak terlihat.
@@ -2181,8 +2191,19 @@ class BotMessageFormatter
         if ($capabilities->supports('leaderboard')) {
             $keyboard[] = [['text' => '🏆 Leaderboard']];
         }
-        if ($capabilities->supports('order_history')) {
-            // Dibaca dari `kbd_*` juga: copy panduan menyebut tombol ini.
+        // Tombol "Riwayat Order" TIDAK dirender di Telegram (keputusan pemilik
+        // produk): fungsinya sudah tercakup "📦 Cek Status" — perintah `status`
+        // tanpa invoice menampilkan transaksi terakhir sender, yang justru
+        // inilah yang dicari user. Dua tombol untuk satu tujuan cuma bikin
+        // bingung, dan yang satunya lagi menuntut akun tertaut.
+        //
+        // Dijaga EKSPLISIT pada `$isTelegram`, bukan lewat `supports()`, supaya
+        // WhatsApp tidak ikut berubah — di sana tombol ini tetap ada.
+        //
+        // Perintah `order_history`/`riwayat`/`pesanan` sendiri TETAP HIDUP:
+        // label lama masih tergeletak di riwayat chat user, dan yang dihentikan
+        // hanyalah MEMPROMOSIKAN tombolnya.
+        if (! $isTelegram && $capabilities->supports('order_history')) {
             $keyboard[] = [['text' => $pick('bot.kbd_history', '📜 Riwayat Order')]];
         }
         if ($capabilities->supports('deposit')) {
