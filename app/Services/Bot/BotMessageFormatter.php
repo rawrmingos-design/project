@@ -1397,12 +1397,19 @@ class BotMessageFormatter
                 . ' · ' . $paymentLabel . ' · ' . $orderLabel;
             $lines[] = '   💰 Rp ' . number_format((int) ($order['amount'] ?? 0), 0, ',', '.');
 
-            // Tombol nomor = buka detail order tsb. Telegram membatasi
-            // callback_data 64 byte; order_id gateway biasanya ~21-24
-            // karakter. Bila kebetulan lebih panjang, tombol dilewati
-            // (user masih bisa mengetik `status <invoice>`).
+            // Tombol nomor = buka detail order tsb.
+            //
+            // HANYA untuk WhatsApp. Di Telegram deretan angka ini DIHAPUS
+            // (permintaan pemilik produk): angkanya menumpuk jadi dua himpunan
+            // sekaligus - satu di dalam gelembung pesan, satu lagi di keyboard
+            // bawah yang menempel dari daftar sebelumnya - dan yang bawah itu
+            // menunjuk item daftar LAMA, bukan order. Satu mekanisme saja:
+            // keyboard aksi tetap di bawah, detail diketik `status <invoice>`.
+            //
+            // Telegram membatasi callback_data 64 byte; order_id gateway
+            // biasanya ~21-24 karakter.
             $callback = 'status ' . $orderId;
-            if (strlen($callback) <= 64) {
+            if (! $isTelegram && strlen($callback) <= 64) {
                 $row[] = $this->button((string) $number, $callback, 'status_detail');
                 if (count($row) === 5) {
                     $buttons[] = $row;
@@ -1429,9 +1436,10 @@ class BotMessageFormatter
                     . ' · total ' . $total . ' transaksi.';
         }
 
-        $lines[] = $isTelegram
-            ? __('bot.sender_list_hint')
-            : 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
+        // Telegram: angkanya sudah tidak ada, jadi petunjuk "tekan nomornya"
+        // akan menyesatkan. WhatsApp: tombol nomornya masih ada, petunjuknya
+        // tetap apa adanya.
+        $lines[] = 'Ketik `status <invoice>` untuk detail.';
 
         if ($totalPages > 1) {
             $row = [];
@@ -1456,10 +1464,31 @@ class BotMessageFormatter
 
         $buttons[] = [$this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu')];
 
-        return [
+        $response = [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
         ];
+
+        if ($isTelegram) {
+            // Keyboard AKSI tetap dikirim (permintaan: "hapus tombolnya, tapi
+            // keyboardnya dipertahankan"). Efek sampingnya justru yang
+            // diinginkan: keyboard angka dari daftar sebelumnya ikut
+            // tergantikan, jadi tidak ada lagi angka basi menempel di bawah
+            // layar ini.
+            $response['use_reply_keyboard'] = true;
+
+            // `entries` KOSONG = peta angka lama dibuang. Kalau peta dibiarkan,
+            // adapter menganggap keyboard angka masih berlaku dan menekan angka
+            // akan membuka item dari daftar lama - layar transaksi tidak punya
+            // nomor sendiri.
+            $response['numeric_menu'] = [
+                'menu' => 'sender_transactions',
+                'parent_menu' => 'menu',
+                'entries' => [],
+            ];
+        }
+
+        return $response;
     }
 
     public function formatActiveOrders(

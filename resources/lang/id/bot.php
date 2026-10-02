@@ -267,7 +267,6 @@ return [
     'sender_list_title' => '📦 *Transaksi Kamu*',
     'sender_list_product_fallback' => 'Produk',
     'sender_list_pagination' => 'Menampilkan halaman :page dari :pages · total :total transaksi.',
-    'sender_list_hint' => 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.',
 
     // --- Riwayat order (Task 1.5) ---
     'history_rate_limited' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.',

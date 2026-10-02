@@ -242,7 +242,6 @@ return [
     'sender_list_title' => '📦 *Your Transactions*',
     'sender_list_product_fallback' => 'Product',
     'sender_list_pagination' => 'Showing page :page of :pages · :total transactions total.',
-    'sender_list_hint' => 'Type `status <invoice>` for details, or tap its number.',
 
     // --- Order history (Task 1.5) ---
     'history_rate_limited' => 'Too many history requests. Please try again shortly.',
