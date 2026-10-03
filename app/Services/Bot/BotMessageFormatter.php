@@ -32,16 +32,27 @@ class BotMessageFormatter
      *
      * Nada sapaannya sengaja umum ("game & aplikasi premium"), bukan khusus
      * top up game — katalog toko mencakup produk game maupun layanan lain.
+     *
+     * Sadar channel: jalur WhatsApp memakai teks Indonesia yang SAMA dengan
+     * sisa copy WA-nya. Dulu di sini selalu `__()`, jadi di proses ber-locale
+     * `en` (sisa job antrean, atau header permintaan) sapaan WhatsApp berubah
+     * jadi "Welcome to …" sementara sisa pesannya tetap Indonesia — campur
+     * bahasa dalam satu balasan. Copy WA memang sengaja dibekukan Indonesia,
+     * jadi sapaannya ikut dibekukan.
      */
-    private function storeIntro(): string
+    private function storeIntro(bool $isTelegram = true): string
     {
         $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
 
-        return implode("\n", [
-            __('bot.intro_welcome', ['store' => $storeName]),
-            '',
-            __('bot.intro_tagline'),
-        ]);
+        $lines = $isTelegram
+            ? [__('bot.intro_welcome', ['store' => $storeName]), '', __('bot.intro_tagline')]
+            : [
+                '👋 *Selamat datang di ' . $storeName . '*',
+                '',
+                'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.',
+            ];
+
+        return implode("\n", $lines);
     }
 
     private const GAME_EMOJIS = [
@@ -378,9 +389,18 @@ class BotMessageFormatter
             $buttons[] = $capabilityButtons;
         }
 
+        // Judul menu & ajakan memilih kategori memakai jalur WA yang sudah
+        // punya bagiannya sendiri di `formatHelp()`: teks Indonesia yang
+        // dibekukan, bukan `__()` yang ikut locale proses. Tanpa gerbang ini,
+        // menu WhatsApp berubah jadi "🏠 Main Menu"/"Pick a category below …"
+        // begitu locale proses `en`, padahal seluruh isi pesan lain Indonesia.
+        $isTelegram = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+        $menuHeading = $isTelegram
+            ? __('bot.menu_title') . $this->pageSuffix($pagination) . "\n" . __('bot.menu_pick_category')
+            : '🏠 *Menu Utama*' . $this->pageSuffix($pagination) . "\n" . 'Pilih kategori di bawah untuk mulai. 👇';
+
         return [
-            'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
-                . "\n" . __('bot.menu_pick_category'),
+            'text' => $this->storeIntro($isTelegram) . "\n\n" . $menuHeading,
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
@@ -821,8 +841,6 @@ class BotMessageFormatter
             ];
         }
 
-        $lines[] = '';
-        $lines[] = __('bot.payment_list_footer');
         $lines[] = $this->menuListFooter(['page' => 1, 'total_pages' => 1]);
 
         if ($backCallback !== null) {
@@ -1151,9 +1169,6 @@ class BotMessageFormatter
         $serviceName = trim((string) ($data['data']['service_name'] ?? '')) ?: 'Produk';
         $categoryName = trim((string) ($data['data']['category_name'] ?? '')) ?: 'Kategori';
         $quantity = max(1, (int) ($data['data']['quantity'] ?? 1));
-        $invoiceUrl = filter_var($data['data']['invoice_url'] ?? $data['data']['payment_url'] ?? null, FILTER_VALIDATE_URL)
-            ? (string) ($data['data']['invoice_url'] ?? $data['data']['payment_url'])
-            : null;
         $photoUrl = $this->invoicePhotoUrl($data['data'], $paymentCode);
         $isQrPayment = $photoUrl !== null || $this->isQrisPayload($paymentCode) || $this->isQrisPayload($qrPayload);
         $lines = [
@@ -1176,19 +1191,18 @@ class BotMessageFormatter
             ? ($isTelegram ? __('bot.invoice_qr_hint') : 'Scan QRIS untuk membayar.')
             : ($isTelegram ? __('bot.invoice_pay_hint') : 'Selesaikan pembayaran agar pesanan diproses otomatis.');
         $lines[] = $isTelegram ? __('bot.invoice_status_hint') : 'Ketik `status` untuk cek pembayaran.';
-        $buttons = [];
 
-        if ($invoiceUrl !== null && $source !== 'whatsapp_gateway') {
-            $buttons[] = [$this->urlButton(
-                $isTelegram ? __('bot.invoice_btn_open') : '🔗 Buka Halaman Invoice',
-                $invoiceUrl,
-            )];
-        }
-
-        $buttons[] = [$this->button(
+        // SATU tombol saja: cek status.
+        //
+        // Tombol "Buka Halaman Invoice" dihapus atas permintaan pemilik produk.
+        // Alasannya bukan cuma kosmetik: URL yang dulu dipakai (`payment_url`
+        // milik gateway) mengarah ke halaman checkout PIHAK KETIGA, sehingga
+        // pelanggan keluar dari bot dan pembayaran lepas dari alur yang kita
+        // kendalikan - padahal QR-nya sudah tampil di chat ini.
+        $buttons = [[$this->button(
             $isTelegram ? __('bot.invoice_btn_check') : '🔎 Cek Status Pembayaran',
             "status {$orderId}",
-        )];
+        )]];
         $response = [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
@@ -1403,12 +1417,19 @@ class BotMessageFormatter
                 . ' · ' . $paymentLabel . ' · ' . $orderLabel;
             $lines[] = '   💰 Rp ' . number_format((int) ($order['amount'] ?? 0), 0, ',', '.');
 
-            // Tombol nomor = buka detail order tsb. Telegram membatasi
-            // callback_data 64 byte; order_id gateway biasanya ~21-24
-            // karakter. Bila kebetulan lebih panjang, tombol dilewati
-            // (user masih bisa mengetik `status <invoice>`).
+            // Tombol nomor = buka detail order tsb.
+            //
+            // HANYA untuk WhatsApp. Di Telegram deretan angka ini DIHAPUS
+            // (permintaan pemilik produk): angkanya menumpuk jadi dua himpunan
+            // sekaligus - satu di dalam gelembung pesan, satu lagi di keyboard
+            // bawah yang menempel dari daftar sebelumnya - dan yang bawah itu
+            // menunjuk item daftar LAMA, bukan order. Satu mekanisme saja:
+            // keyboard aksi tetap di bawah, detail diketik `status <invoice>`.
+            //
+            // Telegram membatasi callback_data 64 byte; order_id gateway
+            // biasanya ~21-24 karakter.
             $callback = 'status ' . $orderId;
-            if (strlen($callback) <= 64) {
+            if (! $isTelegram && strlen($callback) <= 64) {
                 $row[] = $this->button((string) $number, $callback, 'status_detail');
                 if (count($row) === 5) {
                     $buttons[] = $row;
@@ -1435,9 +1456,15 @@ class BotMessageFormatter
                     . ' · total ' . $total . ' transaksi.';
         }
 
+        // Telegram: angkanya sudah tidak ada, jadi petunjuk "tekan nomornya"
+        // akan menyesatkan.
+        //
+        // WhatsApp TIDAK ikut berubah: di sana tombol nomornya masih ada dan
+        // memang sarana memilih, jadi kalimatnya tetap yang lama - copy WA
+        // sengaja tidak disentuh.
         $lines[] = $isTelegram
-            ? __('bot.sender_list_hint')
-            : 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.';
+            ? __('bot.sender_list_hint_telegram')
+            : __('bot.sender_list_hint_whatsapp');
 
         if ($totalPages > 1) {
             $row = [];
@@ -1462,10 +1489,56 @@ class BotMessageFormatter
 
         $buttons[] = [$this->button($isTelegram ? __('bot.btn_back_menu') : '🔙 Kembali ke Menu', 'menu')];
 
-        return [
+        $response = [
             'text' => implode("\n", $lines),
             'buttons' => $buttons,
         ];
+
+        if ($isTelegram) {
+            // Keyboard AKSI tetap dikirim (permintaan: "hapus tombolnya, tapi
+            // keyboardnya dipertahankan"). Efek sampingnya justru yang
+            // diinginkan: keyboard angka dari daftar sebelumnya ikut
+            // tergantikan, jadi tidak ada lagi angka basi menempel di bawah
+            // layar ini.
+            $response['use_reply_keyboard'] = true;
+
+            // Entri ISI (1..15) sengaja KOSONG - layar transaksi tidak punya
+            // nomor sendiri, dan justru inilah yang membuang peta angka basi
+            // milik daftar sebelumnya. Kalau peta itu ditahan, menekan `3`
+            // membuka layanan dari daftar lama yang sudah tidak terlihat.
+            //
+            // Tapi entri 98/99 WAJIB diisi kalau ada halaman lain: adapter
+            // hanya mengirim pesan navigasi kedua kalau salah satu nomor itu
+            // ada. Tanpa itu, layar ini kehilangan satu-satunya tombol pindah
+            // halaman - dan transaksi user yang lebih dari satu halaman jadi
+            // tidak bisa dijangkau sama sekali lewat tombol.
+            $entries = [];
+
+            if ($totalPages > 1) {
+                if ($page > 1) {
+                    $entries['98'] = [
+                        'type' => 'navigation_previous',
+                        'label' => __('bot.btn_prev'),
+                        'command' => 'status page:' . ($page - 1),
+                    ];
+                }
+                if ($page < $totalPages) {
+                    $entries['99'] = [
+                        'type' => 'navigation_next',
+                        'label' => __('bot.btn_next'),
+                        'command' => 'status page:' . ($page + 1),
+                    ];
+                }
+            }
+
+            $response['numeric_menu'] = [
+                'menu' => 'sender_transactions',
+                'parent_menu' => 'menu',
+                'entries' => $entries,
+            ];
+        }
+
+        return $response;
     }
 
     public function formatActiveOrders(
@@ -1515,7 +1588,7 @@ class BotMessageFormatter
         $lines[] = '';
         $lines[] = $isTelegram
             ? __('bot.active_orders_hint')
-            : 'Ketik `status <invoice>` untuk detail.';
+            : __('bot.sender_list_hint_whatsapp');
 
         return [
             'text' => implode("\n", $lines),
@@ -1698,7 +1771,27 @@ class BotMessageFormatter
         // (`keyboardLabel()`). Dulu di sini tertulis literal, dan pernah
         // menyimpang dari keyboard → user melihat dua nama untuk tombol yang
         // sama.
-        $names = $this->buttonNamePlaceholders();
+        //
+        // ⚠️ WAJIB dipatok ke 'id', sama seperti sisa copy WhatsApp di bawah.
+        // `buttonNamePlaceholders()` membaca `__()` dari locale AKTIF, jadi di
+        // proses ber-locale `en` jalur Telegram akan menyisipkan nama tombol
+        // Inggris ('📜 Order History', '🛒 How to Order') ke TENGAH panduan
+        // WhatsApp yang Indonesian — campur bahasa dalam satu pesan. Copy WA
+        // sengaja dibekukan Indonesia, jadi nama tombolnya pun harus Indonesia.
+        // Dikembalikan ke locale semula lewat finally supaya jalur Telegram
+        // tidak ikut terseret (pola yang sama dipakai adapter).
+        $previousLocale = app()->getLocale();
+
+        try {
+            if (! $isTelegram) {
+                app()->setLocale('id');
+            }
+
+            $names = $this->buttonNamePlaceholders();
+        } finally {
+            app()->setLocale($previousLocale);
+        }
+
         $buttons = [[$this->button($names['menu'], 'menu')]];
 
         // Tombol bahasa di panduan — kompensasi WAJIB dari auto-deteksi. Ini
@@ -1711,7 +1804,11 @@ class BotMessageFormatter
         if ($capabilities->supports('leaderboard')) {
             $buttons[] = [$this->button('🏆 Leaderboard', 'leaderboard')];
         }
-        if ($capabilities->supports('order_history')) {
+        // Tombol panduan "Riwayat Order" IKUT DICABUT di Telegram, sama seperti
+        // barisnya di atas: panduan dan keyboard tetap harus memakai daftar
+        // tombol yang sama (ada test yang mengunci itu). WhatsApp tetap
+        // mendapatkannya — di sana tombolnya memang masih ada.
+        if (! $isTelegram && $capabilities->supports('order_history')) {
             $buttons[] = [$this->button($names['history'], 'order_history')];
         }
         if ($capabilities->supports('deposit')) {
@@ -1744,8 +1841,14 @@ class BotMessageFormatter
                 '',
                 $em(__('bot.help_manage_title')),
                 __('bot.help_manage_status', $names),
-                __('bot.help_manage_history', $names),
             ];
+            // Baris "Riwayat Order" IKUT DICABUT bersama tombolnya (keputusan
+            // pemilik produk): panduan tidak boleh mengarahkan user menekan
+            // tombol yang sudah tidak ada di layarnya — preseden yang sama
+            // dipakai untuk "Cek ID Game" dan "Batal Transaksi" di bawah.
+            //
+            // Kunci `bot.help_manage_history` SENGAJA tidak dihapus: WhatsApp
+            // masih memakainya di barisnya sendiri.
             // Baris "🔍 Cek ID Game" DICABUT dari panduan (keputusan user), sama
             // seperti baris batal: tombolnya sudah tidak ada di keyboard, jadi
             // panduan tidak boleh mengarahkan user ke tombol yang tidak terlihat.
@@ -1782,7 +1885,7 @@ class BotMessageFormatter
                 : __('bot.help_admin_no_link');
 
             return [
-                'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+                'text' => $this->storeIntro(true) . "\n\n" . implode("\n", $lines),
                 'buttons' => $buttons,
                 'use_reply_keyboard' => true,
             ];
@@ -1826,7 +1929,7 @@ class BotMessageFormatter
             : 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏';
 
         return [
-            'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+            'text' => $this->storeIntro(false) . "\n\n" . implode("\n", $lines),
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];
@@ -2095,13 +2198,52 @@ class BotMessageFormatter
             ? $this->keyboardLabel($key, $fallback)
             : $fallback;
 
-        $keyboard = [[['text' => $pick('bot.kbd_menu', '🛍️ Buka Menu')]]];
+        $keyboard = [];
+
+        // Tombol "kembali" di keyboard bawah — Telegram saja.
+        //
+        // Kenapa di KEYBOARD, bukan tombol inline: Telegram hanya mengizinkan
+        // SATU `reply_markup` per pesan, dan di layar daftar yang menang adalah
+        // keyboard nomor. Tombol inline `back` yang sudah ditulis layar-layar itu
+        // karena sebab yang sama TIDAK PERNAH terkirim — dibuktikan runtime
+        // (semua layar daftar nol tombol inline). Menaruhnya di keyboard membuat
+        // "kembali" benar-benar terlihat, tanpa memperebutkan slot dengan tombol
+        // pindah halaman.
+        //
+        // Tombol reply keyboard MENGIRIM LABELNYA sebagai pesan biasa, jadi
+        // label ini wajib dikenali parser. `⬅️ Kembali` dipakai — BUKAN
+        // `bot.btn_back` (`🔙 Kembali`) yang sudah ada: label itu milik tombol
+        // INLINE, dan ada test yang mengunci bahwa ia memang bukan perintah teks
+        // (tombol inline mengirim callback, bukan label). Memberi arti teks pada
+        // label itu akan membuat test tersebut benar-benar salah.
+        //
+        // Labelnya lewat `pick()` supaya ikut bahasa aktif, sama seperti tombol
+        // tetangganya (`kbd_menu`, `kbd_history`). Satu label tetap valid di
+        // semua bahasa karena KEDUA varian didaftarkan di parser — jadi user
+        // yang mengganti bahasa sementara keyboard lama masih terpasang tidak
+        // menemukan tombol mati.
+        if ($isTelegram) {
+            $keyboard[] = [['text' => $pick('bot.kbd_back', '⬅️ Kembali')]];
+        }
+
+        $keyboard[] = [['text' => $pick('bot.kbd_menu', '🛍️ Buka Menu')]];
 
         if ($capabilities->supports('leaderboard')) {
             $keyboard[] = [['text' => '🏆 Leaderboard']];
         }
-        if ($capabilities->supports('order_history')) {
-            // Dibaca dari `kbd_*` juga: copy panduan menyebut tombol ini.
+        // Tombol "Riwayat Order" TIDAK dirender di Telegram (keputusan pemilik
+        // produk): fungsinya sudah tercakup "📦 Cek Status" — perintah `status`
+        // tanpa invoice menampilkan transaksi terakhir sender, yang justru
+        // inilah yang dicari user. Dua tombol untuk satu tujuan cuma bikin
+        // bingung, dan yang satunya lagi menuntut akun tertaut.
+        //
+        // Dijaga EKSPLISIT pada `$isTelegram`, bukan lewat `supports()`, supaya
+        // WhatsApp tidak ikut berubah — di sana tombol ini tetap ada.
+        //
+        // Perintah `order_history`/`riwayat`/`pesanan` sendiri TETAP HIDUP:
+        // label lama masih tergeletak di riwayat chat user, dan yang dihentikan
+        // hanyalah MEMPROMOSIKAN tombolnya.
+        if (! $isTelegram && $capabilities->supports('order_history')) {
             $keyboard[] = [['text' => $pick('bot.kbd_history', '📜 Riwayat Order')]];
         }
         if ($capabilities->supports('deposit')) {
@@ -2187,21 +2329,53 @@ class BotMessageFormatter
         $userLabelText = $this->escapeMarkdown($userLabel);
         $isEmail = str_contains(strtolower($userLabel), 'email')
             || str_contains(strtolower($userPlaceholder), 'email');
+        // Produk seperti Alight Motion meminta NOMOR WHATSAPP, bukan User ID.
+        // Label & placeholder adalah satu-satunya penanda yang tersedia, jadi
+        // deteksinya dari situ — sama seperti jalur email di atas.
+        //
+        // ⚠️ JANGAN melebarkan deteksi ini ke kata "nomor"/"telepon": produk
+        // pulsa (XL/Indosat/Telkomsel) juga berlabel begitu TAPI nomornya
+        // diteruskan apa adanya ke provider sebagai `customer_no`, sehingga
+        // menormalkannya ke +62 justru merusak order yang sah.
+        $isWhatsapp = ! $isEmail
+            && str_contains(strtolower($userLabel . ' ' . $userPlaceholder), 'whatsapp');
         $lines = [];
 
         if (! $requiresZoneId) {
             return [
                 $isTelegram
-                    ? __($isEmail ? 'bot.checkout_input_title_email' : 'bot.checkout_input_title', ['label' => $userLabelText])
-                    : ($isEmail ? '📧' : '🎮') . ' *Masukkan ' . $userLabelText . '*',
+                    ? __(match (true) {
+                        $isEmail => 'bot.checkout_input_title_email',
+                        $isWhatsapp => 'bot.checkout_input_title_whatsapp',
+                        default => 'bot.checkout_input_title',
+                    }, ['label' => $userLabelText])
+                    : match (true) {
+                        $isEmail => '📧',
+                        $isWhatsapp => '📱',
+                        default => '🎮',
+                    } . ' *Masukkan ' . $userLabelText . '*',
                 '',
                 // 'Format: `UID`' dan 'Format: `email@contoh.com`' identik di
                 // kedua bahasa — dibiarkan literal supaya parity guard tetap
                 // bermakna. Contohnya yang beda, itu yang diterjemahkan.
-                $isEmail ? 'Format: `email@contoh.com`' : 'Format: `UID`',
+                // Nomor WhatsApp selalu format internasional (+62) di kedua
+                // bahasa, jadi baris Format-nya pun netral bahasa.
+                match (true) {
+                    $isEmail => 'Format: `email@contoh.com`',
+                    $isWhatsapp => 'Format: `+62xxxxxxxxxx`',
+                    default => 'Format: `UID`',
+                },
                 $isTelegram
-                    ? __($isEmail ? 'bot.checkout_input_example_email' : 'bot.checkout_input_example_uid')
-                    : ($isEmail ? 'Contoh: `nama@email.com`' : 'Contoh: `12345`'),
+                    ? __(match (true) {
+                        $isEmail => 'bot.checkout_input_example_email',
+                        $isWhatsapp => 'bot.checkout_input_example_whatsapp',
+                        default => 'bot.checkout_input_example_uid',
+                    })
+                    : match (true) {
+                        $isEmail => 'Contoh: `nama@email.com`',
+                        $isWhatsapp => 'Contoh: `+628123456789`',
+                        default => 'Contoh: `12345`',
+                    },
             ];
         }
 

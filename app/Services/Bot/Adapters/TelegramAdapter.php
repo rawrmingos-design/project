@@ -4,6 +4,7 @@ namespace App\Services\Bot\Adapters;
 
 use App\Services\Bot\BotCommandHandler;
 use App\Services\Bot\BotCommandParser;
+use App\Services\Settings\DatabaseSettingsBridge;
 use App\Services\Bot\BotGatewayCapabilities;
 use App\Services\Bot\BotLocale;
 use App\Services\Bot\BotMessageFormatter;
@@ -204,6 +205,24 @@ class TelegramAdapter implements BotAdapterInterface
         return response()->json(['status' => 'ok']);
     }
 
+    /**
+     * Terapkan setelan panel (tabel `setting_webs`) ke config proses ini.
+     *
+     * WAJIB dipanggil di awal pekerjaan bot. Di jalur web ini sudah dilakukan
+     * middleware `bot.inbound`, tetapi proses ANTREAN (queue worker) adalah
+     * proses console — dan di sana jembatan config bawaan AppServiceProvider
+     * sengaja tidak jalan (`! app()->runningInConsole()`). Tanpa panggilan ini,
+     * job yang berjalan di worker kehilangan token bot, webhook secret, dan
+     * daftar grup wajib, sehingga bot tampak "mati" padahal hanya kehilangan
+     * setelan.
+     *
+     * Aman dipanggil berkali-kali: bridge punya guard per proses.
+     */
+    public function applySettings(): void
+    {
+        app(DatabaseSettingsBridge::class)->apply();
+    }
+
     private function localeService(): BotLocale
     {
         return $this->botLocale ?? app(BotLocale::class);
@@ -265,12 +284,17 @@ class TelegramAdapter implements BotAdapterInterface
         // `page_command` memuat perintah layar yang sebenarnya. Yang dikirim ke
         // Telegram adalah `page_command` — kalau `callback` yang dipakai, tombol
         // “Next” di layar layanan justru membuka Menu Utama halaman berikutnya.
+        // DUA pola, bukan satu: layar daftar (menu/layanan) memakai `menu
+        // page:N`, sedangkan layar riwayat transaksi memakai `status page:N` —
+        // perintah halamannya memang `status`, bukan `menu`. Menyaring hanya
+        // `menu page:` membuat riwayat transaksi kehilangan tombol pindah
+        // halaman sepenuhnya begitu keyboard angka tidak lagi aktif di sana.
         $navigation = [];
 
         foreach ($this->buttonList((array) ($response['buttons'] ?? [])) as $btn) {
             $callback = (string) $btn['callback'];
 
-            if (! str_starts_with($callback, 'menu page:')) {
+            if (! str_starts_with($callback, 'menu page:') && ! str_starts_with($callback, 'status page:')) {
                 continue;
             }
 
@@ -290,11 +314,13 @@ class TelegramAdapter implements BotAdapterInterface
         }
 
         try {
-            $result = Http::post("https://api.telegram.org/bot{$token}/sendMessage", [
-                'chat_id' => $chatId,
-                'text' => $this->navigationPrompt(),
-                'reply_markup' => ['inline_keyboard' => $navigation],
-            ]);
+            $result = Http::connectTimeout($this->outboundConnectTimeout())
+                ->timeout($this->outboundTimeout())
+                ->post("https://api.telegram.org/bot{$token}/sendMessage", [
+                    'chat_id' => $chatId,
+                    'text' => $this->navigationPrompt(),
+                    'reply_markup' => ['inline_keyboard' => $navigation],
+                ]);
 
             if (! $result->successful() || ! ($result->json('ok') ?? false)) {
                 Log::warning('Telegram navigation message rejected.', [
@@ -512,12 +538,36 @@ class TelegramAdapter implements BotAdapterInterface
         if (! $token) return;
 
         try {
-            Http::post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
-                'callback_query_id' => $callbackQueryId,
-            ]);
+            Http::connectTimeout($this->outboundConnectTimeout())
+                ->timeout($this->outboundTimeout())
+                ->post("https://api.telegram.org/bot{$token}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackQueryId,
+                ]);
         } catch (\Exception) {
             // ignore
         }
+    }
+
+    /**
+     * Batas waktu panggilan keluar ke api.telegram.org dari jalur balasan.
+     *
+     * Sebelum ini seluruh jalur balasan memakai `Http::post()` TANPA timeout,
+     * artinya satu panggilan yang menggantung (bukan gagal cepat, tapi diam)
+     * menahan request webhook sampai FPM atau nginx menyerah. Telegram lalu
+     * mencatat "Read timeout expired" dan mengirim ulang update yang sama.
+     *
+     * Angka default 5 detik sengaja di atas waktu normal terukur (~0,55-1,05 s)
+     * supaya Telegram yang sedang lambat tetap dilayani, tapi tetap jauh di
+     * bawah ambang menyerah Telegram (~10 detik).
+     */
+    private function outboundTimeout(): int
+    {
+        return max(1, (int) config('services.telegram-bot-api.outbound_timeout_seconds', 5));
+    }
+
+    private function outboundConnectTimeout(): int
+    {
+        return max(1, min(3, $this->outboundTimeout()));
     }
 
     private function sendReply(string|int $chatId, array $response, array $numericNumbers = []): void
@@ -595,7 +645,9 @@ class TelegramAdapter implements BotAdapterInterface
                 }
 
                 try {
-                    $result = Http::post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
+                    $result = Http::connectTimeout($this->outboundConnectTimeout())
+                        ->timeout($this->outboundTimeout())
+                        ->post("https://api.telegram.org/bot{$token}/{$endpoint}", $payload);
 
                     if ($result->successful() && ($result->json('ok') ?? false)) {
                         return;

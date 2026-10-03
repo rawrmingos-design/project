@@ -79,7 +79,6 @@ return [
     'payment_list_free' => ' (fee admin: Rp 0)',
     'payment_list_fee' => ' (fee admin: Rp :fee)',
     'payment_list_fee_later' => ' (fee admin: calculated on the next step)',
-    'payment_list_footer' => 'Type a number to choose a payment method.',
 
     // --- Help /help ---
     'help_title' => '📖 Quick Guide',
@@ -117,7 +116,6 @@ return [
     'invoice_qr_hint' => 'Scan the QRIS code to pay.',
     'invoice_pay_hint' => 'Complete the payment so the order is processed automatically.',
     'invoice_status_hint' => 'Type `status` to check the payment.',
-    'invoice_btn_open' => '🔗 Open Invoice Page',
     'invoice_btn_check' => '🔎 Check Payment Status',
     'invoice_create_failed' => 'Failed to create the invoice: :reason',
     // Catalog titles & empty states. Identical values are rejected by the
@@ -191,9 +189,11 @@ return [
     // --- Checkout: destination input lines ---
     'checkout_input_title' => '🎮 *Enter :label*',
     'checkout_input_title_email' => '📧 *Enter :label*',
+    'checkout_input_title_whatsapp' => '📱 *Enter :label*',
     'checkout_input_example_uid' => 'Example: `12345`',
     'checkout_input_example_zone' => 'Example: `12345 6789`',
     'checkout_input_example_email' => 'Example: `you@email.com`',
+    'checkout_input_example_whatsapp' => 'Example: `+628123456789`',
     'checkout_input_zone_options' => 'Choose :label:',
 
     // --- Check ID ---
@@ -243,8 +243,9 @@ return [
     'label_processing' => 'Processing',
     'sender_list_title' => '📦 *Your Transactions*',
     'sender_list_product_fallback' => 'Product',
+    'sender_list_hint_telegram' => 'Type `status <invoice>` for details.',
+    'sender_list_hint_whatsapp' => 'Type `status <invoice>` for details, or tap its number.',
     'sender_list_pagination' => 'Showing page :page of :pages · :total transactions total.',
-    'sender_list_hint' => 'Type `status <invoice>` for details, or tap its number.',
 
     // --- Order history (Task 1.5) ---
     'history_rate_limited' => 'Too many history requests. Please try again shortly.',
@@ -280,6 +281,10 @@ return [
     // translating the keyboard safe: the old Indonesian labels stay registered,
     // so buttons still sitting in users' chat history keep working.
     'kbd_menu' => '🛍️ Open Menu',
+    // Label tombol "kembali" versi Inggris. Varian ID-nya tetap terdaftar di
+    // parser: label lama masih tergeletak di riwayat chat user yang berganti
+    // bahasa, dan tombol itu harus tetap berfungsi.
+    'kbd_back' => '⬅️ Back',
     'kbd_status' => '📦 Check Status',
     'kbd_cekid' => '🔍 Check Game ID',
     'kbd_help' => '❓ Help',

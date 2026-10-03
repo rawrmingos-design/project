@@ -45,6 +45,9 @@ class BotCommandHandler
         private readonly ?TelegramLinkService $telegramLinkService = null,
         private readonly ?OrderHistoryNavigationStateService $orderHistoryNavigation = null,
         private readonly ?BotLocale $botLocale = null,
+        // Dipakai tombol "kembali": arah tujuan hidup di peta nomor layar
+        // terakhir, bukan di argumen tombol.
+        private readonly ?BotNumericMenuStore $numericMenuStore = null,
     ) {}
 
     /**
@@ -108,6 +111,9 @@ class BotCommandHandler
                 'start' => $this->handleStart($args, $context),
                 'help', 'bantuan' => $this->formatter->formatHelp($this->capabilities($context)),
                 'menu' => $this->handleMenu($args, $context),
+                // Tombol "kembali" di keyboard bawah. Bukan alias `menu`:
+                // arahnya mengikuti layar terakhir user.
+                'back' => $this->handleBack($context),
                 'leaderboard', 'ranking', 'peringkat' => $this->formatter->formatLeaderboard(
                     ($this->leaderboard ?? app(\App\Services\LeaderboardService::class))->rankings(),
                     $context['source'] ?? null,
@@ -834,6 +840,52 @@ class BotCommandHandler
         ];
     }
 
+    /**
+     * Tombol "kembali" di keyboard bawah.
+     *
+     * Arah tujuan diambil dari layar TERAKHIR user — entri bertipe `back` pada
+     * peta nomor yang tersimpan — bukan selalu Menu Utama: dari daftar produk
+     * user mengharapkan kembali ke daftar game, bukan terlempar ke menu.
+     *
+     * Nomornya sengaja TIDAK dibaca dari argumen: `0` sudah dipakai layar input
+     * ID game dengan arti lain ("kembali ke pilih pembayaran"), dan satu tombol
+     * yang artinya berubah menurut layar adalah cara tercepat membuat user
+     * menekan hal yang salah.
+     */
+    private function handleBack(array $context): array
+    {
+        $state = ($this->numericMenuStore ?? app(BotNumericMenuStore::class))
+            ->get((string) ($context['external_user_id'] ?? ''));
+
+        foreach ((array) ($state['entries'] ?? []) as $entry) {
+            if (! is_array($entry) || ($entry['type'] ?? null) !== 'back') {
+                continue;
+            }
+
+            $command = trim((string) ($entry['command'] ?? ''));
+
+            // `menu` tidak perlu diteruskan: layar menu dirender ulang di akhir
+            // method ini, jadi mengulang perintahnya hanya menambah satu
+            // lapisan tanpa mengubah hasil.
+            if ($command === '' || $command === 'menu') {
+                continue;
+            }
+
+            // Entri `back` menyimpan perintah LENGKAP dengan argumennya
+            // (`kategori top-up-games`, `layanan free-fire`). Meneruskannya utuh
+            // sebagai `$command` tidak akan cocok dengan arm mana pun di
+            // `handle()` — dan user dibalas "perintah tidak dikenali" padahal
+            // tombolnya benar. Karena itu dipecah seperti `parse()`: token
+            // pertama jadi perintah, sisanya argumen.
+            $parts = preg_split('/\s+/', $command) ?: [];
+            $name = (string) array_shift($parts);
+
+            return $this->handle($name, $parts, $context);
+        }
+
+        return $this->handleMenu([], $context);
+    }
+
     private function handleMenu(array $args = [], array $context = []): array
     {
         $capabilities = $this->capabilities($context);
@@ -1152,6 +1204,18 @@ class BotCommandHandler
         $userLabel = strtolower(trim((string) ($userInputSpec['label'] ?? '')));
         $userPlaceholder = strtolower(trim((string) ($userInputSpec['placeholder'] ?? '')));
         $isEmailInput = str_contains($userLabel, 'email') || str_contains($userPlaceholder, 'email');
+        // Field "No WhatsApp" (mis. Alight Motion) TIDAK boleh diperlakukan
+        // sebagai UID: game ID numerik akan lolos apa adanya dan dikirim ke
+        // provider sebagai nomor tujuan. Kriterianya sama dengan formatter —
+        // hanya kata "whatsapp", JANGAN "nomor"/"telepon" (produk pulsa
+        // meneruskan nomornya apa adanya ke Digiflazz).
+        $isWhatsappInput = ! $isEmailInput
+            && str_contains($userLabel . ' ' . $userPlaceholder, 'whatsapp');
+        $inputLabel = match (true) {
+            $isEmailInput => 'Email',
+            $isWhatsappInput => 'No WhatsApp',
+            default => 'UID',
+        };
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
 
         if ($uid === '' || ($requiresZoneId && $zone === '') || (! $requiresZoneId && $zone !== '')) {
@@ -1179,6 +1243,31 @@ class BotCommandHandler
                 $backCallback,
                 $context['source'] ?? null,
             );
+        }
+
+        // Nomor WhatsApp divalidasi SEBELUM disimpan, supaya nomor sampah
+        // (mis. "123456" yang dulu lolos sebagai "UID") tidak dikirim ke
+        // provider sebagai nomor tujuan.
+        //
+        // ⚠️ Prefix TIDAK diubah jadi +62. Kabupaten/format tujuan diteruskan
+        // apa adanya ke Digiflazz sebagai `customer_no`, dan provider itu
+        // menerima nomor lokal (`08…`, lihat contoh di test case resminya)
+        // serta menggema string yang dikirim di respons. Rewriting ke `+62`
+        // berisiko kena "Prefix Tidak Sesuai Dengan Operator" (rc 52) pada
+        // produk topup, sementara petunjuk ke user tetap menampilkan bentuk
+        // internasional. Yang dilakukan di sini hanya: buang separator dan
+        // tolak bentuk yang tidak sah.
+        if ($isWhatsappInput) {
+            if (WhatsappNumberNormalizer::normalize($uid) === null) {
+                return $this->formatter->formatCheckoutInputRetry(
+                    $requiresZoneId,
+                    $customInputs,
+                    $backCallback,
+                    $context['source'] ?? null,
+                );
+            }
+
+            $uid = (string) preg_replace('/\D+/', '', trim($uid));
         }
 
         // Validate the destination before creating a checkout intent. This keeps
@@ -1209,7 +1298,7 @@ class BotCommandHandler
             (string) $state['payment_method'],
             $uid,
             $requiresZoneId ? $zone : null,
-        ], $context, (string) ($checkResult['data']['nickname'] ?? ''), $isEmailInput ? 'Email' : 'UID');
+        ], $context, (string) ($checkResult['data']['nickname'] ?? ''), $inputLabel);
     }
 
     /**
@@ -1489,6 +1578,36 @@ class BotCommandHandler
      */
     private function createTelegramAccount(array $state, ?string $email, string $username): array
     {
+        // Batas pembuatan akun per pengirim Telegram. Tanpa ini seorang pengguna
+        // bisa membuat akun massal lewat percakapan bot: tiap akun hanya butuh
+        // 4 pesan, dan tidak ada satu pun penghitung yang membatasinya.
+        // `rate_limits.callbacks.telegram_account_per_sender_per_minute` sudah
+        // ada di config sejak lama tapi TIDAK PERNAH dipakai — kunci yang
+        // berbohong. Di sini ia benar-benar ditegakkan.
+        //
+        // Kuncinya memakai identitas Telegram (bukan `senderFingerprint($context)`,
+        // yang membaca nomor WhatsApp dan tidak tersedia di state ini).
+        $accountKey = 'bot-telegram-account:' . hash_hmac(
+            'sha256',
+            (string) ($state['telegram_bot_scope'] ?? 'default') . ':' . (string) ($state['telegram_user_id'] ?? 'unknown'),
+            (string) config('app.key'),
+        );
+        $accountLimit = max(1, (int) config('rate_limits.callbacks.telegram_account_per_sender_per_minute', 10));
+
+        if (RateLimiter::tooManyAttempts($accountKey, $accountLimit)) {
+            Log::notice('Bot Telegram account creation rate limited.', [
+                'telegram_user_id' => $state['telegram_user_id'] ?? '',
+                'limit' => $accountLimit,
+            ]);
+
+            return [
+                'text' => 'Terlalu banyak pendaftaran akun dari akun Telegram ini. Coba lagi beberapa saat.',
+                'buttons' => [],
+            ];
+        }
+
+        RateLimiter::hit($accountKey, 60);
+
         $password = Str::password(12, symbols: false);
 
         try {

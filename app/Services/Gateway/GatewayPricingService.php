@@ -18,6 +18,15 @@ use Illuminate\Validation\ValidationException;
 class GatewayPricingService
 {
     /**
+     * TTL cache fee customer Tripay, dalam detik.
+     *
+     * Nilai fee hanya berubah kalau Tripay mengubah tarifnya, jadi cache 5 menit
+     * jauh lebih murah daripada menembak API-nya di setiap layar harga dan
+     * setiap layar pembayaran. Satu panggilan terukur ~1 detik.
+     */
+    private const GATEWAY_FEE_CACHE_SECONDS = 300;
+
+    /**
      * Reverse the gateway's customer fee so the customer pays exactly `$targetAmount`.
      *
      * Tripay adds its customer fee on top of the amount we ask it to collect, so sending
@@ -40,10 +49,20 @@ class GatewayPricingService
         try {
             $candidateAmount = $targetAmount;
             $tripay = app(TriPayController::class);
+            // Batas waktu TOTAL untuk seluruh pencarian titik tetap. Fee Tripay
+            // linear, jadi biasanya cukup 2-3 putaran; tapi kalau API-nya lambat,
+            // loop ini bisa menumpuk 5 panggilan × timeout masing-masing dan
+            // menahan worker jauh lebih lama dari satu timeout. Lewat anggaran:
+            // pakai kandidat terakhir, jangan panggil API lagi.
+            $batas = microtime(true) + 8.0;
 
             for ($i = 0; $i < 5; $i++) {
+                if (microtime(true) >= $batas) {
+                    return $candidateAmount;
+                }
+
                 $cacheKey = sprintf('tripay_customer_fee:%s:%d', $method->code, $candidateAmount);
-                $customerFee = Cache::remember($cacheKey, 300, function () use ($candidateAmount, $tripay, $method) {
+                $customerFee = Cache::remember($cacheKey, self::GATEWAY_FEE_CACHE_SECONDS, function () use ($candidateAmount, $tripay, $method) {
                     return (int) round($tripay->customerFee($candidateAmount, $method->code));
                 });
 
@@ -148,8 +167,19 @@ class GatewayPricingService
             return 0;
         }
 
+        // WAJIB di-cache: satu panggilan Tripay terukur ~1 detik. Tanpa cache,
+        // setiap layar harga dan setiap layar pembayaran menembak API-nya lagi —
+        // dan saat Tripay lambat, panggilan itu menyandera worker PHP-FPM sampai
+        // seluruh toko (termasuk bot) ikut menunggu. Kembarannya di
+        // DepositPricingService sudah di-cache; jalur order ini tertinggal.
+        $cacheKey = sprintf('tripay_customer_fee:%s:%d', (string) $method->code, $gatewayAmount);
+
         try {
-            return max(0, (int) app(TriPayController::class)->customerFee($gatewayAmount, (string) $method->code));
+            return max(0, (int) Cache::remember(
+                $cacheKey,
+                self::GATEWAY_FEE_CACHE_SECONDS,
+                fn (): int => (int) app(TriPayController::class)->customerFee($gatewayAmount, (string) $method->code)
+            ));
         } catch (\Throwable) {
             // Fee API gagal: fallback aman, quote tetap bisa ditampilkan.
             return 0;

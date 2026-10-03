@@ -192,6 +192,39 @@ class TelegramPaymentScreenTest extends TestCase
 
     // ---------------------------------------------------------------- WhatsApp
 
+    /**
+     * Footer "Ketik angka untuk memilih pembayaran." DIHAPUS atas permintaan.
+     *
+     * Nomor pada daftar sudah menjelaskan sendiri bahwa angkanya bisa diketuk,
+     * dan baris itu mengulang hal yang sama di setiap layar. Yang tetap wajib
+     * ada hanya stempel waktu di baris paling bawah.
+     */
+    public function test_baris_panduan_ketik_angka_tidak_ada_lagi(): void
+    {
+        $text = (string) $this->screen([
+            ['name' => 'QRIS', 'code' => 'QRIS', 'group' => 'QRIS', 'group_sort' => 2, 'fee' => 137],
+        ])['text'];
+
+        $this->assertStringNotContainsString('Ketik angka', $text);
+        $this->assertStringNotContainsString('Type a number', $text);
+    }
+
+    /**
+     * Kunci lang-nya harus benar-benar DIBUANG, bukan hanya tidak dipakai.
+     *
+     * Kalau kuncinya ditinggal, ia jadi pintu masuk untuk menghidupkan kembali
+     * baris itu lewat terjemahan, dan `BotLangParityTest` tidak akan menangkap
+     * perbedaan karena kuncinya tetap ada di dua bahasa.
+     */
+    public function test_kunci_lang_footer_pembayaran_sudah_dibuang(): void
+    {
+        foreach (['id', 'en'] as $locale) {
+            $keys = array_keys(require lang_path($locale . '/bot.php'));
+
+            $this->assertNotContains('payment_list_footer', $keys, "Kunci payment_list_footer masih ada di {$locale}/bot.php.");
+        }
+    }
+
     public function test_whatsapp_tetap_memakai_tombol(): void
     {
         $wa = app(BotMessageFormatter::class)->formatPaymentMethods(

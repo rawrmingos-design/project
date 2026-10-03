@@ -102,9 +102,14 @@ class TelegramNumericKeyboardTest extends TestCase
         $labels = $this->labels($this->formatter()->defaultReplyKeyboard($this->telegram()));
 
         $this->assertContains('🛍️ Buka Menu', $labels);
-        $this->assertContains('📜 Riwayat Order', $labels);
         $this->assertContains('📦 Cek Status', $labels);
         $this->assertContains('❓ Bantuan', $labels);
+
+        // "Riwayat Order" DICABUT dari Telegram (keputusan pemilik produk):
+        // fungsinya sudah tercakup "Cek Status" — perintah `status` tanpa
+        // invoice memang menampilkan transaksi terakhir sender. WhatsApp TIDAK
+        // ikut berubah dan tombolnya diuji terpisah.
+        $this->assertNotContains('📜 Riwayat Order', $labels);
     }
 
     public function test_angka_di_atas_tombol_aksi(): void

@@ -30,9 +30,15 @@ return [
     'menu_title' => '🏠 *Menu Utama*',
     'menu_pick_category' => 'Pilih kategori di bawah untuk mulai. 👇',
     // Layar Menu Utama berformat DAFTAR BERNOMOR, bukan narasi sapaan.
-    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: `storeIntro()`
-    // masih dipakai `/start`, dan menghapus kunci = risiko literal bocor ke
-    // user kalau ada jalur yang belum ikut berubah.
+    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: keduanya
+    // masih dipakai jalur Telegram di `formatCategories()`, dan `storeIntro()`
+    // dipakai `/start`. Menghapus kunci = risiko literal bocor ke user kalau
+    // ada jalur yang belum ikut berubah.
+    //
+    // ⚠️ Nilainya HARUS sama dengan teks Indonesia yang dibekukan di jalur
+    // WhatsApp (`formatCategories()` dan `formatHelp()`), karena parity test
+    // id/en mengunci keduanya. Kalau salah satu diubah di sini, ubah juga
+    // pasangannya di formatter.
     'menu_list_title' => 'LIST PRODUCT',
     'menu_page_footer' => '📄 Halaman :page / :total',
     'menu_item_numbered' => '[:number]. :name',
@@ -79,7 +85,6 @@ return [
     // karangan; user diberi tahu bahwa biayanya muncul di langkah berikutnya
     // supaya tidak ada kejutan di total.
     'payment_list_fee_later' => ' (fee admin: dihitung di langkah berikutnya)',
-    'payment_list_footer' => 'Ketik angka untuk memilih pembayaran.',
 
     // --- Panduan /help ---
     // Lampiran *tebal* di baris "Cek & Kelola" adalah LABEL TOMBOL yang
@@ -132,7 +137,6 @@ return [
     'invoice_qr_hint' => 'Scan QRIS untuk membayar.',
     'invoice_pay_hint' => 'Selesaikan pembayaran agar pesanan diproses otomatis.',
     'invoice_status_hint' => 'Ketik `status` untuk cek pembayaran.',
-    'invoice_btn_open' => '🔗 Buka Halaman Invoice',
     'invoice_btn_check' => '🔎 Cek Status Pembayaran',
     'invoice_create_failed' => 'Gagal membuat invoice: :reason',
     // Judul & pesan kosong katalog. Nilai kembar dilarang parity test, jadi
@@ -208,9 +212,11 @@ return [
     // kedua bahasa — biarkan literal supaya parity guard tetap bermakna.
     'checkout_input_title' => '🎮 *Masukkan :label*',
     'checkout_input_title_email' => '📧 *Masukkan :label*',
+    'checkout_input_title_whatsapp' => '📱 *Masukkan :label*',
     'checkout_input_example_uid' => 'Contoh: `12345`',
     'checkout_input_example_zone' => 'Contoh: `12345 6789`',
     'checkout_input_example_email' => 'Contoh: `nama@email.com`',
+    'checkout_input_example_whatsapp' => 'Contoh: `+628123456789`',
     'checkout_input_zone_options' => 'Pilihan :label:',
 
     // --- Cek ID Game ---
@@ -268,8 +274,14 @@ return [
     'label_processing' => 'Diproses',
     'sender_list_title' => '📦 *Transaksi Kamu*',
     'sender_list_product_fallback' => 'Produk',
+    // Petunjuk buka detail dari layar riwayat transaksi.
+    //
+    // Ada DUA kunci, bukan satu: di WhatsApp tombol nomornya memang masih ada
+    // dan itu sarana memilih, di Telegram tidak. Kalau digabung, salah satu
+    // channel menyuruh user melakukan sesuatu yang tidak bisa dilakukannya.
+    'sender_list_hint_telegram' => 'Ketik `status <invoice>` untuk detail.',
+    'sender_list_hint_whatsapp' => 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.',
     'sender_list_pagination' => 'Menampilkan halaman :page dari :pages · total :total transaksi.',
-    'sender_list_hint' => 'Ketik `status <invoice>` untuk detail, atau tekan nomornya.',
 
     // --- Riwayat order (Task 1.5) ---
     'history_rate_limited' => 'Terlalu banyak permintaan riwayat. Coba lagi beberapa saat.',
@@ -314,6 +326,10 @@ return [
     // WhatsApp TETAP literal Indonesia (scope terkunci) — `kbd_*` hanya dibaca
     // saat jalur Telegram.
     'kbd_menu' => '🛍️ Buka Menu',
+    // Tombol "kembali" di keyboard bawah — label ID. Label EN-nya di file `en`
+    // (keduanya didaftarkan di parser) supaya satu label tetap valid walau user
+    // mengganti bahasa setelah keyboard lama masih terpasang.
+    'kbd_back' => '⬅️ Kembali',
     'kbd_status' => '📦 Cek Status',
     'kbd_cekid' => '🔍 Cek ID Game',
     'kbd_help' => '❓ Bantuan',
