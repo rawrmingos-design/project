@@ -32,16 +32,27 @@ class BotMessageFormatter
      *
      * Nada sapaannya sengaja umum ("game & aplikasi premium"), bukan khusus
      * top up game — katalog toko mencakup produk game maupun layanan lain.
+     *
+     * Sadar channel: jalur WhatsApp memakai teks Indonesia yang SAMA dengan
+     * sisa copy WA-nya. Dulu di sini selalu `__()`, jadi di proses ber-locale
+     * `en` (sisa job antrean, atau header permintaan) sapaan WhatsApp berubah
+     * jadi "Welcome to …" sementara sisa pesannya tetap Indonesia — campur
+     * bahasa dalam satu balasan. Copy WA memang sengaja dibekukan Indonesia,
+     * jadi sapaannya ikut dibekukan.
      */
-    private function storeIntro(): string
+    private function storeIntro(bool $isTelegram = true): string
     {
         $storeName = trim((string) config('app.name', env('APP_NAME', 'Store')));
 
-        return implode("\n", [
-            __('bot.intro_welcome', ['store' => $storeName]),
-            '',
-            __('bot.intro_tagline'),
-        ]);
+        $lines = $isTelegram
+            ? [__('bot.intro_welcome', ['store' => $storeName]), '', __('bot.intro_tagline')]
+            : [
+                '👋 *Selamat datang di ' . $storeName . '*',
+                '',
+                'Penuhi kebutuhan game & aplikasi premium kamu, semua dari satu tempat.',
+            ];
+
+        return implode("\n", $lines);
     }
 
     private const GAME_EMOJIS = [
@@ -378,9 +389,18 @@ class BotMessageFormatter
             $buttons[] = $capabilityButtons;
         }
 
+        // Judul menu & ajakan memilih kategori memakai jalur WA yang sudah
+        // punya bagiannya sendiri di `formatHelp()`: teks Indonesia yang
+        // dibekukan, bukan `__()` yang ikut locale proses. Tanpa gerbang ini,
+        // menu WhatsApp berubah jadi "🏠 Main Menu"/"Pick a category below …"
+        // begitu locale proses `en`, padahal seluruh isi pesan lain Indonesia.
+        $isTelegram = $capabilities->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+        $menuHeading = $isTelegram
+            ? __('bot.menu_title') . $this->pageSuffix($pagination) . "\n" . __('bot.menu_pick_category')
+            : '🏠 *Menu Utama*' . $this->pageSuffix($pagination) . "\n" . 'Pilih kategori di bawah untuk mulai. 👇';
+
         return [
-            'text' => $this->storeIntro() . "\n\n" . __('bot.menu_title') . $this->pageSuffix($pagination)
-                . "\n" . __('bot.menu_pick_category'),
+            'text' => $this->storeIntro($isTelegram) . "\n\n" . $menuHeading,
             'buttons' => $buttons,
             'numeric_menu' => [
                 'menu' => 'categories',
@@ -1751,7 +1771,27 @@ class BotMessageFormatter
         // (`keyboardLabel()`). Dulu di sini tertulis literal, dan pernah
         // menyimpang dari keyboard → user melihat dua nama untuk tombol yang
         // sama.
-        $names = $this->buttonNamePlaceholders();
+        //
+        // ⚠️ WAJIB dipatok ke 'id', sama seperti sisa copy WhatsApp di bawah.
+        // `buttonNamePlaceholders()` membaca `__()` dari locale AKTIF, jadi di
+        // proses ber-locale `en` jalur Telegram akan menyisipkan nama tombol
+        // Inggris ('📜 Order History', '🛒 How to Order') ke TENGAH panduan
+        // WhatsApp yang Indonesian — campur bahasa dalam satu pesan. Copy WA
+        // sengaja dibekukan Indonesia, jadi nama tombolnya pun harus Indonesia.
+        // Dikembalikan ke locale semula lewat finally supaya jalur Telegram
+        // tidak ikut terseret (pola yang sama dipakai adapter).
+        $previousLocale = app()->getLocale();
+
+        try {
+            if (! $isTelegram) {
+                app()->setLocale('id');
+            }
+
+            $names = $this->buttonNamePlaceholders();
+        } finally {
+            app()->setLocale($previousLocale);
+        }
+
         $buttons = [[$this->button($names['menu'], 'menu')]];
 
         // Tombol bahasa di panduan — kompensasi WAJIB dari auto-deteksi. Ini
@@ -1845,7 +1885,7 @@ class BotMessageFormatter
                 : __('bot.help_admin_no_link');
 
             return [
-                'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+                'text' => $this->storeIntro(true) . "\n\n" . implode("\n", $lines),
                 'buttons' => $buttons,
                 'use_reply_keyboard' => true,
             ];
@@ -1889,7 +1929,7 @@ class BotMessageFormatter
             : 'Ketik /admin untuk menghubungi admin kalau ada kendala. 🙏';
 
         return [
-            'text' => $this->storeIntro() . "\n\n" . implode("\n", $lines),
+            'text' => $this->storeIntro(false) . "\n\n" . implode("\n", $lines),
             'buttons' => $buttons,
             'use_reply_keyboard' => true,
         ];

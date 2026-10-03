@@ -30,9 +30,15 @@ return [
     'menu_title' => '🏠 *Menu Utama*',
     'menu_pick_category' => 'Pilih kategori di bawah untuk mulai. 👇',
     // Layar Menu Utama berformat DAFTAR BERNOMOR, bukan narasi sapaan.
-    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: `storeIntro()`
-    // masih dipakai `/start`, dan menghapus kunci = risiko literal bocor ke
-    // user kalau ada jalur yang belum ikut berubah.
+    // `menu_title` & `menu_pick_category` sengaja TIDAK dihapus: keduanya
+    // masih dipakai jalur Telegram di `formatCategories()`, dan `storeIntro()`
+    // dipakai `/start`. Menghapus kunci = risiko literal bocor ke user kalau
+    // ada jalur yang belum ikut berubah.
+    //
+    // ⚠️ Nilainya HARUS sama dengan teks Indonesia yang dibekukan di jalur
+    // WhatsApp (`formatCategories()` dan `formatHelp()`), karena parity test
+    // id/en mengunci keduanya. Kalau salah satu diubah di sini, ubah juga
+    // pasangannya di formatter.
     'menu_list_title' => 'LIST PRODUCT',
     'menu_page_footer' => '📄 Halaman :page / :total',
     'menu_item_numbered' => '[:number]. :name',
