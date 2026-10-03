@@ -895,7 +895,7 @@ class BotCommandHandler
         // layanan mentah. Tanpa itu, tipe kategori yang isinya cuma kategori
         // tanpa paket tetap muncul di daftar lalu membuka layar kosong.
         return $this->formatter->formatCategories(
-            $this->catalog->categoryTypes([], $this->isTelegram($capabilities)),
+            $this->catalog->categoryTypes([], $this->isTelegram($capabilities), $this->hidesEmptyCategories($capabilities)),
             $this->pageFromArgs($args),
             $capabilities,
         );
@@ -903,6 +903,7 @@ class BotCommandHandler
 
     private function handleKategori(array $args, array $context): array
     {
+        $capabilities = $this->capabilities($context);
         $type = $args[0] ?? null;
         if (! $type) {
             return [
@@ -913,24 +914,41 @@ class BotCommandHandler
             ];
         }
 
-        $res = $this->catalog->categories(null, ['type' => $type], $this->isTelegram($this->capabilities($context)));
+        $res = $this->catalog->categories(
+            null,
+            ['type' => $type],
+            $this->isTelegram($capabilities),
+            $this->hidesEmptyCategories($capabilities),
+        );
 
         return $this->formatter->formatProducts(
             $res,
             $this->pageFromArgs($args),
-            $this->capabilities($context),
+            $capabilities,
         );
     }
 
     /**
      * Jalur Telegram menyembunyikan kategori yang tidak punya layanan berpaket:
      * bot hanya bisa memesan layanan terikat paket, jadi kategori begitu
-     * membuka layar kosong. Jalur WhatsApp TIDAK disaring — WA memakai
-     * tombolnya sendiri dan perilakunya tidak boleh berubah.
+     * membuka layar kosong.
+     *
+     * Jalur WhatsApp punya masalah serupa dengan kriteria berbeda. WA memesan
+     * per LAYANAN (bukan lewat paket), jadi kategori tanpa paket tetap sah dan
+     * TIDAK boleh dibuang — kalau dibuang, produk yang benar-benar bisa dipesan
+     * ikut hilang. Yang dibuang hanya kategori yang nol layanan tersedia,
+     * karena tombolnya membuka layar kosong ("Produk tidak ditemukan atau belum
+     * ada layanan.").
      */
     private function isTelegram(?BotGatewayCapabilities $capabilities): bool
     {
         return $capabilities?->source() === BotGatewayCapabilities::SOURCE_TELEGRAM;
+    }
+
+    /** WhatsApp: buang kategori tanpa layanan tersedia; Telegram sudah disaring lewat paket. */
+    private function hidesEmptyCategories(?BotGatewayCapabilities $capabilities): bool
+    {
+        return ! $this->isTelegram($capabilities);
     }
 
     private function handleLayanan(array $args, array $context): array
