@@ -2348,13 +2348,26 @@ class BotMessageFormatter
         // Produk seperti Alight Motion meminta NOMOR WHATSAPP, bukan User ID.
         // Label & placeholder adalah satu-satunya penanda yang tersedia, jadi
         // deteksinya dari situ — sama seperti jalur email di atas.
+        $haystack = strtolower($userLabel . ' ' . $userPlaceholder);
+        $isWhatsapp = ! $isEmail && str_contains($haystack, 'whatsapp');
+
+        // Produk yang tujuannya NOMOR TELEPON: pulsa/kuota (Telkomsel, XL,
+        // Indosat) dan app berbasis nomor (Getcontact). Sebelumnya ketiganya
+        // jatuh ke cabang UID — layarnya memandu "Format: `UID`" +
+        // "Contoh: `12345`" untuk kolom nomor HP, dan nomor cacat lolos ke
+        // provider (order prod: `uid=081399910772`, 12 digit).
         //
-        // ⚠️ JANGAN melebarkan deteksi ini ke kata "nomor"/"telepon": produk
-        // pulsa (XL/Indosat/Telkomsel) juga berlabel begitu TAPI nomornya
-        // diteruskan apa adanya ke provider sebagai `customer_no`, sehingga
-        // menormalkannya ke +62 justru merusak order yang sah.
-        $isWhatsapp = ! $isEmail
-            && str_contains(strtolower($userLabel . ' ' . $userPlaceholder), 'whatsapp');
+        // ⚠️ Dua batas yang SENGAJA dipasang:
+        //  - Hanya LABEL/PLACEHOLDER yang jadi penanda, BUKAN `type`. Field
+        //    game berlabel `ID` juga bertipe `number`, jadi memakai tipe akan
+        //    menyeret seluruh katalog game ke kelas nomor.
+        //  - `wa`/`whatsapp` sudah ditangani cabang di atas; di sini yang
+        //    dicari kata nomor/telepon/telp/phone/hp.
+        // Prefix TIDAK ditulis ulang ke +62 (lihat catatan di
+        // `BotCommandHandler::handleUnknownInput()`).
+        $isPhone = ! $isEmail
+            && ! $isWhatsapp
+            && preg_match('/\b(?:nomor|telepon|telp|phone|hp)\b/', $haystack) === 1;
         $lines = [];
 
         if (! $requiresZoneId) {
@@ -2363,33 +2376,38 @@ class BotMessageFormatter
                     ? __(match (true) {
                         $isEmail => 'bot.checkout_input_title_email',
                         $isWhatsapp => 'bot.checkout_input_title_whatsapp',
+                        $isPhone => 'bot.checkout_input_title_phone',
                         default => 'bot.checkout_input_title',
                     }, ['label' => $userLabelText])
                     : match (true) {
                         $isEmail => '📧',
                         $isWhatsapp => '📱',
+                        $isPhone => '📞',
                         default => '🎮',
                     } . ' *Masukkan ' . $userLabelText . '*',
                 '',
-                // 'Format: `UID`' dan 'Format: `email@contoh.com`' identik di
-                // kedua bahasa — dibiarkan literal supaya parity guard tetap
-                // bermakna. Contohnya yang beda, itu yang diterjemahkan.
-                // Nomor WhatsApp selalu format internasional (+62) di kedua
-                // bahasa, jadi baris Format-nya pun netral bahasa.
+                // 'Format: …' identik di kedua bahasa — dibiarkan literal
+                // supaya parity guard tetap bermakna. Contohnya yang beda.
+                // Nomor WhatsApp selalu format internasional (+62); nomor
+                // TELEPON justru bentuk lokal, karena itulah yang diteruskan
+                // ke provider (placeholder data pun `0857******`).
                 match (true) {
                     $isEmail => 'Format: `email@contoh.com`',
                     $isWhatsapp => 'Format: `+62xxxxxxxxxx`',
+                    $isPhone => 'Format: `08xxxxxxxxxx`',
                     default => 'Format: `UID`',
                 },
                 $isTelegram
                     ? __(match (true) {
                         $isEmail => 'bot.checkout_input_example_email',
                         $isWhatsapp => 'bot.checkout_input_example_whatsapp',
+                        $isPhone => 'bot.checkout_input_example_phone',
                         default => 'bot.checkout_input_example_uid',
                     })
                     : match (true) {
                         $isEmail => 'Contoh: `nama@email.com`',
                         $isWhatsapp => 'Contoh: `+628123456789`',
+                        $isPhone => 'Contoh: `08123456789`',
                         default => 'Contoh: `12345`',
                     },
             ];

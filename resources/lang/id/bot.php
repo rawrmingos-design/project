@@ -213,10 +213,16 @@ return [
     'checkout_input_title' => '🎮 *Masukkan :label*',
     'checkout_input_title_email' => '📧 *Masukkan :label*',
     'checkout_input_title_whatsapp' => '📱 *Masukkan :label*',
+    // Produk yang tujuan pembeliannya NOMOR TELEPON (pulsa/kuota, dan app
+    // berbasis nomor seperti Getcontact). Contohnya sengaja bentuk LOKAL:
+    // nomor diteruskan apa adanya sebagai `customer_no`, dan Digiflazz
+    // menerima format lokal — placeholder di `custom_inputs` pun `0857******`.
+    'checkout_input_title_phone' => '📞 *Masukkan :label*',
     'checkout_input_example_uid' => 'Contoh: `12345`',
     'checkout_input_example_zone' => 'Contoh: `12345 6789`',
     'checkout_input_example_email' => 'Contoh: `nama@email.com`',
     'checkout_input_example_whatsapp' => 'Contoh: `+628123456789`',
+    'checkout_input_example_phone' => 'Contoh: `08123456789`',
     'checkout_input_zone_options' => 'Pilihan :label:',
 
     // --- Cek ID Game ---

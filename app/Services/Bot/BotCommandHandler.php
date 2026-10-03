@@ -1225,13 +1225,27 @@ class BotCommandHandler
         // Field "No WhatsApp" (mis. Alight Motion) TIDAK boleh diperlakukan
         // sebagai UID: game ID numerik akan lolos apa adanya dan dikirim ke
         // provider sebagai nomor tujuan. Kriterianya sama dengan formatter —
-        // hanya kata "whatsapp", JANGAN "nomor"/"telepon" (produk pulsa
-        // meneruskan nomornya apa adanya ke Digiflazz).
-        $isWhatsappInput = ! $isEmailInput
-            && str_contains($userLabel . ' ' . $userPlaceholder, 'whatsapp');
+        // hanya kata "whatsapp".
+        $haystack = $userLabel . ' ' . $userPlaceholder;
+        $isWhatsappInput = ! $isEmailInput && str_contains($haystack, 'whatsapp');
+
+        // Field NOMOR TELEPON (pulsa/kuota: `Nomor Telepon`, `Number Phone`;
+        // app berbasis nomor: `Nomor`). Sebelumnya kelas ini jatuh ke UID:
+        // petunjuknya "Format: UID" dan nomor cacat lolos ke provider —
+        // jejaknya ada di DB (`uid=081399910772`, 12 digit; `uid=087730734911`).
+        //
+        // ⚠️ Penandanya LABEL/PLACEHOLDER, bukan `type`: field game berlabel
+        // `ID` juga bertipe `number`, jadi memakai tipe akan menyeret seluruh
+        // katalog game ke aturan nomor.
+        // Prefix TIDAK ditulis ulang ke +62 — Digiflazz menerima format lokal
+        // dan order prod terbukti Sukses dengan `08…`.
+        $isPhoneInput = ! $isEmailInput
+            && ! $isWhatsappInput
+            && preg_match('/\b(?:nomor|telepon|telp|phone|hp)\b/', $haystack) === 1;
         $inputLabel = match (true) {
             $isEmailInput => 'Email',
             $isWhatsappInput => 'No WhatsApp',
+            $isPhoneInput => 'Nomor',
             default => 'UID',
         };
         $backCallback = 'layanan ' . ($category['code'] ?? $state['category_code']);
@@ -1286,6 +1300,33 @@ class BotCommandHandler
             }
 
             $uid = (string) preg_replace('/\D+/', '', trim($uid));
+        }
+
+        // Nomor TELEPON divalidasi panjangnya. Sebelumnya jalur ini tidak
+        // memeriksa apa pun (hanya membuang separator), dan jejaknya nyata di
+        // prod: `uid=081399910772` — 12 digit, satu digit kurang.
+        //
+        // Batas 9–16 dipilih dari dua sisi: nomor lokal Indonesia terpendek
+        // yang sah (9 digit) sampai bentuk internasional terpanjang yang
+        // masih wajar (16 digit). Jalur WEB memakai angka yang sama untuk
+        // kolom kontak (`regex:/^[0-9]{9,16}$/` di
+        // `OrderController::validateOrderRequest`), jadi ini menyamakan
+        // keduanya, bukan mengarang batas baru.
+        //
+        // Prefix tetap TIDAK diubah. Yang dilakukan hanya penguraian digit.
+        if ($isPhoneInput) {
+            $digits = (string) preg_replace('/\D+/', '', trim($uid));
+
+            if (strlen($digits) < 9 || strlen($digits) > 16) {
+                return $this->formatter->formatCheckoutInputRetry(
+                    $requiresZoneId,
+                    $customInputs,
+                    $backCallback,
+                    $context['source'] ?? null,
+                );
+            }
+
+            $uid = $digits;
         }
 
         // Validate the destination before creating a checkout intent. This keeps
