@@ -342,9 +342,7 @@ class BotMessageFormatter
             ],
         ];
 
-        $bannerUrl = $this->telegramMenuBannerUrl(BotGatewayCapabilities::forSource(
-            BotGatewayCapabilities::SOURCE_TELEGRAM,
-        ));
+        $bannerUrl = $this->menuBannerUrl();
         if ($bannerUrl !== null) {
             $response['photo_url'] = $bannerUrl;
         }
@@ -353,7 +351,7 @@ class BotMessageFormatter
     }
 
     /**
-     * Layar Menu Utama WhatsApp — perilaku LAMA, tanpa perubahan apa pun.
+     * Layar Menu Utama WhatsApp — susunan tombol DIPERTAHANKAN apa adanya.
      *
      * Dipertahankan utuh karena jalur WhatsApp merakit peta nomornya dari
      * tombol di sini; mengubah susunannya mematikan pemilihan nomor di WA.
@@ -399,7 +397,7 @@ class BotMessageFormatter
             ? __('bot.menu_title') . $this->pageSuffix($pagination) . "\n" . __('bot.menu_pick_category')
             : '🏠 *Menu Utama*' . $this->pageSuffix($pagination) . "\n" . 'Pilih kategori di bawah untuk mulai. 👇';
 
-        return [
+        $response = [
             'text' => $this->storeIntro($isTelegram) . "\n\n" . $menuHeading,
             'buttons' => $buttons,
             'numeric_menu' => [
@@ -408,6 +406,18 @@ class BotMessageFormatter
                 'page' => $pagination['page'],
             ],
         ];
+
+        // Banner gambar Menu Utama. Sumbernya SAMA dengan Telegram (satu field
+        // admin, satu guard keberadaan berkas), tapi TETAP dirakit di sini
+        // supaya jalur WA tidak bergantung pada `telegramCategoryList()` —
+        // dua layar itu sengaja dipisah karena peta nomor WA dibangun dari
+        // tombol, bukan dari teks.
+        $bannerUrl = $this->menuBannerUrl();
+        if ($bannerUrl !== null) {
+            $response['photo_url'] = $bannerUrl;
+        }
+
+        return $response;
     }
 
     /**
@@ -435,28 +445,27 @@ class BotMessageFormatter
     }
 
     /**
-     * URL gambar banner untuk layar Menu Utama bot Telegram. `null` = jangan
-     * kirim gambar.
+     * URL gambar banner untuk layar Menu Utama bot — dipakai KEDUA channel.
+     * `null` = jangan kirim gambar.
      *
-     * Dua alasan method ini ada, dan keduanya bukan gaya penulisan:
+     * Dulu method ini mengunci banner ke Telegram saja, dan gate-nya sengaja
+     * ditaruh di sini karena `formatCategories()` method DWI-CHANNEL sedangkan
+     * `photo_url` dibaca KETIGA adapter (`TelegramAdapter`, `FonnteAdapter`,
+     * `OpenWaAdapter`). Gate itu DILEPAS atas permintaan pemilik produk: gambar
+     * yang sudah diunggah admin hanya muncul di Telegram, sehingga Menu Utama
+     * WhatsApp tampil polos tanpa gambar padahal jalur kirim gambarnya
+     * (`send-image`) sudah terbukti jalan untuk QRIS.
      *
-     * 1. **Gate Telegram wajib di SINI.** `photo_url` dibaca KETIGA adapter
-     *    (`TelegramAdapter`, `FonnteAdapter`, `OpenWaAdapter`), sedangkan
-     *    `formatCategories()` dipakai bersama Telegram dan WhatsApp. Tanpa gate
-     *    ini, banner ikut terkirim ke WhatsApp.
-     *
-     * 2. **Hanya kirim kalau berkasnya BENAR-BENAR ada.** Telegram menolak
-     *    SELURUH pesan kalau URL gambarnya tidak bisa diambil — jadi banner yang
-     *    hilang akan membuat menu user lenyap, bukan sekadar tanpa gambar.
-     *    `existingUrl()` mengembalikan null untuk berkas yang tidak ada, dan
-     *    menu tetap terkirim sebagai teks.
+     * Yang TETAP dipertahankan adalah guard kedua, dan alasannya masih berlaku
+     * di kedua channel: **hanya kirim kalau berkasnya BENAR-BENAR ada.**
+     * Telegram menolak SELURUH pesan kalau URL gambarnya tidak bisa diambil —
+     * jadi banner yang hilang membuat menu user lenyap, bukan sekadar tanpa
+     * gambar. Karena itu `photo_url` hanya diisi setelah `existingUrl()`
+     * membuktikan berkasnya ada; path apa pun yang tersimpan di DB tidak
+     * otomatis dipercaya.
      */
-    private function telegramMenuBannerUrl(?BotGatewayCapabilities $capabilities): ?string
+    private function menuBannerUrl(): ?string
     {
-        if ($capabilities?->source() !== BotGatewayCapabilities::SOURCE_TELEGRAM) {
-            return null;
-        }
-
         $path = \App\Models\SettingWeb::query()->value('bot_menu_banner');
 
         if (! is_string($path) || trim($path) === '') {

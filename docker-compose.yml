@@ -18,6 +18,7 @@ services:
       - public_banner:/var/www/html/public/assets/banner
       - public_banner_game:/var/www/html/public/assets/banner_game
       - public_logo:/var/www/html/public/assets/logo
+      - public_bot:/var/www/html/public/assets/bot
       - public_seasonal:/var/www/html/public/assets/seasonal
       - public_media:/var/www/html/public/assets/media
       - public_optimized:/var/www/html/public/assets/optimized
@@ -107,6 +108,11 @@ volumes:
   public_banner_game:
     driver: local
   public_logo:
+    driver: local
+  # Banner Menu Utama bot (`setting_webs.bot_menu_banner`) upload ke sini.
+  # Tanpa volume ini berkasnya tersimpan di layer container dan HILANG setiap
+  # deploy — banner Telegram/WhatsApp mendadak kosong tanpa jejak di DB.
+  public_bot:
     driver: local
   public_seasonal:
     driver: local

@@ -11,17 +11,16 @@ use Tests\TestCase;
 /**
  * Banner gambar di layar Menu Utama bot (`formatCategories`).
  *
- * Dua hal yang dijaga test ini:
+ * Banner berlaku untuk KEDUA channel sejak permintaan pemilik produk: gambar
+ * yang diunggah admin dulu hanya muncul di Telegram, sehingga Menu Utama
+ * WhatsApp polos tanpa gambar. Yang dijaga test ini sekarang:
  *
- * 1. **Gate Telegram.** `photo_url` dibaca KETIGA adapter (Telegram, Fonnte,
- *    OpenWa). `formatCategories()` adalah method DWI-CHANNEL, jadi tanpa gate
- *    di formatter, banner otomatis ikut terkirim ke WhatsApp. Gate-nya harus di
- *    sini, bukan diasumsikan dari adapter.
- *
+ * 1. **Kedua channel mengirim banner** saat field diisi dan berkasnya ada.
  * 2. **Fail-safe saat berkas hilang.** Kalau `photo_url` diisi padahal berkasnya
  *    tidak ada di disk, Telegram menolak SELURUH pesan dan menu user hilang
  *    total — bukan sekadar gambar yang tidak muncul. Karena itu URL hanya diisi
  *    kalau berkasnya benar-benar ada (`PublicUploadUrlService::existingUrl()`).
+ *    Guard ini WAJIB berlaku juga di WhatsApp, bukan cuma Telegram.
  *
  * Fixture memakai BERKAS NYATA di `public/assets/bot/` dan dihapus di tearDown.
  */
@@ -121,19 +120,56 @@ class BotMenuBannerTest extends TestCase
         $this->assertSame('kategori top-up-games', $response['numeric_menu']['entries']['1']['command']);
     }
 
-    public function test_whatsapp_tidak_ikut_kirim_banner(): void
+    public function test_whatsapp_ikut_kirim_banner(): void
     {
-        // `photo_url` dibaca ketiga adapter. Tanpa gate di formatter, banner
-        // Telegram bocor ke WhatsApp.
+        // Kebalikan dari perilaku lama (dulu banner dikunci Telegram-only):
+        // `photo_url` dibaca KETIGA adapter dan `formatCategories()` method
+        // DIWI-CHANNEL, jadi banner yang sama harus ikut ke WhatsApp.
         $this->createSettings(['bot_menu_banner' => self::BANNER]);
+
+        $response = $this->formatFor(BotGatewayCapabilities::SOURCE_WHATSAPP);
+
+        $this->assertArrayHasKey(
+            'photo_url',
+            $response,
+            'Banner Menu Utama harus ikut terkirim ke WhatsApp, bukan Telegram saja.'
+        );
+        $this->assertStringContainsString('/assets/bot/', $response['photo_url']);
+        $this->assertStringStartsWith(
+            'http',
+            $response['photo_url'],
+            'Adapter WA butuh URL ABSOLUT untuk send-image.'
+        );
+    }
+
+    public function test_whatsapp_tanpa_banner_tetap_perilaku_lama(): void
+    {
+        // Banner tidak diisi = menu WA tetap teks + tombol seperti sebelumnya.
+        $this->createSettings(['bot_menu_banner' => null]);
+
+        $response = $this->formatFor(BotGatewayCapabilities::SOURCE_WHATSAPP);
+
+        $this->assertArrayNotHasKey('photo_url', $response);
+        $this->assertStringContainsString('🏠 *Menu Utama*', $response['text']);
+        $this->assertNotEmpty($response['buttons'], 'Tombol kategori WA tidak boleh ikut hilang.');
+    }
+
+    public function test_whatsapp_banner_hilang_di_disk_tidak_dikirim(): void
+    {
+        // Guard keberadaan berkas WAJIB berlaku di WA juga. Kalau URL tetap
+        // dikirim padahal berkasnya tidak ada, WA menerima pesan gambar kosong
+        // dan Menu Utama user berisiko tidak terbaca.
+        $this->createSettings(['bot_menu_banner' => 'assets/bot/tidak-ada.webp']);
 
         $response = $this->formatFor(BotGatewayCapabilities::SOURCE_WHATSAPP);
 
         $this->assertArrayNotHasKey(
             'photo_url',
             $response,
-            'Banner Telegram tidak boleh ikut terkirim ke WhatsApp.'
+            'Berkas tidak ada = jangan kirim gambar ke WA.'
         );
+        $this->assertNotEmpty($response['text'], 'Teks menu WA tetap harus terkirim.');
+        $this->assertNotEmpty($response['buttons'], 'Tombol kategori WA tetap harus terkirim.');
     }
 
     public function test_banner_hilang_di_disk_tidak_dikirim(): void

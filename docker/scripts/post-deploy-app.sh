@@ -13,6 +13,7 @@ mkdir -p \
     public/assets/banner \
     public/assets/banner_game \
     public/assets/logo \
+    public/assets/bot \
     public/assets/seasonal \
     public/assets/media \
     public/assets/optimized \
