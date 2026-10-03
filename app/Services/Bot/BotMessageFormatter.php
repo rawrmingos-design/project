@@ -405,6 +405,13 @@ class BotMessageFormatter
                 'parent_menu' => null,
                 'page' => $pagination['page'],
             ],
+            // Banner Menu Utama dikirim sebagai SATU pesan gambar ber-caption
+            // (gaya `sendPhoto`+caption Telegram), bukan teks dulu lalu gambar
+            // menyusul — gambar yang menyusul terasa "telat" karena gateway WA
+            // harus mengunduh gambar setelah teks sudah tampil. Flag ini SENGAJA
+            // hanya untuk layar ini: jalur QR pembayaran (QRIS) memakai urutan
+            // teks-lalu-gambar dan sudah terbukti benar, jangan ikut diubah.
+            'image_first' => true,
         ];
 
         // Banner gambar Menu Utama. Sumbernya SAMA dengan Telegram (satu field
