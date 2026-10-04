@@ -32,6 +32,9 @@ concurrency:
 env:
   # Nama image Docker (pakai GitHub Container Registry)
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/laravel-topup
+  # Base URL API yang dicetak di dokumentasi (docs-api). Dipakai sebagai build arg
+  # supaya contoh-contoh di docs menunjuk host yang benar untuk environment ini.
+  DOCS_API_BASE_URL: https://istanatopup.com/api/v1
 
 jobs:
 
@@ -211,6 +214,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DOCS_API_BASE_URL=${{ env.DOCS_API_BASE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
