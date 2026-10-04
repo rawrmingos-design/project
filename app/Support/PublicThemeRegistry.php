@@ -86,4 +86,40 @@ class PublicThemeRegistry
 
         return self::resolveForEnvironment($theme);
     }
+
+    /**
+     * Controller publik yang SELALU render Inertia (React) dan TIDAK punya
+     * cabang tema, karena belum ada view legacy Blade-nya.
+     *
+     * Ini kontrak yang ditegakkan `Tests\Feature\PublicThemeSurfaceContractTest`:
+     *   - setiap controller yang memanggil `Inertia::render()` tanpa memakai
+     *     `rendersLegacyBlade()`/`activeForEnvironment()` WAJIB ada di sini;
+     *   - setiap entri di sini WAJIB benar-benar selalu Inertia.
+     *
+     * Jadi menambah controller baru yang selalu Inertia akan MEMBUAT TEST MERAH,
+     * memaksa keputusan sadar: ikut tema, atau masuk daftar ini.
+     *
+     * @var list<class-string>
+     */
+    public const INERTIA_ONLY_CONTROLLERS = [
+        \App\Http\Controllers\Public\DocsController::class,
+        \App\Http\Controllers\Public\Reseller\CallbackLogController::class,
+        \App\Http\Controllers\Public\Reseller\CredentialController::class,
+        \App\Http\Controllers\Public\Reseller\DashboardController::class,
+        \App\Http\Controllers\Public\Reseller\DepositHistoryController::class,
+        \App\Http\Controllers\Public\Reseller\DocsController::class,
+        \App\Http\Controllers\Public\Reseller\OrderLogController::class,
+        \App\Http\Controllers\Public\Reseller\RegistryController::class,
+        \App\Http\Controllers\Public\Reseller\SalesPageController::class,
+        \App\Http\Controllers\Public\Reseller\SandboxController::class,
+        \App\Http\Controllers\Public\Reseller\SettingsController::class,
+    ];
+
+    /**
+     * Apakah controller ini termasuk permukaan React-only yang disengaja?
+     */
+    public static function isInertiaOnlyController(string $controllerClass): bool
+    {
+        return in_array(ltrim($controllerClass, '\\'), self::INERTIA_ONLY_CONTROLLERS, true);
+    }
 }
