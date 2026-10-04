@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
+use App\Support\DocsBranding;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,9 +26,9 @@ use Symfony\Component\HttpFoundation\Response;
  *      oleh nginx karena file-nya tidak ada di `public/`. Karena itu host docs
  *      dikecualikan dari blok statis di `docker/nginx/app.conf`.
  *
- * Controller ini TIDAK ikut gerbang tema: docs sengaja React-only (lihat
- * `PublicThemeRegistry`), dan setelah migrasi ini tidak ada lagi permukaan Inertia di
- * dalamnya — murni file statis.
+ * Controller ini TIDAK ikut gerbang tema: docs adalah berkas statis, bukan permukaan
+ * Blade (tema `default`) maupun Inertia (tema `bangjeff`/`istanatopup`) — jadi
+ * `public_theme` tidak mengubah apa pun di sini.
  */
 class DocsController extends Controller
 {
@@ -79,6 +80,13 @@ class DocsController extends Controller
         }
 
         $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+        // Halaman HTML disunting dulu (token merek diganti nilai dari Settings Web), jadi
+        // dikirim sebagai response biasa — bukan BinaryFileResponse yang streaming apa adanya.
+        if ($extension === 'html') {
+            return $this->htmlResponse($file);
+        }
+
         $contentType = self::CONTENT_TYPES[$extension] ?? 'application/octet-stream';
 
         $response = new BinaryFileResponse($file);
@@ -93,6 +101,33 @@ class DocsController extends Controller
         } else {
             $response->headers->set('Cache-Control', 'no-cache, must-revalidate');
         }
+
+        return $response;
+    }
+
+    /**
+     * Halaman HTML: token merek (`/img/logo.svg`, `/img/favicon.ico`) diganti nilai dari
+     * Settings Web supaya logo bisa diganti dari panel admin tanpa membangun ulang docs.
+     *
+     * Judul dokumen tidak disentuh di sini — `docusaurus.config.js` sudah menaruh nama
+     * website ke `<title>` saat build, jadi tidak perlu diganti per request.
+     */
+    private function htmlResponse(string $file): Response
+    {
+        $html = @file_get_contents($file);
+
+        if ($html === false) {
+            return $this->notFoundResponse();
+        }
+
+        $response = response(app(DocsBranding::class)->rewriteHtml($html), Response::HTTP_OK, [
+            'Content-Type' => self::CONTENT_TYPES['html'],
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+
+        // Halaman HTML tidak boleh di-cache lama: setelah deploy, integrator harus langsung
+        // menerima docs versi baru — dan URL logonya harus mengikuti Settings Web terbaru.
+        $response->headers->set('Cache-Control', 'no-cache, must-revalidate');
 
         return $response;
     }
@@ -201,13 +236,8 @@ class DocsController extends Controller
         $notFound = $this->resolveFile('404.html');
 
         if ($notFound !== null) {
-            $response = new BinaryFileResponse($notFound);
-            $response->headers->set('Content-Type', self::CONTENT_TYPES['html']);
-            $response->headers->set('X-Content-Type-Options', 'nosniff');
-            $response->headers->set('Cache-Control', 'no-cache, must-revalidate');
-            $response->setStatusCode(Response::HTTP_NOT_FOUND);
-
-            return $response;
+            // Lewat htmlResponse() juga supaya halaman 404 tetap memakai merek dari Settings Web.
+            return $this->htmlResponse($notFound)->setStatusCode(Response::HTTP_NOT_FOUND);
         }
 
         return response('Halaman dokumentasi tidak ditemukan.', Response::HTTP_NOT_FOUND, [
