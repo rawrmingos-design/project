@@ -22,7 +22,11 @@ class RequireAuthWithMessageTest extends TestCase
         });
         
         $this->assertEquals(302, $response->getStatusCode());
-        $this->assertTrue($response->isRedirect(route('login')));
+
+        // Redirect kini membawa `?redirect=<path>` supaya user kembali ke halaman
+        // yang dituju setelah login, jadi bandingkan path-nya, bukan URL persis.
+        $target = (string) $response->headers->get('Location');
+        $this->assertStringStartsWith(route('login'), $target);
         $this->assertEquals('Silakan login terlebih dahulu untuk mengakses halaman ini.', session('warning'));
     }
     
