@@ -88,8 +88,8 @@ class ResolveTenant
 
         return in_array($host, array_filter([
             ...$this->publicHosts(),
-            $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', '')),
-            $this->normalizeHost((string) env('DOCS_DOMAIN', '')),
+            $this->normalizeHost((string) config('app.filament_admin_domain', '')),
+            $this->normalizeHost((string) config('app.docs_domain', '')),
         ]), true);
     }
 

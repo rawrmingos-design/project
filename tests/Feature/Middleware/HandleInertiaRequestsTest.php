@@ -181,6 +181,11 @@ class HandleInertiaRequestsTest extends TestCase
             $this->savedDocsDomain = getenv('DOCS_DOMAIN');
         }
 
+        // Kode membaca config('app.docs_domain') (bukan env() langsung) supaya
+        // benar saat config:cache aktif. Suntik lewat config agar sama dengan
+        // perilaku production.
+        config(['app.docs_domain' => $value ?? '']);
+
         if ($value === null) {
             putenv('DOCS_DOMAIN');
             unset($_ENV['DOCS_DOMAIN'], $_SERVER['DOCS_DOMAIN']);

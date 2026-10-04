@@ -19,7 +19,7 @@ class Authenticate extends Middleware
             return null;
         }
 
-        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', ''));
+        $adminDomain = $this->normalizeHost((string) config('app.filament_admin_domain', ''));
         $requestHost = $this->normalizeHost((string) $request->getHost());
 
         if ($adminDomain !== '' && $requestHost !== '' && strcasecmp($requestHost, $adminDomain) === 0) {

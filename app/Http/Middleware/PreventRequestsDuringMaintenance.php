@@ -29,7 +29,7 @@ class PreventRequestsDuringMaintenance extends Middleware
     public function handle($request, Closure $next)
     {
         // Pengecualian otomatis untuk domain/subdomain admin
-        $adminDomain = $this->normalizeHost((string) env('FILAMENT_ADMIN_DOMAIN', 'adminpanel.istanatopup.com'));
+        $adminDomain = $this->normalizeHost((string) config('app.filament_admin_domain', 'adminpanel.istanatopup.com'));
         $requestHost = $this->normalizeHost((string) $request->getHost());
 
         if ($adminDomain !== '' && $requestHost !== '' && $requestHost === $adminDomain) {
