@@ -91,13 +91,28 @@ class PublicThemeRegistry
      * Controller publik yang SELALU render Inertia (React) dan TIDAK punya
      * cabang tema, karena belum ada view legacy Blade-nya.
      *
-     * Ini kontrak yang ditegakkan `Tests\Feature\PublicThemeSurfaceContractTest`:
-     *   - setiap controller yang memanggil `Inertia::render()` tanpa memakai
-     *     `rendersLegacyBlade()`/`activeForEnvironment()` WAJIB ada di sini;
-     *   - setiap entri di sini WAJIB benar-benar selalu Inertia.
+     * KEPUTUSAN PRODUK (Tahap 3): halaman docs & reseller SENGAJA dibiarkan
+     * React. Alasannya:
+     *   - panel reseller adalah produk terpisah (butuh auth + middleware
+     *     `reseller.only`), bukan halaman jualan publik yang ikut tema;
+     *   - docs hidup di domain sendiri dan di balik login (`auth.message`),
+     *     jadi tidak masuk permukaan storefront;
+     *   - `views/docs.blade.php` cuma shell Inertia murni — bukan halaman Blade.
      *
-     * Jadi menambah controller baru yang selalu Inertia akan MEMBUAT TEST MERAH,
-     * memaksa keputusan sadar: ikut tema, atau masuk daftar ini.
+     * Konsekuensinya: saat tema `default` (Blade) aktif, halaman-halaman ini
+     * tetap React. Tidak ada tombol "ganti theme" di dalamnya, jadi tidak ada
+     * kejutan UX; sementara memaksa mereka ikut tema akan 500 karena view
+     * Blade-nya memang tidak ada.
+     *
+     * Ditegakkan `Tests\Feature\ReactOnlySurfaceRendersInertiaTest` (runtime:
+     * wajib Inertia di SETIAP tema + tidak boleh kena redirect 301 middleware)
+     * dan `Tests\Feature\PublicThemeSurfaceContractTest` (statik: daftar tidak
+     * boleh basi, controller React-only tak terdaftar = CI MERAH).
+     *
+     * Kalau kelak view Blade-nya dibuat: tulis view-nya, pakai gerbang tema di
+     * controller, lalu HAPUS entri dari daftar ini — kedua test itu akan MERAH
+     * sampai langkah terakhir dilakukan, jadi keputusan ini tidak bisa basi
+     * diam-diam.
      *
      * @var list<class-string>
      */
