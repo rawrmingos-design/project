@@ -11,6 +11,7 @@ use Inertia\Inertia;
 use App\Services\SeoMetadataService;
 use App\Models\Berita;
 use App\Models\SettingWeb;
+use App\Support\PublicThemeRegistry;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Schema;
 use PragmaRX\Google2FA\Google2FA;
@@ -35,7 +36,7 @@ class LoginController extends Controller
             ], $request),
         ];
 
-        if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
+        if (! PublicThemeRegistry::rendersLegacyBlade(PublicThemeRegistry::activeForEnvironment())) {
             return Inertia::render('Public/Auth/Login', $props);
         }
 

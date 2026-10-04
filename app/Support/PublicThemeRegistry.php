@@ -53,4 +53,37 @@ class PublicThemeRegistry
 
         return $theme;
     }
+
+    /**
+     * SATU-SATUNYA gerbang keputusan renderer.
+     *
+     * `true`  = render halaman dengan legacy Blade (`resources/views/template/...`)
+     * `false` = render halaman dengan Inertia (React)
+     *
+     * Semua controller publik WAJIB memakai ini, bukan membandingkan nama theme
+     * sendiri-sendiri. Sebelumnya `LoginController`/`RegisterController` hanya
+     * mengenali `istanatopup`, sehingga theme `bangjeff` membuat halaman
+     * login & daftar keluar dari tema (Blade) sementara halaman lain Inertia.
+     */
+    public static function rendersLegacyBlade(?string $theme): bool
+    {
+        return self::resolveForEnvironment($theme) === self::DEFAULT;
+    }
+
+    /**
+     * Theme efektif dari `setting_webs`, sudah dinormalkan untuk environment ini.
+     * Dipakai agar tidak ada lagi pembacaan `SettingWeb::value('public_theme')`
+     * mentah yang bisa berbeda antar halaman.
+     */
+    public static function activeForEnvironment(): string
+    {
+        try {
+            $theme = \App\Models\SettingWeb::query()->value('public_theme');
+        } catch (\Throwable) {
+            // Skema belum siap / tabel belum ada → anggap default.
+            $theme = null;
+        }
+
+        return self::resolveForEnvironment($theme);
+    }
 }

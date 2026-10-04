@@ -20,7 +20,7 @@ class LegalPageController extends Controller
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
 
-        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+        if (PublicThemeRegistry::rendersLegacyBlade($settings->public_theme)) {
             return $legacyTermsController->terms();
         }
 
@@ -57,7 +57,7 @@ class LegalPageController extends Controller
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
 
-        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+        if (PublicThemeRegistry::rendersLegacyBlade($settings->public_theme)) {
             return $legacyTermsController->policy();
         }
 
@@ -96,7 +96,7 @@ class LegalPageController extends Controller
         $whatsappUrl = 'https://wa.me/6285123031674';
         $whatsappLabel = '+62 851-2303-1674';
 
-        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+        if (PublicThemeRegistry::rendersLegacyBlade($settings->public_theme)) {
             return $legacyTermsController->accountDeletion();
         }
 
@@ -164,7 +164,7 @@ class LegalPageController extends Controller
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application {
         $settings = $siteConfigService->getSettings();
 
-        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+        if (PublicThemeRegistry::rendersLegacyBlade($settings->public_theme)) {
             return $legacyTermsController->terms();
         }
 

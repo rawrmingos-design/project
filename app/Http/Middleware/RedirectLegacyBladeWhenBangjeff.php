@@ -92,7 +92,7 @@ class RedirectLegacyBladeWhenBangjeff
         $theme = Cache::remember(
             self::THEME_CACHE_KEY,
             now()->addSeconds(self::THEME_CACHE_TTL_SECONDS),
-            fn (): string => (string) (SettingWeb::query()->select('public_theme')->find(1)?->public_theme ?? PublicThemeRegistry::DEFAULT)
+            fn (): string => PublicThemeRegistry::activeForEnvironment()
         );
 
         return PublicThemeRegistry::resolveForEnvironment($theme);
