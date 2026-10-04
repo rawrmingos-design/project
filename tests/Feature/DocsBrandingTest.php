@@ -104,6 +104,22 @@ class DocsBrandingTest extends TestCase
         $this->seedSettings();
 
         $html = (string) file_get_contents(base_path('resources/docs-api/index.html'));
+
+        // PENJAGA KONTRAK: token di DocsBranding harus benar-benar ada di build. Tanpa ini,
+        // kalau Docusaurus mengganti nama token, semua assertion "tidak mengandung" di bawah
+        // lolos palsu (tokennya memang sudah tidak ada) sementara logo di layar kembali ke
+        // bawaan tanpa ada test yang gagal.
+        $this->assertStringContainsString(
+            '/img/logo.svg',
+            $html,
+            'Build docs tidak lagi memuat token /img/logo.svg — nama token di DocsBranding harus disesuaikan.'
+        );
+        $this->assertStringContainsString(
+            '/img/favicon.ico',
+            $html,
+            'Build docs tidak lagi memuat token /img/favicon.ico — nama token di DocsBranding harus disesuaikan.'
+        );
+
         $rewritten = app(DocsBranding::class)->rewriteHtml($html);
 
         // Favicon bawaan build harus hilang seluruhnya, diganti favicon dari Settings Web.
