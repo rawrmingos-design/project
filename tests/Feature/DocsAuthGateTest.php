@@ -155,10 +155,50 @@ class DocsAuthGateTest extends TestCase
 
         $this->assertNotNull($route);
         $this->assertSame(
-            DocsController::class . '@index',
+            DocsController::class . '@serve',
             $route->getActionName(),
-            'Permukaan docs kanonik harus tetap DocsController::index selama Fase 4a.'
+            'Permukaan docs kanonik harus DocsController::serve (penyaji statis), bukan Inertia lagi.'
         );
+    }
+
+    /**
+     * Aset docs ikut di balik gate.
+     *
+     * Kalau catch-all hanya menutup `/` (bentuk lama), permintaan aset `.css`/`.js`
+     * akan jatuh ke nginx dan dijawab 404 (file-nya tidak ada di `public/`) — atau
+     * lebih buruk, dilayani tanpa login. Karena itu route harus catch-all, dan
+     * hanya path yang memang milik aplikasi (`id/`, `api/`) yang dikecualikan.
+     */
+    public function test_docs_route_is_a_catch_all_that_excludes_app_paths(): void
+    {
+        $route = Route::getRoutes()->getByName('docs.index');
+
+        $this->assertNotNull($route);
+
+        $wheres = $route->wheres;
+
+        $this->assertArrayHasKey('any', $wheres, 'Route docs harus catch-all ber-parameter `any`.');
+
+        $pattern = $wheres['any'];
+
+        // Path aplikasi harus DIBIARKAN lewat: kalau `id/sign-in` tertangkap catch-all,
+        // halaman login ikut minta login lagi → redirect loop tanpa akhir.
+        foreach (['id/sign-in', 'id/dashboard', 'api/v1/order'] as $appPath) {
+            $this->assertSame(
+                0,
+                preg_match('#' . $pattern . '#', $appPath),
+                "Path aplikasi `{$appPath}` TIDAK boleh ditangkap catch-all docs (bikin redirect loop)."
+            );
+        }
+
+        // Sementara halaman & aset docs harus TERTANGKAP, supaya semuanya melewati gate login.
+        foreach (['', 'endpoint/order', 'assets/css/main.abc123.css', 'webhook/payload'] as $docsPath) {
+            $this->assertSame(
+                1,
+                preg_match('#' . $pattern . '#', $docsPath),
+                "Path docs `{$docsPath}` harus ditangkap catch-all supaya ikut gate login."
+            );
+        }
     }
 
     private function setEnvironment(string $key, string $value): void

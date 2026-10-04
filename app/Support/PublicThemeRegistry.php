@@ -91,18 +91,16 @@ class PublicThemeRegistry
      * Controller publik yang SELALU render Inertia (React) dan TIDAK punya
      * cabang tema, karena belum ada view legacy Blade-nya.
      *
-     * KEPUTUSAN PRODUK (Tahap 3): halaman docs & reseller SENGAJA dibiarkan
-     * React. Alasannya:
-     *   - panel reseller adalah produk terpisah (butuh auth + middleware
-     *     `reseller.only`), bukan halaman jualan publik yang ikut tema;
-     *   - docs hidup di domain sendiri dan di balik login (`auth.message`),
-     *     jadi tidak masuk permukaan storefront;
-     *   - `views/docs.blade.php` cuma shell Inertia murni — bukan halaman Blade.
+     * KEPUTUSAN PRODUK (Tahap 3): panel reseller SENGAJA dibiarkan React.
+     * Alasannya: panel reseller adalah produk terpisah (butuh auth + middleware
+     * `reseller.only`), bukan halaman jualan publik yang ikut tema. Saat tema
+     * `default` (Blade) aktif, halaman-halaman ini tetap React; tidak ada tombol
+     * "ganti theme" di dalamnya, jadi tidak ada kejutan UX; sementara memaksa
+     * mereka ikut tema akan 500 karena view Blade-nya memang tidak ada.
      *
-     * Konsekuensinya: saat tema `default` (Blade) aktif, halaman-halaman ini
-     * tetap React. Tidak ada tombol "ganti theme" di dalamnya, jadi tidak ada
-     * kejutan UX; sementara memaksa mereka ikut tema akan 500 karena view
-     * Blade-nya memang tidak ada.
+     * Docs TIDAK lagi ada di daftar ini (Fase 4c): setelah migrasi ke Docusaurus,
+     * `DocsController` bukan lagi permukaan Inertia — ia penyaji file statis dari
+     * `resources/docs-api/`, jadi tidak punya urusan renderer sama sekali.
      *
      * Ditegakkan `Tests\Feature\ReactOnlySurfaceRendersInertiaTest` (runtime:
      * wajib Inertia di SETIAP tema + tidak boleh kena redirect 301 middleware)
@@ -117,12 +115,10 @@ class PublicThemeRegistry
      * @var list<class-string>
      */
     public const INERTIA_ONLY_CONTROLLERS = [
-        \App\Http\Controllers\Public\DocsController::class,
         \App\Http\Controllers\Public\Reseller\CallbackLogController::class,
         \App\Http\Controllers\Public\Reseller\CredentialController::class,
         \App\Http\Controllers\Public\Reseller\DashboardController::class,
         \App\Http\Controllers\Public\Reseller\DepositHistoryController::class,
-        \App\Http\Controllers\Public\Reseller\DocsController::class,
         \App\Http\Controllers\Public\Reseller\OrderLogController::class,
         \App\Http\Controllers\Public\Reseller\RegistryController::class,
         \App\Http\Controllers\Public\Reseller\SalesPageController::class,

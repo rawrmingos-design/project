@@ -30,6 +30,13 @@ export default function ResellerLayout({ children, meta, headerTitle = "Overview
         { key: 'deposits',     label: 'Riwayat Deposit',href: '/id/reseller/deposits',    icon: 'payments' },
         { key: 'callbacks',    label: 'Callback Logs',  href: '/id/reseller/callbacks',   icon: 'history_toggle_off' },
         { key: 'sandbox',      label: 'Sandbox',        href: '/id/reseller/sandbox',     icon: 'biotech' },
+        // Docs sekarang hidup di domain sendiri (Docusaurus), jadi ini link KELUAR:
+        // dirender sebagai <a> biasa supaya browser benar-benar pindah domain (Inertia
+        // akan gagal / memaksa SPA-nav kalau dipaksa jadi <Link>). Hanya muncul kalau
+        // DOCS_DOMAIN diisi; kalau kosong, route `/id/reseller/docs` juga 404 → link mati.
+        ...(props.siteConfig?.docsUrl
+            ? [{ key: 'docs', label: 'API Docs', href: props.siteConfig.docsUrl, icon: 'menu_book', external: true }]
+            : []),
     ];
 
     const isActive = (href) => {
@@ -72,19 +79,40 @@ export default function ResellerLayout({ children, meta, headerTitle = "Overview
                     </div>
                     
                     <nav className="rh-sidebar-nav">
-                        {sidebarItems.map((item) => (
-                            <Link
-                                key={item.key}
-                                href={item.href}
-                                className={`rh-sidebar-link ${isActive(item.href) ? 'is-active' : ''}`}
-                                onClick={() => setIsMobileSidebarOpen(false)}
-                            >
-                                <span className="material-symbols-outlined rh-sidebar-icon" style={{ fontVariationSettings: isActive(item.href) ? "'FILL' 1" : "'FILL' 0" }}>
-                                    {item.icon}
-                                </span>
-                                <span>{item.label}</span>
-                            </Link>
-                        ))}
+                        {sidebarItems.map((item) => {
+                            const linkClass = `rh-sidebar-link ${isActive(item.href) ? 'is-active' : ''}`;
+                            const iconStyle = { fontVariationSettings: isActive(item.href) ? "'FILL' 1" : "'FILL' 0" };
+                            const content = (
+                                <>
+                                    <span className="material-symbols-outlined rh-sidebar-icon" style={iconStyle}>
+                                        {item.icon}
+                                    </span>
+                                    <span>{item.label}</span>
+                                </>
+                            );
+
+                            // Link lintas domain (docs) harus <a> biasa: Inertia <Link>
+                            // menganggap semua tujuan sebagai route SPA internal.
+                            return item.external ? (
+                                <a
+                                    key={item.key}
+                                    href={item.href}
+                                    className={linkClass}
+                                    onClick={() => setIsMobileSidebarOpen(false)}
+                                >
+                                    {content}
+                                </a>
+                            ) : (
+                                <Link
+                                    key={item.key}
+                                    href={item.href}
+                                    className={linkClass}
+                                    onClick={() => setIsMobileSidebarOpen(false)}
+                                >
+                                    {content}
+                                </Link>
+                            );
+                        })}
                     </nav>
                     
 

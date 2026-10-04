@@ -64,16 +64,21 @@ class P03CanonicalDocumentationTest extends TestCase
         /** @var User $user */
         $user = User::factory()->create(['role' => 'Member']);
 
-        $this->actingAs($user)
-            ->get('http://docs.istanatopup.test/')
-            ->assertOk()
-            ->assertInertia(fn ($page) => $page->component('Docs/Index', false));
+        // Sejak migrasi ke Docusaurus, host docs menyajikan file statis (bukan Inertia).
+        $response = $this->actingAs($user)->get('http://docs.istanatopup.test/');
+
+        $response->assertOk();
+        $this->assertStringContainsString(
+            'text/html',
+            (string) $response->headers->get('Content-Type'),
+            'Host docs harus mengirim halaman HTML dari hasil build Docusaurus.'
+        );
 
         $route = Route::getRoutes()->getByName('docs.index');
 
         $this->assertNotNull($route);
         $this->assertSame('docs.istanatopup.test', $route->getDomain());
-        $this->assertSame(DocsController::class . '@index', $route->getActionName());
+        $this->assertSame(DocsController::class . '@serve', $route->getActionName());
     }
 
     public function test_storefront_legacy_documentation_paths_follow_the_public_unknown_route_policy(): void

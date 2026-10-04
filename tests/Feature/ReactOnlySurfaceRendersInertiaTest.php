@@ -203,11 +203,13 @@ class ReactOnlySurfaceRendersInertiaTest extends TestCase
 
     public function test_docs_route_lives_on_its_own_domain_and_is_not_theme_switched(): void
     {
-        // Docs sengaja React-only: tidak ada view Blade-nya, dan route-nya
-        // terpisah di domain docs (gated login), jadi tidak boleh ikut gerbang tema.
-        $this->assertTrue(
+        // Docs dulu React-only (shell Inertia). Setelah migrasi ke Docusaurus (Fase 4c),
+        // docs BUKAN permukaan renderer sama sekali: `DocsController::serve()` hanya
+        // mengirim file statis, jadi tidak ikut gerbang tema dan juga tidak masuk daftar
+        // React-only — dua-duanya akan salah kalau tetap didaftarkan.
+        $this->assertFalse(
             PublicThemeRegistry::isInertiaOnlyController(\App\Http\Controllers\Public\DocsController::class),
-            'DocsController harus terdaftar sebagai React-only.'
+            'DocsController bukan lagi permukaan React-only: ia penyaji file statis.'
         );
 
         $source = File::get((new \ReflectionClass(\App\Http\Controllers\Public\DocsController::class))->getFileName());
@@ -215,14 +217,19 @@ class ReactOnlySurfaceRendersInertiaTest extends TestCase
         $this->assertStringNotContainsString(
             'rendersLegacyBlade',
             $source,
-            'DocsController tidak boleh ikut gerbang tema — belum ada view Blade-nya.'
+            'DocsController tidak boleh ikut gerbang tema — tidak ada halaman yang dirender.'
         );
 
-        // Docs shell adalah Inertia murni, bukan halaman Blade yang menyisipkan React.
-        $this->assertStringContainsString(
-            '@inertia',
-            File::get(resource_path('views/docs.blade.php')),
-            'views/docs.blade.php harus berupa shell Inertia murni.'
+        $this->assertStringNotContainsString(
+            'Inertia::render(',
+            $source,
+            'DocsController harus murni penyaji statis, bukan renderer Inertia lagi.'
+        );
+
+        // Shell Inertia lama sudah dihapus; kalau muncul lagi, keputusan ini berubah.
+        $this->assertFileDoesNotExist(
+            resource_path('views/docs.blade.php'),
+            'views/docs.blade.php sudah dihapus bersama portal docs lama.'
         );
     }
 
