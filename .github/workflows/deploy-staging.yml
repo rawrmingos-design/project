@@ -99,6 +99,27 @@ jobs:
       - name: 🗃️ Run migrations
         run: php artisan migrate --force
 
+      # Test docs (`DocsAccessGateTest`, `DocsPathTraversalTest`) memeriksa hasil build
+      # NYATA di `resources/docs-api/`, bukan fixture karangan — itu intinya, karena bug
+      # yang dicegah di sini (aset docs dilayani tanpa login / 404 oleh nginx) hanya
+      # muncul kalau file-nya benar-benar ada. Direktori itu di-gitignore (artefak build),
+      # jadi harus di-build di sini; blade/Dockerfile build tetap terjadi di job image.
+      - name: 🟢 Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: docs-api/package-lock.json
+
+      - name: 📖 Build API docs
+        run: |
+          npm ci --prefix docs-api --legacy-peer-deps
+          npm run build --prefix docs-api
+          rm -rf resources/docs-api
+          cp -r docs-api/build resources/docs-api
+        env:
+          DOCS_API_BASE_URL: https://test.jasakoding.web.id/api/v1
+
       - name: ✅ Run Tests (Pest)
         run: php artisan test --parallel
 

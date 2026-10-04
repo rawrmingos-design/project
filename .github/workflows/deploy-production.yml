@@ -103,6 +103,25 @@ jobs:
       - name: 🗃️ Run migrations
         run: php artisan migrate --force
 
+      # Test docs memeriksa hasil build NYATA di `resources/docs-api/` (di-gitignore,
+      # jadi harus di-build di sini; job image tetap build sendiri untuk artefak rilis).
+      # Tanpa langkah ini, seluruh test docs gagal di CI meski hijau di lokal.
+      - name: 🟢 Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: docs-api/package-lock.json
+
+      - name: 📖 Build API docs
+        run: |
+          npm ci --prefix docs-api --legacy-peer-deps
+          npm run build --prefix docs-api
+          rm -rf resources/docs-api
+          cp -r docs-api/build resources/docs-api
+        env:
+          DOCS_API_BASE_URL: https://istanatopup.com/api/v1
+
       - name: ✅ Run Tests (Pest)
         run: php artisan test --parallel
 
