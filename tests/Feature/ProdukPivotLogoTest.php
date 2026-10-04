@@ -76,7 +76,7 @@ class ProdukPivotLogoTest extends AdminTestCase
             'nama' => 'Paket Test',
         ]);
 
-        File::ensureDirectoryExists(public_path('assets/product_logo'));
+        File::makeDirectory(public_path('assets/product_logo'), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put(public_path('assets/product_logo/test-logo.png'), 'test');
 
         $asset = MediaAsset::query()->create([

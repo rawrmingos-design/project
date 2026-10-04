@@ -19,7 +19,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $relativePath = '/assets/product_logo/test-delete-managed.png';
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake image contents');
 
         try {
@@ -77,8 +77,8 @@ class MediaAssetDeletionServiceTest extends TestCase
         $variantRelativePath = 'assets/optimized/product_logo/test-delete-variant-abc123-160.webp';
         $variantAbsolutePath = public_path($variantRelativePath);
 
-        File::ensureDirectoryExists(dirname($absolutePath));
-        File::ensureDirectoryExists(dirname($variantAbsolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
+        File::makeDirectory(dirname($variantAbsolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake image contents');
         File::put($variantAbsolutePath, 'fake webp contents');
 
@@ -117,7 +117,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $relativePath = '/' . $prefix . '/99901/01M1684CKWS8BNTX65RYXZ0SPRTEST.webp';
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake spatie image contents');
 
         try {
@@ -152,7 +152,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $relativePath = '/' . $prefix . '/99902/resync-guard-test.webp';
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake contents');
 
         try {
@@ -183,7 +183,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $relativePath = '/' . $prefix . '/99903/variant-spatie-test.webp';
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake image contents');
 
         try {
@@ -240,7 +240,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
         try {
-            File::ensureDirectoryExists(dirname($absolutePath));
+            File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
             File::put($absolutePath, 'fake shared contents');
 
             // Row milik MediaAsset sendiri (dibuat manual, tanpa file media).
@@ -305,10 +305,10 @@ class MediaAssetDeletionServiceTest extends TestCase
         $targetAbsolute = public_path(ltrim($targetRelative, '/'));
 
         try {
-            File::ensureDirectoryExists(dirname($otherAbsolute));
+            File::makeDirectory(dirname($otherAbsolute), 0777, true, true); // force: @mkdir, tahan race --parallel
             File::put($otherAbsolute, 'other contents');
 
-            File::ensureDirectoryExists(dirname($targetAbsolute));
+            File::makeDirectory(dirname($targetAbsolute), 0777, true, true); // force: @mkdir, tahan race --parallel
             File::put($targetAbsolute, 'target contents');
 
             $asset = MediaAsset::query()->create([
@@ -334,7 +334,7 @@ class MediaAssetDeletionServiceTest extends TestCase
         $relativePath = 'assets/product_logo/test-clear-ref.png';
         $absolutePath = public_path($relativePath);
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'fake image contents');
 
         try {

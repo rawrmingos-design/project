@@ -268,7 +268,7 @@ XML);
         $relativePath = '/assets/xml/tests/' . $filename;
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, $xml);
         $this->createdXmlPaths[] = $absolutePath;
 

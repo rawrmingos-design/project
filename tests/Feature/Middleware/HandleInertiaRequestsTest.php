@@ -77,7 +77,7 @@ class HandleInertiaRequestsTest extends TestCase
         ]);
 
         Storage::fake('r2');
-        File::ensureDirectoryExists(public_path('assets/logo'));
+        File::makeDirectory(public_path('assets/logo'), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put(public_path('assets/logo/r2-local-logo.png'), 'local logo');
 
         DB::table('setting_webs')->insert([

@@ -82,7 +82,10 @@ test('Property 12: updating a PaymentDisplayCategory invalidates the tenant cach
     match ($attribute) {
         'label' => $category->update(['label' => 'Updated ' . uniqid()]),
         'display_style' => $category->update(['display_style' => $category->display_style === 'flat' ? 'accordion' : 'flat']),
-        'sort_order' => $category->update(['sort_order' => rand(0, 999)]),
+        // Nilai acak bisa KEBETULAN sama dengan yang tersimpan; kalau sama, model
+        // tidak dirty, event `updated` tidak menyala, cache tidak di-flush, dan
+        // assertion di bawah gagal tanpa ada bug di kode produksi. Pastikan beda.
+        'sort_order' => $category->update(['sort_order' => ((int) $category->sort_order + 1) % 1000]),
         'is_visible' => $category->update(['is_visible' => !$category->is_visible]),
         'icon' => $category->update(['icon' => 'icon-' . uniqid()]),
     };

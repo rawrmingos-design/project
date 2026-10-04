@@ -34,7 +34,7 @@ class PwaIconGeneratorServiceTest extends TestCase
 
         $this->service = new PwaIconGeneratorService();
         $this->backupCurrentIcons();
-        File::ensureDirectoryExists(public_path('assets/pwa/source-test'));
+        File::makeDirectory(public_path('assets/pwa/source-test'), 0777, true, true); // force: @mkdir, tahan race --parallel
     }
 
     protected function tearDown(): void
@@ -71,7 +71,7 @@ class PwaIconGeneratorServiceTest extends TestCase
     public function test_invalid_source_does_not_replace_existing_icons(): void
     {
         $existingIcon = public_path('assets/pwa/icon-72.png');
-        File::ensureDirectoryExists(dirname($existingIcon));
+        File::makeDirectory(dirname($existingIcon), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($existingIcon, 'existing icon content');
 
         $this->expectException(\RuntimeException::class);
@@ -86,7 +86,7 @@ class PwaIconGeneratorServiceTest extends TestCase
     private function createSourceImage(string $relativePath, int $width, int $height): string
     {
         $absolutePath = public_path($relativePath);
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
 
         $image = imagecreatetruecolor($width, $height);
         imagealphablending($image, false);
@@ -159,7 +159,7 @@ class PwaIconGeneratorServiceTest extends TestCase
                 continue;
             }
 
-            File::ensureDirectoryExists(dirname($absolutePath));
+            File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
             File::put($absolutePath, $contents);
         }
     }
