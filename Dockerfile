@@ -80,6 +80,33 @@ RUN npm ci --legacy-peer-deps \
     && npm run build:ssr \
     && rm -rf node_modules
 
+# ---------------------------------------------------------------------------
+# Dokumentasi API (Docusaurus) — sumber di docs-api/, hasil build di resources/docs-api/
+#
+# Dua hal penting:
+#   1. Hasil build SENGAJA tidak ditaruh di public/. Kalau di public/, nginx akan
+#      menyajikannya langsung dari disk (blok `location ~* \.(css|js|map|…)$`) dan
+#      gate login Laravel terlewati. resources/docs-api/ dilayani lewat route
+#      ber-middleware auth.
+#   2. Hasil build ikut image supaya rilis docs atomic & immutable seperti kode —
+#      tidak ada langkah menyalin file ke VPS setelah deploy.
+#
+# DOCS_API_BASE_URL wajib diisi sebagai build arg oleh workflow (host API berbeda
+# per environment). TIDAK diambil dari .env: .env tidak ada di dalam image build
+# context, jadi nilainya akan salah diam-diam. Contoh-contoh di docs memakai nilai
+# ini lewat komponen <ApiBase />.
+# ---------------------------------------------------------------------------
+ARG DOCS_API_BASE_URL=https://istanatopup.com/api/v1
+
+RUN cd docs-api \
+    && npm ci --legacy-peer-deps \
+    && npm run build \
+    && rm -rf node_modules \
+    && rm -rf /var/www/html/resources/docs-api \
+    && mkdir -p /var/www/html/resources/docs-api \
+    && cp -R build/. /var/www/html/resources/docs-api/ \
+    && chown -R www-data:www-data /var/www/html/resources/docs-api
+
 # Buat direktori yang dibutuhkan Laravel SEBELUM artisan commands
 RUN mkdir -p bootstrap/cache \
     && mkdir -p storage/framework/sessions \

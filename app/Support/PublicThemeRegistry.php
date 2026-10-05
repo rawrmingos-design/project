@@ -53,4 +53,84 @@ class PublicThemeRegistry
 
         return $theme;
     }
+
+    /**
+     * SATU-SATUNYA gerbang keputusan renderer.
+     *
+     * `true`  = render halaman dengan legacy Blade (`resources/views/template/...`)
+     * `false` = render halaman dengan Inertia (React)
+     *
+     * Semua controller publik WAJIB memakai ini, bukan membandingkan nama theme
+     * sendiri-sendiri. Sebelumnya `LoginController`/`RegisterController` hanya
+     * mengenali `istanatopup`, sehingga theme `bangjeff` membuat halaman
+     * login & daftar keluar dari tema (Blade) sementara halaman lain Inertia.
+     */
+    public static function rendersLegacyBlade(?string $theme): bool
+    {
+        return self::resolveForEnvironment($theme) === self::DEFAULT;
+    }
+
+    /**
+     * Theme efektif dari `setting_webs`, sudah dinormalkan untuk environment ini.
+     * Dipakai agar tidak ada lagi pembacaan `SettingWeb::value('public_theme')`
+     * mentah yang bisa berbeda antar halaman.
+     */
+    public static function activeForEnvironment(): string
+    {
+        try {
+            $theme = \App\Models\SettingWeb::query()->value('public_theme');
+        } catch (\Throwable) {
+            // Skema belum siap / tabel belum ada → anggap default.
+            $theme = null;
+        }
+
+        return self::resolveForEnvironment($theme);
+    }
+
+    /**
+     * Controller publik yang SELALU render Inertia (React) dan TIDAK punya
+     * cabang tema, karena belum ada view legacy Blade-nya.
+     *
+     * KEPUTUSAN PRODUK (Tahap 3): panel reseller SENGAJA dibiarkan React.
+     * Alasannya: panel reseller adalah produk terpisah (butuh auth + middleware
+     * `reseller.only`), bukan halaman jualan publik yang ikut tema. Saat tema
+     * `default` (Blade) aktif, halaman-halaman ini tetap React; tidak ada tombol
+     * "ganti theme" di dalamnya, jadi tidak ada kejutan UX; sementara memaksa
+     * mereka ikut tema akan 500 karena view Blade-nya memang tidak ada.
+     *
+     * Docs TIDAK lagi ada di daftar ini (Fase 4c): setelah migrasi ke Docusaurus,
+     * `DocsController` bukan lagi permukaan Inertia — ia penyaji file statis dari
+     * `resources/docs-api/`, jadi tidak punya urusan renderer sama sekali.
+     *
+     * Ditegakkan `Tests\Feature\ReactOnlySurfaceRendersInertiaTest` (runtime:
+     * wajib Inertia di SETIAP tema + tidak boleh kena redirect 301 middleware)
+     * dan `Tests\Feature\PublicThemeSurfaceContractTest` (statik: daftar tidak
+     * boleh basi, controller React-only tak terdaftar = CI MERAH).
+     *
+     * Kalau kelak view Blade-nya dibuat: tulis view-nya, pakai gerbang tema di
+     * controller, lalu HAPUS entri dari daftar ini — kedua test itu akan MERAH
+     * sampai langkah terakhir dilakukan, jadi keputusan ini tidak bisa basi
+     * diam-diam.
+     *
+     * @var list<class-string>
+     */
+    public const INERTIA_ONLY_CONTROLLERS = [
+        \App\Http\Controllers\Public\Reseller\CallbackLogController::class,
+        \App\Http\Controllers\Public\Reseller\CredentialController::class,
+        \App\Http\Controllers\Public\Reseller\DashboardController::class,
+        \App\Http\Controllers\Public\Reseller\DepositHistoryController::class,
+        \App\Http\Controllers\Public\Reseller\OrderLogController::class,
+        \App\Http\Controllers\Public\Reseller\RegistryController::class,
+        \App\Http\Controllers\Public\Reseller\SalesPageController::class,
+        \App\Http\Controllers\Public\Reseller\SandboxController::class,
+        \App\Http\Controllers\Public\Reseller\SettingsController::class,
+    ];
+
+    /**
+     * Apakah controller ini termasuk permukaan React-only yang disengaja?
+     */
+    public static function isInertiaOnlyController(string $controllerClass): bool
+    {
+        return in_array(ltrim($controllerClass, '\\'), self::INERTIA_ONLY_CONTROLLERS, true);
+    }
 }

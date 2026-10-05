@@ -112,12 +112,26 @@ class FonnteAdapter implements BotAdapterInterface
         }
 
         [$replyText, $newNumericMenuState] = $this->renderResponse($response);
-        $sendResult = $this->sendMessage($sender, $replyText);
 
+        // Banner Menu Utama: gambar + teks dalam SATU pesan (gambar dulu,
+        // teks sebagai caption) supaya tidak terasa "telat". Hanya layar yang
+        // menandai `image_first` (Menu Utama) -- jalur QR pembayaran tidak
+        // diubah dan tetap teks-lalu-gambar.
         $photoUrl = $response['photo_url'] ?? null;
+        $hasPhoto = is_string($photoUrl) && trim($photoUrl) !== '';
 
-        if (is_string($photoUrl) && trim($photoUrl) !== '') {
-            $this->sendMessage($sender, '', $photoUrl);
+        if ($hasPhoto && ($response['image_first'] ?? false) === true) {
+            $sendResult = $this->sendMessage($sender, $replyText, $photoUrl);
+
+            if (! ($sendResult['success'] ?? false) && trim($replyText) !== '') {
+                $sendResult = $this->sendMessage($sender, $replyText);
+            }
+        } else {
+            $sendResult = $this->sendMessage($sender, $replyText);
+
+            if ($hasPhoto) {
+                $this->sendMessage($sender, '', $photoUrl);
+            }
         }
 
         if ($sendResult['success'] ?? false) {

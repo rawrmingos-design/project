@@ -77,7 +77,7 @@ class HandleInertiaRequestsTest extends TestCase
         ]);
 
         Storage::fake('r2');
-        File::ensureDirectoryExists(public_path('assets/logo'));
+        File::makeDirectory(public_path('assets/logo'), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put(public_path('assets/logo/r2-local-logo.png'), 'local logo');
 
         DB::table('setting_webs')->insert([
@@ -180,6 +180,11 @@ class HandleInertiaRequestsTest extends TestCase
         if (! isset($this->savedDocsDomain)) {
             $this->savedDocsDomain = getenv('DOCS_DOMAIN');
         }
+
+        // Kode membaca config('app.docs_domain') (bukan env() langsung) supaya
+        // benar saat config:cache aktif. Suntik lewat config agar sama dengan
+        // perilaku production.
+        config(['app.docs_domain' => $value ?? '']);
 
         if ($value === null) {
             config(['app.docs_domain' => '']);

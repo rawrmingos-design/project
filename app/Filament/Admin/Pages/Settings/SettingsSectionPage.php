@@ -1363,13 +1363,13 @@ abstract class SettingsSectionPage extends Page implements HasForms
                             ->columnSpanFull(),
 
                         FileUpload::make('bot_menu_banner')
-                            ->label('Banner Menu Utama Bot')
+                            ->label('Banner Menu Utama Bot (Telegram & WhatsApp)')
                             ->image()
                             ->disk(config('uploads.disk', 'assets'))
                             ->visibility('public')
                             ->directory('assets/bot')
                             ->maxSize(4096)
-                            ->helperText('Gambar yang dikirim di atas teks saat user membuka Menu Utama bot. Rasio bebas — gambar tampil apa adanya, tidak dipotong. Untuk mematikan banner, hapus berkasnya dari Media Manager (mengosongkan field ini saja tidak menghapusnya).')
+                            ->helperText('Gambar yang dikirim di atas teks saat user membuka Menu Utama bot, berlaku untuk Telegram DAN WhatsApp. Rasio bebas, gambar tampil apa adanya dan tidak dipotong. Untuk mematikan banner, hapus berkasnya dari Media Manager (mengosongkan field ini saja tidak menghapusnya).')
                             ->visible(fn () => (bool) config('bot.order_enabled', false))
                             ->columnSpanFull(),
                     ])

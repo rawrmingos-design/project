@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Schema;
 use App\Support\WhatsappNumberNormalizer;
+use App\Support\PublicThemeRegistry;
 use Inertia\Inertia;
 use App\Services\SeoMetadataService;
 
@@ -34,7 +35,7 @@ class RegisterController extends Controller
             ]),
         ];
 
-        if (SettingWeb::query()->value('public_theme') === 'istanatopup') {
+        if (! PublicThemeRegistry::rendersLegacyBlade(PublicThemeRegistry::activeForEnvironment())) {
             return Inertia::render('Public/Auth/Register', $props);
         }
 

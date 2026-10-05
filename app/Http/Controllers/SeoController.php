@@ -217,7 +217,7 @@ class SeoController extends Controller
 
     private function sitemapCacheKey(string $type, array $settings): string
     {
-        $theme = PublicThemeRegistry::resolveForEnvironment((string) (SettingWeb::query()->value('public_theme') ?? PublicThemeRegistry::DEFAULT));
+        $theme = PublicThemeRegistry::activeForEnvironment();
         $baseUrl = rtrim((string) env('MAIN_DOMAIN_URL', config('app.url')), '/');
         $context = [
             'theme' => $theme,

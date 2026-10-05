@@ -101,7 +101,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
         $relativePath = "{$this->testRelativeDirectory()}/old_file.jpg";
         $absolutePath = public_path($relativePath);
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        File::makeDirectory(dirname($absolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($absolutePath, 'old file content');
 
         $this->assertFileExists($absolutePath);
@@ -130,7 +130,7 @@ class ResellerDocumentStorageServiceTest extends TestCase
         $oldRelativePath = "{$this->testRelativeDirectory()}/old_identity.jpg";
         $oldAbsolutePath = public_path($oldRelativePath);
 
-        File::ensureDirectoryExists(dirname($oldAbsolutePath));
+        File::makeDirectory(dirname($oldAbsolutePath), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($oldAbsolutePath, 'old file content');
 
         $this->assertFileExists($oldAbsolutePath);

@@ -9,6 +9,10 @@
 /storage/*.key
 /storage/pail
 /vendor
+/docs-api/node_modules
+/docs-api/build
+/docs-api/.docusaurus
+/resources/docs-api
 .env.backup
 .env.production
 .env.egymarket.example

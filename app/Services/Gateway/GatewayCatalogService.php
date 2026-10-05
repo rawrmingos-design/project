@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\Cache;
 
 class GatewayCatalogService
 {
-    public function categoryTypes(array $filters = [], bool $eligibleOnly = false): array
+    public function categoryTypes(array $filters = [], bool $eligibleOnly = false, bool $hideEmpty = false): array
     {
         $search = strtolower(trim((string) ($filters['q'] ?? '')));
-        $variant = $eligibleOnly ? 'bot' : 'all';
-        $cacheKey = 'gateway:category-types:v2:' . sha1($search . '|' . $variant);
+        $variant = $eligibleOnly ? 'bot' : ($hideEmpty ? 'sellable' : 'all');
+        $cacheKey = 'gateway:category-types:v3:' . sha1($search . '|' . $variant);
 
-        return Cache::remember($cacheKey, 300, function () use ($search, $eligibleOnly): array {
+        return Cache::remember($cacheKey, 300, function () use ($search, $eligibleOnly, $hideEmpty): array {
             $activeCategories = Kategori::query()
                 ->select(['id', 'kode', 'category_type_id', 'tipe'])
                 ->where('status', 'active')
@@ -34,6 +34,16 @@ class GatewayCatalogService
                 $eligibleCodes = array_flip($this->packageableCategoryCodes());
                 $activeCategories = $activeCategories->filter(
                     fn (Kategori $category): bool => isset($eligibleCodes[(string) $category->kode])
+                );
+            } elseif ($hideEmpty) {
+                // Jalur WhatsApp: WA tidak menuntut paket (order per layanan),
+                // jadi kriteria "punya paket" SALAH di sini — memakainya akan
+                // menyembunyikan produk yang sah. Yang dibuang hanya tipe yang
+                // TOTAL layanan tersedianya nol, karena tombolnya membuka layar
+                // kosong ("Produk tidak ditemukan atau belum ada layanan.").
+                $sellableCodes = array_flip($this->sellableCategoryCodes());
+                $activeCategories = $activeCategories->filter(
+                    fn (Kategori $category): bool => isset($sellableCodes[(string) $category->kode])
                 );
             }
 
@@ -92,15 +102,15 @@ class GatewayCatalogService
      *   bot (terikat paket). Dipakai bot Telegram; biarkan `false` untuk web,
      *   yang merender tombolnya dari semua layanan.
      */
-    public function categories(?User $user = null, array $filters = [], bool $eligibleOnly = false): array
+    public function categories(?User $user = null, array $filters = [], bool $eligibleOnly = false, bool $hideEmpty = false): array
     {
         $search = strtolower(trim((string) ($filters['q'] ?? '')));
         $typeSlug = strtolower(trim((string) ($filters['type'] ?? $filters['category_type'] ?? '')));
         $role = (string) ($user?->role ?? 'Guest');
-        $variant = $eligibleOnly ? 'bot' : 'all';
-        $cacheKey = 'gateway:categories:v3:' . sha1(json_encode([$search, $typeSlug, $role, $variant], JSON_UNESCAPED_SLASHES));
+        $variant = $eligibleOnly ? 'bot' : ($hideEmpty ? 'sellable' : 'all');
+        $cacheKey = 'gateway:categories:v4:' . sha1(json_encode([$search, $typeSlug, $role, $variant], JSON_UNESCAPED_SLASHES));
 
-        return Cache::remember($cacheKey, 300, function () use ($search, $typeSlug, $eligibleOnly): array {
+        return Cache::remember($cacheKey, 300, function () use ($search, $typeSlug, $eligibleOnly, $hideEmpty): array {
             $categories = Kategori::query()
                 ->with('categoryType:id,name,slug,sort,icon')
                 ->where('status', 'active')
@@ -130,6 +140,16 @@ class GatewayCatalogService
                 $eligibleCodes = array_flip($this->packageableCategoryCodes());
                 $categories = $categories->filter(
                     fn (Kategori $category): bool => isset($eligibleCodes[(string) $category->kode])
+                )->values();
+            } elseif ($hideEmpty) {
+                // Jalur WhatsApp: WA tidak menuntut paket (order per layanan),
+                // jadi kriteria "punya paket" SALAH di sini — memakainya akan
+                // menyembunyikan produk yang sah. Yang dibuang hanya kategori
+                // yang NOL layanan tersedia, karena tombolnya membuka layar
+                // kosong ("Produk tidak ditemukan atau belum ada layanan.").
+                $sellableCodes = array_flip($this->sellableCategoryCodes());
+                $categories = $categories->filter(
+                    fn (Kategori $category): bool => isset($sellableCodes[(string) $category->kode])
                 )->values();
             }
 
@@ -608,6 +628,32 @@ class GatewayCatalogService
         return Layanan::query()
             ->join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
             ->join('paket_layanans', 'paket_layanans.layanan_id', '=', 'layanans.id')
+            ->where('layanans.status', 'available')
+            ->where('kategoris.status', 'active')
+            ->distinct()
+            ->pluck('kategoris.kode')
+            ->map(static fn (mixed $code): string => (string) $code)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Kategori yang punya MINIMAL satu layanan tersedia — tanpa syarat paket.
+     *
+     * Dipakai jalur WhatsApp: WA memesan per layanan (bukan lewat paket seperti
+     * Telegram), jadi kategori tanpa paket tetap SAH. Tanpa penyaring ini, WA
+     * menampilkan tombol produk yang membuka layar kosong.
+     *
+     * Kriteria sengaja dibuat sama PERSIS dengan penghitung di `categories()` /
+     * `categoryTypes()` (`layanans.status = 'available'`, `kategoris.status =
+     * 'active'`): kalau daftarnya disaring tapi hitungannya tidak, produk tampil
+     * dengan angka layanan padahal isinya kosong — lebih buruk daripada tidak
+     * disaring sama sekali.
+     */
+    private function sellableCategoryCodes(): array
+    {
+        return Layanan::query()
+            ->join('kategoris', 'kategoris.id', '=', 'layanans.kategori_id')
             ->where('layanans.status', 'available')
             ->where('kategoris.status', 'active')
             ->distinct()

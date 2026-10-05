@@ -1,0 +1,62 @@
+/**
+ * Override tema bawaan Infima.
+ *
+ * Prinsipnya: seminimal mungkin. Tema bawaan Docusaurus sudah rapi; file ini
+ * hanya menetapkan warna aksen dan membuat blok kode sedikit lebih terbaca.
+ * TIDAK ada komponen React kustom dan TIDAK ada layout bergaya sendiri.
+ */
+
+:root {
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #1d4ed8;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #3b82f6;
+  --ifm-color-primary-lighter: #60a5fa;
+  --ifm-color-primary-lightest: #93c5fd;
+
+  --ifm-code-font-size: 92%;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.65;
+
+  /* Halaman endpoint panjang; beri ruang baca yang cukup tanpa melebar. */
+  --ifm-container-width-xl: 1280px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #60a5fa;
+  --ifm-color-primary-dark: #3b82f6;
+  --ifm-color-primary-darker: #2563eb;
+  --ifm-color-primary-darkest: #1d4ed8;
+  --ifm-color-primary-light: #93c5fd;
+  --ifm-color-primary-lighter: #bfdbfe;
+  --ifm-color-primary-lightest: #dbeafe;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.12);
+}
+
+/* Tabel parameter & tabel error_code: ini yang paling sering dibaca integrator,
+   jadi beri garis yang jelas dan jangan biarkan teks menempel ke tepi sel. */
+.markdown table {
+  display: table;
+  width: 100%;
+}
+
+.markdown table th,
+.markdown table td {
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+
+.markdown table th {
+  white-space: nowrap;
+}
+
+/* Kode inline di dalam tabel (nama field / error_code) tidak boleh memaksa
+   kolom melar sampai tabel bisa di-scroll horizontal tanpa alasan. */
+.markdown table code {
+  white-space: nowrap;
+  font-size: 0.85em;
+}

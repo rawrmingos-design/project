@@ -15,6 +15,21 @@ use Illuminate\Support\Str;
 /**
  * OpenWA (self-hosted Baileys gateway) adapter.
  *
+ * URUTAN gambar vs teks. WhatsApp tidak punya pesan caption-tunggal seperti
+ * `sendPhoto`+`caption` Telegram, jadi ambangnya ditentukan per layar:
+ *
+ * - Layar yang menandai `image_first` (banner Menu Utama):
+ *   `sendMessage($sender, $teks, $foto)` SEKALI ->
+ *   `WhatsappNotificationService::withMediaUrl()` memecahnya jadi endpoint
+ *   `send-image` `{url, caption}` dan gateway mengirim SATU pesan gambar
+ *   ber-caption. Gambar tidak lagi menyusul telat setelah teks tampil.
+ * - Layar lain (QR QRIS, dll): urutan lama dipertahankan — teks dulu, gambar
+ *   sebagai pesan terpisah; sudah terbukti benar dan tidak ikut diubah.
+ *
+ * Diverifikasi di sisi gateway: `message-send.service.js::sendImage()` ->
+ * `engine.sendImageMessage()` -> Baileys `{image, caption}` /
+ * wwebjs `sendMessage(media, {caption})`, keduanya SATU pesan.
+ *
  * Payload envelope (verified from OpenWA webhook-delivery.service.ts):
  *   {
  *     "event": "message.received",
@@ -194,12 +209,30 @@ class OpenWaAdapter implements BotAdapterInterface
         }
 
         [$replyText, $newNumericMenuState] = $this->renderResponse($response);
-        $sendResult = $this->sendMessage($sender, $replyText);
 
+        // Banner Menu Utama: gambar + teks dalam SATU pesan (gambar dulu,
+        // teks sebagai caption) supaya tidak terasa "telat" seperti kirim
+        // teks dulu lalu gambar menyusul. Hanya layar yang menandai
+        // `image_first` (Menu Utama) -- jalur QR pembayaran TIDAK diubah.
         $photoUrl = $response['photo_url'] ?? null;
+        $hasPhoto = is_string($photoUrl) && trim($photoUrl) !== '';
 
-        if (is_string($photoUrl) && trim($photoUrl) !== '') {
-            $this->sendMessage($sender, '', $photoUrl);
+        if ($hasPhoto && ($response['image_first'] ?? false) === true) {
+            $sendResult = $this->sendMessage($sender, $replyText, $photoUrl);
+
+            // Fail-safe: pengiriman ber-media tidak membawa teks terpisah, jadi
+            // kalau gagal, teksnya ikut hilang. Kirim ulang sebagai teks murni.
+            if (! ($sendResult['success'] ?? false) && trim($replyText) !== '') {
+                $sendResult = $this->sendMessage($sender, $replyText);
+            }
+        } else {
+            // Perilaku lama (dipakai QR QRIS dsb): teks dulu, gambar menyusul
+            // sebagai pesan terpisah.
+            $sendResult = $this->sendMessage($sender, $replyText);
+
+            if ($hasPhoto) {
+                $this->sendMessage($sender, '', $photoUrl);
+            }
         }
 
         if ($sendResult['success'] ?? false) {

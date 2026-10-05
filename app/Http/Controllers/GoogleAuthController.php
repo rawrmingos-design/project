@@ -152,7 +152,7 @@ class GoogleAuthController extends Controller
             ],
         ];
 
-        if (SettingWeb::query()->value('public_theme') !== PublicThemeRegistry::DEFAULT) {
+        if (! PublicThemeRegistry::rendersLegacyBlade(PublicThemeRegistry::activeForEnvironment())) {
             return Inertia::render('Public/Auth/CompleteGoogleSignup', $props);
         }
 

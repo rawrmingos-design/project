@@ -43,7 +43,7 @@ class MediaAssetTest extends TestCase
 
     public function test_file_url_resolves_local_path_through_public_upload_resolver(): void
     {
-        File::ensureDirectoryExists(public_path('assets/media'));
+        File::makeDirectory(public_path('assets/media'), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put(public_path('assets/media/media-asset-local.png'), 'local');
 
         $asset = new MediaAsset([

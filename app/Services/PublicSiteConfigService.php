@@ -93,6 +93,9 @@ class PublicSiteConfigService
                 ],
                 'socials' => $socials,
                 'footerColumns' => $this->buildFooterColumns($theme, $socials),
+                // Panel reseller menampilkan entri nav "API Docs" hanya kalau ini terisi.
+                // Null (DOCS_DOMAIN kosong) => link disembunyikan, bukan jadi link mati.
+                'docsUrl' => $this->docsUrl(),
                 'assetAudit' => [
                     'logoHeader' => $logoHeader,
                     'logoFooter' => $logoFooter,

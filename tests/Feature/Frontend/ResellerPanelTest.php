@@ -167,6 +167,9 @@ class ResellerPanelTest extends TestCase
             $this->savedDocsDomain = getenv('DOCS_DOMAIN');
         }
 
+        // Kode membaca config('app.docs_domain'), bukan env() langsung.
+        config(['app.docs_domain' => $value ?? '']);
+
         if ($value === null) {
             config(['app.docs_domain' => '']);
             putenv('DOCS_DOMAIN');

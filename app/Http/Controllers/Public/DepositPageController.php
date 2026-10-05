@@ -21,7 +21,7 @@ class DepositPageController extends Controller
     ): Response|\Illuminate\Contracts\View\View|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\Foundation\Application|RedirectResponse {
         $settings = $siteConfigService->getSettings();
 
-        if (($settings->public_theme ?? PublicThemeRegistry::DEFAULT) === PublicThemeRegistry::DEFAULT) {
+        if (PublicThemeRegistry::rendersLegacyBlade($settings->public_theme)) {
             return $legacyDepositController->create();
         }
 

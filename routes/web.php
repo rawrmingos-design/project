@@ -144,7 +144,21 @@ if ($adminHost !== '') {
 
 if ($docsHost !== '') {
     Route::domain($docsHost)->middleware(['xss', 'sanitize'])->group(function () {
-        Route::get('/', [\App\Http\Controllers\Public\DocsController::class, 'index'])
+        // Catch-all: setiap halaman dan setiap aset docs (termasuk file ber-hash) dilayani
+        // lewat controller ini supaya SEMUANYA melewati gate login. Route lama hanya `GET /`
+        // sehingga aset akan jatuh ke nginx (dan 404, karena dokumen tidak ada di `public/`).
+        //
+        // PENGECUALIAN `id/` & `api/` — WAJIB. Blok ini didaftarkan SEBELUM grup route
+        // aplikasi di bawah, dan Laravel mencocokkan route sesuai urutan pendaftaran. Tanpa
+        // pengecualian ini, `/id/sign-in` di host docs akan ditangkap catch-all, terkena
+        // `auth.message` lagi, dan mengirim user ke sign-in... yang juga tertangkap
+        // catch-all: **redirect loop** dan login tidak pernah bisa diselesaikan.
+        // `api/` dikecualikan supaya endpoint H2H tetap dilayani `routes/api.php`.
+        //
+        // Root sengaja TIDAK di-redirect ke path lain: domain docs langsung menampilkan
+        // halaman utama dokumentasi, dan redirect akan memaksa URL tujuan ikut di-maintain.
+        Route::get('/{any}', [\App\Http\Controllers\Public\DocsController::class, 'serve'])
+            ->where('any', '^(?!(?:id|api)/).*$')
             ->name('docs.index')
             ->middleware('auth.message:Anda harus login terlebih dahulu untuk mengakses dokumentasi API.');
     });

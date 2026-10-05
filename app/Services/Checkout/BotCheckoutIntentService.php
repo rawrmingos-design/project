@@ -337,6 +337,83 @@ class BotCheckoutIntentService
         });
     }
 
+    public function markReconciled(
+        BotCheckoutIntent $intent,
+        bool $orderFound,
+        ?string $orderId = null,
+    ): void {
+        DB::transaction(function () use ($intent, $orderFound, $orderId): void {
+            $locked = BotCheckoutIntent::query()
+                ->whereKey($intent->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            // HANYA status yang menggantung boleh disentuh. Intent yang sudah
+            // completed/cancelled/expired tidak boleh dibangkitkan lagi oleh
+            // proses terjadwal — kalau tidak, command yang jalan berulang bisa
+            // membalik keputusan user.
+            if (
+                ! $locked
+                || $locked->status
+                    !== BotCheckoutIntent::STATUS_REQUIRES_RECONCILIATION
+            ) {
+                return;
+            }
+
+            if ($orderFound) {
+                $locked->forceFill([
+                    'status' => BotCheckoutIntent::STATUS_COMPLETED,
+                    'order_id' => $orderId,
+                    'completed_at' => now(),
+                    'failure_code' => null,
+                ])->save();
+
+                return;
+            }
+
+            // Provider terbukti tidak menghasilkan order: lepas user. Statusnya
+            // `failed_retryable` supaya klaim ulang diizinkan dan layar normal
+            // (kedaluwarsa / mulai ulang) yang berlaku — BUKAN lagi kalimat
+            // "jangan membuat transaksi ulang" yang mengunci permanen.
+            $locked->forceFill([
+                'status' => BotCheckoutIntent::STATUS_FAILED_RETRYABLE,
+                'failure_code' => 'reconciled_no_order',
+            ])->save();
+        });
+    }
+
+    /**
+     * Apakah intent yang menggantung sudah boleh direkonsiliasi?
+     *
+     * Selama jendela tunggu belum lewat kita BELUM tahu apakah provider
+     * sebenarnya sedang memproses request — jadi jangan disentuh.
+     */
+    public function isReconciliationDue(BotCheckoutIntent $intent): bool
+    {
+        $readyAt = $this->reconciliationReadyAt($intent);
+
+        return $readyAt !== null && $readyAt->isPast();
+    }
+
+    public function reconciliationReadyAt(BotCheckoutIntent $intent): ?\Illuminate\Support\Carbon
+    {
+        if ($intent->status !== BotCheckoutIntent::STATUS_REQUIRES_RECONCILIATION) {
+            return null;
+        }
+
+        $dispatchedAt = $intent->provider_dispatched_at
+            ?? $intent->processing_at
+            ?? $intent->updated_at;
+
+        if ($dispatchedAt === null) {
+            return null;
+        }
+
+        $after = max(0, (int) config('bot.reconcile_checkout_after_minutes', 10));
+
+        return $dispatchedAt->copy()->addMinutes($after);
+    }
+
     public function markCompleted(
         BotCheckoutIntent $intent,
         string $orderId,

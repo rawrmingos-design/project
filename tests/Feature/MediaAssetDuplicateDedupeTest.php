@@ -42,7 +42,10 @@ class MediaAssetDuplicateDedupeTest extends TestCase
     {
         $absolutePath = public_path(ltrim($relativePath, '/'));
 
-        File::ensureDirectoryExists(dirname($absolutePath));
+        // `force: true` -> @mkdir, tahan balapan antar proses saat `--parallel`.
+        // `File::ensureDirectoryExists()` memakai mkdir tanpa @ sehingga melempar
+        // "mkdir(): File exists" begitu dua proses membuat direktori yang sama.
+        File::makeDirectory(dirname($absolutePath), 0777, true, true);
         File::put($absolutePath, $contents);
         $this->tempFiles[] = $absolutePath;
 

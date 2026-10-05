@@ -342,9 +342,7 @@ class BotMessageFormatter
             ],
         ];
 
-        $bannerUrl = $this->telegramMenuBannerUrl(BotGatewayCapabilities::forSource(
-            BotGatewayCapabilities::SOURCE_TELEGRAM,
-        ));
+        $bannerUrl = $this->menuBannerUrl();
         if ($bannerUrl !== null) {
             $response['photo_url'] = $bannerUrl;
         }
@@ -353,7 +351,7 @@ class BotMessageFormatter
     }
 
     /**
-     * Layar Menu Utama WhatsApp — perilaku LAMA, tanpa perubahan apa pun.
+     * Layar Menu Utama WhatsApp — susunan tombol DIPERTAHANKAN apa adanya.
      *
      * Dipertahankan utuh karena jalur WhatsApp merakit peta nomornya dari
      * tombol di sini; mengubah susunannya mematikan pemilihan nomor di WA.
@@ -399,7 +397,7 @@ class BotMessageFormatter
             ? __('bot.menu_title') . $this->pageSuffix($pagination) . "\n" . __('bot.menu_pick_category')
             : '🏠 *Menu Utama*' . $this->pageSuffix($pagination) . "\n" . 'Pilih kategori di bawah untuk mulai. 👇';
 
-        return [
+        $response = [
             'text' => $this->storeIntro($isTelegram) . "\n\n" . $menuHeading,
             'buttons' => $buttons,
             'numeric_menu' => [
@@ -407,7 +405,26 @@ class BotMessageFormatter
                 'parent_menu' => null,
                 'page' => $pagination['page'],
             ],
+            // Banner Menu Utama dikirim sebagai SATU pesan gambar ber-caption
+            // (gaya `sendPhoto`+caption Telegram), bukan teks dulu lalu gambar
+            // menyusul — gambar yang menyusul terasa "telat" karena gateway WA
+            // harus mengunduh gambar setelah teks sudah tampil. Flag ini SENGAJA
+            // hanya untuk layar ini: jalur QR pembayaran (QRIS) memakai urutan
+            // teks-lalu-gambar dan sudah terbukti benar, jangan ikut diubah.
+            'image_first' => true,
         ];
+
+        // Banner gambar Menu Utama. Sumbernya SAMA dengan Telegram (satu field
+        // admin, satu guard keberadaan berkas), tapi TETAP dirakit di sini
+        // supaya jalur WA tidak bergantung pada `telegramCategoryList()` —
+        // dua layar itu sengaja dipisah karena peta nomor WA dibangun dari
+        // tombol, bukan dari teks.
+        $bannerUrl = $this->menuBannerUrl();
+        if ($bannerUrl !== null) {
+            $response['photo_url'] = $bannerUrl;
+        }
+
+        return $response;
     }
 
     /**
@@ -435,28 +452,27 @@ class BotMessageFormatter
     }
 
     /**
-     * URL gambar banner untuk layar Menu Utama bot Telegram. `null` = jangan
-     * kirim gambar.
+     * URL gambar banner untuk layar Menu Utama bot — dipakai KEDUA channel.
+     * `null` = jangan kirim gambar.
      *
-     * Dua alasan method ini ada, dan keduanya bukan gaya penulisan:
+     * Dulu method ini mengunci banner ke Telegram saja, dan gate-nya sengaja
+     * ditaruh di sini karena `formatCategories()` method DWI-CHANNEL sedangkan
+     * `photo_url` dibaca KETIGA adapter (`TelegramAdapter`, `FonnteAdapter`,
+     * `OpenWaAdapter`). Gate itu DILEPAS atas permintaan pemilik produk: gambar
+     * yang sudah diunggah admin hanya muncul di Telegram, sehingga Menu Utama
+     * WhatsApp tampil polos tanpa gambar padahal jalur kirim gambarnya
+     * (`send-image`) sudah terbukti jalan untuk QRIS.
      *
-     * 1. **Gate Telegram wajib di SINI.** `photo_url` dibaca KETIGA adapter
-     *    (`TelegramAdapter`, `FonnteAdapter`, `OpenWaAdapter`), sedangkan
-     *    `formatCategories()` dipakai bersama Telegram dan WhatsApp. Tanpa gate
-     *    ini, banner ikut terkirim ke WhatsApp.
-     *
-     * 2. **Hanya kirim kalau berkasnya BENAR-BENAR ada.** Telegram menolak
-     *    SELURUH pesan kalau URL gambarnya tidak bisa diambil — jadi banner yang
-     *    hilang akan membuat menu user lenyap, bukan sekadar tanpa gambar.
-     *    `existingUrl()` mengembalikan null untuk berkas yang tidak ada, dan
-     *    menu tetap terkirim sebagai teks.
+     * Yang TETAP dipertahankan adalah guard kedua, dan alasannya masih berlaku
+     * di kedua channel: **hanya kirim kalau berkasnya BENAR-BENAR ada.**
+     * Telegram menolak SELURUH pesan kalau URL gambarnya tidak bisa diambil —
+     * jadi banner yang hilang membuat menu user lenyap, bukan sekadar tanpa
+     * gambar. Karena itu `photo_url` hanya diisi setelah `existingUrl()`
+     * membuktikan berkasnya ada; path apa pun yang tersimpan di DB tidak
+     * otomatis dipercaya.
      */
-    private function telegramMenuBannerUrl(?BotGatewayCapabilities $capabilities): ?string
+    private function menuBannerUrl(): ?string
     {
-        if ($capabilities?->source() !== BotGatewayCapabilities::SOURCE_TELEGRAM) {
-            return null;
-        }
-
         $path = \App\Models\SettingWeb::query()->value('bot_menu_banner');
 
         if (! is_string($path) || trim($path) === '') {
@@ -2332,13 +2348,26 @@ class BotMessageFormatter
         // Produk seperti Alight Motion meminta NOMOR WHATSAPP, bukan User ID.
         // Label & placeholder adalah satu-satunya penanda yang tersedia, jadi
         // deteksinya dari situ — sama seperti jalur email di atas.
+        $haystack = strtolower($userLabel . ' ' . $userPlaceholder);
+        $isWhatsapp = ! $isEmail && str_contains($haystack, 'whatsapp');
+
+        // Produk yang tujuannya NOMOR TELEPON: pulsa/kuota (Telkomsel, XL,
+        // Indosat) dan app berbasis nomor (Getcontact). Sebelumnya ketiganya
+        // jatuh ke cabang UID — layarnya memandu "Format: `UID`" +
+        // "Contoh: `12345`" untuk kolom nomor HP, dan nomor cacat lolos ke
+        // provider (order prod: `uid=081399910772`, 12 digit).
         //
-        // ⚠️ JANGAN melebarkan deteksi ini ke kata "nomor"/"telepon": produk
-        // pulsa (XL/Indosat/Telkomsel) juga berlabel begitu TAPI nomornya
-        // diteruskan apa adanya ke provider sebagai `customer_no`, sehingga
-        // menormalkannya ke +62 justru merusak order yang sah.
-        $isWhatsapp = ! $isEmail
-            && str_contains(strtolower($userLabel . ' ' . $userPlaceholder), 'whatsapp');
+        // ⚠️ Dua batas yang SENGAJA dipasang:
+        //  - Hanya LABEL/PLACEHOLDER yang jadi penanda, BUKAN `type`. Field
+        //    game berlabel `ID` juga bertipe `number`, jadi memakai tipe akan
+        //    menyeret seluruh katalog game ke kelas nomor.
+        //  - `wa`/`whatsapp` sudah ditangani cabang di atas; di sini yang
+        //    dicari kata nomor/telepon/telp/phone/hp.
+        // Prefix TIDAK ditulis ulang ke +62 (lihat catatan di
+        // `BotCommandHandler::handleUnknownInput()`).
+        $isPhone = ! $isEmail
+            && ! $isWhatsapp
+            && preg_match('/\b(?:nomor|telepon|telp|phone|hp)\b/', $haystack) === 1;
         $lines = [];
 
         if (! $requiresZoneId) {
@@ -2347,33 +2376,38 @@ class BotMessageFormatter
                     ? __(match (true) {
                         $isEmail => 'bot.checkout_input_title_email',
                         $isWhatsapp => 'bot.checkout_input_title_whatsapp',
+                        $isPhone => 'bot.checkout_input_title_phone',
                         default => 'bot.checkout_input_title',
                     }, ['label' => $userLabelText])
                     : match (true) {
                         $isEmail => '📧',
                         $isWhatsapp => '📱',
+                        $isPhone => '📞',
                         default => '🎮',
                     } . ' *Masukkan ' . $userLabelText . '*',
                 '',
-                // 'Format: `UID`' dan 'Format: `email@contoh.com`' identik di
-                // kedua bahasa — dibiarkan literal supaya parity guard tetap
-                // bermakna. Contohnya yang beda, itu yang diterjemahkan.
-                // Nomor WhatsApp selalu format internasional (+62) di kedua
-                // bahasa, jadi baris Format-nya pun netral bahasa.
+                // 'Format: …' identik di kedua bahasa — dibiarkan literal
+                // supaya parity guard tetap bermakna. Contohnya yang beda.
+                // Nomor WhatsApp selalu format internasional (+62); nomor
+                // TELEPON justru bentuk lokal, karena itulah yang diteruskan
+                // ke provider (placeholder data pun `0857******`).
                 match (true) {
                     $isEmail => 'Format: `email@contoh.com`',
                     $isWhatsapp => 'Format: `+62xxxxxxxxxx`',
+                    $isPhone => 'Format: `08xxxxxxxxxx`',
                     default => 'Format: `UID`',
                 },
                 $isTelegram
                     ? __(match (true) {
                         $isEmail => 'bot.checkout_input_example_email',
                         $isWhatsapp => 'bot.checkout_input_example_whatsapp',
+                        $isPhone => 'bot.checkout_input_example_phone',
                         default => 'bot.checkout_input_example_uid',
                     })
                     : match (true) {
                         $isEmail => 'Contoh: `nama@email.com`',
                         $isWhatsapp => 'Contoh: `+628123456789`',
+                        $isPhone => 'Contoh: `08123456789`',
                         default => 'Contoh: `12345`',
                     },
             ];

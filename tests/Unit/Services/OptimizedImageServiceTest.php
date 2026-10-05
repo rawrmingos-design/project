@@ -24,7 +24,7 @@ class OptimizedImageServiceTest extends TestCase
         $relative = 'assets/test-optimized/source.png';
         $absolute = public_path($relative);
 
-        File::ensureDirectoryExists(dirname($absolute));
+        File::makeDirectory(dirname($absolute), 0777, true, true); // force: @mkdir, tahan race --parallel
 
         $image = imagecreatetruecolor(400, 200);
         $color = imagecolorallocate($image, 255, 120, 20);

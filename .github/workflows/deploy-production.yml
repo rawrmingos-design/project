@@ -29,6 +29,9 @@ concurrency:
 env:
   # Nama image Docker (pakai GitHub Container Registry)
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/laravel-topup
+  # Base URL API yang dicetak di dokumentasi (docs-api). Dipakai sebagai build arg
+  # supaya contoh-contoh di docs menunjuk host yang benar untuk environment ini.
+  DOCS_API_BASE_URL: https://istanatopup.com/api/v1
 
 jobs:
 
@@ -107,6 +110,25 @@ jobs:
 
       - name: 🗃️ Run migrations
         run: php artisan migrate --force
+
+      # Test docs memeriksa hasil build NYATA di `resources/docs-api/` (di-gitignore,
+      # jadi harus di-build di sini; job image tetap build sendiri untuk artefak rilis).
+      # Tanpa langkah ini, seluruh test docs gagal di CI meski hijau di lokal.
+      - name: 🟢 Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: docs-api/package-lock.json
+
+      - name: 📖 Build API docs
+        run: |
+          npm ci --prefix docs-api --legacy-peer-deps
+          npm run build --prefix docs-api
+          rm -rf resources/docs-api
+          cp -r docs-api/build resources/docs-api
+        env:
+          DOCS_API_BASE_URL: https://istanatopup.com/api/v1
 
       - name: ✅ Run Tests (Pest)
         run: php artisan test --parallel
@@ -219,6 +241,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DOCS_API_BASE_URL=${{ env.DOCS_API_BASE_URL }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

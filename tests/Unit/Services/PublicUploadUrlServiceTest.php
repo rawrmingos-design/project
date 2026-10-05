@@ -23,7 +23,7 @@ class PublicUploadUrlServiceTest extends TestCase
         ]);
 
         $this->service = app(PublicUploadUrlService::class);
-        File::ensureDirectoryExists(public_path('assets/logo'));
+        File::makeDirectory(public_path('assets/logo'), 0777, true, true); // force: @mkdir, tahan race --parallel
     }
 
     protected function tearDown(): void

@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
 use Carbon\Carbon;
 
 class TrackVisitors
@@ -22,6 +23,8 @@ class TrackVisitors
             $visitors[$date] = [];
         }
 
+        $response = $next($request);
+
         if (!$request->hasCookie('visited_' . $date)) {
             if (!in_array($visitorIdentifier, $visitors[$date])) {
                 $visitors[$date][] = $visitorIdentifier;
@@ -29,10 +32,16 @@ class TrackVisitors
 
             Cache::put('visitors', $visitors, now()->addDays(1));
 
-            $cookie = cookie('visited_' . $date, true, 1440); 
-            return $next($request)->cookie($cookie);
+            // Lewat `Cookie::queue`, BUKAN `$response->cookie(...)`.
+            //
+            // `->cookie()` hanya ada di `Illuminate\Http\Response`; response lain
+            // (mis. `BinaryFileResponse` milik penyaji docs, atau `StreamedResponse`)
+            // tidak punya method itu → `Call to undefined method` = 500. Cookie yang
+            // di-queue tetap terpasang karena `AddQueuedCookiesToResponse` berada di
+            // stack yang sama dan berjalan SETELAH middleware ini saat response naik.
+            Cookie::queue(cookie('visited_' . $date, true, 1440));
         }
 
-        return $next($request);
+        return $response;
     }
 }

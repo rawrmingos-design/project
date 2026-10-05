@@ -60,7 +60,7 @@ class LogTriageReadsRealDailyLogTest extends TestCase
     {
         $path = storage_path('logs/laravel-2999-12-31.log');
 
-        File::ensureDirectoryExists(dirname($path));
+        File::makeDirectory(dirname($path), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($path, "[2999-12-31 10:00:00] local.WARNING: baris uji\n");
 
         try {
@@ -81,7 +81,7 @@ class LogTriageReadsRealDailyLogTest extends TestCase
         $path = storage_path('logs/laravel-triage-fixture.log');
         $now = now()->format('Y-m-d H:i:s');
 
-        File::ensureDirectoryExists(dirname($path));
+        File::makeDirectory(dirname($path), 0777, true, true); // force: @mkdir, tahan race --parallel
         File::put($path, implode("\n", [
             // INFO: memuat frasa yang cocok pola "credentials ... missing".
             "[{$now}] local.INFO: CheckProviderBalanceJob: ApiGames credentials are missing.",
