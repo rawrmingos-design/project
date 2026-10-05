@@ -17,15 +17,20 @@ class LeaderboardController extends Controller
         $accountExpression = "COALESCE(NULLIF(TRIM(pembelians.nickname), ''), NULLIF(TRIM(pembelians.user_id), ''), NULLIF(TRIM(pembelians.username), ''))";
 
         $baseQuery = DB::table('pembelians')
+            ->leftJoin('users', 'pembelians.username', '=', 'users.username')
             ->select(
                 DB::raw($accountExpression . ' as account_identifier'),
                 DB::raw('COUNT(pembelians.id) as transaction_count'),
                 DB::raw('SUM(pembelians.harga) as total_harga'),
                 DB::raw('MAX(pembelians.created_at) as last_purchase_at')
             )
-            ->where('pembelians.status', 'Sukses')
+            ->whereIn(DB::raw('LOWER(pembelians.status)'), ['sukses', 'success'])
             ->whereRaw($accountExpression . ' IS NOT NULL')
             ->whereNotIn(DB::raw('LOWER(' . $accountExpression . ')'), ['customer', 'guest', 'anonim', '-'])
+            ->where(function ($roleQuery) {
+                $roleQuery->whereNull('users.role')
+                    ->orWhereRaw("LOWER(users.role) <> 'admin'");
+            })
             ->groupBy(DB::raw($accountExpression))
             ->orderBy('total_harga', 'desc');
 
