@@ -493,6 +493,7 @@
 
 
       
+    @stack('head_meta')
     </head>
    
 @yield('custom_style')
