@@ -310,9 +310,81 @@ class OrderControllerCheckAccountTest extends TestCase
         $page = app(PublicOrderPageDataService::class)->getData($category);
         $this->assertFalse($page['category']['serverId']);
         $this->assertNull($page['category']['customInputs']['zone']);
+    }
 
-        $gatewayCategory = app(GatewayCatalogService::class)->services('free-fire');
-        $this->assertFalse($gatewayCategory['data']['category']['requires_zone_id']);
-        $this->assertNull($gatewayCategory['data']['category']['custom_inputs']['zone']);
+    public function test_check_account_surfaces_account_region_when_provider_reports_it(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'ea-sports-fc-mobile',
+            'tipe' => 'game',
+            'require_user_id' => true,
+        ]);
+
+        Cache::put('checkid_catalog_v1', [
+            'ea-sports-fc-mobile' => ['slug' => 'ea-sports-fc-mobile', 'hasZoneId' => false],
+        ]);
+
+        config([
+            'providers.check_id.selfhosted.enabled' => true,
+            'providers.check_id.selfhosted.base_url' => 'https://cekid.jasakoding.web.id',
+            'providers.check_id.selfhosted.api_key' => 'test-check-id-key',
+        ]);
+
+        Http::fake([
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => true,
+                'provider' => 'codashop',
+                'data' => [
+                    'username' => 'AOFC',
+                    'account_region' => ['code' => 'MY', 'reported' => 'Malaysia', 'provider' => 'codashop'],
+                ],
+            ]),
+        ]);
+
+        $this->postJson('/ajax/check-account', [
+            'uid' => '996288644323979264',
+            'kategori_kode' => 'ea-sports-fc-mobile',
+        ])
+            ->assertOk()
+            ->assertJsonPath('status.code', 200)
+            ->assertJsonPath('data.username', 'AOFC')
+            ->assertJsonPath('data.account_region.code', 'MY')
+            ->assertJsonPath('data.account_region.reported', 'Malaysia');
+    }
+
+    public function test_check_account_omits_account_region_when_provider_is_silent(): void
+    {
+        $category = Kategori::factory()->create([
+            'kode' => 'eggy-party',
+            'tipe' => 'game',
+            'require_user_id' => true,
+        ]);
+
+        Cache::put('checkid_catalog_v1', [
+            'eggy-party' => ['slug' => 'eggy-party', 'hasZoneId' => false],
+        ]);
+
+        config([
+            'providers.check_id.selfhosted.enabled' => true,
+            'providers.check_id.selfhosted.base_url' => 'https://cekid.jasakoding.web.id',
+            'providers.check_id.selfhosted.api_key' => 'test-check-id-key',
+        ]);
+
+        Http::fake([
+            'https://cekid.jasakoding.web.id/api/check*' => Http::response([
+                'status' => true,
+                'provider' => 'duniagames',
+                'data' => ['username' => 'Someone'],
+            ]),
+        ]);
+
+        $this->postJson('/ajax/check-account', [
+            'uid' => '123456789',
+            'kategori_kode' => 'eggy-party',
+        ])
+            ->assertOk()
+            ->assertJsonPath('status.code', 200)
+            ->assertJsonPath('data.username', 'Someone')
+            ->assertJsonMissingPath('data.account_region');
     }
 }

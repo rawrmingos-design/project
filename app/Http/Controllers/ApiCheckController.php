@@ -155,6 +155,9 @@ class ApiCheckController extends Controller
         if ($this->isSuccessfulResult($result)) {
             $nickname = $result['nickname'] ?? null;
             $source   = $result['source'] ?? 'unknown';
+            $accountRegion = is_array($result['account_region'] ?? null)
+                ? $result['account_region']
+                : null;
 
             $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, $nickname, $source);
 
@@ -168,6 +171,13 @@ class ApiCheckController extends Controller
 
             if (! empty($zone_id)) {
                 $data['data']['zone_id'] = $zone_id;
+            }
+
+            // Sinyal region akun (best-effort, hanya kalau provider melaporkan).
+            // Dipakai storefront untuk memblokir order ID-only (mis. Digiflazz)
+            // saat akun terdeteksi di luar Indonesia.
+            if ($accountRegion !== null) {
+                $data['data']['account_region'] = $accountRegion;
             }
 
             return $data;
@@ -554,18 +564,54 @@ class ApiCheckController extends Controller
             $provider = trim((string) ($decoded['provider'] ?? ''));
             $source = $provider !== '' ? 'selfhosted:' . $provider : 'selfhosted';
 
-            return $this->successfulResult($nickname, $source);
+            return $this->successfulResult(
+                $nickname,
+                $source,
+                $this->normalizeAccountRegion($decoded['data']['account_region'] ?? null),
+            );
         }
 
         return $this->failedResult($decoded['message'] ?? 'User not found on self-hosted check ID API.');
     }
 
-    private function successfulResult(string $nickname, string $source): array
+    private function successfulResult(string $nickname, string $source, ?array $accountRegion = null): array
     {
-        return [
+        $result = [
             'status'   => true,
             'nickname' => $nickname,
             'source'   => $source,
+        ];
+
+        if (is_array($accountRegion) && ! empty($accountRegion['code'])) {
+            $result['account_region'] = $accountRegion;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Normalisasi sinyal region akun dari cekid selfhosted.
+     * Bentuk: { code: "MY", reported: "Malaysia", provider: "codashop" }.
+     * Provider yang tidak melaporkan → null (jangan mengarang region).
+     */
+    private function normalizeAccountRegion(mixed $region): ?array
+    {
+        if (! is_array($region)) {
+            return null;
+        }
+
+        $code = strtoupper(trim((string) ($region['code'] ?? '')));
+        if ($code === '') {
+            return null;
+        }
+
+        $reported = trim((string) ($region['reported'] ?? ''));
+        $provider = trim((string) ($region['provider'] ?? ''));
+
+        return [
+            'code'     => $code,
+            'reported' => $reported !== '' ? $reported : null,
+            'provider' => $provider !== '' ? $provider : null,
         ];
     }
 

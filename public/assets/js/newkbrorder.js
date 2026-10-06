@@ -477,6 +477,7 @@ $(".product-list").off("click").on("click", (function () {
     } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
     if (!h && !y) return void showToast("Silahkan isi nomor WhatsApp atau email terlebih dahulu");
     if (y && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
+    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Akun game ini terdeteksi di luar Indonesia (" + (window.__accountRegion.reported || window.__accountRegion.code) + "). Pembelian tidak dapat dilanjutkan.", "error");
     $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",
@@ -748,6 +749,48 @@ $(document).ready(function () {
 
     function resetNicknameDisplay() {
         $("[id='nickname-display']").text("").removeClass("text-gray-500 text-green-500 text-red-500").removeAttr("data-username");
+        window.__accountRegion = null;
+    }
+
+    function escapeAccountHtml(value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    // Region akun = best-effort sinyal dari provider (mis. codashop).
+    // Kalau provider tidak melaporkan, region tetap "unknown" — JANGAN blokir.
+    function resolveAccountRegion(accountRegion) {
+        if (!accountRegion || !accountRegion.code) {
+            return { known: false, blocked: false };
+        }
+        var code = String(accountRegion.code).toUpperCase();
+        if (code === "" || code === "UNKNOWN") {
+            return { known: false, blocked: false };
+        }
+        return {
+            known: true,
+            code: code,
+            isId: code === "ID",
+            reported: accountRegion.reported || code,
+            blocked: code !== "ID"
+        };
+    }
+
+    function renderAccountDisplay(username, region) {
+        var $display = $("[id='nickname-display']");
+        var safeName = escapeAccountHtml(username);
+        $display.removeClass("text-gray-500 text-green-500 text-red-500").attr("data-username", username);
+
+        if (region && region.known && !region.isId) {
+            $display
+                .html("Valid: " + safeName + " \u00b7 " + escapeAccountHtml(region.reported) + " \u26a0\ufe0f Akun ini terdeteksi di luar Indonesia \u2014 pembelian tidak dapat dilanjutkan.")
+                .addClass("text-red-500");
+            return;
+        }
+
+        var suffix = region && region.known ? " \u00b7 " + escapeAccountHtml(region.reported) + " \ud83c\uddee\ud83c\udde9" : "";
+        $display.html("Valid: " + safeName + suffix).addClass("text-green-500");
     }
 
     function canCheckAccount(kategoriTipe) {
@@ -788,12 +831,15 @@ $(document).ready(function () {
                             resetNicknameDisplay();
                         } else if (response.status && response.status.code === 200) {
                             var checkedUsername = response.data.username || "";
-                            $("[id='nickname-display']").html("Valid: " + checkedUsername).attr("data-username", checkedUsername).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                            var region = resolveAccountRegion(response.data.account_region);
+                            window.__accountRegion = region;
+                            renderAccountDisplay(checkedUsername, region);
                             window.dispatchEvent(new CustomEvent("order:account-checked", {
                                 detail: {
                                     uid: uid,
                                     zone: zone,
-                                    nickname: checkedUsername
+                                    nickname: checkedUsername,
+                                    accountRegion: region.known ? region.code : null
                                 }
                             }));
                         } else {
