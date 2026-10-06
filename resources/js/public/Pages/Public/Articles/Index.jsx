@@ -1,6 +1,13 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import PublicLayout from '../../../Layouts/PublicLayout';
+
+const DEFAULT_APP_NAME = 'Game Top-Up';
+
+function useEditorialBrand() {
+    const { siteConfig } = usePage().props;
+    return siteConfig?.appName || siteConfig?.name || DEFAULT_APP_NAME;
+}
 
 function formatDateLabel(value) {
     if (!value) {
@@ -47,6 +54,7 @@ function paginationPages(currentPage, lastPage) {
 }
 
 export default function ArticlesIndex({ meta, featured, articles = [], pagination }) {
+    const brand = useEditorialBrand();
     return (
         <PublicLayout meta={meta} mainClassName="public-main--hero-bleed">
             <section className="public-article-page public-article-page--index">
@@ -81,8 +89,8 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                             </h2>
                             <p>{featured.metaDescription || featured.excerpt}</p>
                             <div className="public-article-hero__meta">
-                                <span>Ditulis oleh Tim Editorial IstanaTopup</span>
-                                <span>Ditinjau oleh Tim Operasional IstanaTopup</span>
+                                <span>Ditulis oleh Tim Editorial {brand}</span>
+                                <span>Ditinjau oleh Tim Operasional {brand}</span>
                                 <span>Diperbarui: {featured.updatedAtLabel || featured.publishedAtLabel || formatDateLabel(featured.publishedAt)}</span>
                             </div>
                         </div>

@@ -167,6 +167,39 @@ class ArticleLayoutParityTest extends TestCase
         );
     }
 
+    /**
+     * Kredit editorial (penulis/peninjau) mengikuti APP_NAME, bukan hardcode.
+     * Jalur React menerimanya lewat shared prop `siteConfig.appName`.
+     */
+    public function test_inertia_article_page_exposes_editorial_brand_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        $article = $this->createArticle(['slug' => 'brand-dynamic']);
+
+        $this->get("/id/artikel/{$article->slug}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Articles/Show')
+                ->where('siteConfig.appName', 'Nama Toko Dinamis')
+            );
+    }
+
+    /**
+     * Jalur legacy Blade merender kredit editorial memakai helper yang sama,
+     * jadi mengganti APP_NAME mengganti teks tanpa menyentuh view.
+     */
+    public function test_legacy_article_view_renders_editorial_credit_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        SettingWeb::query()->whereKey(1)->update(['public_theme' => 'default']);
+        $article = $this->createArticle(['slug' => 'legacy-brand-dynamic']);
+
+        $html = $this->get("/id/artikel/{$article->slug}")->assertOk()->getContent();
+
+        $this->assertStringContainsString('Ditulis oleh Tim Editorial Nama Toko Dinamis', $html);
+        $this->assertStringNotContainsString('Tim Editorial IstanaTopup', $html);
+    }
+
     private function createArticle(array $overrides = []): Artikel
     {
         return Artikel::query()->create(array_merge([

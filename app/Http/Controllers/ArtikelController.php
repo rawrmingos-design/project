@@ -93,7 +93,7 @@ class ArtikelController extends Controller
             'image' => [$thumbnail],
             'author' => [
                 '@type' => 'Organization',
-                'name' => 'Tim Editorial IstanaTopup',
+                'name' => 'Tim Editorial ' . \App\Support\EditorialAttribution::brand(),
             ],
             'publisher' => [
                 '@type' => 'Organization',

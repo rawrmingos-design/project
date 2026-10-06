@@ -517,7 +517,7 @@
                         <div class="public-article-detail-card__meta">
                             <span><i class="fa fa-calendar-o" aria-hidden="true"></i>{{ $article->created_at->format('d F Y') }}</span>
                             <span><i class="fa fa-eye" aria-hidden="true"></i>{{ $article->views }} Views</span>
-                            <span><i class="fa fa-user" aria-hidden="true"></i>Ditulis oleh Tim Editorial IstanaTopup</span>
+                            <span><i class="fa fa-user" aria-hidden="true"></i>{{ \App\Support\EditorialAttribution::author() }}</span>
                         </div>
                     </header>
 

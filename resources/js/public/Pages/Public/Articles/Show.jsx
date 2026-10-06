@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import PublicLayout from '../../../Layouts/PublicLayout';
+
+const DEFAULT_APP_NAME = 'Game Top-Up';
+
+function useEditorialBrand() {
+    const { siteConfig } = usePage().props;
+    return siteConfig?.appName || siteConfig?.name || DEFAULT_APP_NAME;
+}
 
 const shareIcons = {
     facebook: <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M14.2 8.02h2.25V4.24A29.3 29.3 0 0 0 13.18 4c-3.23 0-5.44 1.98-5.44 5.6v3.13H4.1v4.23h3.64V24h4.45v-7.04h3.48l.55-4.23h-4.03V10c0-1.22.34-1.98 2.01-1.98Z" /></svg>,
@@ -12,9 +19,10 @@ const shareIcons = {
 };
 
 function ArticleMeta({ article, modern = false }) {
+    const brand = useEditorialBrand();
     return (
         <div className={`public-article-detail-card__meta${modern ? ' public-article-modern__meta' : ''}`}>
-            <span>Ditulis oleh Tim Editorial IstanaTopup</span>
+            <span>Ditulis oleh Tim Editorial {brand}</span>
             <span>Diperbarui: {article.updatedAtLabel || article.publishedAtLabel}</span>
         </div>
     );
