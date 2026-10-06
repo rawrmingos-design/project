@@ -79,7 +79,7 @@ export default function Leaderboard({ meta, leaderboards, companyName }) {
                                     <div key={`${period}-row-${index}`} className="public-leaderboard__table-row">
                                         <span className="public-leaderboard__table-rank">{index + 4}</span>
                                         <strong>{item.username}</strong>
-                                        <span>—</span>
+                                        <span>{item.count ? `${item.count}x` : '—'}</span>
                                         <strong className="public-leaderboard__table-total">{formatCurrency(item.total)}</strong>
                                     </div>
                                 ))}

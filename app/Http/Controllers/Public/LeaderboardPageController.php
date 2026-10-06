@@ -26,7 +26,6 @@ class LeaderboardPageController extends Controller
         $daily = $this->getTopPurchasesByRange('daily');
         $weekly = $this->getTopPurchasesByRange('weekly');
         $monthly = $this->getTopPurchasesByRange('monthly');
-
         return Inertia::render('Public/Leaderboard', [
             'companyName' => mb_strtoupper((string) $settings->judul_web),
             'leaderboards' => [
@@ -48,12 +47,10 @@ class LeaderboardPageController extends Controller
     {
         $rows = $this->buildLeaderboardQuery($range)->get();
 
+        // Kalau periode berjalan belum ada transaksi sukses, tampilkan agregat
+        // semua waktu (tetap hanya transaksi sukses & tetap tanpa role Admin).
         if ($rows->isEmpty()) {
             $rows = $this->buildLeaderboardQuery(null)->get();
-        }
-
-        if ($rows->isEmpty()) {
-            $rows = $this->buildLeaderboardQuery(null, false)->get();
         }
 
         return $rows
@@ -62,6 +59,7 @@ class LeaderboardPageController extends Controller
 
                 return [
                     'username' => $this->maskUsername($username),
+                    'count' => (int) ($item->transaction_count ?? 0),
                     'total' => (int) round((float) ($item->total_harga ?? 0)),
                 ];
             })
@@ -69,28 +67,35 @@ class LeaderboardPageController extends Controller
             ->all();
     }
 
-    private function buildLeaderboardQuery(?string $range, bool $filterActiveStatus = true)
+    /**
+     * Query dasar leaderboard.
+     *
+     * Dua aturan produk yang ditegakkan di sini:
+     * 1. Hanya transaksi berstatus sukses (`Sukses`/`Success`, case-insensitive).
+     *    Pending/Expired/Gagal tidak pernah dihitung sebagai "total transaksi".
+     * 2. Akun internal role `Admin` tidak ikut kompetisi. Pembeli tanpa baris
+     *    `users` (data lama) tetap boleh tampil — `users.role` NULL berarti bukan
+     *    Admin, bukan alasan untuk disembunyikan.
+     */
+    private function buildLeaderboardQuery(?string $range)
     {
         $query = DB::table('pembelians')
             ->leftJoin('users', 'pembelians.username', '=', 'users.username')
             ->select(
                 DB::raw("COALESCE(NULLIF(TRIM(users.name), ''), NULLIF(TRIM(pembelians.username), ''), 'User') as username"),
+                DB::raw('COUNT(pembelians.id) as transaction_count'),
                 DB::raw('SUM(pembelians.harga) as total_harga')
             )
             ->whereNotNull('pembelians.username')
-            ->whereRaw("TRIM(pembelians.username) <> ''");
-
-        if ($filterActiveStatus) {
-            $query->whereIn(DB::raw('LOWER(pembelians.status)'), [
-                'pending',
-                'proses',
-                'processing',
+            ->whereRaw("TRIM(pembelians.username) <> ''")
+            ->where(function ($roleQuery) {
+                $roleQuery->whereNull('users.role')
+                    ->orWhereRaw("LOWER(users.role) <> 'admin'");
+            })
+            ->whereIn(DB::raw('LOWER(pembelians.status)'), [
                 'sukses',
                 'success',
-                'paid',
-                'lunas',
             ]);
-        }
 
         if ($range === 'daily') {
             $query->whereDate('pembelians.created_at', Carbon::today());

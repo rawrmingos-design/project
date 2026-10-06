@@ -32,11 +32,13 @@ class LeaderboardService
             )
             ->whereNotNull('pembelians.username')
             ->whereRaw("TRIM(pembelians.username) <> ''")
+            ->where(function ($roleQuery) {
+                $roleQuery->whereNull('users.role')
+                    ->orWhereRaw("LOWER(users.role) <> 'admin'");
+            })
             ->whereIn(DB::raw('LOWER(pembelians.status)'), [
                 'sukses',
                 'success',
-                'paid',
-                'lunas',
             ]);
 
         if ($range === 'today') {
