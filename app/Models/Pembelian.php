@@ -323,6 +323,23 @@ class Pembelian extends Model
         return $this->invoice_version > 0 && $this->normalizedResetStatus() !== 'none';
     }
 
+    /**
+     * Attempt reset sudah DIBUAT tapi BELUM dikirim ke provider.
+     *
+     * Aksi "Reset Invoice" hanya menyiapkan attempt (`reset_status = 'requested'`);
+     * pengiriman ke provider dilakukan admin lewat aksi "Send Callback". Selama jeda
+     * itu order menggantung tanpa terkirim, jadi UI perlu penanda yang jelas supaya
+     * admin tidak lupa mengirimnya.
+     *
+     * Catatan: `hasActiveAttemptInFlight()` juga bernilai true untuk 'requested' —
+     * itulah yang mencegah reset ganda selama attempt belum dikirim.
+     */
+    public function isAwaitingManualSend(): bool
+    {
+        return (int) $this->invoice_version > 0
+            && $this->normalizedResetStatus() === 'requested';
+    }
+
     public function canEditResetRouting(): bool
     {
         return $this->isResetEditable() && $this->normalizedResetStatus() === 'requested';

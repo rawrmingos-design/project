@@ -160,6 +160,17 @@ class ViewPembelian extends ViewRecord
                             ->state(fn (): string => $this->getDispatchStateLabel())
                             ->badge()
                             ->color(fn (): string => $this->getDispatchStateBadgeColor()),
+                        TextEntry::make('awaiting_manual_send')
+                            ->label('Pengiriman ke Provider')
+                            ->state(fn (): string => $this->record->isAwaitingManualSend()
+                                ? 'MENUNGGU "Send Callback"'
+                                : 'Sudah dikirim')
+                            ->badge()
+                            ->color(fn (): string => $this->record->isAwaitingManualSend() ? 'warning' : 'success')
+                            ->visible(fn (): bool => (int) $this->record->invoice_version > 0)
+                            ->helperText(fn (): ?string => $this->record->isAwaitingManualSend()
+                                ? 'Attempt ' . $this->record->display_order_id . ' BELUM dikirim ke provider. Periksa ID/zone lalu klik "Send Callback".'
+                                : null),
                         TextEntry::make('reset_reason')
                             ->label('Reset Reason')
                             ->default('N/A'),
@@ -323,8 +334,8 @@ class ViewPembelian extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('Reset Invoice')
                 ->modalDescription(fn (): string => count($this->providerSelectOptions) === 0
-                    ? 'Buat percobaan ulang untuk order ini. Order akan dikirim ulang ke provider saat ini.'
-                    : 'Buat percobaan ulang untuk order ini. Provider baru opsional, kosongkan jika tetap memakai provider saat ini.')
+                    ? 'Buat attempt baru untuk order ini. Attempt BELUM dikirim ke provider — periksa ID/zone lalu klik "Send Callback" untuk mengirim.'
+                    : 'Buat attempt baru untuk order ini. Provider baru opsional, kosongkan jika tetap memakai provider saat ini. Attempt BELUM dikirim ke provider — klik "Send Callback" untuk mengirim.')
                 ->form([
                     TextEntry::make('current_provider')
                         ->label('Provider Saat Ini')
@@ -369,13 +380,22 @@ class ViewPembelian extends ViewRecord
                             $data['reason'] ?? null,
                         );
 
-                        SendPembelianToProviderJob::dispatch($this->record->getKey(), Auth::id(), 'auto');
-                        ProviderDispatchTracker::markQueued($this->record->getKey());
-
+                        // SENGAJA TIDAK mengirim order ke provider di sini.
+                        //
+                        // Reset hanya MENYIAPKAN attempt baru (invoice_version + 1, sehingga
+                        // display_order_id menjadi <order_id>_001 dst). Pengiriman dilakukan
+                        // admin lewat aksi "Send Callback" SETELAH memeriksa/mengoreksi ID game,
+                        // zone, dan provider attempt ini.
+                        //
+                        // Auto-dispatch di sini membuat order meluncur ke provider sebelum
+                        // sempat dikoreksi — provider menerima invoice baru bernomor _001 yang
+                        // belum diverifikasi — dan membuat aksi "Edit Reset Routing" tidak
+                        // berguna karena jendelanya (reset_status masih 'requested') balapan
+                        // dengan job yang langsung jalan.
                         Notification::make()
-                            ->title('Invoice reset queued successfully')
-                            ->body('Display invoice aktif berubah ke ' . $this->record->display_order_id . ' dan siap dikirim ke provider ' . $this->getCurrentProviderLabel() . '.')
-                            ->success()
+                            ->title('Invoice reset siap dikirim')
+                            ->body('Attempt baru ' . $this->record->display_order_id . ' sudah dibuat dan BELUM dikirim ke provider. Periksa ID/zone lalu klik "Send Callback" untuk mengirim ke ' . $this->getCurrentProviderLabel() . '.')
+                            ->warning()
                             ->send();
                     } catch (DomainException $exception) {
                         Notification::make()
