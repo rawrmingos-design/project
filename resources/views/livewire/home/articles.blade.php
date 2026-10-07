@@ -75,10 +75,11 @@
     @media (min-width: 1024px) { .gj-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
     /* Card Styles */
-    .gj-card { 
+    .gj-card {
         background-color: #111116; border: 1px solid rgba(255,255,255,0.05); border-radius: 1rem; 
         overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s ease; 
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); text-decoration: none;
+        color: inherit; cursor: pointer;
     }
     .gj-card:hover { border-color: rgba(253,224,70,0.3); }
 
@@ -183,9 +184,9 @@
         @if(isset($articles) && $articles->count() > 0)
         <div class="gj-grid">
             @foreach($articles as $article)
-                <article class="gj-card group">
+                <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-card group">
                     
-                    <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-card-img-wrapper">
+                    <div class="gj-card-img-wrapper">
                         <x-optimized-image :src="$article->thumbnail" profile="article" alt="{{ $article->title }}" sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw" width="800" height="450" class="gj-card-img" />
                         
                         <div class="gj-card-date">
@@ -193,7 +194,7 @@
                                 {{ $article->created_at->format('d M Y') }}
                             </span>
                         </div>
-                    </a>
+                    </div>
 
                     <div class="gj-card-body">
                         
@@ -209,19 +210,17 @@
                             </div>
                         </div>
 
-                        <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" style="text-decoration: none;">
-                            <h3 class="gj-card-title">
-                                {{ $article->title }}
-                            </h3>
-                        </a>
+                        <h3 class="gj-card-title">
+                            {{ $article->title }}
+                        </h3>
 
                         <div class="gj-card-footer">
-                            <a href="{{ route('artikel.show', ['slug' => $article->slug]) }}" class="gj-read-more">
+                            <span class="gj-read-more">
                                 Baca Artikel <i class="fa fa-chevron-right" style="font-size: 10px;"></i>
-                            </a>
+                            </span>
                         </div>
                     </div>
-                </article>
+                </a>
             @endforeach
         </div>
         @else

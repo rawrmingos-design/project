@@ -233,6 +233,12 @@ class ArticleLayoutParityTest extends TestCase
         $this->assertStringContainsString('gj-card-author', $html);
         $this->assertStringNotContainsString('<span class="gj-card-author">Admin</span>', $html);
         $this->assertStringContainsString('Tim Editorial Nama Toko Dinamis', $html);
+        // Seluruh card adalah satu tautan — bukan cuma gambarnya.
+        $this->assertMatchesRegularExpression(
+            '/<a href="[^"]*\/id\/artikel\/home-widget-brand"[^>]*class="gj-card group"/',
+            $html
+        );
+        $this->assertStringNotContainsString('<article class="gj-card group">', $html);
     }
 
     private function createArticle(array $overrides = []): Artikel

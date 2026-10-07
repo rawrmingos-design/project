@@ -351,13 +351,13 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                         {articleItems.length ? (
                             <div className="article-grid article-grid--journal article-grid--bangjeff-news">
                                 {articleItems.map((article) => (
-                                    <article key={article.id} className="article-card article-card--journal">
-                                        <Link href={`/id/artikel/${article.slug}`} className="article-card__image-link">
+                                    <Link key={article.id} href={`/id/artikel/${article.slug}`} className="article-card article-card--journal">
+                                        <div className="article-card__image-link">
                                             <img src={article.thumbnail || '/assets/logo/favicon.webp'} alt={article.title} onError={(event) => { event.currentTarget.src = '/assets/logo/favicon.webp'; }} />
                                             <div className="article-card__overlay">
                                                 <strong>{article.title}</strong>
                                             </div>
-                                        </Link>
+                                        </div>
                                         <div className="article-card__body article-card__body--journal">
                                             <span className="ist-article__category">Artikel</span>
                                             <h3>{article.title}</h3>
@@ -366,7 +366,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                                 Tim Editorial {siteConfig?.appName || siteConfig?.name || 'Game Top-Up'} <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
                                             </div>
                                         </div>
-                                    </article>
+                                    </Link>
                                 ))}
                             </div>
                         ) : (
