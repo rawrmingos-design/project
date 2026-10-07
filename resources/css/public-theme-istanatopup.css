@@ -10,7 +10,15 @@
    ============================================================ */
 
 .public-app--istanatopup {
-    overflow-x: hidden;
+    /*
+     * `hidden` (bukan `clip`) membuat elemen ini jadi SCROLL CONTAINER — dan
+     * scroll container mematikan `position: sticky` untuk semua descendant,
+     * karena sticky-nya jadi relatif ke kotak ini (yang tidak pernah
+     * di-scroll), bukan ke viewport. Gejalanya: sidebar "Baca Juga" ikut
+     * ter-scroll 1:1. `clip` memberi efek visual yang sama (tidak ada scroll
+     * horizontal) tanpa membuat scroll container.
+     */
+    overflow-x: clip;
     --ist-bg: #121212;
     --ist-surface: #1a1a1a;
     --ist-surface-alt: #1f1f1f;

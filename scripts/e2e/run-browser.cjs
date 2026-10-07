@@ -169,6 +169,36 @@ function findFreePort() {
 }
 
 /**
+ * Jalankan satu suite spec untuk satu tema tertentu.
+ *
+ * Tema punya database + direktori runtime sendiri: `serve()` menghapus direktori
+ * runtime di awal, jadi berbagi path antar-tema akan menghapus database yang
+ * sedang dipakai (dan dua penulis sqlite pada satu file bisa saling lock).
+ */
+async function runThemeSuite({ theme, suite, specs, runtimeDir }) {
+    const themePort = process.env[`E2E_${suite.toUpperCase()}_PORT`] || await findFreePort();
+
+    runPlaywright(specs, false, {
+        E2E_PORT: themePort,
+        E2E_BASE_URL: `http://127.0.0.1:${themePort}`,
+        E2E_PUBLIC_THEME: theme,
+        E2E_RUNTIME_DIR: runtimeDir,
+        E2E_SUITE: suite,
+    });
+}
+
+/**
+ * Spec yang menguji halaman artikel di tema Inertia (React). Dijalankan untuk
+ * tiap tema Inertia, karena regresi CSS bisa spesifik satu tema — mis.
+ * `overflow-x: hidden` pada wrapper tema membuat scroll container dan
+ * mematikan `position: sticky` hanya di tema itu.
+ */
+const INERTIA_ARTICLE_SPECS = [
+    'tests/e2e/article-faq-schema.spec.js',
+    'tests/e2e/article-sidebar-sticky.spec.js',
+];
+
+/**
  * Tema legacy (`public_theme=default`) dirender Blade, bukan Inertia, jadi
  * butuh database + tema sendiri. Servernya dikelola Playwright lewat `webServer`
  * (lihat playwright.config.js) persis seperti suite tema `bangjeff`; yang
@@ -176,19 +206,32 @@ function findFreePort() {
  * saling menghapus database atau berebut file sqlite yang sama.
  */
 async function runLegacyLayout() {
-    const legacyPort = process.env.E2E_LEGACY_PORT || await findFreePort();
+    await runThemeSuite({
+        theme: 'default',
+        suite: 'legacy',
+        runtimeDir: '.tmp/e2e-legacy',
+        specs: [
+            'tests/e2e/article-default-list-markers.spec.js',
+            'tests/e2e/article-list-pagination-footer.spec.js',
+            'tests/e2e/article-card-geometry.spec.js',
+            'tests/e2e/article-sidebar-sticky.spec.js',
+        ],
+    });
+}
 
-    runPlaywright([
-        'tests/e2e/article-default-list-markers.spec.js',
-        'tests/e2e/article-list-pagination-footer.spec.js',
-        'tests/e2e/article-card-geometry.spec.js',
-        'tests/e2e/article-sidebar-sticky.spec.js',
-    ], false, {
-        E2E_PORT: legacyPort,
-        E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,
-        E2E_PUBLIC_THEME: 'default',
-        E2E_RUNTIME_DIR: '.tmp/e2e-legacy',
-        E2E_SUITE: 'legacy',
+/**
+ * Tema `istanatopup` adalah tema yang dipakai staging & produksi. Ia punya
+ * pembungkus sendiri (`.public-app--istanatopup`) dengan aturan overflow
+ * tersendiri, jadi spec artikel Inertia harus dijalankan di sini juga —
+ * menjalankannya hanya pada tema `bangjeff` melewatkan regresi yang justru
+ * muncul di produksi.
+ */
+async function runIstanatopupLayout() {
+    await runThemeSuite({
+        theme: 'istanatopup',
+        suite: 'istanatopup',
+        runtimeDir: '.tmp/e2e-istanatopup',
+        specs: INERTIA_ARTICLE_SPECS,
     });
 }
 
@@ -303,6 +346,7 @@ async function main() {
             // Dijalankan setelah suite tema `bangjeff` selesai supaya servernya
             // sudah berhenti dan kedua tema tidak saling berebut port.
             await runLegacyLayout();
+            await runIstanatopupLayout();
             break;
         }
         default:
