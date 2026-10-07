@@ -78,6 +78,7 @@ class Pembelian extends Model
         'is_sandbox'              => 'boolean',
         'reset_status'            => 'string',
         'reset_count'             => 'integer',
+        'transport_failure_count' => 'integer',
         'reset_requested_by'      => 'integer',
         'reset_requested_at'      => 'datetime',
         'reset_reason'            => 'string',
