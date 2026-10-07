@@ -86,6 +86,16 @@ class PembeliansTable
                     ->color(fn($record): string => self::dispatchStateBadgeColor($record))
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                TextColumn::make('awaiting_manual_send')
+                    ->label('Menunggu Kirim')
+                    ->badge()
+                    ->getStateUsing(fn($record): string => $record->isAwaitingManualSend() ? 'MENUNGGU' : '—')
+                    ->color(fn($record): string => $record->isAwaitingManualSend() ? 'warning' : 'gray')
+                    ->tooltip(fn($record): ?string => $record->isAwaitingManualSend()
+                        ? 'Attempt ' . $record->display_order_id . ' BELUM dikirim ke provider. Buka order lalu klik "Send Callback".'
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('pembayaran.status')
                     ->label('Status Pembayaran')
                     ->badge()
@@ -204,6 +214,11 @@ class PembeliansTable
                         'pln' => 'PLN',
                     ])
                     ->multiple(),
+
+                Filter::make('awaiting_manual_send')
+                    ->label('Menunggu Kirim ke Provider')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => self::applyAwaitingManualSendFilter($query)),
 
                 Filter::make('created_at')
                     ->form([
@@ -786,6 +801,16 @@ class PembeliansTable
     private static function applyPaymentStatusFilter(Builder $query, array $data): Builder
     {
         return PaymentStatus::applyPembelianQuery($query, (array) ($data['values'] ?? []));
+    }
+
+    /**
+     * Filter "Menunggu Kirim ke Provider": attempt reset yang sudah dibuat tapi belum
+     * dikirim (reset_status = 'requested'). Logikanya ada di scope model supaya tabel,
+     * badge kolom, dan test memakai definisi yang sama.
+     */
+    private static function applyAwaitingManualSendFilter(Builder $query): Builder
+    {
+        return $query->awaitingManualSend();
     }
 
     private static function trafficSourceLabel(?string $source): string

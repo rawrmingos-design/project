@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\PublicOrderPushNotificationService;
 
@@ -338,6 +339,23 @@ class Pembelian extends Model
     {
         return (int) $this->invoice_version > 0
             && $this->normalizedResetStatus() === 'requested';
+    }
+
+    /**
+     * Attempt reset yang sudah DIBUAT tapi belum dikirim ke provider.
+     *
+     * Dipakai filter daftar order ("Menunggu Kirim") supaya attempt yang menggantung
+     * bisa dicari, bukan hanya terlihat satu per satu di halaman detail.
+     *
+     * Sengaja memakai `whereIn` + nilai lowercase karena `reset_status` tidak punya
+     * kolom cast: baris lama bisa menyimpan 'Requested' atau variasi lain, dan versi
+     * itu dulu belum tentu punya invoice_version > 0. Untuk baris dengan
+     * invoice_version > 0, satu-satunya penulis `'requested'` adalah executeReset().
+     */
+    public function scopeAwaitingManualSend($query)
+    {
+        return $query->where('invoice_version', '>', 0)
+            ->whereIn(DB::raw('LOWER(reset_status)'), ['requested']);
     }
 
     public function canEditResetRouting(): bool
