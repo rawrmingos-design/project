@@ -232,6 +232,7 @@ class ArticleLayoutParityTest extends TestCase
 
         $this->assertStringContainsString('gj-card-author', $html);
         $this->assertStringNotContainsString('<span class="gj-card-author">Admin</span>', $html);
+        $this->assertStringContainsString('Tim Editorial Nama Toko Dinamis', $html);
     }
 
     private function createArticle(array $overrides = []): Artikel

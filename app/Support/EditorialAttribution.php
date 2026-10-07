@@ -28,6 +28,15 @@ class EditorialAttribution
         return 'Ditulis oleh Tim Editorial ' . self::brand();
     }
 
+    /**
+     * Label tim editorial tanpa awalan "Ditulis oleh" — dipakai byline card
+     * artikel (index, homepage, widget Livewire) supaya seragam.
+     */
+    public static function team(): string
+    {
+        return 'Tim Editorial ' . self::brand();
+    }
+
     public static function reviewer(): string
     {
         return 'Ditinjau oleh Tim Operasional ' . self::brand();
