@@ -33,6 +33,13 @@ class E2EBrowserSeeder extends Seeder
      */
     public const ARTICLE_PAGINATION_PREFIX = 'e2e-pagination-';
 
+    /**
+     * Artikel panjang untuk menguji sidebar "Baca Juga" yang sticky: kolom
+     * konten harus jauh lebih tinggi daripada sidebar supaya elemen sticky
+     * benar-benar punya ruang gerak.
+     */
+    public const ARTICLE_LONG_STICKY_SLUG = 'e2e-long-sticky-sidebar';
+
     public function run(): void
     {
         DB::table('setting_webs')->updateOrInsert(
@@ -436,6 +443,26 @@ class E2EBrowserSeeder extends Seeder
         // `cover` untuk lanskap. Dengan satu jenis gambar saja, salah satu jalur
         // tidak pernah terukur dan regresinya lolos.
         $geometryFixtures = $this->ensureArticleGeometryFixtures();
+
+        // Artikel panjang khusus uji sidebar sticky: kontennya harus jauh lebih
+        // tinggi daripada blok "Baca Juga", kalau tidak elemen sticky tidak
+        // punya ruang gerak dan regresinya (aside hanya setinggi isi) lolos.
+        $longParagraph = '<p>' . str_repeat('Konten panjang untuk menguji sticky sidebar. ', 40) . '</p>';
+        Artikel::query()->updateOrCreate(
+            ['slug' => self::ARTICLE_LONG_STICKY_SLUG],
+            [
+                'title' => 'E2E Long Sticky Sidebar',
+                'thumbnail' => $geometryFixtures['landscape'],
+                'content' => '<h2>Bagian Satu</h2>' . $longParagraph
+                    . '<h2>Bagian Dua</h2>' . $longParagraph
+                    . '<h2>Bagian Tiga</h2>' . $longParagraph,
+                'meta_description' => 'Artikel E2E panjang untuk uji sticky sidebar.',
+                'keywords' => 'e2e,sticky,sidebar',
+                'layout' => 'default',
+                'status' => 'active',
+                'views' => 0,
+            ],
+        );
 
         for ($i = 1; $i <= 12; $i++) {
             Artikel::query()->updateOrCreate(

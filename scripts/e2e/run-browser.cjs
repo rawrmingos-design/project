@@ -182,6 +182,7 @@ async function runLegacyLayout() {
         'tests/e2e/article-default-list-markers.spec.js',
         'tests/e2e/article-list-pagination-footer.spec.js',
         'tests/e2e/article-card-geometry.spec.js',
+        'tests/e2e/article-sidebar-sticky.spec.js',
     ], false, {
         E2E_PORT: legacyPort,
         E2E_BASE_URL: `http://127.0.0.1:${legacyPort}`,
@@ -291,6 +292,7 @@ async function main() {
                 'tests/e2e/storefront-order-mobile-gutter.spec.js',
                 'tests/e2e/storefront-google-signup.spec.js',
                 'tests/e2e/article-faq-schema.spec.js',
+                'tests/e2e/article-sidebar-sticky.spec.js',
             ];
 
             if (mode === 'all') {

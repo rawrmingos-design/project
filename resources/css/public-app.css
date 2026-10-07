@@ -6742,6 +6742,15 @@ textarea {
     min-width: 0;
 }
 
+/*
+ * Sticky "Baca Juga": grid child HARUS stretch. Dengan `align-items: start`
+ * di layout, aside setinggi isinya saja sehingga elemen sticky-nya tidak punya
+ * ruang gerak dan ikut ter-scroll (lihat whole-card/parity dgn Blade theme default).
+ */
+.public-article-detail-sidebar {
+    align-self: stretch;
+}
+
 .public-article-breadcrumb {
     display: flex;
     align-items: center;
@@ -6972,6 +6981,10 @@ textarea {
     margin-top: 0;
     position: sticky;
     top: 108px;
+    max-height: calc(100vh - 128px);
+    overflow: hidden auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
 }
 
 .public-article-related h2 {
@@ -7147,6 +7160,11 @@ textarea {
     border-radius: 999px;
     color: var(--article-primary);
     font-size: 0.78rem;
+}
+
+.public-article-modern__related {
+    align-self: stretch;
+    min-width: 0;
 }
 
 .public-article-modern__related .public-article-related {
