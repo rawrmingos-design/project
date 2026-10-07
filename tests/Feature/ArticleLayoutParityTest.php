@@ -200,6 +200,40 @@ class ArticleLayoutParityTest extends TestCase
         $this->assertStringNotContainsString('Tim Editorial IstanaTopup', $html);
     }
 
+    /**
+     * Byline card artikel (akronim "Admin"/"Ditulis oleh") mengikuti APP_NAME,
+     * bukan literal. Jalur React menerimanya lewat shared prop siteConfig.appName.
+     */
+    public function test_article_card_brand_comes_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        $this->createArticle(['slug' => 'card-brand']);
+        $this->createArticle(['slug' => 'card-brand-2']);
+
+        $this->get('/id/artikel')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Articles/Index')
+                ->where('siteConfig.appName', 'Nama Toko Dinamis')
+                ->where('articles', fn ($articles) => collect($articles)->contains(fn ($a) => $a['slug'] === 'card-brand-2'))
+            );
+    }
+
+    /**
+     * Widget artikel homepage legacy (Livewire) memakai helper brand yang sama.
+     */
+    public function test_legacy_home_articles_widget_renders_brand_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        SettingWeb::query()->whereKey(1)->update(['public_theme' => 'default']);
+        $this->createArticle(['slug' => 'home-widget-brand']);
+
+        $html = $this->get('/id')->assertOk()->getContent();
+
+        $this->assertStringContainsString('gj-card-author', $html);
+        $this->assertStringNotContainsString('<span class="gj-card-author">Admin</span>', $html);
+    }
+
     private function createArticle(array $overrides = []): Artikel
     {
         return Artikel::query()->create(array_merge([

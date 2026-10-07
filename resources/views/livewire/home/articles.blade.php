@@ -202,7 +202,7 @@
                                 <div class="gj-card-avatar">
                                     <i class="fa fa-user" style="font-size: 8px; color: black; font-weight: 900;"></i>
                                 </div>
-                                <span class="gj-card-author">Admin</span>
+                                <span class="gj-card-author">{{ \App\Support\EditorialAttribution::brand() }}</span>
                             </div>
                             <div class="gj-card-meta-right">
                                 <span style="display: flex; align-items: center; gap: 0.25rem;"><i class="fa fa-eye" style="color: rgba(253,224,70,0.5);"></i> {{ $article->views ?? 0 }}</span>

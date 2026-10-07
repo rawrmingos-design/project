@@ -120,7 +120,7 @@ export default function ArticlesIndex({ meta, featured, articles = [], paginatio
                                         <h3>{article.title}</h3>
                                         <p>{article.excerpt}</p>
                                         <div className="public-article-card__date">
-                                            <span>Admin</span>
+                                            <span>{brand}</span>
                                             <span>&middot;</span>
                                             <span>{article.publishedAtLabel || formatDateLabel(article.publishedAt)}</span>
                                         </div>

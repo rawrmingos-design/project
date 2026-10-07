@@ -363,7 +363,7 @@ export default function Home({ meta, banners, popup, featuredCategories, categor
                                             <h3>{article.title}</h3>
                                             {article.excerpt ? <p>{article.excerpt}</p> : null}
                                             <div className="ist-article__date">
-                                                Admin <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
+                                                {siteConfig?.appName || siteConfig?.name || 'Game Top-Up'} <span aria-hidden="true">·</span> {formatArticleDate(article.publishedAt)}
                                             </div>
                                         </div>
                                     </article>
