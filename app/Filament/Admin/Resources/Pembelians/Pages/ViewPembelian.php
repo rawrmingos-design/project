@@ -173,7 +173,7 @@ class ViewPembelian extends ViewRecord
                             ->default('N/A')
                             ->copyable(),
                         TextEntry::make('retry_status_availability')
-                            ->label('Retry Status Check')
+                            ->label('Cek Status')
                             ->state(fn (): string => $this->record->retryUnavailableReason() ?? 'Available')
                             ->badge()
                             ->color(fn (): string => $this->record->retryUnavailableReason() ? 'warning' : 'success')

@@ -255,7 +255,7 @@ class ResellerOrdersTable
                         ->modalSubmitActionLabel('Ya, Ubah Status'),
 
                     Action::make('retry')
-                        ->label('Retry Order')
+                        ->label('Cek Status')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
                         ->visible(fn($record) => $record->canBeRetried())
@@ -264,8 +264,8 @@ class ResellerOrdersTable
                         ->action(function ($record) {
                             if (!$record->canRunRetryStatusCheck()) {
                                 Notification::make()
-                                    ->title('Retry status belum bisa dijalankan')
-                                    ->body($record->retryUnavailableReason() ?? 'Retry status tidak tersedia untuk transaksi ini.')
+                                    ->title('Cek status belum bisa dijalankan')
+                                    ->body($record->retryUnavailableReason() ?? 'Cek status tidak tersedia untuk transaksi ini.')
                                     ->warning()
                                     ->send();
 
@@ -274,7 +274,7 @@ class ResellerOrdersTable
 
                             if (ProviderDispatchTracker::isActive($record->getKey())) {
                                 Notification::make()
-                                    ->title('Retry sedang berjalan')
+                                    ->title('Cek status sedang berjalan')
                                     ->body('Order ini masih dalam antrean/proses provider. Tunggu sebentar lalu refresh.')
                                     ->warning()
                                     ->send();
@@ -286,7 +286,7 @@ class ResellerOrdersTable
                                 $record->update([
                                     'log' => self::appendBoundedLog(
                                         $record->log,
-                                        'Retry queued by admin at ' . now()->format('Y-m-d H:i:s'),
+                                        'Status check queued by admin at ' . now()->format('Y-m-d H:i:s'),
                                     ),
                                 ]);
 
@@ -294,29 +294,29 @@ class ResellerOrdersTable
                                 ProviderDispatchTracker::markQueued($record->getKey());
 
                                 Notification::make()
-                                    ->title('Retry masuk antrean')
-                                    ->body('Order dikirim ke queue agar tetap responsif saat trafik tinggi.')
+                                    ->title('Cek status masuk antrean')
+                                    ->body('Order dikirim ke queue untuk mengecek status terkini di provider.')
                                     ->success()
                                     ->send();
                             } catch (\Throwable $exception) {
                                 ProviderDispatchTracker::clear($record->getKey());
 
-                                Log::error('Retry order dispatch failed.', [
+                                Log::error('Status check dispatch failed.', [
                                     'pembelian_id' => $record->getKey(),
                                     'order_id' => $record->order_id,
                                     'message' => $exception->getMessage(),
                                 ]);
 
                                 Notification::make()
-                                    ->title('Retry gagal diproses')
+                                    ->title('Cek status gagal diproses')
                                     ->body('Job gagal masuk antrean. Cek log aplikasi.')
                                     ->danger()
                                     ->send();
                             }
                         })
                         ->requiresConfirmation()
-                        ->modalHeading('Retry Transaction?')
-                        ->modalDescription('Are you sure you want to retry this transaction?'),
+                        ->modalHeading('Cek Status Transaksi?')
+                        ->modalDescription('Sistem akan menanyakan status transaksi ini ke provider lalu menyinkronkan hasilnya. Tidak ada order baru yang dikirim.'),
 
                     Action::make('viewIntegration')
                         ->label('View Integration')

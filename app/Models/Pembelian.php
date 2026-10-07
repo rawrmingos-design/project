@@ -378,7 +378,7 @@ class Pembelian extends Model
         }
 
         if ($this->requiresProviderStatusReferenceForRetry() && ! $this->hasRetryStatusReference()) {
-            return 'Retry status check untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.';
+            return 'Cek status untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.';
         }
 
         return null;
