@@ -2519,7 +2519,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
 
             if (accountRegionBlocked) {
-                return 'Akun game ini terdeteksi di luar Indonesia. Pembelian tidak dapat dilanjutkan.';
+                return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
             }
 
             if (!selectedMethodCode || !selectedMethod) {
@@ -2597,7 +2597,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         }
 
         if (accountRegionBlocked) {
-            return 'Akun game ini terdeteksi di luar Indonesia. Pembelian tidak dapat dilanjutkan.';
+            return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
         }
 
         if (category.customInputs.zone && !String(zone || '').trim()) {
@@ -3083,8 +3083,8 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                             <span className="account-pill__line">Your account is <strong>{accountLookup.username}</strong> from <strong>{accountLookup.accountRegion.reported} 🇮🇩</strong></span>
                                         </div>
                                     ) : (
-                                        <div className="account-pill account-pill--bangjeff-error">
-                                            <span className="account-pill__line">Akun ini terdeteksi di <strong>{accountLookup.accountRegion.reported}</strong>, di luar Indonesia. Pembelian tidak dapat dilanjutkan.</span>
+                                        <div id="account-region-warning" role="alert" className="account-pill account-pill--bangjeff-error">
+                                            <span className="account-pill__line">Your account from region <strong>{accountLookup.accountRegion.code}</strong> we cannot processed it. Only region ID allowed.</span>
                                         </div>
                                     )
                                 ) : (

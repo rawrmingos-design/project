@@ -4112,6 +4112,7 @@
                                             placeholder="{{ $field2Values[1] }}" /></div>
                                 </div>
                                 <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold"></div>
+                                <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" hidden></div>
                             @endif
                         </div>
 
@@ -4126,6 +4127,7 @@
                                         type="{{ $field1Values[2] }}" id="user_id" name="user_id"
                                         placeholder="{{ $field1Values[1] }}" />
                                     <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold"></div>
+                                    <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" hidden></div>
                                 </div>
                             </div>
                         </div>
