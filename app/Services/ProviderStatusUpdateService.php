@@ -8,6 +8,7 @@ use App\Services\InvoiceNotificationDispatcher;
 use App\Models\Pembelian;
 use App\Models\User;
 use App\Support\PembelianStatus;
+use App\Support\ProviderTransportError;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -28,67 +29,7 @@ class ProviderStatusUpdateService
                 return;
             }
 
-            $incomingStatus = PembelianStatus::normalize($providerResult['order_status'] ?? PembelianStatus::PENDING);
-            if ($incomingStatus === PembelianStatus::UNKNOWN) {
-                $incomingStatus = PembelianStatus::PENDING;
-            }
-
-            $currentStatus = PembelianStatus::normalize($locked->status);
-            $providerOrderId = trim((string) ($providerResult['transaction_id'] ?? ''));
-            $message = trim((string) ($providerResult['message'] ?? ''));
-            $sn = trim((string) ($providerResult['sn'] ?? ''));
-
-            if ($this->isStaleAttempt($locked, $providerOrderId)) {
-                $locked->forceFill([
-                    'log' => $this->appendBoundedLog(
-                        $locked->log,
-                        $this->logPrefix($source) . ' stale provider status ignored at ' . now()->format('Y-m-d H:i:s') . ': ' . $providerOrderId,
-                    ),
-                ])->saveQuietly();
-
-                return;
-            }
-
-            if (PembelianStatus::shouldIgnoreTransition($locked->status, $incomingStatus)) {
-                $locked->forceFill([
-                    'log' => $this->appendBoundedLog(
-                        $locked->log,
-                        $this->logPrefix($source) . ' ignored final status transition at ' . now()->format('Y-m-d H:i:s') . ': ' . $message,
-                    ),
-                ])->saveQuietly();
-
-                return;
-            }
-
-            $nextStatus = PembelianStatus::preferredDatabaseLabel($incomingStatus);
-            $data = [
-                'status' => $nextStatus,
-                'log' => $this->appendBoundedLog(
-                    $locked->log,
-                    $this->buildLogEntry($source, $incomingStatus, $message),
-                ),
-                'reset_status' => $this->nextResetStatus($locked, $incomingStatus),
-            ];
-
-            if ($providerOrderId !== '') {
-                $data['provider_order_id'] = $providerOrderId;
-                $data['active_attempt_token'] = $providerOrderId;
-            }
-
-            if ($sn !== '') {
-                $data['keterangan_sn'] = $sn;
-            } elseif (in_array($incomingStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
-                $data['keterangan_sn'] = $locked->keterangan_sn ?: 'Sedang Diproses';
-            } elseif ($message !== '') {
-                $data['keterangan_sn'] = $message;
-            }
-
-            $locked->forceFill($data)->save();
-            $transitioned = $currentStatus !== $incomingStatus;
-
-            if ($transitioned && in_array($incomingStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
-                $this->refundFailedOrder($locked->fresh(['pembayaran', 'user']));
-            }
+            $transitioned = $this->applyWithinTransaction($locked, $providerResult, $source);
         });
 
         if ($transitioned) {
@@ -136,6 +77,198 @@ class ProviderStatusUpdateService
                 'log' => $this->appendBoundedLog($locked->log, $entry),
             ])->saveQuietly();
         });
+    }
+
+    /**
+     * Inti penerapan status provider. HARUS dipanggil di dalam transaksi dengan
+     * baris `$locked` sudah ter-`lockForUpdate()`. Dipakai oleh apply() maupun
+     * recordTransportFailure() supaya keputusan yang diambil dari dalam transaksi
+     * memakai semantik yang sama persis.
+     *
+     * @return bool true kalau status order benar-benar berubah.
+     */
+    private function applyWithinTransaction(Pembelian $locked, array $providerResult, string $source): bool
+    {
+        $incomingStatus = PembelianStatus::normalize($providerResult['order_status'] ?? PembelianStatus::PENDING);
+        if ($incomingStatus === PembelianStatus::UNKNOWN) {
+            $incomingStatus = PembelianStatus::PENDING;
+        }
+
+        $currentStatus = PembelianStatus::normalize($locked->status);
+        $providerOrderId = trim((string) ($providerResult['transaction_id'] ?? ''));
+        $message = trim((string) ($providerResult['message'] ?? ''));
+        $sn = trim((string) ($providerResult['sn'] ?? ''));
+
+        if ($this->isStaleAttempt($locked, $providerOrderId)) {
+            $locked->forceFill([
+                'log' => $this->appendBoundedLog(
+                    $locked->log,
+                    $this->logPrefix($source) . ' stale provider status ignored at ' . now()->format('Y-m-d H:i:s') . ': ' . $providerOrderId,
+                ),
+            ])->saveQuietly();
+
+            return false;
+        }
+
+        if (PembelianStatus::shouldIgnoreTransition($locked->status, $incomingStatus)) {
+            $locked->forceFill([
+                'log' => $this->appendBoundedLog(
+                    $locked->log,
+                    $this->logPrefix($source) . ' ignored final status transition at ' . now()->format('Y-m-d H:i:s') . ': ' . $message,
+                ),
+            ])->saveQuietly();
+
+            return false;
+        }
+
+        $nextStatus = PembelianStatus::preferredDatabaseLabel($incomingStatus);
+        $data = [
+            'status' => $nextStatus,
+            'log' => $this->appendBoundedLog(
+                $locked->log,
+                $this->buildLogEntry($source, $incomingStatus, $message),
+            ),
+            'reset_status' => $this->nextResetStatus($locked, $incomingStatus),
+        ];
+
+        if ($providerOrderId !== '') {
+            $data['provider_order_id'] = $providerOrderId;
+            $data['active_attempt_token'] = $providerOrderId;
+        }
+
+        if ($sn !== '') {
+            $data['keterangan_sn'] = $sn;
+        } elseif (in_array($incomingStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
+            // Pesan kegagalan transport yang sudah BASI jangan menempel pada status
+            // non-final: order pernah gagal dihubungi, lalu poll berikutnya berhasil dan
+            // mengembalikan status non-final — admin tidak boleh melihat "Processing"
+            // dengan keterangan "Connection Error: cURL error 28 ...".
+            $existingNote = (string) ($locked->keterangan_sn ?? '');
+            $data['keterangan_sn'] = ProviderTransportError::isStaleFailureMessage($existingNote)
+                ? ProviderTransportError::neutralProcessingNote()
+                : ($existingNote ?: ProviderTransportError::neutralProcessingNote());
+        } elseif ($message !== '') {
+            $data['keterangan_sn'] = $message;
+        }
+
+        if (($providerResult['transport_failure_reset'] ?? false) === true
+            || in_array($incomingStatus, [PembelianStatus::SUCCESS, PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+            // Jawaban DEFINITIF dari provider mereset hitungan kegagalan transport:
+            // hitungan hanya boleh menghitung kegagalan beruntun, bukan total.
+            $data['transport_failure_count'] = 0;
+        }
+
+        $locked->forceFill($data)->save();
+        $transitioned = $currentStatus !== $incomingStatus;
+
+        if ($transitioned && in_array($incomingStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {
+            $this->refundFailedOrder($locked->fresh(['pembayaran', 'user']));
+        }
+
+        return $transitioned;
+    }
+
+    /**
+     * Versi appendLog yang bekerja pada baris yang sudah terkunci di dalam transaksi.
+     */
+    private function appendLogLocked(Pembelian $locked, string $entry): void
+    {
+        $locked->forceFill([
+            'log' => $this->appendBoundedLog($locked->log, $entry),
+        ])->saveQuietly();
+    }
+
+    /**
+     * Catat satu kegagalan TRANSPORT (timeout/koneksi) untuk sebuah order.
+     *
+     * Kegagalan transport bukan vonis provider: request-nya tidak pernah sampai,
+     * jadi tidak ada informasi status apa pun. Order yang sudah dibayar TIDAK boleh
+     * langsung di-Gagal-kan karena satu timeout.
+     *
+     * Aturannya: 1..(N-1) kegagalan beruntun -> status dibiarkan apa adanya dan
+     * hanya dihitung; kegagalan ke-N -> order diputus Gagal. Setiap jawaban
+     * definitif dari provider mereset hitungan ini.
+     *
+     * @return bool true kalau order diputus Gagal pada pemanggilan ini.
+     */
+    public function recordTransportFailure(
+        Pembelian $pembelian,
+        ?string $message = null,
+        string $source = 'provider_status_polling',
+    ): bool {
+        $max = ProviderTransportError::maxConsecutive();
+        $message = trim((string) $message);
+        $failedNow = false;
+
+        DB::transaction(function () use ($pembelian, $message, $source, $max, &$failedNow): void {
+            $locked = Pembelian::query()
+                ->whereKey($pembelian->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (! $locked) {
+                return;
+            }
+
+            // Jangan pernah mengubah order yang sudah final.
+            if (in_array(PembelianStatus::normalize($locked->status), [
+                PembelianStatus::SUCCESS,
+                PembelianStatus::CANCELLED,
+                PembelianStatus::EXPIRED,
+                PembelianStatus::REFUNDED,
+            ], true)) {
+                return;
+            }
+
+            $attempt = (int) $locked->transport_failure_count + 1;
+
+            if ($attempt < $max) {
+                $locked->forceFill(['transport_failure_count' => $attempt])->saveQuietly();
+                $this->appendLogLocked(
+                    $locked,
+                    $this->logPrefix($source) . ' transport failure ' . $attempt . '/' . $max
+                        . ' at ' . now()->format('Y-m-d H:i:s')
+                        . ': status tidak diubah, tunggu percobaan berikutnya.'
+                        . ($message !== '' ? ' (' . $message . ')' : ''),
+                );
+
+                Log::warning('Provider transport failure below threshold; order status left unchanged.', [
+                    'pembelian_id' => $locked->getKey(),
+                    'order_id' => $locked->order_id,
+                    'source' => $source,
+                    'attempt' => $attempt,
+                    'max' => $max,
+                    'message' => $message,
+                ]);
+
+                return;
+            }
+
+            $this->applyWithinTransaction($locked, [
+                'success' => false,
+                'order_status' => PembelianStatus::FAILED,
+                'transaction_id' => $locked->provider_order_id,
+                'provider_status' => null,
+                'message' => 'Provider tidak bisa dihubungi setelah ' . $max . ' percobaan beruntun'
+                    . ($message !== '' ? ': ' . $message : '.'),
+                'sn' => '',
+                'raw' => null,
+                'transport_failure_reset' => true,
+            ], $source);
+
+            $failedNow = true;
+
+            Log::warning('Provider marked failed after consecutive transport failures.', [
+                'pembelian_id' => $locked->getKey(),
+                'order_id' => $locked->order_id,
+                'source' => $source,
+                'attempt' => $attempt,
+                'max' => $max,
+                'message' => $message,
+            ]);
+        });
+
+        return $failedNow;
     }
 
     private function isStaleAttempt(Pembelian $pembelian, string $providerOrderId): bool

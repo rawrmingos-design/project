@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\PublicOrderPushNotificationService;
 
@@ -78,6 +79,7 @@ class Pembelian extends Model
         'is_sandbox'              => 'boolean',
         'reset_status'            => 'string',
         'reset_count'             => 'integer',
+        'transport_failure_count' => 'integer',
         'reset_requested_by'      => 'integer',
         'reset_requested_at'      => 'datetime',
         'reset_reason'            => 'string',
@@ -322,6 +324,40 @@ class Pembelian extends Model
         return $this->invoice_version > 0 && $this->normalizedResetStatus() !== 'none';
     }
 
+    /**
+     * Attempt reset sudah DIBUAT tapi BELUM dikirim ke provider.
+     *
+     * Aksi "Reset Invoice" hanya menyiapkan attempt (`reset_status = 'requested'`);
+     * pengiriman ke provider dilakukan admin lewat aksi "Send Callback". Selama jeda
+     * itu order menggantung tanpa terkirim, jadi UI perlu penanda yang jelas supaya
+     * admin tidak lupa mengirimnya.
+     *
+     * Catatan: `hasActiveAttemptInFlight()` juga bernilai true untuk 'requested' —
+     * itulah yang mencegah reset ganda selama attempt belum dikirim.
+     */
+    public function isAwaitingManualSend(): bool
+    {
+        return (int) $this->invoice_version > 0
+            && $this->normalizedResetStatus() === 'requested';
+    }
+
+    /**
+     * Attempt reset yang sudah DIBUAT tapi belum dikirim ke provider.
+     *
+     * Dipakai filter daftar order ("Menunggu Kirim") supaya attempt yang menggantung
+     * bisa dicari, bukan hanya terlihat satu per satu di halaman detail.
+     *
+     * Sengaja memakai `whereIn` + nilai lowercase karena `reset_status` tidak punya
+     * kolom cast: baris lama bisa menyimpan 'Requested' atau variasi lain, dan versi
+     * itu dulu belum tentu punya invoice_version > 0. Untuk baris dengan
+     * invoice_version > 0, satu-satunya penulis `'requested'` adalah executeReset().
+     */
+    public function scopeAwaitingManualSend($query)
+    {
+        return $query->where('invoice_version', '>', 0)
+            ->whereIn(DB::raw('LOWER(reset_status)'), ['requested']);
+    }
+
     public function canEditResetRouting(): bool
     {
         return $this->isResetEditable() && $this->normalizedResetStatus() === 'requested';
@@ -378,7 +414,7 @@ class Pembelian extends Model
         }
 
         if ($this->requiresProviderStatusReferenceForRetry() && ! $this->hasRetryStatusReference()) {
-            return 'Retry status check untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.';
+            return 'Cek status untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.';
         }
 
         return null;

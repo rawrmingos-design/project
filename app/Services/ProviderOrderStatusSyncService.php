@@ -10,6 +10,7 @@ use App\Libraries\Provider\YezzpayProvider;
 use App\Models\Pembelian;
 use App\Services\ProviderStatusUpdateService;
 use App\Support\PembelianStatus;
+use App\Support\ProviderTransportError;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
@@ -40,6 +41,24 @@ class ProviderOrderStatusSyncService
                             (string) $order->zone,
                         )
                         : $client->status($order->provider_order_id);
+
+                    $providerMessage = trim((string) data_get($response, 'data.message', ''));
+
+                    // Kegagalan transport (timeout/koneksi) bukan vonis provider atas
+                    // order. Hitung beruntun; hanya pada percobaan ke-N order diputus
+                    // Gagal, sebelum itu status dibiarkan apa adanya. Logika + hitungannya
+                    // tinggal di ProviderStatusUpdateService supaya jalur polling dan
+                    // tombol "Cek Status" di admin memakai aturan yang sama persis.
+                    if (ProviderTransportError::isTransportFailure($providerMessage)) {
+                        if ($statusUpdater->recordTransportFailure($order, $providerMessage, 'provider_status_polling')) {
+                            $updated++;
+                        } else {
+                            $failed++;
+                        }
+
+                        continue;
+                    }
+
                     $status = $this->normalizedStatus($provider, $response);
 
                     if ($status === null) {
@@ -57,9 +76,10 @@ class ProviderOrderStatusSyncService
                         'order_status' => $status,
                         'transaction_id' => $order->provider_order_id,
                         'provider_status' => $status,
-                        'message' => data_get($response, 'data.message', ''),
+                        'message' => $providerMessage,
                         'sn' => data_get($response, 'data.sn', ''),
                         'raw' => $response,
+                        'transport_failure_reset' => true,
                     ], 'provider_status_polling');
                     $updated++;
                 }

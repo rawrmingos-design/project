@@ -26,7 +26,7 @@ class PembelianRetryEligibilityTest extends TestCase
         $this->assertFalse($pembelian->hasRetryStatusReference());
         $this->assertFalse($pembelian->canRunRetryStatusCheck());
         $this->assertSame(
-            'Retry status check untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.',
+            'Cek status untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.',
             $pembelian->retryUnavailableReason(),
         );
     }

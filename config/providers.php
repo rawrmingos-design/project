@@ -19,6 +19,11 @@ return [
         'timeout' => env('DIGIFLAZZ_TIMEOUT', 30),
         'retry_attempts' => env('DIGIFLAZZ_RETRY_ATTEMPTS', 3),
         'webhook_secret' => env('DIGIFLAZZ_WEBHOOK_SECRET'),
+
+        // Berapa kali kegagalan TRANSPORT (timeout/koneksi) beruntun yang boleh
+        // terjadi sebelum order diputus Gagal. Kegagalan transport bukan vonis
+        // provider: request-nya tidak pernah sampai. Lihat App\Support\ProviderTransportError.
+        'max_consecutive_transport_failures' => env('DIGIFLAZZ_MAX_CONSECUTIVE_TRANSPORT_FAILURES', 3),
     ],
 
     'bangjeff' => [

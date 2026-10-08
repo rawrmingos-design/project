@@ -7,6 +7,7 @@ use App\Services\OrderProcessingService;
 use App\Services\ProviderStatusUpdateService;
 use App\Support\PembelianStatus;
 use App\Support\ProviderDispatchTracker;
+use App\Support\ProviderTransportError;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -61,6 +62,23 @@ class SendPembelianToProviderJob implements ShouldQueue, ShouldBeUnique
 
         try {
             $result = $orderProcessingService->process($pembelian, $this->dispatchMode);
+
+            // Kegagalan TRANSPORT (timeout/koneksi) bukan vonis provider atas order:
+            // request-nya tidak pernah sampai, jadi tidak ada informasi status apa pun.
+            // Order baru diputus Gagal setelah beberapa percobaan beruntun agar order
+            // yang sudah dibayar tidak di-Gagal-kan (lalu di-refund) hanya karena satu
+            // timeout. Berlaku juga untuk tombol "Cek Status" di admin.
+            if (ProviderTransportError::isTransportFailure($result['message'] ?? null)) {
+                $statusUpdateService->recordTransportFailure(
+                    $pembelian,
+                    (string) ($result['message'] ?? ''),
+                    $this->dispatchMode === 'retry_status' ? 'status_check' : 'queued_provider_dispatch',
+                );
+
+                ProviderDispatchTracker::clear($this->pembelianId);
+                return;
+            }
+
             $normalizedStatus = PembelianStatus::normalize($result['order_status'] ?? PembelianStatus::UNKNOWN);
 
             if (! ($result['success'] ?? false) && ! in_array($normalizedStatus, [PembelianStatus::FAILED, PembelianStatus::CANCELLED], true)) {

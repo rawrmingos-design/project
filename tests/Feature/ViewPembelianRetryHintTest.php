@@ -37,8 +37,8 @@ class ViewPembelianRetryHintTest extends AdminTestCase
         $this->actingAs($admin);
 
         Livewire::test(ViewPembelian::class, ['record' => $pembelian->getRouteKey()])
-            ->assertSee('Retry Status Check')
-            ->assertSee('Retry status check untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.');
+            ->assertSee('Cek Status')
+            ->assertSee('Cek status untuk VIP butuh trxid/provider_order_id. Gunakan Reset Invoice setelah saldo/provider sudah siap.');
     }
 
     private function createAdminUser(): User

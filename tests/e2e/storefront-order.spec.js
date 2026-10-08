@@ -570,6 +570,36 @@ test.describe('Public storefront order flow', () => {
         await expect(checkout).toBeEnabled();
     });
 
+    test('menampilkan peringatan region dan mematikan CTA untuk akun non-ID', async ({ page }) => {
+        await page.route('**/ajax/check-account', async (route) => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    status: { code: 200, message: 'User found' },
+                    data: {
+                        username: 'E2E Player',
+                        account_region: { code: 'MY', reported: 'Malaysia', provider: 'codashop' },
+                    },
+                }),
+            });
+        });
+
+        await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });
+
+        const checkout = page.locator('.public-button--bangjeff-order:visible').first();
+        await page.locator('.variant-card--bangjeff:visible').first().click();
+        await page.locator('input[placeholder="Masukkan User ID"]').fill('123456789');
+        await page.locator('input[placeholder="example@gmail.com"]').fill('e2e@example.test');
+        await page.locator('.payment-card:visible').first().click();
+
+        const warning = page.locator('#account-region-warning:visible');
+        await expect(warning).toBeVisible();
+        await expect(warning).toContainText('Your account from region MY');
+        await expect(warning).toContainText('Only region ID allowed.');
+        await expect(checkout).toBeDisabled();
+    });
+
     test('keeps mobile checkout summary within the viewport when expanded', async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 640 });
         await page.goto('/id/e2e-game', { waitUntil: 'domcontentloaded' });

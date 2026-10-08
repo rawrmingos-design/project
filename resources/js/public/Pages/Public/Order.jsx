@@ -1999,12 +1999,22 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
                 if (payload?.status?.code === 200) {
                     const username = payload?.data?.username || currentUid;
+                    const rawRegion = payload?.data?.account_region;
+                    const region = rawRegion && rawRegion.code && String(rawRegion.code).toUpperCase() !== 'UNKNOWN'
+                        ? {
+                            known: true,
+                            code: String(rawRegion.code).toUpperCase(),
+                            isId: String(rawRegion.code).toUpperCase() === 'ID',
+                            reported: rawRegion.reported || String(rawRegion.code).toUpperCase(),
+                            blocked: String(rawRegion.code).toUpperCase() !== 'ID',
+                        }
+                        : { known: false, isId: true, blocked: false };
                     setNickname(username);
                     setAccountLookup({
                         type: 'success',
                         fingerprint: accountLookupFingerprint,
                         username,
-                        location: 'Indonesia',
+                        accountRegion: region,
                     });
                     return;
                 }
@@ -2078,6 +2088,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && accountLookup?.type === 'success'
             && accountLookup.fingerprint === accountLookupFingerprint
         );
+    // Akun yang terdeteksi di luar Indonesia tidak boleh lanjut: provider
+    // pemenuh (mis. Digiflazz) di-set ID-only, jadi order-nya pasti gagal.
+    const accountRegionBlocked = accountLookup?.type === 'success'
+        && accountLookup?.accountRegion?.known === true
+        && accountLookup.accountRegion.isId === false;
     const contactDetailsReady = isBangjeffOrderStyle
         ? Boolean(
             (isValidOrderEmail(email) || isValidOrderPhone(phone))
@@ -2285,8 +2300,25 @@ export default function Order({ meta, category, products, packages, paymentMetho
 
             const payload = await response.json();
             if (payload?.status?.code === 200) {
-                setNickname(payload.data.username);
-                setMessage({ type: 'success', text: `Akun ditemukan: ${payload.data.username}` });
+                const username = payload.data.username;
+                const rawRegion = payload?.data?.account_region;
+                const region = rawRegion && rawRegion.code && String(rawRegion.code).toUpperCase() !== 'UNKNOWN'
+                    ? {
+                        known: true,
+                        code: String(rawRegion.code).toUpperCase(),
+                        isId: String(rawRegion.code).toUpperCase() === 'ID',
+                        reported: rawRegion.reported || String(rawRegion.code).toUpperCase(),
+                        blocked: String(rawRegion.code).toUpperCase() !== 'ID',
+                    }
+                    : { known: false, isId: true, blocked: false };
+                setNickname(username);
+                setAccountLookup({
+                    type: 'success',
+                    fingerprint: accountLookupFingerprint,
+                    username,
+                    accountRegion: region,
+                });
+                setMessage({ type: 'success', text: `Akun ditemukan: ${username}` });
                 window.pushDataLayerEvent?.('check_id_success', {
                     category_slug: category.slug,
                     validation_type: 'game_account',
@@ -2486,6 +2518,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
                 return 'Validasi akun belum berhasil.';
             }
 
+            if (accountRegionBlocked) {
+                return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
+            }
+
             if (!selectedMethodCode || !selectedMethod) {
                 return 'Pilih metode pembayaran terlebih dahulu.';
             }
@@ -2560,6 +2596,10 @@ export default function Order({ meta, category, products, packages, paymentMetho
             return 'Data akun wajib diisi terlebih dahulu.';
         }
 
+        if (accountRegionBlocked) {
+            return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
+        }
+
         if (category.customInputs.zone && !String(zone || '').trim()) {
             return `${category.customInputs.zone.label} wajib diisi terlebih dahulu.`;
         }
@@ -2583,10 +2623,11 @@ export default function Order({ meta, category, products, packages, paymentMetho
             && selectedPaymentReady
             && contactDetailsReady
             && priceQuoteReady
+            && !accountRegionBlocked
             && !submitLoading
         );
     const orderValidationMessage = validateBeforeSubmit();
-    const isOrderReady = isBangjeffOrderStyle ? bangjeffOrderReady : !orderValidationMessage;
+    const isOrderReady = isBangjeffOrderStyle ? bangjeffOrderReady : (!orderValidationMessage && !accountRegionBlocked);
 
     const buildOrderSubmitPayload = () => {
         const body = new URLSearchParams();
@@ -3036,9 +3077,21 @@ export default function Order({ meta, category, products, packages, paymentMetho
                     {shouldAutoCheckAccount ? (
                         uid ? (
                             accountLookup?.type === 'success' ? (
-                                <div className="account-pill account-pill--bangjeff-success">
-                                    <span className="account-pill__line">Your account is <strong>{accountLookup.username} from <strong>{accountLookup.location} 🇮🇩</strong></strong></span>
-                                </div>
+                                accountLookup?.accountRegion?.known ? (
+                                    accountLookup.accountRegion.isId ? (
+                                        <div className="account-pill account-pill--bangjeff-success">
+                                            <span className="account-pill__line">Your account is <strong>{accountLookup.username}</strong> from <strong>{accountLookup.accountRegion.reported} 🇮🇩</strong></span>
+                                        </div>
+                                    ) : (
+                                        <div id="account-region-warning" role="alert" className="account-pill account-pill--bangjeff-error">
+                                            <span className="account-pill__line">Your account from region <strong>{accountLookup.accountRegion.code}</strong> we cannot processed it. Only region ID allowed.</span>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="account-pill account-pill--bangjeff-success">
+                                        <span className="account-pill__line">Your account is <strong>{accountLookup.username}</strong></span>
+                                    </div>
+                                )
                             ) : accountLookup?.type === 'error' ? (
                                 <div className="account-pill account-pill--bangjeff-error">
                                     <span className="account-pill__line">{accountLookup.text}</span>
@@ -3054,7 +3107,16 @@ export default function Order({ meta, category, products, packages, paymentMetho
                             <button type="button" className="public-button public-button--ghost" onClick={handleCheckAccount} disabled={checkLoading}>
                                 {checkLoading ? 'Memeriksa...' : 'Cek Username Game'}
                             </button>
-                            {nickname ? <div className="account-pill">Nickname: {nickname}</div> : null}
+                            {nickname ? (
+                                <div className={`account-pill ${accountRegionBlocked ? 'account-pill--bangjeff-error' : ''}`}>
+                                    Nickname: {nickname}
+                                    {accountLookup?.accountRegion?.known
+                                        ? (accountLookup.accountRegion.isId
+                                            ? ` · ${accountLookup.accountRegion.reported} 🇮🇩`
+                                            : ` · ${accountLookup.accountRegion.reported} ⚠️ di luar Indonesia`)
+                                        : ''}
+                                </div>
+                            ) : null}
                         </>
                     )}
                 </div>

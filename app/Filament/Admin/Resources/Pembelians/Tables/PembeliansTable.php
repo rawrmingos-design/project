@@ -86,6 +86,16 @@ class PembeliansTable
                     ->color(fn($record): string => self::dispatchStateBadgeColor($record))
                     ->toggleable(isToggledHiddenByDefault: true),
 
+                TextColumn::make('awaiting_manual_send')
+                    ->label('Menunggu Kirim')
+                    ->badge()
+                    ->getStateUsing(fn($record): string => $record->isAwaitingManualSend() ? 'MENUNGGU' : '—')
+                    ->color(fn($record): string => $record->isAwaitingManualSend() ? 'warning' : 'gray')
+                    ->tooltip(fn($record): ?string => $record->isAwaitingManualSend()
+                        ? 'Attempt ' . $record->display_order_id . ' BELUM dikirim ke provider. Buka order lalu klik "Send Callback".'
+                        : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('pembayaran.status')
                     ->label('Status Pembayaran')
                     ->badge()
@@ -204,6 +214,11 @@ class PembeliansTable
                         'pln' => 'PLN',
                     ])
                     ->multiple(),
+
+                Filter::make('awaiting_manual_send')
+                    ->label('Menunggu Kirim ke Provider')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => self::applyAwaitingManualSendFilter($query)),
 
                 Filter::make('created_at')
                     ->form([
@@ -360,7 +375,7 @@ class PembeliansTable
                         ->requiresConfirmation(),
 
                     Action::make('retry')
-                        ->label('Retry Order')
+                        ->label('Cek Status')
                         ->icon('heroicon-o-arrow-path')
                         ->color('info')
                         ->visible(fn($record) => $record->canBeRetried())
@@ -369,8 +384,8 @@ class PembeliansTable
                         ->action(function ($record) {
                             if (!$record->canRunRetryStatusCheck()) {
                                 Notification::make()
-                                    ->title('Retry status belum bisa dijalankan')
-                                    ->body($record->retryUnavailableReason() ?? 'Retry status tidak tersedia untuk transaksi ini.')
+                                    ->title('Cek status belum bisa dijalankan')
+                                    ->body($record->retryUnavailableReason() ?? 'Cek status tidak tersedia untuk transaksi ini.')
                                     ->warning()
                                     ->send();
 
@@ -379,7 +394,7 @@ class PembeliansTable
 
                             if (ProviderDispatchTracker::isActive($record->getKey())) {
                                 Notification::make()
-                                    ->title('Retry sedang berjalan')
+                                    ->title('Cek status sedang berjalan')
                                     ->body('Order ini masih dalam antrean/proses provider. Tunggu sebentar lalu refresh.')
                                     ->warning()
                                     ->send();
@@ -391,7 +406,7 @@ class PembeliansTable
                                 $record->update([
                                     'log' => self::appendBoundedLog(
                                         $record->log,
-                                        'Retry queued by admin at ' . now()->format('Y-m-d H:i:s'),
+                                        'Status check queued by admin at ' . now()->format('Y-m-d H:i:s'),
                                     ),
                                 ]);
 
@@ -399,14 +414,14 @@ class PembeliansTable
                                 ProviderDispatchTracker::markQueued($record->getKey());
 
                                 Notification::make()
-                                    ->title('Retry masuk antrean')
-                                    ->body('Order dikirim ke queue agar tetap responsif saat trafik tinggi.')
+                                    ->title('Cek status masuk antrean')
+                                    ->body('Order dikirim ke queue untuk mengecek status terkini di provider.')
                                     ->success()
                                     ->send();
                             } catch (\Throwable $exception) {
                                 ProviderDispatchTracker::clear($record->getKey());
 
-                                Log::error('Retry order dispatch failed.', [
+                                Log::error('Status check dispatch failed.', [
                                     'pembelian_id' => $record->getKey(),
                                     'order_id' => $record->order_id,
                                     'display_order_id' => $record->display_order_id,
@@ -414,15 +429,15 @@ class PembeliansTable
                                 ]);
 
                                 Notification::make()
-                                    ->title('Retry gagal diproses')
+                                    ->title('Cek status gagal diproses')
                                     ->body('Job gagal masuk antrean. Cek log aplikasi.')
                                     ->danger()
                                     ->send();
                             }
                         })
                         ->requiresConfirmation()
-                        ->modalHeading('Retry Transaction?')
-                        ->modalDescription('Are you sure you want to retry this transaction? This will attempt to send the order to the provider again.'),
+                        ->modalHeading('Cek Status Transaksi?')
+                        ->modalDescription('Sistem akan menanyakan status transaksi ini ke provider lalu menyinkronkan hasilnya. Tidak ada order baru yang dikirim.'),
 
                     Action::make('resend_notification')
                         ->label('Resend Notif')
@@ -786,6 +801,16 @@ class PembeliansTable
     private static function applyPaymentStatusFilter(Builder $query, array $data): Builder
     {
         return PaymentStatus::applyPembelianQuery($query, (array) ($data['values'] ?? []));
+    }
+
+    /**
+     * Filter "Menunggu Kirim ke Provider": attempt reset yang sudah dibuat tapi belum
+     * dikirim (reset_status = 'requested'). Logikanya ada di scope model supaya tabel,
+     * badge kolom, dan test memakai definisi yang sama.
+     */
+    private static function applyAwaitingManualSendFilter(Builder $query): Builder
+    {
+        return $query->awaitingManualSend();
     }
 
     private static function trafficSourceLabel(?string $source): string

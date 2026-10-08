@@ -167,6 +167,80 @@ class ArticleLayoutParityTest extends TestCase
         );
     }
 
+    /**
+     * Kredit editorial (penulis/peninjau) mengikuti APP_NAME, bukan hardcode.
+     * Jalur React menerimanya lewat shared prop `siteConfig.appName`.
+     */
+    public function test_inertia_article_page_exposes_editorial_brand_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        $article = $this->createArticle(['slug' => 'brand-dynamic']);
+
+        $this->get("/id/artikel/{$article->slug}")
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Articles/Show')
+                ->where('siteConfig.appName', 'Nama Toko Dinamis')
+            );
+    }
+
+    /**
+     * Jalur legacy Blade merender kredit editorial memakai helper yang sama,
+     * jadi mengganti APP_NAME mengganti teks tanpa menyentuh view.
+     */
+    public function test_legacy_article_view_renders_editorial_credit_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        SettingWeb::query()->whereKey(1)->update(['public_theme' => 'default']);
+        $article = $this->createArticle(['slug' => 'legacy-brand-dynamic']);
+
+        $html = $this->get("/id/artikel/{$article->slug}")->assertOk()->getContent();
+
+        $this->assertStringContainsString('Ditulis oleh Tim Editorial Nama Toko Dinamis', $html);
+        $this->assertStringNotContainsString('Tim Editorial IstanaTopup', $html);
+    }
+
+    /**
+     * Byline card artikel (akronim "Admin"/"Ditulis oleh") mengikuti APP_NAME,
+     * bukan literal. Jalur React menerimanya lewat shared prop siteConfig.appName.
+     */
+    public function test_article_card_brand_comes_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        $this->createArticle(['slug' => 'card-brand']);
+        $this->createArticle(['slug' => 'card-brand-2']);
+
+        $this->get('/id/artikel')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Articles/Index')
+                ->where('siteConfig.appName', 'Nama Toko Dinamis')
+                ->where('articles', fn ($articles) => collect($articles)->contains(fn ($a) => $a['slug'] === 'card-brand-2'))
+            );
+    }
+
+    /**
+     * Widget artikel homepage legacy (Livewire) memakai helper brand yang sama.
+     */
+    public function test_legacy_home_articles_widget_renders_brand_from_app_name(): void
+    {
+        config(['app.name' => 'Nama Toko Dinamis']);
+        SettingWeb::query()->whereKey(1)->update(['public_theme' => 'default']);
+        $this->createArticle(['slug' => 'home-widget-brand']);
+
+        $html = $this->get('/id')->assertOk()->getContent();
+
+        $this->assertStringContainsString('gj-card-author', $html);
+        $this->assertStringNotContainsString('<span class="gj-card-author">Admin</span>', $html);
+        $this->assertStringContainsString('Tim Editorial Nama Toko Dinamis', $html);
+        // Seluruh card adalah satu tautan — bukan cuma gambarnya.
+        $this->assertMatchesRegularExpression(
+            '/<a href="[^"]*\/id\/artikel\/home-widget-brand"[^>]*class="gj-card group"/',
+            $html
+        );
+        $this->assertStringNotContainsString('<article class="gj-card group">', $html);
+    }
+
     private function createArticle(array $overrides = []): Artikel
     {
         return Artikel::query()->create(array_merge([

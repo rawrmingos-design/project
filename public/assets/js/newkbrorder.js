@@ -477,6 +477,7 @@ $(".product-list").off("click").on("click", (function () {
     } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
     if (!h && !y) return void showToast("Silahkan isi nomor WhatsApp atau email terlebih dahulu");
     if (y && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
+    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Your account from region " + (window.__accountRegion.code || window.__accountRegion.reported) + " we cannot processed it. Only region ID allowed.", "error");
     $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",
@@ -747,7 +748,72 @@ $(document).ready(function () {
     var checkTimer;
 
     function resetNicknameDisplay() {
-        $("[id='nickname-display']").text("").removeClass("text-gray-500 text-green-500 text-red-500").removeAttr("data-username");
+        $("[id='nickname-display']").text("").removeClass("text-gray-500 text-green-500 text-red-500").removeAttr("data-username").hide();
+        clearAccountRegionWarning();
+        window.__accountRegion = null;
+    }
+
+    function clearAccountRegionWarning() {
+        $("[id='account-region-warning']").text("").attr("hidden", "hidden").hide();
+        setOrderButtonDisabled(false);
+    }
+
+    // Tombol "Pesan Sekarang" dimatikan selama akun terdeteksi non-ID. Semua
+    // tombol (desktop + mobile) di-set sekaligus; hanya satu yang terlihat.
+    function setOrderButtonDisabled(disabled) {
+        $("[id='order-check']")
+            .prop("disabled", disabled)
+            .attr("aria-disabled", disabled ? "true" : "false");
+    }
+
+    function escapeAccountHtml(value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+            return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+    }
+
+    // Region akun = best-effort sinyal dari provider (mis. codashop).
+    // Kalau provider tidak melaporkan, region tetap "unknown" — JANGAN blokir.
+    function resolveAccountRegion(accountRegion) {
+        if (!accountRegion || !accountRegion.code) {
+            return { known: false, blocked: false };
+        }
+        var code = String(accountRegion.code).toUpperCase();
+        if (code === "" || code === "UNKNOWN") {
+            return { known: false, blocked: false };
+        }
+        return {
+            known: true,
+            code: code,
+            isId: code === "ID",
+            reported: accountRegion.reported || code,
+            blocked: code !== "ID"
+        };
+    }
+
+    function renderAccountDisplay(username, region) {
+        var $display = $("[id='nickname-display']");
+        var safeName = escapeAccountHtml(username);
+        $display.removeClass("text-gray-500 text-green-500 text-red-500").attr("data-username", username);
+
+        if (region && region.known && !region.isId) {
+            // Warning terpisah di bawah form UID (bukan cuma di teks validasi),
+            // dan tombol "Pesan Sekarang" dimatikan sampai akun diganti.
+            var code = escapeAccountHtml(region.code);
+            var reported = escapeAccountHtml(region.reported);
+            $display.html("Valid: " + safeName + " \u00b7 " + reported).addClass("text-red-500");
+            $("[id='account-region-warning']")
+                .html("Your account from region " + code + " we cannot processed it. Only region ID allowed.")
+                .removeAttr("hidden")
+                .show();
+            setOrderButtonDisabled(true);
+            return;
+        }
+
+        clearAccountRegionWarning();
+
+        var suffix = region && region.known ? " \u00b7 " + escapeAccountHtml(region.reported) + " \ud83c\uddee\ud83c\udde9" : "";
+        $display.html("Valid: " + safeName + suffix).addClass("text-green-500");
     }
 
     function canCheckAccount(kategoriTipe) {
@@ -788,16 +854,21 @@ $(document).ready(function () {
                             resetNicknameDisplay();
                         } else if (response.status && response.status.code === 200) {
                             var checkedUsername = response.data.username || "";
-                            $("[id='nickname-display']").html("Valid: " + checkedUsername).attr("data-username", checkedUsername).removeClass("text-gray-500 text-red-500").addClass("text-green-500");
+                            var region = resolveAccountRegion(response.data.account_region);
+                            window.__accountRegion = region;
+                            renderAccountDisplay(checkedUsername, region);
                             window.dispatchEvent(new CustomEvent("order:account-checked", {
                                 detail: {
                                     uid: uid,
                                     zone: zone,
-                                    nickname: checkedUsername
+                                    nickname: checkedUsername,
+                                    accountRegion: region.known ? region.code : null
                                 }
                             }));
                         } else {
-                            $("[id='nickname-display']").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500").removeAttr("data-username");
+                            window.__accountRegion = null;
+                            clearAccountRegionWarning();
+                            $("[id='nickname-display']").text("User Not Found").removeClass("text-gray-500 text-green-500").addClass("text-red-500").removeAttr("data-username").show();
                         }
                     },
                     error: function () {
