@@ -32,16 +32,21 @@ function FooterSeoDescription({ html }) {
     }
 
     return (
-        <section className={`public-footer__seo ${collapsible ? 'is-collapsible' : ''} ${expanded ? 'is-expanded' : ''}`.trim()}>
+        <section
+            className={`public-footer__seo ${collapsible ? 'is-collapsible' : ''} ${expanded ? 'is-expanded' : ''}`.trim()}
+            data-footer-seo
+        >
             <div
                 ref={contentRef}
                 className="public-footer__seo-content"
+                data-footer-seo-content
                 dangerouslySetInnerHTML={{ __html: html }}
             />
             {collapsible ? (
                 <button
                     type="button"
                     className="public-footer__seo-toggle"
+                    data-footer-seo-toggle
                     aria-expanded={expanded}
                     onClick={() => setExpanded((value) => !value)}
                 >
@@ -166,7 +171,7 @@ export default function Footer() {
 
             <footer className="public-footer public-footer--storefront">
                 <div className="public-footer__inner public-footer__inner--storefront">
-                    {!isIstanaTopup ? <FooterSeoDescription html={siteConfig.footerDescriptionHtml} /> : null}
+                    <FooterSeoDescription html={siteConfig.footerDescriptionHtml} />
 
                     <div className={`public-footer__layout ${isBangjeff || isIstanaTopup ? 'public-footer__layout--bangjeff' : ''}`}>
                         {isBangjeff || isIstanaTopup ? (
