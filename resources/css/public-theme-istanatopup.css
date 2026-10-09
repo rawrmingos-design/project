@@ -1285,6 +1285,36 @@
     max-width: none;
     background: var(--ist-surface);
 }
+/*
+ * Deskripsi SEO footer (rich text dari `deskripsi_footer_beranda` /
+ * `deskripsi_web`). Lebar disamakan dengan grid footer istana, dan warna
+ * fade-out kolaps mengikuti surface tema — aturan dasar di public-app.css
+ * memakai #28282a (surface tema lain), yang jadi kotak gelap berbeda di sini.
+ */
+.public-app--istanatopup .public-footer__seo {
+    width: min(calc(100% - 36px), 1200px);
+    margin: 0 auto 24px;
+    text-align: left;
+}
+.public-app--istanatopup .public-footer__seo-content {
+    color: var(--ist-text-soft);
+}
+.public-app--istanatopup .public-footer__seo-content h2,
+.public-app--istanatopup .public-footer__seo-content h3 {
+    color: var(--ist-text);
+}
+.public-app--istanatopup .public-footer__seo-content a {
+    color: var(--ist-accent);
+}
+.public-app--istanatopup .public-footer__seo.is-collapsible:not(.is-expanded) .public-footer__seo-content::after {
+    background: linear-gradient(to bottom, rgba(26, 26, 26, 0), var(--ist-surface));
+}
+.public-app--istanatopup .public-footer__seo-toggle {
+    color: var(--ist-accent);
+}
+.public-app--istanatopup .public-footer__seo-toggle:hover {
+    color: var(--ist-text);
+}
 .public-app--istanatopup .public-footer__layout,
 .public-app--istanatopup .public-footer__bottom {
     width: min(calc(100% - 36px), 1200px);

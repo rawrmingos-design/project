@@ -47,6 +47,15 @@ class E2EBrowserSeeder extends Seeder
             [
                 'judul_web' => 'P06 Browser Test',
                 'deskripsi_web' => 'Deterministic browser test storefront.',
+                'aktif_footer_beranda' => true,
+                // Sengaja panjang: deskripsi footer punya kontrol buka/tutup
+                // yang hanya muncul kalau konten melebihi ambang kolaps, jadi
+                // fixture harus melewatinya supaya kontrol itu benar-benar diuji.
+                'deskripsi_footer_beranda' => '<p>Deterministic browser test storefront.</p>'
+                    . '<h3>Top up game termurah</h3><p>Proses otomatis 24 jam tanpa menunggu admin.</p>'
+                    . '<h3>Pembayaran terlengkap</h3><p>QRIS, DANA, OVO, ShopeePay, GoPay, dan virtual account.</p>'
+                    . '<h3>Kenapa memilih kami?</h3><ul><li>Harga transparan.</li><li>Proses otomatis.</li>'
+                    . '<li>Aman dan legal.</li></ul><p>Top up game murah, cepat, dan legal kapan pun.</p>',
                 'keywords' => 'browser,test',
                 'logo_header' => 'assets/logo/favicon.webp',
                 'logo_footer' => 'assets/logo/favicon.webp',

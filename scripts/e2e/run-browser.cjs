@@ -199,6 +199,16 @@ const INERTIA_ARTICLE_SPECS = [
 ];
 
 /**
+ * Deskripsi SEO footer dirender React di SEMUA tema Inertia, tapi fixture-nya
+ * (`aktif_footer_beranda` + `deskripsi_footer_beranda`) hanya diisi seeder
+ * kalau beranda memakai jalur React. Suite tema `default` (Blade) juga butuh
+ * spec ini karena `footer.blade.php` memakai field yang sama — melewatkannya
+ * berarti perubahan fixture/section bisa merusak salah satu renderer tanpa
+ * ketahuan.
+ */
+const INERTIA_FOOTER_SPECS = ['tests/e2e/istana-footer-seo-description.spec.js'];
+
+/**
  * Tema legacy (`public_theme=default`) dirender Blade, bukan Inertia, jadi
  * butuh database + tema sendiri. Servernya dikelola Playwright lewat `webServer`
  * (lihat playwright.config.js) persis seperti suite tema `bangjeff`; yang
@@ -217,6 +227,7 @@ async function runLegacyLayout() {
             'tests/e2e/article-sidebar-sticky.spec.js',
             'tests/e2e/order-region-warning-default.spec.js',
             'tests/e2e/storefront-search-legacy.spec.js',
+            'tests/e2e/istana-footer-seo-description.spec.js',
         ],
     });
 }
@@ -233,7 +244,7 @@ async function runIstanatopupLayout() {
         theme: 'istanatopup',
         suite: 'istanatopup',
         runtimeDir: '.tmp/e2e-istanatopup',
-        specs: INERTIA_ARTICLE_SPECS,
+        specs: [...INERTIA_ARTICLE_SPECS, ...INERTIA_FOOTER_SPECS],
     });
 }
 
@@ -338,6 +349,7 @@ async function main() {
                 'tests/e2e/storefront-google-signup.spec.js',
                 'tests/e2e/article-faq-schema.spec.js',
                 'tests/e2e/article-sidebar-sticky.spec.js',
+                ...INERTIA_FOOTER_SPECS,
             ];
 
             if (mode === 'all') {

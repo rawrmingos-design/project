@@ -73,7 +73,11 @@ class PublicSiteConfigService
         $logoFooter = $this->resolveAsset($settings->logo_footer, '/assets/logo/favicon.webp');
         $favicon = $this->resolveAsset($settings->logo_favicon, '/assets/logo/favicon.webp');
         $plainDescription = HtmlSanitizer::toPlainText($settings->deskripsi_web, 180);
-        $footerDescriptionHtml = HtmlSanitizer::clean($settings->deskripsi_web);
+        // Deskripsi footer harus mengikuti aturan jalur Blade
+        // (resources/views/footer.blade.php): beranda boleh punya deskripsi
+        // khusus (`aktif_footer_beranda` + `deskripsi_footer_beranda`),
+        // halaman lain memakai `deskripsi_web`.
+        $footerDescriptionHtml = HtmlSanitizer::clean($this->resolveFooterDescription($settings));
 
         return [
             'siteConfig' => [
@@ -141,6 +145,38 @@ class PublicSiteConfigService
                 'robots' => SeoRoutePolicy::robots(),
             ],
         ];
+    }
+
+    /**
+     * Deskripsi footer (rich HTML) sesuai aturan jalur Blade.
+     *
+     * Beranda memakai `deskripsi_footer_beranda` HANYA kalau toggle
+     * `aktif_footer_beranda` menyala dan isinya tidak kosong; selain itu
+     * (dan di semua halaman lain) jatuh ke `deskripsi_web`.
+     */
+    private function resolveFooterDescription(object $settings): string
+    {
+        $deskripsiWeb = (string) ($settings->deskripsi_web ?? '');
+
+        if (! $this->isHomepageRequest()) {
+            return $deskripsiWeb;
+        }
+
+        $enabled = (bool) ($settings->aktif_footer_beranda ?? false);
+        $beranda = trim((string) ($settings->deskripsi_footer_beranda ?? ''));
+
+        return $enabled && $beranda !== '' ? $beranda : $deskripsiWeb;
+    }
+
+    /**
+     * Samakan dengan deteksi beranda di `resources/views/footer.blade.php`
+     * ($isHomepage) supaya kedua renderer memilih deskripsi yang sama.
+     */
+    private function isHomepageRequest(): bool
+    {
+        $request = request();
+
+        return $request->is('/') || $request->is('id');
     }
 
     public function normalizeAssetPath(?string $path, string $fallback = '/assets/logo/favicon.webp'): string
