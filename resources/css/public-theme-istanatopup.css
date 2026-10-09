@@ -666,6 +666,12 @@
     position: relative;
     min-width: 0;
     isolation: isolate;
+    /* `isolation: isolate` menahan z-index ikon/clear agar tidak bocor keluar,
+       tapi efek sampingnya mengurung z-index hasil pencarian sehingga kalah dari
+       baris menu navbar (auto) dan hasil search tertutup menu. Naikkan level
+       seluruh kotak pencarian di atas isi navbar lain, tetap di bawah drawer
+       (z-index: 50) supaya menu/drawer tetap menutupi hasil pencarian. */
+    z-index: 41;
 }
 .public-app--istanatopup .public-search--desktop input,
 .public-app--istanatopup .public-search--mobile input {

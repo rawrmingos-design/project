@@ -216,6 +216,7 @@ async function runLegacyLayout() {
             'tests/e2e/article-card-geometry.spec.js',
             'tests/e2e/article-sidebar-sticky.spec.js',
             'tests/e2e/order-region-warning-default.spec.js',
+            'tests/e2e/storefront-search-legacy.spec.js',
         ],
     });
 }

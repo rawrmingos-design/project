@@ -17,6 +17,17 @@
         --tw-bg-opacity: 1;
         background-color:  var(--warna_2);
     }
+    /*
+     * Tema legacy memuat bundle CSS statis (public/assets/css/*.css) yang hanya
+     * berisi utility z-10..z-50; kelas arbitrary `z-[60]` tidak pernah
+     * di-generate di sana sehingga hasil pencarian jatuh ke `z-index: auto` dan
+     * tertutup header sticky yang memakai inline z-index:50. Aturan eksplisit
+     * ini memastikan hasil pencarian selalu berada di atas baris menu navbar.
+     */
+    .resultsearchdekstop,
+    .resultsearch {
+        z-index: 60;
+    }
     .text-primary-300 {
         color: var(--warna_2);
     }
@@ -91,7 +102,7 @@ document.addEventListener('alpine:init', () => {
             aria-controls="combobox-options-:r4i:" 
             tabindex="0"
             aria-label="Cari produk">
-        <ul class="resultsearchdekstop absolute top-full left-0 w-full max-h-80 scroll-py-2 divide-y divide-gray-500 divide-opacity-10 overflow-y-auto bg-primary-x backdrop-blur shadow-md rounded-md z-30">
+        <ul class="resultsearchdekstop absolute top-full left-0 w-full max-h-80 scroll-py-2 divide-y divide-gray-500 divide-opacity-10 overflow-y-auto bg-primary-x backdrop-blur shadow-md rounded-md z-[60]">
         </ul>
     </div>
 </div>
