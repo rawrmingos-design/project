@@ -116,8 +116,9 @@
                         <div class="mt-2 flex overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 focus-within:border-purple-300">
                             <input id="subdomainInput" name="subdomain" required class="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none" placeholder="raka-topup">
                             <span class="border-l border-white/10 px-4 py-3 text-sm text-slate-400">.{{ $baseHost }}</span>
+                            <button id="checkSubdomainButton" type="button" class="border-l border-white/10 px-4 py-3 text-sm font-bold text-purple-200 transition hover:bg-white/10">Cek</button>
                         </div>
-                        <p id="subdomainStatus" class="mt-2 text-xs text-slate-400">Gunakan huruf, angka, dan strip. Minimal 3 karakter.</p>
+                        <p id="subdomainStatus" class="mt-2 text-xs text-slate-400">Gunakan huruf, angka, dan strip. Minimal 3 karakter. Klik "Cek" untuk memastikan nama tersedia.</p>
                     </label>
 
                     <fieldset>
@@ -151,6 +152,7 @@
             <div id="successPanel" class="hidden">
                 <div class="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-100">Registrasi berhasil</div>
                 <h2 class="mt-5 text-3xl font-black">Invoice langganan dibuat.</h2>
+                <p id="successResumeNote" class="hidden mt-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">Pendaftaran dilanjutkan. Invoice yang sama masih berlaku — selesaikan pembayaran untuk mengaktifkan toko.</p>
                 <p class="mt-2 text-sm leading-6 text-slate-300">Selesaikan pembayaran invoice. Setelah webhook paid diterima, toko otomatis aktif.</p>
                 <div class="mt-6 space-y-3 rounded-3xl border border-white/10 bg-slate-950/70 p-5 text-sm">
                     <div class="flex justify-between gap-4"><span class="text-slate-400">Toko</span><strong id="successStore"></strong></div>
@@ -176,10 +178,13 @@
             const form = document.getElementById('tenantRegisterForm');
             const subdomainInput = document.getElementById('subdomainInput');
             const subdomainStatus = document.getElementById('subdomainStatus');
+            const checkSubdomainButton = document.getElementById('checkSubdomainButton');
             const submitButton = document.getElementById('submitButton');
             const formAlert = document.getElementById('formAlert');
-            let subdomainTimer = 0;
-            let subdomainAvailable = false;
+            // Nama terakhir yang SUDAH diverifikasi tersedia. Selama input masih
+            // sama dengan ini, submit tidak perlu memanggil API lagi. Begitu
+            // input berubah, status balik "belum dicek".
+            let verifiedSubdomain = null;
 
             function rupiah(value) {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -192,16 +197,19 @@
 
             function setSubdomainStatus(message, tone) {
                 subdomainStatus.textContent = message;
-                subdomainStatus.className = 'mt-2 text-xs ' + (tone === 'ok' ? 'text-emerald-300' : tone === 'bad' ? 'text-red-300' : 'text-slate-400');
+                const warna = { ok: 'text-emerald-300', bad: 'text-red-300', warn: 'text-amber-300' };
+                subdomainStatus.className = 'mt-2 text-xs ' + (warna[tone] || 'text-slate-400');
             }
 
+            // Panggil API cek SATU KALI per klik. Dipakai juga saat submit.
+            // Mengembalikan true kalau nama tersedia.
             async function checkSubdomain() {
                 const raw = (subdomainInput.value || '').trim();
-                subdomainAvailable = false;
+                verifiedSubdomain = null;
 
                 if (raw.length < 3) {
-                    setSubdomainStatus('Gunakan huruf, angka, dan strip. Minimal 3 karakter.', 'muted');
-                    return;
+                    setSubdomainStatus('Gunakan huruf, angka, dan strip. Minimal 3 karakter.', 'warn');
+                    return false;
                 }
 
                 setSubdomainStatus('Mengecek ketersediaan...', 'muted');
@@ -211,29 +219,49 @@
                         headers: { 'Accept': 'application/json' },
                     });
                     const data = await response.json();
+
                     subdomainInput.value = data.subdomain || raw;
-                    subdomainAvailable = Boolean(data.available);
-                    setSubdomainStatus(
-                        subdomainAvailable ? (data.subdomain + '.{{ $baseHost }} tersedia.') : 'Subdomain tidak tersedia. Coba nama lain.',
-                        subdomainAvailable ? 'ok' : 'bad'
-                    );
+
+                    // Pesan dari server dipakai apa adanya supaya UI dan aturan
+                    // backend tidak pernah berbeda.
+                    if (data.available) {
+                        verifiedSubdomain = data.subdomain || raw;
+                        setSubdomainStatus((data.subdomain || raw) + '.{{ $baseHost }} tersedia.', 'ok');
+                        return true;
+                    }
+
+                    setSubdomainStatus(data.reason || 'Subdomain tidak tersedia. Coba nama lain.', 'bad');
+                    return false;
                 } catch (error) {
                     setSubdomainStatus('Belum bisa cek subdomain. Coba lagi.', 'bad');
+                    return false;
                 }
             }
 
+            // Q7: TIDAK ada pengecekan saat mengetik (debounce dibuang).
+            // Mengetik hanya membatalkan hasil cek sebelumnya.
             subdomainInput.addEventListener('input', function () {
-                window.clearTimeout(subdomainTimer);
-                subdomainTimer = window.setTimeout(checkSubdomain, 350);
+                if (verifiedSubdomain !== null && (subdomainInput.value || '').trim() !== verifiedSubdomain) {
+                    verifiedSubdomain = null;
+                    setSubdomainStatus('Nama berubah — klik "Cek" lagi untuk memastikan tersedia.', 'warn');
+                }
+            });
+
+            checkSubdomainButton.addEventListener('click', function () {
+                checkSubdomain();
             });
 
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();
                 setAlert('');
 
-                if (!subdomainAvailable) {
-                    await checkSubdomain();
-                    if (!subdomainAvailable) {
+                const raw = (subdomainInput.value || '').trim();
+
+                // Cek saat submit: kalau nama belum diverifikasi (atau berubah),
+                // panggil API sekali lagi sebelum mendaftar.
+                if (verifiedSubdomain === null || verifiedSubdomain !== raw) {
+                    const tersedia = await checkSubdomain();
+                    if (!tersedia) {
                         return;
                     }
                 }
@@ -261,6 +289,7 @@
 
                     document.getElementById('registerPanel').classList.add('hidden');
                     document.getElementById('successPanel').classList.remove('hidden');
+                    document.getElementById('successResumeNote').classList.toggle('hidden', !data.resumed);
                     document.getElementById('successStore').textContent = data.tenant.name;
                     document.getElementById('successSubdomain').textContent = data.tenant.subdomain + '.{{ $baseHost }}';
                     document.getElementById('successStatus').textContent = data.tenant.status;

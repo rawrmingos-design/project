@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -25,12 +26,15 @@ class TenantRegistrationService
         'business',
     ];
 
+    public function __construct(
+        private readonly SubdomainAvailabilityGuard $guard,
+    ) {}
+
     public function register(array $data): array
     {
         $subdomain = $this->normalizeSubdomain((string) ($data['subdomain'] ?? ''));
         $tier = strtolower(trim((string) ($data['tier'] ?? 'starter')));
-
-        $this->validateSubdomain($subdomain);
+        $email = trim((string) ($data['email'] ?? ''));
 
         if (! in_array($tier, self::SELF_SERVICE_TIERS, true)) {
             throw ValidationException::withMessages([
@@ -38,11 +42,145 @@ class TenantRegistrationService
             ]);
         }
 
-        return DB::transaction(function () use ($data, $subdomain, $tier): array {
-            $amount = self::TIER_PRICES[$tier];
-            $gatewayRef = 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
-            $gateway = $amount > 0 ? 'duitku' : 'manual';
+        // Jalur resume: email yang sudah terdaftar TIDAK boleh membuat tenant
+        // kedua. Ini juga penjaga keamanan — tanpa cek password, siapa pun
+        // yang tahu alamat email bisa mengambil alih pendaftaran orang lain.
+        $existing = User::query()->where('email', $email)->first();
 
+        if ($existing !== null) {
+            return $this->resume($existing, $data, $subdomain, $tier);
+        }
+
+        $this->assertSubdomainAvailable($subdomain);
+
+        return $this->createTenant($data, $subdomain, $tier);
+    }
+
+    /**
+     * Lanjutkan pendaftaran yang belum dibayar.
+     *
+     * Q2=B (resume untuk pemilik email sama), Q8=A (pakai invoice lama kalau
+     * masih pending), Q9=B (subdomain boleh diganti, username ikut berganti).
+     */
+    private function resume(User $owner, array $data, string $subdomain, string $tier): array
+    {
+        if (! Hash::check((string) ($data['password'] ?? ''), (string) $owner->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'Email ini sudah terdaftar. Masukkan password yang benar untuk melanjutkan.',
+            ]);
+        }
+
+        $tenant = $owner->tenant_id !== null
+            ? Tenant::query()->find($owner->tenant_id)
+            : Tenant::query()->where('owner_user_id', $owner->id)->first();
+
+        if ($tenant === null) {
+            throw ValidationException::withMessages([
+                'email' => 'Email ini sudah terdaftar namun belum punya toko yang bisa dilanjutkan.',
+            ]);
+        }
+
+        if ($tenant->status !== Tenant::STATUS_PENDING_PAYMENT) {
+            throw ValidationException::withMessages([
+                'email' => 'Email ini sudah punya toko dengan status ' . $tenant->status . '. Masuk ke dashboard atau hubungi admin.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($owner, $tenant, $data, $subdomain, $tier): array {
+            // Ganti subdomain (Q9=B) hanya kalau berbeda DAN masih tersedia.
+            if ($subdomain !== '' && $subdomain !== $tenant->subdomain) {
+                $this->assertSubdomainAvailable($subdomain, ignoreTenantId: $tenant->id);
+
+                $tenant->forceFill(['subdomain' => $subdomain])->save();
+                $owner->forceFill(['username' => $this->uniqueUsername($subdomain)])->save();
+            }
+
+            $subscription = $tenant->subscriptions()->latest('id')->first();
+
+            if ($subscription === null) {
+                // Data lama tanpa langganan: buat sekali, jangan biarkan
+                // pendaftaran menggantung tanpa invoice.
+                $subscription = Subscription::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'tier' => $tier,
+                    'price' => self::TIER_PRICES[$tier],
+                    'status' => Subscription::STATUS_PENDING,
+                    'gateway_ref' => $this->gatewayRef(),
+                ]);
+            }
+
+            $invoice = $this->resumeInvoice($subscription, $tier, $subdomain, $tenant->name);
+
+            return [
+                'owner' => $owner->fresh(),
+                'tenant' => $tenant->fresh(),
+                'subscription' => $subscription->fresh(),
+                'invoice' => $invoice->fresh('subscription.tenant.owner'),
+                'resumed' => true,
+            ];
+        });
+    }
+
+    /**
+     * Q8=A: pakai invoice lama.
+     *
+     * Satu langganan hanya boleh punya SATU gateway_ref — kolom
+     * `subscription_invoices.gateway_ref` unik dan dipakai Duitku sebagai
+     * merchantOrderId, sementara `TenantProvisioningService` menyamakannya
+     * dengan `subscriptions.gateway_ref`. Jadi invoice pengganti tidak boleh
+     * dibuat; invoice lama yang direset, bukan ditambah.
+     */
+    private function resumeInvoice(Subscription $subscription, string $tier, string $subdomain, string $storeName): SubscriptionInvoice
+    {
+        if (($pending = $this->pendingInvoice($subscription)) !== null) {
+            return $pending;
+        }
+
+        $invoice = SubscriptionInvoice::query()
+            ->where('subscription_id', $subscription->id)
+            ->latest('id')
+            ->first();
+
+        if ($invoice === null) {
+            return $this->createInvoice($subscription, $tier, $subdomain, $storeName);
+        }
+
+        // Invoice yang sudah dibayar tidak boleh direset.
+        if ($invoice->status === SubscriptionInvoice::STATUS_PAID) {
+            return $invoice;
+        }
+
+        $invoice->forceFill([
+            'status' => SubscriptionInvoice::STATUS_PENDING,
+            'paid_at' => null,
+            'amount' => self::TIER_PRICES[$tier],
+            'due_date' => now()->addDay(),
+            'metadata' => array_replace_recursive((array) $invoice->metadata, [
+                'store_name' => $storeName,
+                'subdomain' => $subdomain,
+                'resumed_at' => now()->toIso8601String(),
+            ]),
+        ])->save();
+
+        // Tautan pembayaran lama sudah kedaluwarsa — segarkan, tapi kegagalan
+        // gateway tidak boleh membatalkan resume (invoice tetap pending).
+        if ($invoice->gateway === 'duitku') {
+            try {
+                $invoice = app(DuitkuSubscriptionPaymentService::class)->createAndStoreInvoice($invoice);
+            } catch (\Throwable $e) {
+                Log::warning('Resume tenant: gagal menyegarkan tautan pembayaran Duitku.', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $invoice;
+    }
+
+    private function createTenant(array $data, string $subdomain, string $tier): array
+    {
+        return DB::transaction(function () use ($data, $subdomain, $tier): array {
             $owner = User::query()->create([
                 'name' => trim((string) $data['name']),
                 'username' => $this->uniqueUsername($subdomain),
@@ -67,73 +205,124 @@ class TenantRegistrationService
                 ],
             ]);
 
-            $owner->forceFill([
-                'tenant_id' => $tenant->id,
-            ])->save();
+            $owner->forceFill(['tenant_id' => $tenant->id])->save();
 
             $subscription = Subscription::query()->create([
                 'tenant_id' => $tenant->id,
                 'tier' => $tier,
-                'price' => $amount,
+                'price' => self::TIER_PRICES[$tier],
                 'status' => Subscription::STATUS_PENDING,
-                'gateway_ref' => $gatewayRef,
+                'gateway_ref' => $this->gatewayRef(),
             ]);
 
-            $invoice = SubscriptionInvoice::query()->create([
-                'subscription_id' => $subscription->id,
-                'amount' => $amount,
-                'status' => SubscriptionInvoice::STATUS_PENDING,
-                'gateway' => $gateway,
-                'gateway_ref' => $gatewayRef,
-                'due_date' => now()->addDay(),
-                'metadata' => [
-                    'source' => 'tenant_self_registration',
-                    'store_name' => $tenant->name,
-                    'subdomain' => $subdomain,
-                    'currency' => 'IDR',
-                ],
-            ]);
+            $invoice = $this->createInvoice($subscription, $tier, $subdomain, $tenant->name);
 
-            if ($gateway === 'duitku') {
-                $invoice = app(DuitkuSubscriptionPaymentService::class)->createAndStoreInvoice($invoice);
-            }
-
-            DB::afterCommit(function () use ($invoice) {
-                \App\Jobs\SendTenantNotificationJob::dispatch(
-                    $invoice->id,
-                    \App\Jobs\SendTenantNotificationJob::EVENT_REGISTRATION_INVOICE
-                );
-            });
+            $this->notifyRegistrationInvoice($invoice);
 
             return [
                 'owner' => $owner,
                 'tenant' => $tenant,
                 'subscription' => $subscription,
                 'invoice' => $invoice->fresh('subscription.tenant.owner'),
+                'resumed' => false,
             ];
         });
     }
 
-    public function isSubdomainAvailable(string $subdomain): bool
-    {
-        $normalized = $this->normalizeSubdomain($subdomain);
+    private function createInvoice(
+        Subscription $subscription,
+        string $tier,
+        string $subdomain,
+        string $storeName,
+    ): SubscriptionInvoice {
+        $amount = self::TIER_PRICES[$tier];
+        $gateway = $amount > 0 ? 'duitku' : 'manual';
 
-        try {
-            $this->validateSubdomain($normalized);
-        } catch (ValidationException) {
-            return false;
+        // gateway_ref = merchantOrderId Duitku; unik per langganan.
+        $gatewayRef = (string) ($subscription->gateway_ref ?: $this->gatewayRef());
+
+        $invoice = SubscriptionInvoice::query()->create([
+            'subscription_id' => $subscription->id,
+            'amount' => $amount,
+            'status' => SubscriptionInvoice::STATUS_PENDING,
+            'gateway' => $gateway,
+            'gateway_ref' => $gatewayRef,
+            'due_date' => now()->addDay(),
+            'metadata' => [
+                'source' => 'tenant_self_registration',
+                'store_name' => $storeName,
+                'subdomain' => $subdomain,
+                'currency' => 'IDR',
+            ],
+        ]);
+
+        if ($gateway === 'duitku') {
+            $invoice = app(DuitkuSubscriptionPaymentService::class)->createAndStoreInvoice($invoice);
         }
 
-        return true;
+        return $invoice;
+    }
+
+    private function pendingInvoice(Subscription $subscription): ?SubscriptionInvoice
+    {
+        return SubscriptionInvoice::query()
+            ->where('subscription_id', $subscription->id)
+            ->where('status', SubscriptionInvoice::STATUS_PENDING)
+            ->where(function ($query): void {
+                $query->whereNull('due_date')->orWhere('due_date', '>', now());
+            })
+            ->latest('id')
+            ->first();
+    }
+
+    private function notifyRegistrationInvoice(SubscriptionInvoice $invoice): void
+    {
+        DB::afterCommit(function () use ($invoice): void {
+            try {
+                \App\Jobs\SendTenantNotificationJob::dispatch(
+                    $invoice->id,
+                    \App\Jobs\SendTenantNotificationJob::EVENT_REGISTRATION_INVOICE
+                );
+            } catch (\Throwable $e) {
+                // Notifikasi tidak boleh menggagalkan pendaftaran.
+                Log::warning('Gagal menjadwalkan notifikasi invoice pendaftaran tenant.', [
+                    'invoice_id' => $invoice->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
+    }
+
+    /** Penolakan subdomain memakai guard yang sama dengan endpoint cek. */
+    private function assertSubdomainAvailable(string $subdomain, ?int $ignoreTenantId = null): void
+    {
+        $hasil = $this->guard->check($subdomain);
+
+        if ($hasil['available']) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'subdomain' => $hasil['reason'] ?: 'Subdomain ini tidak dapat digunakan.',
+        ]);
+    }
+
+    /**
+     * @return array{available: bool, subdomain: string, reason: ?string}
+     */
+    public function checkSubdomain(string $subdomain): array
+    {
+        return $this->guard->check($subdomain);
+    }
+
+    public function isSubdomainAvailable(string $subdomain): bool
+    {
+        return (bool) $this->guard->check($subdomain)['available'];
     }
 
     public function normalizeSubdomain(string $subdomain): string
     {
-        $subdomain = Str::lower(trim($subdomain));
-        $subdomain = preg_replace('/[^a-z0-9-]/', '-', $subdomain) ?? '';
-        $subdomain = preg_replace('/-+/', '-', $subdomain) ?? '';
-
-        return trim($subdomain, '-');
+        return $this->guard->normalize($subdomain);
     }
 
     public function defaultMarginConfig(): array
@@ -152,25 +341,9 @@ class TenantRegistrationService
         ];
     }
 
-    private function validateSubdomain(string $subdomain): void
+    private function gatewayRef(): string
     {
-        if (! preg_match('/^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/', $subdomain)) {
-            throw ValidationException::withMessages([
-                'subdomain' => 'Subdomain harus 3-63 karakter huruf, angka, atau strip.',
-            ]);
-        }
-
-        if (in_array($subdomain, Tenant::RESERVED_SUBDOMAINS, true)) {
-            throw ValidationException::withMessages([
-                'subdomain' => 'Subdomain ini tidak dapat digunakan.',
-            ]);
-        }
-
-        if (Tenant::query()->where('subdomain', $subdomain)->exists()) {
-            throw ValidationException::withMessages([
-                'subdomain' => 'Subdomain sudah digunakan.',
-            ]);
-        }
+        return 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
     }
 
     private function uniqueUsername(string $subdomain): string
@@ -194,5 +367,4 @@ class TenantRegistrationService
 
         return $code;
     }
-
 }

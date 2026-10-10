@@ -33,7 +33,7 @@ use App\Http\Controllers\Api\BotWebhookController;
 */
 
 Route::get('/subdomain/check', [TenantRegistrationController::class, 'checkSubdomain'])
-    ->middleware('throttle:30,1')
+    ->middleware('throttle:60,1')
     ->name('api.tenant.subdomain.check');
 Route::post('/tenant/register', [TenantRegistrationController::class, 'register'])
     ->middleware('throttle:10,1')

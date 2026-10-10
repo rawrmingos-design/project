@@ -19,11 +19,12 @@ class TenantRegistrationController extends Controller
             'name' => ['required', 'string', 'max:63'],
         ]);
 
-        $normalized = $registrationService->normalizeSubdomain((string) $validated['name']);
+        $hasil = $registrationService->checkSubdomain((string) $validated['name']);
 
         return response()->json([
-            'available' => $registrationService->isSubdomainAvailable($normalized),
-            'subdomain' => $normalized,
+            'available' => $hasil['available'],
+            'subdomain' => $hasil['subdomain'],
+            'reason' => $hasil['reason'],
         ]);
     }
 
@@ -33,7 +34,10 @@ class TenantRegistrationController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            // Email sengaja TIDAK unique di sini: email yang sudah terdaftar
+            // ditangani jalur resume (dengan verifikasi password), bukan
+            // ditolak mentah-mentah.
+            'email' => ['required', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:8', 'max:255'],
             'no_wa' => ['required', 'string', 'max:30'],
             'store_name' => ['required', 'string', 'max:255'],
@@ -59,6 +63,7 @@ class TenantRegistrationController extends Controller
 
         return response()->json([
             'status' => true,
+            'resumed' => (bool) ($result['resumed'] ?? false),
             'tenant' => [
                 'id' => $result['tenant']->id,
                 'name' => $result['tenant']->name,
@@ -77,6 +82,6 @@ class TenantRegistrationController extends Controller
                 'qr_string' => data_get($result['invoice']->metadata, 'duitku.qr_string'),
                 'due_date' => $result['invoice']->due_date?->toIso8601String(),
             ],
-        ], 201);
+        ], ($result['resumed'] ?? false) ? 200 : 201);
     }
 }
