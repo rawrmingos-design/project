@@ -182,9 +182,12 @@
             const submitButton = document.getElementById('submitButton');
             const formAlert = document.getElementById('formAlert');
             // Nama terakhir yang SUDAH diverifikasi tersedia. Selama input masih
-            // sama dengan ini, submit tidak perlu memanggil API lagi. Begitu
-            // input berubah, status balik "belum dicek".
+            // sama dengan ini, submit tidak perlu memanggil API lagi.
             let verifiedSubdomain = null;
+            // Nama terakhir yang pernah DICEK (baik sukses maupun gagal) — dipakai
+            // supaya pesan lama (termasuk pesan merah) tidak menempel saat user
+            // mengganti nama. Dua variabel: "pernah dicek" vs "tersedia".
+            let checkedValue = null;
 
             function rupiah(value) {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -221,6 +224,7 @@
                     const data = await response.json();
 
                     subdomainInput.value = data.subdomain || raw;
+                    checkedValue = data.subdomain || raw;
 
                     // Pesan dari server dipakai apa adanya supaya UI dan aturan
                     // backend tidak pernah berbeda.
@@ -239,9 +243,14 @@
             }
 
             // Q7: TIDAK ada pengecekan saat mengetik (debounce dibuang).
-            // Mengetik hanya membatalkan hasil cek sebelumnya.
+            // Mengetik hanya membatalkan hasil cek sebelumnya — termasuk pesan
+            // merah, supaya user tidak melihat vonis basi untuk nama yang sudah
+            // dia ganti.
             subdomainInput.addEventListener('input', function () {
-                if (verifiedSubdomain !== null && (subdomainInput.value || '').trim() !== verifiedSubdomain) {
+                const nilai = (subdomainInput.value || '').trim();
+
+                if (checkedValue !== null && nilai !== checkedValue) {
+                    checkedValue = null;
                     verifiedSubdomain = null;
                     setSubdomainStatus('Nama berubah — klik "Cek" lagi untuk memastikan tersedia.', 'warn');
                 }
