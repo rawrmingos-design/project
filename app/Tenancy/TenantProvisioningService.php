@@ -47,18 +47,30 @@ class TenantProvisioningService
             }
 
             $periodStart = $subscription->current_period_start ?: now();
-            $periodEnd = $subscription->current_period_end;
 
-            if (! $periodEnd || $periodEnd->lte(now())) {
-                $periodEnd = now()->addMonth();
+            // Periode maju SATU KALI per invoice yang baru saja jadi `paid`.
+            // `$shouldNotifyActivated` hanya true saat invoice ini benar-benar
+            // berpindah ke paid, jadi callback Duitku yang datang dua kali tidak
+            // akan menumpuk bulan.
+            if ($shouldNotifyActivated) {
+                $basis = ($subscription->current_period_end && $subscription->current_period_end->isFuture())
+                    ? $subscription->current_period_end   // masih berjalan → tambah penuh dari akhir periode
+                    : ($subscription->current_period_end ?: now()); // sudah lewat/kosong → dari akhir periode lama
+
+                $subscription->forceFill([
+                    'current_period_end' => $basis->copy()->addMonth(),
+                ])->save();
             }
 
             $subscription->forceFill([
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_period_start' => $periodStart,
-                'current_period_end' => $periodEnd,
                 'gateway_ref' => $gatewayRef ?: $subscription->gateway_ref,
             ])->save();
+
+            // Periode sudah dibayar → tagihan lain untuk periode yang sama tidak
+            // boleh ikut ditagih (bisa jadi invoice berdenda/sisa percobaan bayar).
+            $this->cancelTwinInvoices($lockedInvoice);
 
             $tenant->forceFill([
                 'status' => Tenant::STATUS_ACTIVE,
@@ -83,6 +95,28 @@ class TenantProvisioningService
 
             return $lockedInvoice->fresh(['subscription.tenant.owner']);
         });
+    }
+
+    /**
+     * Batalkan tagihan pending lain untuk langganan yang sama saat satu invoice
+     * sudah dibayar, supaya user tidak ditagih dua kali untuk periode yang sama.
+     */
+    private function cancelTwinInvoices(SubscriptionInvoice $paid): void
+    {
+        $periodeLunas = data_get($paid->metadata, 'period_end');
+
+        $query = SubscriptionInvoice::query()
+            ->where('subscription_id', $paid->subscription_id)
+            ->whereKeyNot($paid->id)
+            ->where('status', SubscriptionInvoice::STATUS_PENDING);
+
+        // Kalau periode tagihan diketahui, batalkan hanya untuk periode itu —
+        // jangan sentuh tagihan periode lain yang mungkin sudah terbit.
+        if (filled($periodeLunas)) {
+            $query->where('metadata->period_end', $periodeLunas);
+        }
+
+        $query->update(['status' => SubscriptionInvoice::STATUS_CANCELLED]);
     }
 
     public function markInvoiceExpired(SubscriptionInvoice $invoice, array $metadataMerge = []): SubscriptionInvoice
