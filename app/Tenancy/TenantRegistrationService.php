@@ -105,7 +105,7 @@ class TenantRegistrationService
                     'tier' => $tier,
                     'price' => self::TIER_PRICES[$tier],
                     'status' => Subscription::STATUS_PENDING,
-                    'gateway_ref' => $this->gatewayRef(),
+                    'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
                 ]);
             }
 
@@ -124,11 +124,10 @@ class TenantRegistrationService
     /**
      * Q8=A: pakai invoice lama.
      *
-     * Satu langganan hanya boleh punya SATU gateway_ref — kolom
-     * `subscription_invoices.gateway_ref` unik dan dipakai Duitku sebagai
-     * merchantOrderId, sementara `TenantProvisioningService` menyamakannya
-     * dengan `subscriptions.gateway_ref`. Jadi invoice pengganti tidak boleh
-     * dibuat; invoice lama yang direset, bukan ditambah.
+     * Tiap invoice punya gateway_ref SENDIRI (kolomnya unik) yang dipakai
+     * Duitku sebagai merchantOrderId. Karena itu, resume mengembalikan invoice
+     * pending yang sudah ada — bukan membuat invoice baru dengan ref baru,
+     * supaya tautan pembayaran yang mungkin sudah dibuka user tetap sah.
      */
     private function resumeInvoice(Subscription $subscription, string $tier, string $subdomain, string $storeName): SubscriptionInvoice
     {
@@ -212,7 +211,7 @@ class TenantRegistrationService
                 'tier' => $tier,
                 'price' => self::TIER_PRICES[$tier],
                 'status' => Subscription::STATUS_PENDING,
-                'gateway_ref' => $this->gatewayRef(),
+                'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
             ]);
 
             $invoice = $this->createInvoice($subscription, $tier, $subdomain, $tenant->name);
@@ -238,8 +237,11 @@ class TenantRegistrationService
         $amount = self::TIER_PRICES[$tier];
         $gateway = $amount > 0 ? 'duitku' : 'manual';
 
-        // gateway_ref = merchantOrderId Duitku; unik per langganan.
-        $gatewayRef = (string) ($subscription->gateway_ref ?: $this->gatewayRef());
+        // gateway_ref = merchantOrderId Duitku. WAJIB unik PER INVOICE, bukan
+        // per langganan: kolom ini UNIQUE, dan billing berulang butuh banyak
+        // invoice untuk satu langganan. Kalau ref diwarisi dari langganan,
+        // invoice periode kedua tidak akan pernah bisa dibuat.
+        $gatewayRef = SubscriptionInvoice::freshGatewayRef();
 
         $invoice = SubscriptionInvoice::query()->create([
             'subscription_id' => $subscription->id,
@@ -339,11 +341,6 @@ class TenantRegistrationService
             'primary_color' => '#A855F7',
             'accent_color' => '#06B6D4',
         ];
-    }
-
-    private function gatewayRef(): string
-    {
-        return 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
     }
 
     private function uniqueUsername(string $subdomain): string

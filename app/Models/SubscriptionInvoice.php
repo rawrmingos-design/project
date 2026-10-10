@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class SubscriptionInvoice extends Model
 {
@@ -33,5 +34,17 @@ class SubscriptionInvoice extends Model
     public function events(): HasMany
     {
         return $this->hasMany(SubscriptionInvoiceEvent::class)->latest();
+    }
+
+    /**
+     * merchantOrderId Duitku untuk invoice BARU.
+     *
+     * WAJIB dipanggil per invoice: kolom `gateway_ref` unik dan billing
+     * berulang butuh banyak invoice per langganan. Jangan pernah menurunkan
+     * ref dari langganan — invoice periode berikutnya tidak akan bisa dibuat.
+     */
+    public static function freshGatewayRef(): string
+    {
+        return 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
     }
 }

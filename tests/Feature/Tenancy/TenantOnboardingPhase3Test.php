@@ -99,13 +99,19 @@ class TenantOnboardingPhase3Test extends TestCase
             'email' => 'raka@example.test',
             'tenant_id' => $tenant->id,
         ]);
+        $subscription = $tenant->subscriptions()->firstOrFail();
         $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
             'tier' => 'starter',
             'price' => 500000,
             'status' => Subscription::STATUS_PENDING,
-            'gateway_ref' => $tenant->subscriptions()->firstOrFail()->gateway_ref,
         ]);
-        $invoice = SubscriptionInvoice::query()->where('gateway_ref', $tenant->subscriptions()->firstOrFail()->gateway_ref)->firstOrFail();
+
+        // Invoice dicari lewat subscription_id: tiap invoice punya gateway_ref
+        // SENDIRI (unik per invoice), bukan mewarisi ref langganan.
+        $invoice = SubscriptionInvoice::query()->where('subscription_id', $subscription->id)->firstOrFail();
+        $this->assertNotNull($invoice->gateway_ref);
+        $this->assertNotSame($subscription->gateway_ref, $invoice->gateway_ref);
         $this->assertSame('duitku', $invoice->gateway);
         $this->assertSame('DUITKU-REF-001', data_get($invoice->metadata, 'duitku.reference'));
         $this->assertSame('https://sandbox.duitku.test/pay/1', data_get($invoice->metadata, 'duitku.payment_url'));
