@@ -45,9 +45,9 @@ class BillingReminderTest extends TestCase
         Bus::fake([SendTenantNotificationJob::class]);
         [, $subscription] = $this->activeSubscription(now()->addDays(2));
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         Bus::assertDispatchedTimes(SendTenantNotificationJob::class, 1);
         Bus::assertDispatched(
@@ -61,8 +61,8 @@ class BillingReminderTest extends TestCase
         Bus::fake([SendTenantNotificationJob::class]);
         [, $subscription] = $this->activeSubscription(now()->subDay());
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         Bus::assertDispatchedTimes(SendTenantNotificationJob::class, 1);
         Bus::assertDispatched(
@@ -85,8 +85,8 @@ class BillingReminderTest extends TestCase
 
         $this->makePendingRenewal($subscription, 510000);
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         Bus::assertDispatchedTimes(SendTenantNotificationJob::class, 1);
         Bus::assertDispatched(

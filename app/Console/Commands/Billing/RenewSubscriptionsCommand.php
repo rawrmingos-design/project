@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class RenewSubscriptionsCommand extends Command
 {
     protected $signature = 'billing:renew-subscriptions
-        {--dry-run : Tampilkan rencana tanpa menyimpan apa pun}';
+        {--apply : Benar-benar menerbitkan invoice. Tanpa flag ini hanya melaporkan.}';
 
     protected $description = 'Terbitkan invoice perpanjangan (H-3) dan denda flat saat masa tenggang';
 
@@ -21,17 +21,26 @@ class RenewSubscriptionsCommand extends Command
             return self::SUCCESS;
         }
 
-        try {
-            if ($this->option('dry-run')) {
-                $this->info('Dry-run: tidak menyimpan perubahan. Lihat log untuk detail kandidat.');
-            }
+        $apply = (bool) $this->option('apply');
 
-            $stats = $service->renewDueSubscriptions();
+        try {
+            $stats = $service->renewDueSubscriptions($apply);
         } catch (\Throwable $e) {
             Log::error('billing:renew-subscriptions gagal', ['error' => $e->getMessage()]);
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        }
+
+        if (! $apply) {
+            $this->warn('MODE LAPORAN: tidak ada perubahan disimpan. Tambahkan --apply untuk mengeksekusi.');
+            $this->table(['Yang AKAN terjadi', 'Jumlah'], [
+                ['invoice akan diterbitkan', (string) $stats['would_create']],
+                ['tautan lama akan di-expire', (string) $stats['would_expire']],
+                ['dilewati (sudah ditagih)', (string) $stats['skipped']],
+            ]);
+
+            return self::SUCCESS;
         }
 
         $this->info('Penagihan perpanjangan selesai.');

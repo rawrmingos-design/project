@@ -37,15 +37,21 @@ class BillingRenewalService
      * Perpanjangan: terbitkan invoice untuk langganan yang mendekati / melewati
      * akhir periode. Idempotent — dijalankan berkali-kali hasilnya sama.
      *
-     * @return array{created:int, skipped:int, expired:int}
+     * @param  bool  $apply  false = mode laporan saja. Hitung apa yang AKAN
+     *                       terjadi, tapi JANGAN tulis apa pun ke DB. Ini
+     *                       penting sebelum menyalakan saklar di lingkungan
+     *                       yang datanya nyata: tanpa ini, satu kali jalankan
+     *                       bisa menagih banyak tenant sekaligus dan tidak ada
+     *                       cara membatalkannya.
+     * @return array{created:int, skipped:int, expired:int, would_create:int, would_expire:int}
      */
-    public function renewDueSubscriptions(): array
+    public function renewDueSubscriptions(bool $apply = true): array
     {
         $daysBefore = (int) config('billing.reminder_days_before', 3);
         $graceDays = (int) config('billing.grace_days', 3);
         $lateFee = (int) config('billing.late_fee', 10000);
 
-        $stats = ['created' => 0, 'skipped' => 0, 'expired' => 0];
+        $stats = ['created' => 0, 'skipped' => 0, 'expired' => 0, 'would_create' => 0, 'would_expire' => 0];
 
         Subscription::query()
             ->where('status', Subscription::STATUS_ACTIVE)
@@ -53,9 +59,9 @@ class BillingRenewalService
             ->where('current_period_end', '<=', now()->addDays($daysBefore))
             ->with('tenant')
             ->orderBy('id')
-            ->chunkById(100, function ($subscriptions) use (&$stats, $graceDays, $lateFee): void {
+            ->chunkById(100, function ($subscriptions) use (&$stats, $graceDays, $lateFee, $apply): void {
                 foreach ($subscriptions as $subscription) {
-                    $hasil = $this->renewOne($subscription, $graceDays, $lateFee);
+                    $hasil = $this->renewOne($subscription, $graceDays, $lateFee, $apply);
 
                     foreach ($hasil as $kunci => $nilai) {
                         $stats[$kunci] += $nilai;
@@ -67,11 +73,11 @@ class BillingRenewalService
     }
 
     /**
-     * @return array{created:int, skipped:int, expired:int}
+     * @return array{created:int, skipped:int, expired:int, would_create:int, would_expire:int}
      */
-    private function renewOne(Subscription $subscription, int $graceDays, int $lateFee): array
+    private function renewOne(Subscription $subscription, int $graceDays, int $lateFee, bool $apply = true): array
     {
-        $stats = ['created' => 0, 'skipped' => 0, 'expired' => 0];
+        $stats = ['created' => 0, 'skipped' => 0, 'expired' => 0, 'would_create' => 0, 'would_expire' => 0];
 
         $tenant = $subscription->tenant;
 
@@ -116,12 +122,25 @@ class BillingRenewalService
         // Nominal berbeda (mis. naik ke fase berdenda): tautan lama harus mati
         // DULU, karena mengubah amount invoice berlink hidup akan membuat
         // callback ditolak saat user membayar.
+        if (! $apply) {
+            if ($live !== null) {
+                $stats['would_expire']++;
+            }
+
+            if (! $this->hasRenewalForPeriod($subscription, $periodEnd)) {
+                $stats['would_create']++;
+                $this->logWould($subscription, $amount, $fee, $periodEnd);
+            }
+
+            return $stats;
+        }
+
         if ($live !== null) {
             $live->forceFill(['status' => SubscriptionInvoice::STATUS_EXPIRED])->save();
             $stats['expired']++;
         }
 
-        $this->expireStalePending($subscription, $live, $stats);
+        $stats['expired'] += $this->expireStalePending($subscription, $live);
 
         if ($this->hasRenewalForPeriod($subscription, $periodEnd)) {
             $stats['skipped']++;
@@ -179,14 +198,15 @@ class BillingRenewalService
     /**
      * Suspend tenant yang sudah lewat masa tenggang tanpa pembayaran.
      *
-     * @return array{suspended:int, skipped:int}
+     * @param  bool  $apply  false = mode laporan saja, tidak menulis apa pun.
+     * @return array{suspended:int, skipped:int, would_suspend:int}
      */
-    public function suspendOverdue(): array
+    public function suspendOverdue(bool $apply = true): array
     {
         $graceDays = (int) config('billing.grace_days', 3);
         $cutoff = now()->subDays($graceDays);
 
-        $stats = ['suspended' => 0, 'skipped' => 0];
+        $stats = ['suspended' => 0, 'skipped' => 0, 'would_suspend' => 0];
 
         Subscription::query()
             ->where('status', Subscription::STATUS_ACTIVE)
@@ -194,7 +214,7 @@ class BillingRenewalService
             ->where('current_period_end', '<', $cutoff)
             ->with('tenant')
             ->orderBy('id')
-            ->chunkById(100, function ($subscriptions) use (&$stats): void {
+            ->chunkById(100, function ($subscriptions) use (&$stats, $apply): void {
                 foreach ($subscriptions as $subscription) {
                     $tenant = $subscription->tenant;
 
@@ -213,6 +233,18 @@ class BillingRenewalService
                     // Sudah membayar untuk periode yang lewat → jangan suspend.
                     if ($this->paidSince($subscription, $subscription->current_period_end)) {
                         $stats['skipped']++;
+
+                        continue;
+                    }
+
+                    if (! $apply) {
+                        $stats['would_suspend']++;
+                        Log::info('BillingRenewalService (laporan): tenant AKAN disuspend.', [
+                            'subscription_id' => $subscription->id,
+                            'tenant_id' => $tenant->id,
+                            'subdomain' => $tenant->subdomain,
+                            'period_end' => $subscription->current_period_end?->toIso8601String(),
+                        ]);
 
                         continue;
                     }
@@ -248,6 +280,18 @@ class BillingRenewalService
         return $stats;
     }
 
+    private function logWould(Subscription $subscription, int $amount, int $fee, \Illuminate\Support\Carbon $periodEnd): void
+    {
+        Log::info('BillingRenewalService (laporan): invoice AKAN diterbitkan.', [
+            'subscription_id' => $subscription->id,
+            'tenant_id' => $subscription->tenant_id,
+            'subdomain' => $subscription->tenant?->subdomain,
+            'period_end' => $periodEnd->toIso8601String(),
+            'amount' => $amount,
+            'late_fee' => $fee,
+        ]);
+    }
+
     private function basePrice(Subscription $subscription): int
     {
         $price = (int) $subscription->price;
@@ -274,17 +318,15 @@ class BillingRenewalService
     }
 
     /** Invoice pending yang tautannya sudah mati → tak ada gunanya dibiarkan hidup. */
-    private function expireStalePending(Subscription $subscription, ?SubscriptionInvoice $sudah, array &$stats): void
+    private function expireStalePending(Subscription $subscription, ?SubscriptionInvoice $sudah): int
     {
-        SubscriptionInvoice::query()
+        return SubscriptionInvoice::query()
             ->where('subscription_id', $subscription->id)
             ->where('status', SubscriptionInvoice::STATUS_PENDING)
             ->when($sudah !== null, fn ($query) => $query->whereKeyNot($sudah->id))
             ->whereNotNull('due_date')
             ->where('due_date', '<=', now())
             ->update(['status' => SubscriptionInvoice::STATUS_EXPIRED]);
-
-        $stats['expired'] += 0;
     }
 
     /** Sudah ada tagihan perpanjangan untuk periode ini? (kunci idempotensi) */

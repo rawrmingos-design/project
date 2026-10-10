@@ -46,12 +46,12 @@ class Kernel extends ConsoleKernel
          // Billing berulang langganan tenant (staging digerakkan manual/dijadwalkan):
          // perpanjangan H-3 + denda flat di masa tenggang, lalu suspend setelah
          // tenggang lewat. Keduanya idempotent dan hormati saklar billing.
-         $schedule->command('billing:renew-subscriptions')
+         $schedule->command('billing:renew-subscriptions', ['--apply' => true])
              ->dailyAt('08:00')
              ->withoutOverlapping()
              ->onOneServer();
 
-         $schedule->command('billing:suspend-overdue')
+         $schedule->command('billing:suspend-overdue', ['--apply' => true])
              ->dailyAt('08:10')
              ->withoutOverlapping()
              ->onOneServer();

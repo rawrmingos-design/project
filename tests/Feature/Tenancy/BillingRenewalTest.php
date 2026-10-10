@@ -48,7 +48,7 @@ class BillingRenewalTest extends TestCase
     {
         [$tenant, $subscription] = $this->activeSubscription(now()->addDays(2));
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $invoice = $this->renewalInvoices($subscription);
         $this->assertCount(1, $invoice);
@@ -62,9 +62,9 @@ class BillingRenewalTest extends TestCase
     {
         [$tenant, $subscription] = $this->activeSubscription(now()->addDay());
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $this->assertCount(1, $this->renewalInvoices($subscription), 'Tiga kali dijalankan tetap satu invoice.');
     }
@@ -73,9 +73,39 @@ class BillingRenewalTest extends TestCase
     {
         [$tenant, $subscription] = $this->activeSubscription(now()->addDays(20));
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $this->assertCount(0, $this->renewalInvoices($subscription), 'Belum waktunya ditagih.');
+    }
+
+    // ---------------------------------------------------------------------
+    // Mode laporan: default TIDAK menulis apa pun
+    // ---------------------------------------------------------------------
+
+    public function test_command_tanpa_apply_tidak_menerbitkan_invoice(): void
+    {
+        [, $subscription] = $this->activeSubscription(now()->addDays(2));
+
+        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+
+        $this->assertCount(
+            0,
+            $this->renewalInvoices($subscription),
+            'Tanpa --apply command hanya melaporkan; tidak boleh menerbitkan invoice.'
+        );
+    }
+
+    public function test_command_tanpa_apply_tidak_menyuspend(): void
+    {
+        [$tenant, $subscription] = $this->activeSubscription(now()->subDays(10));
+
+        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+
+        $this->assertSame(
+            Tenant::STATUS_ACTIVE,
+            $tenant->fresh()->status,
+            'Tanpa --apply tenant tidak boleh disuspend.'
+        );
     }
 
     public function test_tenant_belum_pernah_aktif_tidak_ditagih(): void
@@ -98,7 +128,7 @@ class BillingRenewalTest extends TestCase
             'current_period_end' => now()->addDay(),
         ]);
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $this->assertCount(0, $this->renewalInvoices($subscription));
     }
@@ -114,7 +144,7 @@ class BillingRenewalTest extends TestCase
         // Invoice tanpa denda sudah terbit lebih dulu (dari fase H-3).
         $lama = $this->makePendingRenewal($subscription, 500000, $subscription->current_period_end);
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(
             SubscriptionInvoice::STATUS_EXPIRED,
@@ -134,9 +164,9 @@ class BillingRenewalTest extends TestCase
         [$tenant, $subscription] = $this->activeSubscription(now()->subDay());
         $this->makePendingRenewal($subscription, 500000, $subscription->current_period_end);
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $berdenda = $this->renewalInvoices($subscription)->filter(
             fn (SubscriptionInvoice $i) => (int) data_get($i->metadata, 'late_fee', 0) > 0
@@ -157,7 +187,7 @@ class BillingRenewalTest extends TestCase
         // Invoice berdenda sudah terbit dan link-nya masih hidup (due_date belum lewat).
         $berdenda = $this->makePendingRenewal($subscription, 510000, $subscription->current_period_end, 10000);
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(510000, (int) $berdenda->fresh()->amount, 'Nominal invoice berlink hidup tidak boleh diubah.');
         $this->assertSame(SubscriptionInvoice::STATUS_PENDING, $berdenda->fresh()->status);
@@ -171,7 +201,7 @@ class BillingRenewalTest extends TestCase
     {
         [$tenant, $subscription] = $this->activeSubscription(now()->subDays(4));
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(Tenant::STATUS_SUSPENDED, $tenant->fresh()->status);
     }
@@ -180,7 +210,7 @@ class BillingRenewalTest extends TestCase
     {
         [$tenant, $subscription] = $this->activeSubscription(now()->subDay());
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status, 'Masih tenggang — jangan disuspend.');
     }
@@ -192,9 +222,9 @@ class BillingRenewalTest extends TestCase
         // Realistis: tenant sudah ditagih perpanjangan tapi tidak membayar.
         $this->makePendingRenewal($subscription, 510000, $subscription->current_period_end, 10000);
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(Tenant::STATUS_SUSPENDED, $tenant->fresh()->status);
         $this->assertCount(1, $this->suspensionEvents($tenant), 'Suspend tidak boleh dicatat berkali-kali.');
@@ -214,7 +244,7 @@ class BillingRenewalTest extends TestCase
         $subdomainAwal = $tenant->subdomain;
         $pembelianAwal = Pembelian::query()->where('tenant_id', $tenant->id)->count();
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $tenant->refresh();
         $this->assertSame(Tenant::STATUS_SUSPENDED, $tenant->status);
@@ -232,7 +262,7 @@ class BillingRenewalTest extends TestCase
 
         $this->makePaidRenewal($subscription);
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status);
     }
@@ -274,7 +304,7 @@ class BillingRenewalTest extends TestCase
         // Invoice berdenda (B7).
         $invoice = $this->makePendingRenewal($subscription, 510000, $subscription->current_period_end, 10000);
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0); // belum, masih tenggang
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0); // belum, masih tenggang
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status);
 
         app(TenantProvisioningService::class)->markInvoicePaid($invoice, $invoice->gateway_ref);
@@ -296,7 +326,7 @@ class BillingRenewalTest extends TestCase
 
         [$tenant, $subscription] = $this->activeSubscription(Carbon::parse('2026-10-10 10:00:00'));
 
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
         $this->assertSame(Tenant::STATUS_SUSPENDED, $tenant->fresh()->status);
 
         $invoice = $this->makePendingRenewal($subscription, 510000, $subscription->current_period_end, 10000);
@@ -331,8 +361,8 @@ class BillingRenewalTest extends TestCase
 
         [$tenant, $subscription] = $this->activeSubscription(now()->subDays(10));
 
-        $this->artisan('billing:renew-subscriptions')->assertExitCode(0);
-        $this->artisan('billing:suspend-overdue')->assertExitCode(0);
+        $this->artisan('billing:renew-subscriptions', ['--apply' => true])->assertExitCode(0);
+        $this->artisan('billing:suspend-overdue', ['--apply' => true])->assertExitCode(0);
 
         $this->assertCount(0, $this->renewalInvoices($subscription));
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status, 'Saklar mati = tidak ada suspend.');

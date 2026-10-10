@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Log;
 
 class SuspendOverdueSubscriptionsCommand extends Command
 {
-    protected $signature = 'billing:suspend-overdue';
+    protected $signature = 'billing:suspend-overdue
+        {--apply : Benar-benar menangguhkan tenant. Tanpa flag ini hanya melaporkan.}';
 
     protected $description = 'Suspend tenant yang lewat masa tenggang tanpa pembayaran (data & subdomain tetap utuh)';
 
@@ -20,13 +21,25 @@ class SuspendOverdueSubscriptionsCommand extends Command
             return self::SUCCESS;
         }
 
+        $apply = (bool) $this->option('apply');
+
         try {
-            $stats = $service->suspendOverdue();
+            $stats = $service->suspendOverdue($apply);
         } catch (\Throwable $e) {
             Log::error('billing:suspend-overdue gagal', ['error' => $e->getMessage()]);
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        }
+
+        if (! $apply) {
+            $this->warn('MODE LAPORAN: tidak ada tenant yang disuspend. Tambahkan --apply untuk mengeksekusi.');
+            $this->table(['Yang AKAN terjadi', 'Jumlah'], [
+                ['tenant akan disuspend', (string) $stats['would_suspend']],
+                ['dilewati (sudah membayar/di luar cakupan)', (string) $stats['skipped']],
+            ]);
+
+            return self::SUCCESS;
         }
 
         $this->info('Pemeriksaan keterlambatan selesai.');
