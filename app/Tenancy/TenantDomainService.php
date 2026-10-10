@@ -237,7 +237,7 @@ class TenantDomainService
 
         // Check 7: Reject reserved subdomains of the platform host
         if ($platformHost !== '') {
-            foreach (Tenant::RESERVED_SUBDOMAINS as $reserved) {
+            foreach (Tenant::reservedSubdomains() as $reserved) {
                 $reservedFqdn = strtolower($reserved) . '.' . $platformHost;
                 if ($normalizedDomain === $reservedFqdn) {
                     $errors[] = "The subdomain \"{$reserved}\" is reserved by the platform.";

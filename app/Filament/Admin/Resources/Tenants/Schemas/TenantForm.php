@@ -39,10 +39,10 @@ class TenantForm
                             ->maxLength(63)
                             ->rules([
                                 'alpha_dash:ascii',
-                                fn () => Rule::notIn(Tenant::RESERVED_SUBDOMAINS),
+                                fn () => Rule::notIn(Tenant::reservedSubdomains()),
                             ])
                             ->unique(ignoreRecord: true)
-                            ->helperText('Reserved: ' . implode(', ', Tenant::RESERVED_SUBDOMAINS)),
+                            ->helperText('Reserved: ' . implode(', ', Tenant::reservedSubdomains())),
 
                         TextInput::make('custom_domain')
                             ->nullable()

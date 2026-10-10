@@ -271,10 +271,24 @@ class TenantDomainServiceTest extends TestCase
     {
         config(['app.url' => 'https://topupengine.test']);
 
-        foreach (Tenant::RESERVED_SUBDOMAINS as $reserved) {
+        foreach (Tenant::reservedSubdomains() as $reserved) {
             $errors = $this->service->filterDomain("{$reserved}.topupengine.test");
 
             $this->assertNotEmpty($errors, "Expected rejection for reserved subdomain: {$reserved}");
+        }
+    }
+
+    public function test_reserved_list_covers_infrastructure_and_real_services(): void
+    {
+        // Daftar reserved harus mencakup lebih dari 10 nama platform lama —
+        // wildcard DNS membuat daftar statis ini satu-satunya penopang.
+        $this->assertGreaterThanOrEqual(30, count(Tenant::reservedSubdomains()));
+
+        foreach (['webmail', 'ns1', 'store-a', 'wagateway', 'cekid', 'notion'] as $nama) {
+            $this->assertTrue(
+                \App\Tenancy\SubdomainReservationPolicy::isReserved($nama),
+                "Daftar reserved harus memuat: {$nama}"
+            );
         }
     }
 
