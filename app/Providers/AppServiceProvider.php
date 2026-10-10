@@ -22,8 +22,11 @@ use App\Observers\TenantObserver;
 use App\Services\OptimizedImageService;
 use App\Services\PublicUploadUrlService;
 use App\Support\PublicThemeRegistry;
+use App\Tenancy\CloudflareDnsClient;
+use App\Tenancy\Contracts\CloudflareDnsClientInterface;
 use App\Tenancy\Contracts\DnsResolverInterface;
 use App\Tenancy\NativeDnsResolver;
+use App\Tenancy\SubdomainAvailabilityGuard;
 use App\Tenancy\TenantContext;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
@@ -43,6 +46,16 @@ class AppServiceProvider extends ServiceProvider
             DnsResolverInterface::class,
             NativeDnsResolver::class,
         );
+
+        $this->app->bind(
+            CloudflareDnsClientInterface::class,
+            fn () => new CloudflareDnsClient(
+                apiToken: config('tenancy.cloudflare.api_token'),
+                cacheMinutes: (int) config('tenancy.cloudflare.cache_minutes', 10),
+            ),
+        );
+
+        $this->app->singleton(SubdomainAvailabilityGuard::class);
 
         $this->app->booting(function (): void {
             $this->registerLivewireUpdateRoutes();

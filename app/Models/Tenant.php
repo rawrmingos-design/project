@@ -36,6 +36,16 @@ class Tenant extends Model
         'www',
     ];
 
+    /**
+     * Daftar lengkap (bertingkat) ada di App\Tenancy\SubdomainReservationPolicy
+     * supaya tidak ada dua daftar yang bisa berbeda. Konstanta di atas
+     * dipertahankan sebagai alias agar pemakai lama tidak putus.
+     */
+    public static function reservedSubdomains(): array
+    {
+        return \App\Tenancy\SubdomainReservationPolicy::reserved();
+    }
+
     protected $guarded = [];
 
     protected $casts = [
