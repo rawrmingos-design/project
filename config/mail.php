@@ -34,7 +34,7 @@ return [
     */
 
     'mailers' => [
-        'smtp' => [
+        'smtp' => array_merge([
             'transport' => 'smtp',
             'host' => env('MAIL_HOST', 'smtp.mailgun.org'),
             'port' => env('MAIL_PORT', 587),
@@ -43,7 +43,20 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'auth_mode' => null,
-        ],
+        ], array_filter([
+            // Opsi TLS tambahan, diisi HANYA lewat .env kalau diperlukan.
+            // Kasus nyata: relay internal yang sertifikatnya tidak memuat nama host
+            // yang dipakai app, sehingga verifikasi nama mustahil walau TLS-nya sah.
+            // `peer_fingerprint` mengunci sertifikat (sha1/md5) supaya tidak sekadar
+            // mematikan verifikasi.
+            //
+            // PENTING: kunci bernilai null TIDAK boleh diteruskan ke mailer. Symfony
+            // mengevaluasi `'' !== option && !filter_var(option)` — nilai null membuat
+            // `verify_peer` jadi false, artinya verifikasi TLS mati untuk SEMUA mailer
+            // tanpa disadari. Karena itu null/'' dibuang di sini.
+            'verify_peer' => env('MAIL_VERIFY_PEER'),
+            'peer_fingerprint' => env('MAIL_PEER_FINGERPRINT'),
+        ], static fn ($nilai) => $nilai !== null && $nilai !== '')),
 
         'ses' => [
             'transport' => 'ses',
