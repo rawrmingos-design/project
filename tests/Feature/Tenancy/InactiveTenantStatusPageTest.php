@@ -328,6 +328,49 @@ class InactiveTenantStatusPageTest extends TestCase
         }
     }
 
+    public function test_halaman_status_dikirim_dengan_meta_noindex(): void
+    {
+        // Footer halaman mengklaim "tidak diindeks mesin pencari", jadi klaim
+        // itu harus benar-benar terpasang: `meta.robots` dibaca
+        // `app-inertia.blade.php` di jalur non-SSR dan `TenantShell` di jalur SSR.
+        $this->makeSuspendedWarung();
+
+        $this->get('https://warung-topup.topupengine.test/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/TenantStatus')
+                ->where('meta.robots', 'noindex, nofollow')
+                // D9: canonical kosong supaya blade tidak menurunkan URL dari
+                // `url()->current()` (host tenant mentah).
+                ->where('meta.canonical', '')
+            );
+    }
+
+    public function test_shell_halaman_status_merender_robots(): void
+    {
+        // Static: `TenantShell` adalah satu-satunya yang merender tag SEO di
+        // jalur SSR (blade melewatkannya saat SSR aktif), jadi tanpa <Head>
+        // di sini `noindex` hilang sepenuhnya di produksi.
+        $isi = (string) file_get_contents(base_path('resources/js/public/Layouts/TenantShell.jsx'));
+        $isi = (string) preg_replace('#/\*.*?\*/#s', '', $isi);
+        $isi = (string) preg_replace('#^\s*//.*$#m', '', $isi);
+
+        $this->assertStringContainsString('<Head', $isi, 'TenantShell tidak punya blok <Head>.');
+        $this->assertStringContainsString('name="robots"', $isi, 'TenantShell tidak merender meta robots.');
+        $this->assertStringContainsString(
+            'noindex',
+            $isi,
+            'robots di TenantShell bukan noindex — halaman status akan terindeks.'
+        );
+        $this->assertStringNotContainsString(
+            'SeoHead',
+            $isi,
+            'TenantShell tidak boleh memakai SeoHead: dia membaca siteConfig/seoDefaults '
+                . 'yang sengaja dibuang dari halaman platform, dan menurunkan canonical dari '
+                . 'window.location.href (host tenant mentah).'
+        );
+    }
+
     private function makeSuspendedWarung(): void
     {
         $this->makeTenant([

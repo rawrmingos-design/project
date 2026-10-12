@@ -36,6 +36,12 @@ class TenantStatusPageController extends Controller
             // Q6: tidak ada props waktu suspend — jangan tambahkan.
             'meta' => [
                 'robots' => 'noindex, nofollow',
+                // D9: tanpa ini `app-inertia.blade.php` menurunkan canonical
+                // dari `url()->current()` = host tenant MENTAH, jadi alamat
+                // yang disensor bocor balik ke dalam markup di jalur non-SSR.
+                // Halaman platform tidak punya canonical yang masuk akal; mata
+                // rantainya sudah `noindex`, jadi cukup dikosongkan.
+                'canonical' => '',
             ],
         ]);
     }

@@ -9,11 +9,19 @@ import { Head } from '@inertiajs/react';
  * ini milik platform — identitasnya sendiri, tanpa warna merek tenant.
  *
  * Semua kelas di sini memakai token design system di tailwind.config.js.
+ *
+ * `noindex` dirender di sini, bukan lewat `SeoHead`: SeoHead membaca
+ * `siteConfig`/`seoDefaults` (yang sengaja dibuang dari halaman platform) dan
+ * menurunkan `canonical` dari `window.location.href`, sehingga host tenant
+ * mentah bocor balik ke dalam markup. Prop `meta.robots` dari controller juga
+ * mematikan JSON-LD otomatis di `app-inertia.blade.php`.
  */
-export default function TenantShell({ title, children, footer }) {
+export default function TenantShell({ title, children, footer, robots = 'noindex, nofollow' }) {
     return (
         <>
-            <Head title={title} />
+            <Head title={title}>
+                <meta head-key="robots" name="robots" content={robots} />
+            </Head>
 
             <div className="min-h-screen flex flex-col bg-background text-on-surface font-body-md">
                 <header className="w-full max-w-2xl mx-auto px-6 py-6 flex items-center gap-3">
