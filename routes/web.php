@@ -63,6 +63,7 @@ use App\Http\Controllers\Public\AffiliatePageController as PublicAffiliatePageCo
 use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffiliateWithdrawalPageController;
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
 use App\Http\Controllers\Public\InformationalPageController as PublicInformationalPageController;
+use App\Http\Controllers\Public\BillingPageController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
@@ -180,6 +181,28 @@ Route::middleware(['tenant.resolve', 'tenant.inactive', 'tenant.required', 'xss'
     Route::get('/invoices/{order}', PublicInvoicePageController::class)->middleware('throttle:public-status')->name('invoice');
     Route::get('/track/{order}', PublicInvoicePageController::class)->middleware('throttle:public-status')->name('track');
 });
+
+/*
+|--------------------------------------------------------------------------
+| D13.2: Halaman tagihan publik ber-token — di HOST PLATFORM
+|--------------------------------------------------------------------------
+|
+| Grup rute tenant selalu berakhir di `abort_unless(context->has(), 404)`, dan
+| di host platform tidak pernah ada konteks tenant — halaman ini akan 404
+| selamanya kalau ditaruh di sana. Jadi ia berdiri sendiri, di luar grup tenant.
+|
+| Guard host ditulis sebagai middleware saat-request, BUKAN `Route::domain()`:
+| `Route::domain()` dievaluasi sekali saat `routes/web.php` dimuat, sehingga
+| nilai `config('app.url')` yang di-override belakangan (suite test, deploy
+| dengan cache config) akan memakai host yang salah dan rutenya hilang tanpa
+| error. Pola yang sama dipakai `Route::fallback` di bawah.
+|
+| Nama route sengaja tanpa awalan `tenant.` — ia bukan halaman tenant.
+*/
+Route::get('/tagihan/{token}', BillingPageController::class)
+    ->where('token', '[A-Za-z0-9]{8,80}')
+    ->middleware(['billing.platform_host', 'throttle:public-billing'])
+    ->name('billing.public');
 
 Route::prefix('id')->group(function () {
     Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])

@@ -37,6 +37,17 @@ class SubscriptionInvoice extends Model
     }
 
     /**
+     * Tenant pemilik tagihan.
+     *
+     * Dicapai lewat `subscription` — `subscription_invoices` sengaja TIDAK punya
+     * `tenant_id` (lihat migrasi create-nya).
+     */
+    public function tenant(): ?Tenant
+    {
+        return $this->subscription?->tenant;
+    }
+
+    /**
      * merchantOrderId Duitku untuk invoice BARU.
      *
      * WAJIB dipanggil per invoice: kolom `gateway_ref` unik dan billing
@@ -46,5 +57,38 @@ class SubscriptionInvoice extends Model
     public static function freshGatewayRef(): string
     {
         return 'SUB-' . now()->format('ymdHis') . '-' . Str::upper(Str::random(6));
+    }
+
+    /** D13.1: token acak 32 byte. 64 hex, tidak bisa ditebak. */
+    public static function generatePublicToken(): string
+    {
+        return bin2hex(random_bytes(32));
+    }
+
+    /**
+     * Token publik invoice ini, dibuat kalau belum ada.
+     *
+     * Idempoten: pemanggilan kedua mengembalikan token yang sama. Ini yang
+     * membuat tautan yang sudah dikirim lewat email/WA tetap hidup (D13.1) —
+     * berbeda dari `gateway_ref` yang berubah tiap tautan bayar diregenerasi.
+     */
+    public function ensurePublicToken(): string
+    {
+        if (blank($this->public_token)) {
+            $this->forceFill(['public_token' => self::generatePublicToken()])->save();
+        }
+
+        return (string) $this->public_token;
+    }
+
+    /**
+     * Matikan token publik. Dipakai saat invoice dibatalkan atau dibuat ulang
+     * (D13.6) — tautan lama harus berhenti bekerja, bukan menunjuk invoice lain.
+     */
+    public function revokePublicToken(): void
+    {
+        if (filled($this->public_token)) {
+            $this->forceFill(['public_token' => null])->save();
+        }
     }
 }

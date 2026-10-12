@@ -128,6 +128,9 @@ class PublicThemeRegistry
         // tenant. Wajib React di semua tema — tenant non-aktif justru tidak
         // punya storefront untuk dijadikan tema, dan Blade-nya memang tidak ada.
         \App\Http\Controllers\Public\TenantStatusPageController::class,
+        // Halaman tagihan publik: halaman PLATFORM juga, di host platform dan di
+        // luar konteks tenant — wajib React di semua tema.
+        \App\Http\Controllers\Public\BillingPageController::class,
     ];
 
     /**

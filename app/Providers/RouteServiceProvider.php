@@ -193,6 +193,18 @@ class RouteServiceProvider extends ServiceProvider
             Limit::perMinute(30)->by('public-voucher:' . $this->tenantIpKey($request))
         );
 
+        // D13.3: halaman tagihan publik ber-token. Per-IP untuk menahan
+        // penebakan token secara menyeluruh, per-token supaya satu tautan yang
+        // beredar tidak bisa dipakai membanjiri aplikasi.
+        RateLimiter::for('public-billing', function (Request $request) {
+            $token = (string) ($request->route('token') ?? '');
+
+            return [
+                Limit::perMinute(30)->by('public-billing-ip:' . $request->ip()),
+                Limit::perMinute(15)->by('public-billing-token:' . $this->fingerprint([$token])),
+            ];
+        });
+
         RateLimiter::for('supplier-callback', fn (Request $request) =>
             Limit::perMinute(max(1, (int) config('rate_limits.callbacks.supplier_per_minute', 240)))
                 ->by('supplier-callback:' . $this->callbackKey($request))
