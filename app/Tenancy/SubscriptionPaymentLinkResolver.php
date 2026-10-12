@@ -4,6 +4,8 @@ namespace App\Tenancy;
 
 use App\Models\SubscriptionInvoice;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * D4: tautan bayar untuk halaman tagihan.
@@ -13,7 +15,8 @@ use Carbon\Carbon;
  * diarahkan ke halaman kita, dan halaman ini yang menyediakan tautan bayar —
  * diregenerasi di belakang layar kalau yang lama sudah kedaluwarsa.
  *
- * Task 3 hanya membaca tautan yang masih hidup. Regenerasi ditambahkan di Task 4.
+ * Tautan yang sudah terkirim TIDAK pernah berubah: yang diregenerasi hanya
+ * `metadata.duitku.*` pada invoice yang sama, dan `gateway_ref` dibiarkan.
  */
 class SubscriptionPaymentLinkResolver
 {
@@ -25,20 +28,51 @@ class SubscriptionPaymentLinkResolver
     {
         $url = trim((string) data_get($invoice->metadata, 'duitku.payment_url', ''));
 
-        if ($url === '' || ! $this->linkIsAlive($invoice)) {
+        // Tautan masih hidup → JANGAN panggil gateway. Halaman tagihan bisa
+        // dibuka berkali-kali (email, WA, refresh); memanggil provider tiap kali
+        // berarti menagih kuota dan memperpendek umur tautan tanpa alasan.
+        if ($url !== '' && $this->linkIsAlive($invoice)) {
+            return $invoice->status === SubscriptionInvoice::STATUS_PENDING ? $url : null;
+        }
+
+        // Sudah lunas / dibatalkan / kedaluwarsa / nominal nol → tidak ada yang
+        // perlu dibayar, jadi tidak ada tautan yang perlu dibuat.
+        if ($invoice->status !== SubscriptionInvoice::STATUS_PENDING || (int) $invoice->amount <= 0) {
             return null;
         }
 
-        // Sudah lunas / dibatalkan / kedaluwarsa → tidak ada yang perlu dibayar.
-        if ($invoice->status !== SubscriptionInvoice::STATUS_PENDING) {
+        try {
+            // Kunci singkat: owner yang menunggu pembayaran akan me-refresh halaman
+            // berkali-kali, dan tiap request tanpa kunci akan memanggil Duitku
+            // dengan `merchantOrderId` yang sama. Satu tautan dibuat per putaran.
+            $lock = Cache::lock('billing-link:' . $invoice->getKey(), 15);
+
+            if (! $lock->get()) {
+                return null;
+            }
+
+            try {
+                // D4: jalur yang sudah terbukti (dipakai pendaftaran, perpanjangan,
+                // dan aksi "retry" di admin), bukan integrasi baru. `gateway_ref`
+                // maupun `public_token` TIDAK diubah — webhook Duitku mencari
+                // invoice lewat `gateway_ref`, jadi merotasinya akan membuat
+                // pembayaran dari tautan lama hilang tanpa jejak.
+                $invoice = app(DuitkuSubscriptionPaymentService::class)->createAndStoreInvoice($invoice);
+            } finally {
+                $lock->release();
+            }
+        } catch (\Throwable $e) {
+            // Jangan pernah melempar error gateway ke pengunjung: halaman tagihan
+            // tetap harus tampil, hanya tombolnya yang absen.
+            Log::warning('Gagal regenerasi tautan bayar tagihan tenant.', [
+                'invoice_id' => $invoice->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return null;
         }
 
-        if ((int) $invoice->amount <= 0) {
-            return null;
-        }
-
-        return $url;
+        return (string) data_get($invoice->metadata, 'duitku.payment_url', '') ?: null;
     }
 
     /**
