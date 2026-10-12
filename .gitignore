@@ -119,4 +119,7 @@ testsprite_tests\tmp\config.json
 !/docs/plans/
 !/docs/plans/fonnte/
 !/docs/plans/fonnte/*.md
+!/docs/diagrams/
+!/docs/diagrams/tenant-lifecycle/
+!/docs/diagrams/tenant-lifecycle/*
 .hermes/
