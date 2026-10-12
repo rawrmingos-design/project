@@ -12,6 +12,7 @@
         "test:e2e:ui": "node scripts/e2e/run-browser.cjs app --ui",
         "test:e2e:debug": "node scripts/e2e/run-browser.cjs app --debug",
         "test:e2e:report": "playwright show-report",
+        "test:e2e:staging:lifecycle": "E2E_SERVERLESS=1 E2E_SUITE=staging playwright test tests/e2e/tenant-lifecycle.spec.js",
         "audit:pagespeed": "node scripts/seo/run-pagespeed-audit.cjs",
         "legacy:dev": "npm run development",
         "development": "mix",
