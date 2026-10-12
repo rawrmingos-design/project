@@ -422,24 +422,26 @@ class InactiveTenantStatusPageTest extends TestCase
         $this->assertStringContainsString('w**********p', $props);
     }
 
-    public function test_pending_payment_tidak_menawarkan_tautan_tagihan(): void
+    public function test_pending_payment_juga_dapat_tautan_tagihan(): void
     {
-        // Tenant `pending_payment` belum pernah menerima tagihan perpanjangan,
-        // jadi jalurnya kontak — bukan halaman tagihan.
-        $this->makeTenant([
-            'name' => 'Warung Topup',
-            'subdomain' => 'warung-topup',
-            'status' => Tenant::STATUS_PENDING_PAYMENT,
-        ]);
+        // Data staging membantah asumsi awal: tenant `toko` berstatus
+        // `pending_payment` memegang tagihan Rp 1.500.000 yang menggantung.
+        // Menyembunyikan tautannya berarti menahan satu-satunya jalan bayar
+        // tenant baru.
+        [$tenant, $invoice] = $this->makeWarungWithPendingInvoice(Tenant::STATUS_PENDING_PAYMENT);
 
-        $this->get('https://warung-topup.topupengine.test/')
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('billingUrl', null));
+        $response = $this->get('https://warung-topup.topupengine.test/')->assertOk();
+        $props = $response->viewData('page')['props'];
+
+        $this->assertSame(Tenant::STATUS_PENDING_PAYMENT, $props['status']);
+        $this->assertStringContainsString('/tagihan/', (string) $props['billingUrl']);
+        $this->assertStringContainsString((string) $invoice->fresh()->public_token, (string) $props['billingUrl']);
     }
 
-    public function test_suspended_tanpa_tagihan_pending_tidak_menawarkan_tautan_mati(): void
+    public function test_tenant_tanpa_tagihan_pending_tidak_menawarkan_tautan_mati(): void
     {
-        // Jangan pernah merender tombol yang menuntun ke halaman 404.
+        // Jangan pernah merender tombol yang menuntun ke halaman 404. Tenant 2 di
+        // staging persis kasus ini: `suspended`, tapi invoice-nya sudah `paid`.
         $this->makeTenant([
             'name' => 'Warung Topup',
             'subdomain' => 'warung-topup',
@@ -491,6 +493,12 @@ class InactiveTenantStatusPageTest extends TestCase
 
     private function makeSuspendedWarungWithInvoice(): array
     {
+        return $this->makeWarungWithPendingInvoice(Tenant::STATUS_SUSPENDED);
+    }
+
+    /** Tenant `warung-topup` dengan satu tagihan perpanjangan yang menggantung. */
+    private function makeWarungWithPendingInvoice(string $status): array
+    {
         $owner = User::factory()->create([
             'name' => 'Rahasia Status',
             'role' => 'Gold',
@@ -502,7 +510,7 @@ class InactiveTenantStatusPageTest extends TestCase
             'name' => 'Warung Topup',
             'subdomain' => 'warung-topup',
             'tier' => 'starter',
-            'status' => Tenant::STATUS_SUSPENDED,
+            'status' => $status,
         ]);
 
         $subscription = Subscription::query()->create([

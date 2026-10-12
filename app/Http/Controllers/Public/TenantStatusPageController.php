@@ -36,7 +36,7 @@ class TenantStatusPageController extends Controller
         return Inertia::render('Public/TenantStatus', [
             'status' => $status,
             'address' => (string) $request->attributes->get('tenant_inactive_address', ''),
-            // Task 6: jalur pulang saat toko sendiri tidak melayani apa pun.
+            // Task 6: jalur pulang untuk pengunjung yang menemukan halaman ini.
             // Selalu lewat halaman tagihan ber-token — tautan gateway tidak
             // pernah dikirim ke pengunjung.
             'billingUrl' => $this->billingUrl($tenantId, $status),
@@ -56,16 +56,22 @@ class TenantStatusPageController extends Controller
     }
 
     /**
-     * Tautan ke halaman tagihan ber-token, atau null kalau tidak relevan.
+     * Tautan ke halaman tagihan ber-token, atau null kalau memang tidak ada
+     * tagihan tertunggak.
      *
-     * Hanya saat `suspended`: tenant yang ditangguhkan punya tagihan tertunggak,
-     * dan halaman status adalah satu-satunya tempat owner bisa menemukannya
-     * (tokonya sendiri tidak melayani apa pun). Tenant `pending_payment` belum
-     * pernah menerima tagihan perpanjangan, jadi jalurnya kontak seperti semula.
+     * Sengaja tidak dibatasi ke `suspended` saja. Tenant `pending_payment` juga
+     * punya tagihan pertama yang belum dibayar — dan itulah justru satu-satunya
+     * cara pengunjungnya bisa membawa situs ini hidup. Data staging
+     * membuktikannya: tenant `toko` berstatus `pending_payment` memegang tagihan
+     * Rp 1.500.000 yang menggantung. Menyembunyikan tautannya di situ berarti
+     * menahan satu-satunya jalan pulang.
+     *
+     * Kalau tidak ada tagihan pending, hasilnya null — jangan pernah merender
+     * tombol yang menuntun ke halaman 404.
      */
     protected function billingUrl(mixed $tenantId, string $status): ?string
     {
-        if ($status !== Tenant::STATUS_SUSPENDED || blank($tenantId)) {
+        if (blank($tenantId)) {
             return null;
         }
 
