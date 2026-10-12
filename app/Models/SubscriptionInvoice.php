@@ -68,15 +68,29 @@ class SubscriptionInvoice extends Model
     /**
      * Token publik invoice ini, dibuat kalau belum ada.
      *
-     * Idempoten: pemanggilan kedua mengembalikan token yang sama. Ini yang
-     * membuat tautan yang sudah dikirim lewat email/WA tetap hidup (D13.1) —
-     * berbeda dari `gateway_ref` yang berubah tiap tautan bayar diregenerasi.
+     * Idempoten di level DATABASE, bukan hanya di memori: keputusan diambil dari
+     * kolomnya sendiri, bukan dari atribut instance. Dua proses yang berlomba
+     * (mis. dua notifikasi untuk invoice yang sama, atau instance model yang
+     * sudah basi) tidak boleh saling menimpa — tautan yang terlanjur dikirim
+     * lewat email/WA akan mati kalau tokennya berputar (D13.1).
      */
     public function ensurePublicToken(): string
     {
-        if (blank($this->public_token)) {
-            $this->forceFill(['public_token' => self::generatePublicToken()])->save();
+        if (filled($this->public_token)) {
+            return (string) $this->public_token;
         }
+
+        // `whereNull` membuat pengisian hanya berhasil sekali; yang kalah balapan
+        // tidak menimpa apa pun.
+        static::query()
+            ->whereKey($this->getKey())
+            ->whereNull('public_token')
+            ->update(['public_token' => self::generatePublicToken()]);
+
+        // Ambil nilai yang benar-benar tersimpan — bisa jadi milik proses lain.
+        $this->public_token = static::query()
+            ->whereKey($this->getKey())
+            ->value('public_token');
 
         return (string) $this->public_token;
     }

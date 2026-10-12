@@ -105,7 +105,7 @@ class SendTenantNotificationJob implements ShouldQueue
         $tenant = $invoice->subscription->tenant;
         $owner = $tenant->owner;
         $tenantUrl = $this->tenantUrl((string) $tenant->subdomain);
-        $paymentUrl = (string) data_get($invoice->metadata, 'duitku.payment_url', '');
+        $paymentUrl = $this->billingPageUrl($invoice);
         $supportUrl = (string) ($settings?->url_wa ?: url('/id'));
 
         $denda = (int) data_get($invoice->metadata, 'late_fee', 0);
@@ -197,5 +197,23 @@ class SendTenantNotificationJob implements ShouldQueue
         $host = parse_url($appUrl, PHP_URL_HOST) ?: parse_url(url('/'), PHP_URL_HOST);
 
         return $scheme . '://' . $subdomain . '.' . $host;
+    }
+
+    /**
+     * D13: tautan yang dikirim ke owner mengarah ke HALAMAN TAGIHAN kita, bukan
+     * langsung ke gateway.
+     *
+     * Tautan Duitku mati dalam 1440 menit; tautan kita tidak pernah mati, dan
+     * halaman tagihan yang meregenerasi tautan bayarnya (Task 4). Inilah yang
+     * menutup celah "email dibaca telat".
+     *
+     * Hostnya host PLATFORM, bukan subdomain tenant: saat tenant ditangguhkan,
+     * `{subdomain}.{host}` justru menampilkan halaman status — tautan bayar harus
+     * tetap bekerja di situ. Tokennya tetap (D13.1), jadi tautan yang sudah
+     * terkirim tetap berlaku walau tautan bayarnya sudah diregenerasi.
+     */
+    private function billingPageUrl(SubscriptionInvoice $invoice): string
+    {
+        return route('billing.public', ['token' => $invoice->ensurePublicToken()]);
     }
 }

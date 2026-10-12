@@ -70,6 +70,33 @@ class SubscriptionInvoiceTokenTest extends TestCase
         $this->assertStringNotContainsString('SUB-', (string) $invoice->public_token);
     }
 
+    public function test_instance_basi_tidak_menimpa_token_yang_sudah_terkirim(): void
+    {
+        // Notifikasi job memakai instance model hasil eager-load. Kalau kolomnya
+        // sudah terisi tapi instance-nya masih melihat null, implementasi yang
+        // menilai dari atribut memori akan MENIMPA token itu — dan tautan yang
+        // terlanjur dikirim lewat email/WA langsung mati.
+        $invoice = $this->makeInvoice();
+
+        $tokenAsli = $invoice->ensurePublicToken();
+
+        $basi = SubscriptionInvoice::query()->find($invoice->id);
+        $basi->setRawAttributes([...$basi->getAttributes(), 'public_token' => null], true);
+
+        $this->assertSame($tokenAsli, $basi->ensurePublicToken());
+        $this->assertSame($tokenAsli, $invoice->fresh()->public_token);
+    }
+
+    public function test_ensure_public_token_tidak_menyentuh_gateway_ref(): void
+    {
+        $invoice = $this->makeInvoice();
+        $ref = $invoice->gateway_ref;
+
+        $invoice->ensurePublicToken();
+
+        $this->assertSame($ref, $invoice->fresh()->gateway_ref);
+    }
+
     private function makeInvoice(): SubscriptionInvoice
     {
         $owner = User::factory()->create(['role' => 'Gold']);

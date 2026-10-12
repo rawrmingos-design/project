@@ -108,12 +108,95 @@ class BillingReminderTest extends TestCase
 
         $this->assertStringContainsString('Langganan', $email);
         $this->assertStringContainsString('perpanjangan', $email);
-        $this->assertStringContainsString('https://sandbox.duitku.test/pay/renew', $email);
+        // Task 5: tautan mengarah ke halaman tagihan kita, bukan ke gateway.
+        $this->assertStringContainsString('/tagihan/' . $invoice->ensurePublicToken(), $email);
         $this->assertStringContainsString('Rp 500.000', $email);
         $this->assertStringNotContainsString('Denda', $email, 'Tagihan tanpa denda tidak boleh menyebut denda.');
 
         $this->assertStringContainsString('Perpanjang Langganan', $wa);
         $this->assertStringContainsString('Rp 500.000', $wa);
+        $this->assertStringContainsString('/tagihan/' . $invoice->ensurePublicToken(), $wa);
+    }
+
+    public function test_notifikasi_mengarah_ke_halaman_tagihan_bukan_gateway(): void
+    {
+        // Task 5: tautan Duitku mati dalam 1440 menit, tautan kita tidak. Kalau
+        // tautan gateway yang dikirim, owner yang membaca email telat akan
+        // menemukan tautan mati dan tidak punya jalan pulang.
+        [, $subscription] = $this->activeSubscription(now()->subDay());
+        $invoice = $this->makeRenewalInvoice($subscription, 510000, 10000);
+
+        $token = $invoice->ensurePublicToken();
+
+        foreach ([
+            SendTenantNotificationJob::EVENT_RENEWAL_INVOICE,
+            SendTenantNotificationJob::EVENT_PAYMENT_REMINDER,
+            SendTenantNotificationJob::EVENT_SUSPENDED,
+        ] as $event) {
+            [$email, $wa] = $this->renderNotification($invoice, $event);
+
+            foreach (['email' => $email, 'wa' => $wa] as $kanal => $isi) {
+                $this->assertStringContainsString(
+                    '/tagihan/' . $token,
+                    $isi,
+                    "Tautan {$kanal} untuk event {$event} harus mengarah ke halaman tagihan kita."
+                );
+                $this->assertStringNotContainsString(
+                    'duitku.com',
+                    $isi,
+                    "Tautan {$kanal} untuk event {$event} tidak boleh menunjuk langsung ke gateway."
+                );
+                $this->assertStringNotContainsString(
+                    'duitku.test',
+                    $isi,
+                    "Tautan {$kanal} untuk event {$event} tidak boleh menunjuk ke gateway sandbox."
+                );
+            }
+        }
+    }
+
+    public function test_tautan_notifikasi_memakai_host_platform_walau_tenant_ditangguhkan(): void
+    {
+        // Saat tenant ditangguhkan, `{subdomain}.{host}` menampilkan halaman
+        // status — tautan bayar harus tetap bekerja, jadi hostnya host platform.
+        [, $subscription] = $this->activeSubscription(now()->subDays(10));
+        $invoice = $this->makeRenewalInvoice($subscription, 510000, 10000);
+
+        [$email, $wa] = $this->renderNotification($invoice, SendTenantNotificationJob::EVENT_SUSPENDED);
+
+        foreach ([$email, $wa] as $isi) {
+            $this->assertStringContainsString(config('app.url'), $isi);
+            $this->assertStringNotContainsString('toko-notif-', $isi, 'Tautan tidak boleh memakai subdomain tenant.');
+        }
+    }
+
+    public function test_tautan_notifikasi_tetap_sama_setelah_pembayaran_diregenerasi(): void
+    {
+        // D13.1: token tetap. Tautan yang sudah dikirim tidak boleh berubah arti
+        // hanya karena tautan bayarnya dibuat ulang.
+        [, $subscription] = $this->activeSubscription(now()->subDay());
+        $invoice = $this->makeRenewalInvoice($subscription, 510000, 10000);
+
+        [$emailSebelum] = $this->renderNotification($invoice, SendTenantNotificationJob::EVENT_PAYMENT_REMINDER);
+
+        $invoice->forceFill([
+            'metadata' => array_replace_recursive($invoice->metadata ?: [], [
+                'duitku' => ['payment_url' => 'https://contoh-lain.test/pay/baru'],
+            ]),
+        ])->save();
+
+        [$emailSesudah] = $this->renderNotification($invoice->fresh(), SendTenantNotificationJob::EVENT_PAYMENT_REMINDER);
+
+        $this->assertSame(
+            $this->tautanBayar($emailSebelum),
+            $this->tautanBayar($emailSesudah),
+            'Tautan yang sudah terkirim tidak boleh berubah saat tautan bayar diregenerasi.'
+        );
+    }
+
+    private function tautanBayar(string $html): ?string
+    {
+        return preg_match('#https?://[^\s"<]*/tagihan/[a-f0-9]+#', $html, $m) === 1 ? $m[0] : null;
     }
 
     public function test_pesan_peringatan_menyebut_denda(): void
