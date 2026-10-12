@@ -35,7 +35,7 @@ class ProviderOrderStatusSyncService
                 foreach ($orders as $order) {
                     $response = $provider === 'digiflazz'
                         ? (new DigiFlazzController())->status(
-                            (string) $order->provider_order_id,
+                            (string) $order->providerStatusReference(),
                             (string) $order->active_provider_sku,
                             (string) $order->user_id,
                             (string) $order->zone,
@@ -74,7 +74,13 @@ class ProviderOrderStatusSyncService
                     $statusUpdater->apply($order, [
                         'success' => true,
                         'order_status' => $status,
-                        'transaction_id' => $order->provider_order_id,
+                        // Referensi attempt yang HIDUP, bukan `provider_order_id`.
+                        // Nilai ini ditulis balik ke provider_order_id +
+                        // active_attempt_token oleh ProviderStatusUpdateService,
+                        // dan `active_attempt_token` dibaca lebih dulu oleh
+                        // `resolveVipStatusReference()` -- jadi mengirim yang beku
+                        // akan membekukan ulang referensi tepat setelah Sukses.
+                        'transaction_id' => $order->providerStatusReference(),
                         'provider_status' => $status,
                         'message' => $providerMessage,
                         'sn' => data_get($response, 'data.sn', ''),

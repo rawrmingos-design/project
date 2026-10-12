@@ -277,14 +277,25 @@ class ProviderStatusUpdateService
             return false;
         }
 
-        $activeAttemptToken = trim((string) ($pembelian->active_attempt_token ?? ''));
-        $providerOrder = trim((string) ($pembelian->provider_order_id ?? ''));
+        // Pembandingnya hanya attempt HIDUP dari reset (lihat
+        // Pembelian::liveAttemptReference()), BUKAN `active_attempt_token` +
+        // `provider_order_id` yang keduanya beku pada attempt pertama. Dulu
+        // pembandingnya kolom beku itu: jawaban Sukses untuk attempt `_002`
+        // dinilai "basi" lalu DIBUANG -- order tidak pernah bisa pulih walau
+        // provider sudah bilang Sukses.
+        //
+        // Saat order belum pernah direset (liveAttemptReference() = null) TIDAK
+        // ada yang dianggap basi: `provider_order_id`/`active_attempt_token`
+        // memang beku di situ sebagai perilaku normal, dan jawaban provider harus
+        // tetap diterima. Menambah `display_order_id`/token ke pembanding justru
+        // membuang jawaban yang sah (lihat SufPaymentOrderProcessingServiceTest).
+        $liveReference = $pembelian->liveAttemptReference();
 
-        if ($activeAttemptToken === '' && $providerOrder === '') {
+        if ($liveReference === null) {
             return false;
         }
 
-        return $providerOrderId !== $activeAttemptToken && $providerOrderId !== $providerOrder;
+        return $providerOrderId !== $liveReference;
     }
 
     private function nextResetStatus(Pembelian $pembelian, string $incomingStatus): string

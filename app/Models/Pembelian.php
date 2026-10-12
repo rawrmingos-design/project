@@ -382,6 +382,69 @@ class Pembelian extends Model
         return in_array(strtolower(trim((string) $this->active_provider_code)), ['vip', 'vip_reseller'], true);
     }
 
+    /**
+     * Referensi attempt yang HIDUP, hanya untuk order yang SUDAH DI-RESET.
+     *
+     * `provider_order_id` adalah jejak attempt pertama dan TIDAK ikut berubah saat
+     * reset (lihat ResetDomainService) -- jadi nilainya beku. `active_attempt_reference`
+     * yang menunjuk percobaan hidup.
+     *
+     * Penanda "benar-benar pernah direset" adalah `invoice_version > 0`:
+     * satu-satunya penulis kolom itu adalah ResetDomainService, dan model ini
+     * memang sudah memakainya sebagai penanda reset (lihat where('invoice_version','>',0)).
+     * Memakai "reference != provider_order_id" saja TIDAK cukup: fixture/legacy bisa
+     * punya dua kolom itu berbeda tanpa pernah direset, dan order seperti itu masih
+     * sah ditanyakan lewat `provider_order_id`.
+     *
+     * Kembalian `null` berarti order belum pernah direset, jadi `provider_order_id`
+     * tetap sah sebagai referensi.
+     *
+     * Dipakai bersama oleh:
+     *  - Pembelian::providerStatusReference() (referensi yang DITANYAKAN)
+     *  - ProviderStatusUpdateService::isStaleAttempt() (referensi yang DITERIMA)
+     * supaya "yang ditanyakan" dan "yang diterima" tidak bisa menyimpang.
+     */
+    public function liveAttemptReference(): ?string
+    {
+        if ((int) ($this->invoice_version ?? 0) <= 0) {
+            return null;
+        }
+
+        $active = trim((string) ($this->active_attempt_reference ?? ''));
+
+        if ($active === '') {
+            return null;
+        }
+
+        return $active !== trim((string) ($this->provider_order_id ?? '')) ? $active : null;
+    }
+
+    /**
+     * Referensi yang boleh ditanyakan ke provider untuk status order ini.
+     *
+     * Untuk order yang sudah direset, `provider_order_id` adalah invoice lama:
+     * provider akan terus menjawab status attempt pertama, dan attempt yang
+     * sebenarnya sudah Sukses tidak pernah terlihat. Jadi attempt hidup yang
+     * ditanyakan. Urutan fallback lain tetap seperti semula.
+     */
+    public function providerStatusReference(): ?string
+    {
+        $live = $this->liveAttemptReference();
+
+        if ($live !== null) {
+            return $live;
+        }
+
+        $providerOrderId = trim((string) ($this->provider_order_id ?? ''));
+        if ($providerOrderId !== '') {
+            return $providerOrderId;
+        }
+
+        $displayOrderId = trim((string) ($this->display_order_id ?? ''));
+
+        return $displayOrderId !== '' ? $displayOrderId : null;
+    }
+
     public function hasRetryStatusReference(): bool
     {
         $attemptToken = trim((string) ($this->active_attempt_token ?? ''));

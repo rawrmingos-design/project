@@ -139,11 +139,14 @@ class OrderProcessingService
 
     protected function resolveProviderReference(Pembelian $pembelian): string
     {
-        if ($this->dispatchMode === 'retry_status'
-            && strtolower(trim((string) $pembelian->active_provider_code)) === 'digiflazz') {
-            $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
-            if ($providerOrderId !== '') {
-                return $providerOrderId;
+        // `provider_order_id` beku pada attempt pertama untuk order yang sudah
+        // direset, jadi jangan dipakai sebagai referensi status -- lihat
+        // Pembelian::providerStatusReference(). Berlaku sama untuk auto & retry.
+        if ($this->dispatchMode === 'retry_status') {
+            $reference = $pembelian->providerStatusReference();
+
+            if ($reference !== null && $reference !== '') {
+                return $reference;
             }
         }
 
