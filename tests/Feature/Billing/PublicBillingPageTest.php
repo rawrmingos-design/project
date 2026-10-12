@@ -271,6 +271,52 @@ class PublicBillingPageTest extends TestCase
         );
     }
 
+    public function test_limiter_per_ip_menahan_penebakan_token(): void
+    {
+        // D13.3 — inti proteksinya: batas per-IP. Token berbeda tiap percobaan,
+        // jadi yang menahan di sini hanya bucket per-IP.
+        $this->makeInvoice();
+
+        $status = [];
+
+        for ($i = 0; $i < 32; $i++) {
+            $status[] = $this->get(
+                self::BASE . '/tagihan/' . str_pad((string) $i, 8, 'a') . str_repeat('b', 56)
+            )->getStatusCode();
+        }
+
+        $this->assertSame(
+            429,
+            end($status),
+            'Percobaan ke-32 dengan token acak harus ditahan limiter per-IP, bukan dibiarkan 404 selamanya.'
+        );
+        $this->assertNotContains(200, $status);
+    }
+
+    public function test_limiter_per_token_menahan_tautan_yang_beredar(): void
+    {
+        // Batas per-token lebih ketat (15/menit): satu tautan yang beredar tidak
+        // boleh dipakai membanjiri aplikasi. IP berbeda tiap request supaya yang
+        // diuji benar-benar bucket per-token.
+        [, $invoice] = $this->makeInvoice();
+        $token = $invoice->ensurePublicToken();
+
+        $status = [];
+
+        for ($i = 1; $i <= 17; $i++) {
+            $status[] = $this->withServerVariables(['REMOTE_ADDR' => '10.9.9.' . $i])
+                ->get(self::BASE . '/tagihan/' . $token)
+                ->getStatusCode();
+        }
+
+        $this->assertSame(200, $status[0], 'Permintaan pertama harus dilayani.');
+        $this->assertSame(
+            429,
+            end($status),
+            'Tautan yang sama dipakai terus harus ditahan, walau IP-nya berganti-ganti.'
+        );
+    }
+
     // ---------------------------------------------------------------------
     // Helper
     // ---------------------------------------------------------------------
