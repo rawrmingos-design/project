@@ -70,6 +70,7 @@ class Kernel extends HttpKernel
         'add.api.version'   => \App\Http\Middleware\AddApiVersionHeader::class,
         'auth.message'      => \App\Http\Middleware\RequireAuthWithMessage::class,
         'tenant.resolve'    => \App\Http\Middleware\ResolveTenant::class,
+        'tenant.inactive'   => \App\Http\Middleware\RenderInactiveTenantStatus::class,
         'tenant.required'   => \App\Http\Middleware\RequireTenant::class,
     ];
 }

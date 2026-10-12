@@ -164,7 +164,7 @@ if ($docsHost !== '') {
     });
 }
 
-Route::middleware(['tenant.resolve', 'tenant.required', 'xss', 'sanitize'])->name('tenant.')->group(function () {
+Route::middleware(['tenant.resolve', 'tenant.inactive', 'tenant.required', 'xss', 'sanitize'])->name('tenant.')->group(function () {
     Route::get('/', TenantHomeController::class)->name('home');
     Route::middleware('auth')->group(function () {
         Route::get('/dashboard', TenantDashboardController::class)->name('dashboard');
@@ -192,7 +192,11 @@ Route::prefix('id')->group(function () {
         ->name('password.update');
 });
 
-Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
+// Halaman platform di path `/id` juga dicegat: grup tenant hanya menangani `/`,
+// sedangkan `/id` (homepage, artikel, dashboard) hidup di grup ini. Tanpa
+// `tenant.inactive`, subdomain tenant non-aktif tetap menyajikan homepage
+// platform lengkap di `/id` — 404-nya hilang di `/` tapi lubangnya pindah.
+Route::prefix('id')->middleware(['tenant.inactive', 'xss', 'sanitize', 'bangjeff.legacy.redirect'])->group(function () {
 
     // Artikel Routes (Inertia for bangjeff theme, blade fallback in controller for default theme)
     Route::prefix('artikel')->name('artikel.')->controller(PublicArticlePageController::class)->group(function () {

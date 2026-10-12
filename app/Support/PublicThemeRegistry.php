@@ -124,6 +124,10 @@ class PublicThemeRegistry
         \App\Http\Controllers\Public\Reseller\SalesPageController::class,
         \App\Http\Controllers\Public\Reseller\SandboxController::class,
         \App\Http\Controllers\Public\Reseller\SettingsController::class,
+        // Halaman status tenant non-aktif: halaman PLATFORM, bukan storefront
+        // tenant. Wajib React di semua tema — tenant non-aktif justru tidak
+        // punya storefront untuk dijadikan tema, dan Blade-nya memang tidak ada.
+        \App\Http\Controllers\Public\TenantStatusPageController::class,
     ];
 
     /**
