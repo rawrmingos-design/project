@@ -214,6 +214,15 @@ class SendTenantNotificationJob implements ShouldQueue
      */
     private function billingPageUrl(SubscriptionInvoice $invoice): string
     {
-        return route('billing.public', ['token' => $invoice->ensurePublicToken()]);
+        $path = route('billing.public', ['token' => $invoice->ensurePublicToken()], absolute: false);
+
+        // Host ditempel manual, sama seperti `platformUrl()` di trait host.
+        // `route()` polos memakai host request yang sedang berjalan; kalau job ini
+        // kebetulan jalan sinkron di dalam request yang datang dari subdomain
+        // tenant (mis. webhook yang diproses tanpa antrean), tautannya menunjuk
+        // ke tempat yang `RequirePlatformHost` mem-404-kan.
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        return $appUrl === '' ? url($path) : $appUrl . $path;
     }
 }

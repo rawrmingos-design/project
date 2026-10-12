@@ -171,6 +171,28 @@ class BillingReminderTest extends TestCase
         }
     }
 
+    public function test_tautan_notifikasi_memakai_host_platform_walau_dipanggil_dari_request_tenant(): void
+    {
+        // Job ini bisa jalan SINKRON di dalam request (webhook yang diproses tanpa
+        // antrean). Kalau permintaan itu datang dari subdomain tenant, `route()`
+        // polos menempelkan host tenant — dan halaman tagihan 404 di sana.
+        [, $subscription] = $this->activeSubscription(now()->subDay());
+        $invoice = $this->makeRenewalInvoice($subscription, 510000, 10000);
+
+        $this->app['url']->forceRootUrl('https://toko-notif-abc.jasakoding.web.id');
+
+        [$email, $wa] = $this->renderNotification($invoice, SendTenantNotificationJob::EVENT_PAYMENT_REMINDER);
+
+        foreach (['email' => $email, 'wa' => $wa] as $kanal => $isi) {
+            $this->assertStringStartsWith(
+                rtrim(config('app.url'), '/') . '/tagihan/',
+                (string) $this->tautanBayar($isi),
+                "Tautan {$kanal} harus memakai host platform walau request datang dari subdomain tenant."
+            );
+            $this->assertStringNotContainsString('toko-notif-abc.', $isi);
+        }
+    }
+
     public function test_tautan_notifikasi_tetap_sama_setelah_pembayaran_diregenerasi(): void
     {
         // D13.1: token tetap. Tautan yang sudah dikirim tidak boleh berubah arti

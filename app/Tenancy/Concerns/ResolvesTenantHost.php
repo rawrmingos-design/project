@@ -42,6 +42,27 @@ trait ResolvesTenantHost
         return [$publicHost, 'www.' . $publicHost];
     }
 
+    /**
+     * URL absolut di host PLATFORM, apa pun host request saat ini.
+     *
+     * `route()` menempelkan host request yang sedang berjalan. Di dalam request
+     * tenant hasilnya `{subdomain}.{baseHost}` — dan halaman tagihan hanya hidup
+     * di host platform (`RequirePlatformHost` mem-404-kan yang lain). Tautan yang
+     * dibuat dengan `route()` polos dari subdomain tenant karena itu selalu mati.
+     * Kirim path saja (`route(..., absolute: false)`) dan tempel hostnya di sini.
+     */
+    protected function platformUrl(string $path): string
+    {
+        $path = '/' . ltrim($path, '/');
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if ($appUrl === '') {
+            return url($path);
+        }
+
+        return $appUrl . $path;
+    }
+
     protected function shouldBypassHost(string $host): bool
     {
         if ($host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP)) {

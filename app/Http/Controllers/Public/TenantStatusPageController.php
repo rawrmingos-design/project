@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
 use App\Tenancy\Concerns\ResolvesPlatformContact;
+use App\Tenancy\Concerns\ResolvesTenantHost;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -25,6 +26,7 @@ use Inertia\Response;
 class TenantStatusPageController extends Controller
 {
     use ResolvesPlatformContact;
+    use ResolvesTenantHost;
 
     public function __invoke(Request $request): Response
     {
@@ -87,7 +89,14 @@ class TenantStatusPageController extends Controller
 
         // Token diterbitkan di sini kalau belum ada — idempoten, dan tidak
         // menimpa token yang sudah terkirim lewat email/WA (D13.1).
-        return route('billing.public', ['token' => $invoice->ensurePublicToken()]);
+        //
+        // Hostnya WAJIB ditempel manual: `route()` polos memakai host request
+        // yang sedang berjalan, dan di sini request-nya datang dari subdomain
+        // tenant — tautannya jadi menunjuk ke tempat yang `RequirePlatformHost`
+        // mem-404-kan (terbukti 404 di staging).
+        return $this->platformUrl(
+            route('billing.public', ['token' => $invoice->ensurePublicToken()], absolute: false)
+        );
     }
 
     /**

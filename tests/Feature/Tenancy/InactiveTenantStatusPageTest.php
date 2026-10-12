@@ -390,7 +390,12 @@ class InactiveTenantStatusPageTest extends TestCase
 
         $props = $response->viewData('page')['props'];
 
-        $this->assertStringContainsString('/tagihan/', (string) $props['billingUrl']);
+        // Host-nya WAJIB host platform, bukan subdomain tenant: halaman tagihan
+        // hanya hidup di host platform, jadi tautan ber-subdomain tenant pasti
+        // 404 (terbukti di staging sebelum ini diperbaiki). Meng-assert
+        // '/tagihan/' saja tidak menangkapnya.
+        $this->assertStringStartsWith(rtrim(config('app.url'), '/') . '/tagihan/', (string) $props['billingUrl']);
+        $this->assertStringNotContainsString('warung-topup.', (string) $props['billingUrl']);
         $this->assertStringContainsString(
             (string) $invoice->fresh()->public_token,
             (string) $props['billingUrl'],
