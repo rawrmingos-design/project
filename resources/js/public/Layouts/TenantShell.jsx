@@ -16,7 +16,7 @@ import { Head } from '@inertiajs/react';
  * mentah bocor balik ke dalam markup. Prop `meta.robots` dari controller juga
  * mematikan JSON-LD otomatis di `app-inertia.blade.php`.
  */
-export default function TenantShell({ title, children, footer, robots = 'noindex, nofollow' }) {
+export default function TenantShell({ title, children, footer, showNoindexNote = true, robots = 'noindex, nofollow' }) {
     return (
         <>
             <Head title={title}>
@@ -35,8 +35,20 @@ export default function TenantShell({ title, children, footer, robots = 'noindex
                     {children}
                 </main>
 
-                <footer className="w-full max-w-2xl mx-auto px-6 py-6 border-t border-outline-variant">
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">{footer}</p>
+                <footer className="w-full max-w-2xl mx-auto px-6 py-6 border-t border-outline-variant flex flex-col gap-2">
+                    {footer ? (
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">{footer}</p>
+                    ) : null}
+
+                    {/* Klaim ini hanya ditulis kalau benar-benar berlaku. Saat
+                        tenant ditangguhkan, halaman status justru menautkan
+                        tautan tagihan ber-token — tautan itu tidak boleh
+                        diklaim "tidak ditautkan dari mana pun". */}
+                    {showNoindexNote ? (
+                        <p className="font-label-sm text-label-sm text-on-surface-variant">
+                            Halaman ini tidak diindeks mesin pencari.
+                        </p>
+                    ) : null}
                 </footer>
             </div>
         </>

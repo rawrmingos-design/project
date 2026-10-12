@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\EmailNotificationService;
 use App\Services\Payments\DuitkuPopClient;
 use App\Services\WhatsappNotificationService;
+use App\Tenancy\TenantProvisioningService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Carbon;
@@ -227,12 +228,61 @@ class BillingReminderTest extends TestCase
         $this->assertStringContainsString('masih aman', $wa);
     }
 
+    /**
+     * Task 6: penutup siklus. Saat invoice benar-benar mati, owner HARUS dapat
+     * kabar — kalau tidak, tautan yang dia pegang berhenti bekerja tanpa
+     * penjelasan, dan satu-satunya jalur pulang (halaman tagihan) jadi tidak
+     * pernah ditawarkan.
+     */
+    public function test_invoice_kedaluwarsa_mengirim_notifikasi_sekali_saja(): void
+    {
+        Bus::fake([SendTenantNotificationJob::class]);
+
+        [$tenant, $subscription] = $this->activeSubscription(now()->addDays(5), Tenant::STATUS_PENDING_PAYMENT);
+        $invoice = $this->makeRenewalInvoice($subscription, 500000, 0);
+
+        $service = app(TenantProvisioningService::class);
+
+        $service->markInvoiceExpired($invoice);
+        $service->markInvoiceExpired($invoice->fresh());
+
+        $invoice->refresh();
+
+        $this->assertSame(SubscriptionInvoice::STATUS_EXPIRED, $invoice->status);
+        $this->assertNotNull(
+            data_get($invoice->metadata, 'notifications.expired_sent_at'),
+            'Jejak waktu pemberitahuan harus tercatat supaya tidak terkirim dua kali.'
+        );
+
+        Bus::assertDispatchedTimes(SendTenantNotificationJob::class, 1);
+        Bus::assertDispatched(
+            SendTenantNotificationJob::class,
+            fn (SendTenantNotificationJob $job) => $job->event === SendTenantNotificationJob::EVENT_INVOICE_EXPIRED
+                && $job->invoiceId === $invoice->id
+        );
+    }
+
+    public function test_pesan_invoice_kedaluwarsa_menawarkan_jalan_memperbaiki(): void
+    {
+        // Invoice yang mati berarti tautan lama sudah tidak berlaku. Pesannya
+        // harus memberi langkah berikutnya, bukan hanya memberi tahu.
+        [, $subscription] = $this->activeSubscription(now()->addDays(5), Tenant::STATUS_PENDING_PAYMENT);
+        $invoice = $this->makeRenewalInvoice($subscription, 500000, 0);
+
+        [$email, $wa] = $this->renderNotification($invoice, SendTenantNotificationJob::EVENT_INVOICE_EXPIRED);
+
+        $this->assertStringContainsString('expired', $email);
+        $this->assertStringContainsString('support', $email);
+        $this->assertStringContainsString('expired', $wa);
+        $this->assertStringContainsString('support', $wa);
+    }
+
     // ---------------------------------------------------------------------
     // Helper
     // ---------------------------------------------------------------------
 
     /** @return array{0: Tenant, 1: Subscription} */
-    private function activeSubscription(Carbon $periodEnd): array
+    private function activeSubscription(Carbon $periodEnd, string $tenantStatus = Tenant::STATUS_ACTIVE): array
     {
         $owner = User::factory()->create(['role' => 'Gold', 'email' => 'owner-' . uniqid() . '@example.test']);
 
@@ -241,7 +291,7 @@ class BillingReminderTest extends TestCase
             'name' => 'Toko Uji Notif',
             'subdomain' => 'toko-notif-' . uniqid(),
             'tier' => 'starter',
-            'status' => Tenant::STATUS_ACTIVE,
+            'status' => $tenantStatus,
         ]);
 
         $subscription = Subscription::query()->create([

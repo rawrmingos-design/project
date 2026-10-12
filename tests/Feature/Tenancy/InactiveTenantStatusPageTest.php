@@ -3,6 +3,8 @@
 namespace Tests\Feature\Tenancy;
 
 use App\Models\SettingWeb;
+use App\Models\Subscription;
+use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -370,6 +372,160 @@ class InactiveTenantStatusPageTest extends TestCase
                 . 'yang sengaja dibuang dari halaman platform, dan menurunkan canonical dari '
                 . 'window.location.href (host tenant mentah).'
         );
+    }
+
+    public function test_suspended_menyediakan_jalur_ke_halaman_tagihan(): void
+    {
+        // Task 6: tokonya sendiri tidak melayani apa pun saat ditangguhkan, jadi
+        // tautan tagihan adalah satu-satunya jalan pulang untuk membayar.
+        [$tenant, $invoice] = $this->makeSuspendedWarungWithInvoice();
+
+        $response = $this->get('https://warung-topup.topupengine.test/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/TenantStatus')
+                ->where('status', Tenant::STATUS_SUSPENDED)
+                ->where('meta.robots', 'noindex, nofollow')
+            );
+
+        $props = $response->viewData('page')['props'];
+
+        $this->assertStringContainsString('/tagihan/', (string) $props['billingUrl']);
+        $this->assertStringContainsString(
+            (string) $invoice->fresh()->public_token,
+            (string) $props['billingUrl'],
+            'Tautan harus memakai token yang tersimpan, bukan token baru.'
+        );
+        $this->assertStringNotContainsString('duitku', (string) $props['billingUrl']);
+    }
+
+    public function test_props_halaman_status_tetap_tidak_membocorkan_identitas(): void
+    {
+        $this->makeSuspendedWarungWithInvoice();
+
+        $response = $this->get('https://warung-topup.topupengine.test/')->assertOk();
+
+        $props = json_encode($response->viewData('page')['props'], JSON_THROW_ON_ERROR);
+
+        foreach ([
+            'Warung Topup',                 // nama tenant
+            'owner-status@example.test',    // email owner
+            'siteConfig',
+            'seoDefaults',
+            'gateway_ref',
+            'SUB-',
+        ] as $bocor) {
+            $this->assertStringNotContainsString($bocor, $props, "Halaman status membocorkan identitas.");
+        }
+
+        // Yang boleh tampil hanya alamat tersensor.
+        $this->assertStringContainsString('w**********p', $props);
+    }
+
+    public function test_pending_payment_tidak_menawarkan_tautan_tagihan(): void
+    {
+        // Tenant `pending_payment` belum pernah menerima tagihan perpanjangan,
+        // jadi jalurnya kontak — bukan halaman tagihan.
+        $this->makeTenant([
+            'name' => 'Warung Topup',
+            'subdomain' => 'warung-topup',
+            'status' => Tenant::STATUS_PENDING_PAYMENT,
+        ]);
+
+        $this->get('https://warung-topup.topupengine.test/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('billingUrl', null));
+    }
+
+    public function test_suspended_tanpa_tagihan_pending_tidak_menawarkan_tautan_mati(): void
+    {
+        // Jangan pernah merender tombol yang menuntun ke halaman 404.
+        $this->makeTenant([
+            'name' => 'Warung Topup',
+            'subdomain' => 'warung-topup',
+            'status' => Tenant::STATUS_SUSPENDED,
+        ]);
+
+        $this->get('https://warung-topup.topupengine.test/')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->where('billingUrl', null));
+    }
+
+    public function test_tautan_tagihan_di_halaman_status_tidak_merotasi_token(): void
+    {
+        // D13.1: token yang sudah dikirim lewat email/WA tidak boleh berubah
+        // hanya karena halaman status dibuka.
+        [, $invoice] = $this->makeSuspendedWarungWithInvoice();
+
+        $tokenAwal = $invoice->ensurePublicToken();
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->get('https://warung-topup.topupengine.test/')->assertOk();
+        }
+
+        $this->assertSame($tokenAwal, $invoice->fresh()->public_token);
+    }
+
+    public function test_halaman_status_menyebut_pemulihan_otomatis(): void
+    {
+        // Task 6: penutup siklus — pengunjung tahu situsnya kembali sendiri
+        // begitu pembayaran tercatat. Dikunci statis karena kalimat ini hidup di
+        // komponen (blade melewatkan tag saat SSR aktif).
+        $this->makeSuspendedWarungWithInvoice();
+
+        $response = $this->get('https://warung-topup.topupengine.test/')->assertOk();
+
+        $this->assertSame(
+            'Public/TenantStatus',
+            $response->viewData('page')['component']
+        );
+
+        $komponen = (string) file_get_contents(base_path('resources/js/public/Pages/Public/TenantStatus.jsx'));
+
+        $this->assertStringContainsString(
+            'aktif kembali otomatis',
+            $komponen,
+            'Halaman status harus menyebut pemulihan otomatis.'
+        );
+    }
+
+    private function makeSuspendedWarungWithInvoice(): array
+    {
+        $owner = User::factory()->create([
+            'name' => 'Rahasia Status',
+            'role' => 'Gold',
+            'email' => 'owner-status@example.test',
+        ]);
+
+        $tenant = Tenant::query()->create([
+            'owner_user_id' => $owner->id,
+            'name' => 'Warung Topup',
+            'subdomain' => 'warung-topup',
+            'tier' => 'starter',
+            'status' => Tenant::STATUS_SUSPENDED,
+        ]);
+
+        $subscription = Subscription::query()->create([
+            'tenant_id' => $tenant->id,
+            'tier' => 'starter',
+            'price' => 500000,
+            'status' => Subscription::STATUS_ACTIVE,
+            'gateway_ref' => 'SUB-STATUS-' . strtoupper(uniqid()),
+            'current_period_start' => now()->subMonth(),
+            'current_period_end' => now()->subDays(5),
+        ]);
+
+        $invoice = SubscriptionInvoice::query()->create([
+            'subscription_id' => $subscription->id,
+            'amount' => 510000,
+            'status' => SubscriptionInvoice::STATUS_PENDING,
+            'gateway' => 'duitku',
+            'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
+            'due_date' => now()->subDay(),
+            'metadata' => ['source' => 'billing_renewal', 'kind' => 'renewal', 'late_fee' => 10000],
+        ]);
+
+        return [$tenant, $invoice];
     }
 
     private function makeSuspendedWarung(): void

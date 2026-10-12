@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
-use App\Models\SettingWeb;
+use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
+use App\Tenancy\Concerns\ResolvesPlatformContact;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,16 +24,24 @@ use Inertia\Response;
  */
 class TenantStatusPageController extends Controller
 {
+    use ResolvesPlatformContact;
+
     public function __invoke(Request $request): Response
     {
-        $contactUrl = $this->contactUrl();
+        $contactUrl = $this->platformContactUrl();
+        $status = (string) $request->attributes->get('tenant_inactive_status', '');
+
+        $tenantId = $request->attributes->get('tenant_inactive_id');
 
         return Inertia::render('Public/TenantStatus', [
-            'status' => (string) $request->attributes->get('tenant_inactive_status', ''),
+            'status' => $status,
             'address' => (string) $request->attributes->get('tenant_inactive_address', ''),
+            // Task 6: jalur pulang saat toko sendiri tidak melayani apa pun.
+            // Selalu lewat halaman tagihan ber-token — tautan gateway tidak
+            // pernah dikirim ke pengunjung.
+            'billingUrl' => $this->billingUrl($tenantId, $status),
             'contactUrl' => $contactUrl,
-            'contactIsWhatsapp' => str_contains($contactUrl, 'wa.me'),
-            // D13: tautan tagihan ber-token ditambahkan bersama Task 3.
+            'contactIsWhatsapp' => $this->contactIsWhatsapp($contactUrl),
             // Q6: tidak ada props waktu suspend — jangan tambahkan.
             'meta' => [
                 'robots' => 'noindex, nofollow',
@@ -47,35 +56,40 @@ class TenantStatusPageController extends Controller
     }
 
     /**
+     * Tautan ke halaman tagihan ber-token, atau null kalau tidak relevan.
+     *
+     * Hanya saat `suspended`: tenant yang ditangguhkan punya tagihan tertunggak,
+     * dan halaman status adalah satu-satunya tempat owner bisa menemukannya
+     * (tokonya sendiri tidak melayani apa pun). Tenant `pending_payment` belum
+     * pernah menerima tagihan perpanjangan, jadi jalurnya kontak seperti semula.
+     */
+    protected function billingUrl(mixed $tenantId, string $status): ?string
+    {
+        if ($status !== Tenant::STATUS_SUSPENDED || blank($tenantId)) {
+            return null;
+        }
+
+        $invoice = SubscriptionInvoice::query()
+            ->whereHas('subscription', fn ($query) => $query->where('tenant_id', $tenantId))
+            ->where('status', SubscriptionInvoice::STATUS_PENDING)
+            ->latest('id')
+            ->first();
+
+        if ($invoice === null) {
+            return null;
+        }
+
+        // Token diterbitkan di sini kalau belum ada — idempoten, dan tidak
+        // menimpa token yang sudah terkirim lewat email/WA (D13.1).
+        return route('billing.public', ['token' => $invoice->ensurePublicToken()]);
+    }
+
+    /**
      * Hanya `suspended` dan `pending_payment` yang mendapat halaman status.
      * `active` dilayani jalur normal; `cancelled` → 404 (D11).
      */
     public static function isInactiveStatus(string $status): bool
     {
         return in_array($status, [Tenant::STATUS_SUSPENDED, Tenant::STATUS_PENDING_PAYMENT], true);
-    }
-
-    /**
-     * D8: WA platform (setting_webs.url_wa) → WA admin (nomor_admin) →
-     * aplikasi. Q5: kalau dua-duanya kosong, label di halaman jadi netral
-     * "Hubungi kami" (lihat `contactIsWhatsapp`).
-     */
-    protected function contactUrl(): string
-    {
-        $setting = SettingWeb::query()->find(1);
-
-        $langsung = trim((string) ($setting?->url_wa ?? ''));
-
-        if ($langsung !== '') {
-            return $langsung;
-        }
-
-        $admin = preg_replace('/\D+/', '', (string) ($setting?->nomor_admin ?? '')) ?? '';
-
-        if ($admin !== '') {
-            return 'https://wa.me/' . $admin;
-        }
-
-        return (string) config('app.url');
     }
 }

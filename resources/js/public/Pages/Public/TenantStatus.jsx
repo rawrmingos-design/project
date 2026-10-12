@@ -9,6 +9,7 @@ import TenantShell from '../../Layouts/TenantShell';
  *   address            alamat tenant yang sudah disensor (D9)
  *   contactUrl         WA platform → WA admin → app.url (D8)
  *   contactIsWhatsapp  true kalau contactUrl memang tautan wa.me (Q5)
+ *   billingUrl         tautan tagihan ber-token, HANYA saat `suspended` (Task 6)
  *
  * Q6: sengaja tidak ada baris "Sejak (kapan disuspend)".
  */
@@ -35,12 +36,21 @@ const COPY = {
     },
 };
 
-export default function TenantStatus({ status, address, contactUrl, contactIsWhatsapp }) {
+export default function TenantStatus({ status, address, billingUrl, contactUrl, contactIsWhatsapp }) {
     const badge = BADGE[status] || BADGE.suspended;
     const copy = COPY[status] || COPY.suspended;
+    const adaTautanTagihan = typeof billingUrl === 'string' && billingUrl !== '';
 
     return (
-        <TenantShell title="Status Layanan" footer="Halaman ini tidak diindeks mesin pencari.">
+        <TenantShell
+            title="Status Layanan"
+            showNoindexNote={!adaTautanTagihan}
+            footer={
+                adaTautanTagihan
+                    ? 'Situs ini aktif kembali otomatis begitu pembayaran tercatat.'
+                    : null
+            }
+        >
             <div className="flex flex-col gap-8">
                 <div className="flex flex-col gap-5">
                     <span
@@ -77,9 +87,21 @@ export default function TenantStatus({ status, address, contactUrl, contactIsWha
                 </dl>
 
                 <div className="flex flex-wrap gap-3">
+                    {/* Jalur pulang utama saat ditangguhkan: halaman tagihan
+                        ber-token. Tokonya sendiri sedang tidak melayani apa pun,
+                        jadi tidak ada jalan lain untuk membayar. */}
+                    {adaTautanTagihan ? (
+                        <a
+                            href={billingUrl}
+                            className="px-5 py-3 bg-primary-container text-on-primary-container font-label-bold text-label-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-tertiary"
+                        >
+                            Lihat tagihan
+                        </a>
+                    ) : null}
+
                     <a
                         href={contactUrl}
-                        className="px-5 py-3 bg-primary-container text-on-primary-container font-label-bold text-label-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-tertiary"
+                        className="px-5 py-3 border border-outline-variant text-on-surface font-label-bold text-label-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-tertiary"
                     >
                         {contactIsWhatsapp ? 'Hubungi kami di WhatsApp' : 'Hubungi kami'}
                     </a>

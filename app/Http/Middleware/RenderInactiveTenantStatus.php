@@ -55,6 +55,7 @@ class RenderInactiveTenantStatus
         }
 
         $request->attributes->set('tenant_inactive_status', (string) $tenant->status);
+        $request->attributes->set('tenant_inactive_id', $tenant->getKey());
         $request->attributes->set(
             'tenant_inactive_address',
             app(TenantAddressMasker::class)->maskHost($host, $this->baseHost())
