@@ -122,4 +122,6 @@ testsprite_tests\tmp\config.json
 !/docs/diagrams/
 !/docs/diagrams/tenant-lifecycle/
 !/docs/diagrams/tenant-lifecycle/*
+!/docs/design/
+!/docs/design/*
 .hermes/
