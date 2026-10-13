@@ -1,10 +1,12 @@
 # Desain — Alur SaaS "Sewa Web Topup": Landing → Daftar → Bayar → Sukses
 
 Dokumen ini untuk kerja desain. Setiap halaman di sini **ada di kode** atau **terbukti belum ada** —
-tidak ada halaman karangan. Bagian §2 dan §3 menjelaskan alur yang benar-benar berjalan, §5 adalah
-brief desain per halaman, §4 adalah token yang wajib dipakai.
+tidak ada halaman karangan. §2–§3 = alur yang benar-benar berjalan. §5 = brief per halaman.
+§4 = token yang wajib dipakai.
 
-Terakhir diverifikasi terhadap kode: 13 Okt 2026 (commit `ff9280c0`).
+Terakhir diverifikasi terhadap kode: 13 Okt 2026 (commit `5b76ebd7`).
+
+**Semua keputusan terbuka sudah dijawab Mings (13 Okt) — lihat §9.**
 
 ---
 
@@ -12,77 +14,82 @@ Terakhir diverifikasi terhadap kode: 13 Okt 2026 (commit `ff9280c0`).
 
 | Simbol | Arti |
 |---|---|
-| ✅ **ADA** | Halaman sudah berjalan; brief = perbaikan/penyelarasan |
+| ✅ **ADA** | Sudah berjalan; brief = perbaikan/penyelarasan |
 | 🆕 **BELUM ADA** | Belum ada sama sekali; brief = bangun baru |
 | ⚠️ | Jebakan nyata yang sudah ditemukan di kode — jangan diulang |
 
 **Aturan induk desain:** repo ini sudah punya design system sendiri (Material Design 3 tonal, dark)
 di `tailwind.config.js`. **Jangan mengarang palet baru.** Lihat §4.
 
----
-
-## 2. Alur sebenarnya (grounded di kode)
-
-```
-                      ┌─────────────────────────────────────────┐
-   P1  Landing SaaS   │  🆕 BELUM ADA                          │
-   (publik)           │  belum ada halaman jualan SaaS          │
-                      └────────────────┬────────────────────────┘
-                                       ▼
-   P2  Daftar          GET  /id/reseller-topup   → RegistrationPageController
-   (3 tier)            POST /api/subdomain/check  (cek subdomain, live)
-                       POST /api/tenant/register (buat tenant+invoice+WA/email)
-                                       │
-                                       ├─ sukses ─► P2b panel sukses INLINE (di halaman yang sama)
-                                       │            tautan bayar mentah ke Duitku
-                                       ▼
-   P3  Bayar           /tagihan/{token}  → BillingPageController  ✅ ADA
-   (halaman tagihan)   tombol bayar = Duitku (diregenerasi otomatis kalau kedaluwarsa)
-                                       │
-                              ┌────────┴────────┐
-                              ▼                 ▼
-   P4  Bayar di Duitku (hosting Duitku, bukan milik kita)
-                              │
-                              │  callback: POST /wejizy/duitku/subscription/callback
-                              ▼
-   P5  Setelah bayar   tenant → ACTIVE, subscription → ACTIVE, owner → role Gold,
-                       periode maju 1 bulan, tagihan kembar dibatalkan, notif ACTIVATED
-                                       │
-                                       ▼
-                       returnUrl Duitku = route('tenant.register.page')
-                       ⚠️ balik ke halaman DAFTAR — bukan halaman sukses
-                                       ▼
-   P6  Sukses/aktivasi 🆕 BELUM ADA  ← gap terbesar
-```
-
-**Dua temuan penting yang membentuk brief desain:**
-
-1. ⚠️ **Tidak ada halaman sukses.** `DuitkuSubscriptionPaymentService.php:46` mengeset
-   `'returnUrl' => route('tenant.register.page')`. Setelah bayar, orang dikembalikan ke formulir
-   pendaftaran yang sudah dia isi. Ini pengalaman paling rusak di seluruh alur.
-2. ⚠️ **Tidak ada landing SaaS.** `grep -iE 'sewa|saas|langganan|white.?label|buka toko'` di
-   `routes/web.php` + `PublicHomeController` = 0 hasil. Host platform `/` justru 301 → `/id`
-   (storefront topup biasa). Jadi "jualan sistem" belum punya pintu masuk.
+**Penomoran:** `S1…S6` = permukaan (surface) yang perlu didesain, urut prioritas.
 
 ---
 
-## 3. Inventaris halaman
+## 2. Alur sebenarnya
 
-| # | Halaman | Status | Berkas / rute |
+```
+   S1 + S2 — SATU HALAMAN:  GET /id/reseller-topup  → RegistrationPageController ✅
+   ┌──────────────────────────────────────────────────────────────────────────┐
+   │  S1  LANDING  (bagian atas — harus DITAMBAH)                             │
+   │      hero · harga 3 tier · bukti toko live · cara kerja · FAQ            │
+   │  ──────────────────────────────────────────────────────────────────────  │
+   │  S2  FORM DAFTAR (sudah ada — tailwind CDN + orb ungu, perlu dirombak)   │
+   │      nama·email·password·WA·nama toko·subdomain·tier·S&K                 │
+   │      POST /api/subdomain/check   (cek subdomain live)                    │
+   │      POST /api/tenant/register   ⇒ bikin tenant + invoice + notif WA/email│
+   └───────────────────────────────────┬──────────────────────────────────────┘
+                                       │  sukses → arahkan (decided: redirect)
+                                       ▼
+   S3  Halaman tagihan   /tagihan/{token}  → BillingPageController  ✅ ADA
+       tombol bayar = Duitku (diregenerasi otomatis kalau tautan kedaluwarsa)
+                                       │
+                                       ▼
+       Bayar di Duitku (hosting mereka — tidak kita desain)
+                                       │
+                                       │  callback: POST /wejizy/duitku/subscription/callback
+                                       ▼
+       tenant → ACTIVE · subscription → ACTIVE · owner → role Gold
+       periode maju 1 bulan · tagihan kembar dibatalkan · notif ACTIVATED
+                                       │
+                                       ▼
+   S4  Halaman sukses   /tagihan/{token}/sukses   🆕 BELUM ADA
+       returnUrl Duitku diarahkan ke sini (butuh perubahan — §5 S4 + §7)
+```
+
+### Tiga fakta yang membentuk seluruh desain
+
+1. ⚠️ **S1 belum ada, tapi halamannya sudah ada.** `/id/reseller-topup` **sudah** jadi halaman
+   pendaftaran — belum ada bagian jualannya. Jadi ini **menambah bagian di halaman yang sudah hidup**,
+   bukan bikin halaman baru. Konsekuensi desain: urutan visual "jualan dulu → daftar", dalam satu
+   scroll, dengan satu header.
+
+2. ⚠️ **Tidak ada halaman sukses.** `DuitkuSubscriptionPaymentService.php:46` mengeset
+   `'returnUrl' => route('tenant.register.page')`. Pembeli yang baru bayar Rp 500rb–1,5jt
+   dikembalikan ke **formulir pendaftaran yang sudah dia isi**. Ini pengalaman paling rusak di alur.
+
+3. ⚠️ **Response pendaftaran tidak mengirim token.** `TenantRegistrationController` mengembalikan
+   `payment_url` (mentah ke Duitku), `gateway_ref`, `va_number`, `qr_string` — **tidak ada
+   `public_token`**. Untuk mengarahkan ke `/tagihan/{token}` (keputusan #3), token harus
+   **ditambahkan ke response**. Lihat §5 S2 dan §7.
+
+---
+
+## 3. Inventaris permukaan
+
+| # | Permukaan | Status | Berkas / rute |
 |---|---|---|---|
-| P1 | Landing SaaS (jual "sewa web topup") | 🆕 | belum ada |
-| P2 | Daftar + pilih paket | ✅ Blade | `resources/views/tenant/register.blade.php` (331 baris) · `GET /id/reseller-topup` |
-| P2b | Panel sukses inline | ✅ | di dalam `register.blade.php` (JS, `#successStatus`, `#successResumeNote`) |
-| P3 | Halaman tagihan ber-token | ✅ React | `Pages/Public/TenantBilling.jsx` · `GET /tagihan/{token}` |
-| P3b | Halaman status tenant non-aktif | ✅ React | `Pages/Public/TenantStatus.jsx` · muncul di host tenant, bukan host platform |
-| P4 | Onboarding "toko siap" | 🆕 | belum ada |
-| P5 | Dashboard / Pengaturan Toko (owner) | ✅ Blade | `tenant/dashboard.blade.php` (69) · `tenant/settings.blade.php` |
-| P6 | Storefront tenant (`home.blade.php`) | ✅ Blade | `tenant/home.blade.php` (60) |
+| **S1** | Landing SaaS (bagian atas `/id/reseller-topup`) | 🆕 bagian belum ada | `resources/views/tenant/register.blade.php` · `GET /id/reseller-topup` |
+| **S2** | Form pendaftaran (bagian bawah halaman yang sama) | ✅ ada, **perlu dirombak** | idem (331 baris) · `POST /api/tenant/register` |
+| **S3** | Halaman tagihan ber-token | ✅ React, sudah bagus | `Pages/Public/TenantBilling.jsx` · `GET /tagihan/{token}` |
+| **S4** | Halaman sukses / aktivasi | 🆕 belum ada | target `GET /tagihan/{token}/sukses` |
+| — | Halaman status tenant non-aktif | ✅ React | `Pages/Public/TenantStatus.jsx` (host tenant, bukan host platform) |
+| **S5** | Onboarding "toko siap" | 🆕 (nanti) | host tenant |
+| **S6** | Dashboard + Pengaturan + Storefront tenant | ✅ Blade, slop | `tenant/{dashboard,settings,home}.blade.php` |
 | — | Bayar di Duitku | — | hosting Duitku; **tidak kita desain** |
 | — | Callback Duitku | — | `POST /wejizy/duitku/subscription/callback`; tanpa UI |
 
-**Yang perlu lo desain (urut prioritas):**
-**P1 → P2 → P6(sukses) → P4 → rapikan P3/P2b → Task 8 (P5/P6 storefront).**
+**Urutan kerja desain:** **S1 → S2 → S4 → S3 (rapikan) → S6 (Task 8) → S5.**
+*(S5 = onboarding "setelah storefront", sesuai keputusan #4.)*
 
 ---
 
@@ -111,20 +118,19 @@ Baca `tailwind.config.js` sebelum menulis satu kelas pun. Semua token di bawah *
 
 ### 4.2 Tipografi
 
-- `font-display-lg` → **Montserrat** — hanya untuk judul halaman.
+- `font-display-lg` → **Montserrat** — hanya judul halaman.
 - `font-body-md` / `font-body-lg` → **Inter** — teks isi.
 - `font-label-bold` / `font-label-sm` → **JetBrains Mono** — **wajib mono untuk semua angka uang,
-  tanggal, ID, nomor invoice, nominal tagihan, harga tier**. Ini aturan tunggal yang paling
-  menentukan hasilnya terlihat seperti alat kerja, bukan halaman pemasaran.
+  tanggal, ID, nomor invoice, nominal tagihan, harga tier**. Aturan tunggal yang paling menentukan
+  hasilnya terlihat seperti alat kerja, bukan halaman pemasaran.
 
 ### 4.3 Bentuk
 
 - Radius **nyaris siku** (`DEFAULT 0.125rem`, `lg 0.25rem`, `xl 0.5rem`). `rounded-full` **hanya**
   untuk pill status kecil.
-- Elevasi lewat **permukaan tonal** (`surface-container` → `surface-container-high`), **bukan**
-  bayangan.
+- Elevasi lewat **permukaan tonal** (`surface-container` → `surface-container-high`), bukan bayangan.
 - Ikon outline (heroicons/lucide) **stroke 1.5**. Bukan ikon 3D, bukan emoji sebagai ikon UI.
-- Fokus harus terlihat: `focus-visible:outline focus-visible:outline-2 focus-visible:outline-tertiary`.
+- Fokus terlihat: `focus-visible:outline focus-visible:outline-2 focus-visible:outline-tertiary`.
 
 ### 4.4 Warna punya MAKNA, bukan dekorasi
 
@@ -132,7 +138,7 @@ Baca `tailwind.config.js` sebelum menulis satu kelas pun. Semua token di bawah *
 |---|---|
 | gagal / `suspended` / kedaluwarsa | `error-container` / `text-on-error-container` |
 | menunggu / belum bayar | `secondary-container` — **netral, JANGAN merah**, belum tentu masalah |
-| lunas / aktif / selesai | `tertiary` (azur) — hemat, jangan dipakai ke mana-mana |
+| lunas / aktif / selesai | `tertiary` (azur) — hemat |
 
 ### 4.5 Checklist anti-slop (buat reviewer)
 
@@ -147,151 +153,169 @@ Baca `tailwind.config.js` sebelum menulis satu kelas pun. Semua token di bawah *
 
 ### 4.6 Arah visual
 
-Tipe **instrumen** — bukan landing page. Referensi rasa: `status.linear.app`, halaman error Stripe,
-dashboard vercel. Kompeten, tenang, angka jelas, tanpa dekorasi.
+Tipe **instrumen**, bukan landing page generik. Referensi rasa: `status.linear.app`, halaman error
+Stripe, dashboard Vercel. Kompeten, tenang, angka jelas. Untuk bagian jualan (S1): boleh lebih
+bernyawa, tapi tetap tanpa gradien/orb/bayangan.
 
-⚠️ **Halaman platform ≠ halaman tenant.** Halaman tagihan/status milik **platform**: pakai identitas
-platform, jangan diwarnai `$tenant->theme['primary_color']`. Tema tenant hanya untuk storefront tenant.
+⚠️ **Halaman platform ≠ halaman tenant.** Halaman tagihan & sukses (S3, S4) milik **platform**: pakai
+identitas platform, **jangan** diwarnai `$tenant->theme['primary_color']`. Tema tenant hanya untuk
+storefront tenant (S6).
 
 ---
 
-## 5. Brief desain per halaman
+## 5. Brief desain per permukaan
 
-### P1 — Landing SaaS "Sewa Web Topup" 🆕
+### S1 — Landing SaaS, bagian atas `/id/reseller-topup` 🆕
 
-**Tujuan:** pemilik toko topup yang capek jualan manual harus paham dalam 5 detik bahwa dia bisa
-punya *web topup sendiri, jadi*, tanpa ngoding.
+**Sudah diputuskan:** hidup di `/id/reseller-topup`, satu halaman dengan S2. Bukan host terpisah,
+bukan path baru. Jadi: **satu header, satu scroll**, urutan "jualan → harga → daftar".
 
-**Keputusan arsitektur yang harus dijawab dulu (belum diputuskan):** halaman ini hidup di mana?
-Pilihan: (a) host terpisah `saas.<domain>`, (b) path `/sewa-web`, (c) halaman ini menggantikan
-`/` di host platform. Sekarang host platform `/` = storefront topup. **Tanyakan ke Mings sebelum
-mendesain** — ini menentukan struktur navigasi seluruh dokumen ini.
+**Tujuan:** pemilik toko topup yang capek jualan manual paham dalam 5 detik bahwa dia bisa punya
+*web topup sendiri, jadi*, tanpa ngoding.
 
-**Struktur yang disarankan (urut, dari atas):**
-1. **Header** — logo + anchor (Cara kerja · Harga · FAQ) + tombol `Masuk`. Satu aksi utama saja:
-   `Mulai – Rp 500rb/bulan`.
-2. **Hero** — judul manfaat (bukan slogan kosong), subjudul 1 baris, 1 tombol utama + 1 sekunder
-   ("Lihat demo toko").
-   *Bukti konkret, bukan klaim:* tampilkan **screenshot storefront tenant** + badge "live",
-   bukan mockup generik.
-3. **Masalah → solusi** — 3 kolom pendek. Ini bagian yang paling sering jadi slop; tulis singkat,
-   angka bila ada.
-4. **Harga** — 3 tier, data nyata dari §7: Starter Rp 500.000 · Business Rp 1.500.000 (badge
-   "Populer") · Enterprise "Hubungi kami". Angka wajib mono.
+**Struktur (urut, dari atas):**
+1. **Header** — logo · anchor (`Cara kerja` · `Harga` · `FAQ`) · tombol `Masuk`. Satu aksi utama:
+   `Mulai sekarang`. Anchor harus scroll ke bagian di halaman ini (bukan pindah halaman).
+2. **Hero** — judul manfaat (bukan slogan kosong), subjudul 1 baris, 1 tombol utama (→ anchor ke
+   form) + 1 sekunder (`Lihat contoh toko`).
+   *Bukti konkret, bukan klaim:* screenshot storefront tenant nyata + badge "live".
+3. **Masalah → solusi** — 3 kolom pendek, angka bila ada. Bagian paling rawan jadi slop; tulis singkat.
+4. **Harga** — 3 tier dari §7: Starter **Rp 500.000** · Business **Rp 1.500.000** (badge `Populer`) ·
+   Enterprise **Hubungi kami**. Angka wajib mono.
 5. **Cara kerja** — 4 langkah: daftar → bayar → toko aktif → jualan.
 6. **FAQ** — minimal: kapan toko aktif? bisa custom domain? bisa berhenti kapan saja? data saya
-   milik siapa?
-7. **CTA penutup + Footer.**
+   milik siapa? siapa yang urus pembayaran pelanggan saya?
+7. **CTA penutup** — tepat di atas form S2, biar jualan dan aksi berdampingan.
 
-**Keadaan yang harus ditangani:** normal; paket `enterprise` (tanpa harga → tombol jadi "Hubungi
-kami"); harga kosong/gagal load (jangan render "Rp 0").
+**Keadaan yang harus ditangani:** normal · `enterprise` tanpa harga (tombol → hubungi kami, §S1e) ·
+harga gagal load (**jangan** render "Rp 0" — sembunyikan blok harga).
 
-### P2 — Daftar + pilih paket ✅ **perlu desain ulang berat**
+#### S1e — Paket Enterprise: cukup "Hubungi kami" → langsung ke WhatsApp
 
-Berkas: `resources/views/tenant/register.blade.php` (331 baris). **Sekarang ini sumber slop terbesar:**
+Sesuai keputusan #5. Tidak perlu halaman/form sendiri.
+
+- Tombol `Hubungi kami` = tautan `wa.me` langsung, **bukan** anchor ke form daftar.
+- Nomor WA diambil dari **kontak platform yang sudah ada** (`setting_webs.url_wa`, fallback
+  `nomor_admin`) — pola yang sama dipakai halaman status & tagihan
+  (`ResolvesPlatformContact::platformContactUrl()`). **Jangan** hardcode nomor.
+- Kalau nomor kosong: label netral **"Hubungi kami"** tanpa ikon WhatsApp (pola yang sudah dikunci
+  di `TenantStatus.jsx`/`TenantBilling.jsx` lewat `contactIsWhatsapp`). Konsisten dengan halaman lain.
+- Teks prasetuju yang disarankan di pesan WA: nama paket + "mau tanya Enterprise" — biar admin tahu
+  konteks tanpa tanya balik.
+
+### S2 — Form pendaftaran (bagian bawah halaman yang sama) ✅ **perlu dirombak**
+
+Berkas: `resources/views/tenant/register.blade.php`. **Sumber slop terbesar di repo ini:**
 Tailwind CDN + 3 orb `blur-3xl` (ungu/cyan/fuchsia) + `rounded-3xl` + `shadow-2xl` +
-`bg-gradient-to-br` + `rounded-[2rem]`. Semua melanggar §4.5.
+`bg-gradient-to-br` + `rounded-[2rem]`. Ukurannya: **30 pelanggaran §4.5** (22 `purple` · 14
+`rounded-2xl` · 10 `bg-slate` · 5 `rounded-3xl` · 3 `blur-3xl` · 3 `bg-gradient` · 1 `shadow-2xl` ·
+1 CDN).
 
 **Yang harus didesain:**
-- **Form (kolom kanan/bawah):** nama · email · password · no. WA · nama toko · subdomain ·
-  pilih paket · setuju S&K.
-  - **Subdomain punya cek live** (`GET /api/subdomain/check`) — desain **4 keadaan**: kosong,
-    sedang cek, tersedia, tidak tersedia (+ alasan). Ini bagian yang paling sering terlupa.
-  - **Presedens subdomain muncul di sini:** `nama-toko.<domain platform>` — tampilkan sebagai
-    pratinjau langsung supaya orang tahu apa yang dia beli.
-- **Pemilih paket:** starter & business bisa dipilih sendiri (`SELF_SERVICE_TIERS`); enterprise
-  **tidak bisa** — jangan beri radio button yang bisa diklik lalu error, arahkan ke kontak.
-- **P2b panel sukses inline** (setelah `POST /api/tenant/register`): status tenant, tautan bayar,
-  catatan "dilanjutkan dari pendaftaran sebelumnya" saat `resumed = true`.
-  ⚠️ Tautan bayar di sini **mentah ke Duitku** (`data.invoice.payment_url`) dan tidak punya
-  halaman sukses. **Rekomendasi: arahkan ke `/tagihan/{token}`** supaya satu pintu, dan umur
-  tautan tidak jadi masalah (lihat P3).
+- **Form:** nama · email · password · no. WA · nama toko · subdomain · pilih paket · setuju S&K.
+- **Subdomain punya cek live** (`GET /api/subdomain/check`) → desain **4 keadaan**: kosong ·
+  sedang cek · tersedia · tidak tersedia (+ alasan). Paling sering terlupa.
+- **Presedens subdomain tampil di sini** — `<nama-toko>.<host platform>` sebagai pratinjau hidup.
+- **Pemilih paket:** `starter` & `business` bisa dipilih sendiri (`SELF_SERVICE_TIERS`);
+  `enterprise` **tidak bisa** — jangan beri radio yang bisa diklik lalu error; arahkan ke WA (§S1e).
+- **Pasca-submit → arahkan** (keputusan #3): setelah `POST /api/tenant/register` sukses, langsung
+  `window.location = '/tagihan/' + data.invoice.public_token`.
+
+⚠️ **Butuh perubahan backend:** response sekarang **tidak** memuat `public_token`
+(§2 fakta 3). Tambahkan dengan `$result['invoice']->ensurePublicToken()` di
+`TenantRegistrationController::register()`. Tanpa ini, tombol arahkan tidak punya tujuan.
+⚠️ **Ganti tautan lama:** panel inline sekarang memakai `data.invoice.payment_url` **mentah ke
+Duitku** — itu tautan yang bisa mati dalam 1440 menit. Yang diarahkan harus `/tagihan/{token}`,
+supaya halaman kita yang mengurus regenerasi (sudah terbukti di `SubscriptionPaymentLinkResolver`).
+Panel inline boleh **tetap ada** sebagai konfirmasi sekejap, tapi aksinya = arahkan, bukan tautan mentah.
 
 **Keadaan yang harus ditangani:** form kosong · validasi per-kolom gagal · sedang submit ·
 subdomain tidak tersedia · berhasil (baru) · berhasil (`resumed = true` — email sudah pernah daftar,
-harus jelas bahwa ini melanjutkan, bukan mendaftar ganda) · gateway gagal (**HTTP 502**, pesan
-"Coba lagi beberapa saat" — jangan bocorkan error internal).
+harus jelas ini **melanjutkan**, bukan daftar ganda) · gateway gagal (**HTTP 502**, pesan "Coba lagi
+beberapa saat" — jangan bocorkan error internal).
 
-### P3 — Halaman tagihan ber-token ✅ **sudah bagus, tinggal dirapikan**
+### S3 — Halaman tagihan ber-token ✅ **sudah bagus, tinggal dirapikan**
 
-Berkas: `Pages/Public/TenantBilling.jsx` · rute `GET /tagihan/{token}` (constraint token
-`[A-Za-z0-9]{8,80}`).
+Berkas: `Pages/Public/TenantBilling.jsx` · `GET /tagihan/{token}` (constraint token `[A-Za-z0-9]{8,80}`).
+Sudah menangani `pending` · `paid` · `expired` · `cancelled`, sudah noindex, token 64 char, limiter
+per-IP & per-token.
 
-Sudah menangani 4 keadaan (`pending` · `paid` · `expired` · `cancelled`) dan **sudah** noindex +
-token 64 char + limiter per-IP & per-token. Yang perlu diperhatikan saat mendesain:
-
-- **Tanpa login** — siapa pun yang punya tautan bisa membuka. Karena itu **jangan pernah**
-  tampilkan nama owner, email, atau nomor WA. Yang boleh: jumlah, jatuh tempo, status, tier.
+- **Tanpa login** — siapa pun yang punya tautan bisa buka. **Jangan pernah** tampilkan nama owner,
+  email, atau nomor WA. Yang boleh: jumlah, jatuh tempo, status, tier, alamat tenant **tersensor**.
 - ⚠️ **Tombol bayar bisa ABSEN walau status `pending`** — saat tautan gateway kedaluwarsa,
-  `SubscriptionPaymentLinkResolver::resolve()` mengembalikan `null` (dan mencatat warning, bukan
-  melempar error). Halaman **tetap harus tampil utuh**, hanya tombolnya hilang, plus teks
-  "sedang menyiapkan tautan baru, muat ulang sebentar lagi".
+  `SubscriptionPaymentLinkResolver::resolve()` mengembalikan `null` (mencatat warning, tidak melempar
+  error). Halaman **tetap utuh**, hanya tombol hilang + teks "sedang menyiapkan tautan baru, muat
+  ulang sebentar lagi".
 - Angka uang & jatuh tempo **wajib mono**.
 
-### P5 — Halaman sukses / aktivasi 🆕 **(gap terbesar)**
+### S4 — Halaman sukses / aktivasi 🆕 **(gap terbesar)**
 
-**Kenapa perlu:** sekarang `returnUrl` Duitku = halaman daftar. Pembeli yang baru bayar
-Rp 500rb–1,5jt dikembalikan ke formulir kosong. Ini momen paling menentukan dalam seluruh alur.
+**Rute (diputuskan #2):** `GET /tagihan/{token}/sukses`. Berbagi token dengan S3 → konsisten, dan
+token itu sudah ada di semua tautan yang dikirim (`ensurePublicToken()`), jadi tidak perlu kolom baru.
 
-**Tujuan:** (1) menghilangkan keraguan "uang saya masuk atau tidak?", (2) memberi satu langkah
-berikutnya yang jelas.
+**Kenapa aman (sudah diverifikasi, bukan asumsi):**
+- Invoice **lunas tetap punya `public_token`.** Terbukti di data staging: `inv=8 status=paid
+  token=…(64)`.
+- `revokePublicToken()` **ada tapi tidak pernah dipanggil siapa pun** (dead code). Jadi tidak ada
+  yang menghapus token saat lunas.
+  ⚠️ **Jangan "memperbaiki" itu dengan memanggilnya di `markInvoicePaid`** — itu akan membuat S4
+  **404 tepat saat pembeli kembali dari pembayaran**, dan mematikan semua tautan yang sudah terkirim.
+  Kalau suatu saat token mau dirotasi, rotasinya harus terjadi **setelah** S4 dibuka, bukan sebelumnya.
 
-**Isi yang disarankan:**
+**Tujuan:** (1) hilangkan keraguan "uang saya masuk atau tidak?", (2) satu langkah berikutnya yang jelas.
+
+**Isi:**
 - Judul tegas: **"Pembayaran diterima — toko lo sudah aktif."**
 - Konfirmasi berangka (mono): nama toko · subdomain · **paket** · **jumlah dibayar** ·
-  **berlaku sampai** (`current_period_end`) · nomor invoice/tagihan.
-- **Tautan langsung ke toko baru** — aksi paling penting. Satu tombol utama.
-- Langkah berikutnya (3 item, pendek): ganti tema/warna · atur markup harga · cek katalog.
+  **berlaku sampai** (`subscription.current_period_end`) · nomor invoice (`INV-000008`).
+- **Tautan langsung ke toko baru** — aksi paling penting, satu tombol utama.
+- Langkah berikutnya (3 item pendek): ganti tema · atur markup · cek katalog.
 - Catatan apa yang **tidak** berubah tanpa izin dia (tanpa jargon).
 
 **Keadaan yang harus ditangani:**
 | Keadaan | Yang ditampilkan |
 |---|---|
 | Lunas, pertama kali | Konfirmasi penuh + tanggal berlaku |
-| Sudah lunas, dibuka lagi | Sama, tapi tanpa efek "baru aktif" (idempoten) |
-| Bayar belum terkonfirmasi (callback belum masuk) | **"Pembayaran sedang dikonfirmasi"** + tombol muat ulang. **Jangan** bilang sukses, jangan bilang gagal |
-| Tagihan kedaluwarsa | Arahkan ke halaman tagihan untuk coba lagi |
-| Dibatalkan | Arahkan ke kontak |
+| Lunas, dibuka lagi | Sama, tanpa efek "baru aktif" (idempoten) |
+| **Bayar belum terkonfirmasi** (callback belum masuk) | **"Pembayaran sedang dikonfirmasi"** + tombol muat ulang. **Jangan** bilang sukses, jangan bilang gagal |
+| Kedaluwarsa | Arahkan ke S3 untuk coba lagi |
+| Dibatalkan | Arahkan ke kontak platform |
 
-⚠️ **Jangan pernah menandai "sukses" dari `returnUrl` saja.** Duitku mengirim `returnUrl` saat
-pengunjung kembali, tapi status resmi datang lewat callback (`resultCode 00` → `markInvoicePaid`,
-`01` → `markInvoiceExpired`). Halaman ini harus **membaca status invoice**, bukan menebak dari
-kedatangan pengunjung.
+⚠️ **Jangan pernah menandai "sukses" dari `returnUrl`.** Duitku mengirim `returnUrl` saat pengunjung
+kembali, tapi status resmi datang lewat callback (`resultCode 00` → `markInvoicePaid`, `01` →
+`markInvoiceExpired`). S4 harus **membaca status invoice**, bukan menebak dari kedatangan pengunjung.
+Itu juga alasan keadaan "belum terkonfirmasi" harus ada — pembeli bisa tiba **sebelum** callback.
 
-**Mekanisme teknis yang belum ada (perlu diputuskan):** `returnUrl` sekarang menunjuk route.
-Supaya tahu invoice mana, perlu `returnUrl` yang membawa identitas — mis. `/tagihan/{token}/sukses`
-atau `/langganan/selesai?ref=<gateway_ref>`. **Tanyakan ke Mings** sebelum mendesain detail.
+### S6 — Dashboard, Pengaturan, Storefront tenant (Task 8)
 
-### P4 — Onboarding "toko siap" 🆕
+Sprint terpisah. Semua pakai Tailwind CDN + `purple-500` + `bg-slate-950`. Termasuk
+`TenantRegistrationService::defaultTheme()` → `#A855F7` (ungu) — **nilai default seluruh tenant**.
 
-Opsional, tapi menutup celah antara "sudah bayar" dan "benar-benar jualan". Checklist 3–4 langkah
-guna: **subdomain** (salin/tempel) · **tema** (warna aksen toko) · **markup harga** · **lihat toko**.
-Milik **host tenant**, jadi **boleh** memakai warna tenant — berbeda dengan P1–P3 yang milik platform.
+⚠️ **Mengubah `defaultTheme()` mengubah warna toko setiap tenant yang belum mengatur tema, termasuk
+yang sudah bayar.** Jangan diubah sebagai efek samping desain lain.
 
-### P5/P6 — Dashboard, Pengaturan, Storefront tenant (Task 8)
+### S5 — Onboarding "toko siap" 🆕 *(dikerjakan SETELAH storefront, keputusan #4)*
 
-Sudah terdaftar sebagai **sprint terpisah** di plan. Semua pakai Tailwind CDN + `purple-500` +
-`bg-slate-950`. Termasuk `TenantRegistrationService::defaultTheme()` yang mengembalikan
-`#A855F7` (ungu) — **nilai default seluruh tenant**.
-
-⚠️ **Mengubah `defaultTheme()` mengubah warna toko setiap tenant yang belum mengatur tema,
-termasuk yang sudah bayar.** Jangan diubah sebagai efek samping desain lain.
+Menutup celah antara "sudah bayar" dan "benar-benar jualan". Checklist 3–4 langkah: **subdomain**
+(salin/tempel) · **tema** (warna aksen) · **markup harga** · **lihat toko**. Milik host tenant, jadi
+**boleh** memakai warna tenant — berbeda dengan S1–S4 yang milik platform.
 
 ---
 
 ## 6. Matriks keadaan (jangan ada yang lupa)
 
-| Halaman | Kosong | Memuat | Gagal validasi | Sukses | Gagal sistem | Kedaluwarsa / batal |
+| Permukaan | Kosong | Memuat | Gagal validasi | Sukses | Gagal sistem | Kedaluwarsa / batal |
 |---|---|---|---|---|---|---|
-| P1 Landing | — | skeleton harga | — | — | harga gagal → sembunyikan harga, jangan "Rp 0" | — |
-| P2 Daftar | form | submit loading | per-kolom | panel inline + tautan | **502** "coba lagi" | — |
-| P2 subdomain | kosong | "sedang cek…" | format salah | tersedia | cek gagal → jangan blokir submit | — |
-| P3 Tagihan | — | — | — | lunas | tombol absen | **ada** (expired/batal) |
-| P5 Sukses | — | cek status | — | lunas | belum terkonfirmasi | arahkan ke tagihan |
+| S1 Landing | — | skeleton harga | — | — | harga gagal → sembunyikan, jangan "Rp 0" | — |
+| S1e Enterprise | — | — | — | — | WA kosong → label netral | — |
+| S2 Form | form | loading submit | per-kolom | arahkan ke S3 | **502** "coba lagi" | — |
+| S2 subdomain | kosong | "sedang cek…" | format salah | tersedia | cek gagal → jangan blokir submit | — |
+| S3 Tagihan | — | — | — | lunas | tombol absen | **ada** (expired/batal) |
+| S4 Sukses | — | cek status | — | lunas | **belum terkonfirmasi** | arahkan ke S3 |
 
 ---
 
-## 7. Fakta yang mengunci desain (jangan diubah tanpa decision)
+## 7. Fakta yang mengunci desain
 
 | Fakta | Nilai | Sumber |
 |---|---|---|
@@ -299,33 +323,59 @@ termasuk yang sudah bayar.** Jangan diubah sebagai efek samping desain lain.
 | Harga Business | Rp 1.500.000 | idem |
 | Enterprise | Rp 0 → **manual, tidak self-service** | `SELF_SERVICE_TIERS` |
 | Subdomain | `<nama>.<host platform>` | `TenantRegistrationService` |
-| Setelah bayar | tenant `active`, subscription `active`, owner role → `Gold`, periode +1 bulan | `TenantProvisioningService::markInvoicePaid` |
+| Setelah bayar | tenant `active` · subscription `active` · owner → `Gold` · periode +1 bulan | `TenantProvisioningService::markInvoicePaid` |
 | Tagihan kembar | dibatalkan otomatis saat satu invoice lunas | `cancelTwinInvoices()` |
 | Kanal tagihan | **email + kontak WA saja** (tanpa login) | keputusan Mings |
-| Tautan bayar | halaman kita dulu; Duitku hidup 1440 menit & diregenerasi di belakang | `SubscriptionPaymentLinkResolver` |
+| Tautan bayar | halaman kita dulu; Duitku hidup 1440 menit, diregenerasi di belakang | `SubscriptionPaymentLinkResolver` |
 | Status tenant | `pending_payment` → `active` → `suspended` | `TenantStatus.jsx` |
 | Status invoice | `pending` / `paid` / `expired` / `cancelled` | `TenantBilling.jsx` |
+| Token publik | dibuat malas via `ensurePublicToken()`; **tidak pernah dicabut** (revoker = dead code) | `SubscriptionInvoice` |
+
+### Perubahan backend yang dibutuhkan (prasyarat desain, bukan bagian desain)
+
+| # | Perubahan | Berkas | Untuk |
+|---|---|---|---|
+| B1 | Tambah `public_token` ke response pendaftaran | `Api/TenantRegistrationController::register()` | S2 arahkan ke S3 |
+| B2 | `returnUrl` → `/tagihan/{token}/sukses` | `DuitkuSubscriptionPaymentService.php:46` | S4 |
+| B3 | Rute + controller + view `GET /tagihan/{token}/sukses` | `routes/web.php` (di luar grup tenant), controller baru | S4 |
+| B4 | Ganti aksi panel inline: `payment_url` mentah → `/tagihan/{token}` | `tenant/register.blade.php` (JS) | S2 |
+
+⚠️ B1–B3 **belum dikerjakan** — dokumen ini hanya menetapkannya sebagai prasyarat. B2 perlu
+memperhatikan bahwa `returnUrl` dibangun **saat invoice dibuat**; token harus sudah ada sebelum itu
+(`ensurePublicToken()` idempoten, aman dipanggil di situ).
 
 ---
 
-## 8. Verifikasi desain (harus bisa diukur, bukan "kelihatan bagus")
+## 8. Verifikasi desain (ukur, bukan "kelihatan bagus")
 
-1. **Statis:** `grep -rnE 'purple|indigo|violet|bg-gradient|rounded-3xl|shadow-2xl|cdn\.tailwindcss|bg-slate'` di berkas yang lo sentuh → **0 hasil**.
-2. **Token:** setiap warna di markup cocok dengan token §4.1; `npm run build` sukses dan kelas baru ada di CSS hasil build.
-3. **Angka mono:** semua nominal/tanggal/ID memakai `font-label-bold`.
+1. **Statis:** `grep -rnE 'purple|indigo|violet|bg-gradient|rounded-3xl|shadow-2xl|cdn\.tailwindcss|bg-slate|blur-3xl'` di berkas yang lo sentuh → **0 hasil**. (`register.blade.php` baseline: **30**.)
+2. **Token:** setiap warna cocok dengan §4.1; `npm run build` sukses dan kelas baru ada di CSS hasil build.
+3. **Angka mono:** semua nominal/tanggal/ID pakai `font-label-bold`.
 4. **Runtime** (angka, bukan screenshot):
-   - `/id/reseller-topup` → 200; subdomain tersedia vs tidak, dua-duanya terlihat beda
-   - `/tagihan/{token}` → 200 dengan tombol; token tidak ada → **404**
-   - halaman sukses → 200 dan **menampilkan status yang benar** untuk: lunas / belum terkonfirmasi / kedaluwarsa
-5. **Kebocoran:** halaman platform **tidak** memuat nama owner, email, nomor WA, atau nama tenant.
-6. **416/320px:** kolom paket dan tabel angka tidak meluber.
+   - `/id/reseller-topup` → **200**; bagian landing & form dua-duanya ter-render
+   - subdomain tersedia vs tidak → dua keadaan terlihat beda
+   - `/tagihan/{token}` → 200 + tombol bayar; token tidak ada → **404**
+   - `/tagihan/{token}/sukses` → 200 dan menampilkan status benar untuk: lunas / belum terkonfirmasi / kedaluwarsa
+   - `enterprise` → membuka WA, **tidak** bisa submit daftar
+5. **Kebocoran:** S3 & S4 (halaman platform) **tidak** memuat nama owner, email, nomor WA, atau nama tenant.
+6. **416/320px:** kolom paket & tabel angka tidak meluber.
 
 ---
 
-## 9. Pertanyaan terbuka (butuh keputusan sebelum desain detail)
+## 9. Keputusan (dijawab Mings, 13 Okt 2026)
 
-1. **P1 landing hidup di mana?** host terpisah / path / menggantikan `/`? *(menentukan seluruh struktur)*
-2. **P5 sukses diakses lewat apa?** `/tagihan/{token}/sukses`? `/langganan/selesai?ref=…`? *(perlu perubahan `returnUrl` di `DuitkuSubscriptionPaymentService.php:46`)*
-3. **P2b panel inline dipertahankan atau langsung arahkan ke `/tagihan/{token}`?** *(rekomendasi: arahkan, supaya satu pintu)*
-4. **P4 onboarding masuk sprint ini atau setelah storefront (Task 8)?**
-5. **Enterprise:** cukup "Hubungi kami" atau butuh halaman/form sendiri?
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | S1 landing hidup di mana? | **`/id/reseller-topup`** — jadi satu halaman dengan form daftar |
+| 2 | S4 sukses diakses lewat apa? | **`/tagihan/{token}/sukses`** |
+| 3 | Panel inline dipertahankan atau arahkan? | **Arahkan** ke `/tagihan/{token}` |
+| 4 | S5 onboarding kapan? | **Setelah storefront** (Task 8) |
+| 5 | Enterprise? | **Cukup "Hubungi kami", langsung diarahkan ke WA** |
+
+**Konsekuensi yang mengalir dari keputusan ini (semua sudah masuk §5):**
+- #1 → S1 bukan halaman baru; header & anchor harus melayani jualan **dan** form dalam satu scroll.
+- #2 + #3 → "arahkan" butuh **B1** (`public_token` di response) karena response sekarang tidak memuatnya.
+- #2 → **B2 + B3** (ubah `returnUrl`, tambah rute/controller/view). Aman karena token tidak pernah dicabut.
+- #5 → tombol WA ambil dari `ResolvingPlatformContact` yang sudah ada; jangan hardcode nomor; kalau
+  kosong pakai label netral.
+- #4 → S6 (storefront) sebelum S5 (onboarding).
