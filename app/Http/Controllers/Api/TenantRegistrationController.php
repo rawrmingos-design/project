@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Tenancy\Concerns\ResolvesTenantHost;
 use App\Tenancy\TenantRegistrationService;
+use App\Models\SubscriptionInvoice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -11,6 +13,8 @@ use Throwable;
 
 class TenantRegistrationController extends Controller
 {
+    use ResolvesTenantHost;
+
     public function checkSubdomain(Request $request, TenantRegistrationService $registrationService): JsonResponse
     {
         abort_if((bool) config('tenancy.disabled', true), 404);
@@ -76,6 +80,15 @@ class TenantRegistrationController extends Controller
                 'status' => $result['invoice']->status,
                 'gateway' => $result['invoice']->gateway,
                 'gateway_ref' => $result['invoice']->gateway_ref,
+                // B1: token publik ikut dikirim supaya formulir bisa mengarahkan
+                // pembeli ke halaman tagihan ber-token `/tagihan/{token}` —
+                // bukan lagi memakai `payment_url` mentah ke Duitku (B4).
+                // Idempoten: token yang sudah terkirim lewat email/WA tidak
+                // pernah berputar (D13.1).
+                'public_token' => $result['invoice']->ensurePublicToken(),
+                'billing_url' => $this->platformUrl(
+                    route('billing.public', ['token' => $result['invoice']->ensurePublicToken()], absolute: false)
+                ),
                 'payment_url' => data_get($result['invoice']->metadata, 'duitku.payment_url'),
                 'duitku_reference' => data_get($result['invoice']->metadata, 'duitku.reference'),
                 'va_number' => data_get($result['invoice']->metadata, 'duitku.va_number'),

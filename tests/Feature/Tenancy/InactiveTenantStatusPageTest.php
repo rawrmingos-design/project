@@ -297,6 +297,7 @@ class InactiveTenantStatusPageTest extends TestCase
             base_path('resources/js/public/Pages/Public/TenantStatus.jsx'),
             base_path('resources/js/public/Layouts/TenantShell.jsx'),
             base_path('resources/js/public/Pages/Public/TenantBilling.jsx'),
+            base_path('resources/js/public/Pages/Public/TenantBillingSuccess.jsx'),
         ];
 
         $terlarang = [

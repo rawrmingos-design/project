@@ -64,6 +64,7 @@ use App\Http\Controllers\Public\AffiliateWithdrawalPageController as PublicAffil
 use App\Http\Controllers\Public\LegalPageController as PublicLegalPageController;
 use App\Http\Controllers\Public\InformationalPageController as PublicInformationalPageController;
 use App\Http\Controllers\Public\BillingPageController;
+use App\Http\Controllers\Public\BillingSuccessPageController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
@@ -203,6 +204,17 @@ Route::get('/tagihan/{token}', BillingPageController::class)
     ->where('token', '[A-Za-z0-9]{8,80}')
     ->middleware(['billing.platform_host', 'throttle:public-billing'])
     ->name('billing.public');
+
+/*
+| S4: halaman sukses / aktivasi. Didaftarkan lebih dulu supaya lebih eksplisit,
+| tapi yang sebenarnya menjaga pemisahannya adalah pola token: `{token}` tidak
+| boleh memuat `/`, jadi `/tagihan/{token}` memang tidak pernah cocok untuk path
+| dua segmen. Guard host & limiter sama dengan halaman tagihan.
+*/
+Route::get('/tagihan/{token}/sukses', BillingSuccessPageController::class)
+    ->where('token', '[A-Za-z0-9]{8,80}')
+    ->middleware(['billing.platform_host', 'throttle:public-billing'])
+    ->name('billing.public.success');
 
 Route::prefix('id')->group(function () {
     Route::post('/forgot-password', [ForgotPasswordController::class, 'store'])

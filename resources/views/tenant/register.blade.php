@@ -164,7 +164,7 @@
                     <div class="flex justify-between gap-4"><span class="text-slate-400">Gateway ref</span><strong id="successGatewayRef" class="text-right"></strong></div>
                     <div id="successVaRow" class="hidden justify-between gap-4"><span class="text-slate-400">VA / QR</span><strong id="successVaNumber" class="text-right break-all"></strong></div>
                 </div>
-                <a id="successPaymentUrl" href="#" target="_blank" rel="noopener" class="mt-5 hidden w-full rounded-2xl bg-gradient-to-r from-purple-500 to-cyan-400 px-5 py-4 text-center font-black text-slate-950 transition hover:opacity-90">Bayar Sekarang</a>
+                <a id="successPaymentUrl" href="#" class="mt-5 hidden w-full rounded-2xl bg-gradient-to-r from-purple-500 to-cyan-400 px-5 py-4 text-center font-black text-slate-950 transition hover:opacity-90">Buka Halaman Tagihan</a>
                 <p class="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm leading-6 text-emerald-100">
                     Pembayaran diproses via Duitku. Toko akan aktif otomatis setelah callback pembayaran diterima.
                 </p>
@@ -308,8 +308,13 @@
                     document.getElementById('successGatewayRef').textContent = data.invoice.gateway_ref;
 
                     const paymentUrl = document.getElementById('successPaymentUrl');
-                    if (data.invoice.payment_url) {
-                        paymentUrl.href = data.invoice.payment_url;
+                    // B4: arahkan ke halaman tagihan ber-token milik platform,
+                    // BUKAN ke `payment_url` mentah Duitku. Tautan Duitku hidup
+                    // hanya 1440 menit; tautan kita tidak pernah mati dan
+                    // menyediakan tombol bayar sendiri di belakang layar.
+                    const tujuan = data.invoice.billing_url || data.invoice.payment_url;
+                    if (tujuan) {
+                        paymentUrl.href = tujuan;
                         paymentUrl.classList.remove('hidden');
                     }
 

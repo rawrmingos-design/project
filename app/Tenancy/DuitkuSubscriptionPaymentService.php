@@ -43,7 +43,15 @@ class DuitkuSubscriptionPaymentService
             'customerVaName' => $ownerName !== '' ? $ownerName : $tenant->name,
             'paymentMethod' => '',
             'callbackUrl' => route('duitku.subscription.callback'),
-            'returnUrl' => route('tenant.register.page'),
+            // B2: pembeli yang baru bayar dikembalikan ke halaman SUKSES, bukan ke
+            // formulir pendaftaran yang sudah dia isi.
+            //
+            // Token diterbitkan DI SINI, sebelum `returnUrl` dibangun: token
+            // adalah satu-satunya kunci halaman sukses, dan penerbitannya malas —
+            // invoice yang lunas tanpa token (mis. dibayar sebelum kolomnya ada)
+            // akan 404 tepat saat pembeli kembali. `ensurePublicToken()` idempoten
+            // dan tidak pernah menimpa token yang sudah terkirim lewat email/WA.
+            'returnUrl' => $this->successUrl($invoice),
             'expiryPeriod' => self::EXPIRY_PERIOD_MINUTES,
             'customerDetail' => [
                 'firstName' => $ownerName !== '' ? explode(' ', $ownerName)[0] : $tenant->name,
@@ -96,6 +104,36 @@ class DuitkuSubscriptionPaymentService
         ])->save();
 
         return $invoice->fresh('subscription.tenant.owner');
+    }
+
+    /**
+     * URL halaman sukses (S4) di host PLATFORM.
+     *
+     * Service ini dipanggil dari 5 jalur — pendaftaran (host platform), admin
+     * Filament (host admin), perpanjangan lewat queue/CLI (host `app.url`), dan
+     * halaman tagihan. `route()` polos akan menempelkan host request yang sedang
+     * berjalan, dan halaman sukses hanya hidup di host platform
+     * (`RequirePlatformHost` mem-404-kan host lain) — tautan yang dikirim ke
+     * Duitku karena itu bisa mati di jalur queue/admin. Host ditempel eksplisit.
+     *
+     * Token diterbitkan di sini kalau belum ada — idempoten di level DB, jadi
+     * token yang sudah terkirim lewat email/WA tidak pernah berputar (D13.1).
+     */
+    protected function successUrl(SubscriptionInvoice $invoice): string
+    {
+        $path = route(
+            'billing.public.success',
+            ['token' => $invoice->ensurePublicToken()],
+            absolute: false
+        );
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+
+        if ($appUrl === '') {
+            return url($path);
+        }
+
+        return $appUrl . '/' . ltrim($path, '/');
     }
 
     public function extractCallbackPayload(Request $request): array

@@ -340,9 +340,29 @@ Menutup celah antara "sudah bayar" dan "benar-benar jualan". Checklist 3–4 lan
 | B3 | Rute + controller + view `GET /tagihan/{token}/sukses` | `routes/web.php` (di luar grup tenant), controller baru | S4 |
 | B4 | Ganti aksi panel inline: `payment_url` mentah → `/tagihan/{token}` | `tenant/register.blade.php` (JS) | S2 |
 
-⚠️ B1–B3 **belum dikerjakan** — dokumen ini hanya menetapkannya sebagai prasyarat. B2 perlu
-memperhatikan bahwa `returnUrl` dibangun **saat invoice dibuat**; token harus sudah ada sebelum itu
-(`ensurePublicToken()` idempoten, aman dipanggil di situ).
+⚠️ B1–B4 **sudah dikerjakan** (lihat §7.1). Satu koreksi penting atas klaim awal dokumen ini:
+"invoice lunas tetap punya `public_token`" **tidak selalu benar** — invoice yang lunas **sebelum**
+kolom token diisi (data staging: `id=2 status=paid token_len=0`) tidak punya token sama sekali.
+Karena itu B2 **wajib menerbitkan** token saat invoice dibuat, bukan mengandalkan penerbitan malas.
+B2 juga harus memperhatikan bahwa `returnUrl` dibangun **saat invoice dibuat**.
+
+---
+
+### 7.1 Prasyarat backend — SUDAH dikerjakan (15 Okt 2026)
+
+| # | Berkas | Apa yang berubah |
+|---|---|---|
+| B1 | `Api/TenantRegistrationController.php` | response `invoice` kini memuat `public_token` + `billing_url` (host platform ditempel eksplisit lewat trait `ResolvesTenantHost`) |
+| B2 | `Tenancy/DuitkuSubscriptionPaymentService.php` | `returnUrl` → `route('billing.public.success')`; token **diterbitkan di dalam `createInvoice()`** sebelum URL dibangun |
+| B3 | `routes/web.php` + `Public/BillingSuccessPageController.php` + `Pages/Public/TenantBillingSuccess.jsx` | rute `GET /tagihan/{token}/sukses` (guard `billing.platform_host` + `throttle:public-billing`), controller, komponen React |
+| B4 | `resources/views/tenant/register.blade.php` | aksi panel memakai `billing_url` (fallback `payment_url`), tombol jadi "Buka Halaman Tagihan" (bukan `target="_blank"` ke Duitku) |
+
+**S4 tidak pernah menyimpulkan "sukses" dari kedatangan pengunjung.** Controller memetakan status
+invoice → `state` (`paid` / `confirming` / `expired` / `cancelled`), dan status tak dikenal jatuh ke
+`confirming` — bukan ke `paid`. `confirming` = pembeli tiba sebelum callback Duitku masuk.
+
+Test: `tests/Feature/Billing/PublicBillingSuccessPageTest.php` (18 test) + komponen baru didaftarkan
+di kontrak anti-slop `tests/Feature/Tenancy/InactiveTenantStatusPageTest.php`.
 
 ---
 

@@ -131,6 +131,10 @@ class PublicThemeRegistry
         // Halaman tagihan publik: halaman PLATFORM juga, di host platform dan di
         // luar konteks tenant — wajib React di semua tema.
         \App\Http\Controllers\Public\BillingPageController::class,
+        // Halaman sukses/aktivasi (S4): satu keluarga dengan halaman tagihan —
+        // halaman PLATFORM, host platform, tanpa konteks tenant, dan Blade-nya
+        // memang tidak ada.
+        \App\Http\Controllers\Public\BillingSuccessPageController::class,
     ];
 
     /**
