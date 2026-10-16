@@ -10,14 +10,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
+use Tests\Concerns\ManagesLegacyIdentityState;
 use Tests\TestCase;
 
 class PasswordRecoveryWebFlowTest extends TestCase
 {
+    use ManagesLegacyIdentityState;
     use RefreshDatabase;
 
     public function test_ambiguous_username_rejects_recovery_without_leaking_existence(): void
     {
+        // Keadaan warisan: username kembar dulu bisa ada karena kolomnya tidak unik.
+        $this->withoutUniqueUsernameIndex();
+
         User::factory()->create(['username' => 'john']);
         User::factory()->create(['username' => 'john']);
 
@@ -71,6 +76,9 @@ class PasswordRecoveryWebFlowTest extends TestCase
 
     public function test_duplicate_email_rejects_recovery_silently(): void
     {
+        // Keadaan warisan: satu email menempel di dua akun (di staging nyata ada 515).
+        $this->withoutUniqueEmailIndex();
+
         User::factory()->create([
             'username' => 'user1',
             'email' => 'shared@example.com',
@@ -276,6 +284,10 @@ class PasswordRecoveryWebFlowTest extends TestCase
 
     public function test_reset_with_duplicate_email_fails(): void
     {
+        // Keadaan warisan: email kembar harus ditolak sebagai ambigu, bukan
+        // diam-diam memilih satu akun untuk direset.
+        $this->withoutUniqueEmailIndex();
+
         User::factory()->create(['email' => 'shared@example.com']);
         User::factory()->create(['email' => 'shared@example.com']);
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SettingWeb;
 use App\Models\User;
 use App\Http\Controllers\Concerns\HandlesLoginRedirect;
+use App\Services\UserIdentityService;
 use App\Support\PendingGoogleSignup;
 use App\Support\WhatsappNumberNormalizer;
 use App\Support\PublicThemeRegistry;
@@ -76,14 +77,28 @@ class GoogleAuthController extends Controller
         $hasGoogleColumn = Schema::hasColumn('users', 'google_id');
         $hasGoogleAvatarColumn = Schema::hasColumn('users', 'google_avatar');
 
+        /** @var UserIdentityService $identity */
+        $identity = app(UserIdentityService::class);
+
         $user = null;
 
         if ($hasGoogleColumn) {
-            $user = User::query()->where('google_id', $sub)->first();
+            $user = $identity->findByGoogleId($sub);
         }
 
         if (! $user) {
-            $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+            // Email dipakai bersama beberapa akun (kolom `email` tidak unik):
+            // menautkan google_id ke salah satunya berisiko menautkan ke akun
+            // yang salah, jadi tolak dan minta user masuk dengan cara biasa.
+            $byEmail = $identity->findAllByEmail($email);
+
+            if ($byEmail->count() > 1) {
+                throw ValidationException::withMessages([
+                    'error' => ['Email Google ini terhubung ke lebih dari satu akun. Masuk memakai username & password, atau hubungi admin.'],
+                ]);
+            }
+
+            $user = $byEmail->first();
         }
 
         if (! $user) {
@@ -196,10 +211,21 @@ class GoogleAuthController extends Controller
 
         // The Google identity may have been registered (or linked) while this visitor
         // was completing the form — reuse that account instead of creating a duplicate.
-        $user = User::query()->where('google_id', $pending['sub'])->first();
+        /** @var UserIdentityService $identity */
+        $identity = app(UserIdentityService::class);
+
+        $user = $identity->findByGoogleId($pending['sub']);
 
         if (! $user) {
-            $user = User::query()->whereRaw('LOWER(email) = ?', [$pending['email']])->first();
+            $byEmail = $identity->findAllByEmail($pending['email']);
+
+            if ($byEmail->count() > 1) {
+                throw ValidationException::withMessages([
+                    'no_wa' => 'Email Google ini terhubung ke lebih dari satu akun. Masuk memakai username & password, atau hubungi admin.',
+                ]);
+            }
+
+            $user = $byEmail->first();
         }
 
         if ($user) {
@@ -262,6 +288,51 @@ class GoogleAuthController extends Controller
         bool $hasGoogleColumn,
         bool $hasGoogleAvatarColumn,
     ): User {
+        /** @var UserIdentityService $identity */
+        $identity = app(UserIdentityService::class);
+
+        // Gerbang terakhir sebelum insert. Pemanggil sudah mencari lewat google_id
+        // dan email, tapi antara pencarian dan insert ada jeda (dua request HTTP
+        // yang berbeda), jadi identitas bisa saja terdaftar di sela itu. Tanpa
+        // gerbang ini, jalur Google adalah satu-satunya tempat di aplikasi yang
+        // bisa membuat akun kedua untuk identitas yang sama.
+        if ($hasGoogleColumn && $identity->findByGoogleId($sub) !== null) {
+            throw ValidationException::withMessages([
+                'no_wa' => 'Akun Google ini sudah terdaftar. Silakan masuk kembali.',
+            ]);
+        }
+
+        $existingByEmail = $identity->findAllByEmail($email);
+
+        if ($existingByEmail->count() > 1) {
+            throw ValidationException::withMessages([
+                'no_wa' => 'Email Google ini terhubung ke lebih dari satu akun. Masuk memakai username & password, atau hubungi admin.',
+            ]);
+        }
+
+        if ($existingByEmail->count() === 1) {
+            $linked = $existingByEmail->first();
+
+            // Sudah ada akun dengan email ini: pakai akun tersebut, jangan bikin
+            // baris kedua. Ini yang menghentikan penambahan duplikat lewat Google.
+            $updates = [];
+
+            if ($hasGoogleColumn && blank($linked->google_id)) {
+                $updates['google_id'] = $sub;
+            }
+
+            if ($hasGoogleAvatarColumn && $picture !== '') {
+                $updates['google_avatar'] = $picture;
+            }
+
+            if ($updates !== []) {
+                $linked->fill($updates);
+                $linked->save();
+            }
+
+            return $linked;
+        }
+
         $baseName = trim($name) !== '' ? trim($name) : Str::before($email, '@');
         $username = $this->generateUniqueUsername($baseName);
 
@@ -309,26 +380,13 @@ class GoogleAuthController extends Controller
 
     private function generateUniqueUsername(string $name): string
     {
-        $sanitized = Str::of($name)
-            ->lower()
-            ->ascii()
-            ->replaceMatches('/[^a-z0-9]/', '')
-            ->value();
+        /** @var UserIdentityService $identity */
+        $identity = app(UserIdentityService::class);
 
-        $base = trim($sanitized) !== '' ? $sanitized : 'user';
-        if (strlen($base) < 3) {
-            $base = str_pad($base, 3, '0');
-        }
+        $base = $identity->usernameBaseFrom($name);
 
-        $candidate = $base;
-        $sequence = 1;
-
-        while (User::query()->where('username', $candidate)->exists()) {
-            $candidate = Str::limit($base, 240, '') . $sequence;
-            $sequence++;
-        }
-
-        return $candidate;
+        // Bentuk lama: suffix angka tanpa pemisah ("alvin", "alvin1", "alvin2").
+        return $identity->uniqueUsername($base, '');
     }
 
     private function generateUniqueReferralCode(): string

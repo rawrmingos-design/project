@@ -13,10 +13,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Mockery\MockInterface;
+use Tests\Concerns\ManagesLegacyIdentityState;
 use Tests\TestCase;
 
 class PasswordRecoveryTest extends TestCase
 {
+    use ManagesLegacyIdentityState;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -110,6 +112,10 @@ class PasswordRecoveryTest extends TestCase
     public function test_duplicate_email_is_not_eligible_for_recovery(): void
     {
         Mail::fake();
+
+        // Keadaan warisan: satu email menempel di dua akun.
+        $this->withoutUniqueEmailIndex();
+
         $user = User::factory()->create(['username' => 'duplicate-owner', 'email' => 'shared@example.com']);
         User::factory()->create(['username' => 'duplicate-other', 'email' => 'shared@example.com']);
         $this->mock(WhatsappNotificationService::class, function (MockInterface $mock): void {
@@ -124,6 +130,9 @@ class PasswordRecoveryTest extends TestCase
 
     public function test_duplicate_email_cannot_complete_a_reset_even_when_a_broker_token_exists(): void
     {
+        // Keadaan warisan: email kembar harus menolak reset, bukan menebak akun.
+        $this->withoutUniqueEmailIndex();
+
         $createdUser = User::factory()->create([
             'email' => 'shared@example.com',
             'password' => Hash::make('old-password'),

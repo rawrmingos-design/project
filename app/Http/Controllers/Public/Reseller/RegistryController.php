@@ -110,6 +110,14 @@ class RegistryController extends Controller
                 ->route('reseller.dashboard')
                 ->with('flash_info', 'Anda sudah memiliki akses Reseller Hub.');
         }
+
+        // Validation 2b: Satu user, satu peran. Akun yang sudah punya toko tenant
+        // tidak boleh sekaligus jadi reseller H2H.
+        try {
+            app(\App\Services\UserIdentityService::class)->assertCanBeReseller($user);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        }
         
         // Validation 3: Check eligibility (account age, pending apps, cooldown period)
         $eligibility = $this->eligibilityService->evaluate($user);

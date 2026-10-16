@@ -6,6 +6,7 @@ use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\UserIdentityService;
 use App\Support\WhatsappNumberNormalizer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -45,7 +46,10 @@ class TenantRegistrationService
         // Jalur resume: email yang sudah terdaftar TIDAK boleh membuat tenant
         // kedua. Ini juga penjaga keamanan — tanpa cek password, siapa pun
         // yang tahu alamat email bisa mengambil alih pendaftaran orang lain.
-        $existing = User::query()->where('email', $email)->first();
+        // Pencarian WAJIB case-insensitive (pakai UserIdentityService), karena
+        // kalau tidak, "Budi@mail.com" lolos sebagai akun baru di samping
+        // "budi@mail.com" — dan kolom email tidak punya unique index yang menahan.
+        $existing = app(UserIdentityService::class)->findByEmail($email);
 
         if ($existing !== null) {
             return $this->resume($existing, $data, $subdomain, $tier);
@@ -64,6 +68,11 @@ class TenantRegistrationService
      */
     private function resume(User $owner, array $data, string $subdomain, string $tier): array
     {
+        // Satu user, satu peran: akun reseller H2H tidak boleh sekaligus jadi
+        // pemilik toko tenant. Deteksi reseller lewat relasi (resellerIntegrations),
+        // BUKAN lewat role — role Gold/Platinum hanya penentu harga jual.
+        app(UserIdentityService::class)->assertCanOwnTenant($owner);
+
         if (! Hash::check((string) ($data['password'] ?? ''), (string) $owner->password)) {
             throw ValidationException::withMessages([
                 'password' => 'Email ini sudah terdaftar. Masukkan password yang benar untuk melanjutkan.',
