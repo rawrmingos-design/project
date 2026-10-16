@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
  *   - `RegisterController` / `Api\AuthController` : validasi `unique:users,email`
  *   - `GoogleAuthController`                      : cari google_id, lalu LOWER(email)
  *   - `TenantRegistrationService`                 : cari email PERSIS (case-sensitive)
- *   - `BotCommandHandler`                         : bikin sendiri, suffix random
+ *   - `Bot\BotCommandHandler`                     : bikin sendiri, suffix random
  *
  * Kolom `users.email` dan `users.username` TIDAK punya unique index di database,
  * jadi validasi aplikasi adalah satu-satunya penjaga. Begitu satu jalur lupa,
