@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Tenancy\TierEntitlements;
 use App\Tenancy\TierPricingResolver;
 use Illuminate\Database\Eloquent\Model;
 
@@ -71,6 +72,7 @@ class TierPricing extends Model
     {
         $flush = static function (): void {
             app(TierPricingResolver::class)->flush();
+            app(TierEntitlements::class)->flush();
         };
 
         static::saved($flush);

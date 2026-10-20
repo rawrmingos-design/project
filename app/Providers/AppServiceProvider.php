@@ -27,6 +27,7 @@ use App\Tenancy\Contracts\CloudflareDnsClientInterface;
 use App\Tenancy\Contracts\DnsResolverInterface;
 use App\Tenancy\NativeDnsResolver;
 use App\Tenancy\SubdomainAvailabilityGuard;
+use App\Tenancy\TierEntitlements;
 use App\Tenancy\TierPricingResolver;
 use App\Tenancy\TenantContext;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
@@ -67,6 +68,11 @@ class AppServiceProvider extends ServiceProvider
         // pernah terlihat sampai proses PHP-nya mati. `scoped` membuat flush()
         // benar-benar mengenai instance yang dipakai.
         $this->app->scoped(TierPricingResolver::class);
+
+        // Hak fitur per tier juga di-cache per instance; daftarkan scoped supaya
+        // perubahan paket dari panel langsung terlihat (lihat flush di
+        // TierPricing::booted()).
+        $this->app->scoped(TierEntitlements::class);
 
         $this->app->booting(function (): void {
             $this->registerLivewireUpdateRoutes();

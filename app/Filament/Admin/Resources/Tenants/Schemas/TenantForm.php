@@ -4,6 +4,7 @@ namespace App\Filament\Admin\Resources\Tenants\Schemas;
 
 use App\Models\Tenant;
 use App\Tenancy\TenantDomainService;
+use App\Tenancy\TierEntitlements;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -48,6 +49,17 @@ class TenantForm
                             ->nullable()
                             ->maxLength(255)
                             ->unique(ignoreRecord: true)
+                            // Custom domain hanya untuk paket yang berhak. Gate di
+                            // sini (titik satu-satunya perubahan domain) supaya
+                            // admin pun tidak bisa memberi fitur yang tidak
+                            // termasuk paket tenant. `visible` saja tidak cukup:
+                            // nilainya tetap tersimpan bila field disembunyikan.
+                            ->disabled(fn (?Tenant $record): bool => $record !== null
+                                && ! app(TierEntitlements::class)->has($record, 'custom_domain'))
+                            ->helperText(fn (?Tenant $record): ?string => $record !== null
+                                && ! app(TierEntitlements::class)->has($record, 'custom_domain')
+                                    ? 'Paket tenant ini tidak mencakup custom domain.'
+                                    : null)
                             ->rules([
                                 fn (?Tenant $record): \Closure => function (string $attribute, $value, \Closure $fail) use ($record) {
                                     if (blank($value)) {

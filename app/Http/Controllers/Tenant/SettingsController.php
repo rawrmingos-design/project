@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Tenancy\TierEntitlements;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 
 class SettingsController extends Controller
 {
-    public function edit(Request $request, TenantContext $tenantContext)
+    public function edit(Request $request, TenantContext $tenantContext, TierEntitlements $entitlements)
     {
         $tenant = $tenantContext->get();
         abort_unless($tenant, 404);
@@ -16,14 +17,22 @@ class SettingsController extends Controller
 
         return view('tenant.settings', [
             'tenant' => $tenant,
+            'features' => [
+                'theme_color' => $entitlements->has($tenant, 'theme_color'),
+            ],
         ]);
     }
 
-    public function update(Request $request, TenantContext $tenantContext)
+    public function update(Request $request, TenantContext $tenantContext, TierEntitlements $entitlements)
     {
         $tenant = $tenantContext->get();
         abort_unless($tenant, 404);
         abort_unless((int) ($request->user()?->id) === (int) $tenant->owner_user_id, 403);
+
+        // Gate di server, bukan hanya menyembunyikan input di view: perubahan
+        // warna tema adalah fitur paket, jadi permintaan langsung ke endpoint
+        // harus ditolak juga.
+        $entitlements->authorize($tenant, 'theme_color');
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
