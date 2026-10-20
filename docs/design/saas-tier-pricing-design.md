@@ -194,14 +194,49 @@ Key yang dipindah dari `.env` / konstanta:
 | `platform.tagline` | keras di blade | — |
 | `tenant.register_title` | `register.blade.php:7` | — |
 
-### 4.3 `platform_credentials` (opsional, terenkripsi) — Langkah 5
+### 4.3 ~~`platform_credentials` (terenkripsi)~~ — **DITOLAK, tidak dikerjakan**
 
-```
-id · key (unique) · value_encrypted (encrypted cast) · is_set (bool) · timestamps
-```
+Rencana awal: tabel kredensial gateway terenkripsi supaya pembeli platform bisa
+mengisi kredensial gateway sendiri.
 
-Hanya untuk kredensial yang wajib diisi pembeli (gateway pembayaran).
-Token bot & Cloudflare tetap `.env`.
+**Dibatalkan setelah diperiksa di kode.** Premisnya salah: tenant tidak pernah
+dan tidak akan menyentuh kredensial gateway.
+
+- Kredensial gateway sudah ada di `setting_webs`, satu baris milik platform:
+  `duitku_merchant_key` (dibaca 7 file), `tripay_private_key` (4),
+  `tokopay_secret_key` (4), `paydisini_apikey` (3), `sufpayment_secret_key` (4),
+  plus `apigames_*` (18 file) dan `bangjeff_*` (29 file).
+- `TenantPaymentMethodSetting` hanya punya `tenant_id`, `method_id`, `is_visible`.
+  `method_id` menunjuk ke tabel `methods` **milik platform**. Tidak ada kolom
+  kredensial di sisi tenant, dan tidak ada satu pun jalur kode tempat tenant
+  membaca kredensial miliknya sendiri.
+- Artinya: uang masuk ke akun gateway **platform**, platform yang meneruskan ke
+  tenant. Tenant hanya menyalakan/mematikan metode yang platform sediakan.
+
+Jadi tabel `platform_credentials` tidak menyelesaikan masalah apa pun, dan
+membuatnya melanggar aturan satu sumber kebenaran yang sama yang membuat
+Langkah 2 memperluas `setting_webs` alih-alih membuat `platform_settings`.
+
+### 4.3b Enkripsi kredensial gateway — **DITOLAK (keputusan pemilik platform)**
+
+Kredensial gateway **tetap plaintext** di `setting_webs`. Ini keputusan sadar,
+bukan kelalaian.
+
+Alasan penolakan:
+
+1. **Menyentuh transaksi prod.** Cast `encrypted` berarti setiap save dari
+   Filament menulis ciphertext ke baris setelan yang **sedang dipakai transaksi
+   produksi**. Satu jalur baca yang belum ikut cast = pembayaran prod mati.
+2. **Rotasi `APP_KEY` jadi mimpi buruk.** Enkripsi pakai `APP_KEY` berarti
+   rotasi key menuntut re-enkripsi seluruh kredensial, dan `mysqldump` prod
+   tidak bisa dipulihkan di staging untuk QA.
+3. **Manfaatnya sempit.** Yang bisa membaca kolom ini adalah orang yang sudah
+   punya akses DB — pada titik itu ia juga bisa membaca `.env`, sesi, dan
+   seluruh data transaksi.
+
+**JANGAN "merapikan" ini menjadi enkripsi tanpa persetujuan pemilik platform.**
+Yang terlihat seperti peningkatan keamanan di sini berisiko mematikan pembayaran
+produksi.
 
 ### 4.4 Perubahan tabel yang ada
 
@@ -224,8 +259,8 @@ tenants             (sudah ada: tier, margin_config, settings JSON)
 | `$modal = $layanan->harga_gold` | `TenantPricingService:16` | `layanans.harga` (anchor) |
 | `addMonth()` hardcoded | `TenantProvisioningService:61` | `subscriptions.duration_months` |
 | `'role' => 'Gold'` | `TenantProvisioningService:83` | `'tenant_owner'` |
-| config billing berbasis env | `config/billing.php` | `platform_settings` |
-| brand keras `TopupEngine` | `register.blade.php:7,22`, `home.blade.php:32`, `RegistrationPageController:19` | `platform_settings.platform.name` |
+| config billing berbasis env | `config/billing.php` | kolom `setting_webs` (§4.3 sudah DIBATALKAN; Langkah 2) |
+| brand keras `TopupEngine` | `register.blade.php:7,22`, `home.blade.php:32`, `RegistrationPageController:19` | `setting_webs.judul_web` |
 
 ---
 
@@ -308,14 +343,26 @@ Kalau platform markup diterapkan di atas `harga`, baris itu kena markup dua kali
 
 **Rekomendasi: (a) sekarang, (c) kalau data provider sudah lengkap.**
 
-### O2 — Kredensial provider: `.env` atau tabel terenkripsi?
+### O2 — Kredensial provider: `.env` atau tabel terenkripsi? → **DITUTUP: tetap di `setting_webs`, plaintext**
 
-Pembeli platform **wajib** bisa isi kredensial gateway sendiri tanpa edit file.
-**Rekomendasi: tabel terenkripsi**, dikerjakan Langkah 5.
+Rekomendasi awal (tabel terenkripsi) **dibatalkan**. Tenant tidak pernah mengisi
+kredensial gateway: ia hanya memilih metode yang platform sediakan
+(`TenantPaymentMethodSetting` = `tenant_id` + `method_id` + `is_visible`), dan
+kredensial dibaca dari baris `setting_webs` milik platform. Lihat §4.3 dan §4.3b
+untuk alasan lengkap, termasuk penolakan enkripsi.
 
 ### O4 — Gate fitur: JSON di `platform_settings` atau tabel `tier_features`?
 
-**Rekomendasi: tabel** kalau fitur akan terus bertambah (bisa di-relasi, rapi untuk produk).
+**DIPUTUS: JSON di kolom `tier_pricing.features`** (bukan tabel terpisah).
+Sudah dikerjakan di Langkah 4 sebagai `App\Tenancy\TierEntitlements`, dengan
+aturan **fail-closed**: kunci yang tidak dikenal dianggap tidak dimiliki, dan
+tier yang daftar fiturnya belum diatur memakai peta `DEFAULTS` supaya
+fail-closed tidak mengunci platform yang sedang berjalan.
+
+**Gateway pembayaran TIDAK dibedakan per tier** (keputusan pemilik platform):
+semua gateway terbuka untuk semua tenant. `payment_methods` tetap satu kunci
+untuk semua tier. Yang mengatur tampilan metode per toko adalah
+`TenantPaymentMethodSetting.is_visible`, bukan paket.
 
 ### O6 — Profit tenant saat admin memindahkan provider (order gagal)
 
@@ -340,10 +387,22 @@ sementara `harga` order tetap beku → **saldo tenant bisa berubah setelah trans
 7. Kartu harga `register.blade.php`: **2 durasi (3 & 12 bulan) × 3 tier** + tooltip + harga coret dari DB
 8. Validasi `tenant_markup > platform_markup`
 
-**Langkah 2 — `platform_settings`** (kebijakan billing + saklar SaaS dari DB)
-**Langkah 3 — branding & teks notifikasi tenant**
-**Langkah 4 — gate fitur per tier** (`tier_features` + enforcement)
-**Langkah 5 — `platform_credentials`** terenkripsi
+**Langkah 2 — kebijakan billing + saklar SaaS dari DB** — ✅ **SELESAI**
+Memperluas `setting_webs` (bukan `platform_settings` baru): 7 kolom nullable
+`saas_enabled`, `subdomain_guard_enabled`, `billing_renewal_enabled`,
+`billing_reminder_days_before`, `billing_grace_days`, `billing_late_fee`,
+`billing_payment_link_minutes`, dibaca lewat `DatabaseSettingsBridge`. Kolom NULL
+= admin belum mengisi → config `.env` tidak ditimpa.
+
+**Langkah 3 — branding & teks tenant dari setelan** — ✅ **SELESAI**
+`judul_web` menggantikan merek keras; cadangan domain `topupengine.com` dihapus.
+
+**Langkah 4 — gate fitur per tier** — ✅ **SELESAI**
+`App\Tenancy\TierEntitlements`, fail-closed, sumber `tier_pricing.features`.
+
+**Langkah 5 — ~~`platform_credentials` terenkripsi~~** — ❌ **DIBATALKAN**
+Premisnya salah (tenant tidak pernah memegang kredensial gateway) dan enkripsi
+kredensial ditolak pemilik platform. Lihat §4.3 dan §4.3b.
 
 ---
 
