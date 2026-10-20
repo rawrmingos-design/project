@@ -175,7 +175,10 @@ class TierPricingTest extends TestCase
 
     public function test_resolver_fallback_kalau_tabel_kosong(): void
     {
-        // tanpa seeder
+        // Migrasi sudah mengisi 3 tier; kosongkan dulu untuk menguji fallback.
+        TierPricing::query()->delete();
+        app(TierPricingResolver::class)->flush();
+
         $resolver = app(TierPricingResolver::class);
         $tenant = new Tenant(['tier' => 'business']);
 
