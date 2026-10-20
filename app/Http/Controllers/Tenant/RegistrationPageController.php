@@ -47,10 +47,34 @@ class RegistrationPageController extends Controller
             ];
         })->values();
 
+        $baseHost = preg_replace('/:\d+$/', '', (string) ($baseHost ?: $request->getHost()));
+
         return view('tenant.register', [
-            'baseHost' => preg_replace('/:\d+$/', '', (string) $baseHost) ?: 'topupengine.com',
+            'baseHost' => $baseHost !== '' ? $baseHost : (string) parse_url((string) config('app.url'), PHP_URL_HOST),
+            // Nama platform dari Settings Web. Dulu teks "TopupEngine" ditulis
+            // keras di blade, jadi pembeli platform tidak bisa mengganti merek
+            // tanpa mengedit kode.
+            'platformName' => $this->platformName(),
             'plans' => $plans,
             'durations' => \App\Models\TierPricing::DURATIONS,
         ]);
+    }
+
+    /**
+     * Nama platform untuk ditampilkan.
+     *
+     * Sumber tunggalnya `setting_webs.judul_web` (Settings → Informasi Website),
+     * yang juga sudah dipakai judul situs publik. `config('app.name')` hanya
+     * cadangan supaya halaman tidak pernah menampilkan nama kosong.
+     */
+    private function platformName(): string
+    {
+        try {
+            $name = trim((string) \App\Models\SettingWeb::query()->value('judul_web'));
+        } catch (\Throwable) {
+            $name = '';
+        }
+
+        return $name !== '' ? $name : (string) config('app.name', 'Top Up Game');
     }
 }

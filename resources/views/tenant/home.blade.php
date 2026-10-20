@@ -29,7 +29,7 @@
             <div class="max-w-2xl">
                 <span class="inline-flex rounded-full px-3 py-1 text-xs font-semibold text-slate-950" style="background: {{ $accent }}">Instant Topup</span>
                 <h2 class="mt-5 text-4xl font-black leading-tight md:text-5xl">Top up game cepat dengan brand {{ $tenant->name }}.</h2>
-                <p class="mt-4 text-lg text-slate-300">Pilih game, masukkan ID, bayar via gateway platform, pesanan langsung diproses oleh engine TopupEngine.</p>
+                <p class="mt-4 text-lg text-slate-300">Pilih game, masukkan ID, bayar via gateway platform, pesanan langsung diproses otomatis oleh sistem.</p>
             </div>
         </section>
 

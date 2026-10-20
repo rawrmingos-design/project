@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Daftar Reseller Topup - TopupEngine</title>
+    {{-- Nama platform dari Settings Web (judul_web), bukan brand keras: platform ini dijual dan
+         pembelinya mengganti nama tanpa deploy. --}}
+    <title>Daftar Reseller Topup - {{ $platformName }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-white antialiased">
@@ -18,8 +20,8 @@
         <section class="flex flex-col justify-between gap-10">
             <nav class="flex items-center justify-between">
                 <a href="/id" class="inline-flex items-center gap-3 font-black tracking-tight">
-                    <span class="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-400 text-slate-950">T</span>
-                    <span>TopupEngine</span>
+                    <span class="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-400 text-slate-950">{{ mb_substr($platformName, 0, 1) }}</span>
+                    <span>{{ $platformName }}</span>
                 </a>
                 <a href="/id/reseller" class="rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10">Kemitraan</a>
             </nav>
