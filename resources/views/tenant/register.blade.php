@@ -41,8 +41,8 @@
                         <p class="mt-1 text-sm text-slate-400">integrasi gateway terpisah</p>
                     </div>
                     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                        <p class="text-2xl font-black">Gold</p>
-                        <p class="mt-1 text-sm text-slate-400">modal harga Gold</p>
+                        <p class="text-2xl font-black">3 Tier</p>
+                        <p class="mt-1 text-sm text-slate-400">modal makin murah tiap naik tier</p>
                     </div>
                     <div class="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
                         <p class="text-2xl font-black">Instan</p>
@@ -52,22 +52,42 @@
             </div>
 
             <div class="grid gap-4 lg:grid-cols-3">
-                @foreach ($tiers as $key => $tier)
-                    <article class="relative rounded-3xl border {{ ($tier['badge'] ?? null) ? 'border-purple-400/60 bg-purple-500/10' : 'border-white/10 bg-white/[0.04]' }} p-5">
-                        @if (($tier['badge'] ?? null))
-                            <span class="absolute right-4 top-4 rounded-full bg-purple-400 px-3 py-1 text-xs font-black text-slate-950">{{ $tier['badge'] }}</span>
+                @foreach ($plans as $plan)
+                    <article class="relative rounded-3xl border {{ $plan['badge'] ? 'border-purple-400/60 bg-purple-500/10' : 'border-white/10 bg-white/[0.04]' }} p-5">
+                        @if ($plan['badge'])
+                            <span class="absolute right-4 top-4 rounded-full bg-purple-400 px-3 py-1 text-xs font-black text-slate-950">{{ $plan['badge'] }}</span>
                         @endif
-                        <h2 class="text-xl font-black">{{ $tier['name'] }}</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-300">{{ $tier['description'] }}</p>
-                        <p class="mt-4 text-2xl font-black">
-                            @if ((int) $tier['price'] > 0)
-                                Rp {{ number_format((int) $tier['price'], 0, ',', '.') }}<span class="text-sm font-semibold text-slate-400">/bulan</span>
-                            @else
-                                Custom
-                            @endif
-                        </p>
+                        <h2 class="text-xl font-black">{{ $plan['name'] }}</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-300">Modal termurah di kelasnya, harga jual customer tetap sama.</p>
+
+                        {{-- Harga mengikuti durasi yang dipilih. Harga coret dihitung
+                             dari strike_discount di tier_pricing, bukan angka mati. --}}
+                        <div class="mt-4 space-y-2" data-plan-card="{{ $plan['tier'] }}">
+                            @forelse ($plan['durations'] as $months => $duration)
+                                <div class="rounded-2xl border border-white/10 bg-slate-950/60 p-3 {{ $loop->first ? '' : 'hidden' }}" data-duration-row="{{ $months }}">
+                                    <div class="flex items-baseline justify-between gap-2">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">{{ $months }} bulan</span>
+                                        @if ($duration['discount_percent'] > 0 && $duration['strike_price'] > 0)
+                                            <span class="text-xs font-bold text-slate-500 line-through">{{ number_format($duration['strike_price'], 0, ',', '.') }}</span>
+                                        @endif
+                                    </div>
+                                    <p class="mt-1 text-2xl font-black">
+                                        Rp {{ number_format($duration['price'], 0, ',', '.') }}
+                                    </p>
+                                    <p class="text-xs font-semibold text-slate-400">
+                                        Rp {{ number_format($duration['price_per_month'], 0, ',', '.') }}/bulan
+                                        @if ($duration['discount_percent'] > 0)
+                                            <span class="ml-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-emerald-300">hemat {{ rtrim(rtrim(number_format($duration['discount_percent'], 0), '0')) }}%</span>
+                                        @endif
+                                    </p>
+                                </div>
+                            @empty
+                                <p class="text-sm font-semibold text-slate-400">Hubungi admin</p>
+                            @endforelse
+                        </div>
+
                         <ul class="mt-4 space-y-2 text-sm text-slate-300">
-                            @foreach ($tier['features'] as $feature)
+                            @foreach ($plan['features'] as $feature)
                                 <li class="flex gap-2"><span class="text-emerald-300">✓</span><span>{{ $feature }}</span></li>
                             @endforeach
                         </ul>
@@ -122,16 +142,30 @@
                     </label>
 
                     <fieldset>
+                        <legend class="text-sm font-semibold text-slate-200">Durasi paket</legend>
+                        <div class="mt-2 grid grid-cols-2 gap-3">
+                            @foreach ($durations as $months)
+                                <label class="cursor-pointer rounded-2xl border border-white/10 bg-slate-950/70 p-4 has-[:checked]:border-purple-300 has-[:checked]:bg-purple-500/15">
+                                    <input type="radio" name="duration_months" value="{{ $months }}" class="sr-only" data-duration-picker @checked($loop->first)>
+                                    <span class="block font-black">{{ $months }} bulan</span>
+                                    <span class="mt-1 block text-xs text-slate-400">
+                                        {{ $months === 12 ? 'Paling hemat per bulan' : 'Mulai cepat' }}
+                                    </span>
+                                </label>
+                            @endforeach
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
                         <legend class="text-sm font-semibold text-slate-200">Pilih paket</legend>
                         <div class="mt-2 grid gap-3 sm:grid-cols-3">
-                            @foreach ($tiers as $key => $tier)
-                                <label class="{{ ($tier['self_service'] ?? true) ? 'cursor-pointer has-[:checked]:border-purple-300 has-[:checked]:bg-purple-500/15' : 'cursor-not-allowed opacity-60' }} rounded-2xl border border-white/10 bg-slate-950/70 p-4">
-                                    @if ($tier['self_service'] ?? true)
-                                        <input type="radio" name="tier" value="{{ $key }}" class="sr-only" @checked($key === 'starter')>
-                                    @endif
-                                    <span class="block font-black">{{ $tier['name'] }}</span>
-                                    <span class="mt-1 block text-xs text-slate-400">
-                                        {{ (int) $tier['price'] > 0 ? 'Rp ' . number_format((int) $tier['price'], 0, ',', '.') : 'Hubungi admin' }}
+                            @foreach ($plans as $plan)
+                                <label class="cursor-pointer rounded-2xl border border-white/10 bg-slate-950/70 p-4 has-[:checked]:border-purple-300 has-[:checked]:bg-purple-500/15">
+                                    <input type="radio" name="tier" value="{{ $plan['tier'] }}" class="sr-only" @checked($plan['tier'] === 'starter')>
+                                    <span class="block font-black">{{ $plan['name'] }}</span>
+                                    <span class="mt-1 block text-xs text-slate-400" data-tier-price="{{ $plan['tier'] }}">
+                                        @php $first = reset($plan['durations']); @endphp
+                                        {{ $first ? 'Rp ' . number_format($first['price'], 0, ',', '.') : 'Hubungi admin' }}
                                     </span>
                                 </label>
                             @endforeach
@@ -259,6 +293,39 @@
             checkSubdomainButton.addEventListener('click', function () {
                 checkSubdomain();
             });
+
+            // Durasi dipilih di satu tempat, kartu harga & label tier ikut berubah.
+            // Semua angka sudah dirender server (dari tier_pricing) — JS hanya
+            // menyembunyikan/menampilkan, tidak menghitung harga.
+            function syncDuration(months) {
+                document.querySelectorAll('[data-plan-card]').forEach(function (card) {
+                    card.querySelectorAll('[data-duration-row]').forEach(function (row) {
+                        row.classList.toggle('hidden', row.dataset.durationRow !== String(months));
+                    });
+                });
+
+                document.querySelectorAll('[data-tier-price]').forEach(function (el) {
+                    const tier = el.dataset.tierPrice;
+                    const card = document.querySelector('[data-plan-card="' + tier + '"]');
+                    const row = card ? card.querySelector('[data-duration-row="' + months + '"]') : null;
+                    const harga = row ? row.querySelector('p.font-black') : null;
+
+                    if (harga) {
+                        el.textContent = harga.textContent.trim();
+                    }
+                });
+            }
+
+            document.querySelectorAll('[data-duration-picker]').forEach(function (input) {
+                input.addEventListener('change', function () {
+                    syncDuration(input.value);
+                });
+            });
+
+            const durasiAwal = document.querySelector('[data-duration-picker]:checked');
+            if (durasiAwal) {
+                syncDuration(durasiAwal.value);
+            }
 
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();

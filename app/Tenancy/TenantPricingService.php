@@ -4,24 +4,64 @@ namespace App\Tenancy;
 
 use App\Models\Layanan;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Harga jual tenant.
+ *
+ * Rumus (mengikuti pola `profit_member` / `profit_gold` yang sudah ada):
+ *
+ *   harga pokok    = layanans.harga                              ← anchor modal platform
+ *   modal_tenant   = harga × (1 + platform_markup[tier] / 100)   ← harga beli tenant
+ *   harga_jual     = harga × (1 + tenant_markup / 100)           ← harga ke customer
+ *   profit_tenant  = harga_jual − modal_tenant
+ *
+ * Harga jual customer sengaja TIDAK memakai platform markup. Kalau dipakai,
+ * customer tier enterprise jadi lebih mahal dari starter dan janji "tier tinggi =
+ * untung lebih besar" jadi bohong. Yang berbeda antar tier adalah titik modal
+ * tenant, bukan harga customer.
+ *
+ * Syarat: tenant_markup > platform_markup (kalau tidak, profit tenant ≤ 0).
+ */
 class TenantPricingService
 {
-    private const DEFAULT_MARKUP_PERCENT = 10;
+    public function __construct(private readonly TierPricingResolver $tiers) {}
 
+    /**
+     * @return array{
+     *     modal: int, modal_tenant: int, markup: int, profit: int,
+     *     sell_price: int, platform_markup_percent: float, tenant_markup_percent: float
+     * }
+     */
     public function forLayanan(Layanan $layanan, ?Tenant $tenant = null, int $quantity = 1): array
     {
         $tenant ??= app(TenantContext::class)->get();
         $quantity = max(1, $quantity);
-        $modal = max(0, (int) round((float) ($layanan->harga_gold ?? 0))) * $quantity;
-        $markup = $this->calculateMarkup($modal, $tenant);
-        $sellPrice = max($modal, $modal + $markup);
+
+        $harga = max(0, (int) round((float) ($layanan->harga ?? 0)));
+
+        if ($harga <= 0) {
+            Log::warning('layanan.harga kosong, harga tenant tidak bisa dihitung', [
+                'layanan_id' => $layanan->id,
+                'tenant_id' => $tenant?->id,
+            ]);
+        }
+
+        $platformMarkup = $this->tiers->platformMarkupPercent($tenant);
+
+        $modalPlatform = $harga * $quantity;
+        $modalTenant = (int) round($modalPlatform * (1 + ($platformMarkup / 100)));
+
+        [$sellPrice, $tenantMarkupPercent] = $this->sellPrice($tenant, $modalPlatform, $modalTenant, $platformMarkup);
 
         return [
-            'modal' => $modal,
-            'markup' => $markup,
-            'profit' => $markup,
-            'sell_price' => $sellPrice,
+            'modal' => $modalPlatform,
+            'modal_tenant' => $modalTenant,
+            'markup' => $sellPrice - $modalTenant,
+            'profit' => $sellPrice - $modalTenant,
+            'sell_price' => max($modalTenant, $sellPrice),
+            'platform_markup_percent' => $platformMarkup,
+            'tenant_markup_percent' => $tenantMarkupPercent,
         ];
     }
 
@@ -30,28 +70,63 @@ class TenantPricingService
         $price = $this->forLayanan($layanan, $tenant, $quantity);
 
         $layanan->harga = $price['sell_price'];
-        $layanan->modal_harga = $price['modal'];
+        $layanan->modal_harga = $price['modal_tenant'];
         $layanan->profit = $price['profit'];
-        $layanan->tenant_modal_harga = $price['modal'];
+        $layanan->tenant_modal_harga = $price['modal_tenant'];
         $layanan->tenant_profit = $price['profit'];
 
         return $layanan;
     }
 
-    private function calculateMarkup(int $modal, ?Tenant $tenant): int
+    /**
+     * Harga jual customer + persen markup efektif.
+     *
+     * `percent` → harga pokok × (1 + markup/100). Markup dijamin di atas markup
+     *             platform, kalau tidak tenant menjual di bawah modalnya sendiri.
+     * `fixed`   → modal tenant + nominal tetap (tidak dikali quantity), sama
+     *             seperti perilaku lama.
+     *
+     * @return array{0: int, 1: float}
+     */
+    public function sellPrice(?Tenant $tenant, int $modalPlatform, int $modalTenant, ?float $platformMarkup = null): array
     {
+        $platformMarkup ??= $this->tiers->platformMarkupPercent($tenant);
         $config = is_array($tenant?->margin_config) ? $tenant->margin_config : [];
         $type = strtolower(trim((string) ($config['markup_type'] ?? 'percent')));
-        $value = (float) ($config['markup_value'] ?? self::DEFAULT_MARKUP_PERCENT);
-
-        if ($value < 0) {
-            $value = 0;
-        }
 
         if ($type === 'fixed') {
-            return (int) round($value);
+            $fixed = max(0, (int) round((float) ($config['markup_value'] ?? 0)));
+            $sell = $modalTenant + $fixed;
+            $effective = $modalPlatform > 0 ? ((($sell - $modalTenant) / $modalPlatform) * 100) : 0.0;
+
+            return [$sell, round($effective, 2)];
         }
 
-        return (int) round($modal * ($value / 100));
+        $percent = array_key_exists('markup_value', $config)
+            ? (float) $config['markup_value']
+            : $this->tiers->tenantMarkupDefault($tenant);
+
+        $percent = max(0.0, $percent);
+
+        if ($percent <= $platformMarkup) {
+            Log::warning('markup tenant ≤ markup platform, dinaikkan ke batas minimum', [
+                'tenant_id' => $tenant?->id,
+                'tenant_markup' => $percent,
+                'platform_markup' => $platformMarkup,
+            ]);
+
+            $percent = $platformMarkup + 0.01;
+        }
+
+        return [(int) round($modalPlatform * (1 + ($percent / 100))), round($percent, 2)];
+    }
+
+    /** Markup jual efektif (persen) untuk halaman pengaturan tenant. */
+    public function effectiveMarkupPercent(?Tenant $tenant, int $modalPlatform = 10000): float
+    {
+        $platformMarkup = $this->tiers->platformMarkupPercent($tenant);
+        $modalTenant = (int) round($modalPlatform * (1 + ($platformMarkup / 100)));
+
+        return $this->sellPrice($tenant, $modalPlatform, $modalTenant, $platformMarkup)[1];
     }
 }

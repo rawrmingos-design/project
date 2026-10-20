@@ -37,7 +37,9 @@ class TenantOnboardingPhase3Test extends TestCase
             ->assertSee('name="terms_accepted"', false)
             ->assertSee('Starter')
             ->assertSee('Business')
-            ->assertSee('Hubungi admin');
+            ->assertSee('Enterprise')
+            // Semua tier self-service: tidak ada lagi kartu "Hubungi admin".
+            ->assertDontSee('Hubungi admin');
     }
 
     public function test_subdomain_check_reports_available_reserved_and_taken(): void
@@ -80,7 +82,8 @@ class TenantOnboardingPhase3Test extends TestCase
         $response->assertCreated()
             ->assertJsonPath('tenant.subdomain', 'raka-topup')
             ->assertJsonPath('tenant.status', Tenant::STATUS_PENDING_PAYMENT)
-            ->assertJsonPath('invoice.amount', 500000)
+            // starter 3 bulan dari tier_pricing = 330.000 (bukan 500.000 lama)
+            ->assertJsonPath('invoice.amount', 330000)
             ->assertJsonPath('invoice.status', SubscriptionInvoice::STATUS_PENDING)
             ->assertJsonPath('invoice.gateway', 'duitku')
             ->assertJsonPath('invoice.payment_url', 'https://sandbox.duitku.test/pay/1')
@@ -103,7 +106,8 @@ class TenantOnboardingPhase3Test extends TestCase
         $this->assertDatabaseHas('subscriptions', [
             'id' => $subscription->id,
             'tier' => 'starter',
-            'price' => 500000,
+            // starter 3 bulan dari tier_pricing = 330.000
+            'price' => 330000,
             'status' => Subscription::STATUS_PENDING,
         ]);
 
@@ -132,6 +136,16 @@ class TenantOnboardingPhase3Test extends TestCase
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('terms_accepted');
 
+        $this->assertDatabaseCount('tenants', 0);
+        $this->assertDatabaseMissing('users', ['email' => 'no-terms@example.test']);
+    }
+
+    public function test_semua_tier_bisa_daftar_mandiri_termasuk_enterprise(): void
+    {
+        $this->fakeDuitkuInvoice();
+
+        // Tidak ada lagi daftar putih SELF_SERVICE_TIERS: enterprise pun
+        // self-register tanpa menghubungi sales.
         $this->postJson('/api/tenant/register', [
             'name' => 'Enterprise Owner',
             'email' => 'enterprise@example.test',
@@ -140,13 +154,32 @@ class TenantOnboardingPhase3Test extends TestCase
             'store_name' => 'Enterprise Store',
             'subdomain' => 'enterprise-store',
             'tier' => 'enterprise',
+            'duration_months' => 12,
+            'terms_accepted' => true,
+        ])->assertCreated()
+            ->assertJsonPath('tenant.subdomain', 'enterprise-store')
+            // enterprise 12 bulan dari tier_pricing = 989.000
+            ->assertJsonPath('invoice.amount', 989000);
+
+        $this->assertDatabaseHas('users', ['email' => 'enterprise@example.test']);
+    }
+
+    public function test_durasi_selain_3_dan_12_ditolak(): void
+    {
+        $this->postJson('/api/tenant/register', [
+            'name' => 'Durasi Salah',
+            'email' => 'durasi-salah@example.test',
+            'password' => 'password123',
+            'no_wa' => '081234567890',
+            'store_name' => 'Durasi Salah Store',
+            'subdomain' => 'durasi-salah',
+            'tier' => 'starter',
+            'duration_months' => 6,
             'terms_accepted' => true,
         ])->assertUnprocessable()
-            ->assertJsonValidationErrors('tier');
+            ->assertJsonValidationErrors('duration_months');
 
         $this->assertDatabaseCount('tenants', 0);
-        $this->assertDatabaseMissing('users', ['email' => 'no-terms@example.test']);
-        $this->assertDatabaseMissing('users', ['email' => 'enterprise@example.test']);
     }
 
     public function test_tenant_register_rolls_back_when_duitku_invoice_creation_fails(): void
@@ -271,7 +304,7 @@ class TenantOnboardingPhase3Test extends TestCase
             ->assertOk()
             ->assertJsonPath('tenant_status', Tenant::STATUS_ACTIVE);
 
-        $this->assertSame('Gold', $owner->fresh()->role);
+        $this->assertSame('tenant_owner', $owner->fresh()->role);
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status);
         $this->assertSame(SubscriptionInvoice::STATUS_PAID, $invoice->fresh()->status);
         $this->assertDatabaseCount('subscription_invoice_events', 2);
@@ -307,7 +340,7 @@ class TenantOnboardingPhase3Test extends TestCase
             ->assertOk()
             ->assertSee('SUCCESS');
 
-        $this->assertSame('Gold', $owner->fresh()->role);
+        $this->assertSame('tenant_owner', $owner->fresh()->role);
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status);
         $this->assertSame(Subscription::STATUS_ACTIVE, $subscription->fresh()->status);
         $this->assertSame(SubscriptionInvoice::STATUS_PAID, $invoice->fresh()->status);
@@ -438,7 +471,7 @@ class TenantOnboardingPhase3Test extends TestCase
             ->assertOk()
             ->assertSee('SUCCESS');
 
-        $this->assertSame('Gold', $owner->fresh()->role);
+        $this->assertSame('tenant_owner', $owner->fresh()->role);
         $this->assertSame(Tenant::STATUS_ACTIVE, $tenant->fresh()->status);
         $this->assertSame(Subscription::STATUS_ACTIVE, $subscription->fresh()->status);
         $this->assertSame(SubscriptionInvoice::STATUS_PAID, $invoice->fresh()->status);
@@ -450,7 +483,7 @@ class TenantOnboardingPhase3Test extends TestCase
         config(['app.url' => 'https://topupengine.test']);
 
         $owner = User::factory()->create([
-            'role' => 'Gold',
+            'role' => 'tenant_owner',
             'balance' => 25000,
         ]);
         $tenant = Tenant::query()->create([

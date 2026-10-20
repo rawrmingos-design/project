@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
+use App\Models\TierPricing;
 use Illuminate\Support\Facades\DB;
 
 class TenantProvisioningService
@@ -57,8 +58,12 @@ class TenantProvisioningService
                     ? $subscription->current_period_end   // masih berjalan → tambah penuh dari akhir periode
                     : ($subscription->current_period_end ?: now()); // sudah lewat/kosong → dari akhir periode lama
 
+                // Durasi dari paket yang dibeli (3 atau 12 bulan). Sebelumnya
+                // selalu addMonth(), jadi semua paket efektif 1 bulan.
+                $months = $this->durationMonths($subscription);
+
                 $subscription->forceFill([
-                    'current_period_end' => $basis->copy()->addMonth(),
+                    'current_period_end' => $basis->copy()->addMonths($months),
                 ])->save();
             }
 
@@ -78,9 +83,15 @@ class TenantProvisioningService
                 'theme' => $tenant->theme ?: app(TenantRegistrationService::class)->defaultTheme(),
             ])->save();
 
+            // Pemilik toko mendapat role `tenant_owner`, BUKAN `Gold`.
+            //
+            // Role Gold/Platinum adalah kelas membership untuk pembeli langsung
+            // platform (penentu harga + akses reseller hub). Kalau pemilik tenant
+            // diberi Gold, dia otomatis dapat harga Gold di website platform DAN
+            // kena middleware EnsureNotReseller di halaman deposit tenant-nya sendiri.
             if ($tenant->owner && $tenant->owner->role !== 'Admin') {
                 $tenant->owner->forceFill([
-                    'role' => 'Gold',
+                    'role' => 'tenant_owner',
                 ])->save();
             }
 
@@ -95,6 +106,16 @@ class TenantProvisioningService
 
             return $lockedInvoice->fresh(['subscription.tenant.owner']);
         });
+    }
+
+    private function durationMonths(Subscription $subscription): int
+    {
+        $months = (int) ($subscription->duration_months ?? 0);
+
+        // Langganan lama (sebelum kolom duration_months ada) diperpanjang 1 bulan,
+        // sama seperti perilaku addMonth() dulu. Jangan default ke 3: itu berarti
+        // memberi 2 bulan gratis ke semua tenant yang sudah berjalan.
+        return in_array($months, TierPricing::DURATIONS, true) ? $months : 1;
     }
 
     /**

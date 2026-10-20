@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Models\Subscription;
 use App\Models\SubscriptionInvoice;
 use App\Models\Tenant;
+use App\Models\TierPricing;
 use App\Models\User;
 use App\Services\UserIdentityService;
 use App\Support\WhatsappNumberNormalizer;
@@ -16,28 +17,25 @@ use Illuminate\Validation\ValidationException;
 
 class TenantRegistrationService
 {
-    public const TIER_PRICES = [
-        'starter' => 500_000,
-        'business' => 1_500_000,
-        'enterprise' => 0,
-    ];
-
-    public const SELF_SERVICE_TIERS = [
-        'starter',
-        'business',
-    ];
-
     public function __construct(
         private readonly SubdomainAvailabilityGuard $guard,
+        private readonly TierPricingResolver $tiers,
     ) {}
 
     public function register(array $data): array
     {
         $subdomain = $this->normalizeSubdomain((string) ($data['subdomain'] ?? ''));
-        $tier = strtolower(trim((string) ($data['tier'] ?? 'starter')));
+        $tier = $this->tiers->normalizeTier((string) ($data['tier'] ?? 'starter'));
         $email = trim((string) ($data['email'] ?? ''));
+        $duration = $this->normalizeDuration($data['duration_months'] ?? null);
 
-        if (! in_array($tier, self::SELF_SERVICE_TIERS, true)) {
+        // Semua tier bisa didaftarkan mandiri — tidak ada lagi daftar putih
+        // SELF_SERVICE_TIERS. Yang menentukan hanya `is_active` di tier_pricing.
+        // Tabel kosong BUKAN alasan menolak: resolver punya nilai fallback, dan
+        // menolak di sini akan mematikan pendaftaran sebelum seeder jalan.
+        $tierRow = $this->tiers->forTier($tier);
+
+        if ($tierRow !== null && ! $tierRow->is_active) {
             throw ValidationException::withMessages([
                 'tier' => 'Paket tidak tersedia untuk pendaftaran mandiri.',
             ]);
@@ -52,12 +50,35 @@ class TenantRegistrationService
         $existing = app(UserIdentityService::class)->findByEmail($email);
 
         if ($existing !== null) {
-            return $this->resume($existing, $data, $subdomain, $tier);
+            return $this->resume($existing, $data, $subdomain, $tier, $duration);
         }
 
         $this->assertSubdomainAvailable($subdomain);
 
-        return $this->createTenant($data, $subdomain, $tier);
+        return $this->createTenant($data, $subdomain, $tier, $duration);
+    }
+
+    /**
+     * Durasi paket yang dikenal: 3 dan 12 bulan.
+     *
+     * Nilai lain ditolak — bukan diam-diam dibulatkan, supaya tidak ada tagihan
+     * dengan harga satu paket tapi periode paket lain.
+     */
+    public function normalizeDuration(mixed $duration): int
+    {
+        $duration = (int) $duration;
+
+        if (! in_array($duration, TierPricing::DURATIONS, true)) {
+            if ($duration !== 0) {
+                throw ValidationException::withMessages([
+                    'duration_months' => 'Durasi paket harus 3 atau 12 bulan.',
+                ]);
+            }
+
+            $duration = 3;
+        }
+
+        return $duration;
     }
 
     /**
@@ -66,7 +87,7 @@ class TenantRegistrationService
      * Q2=B (resume untuk pemilik email sama), Q8=A (pakai invoice lama kalau
      * masih pending), Q9=B (subdomain boleh diganti, username ikut berganti).
      */
-    private function resume(User $owner, array $data, string $subdomain, string $tier): array
+    private function resume(User $owner, array $data, string $subdomain, string $tier, int $duration): array
     {
         // Satu user, satu peran: akun reseller H2H tidak boleh sekaligus jadi
         // pemilik toko tenant. Deteksi reseller lewat relasi (resellerIntegrations),
@@ -95,7 +116,7 @@ class TenantRegistrationService
             ]);
         }
 
-        return DB::transaction(function () use ($owner, $tenant, $data, $subdomain, $tier): array {
+        return DB::transaction(function () use ($owner, $tenant, $data, $subdomain, $tier, $duration): array {
             // Ganti subdomain (Q9=B) hanya kalau berbeda DAN masih tersedia.
             if ($subdomain !== '' && $subdomain !== $tenant->subdomain) {
                 $this->assertSubdomainAvailable($subdomain, ignoreTenantId: $tenant->id);
@@ -112,13 +133,14 @@ class TenantRegistrationService
                 $subscription = Subscription::query()->create([
                     'tenant_id' => $tenant->id,
                     'tier' => $tier,
-                    'price' => self::TIER_PRICES[$tier],
+                    'duration_months' => $duration,
+                    'price' => $this->tierPrice($tier, $duration),
                     'status' => Subscription::STATUS_PENDING,
                     'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
                 ]);
             }
 
-            $invoice = $this->resumeInvoice($subscription, $tier, $subdomain, $tenant->name);
+            $invoice = $this->resumeInvoice($subscription, $tier, $duration, $subdomain, $tenant->name);
 
             return [
                 'owner' => $owner->fresh(),
@@ -138,7 +160,7 @@ class TenantRegistrationService
      * pending yang sudah ada — bukan membuat invoice baru dengan ref baru,
      * supaya tautan pembayaran yang mungkin sudah dibuka user tetap sah.
      */
-    private function resumeInvoice(Subscription $subscription, string $tier, string $subdomain, string $storeName): SubscriptionInvoice
+    private function resumeInvoice(Subscription $subscription, string $tier, int $duration, string $subdomain, string $storeName): SubscriptionInvoice
     {
         if (($pending = $this->pendingInvoice($subscription)) !== null) {
             return $pending;
@@ -150,7 +172,7 @@ class TenantRegistrationService
             ->first();
 
         if ($invoice === null) {
-            return $this->createInvoice($subscription, $tier, $subdomain, $storeName);
+            return $this->createInvoice($subscription, $tier, $duration, $subdomain, $storeName);
         }
 
         // Invoice yang sudah dibayar tidak boleh direset.
@@ -161,7 +183,7 @@ class TenantRegistrationService
         $invoice->forceFill([
             'status' => SubscriptionInvoice::STATUS_PENDING,
             'paid_at' => null,
-            'amount' => self::TIER_PRICES[$tier],
+            'amount' => $this->tierPrice($tier, $duration),
             'due_date' => now()->addDay(),
             'metadata' => array_replace_recursive((array) $invoice->metadata, [
                 'store_name' => $storeName,
@@ -186,9 +208,9 @@ class TenantRegistrationService
         return $invoice;
     }
 
-    private function createTenant(array $data, string $subdomain, string $tier): array
+    private function createTenant(array $data, string $subdomain, string $tier, int $duration): array
     {
-        return DB::transaction(function () use ($data, $subdomain, $tier): array {
+        return DB::transaction(function () use ($data, $subdomain, $tier, $duration): array {
             $owner = User::query()->create([
                 'name' => trim((string) $data['name']),
                 'username' => $this->uniqueUsername($subdomain),
@@ -206,7 +228,7 @@ class TenantRegistrationService
                 'subdomain' => $subdomain,
                 'tier' => $tier,
                 'status' => Tenant::STATUS_PENDING_PAYMENT,
-                'margin_config' => $data['margin_config'] ?? $this->defaultMarginConfig(),
+                'margin_config' => $data['margin_config'] ?? $this->defaultMarginConfig($tier),
                 'theme' => $data['theme'] ?? $this->defaultTheme(),
                 'settings' => [
                     'contact_whatsapp' => $owner->no_wa,
@@ -218,12 +240,13 @@ class TenantRegistrationService
             $subscription = Subscription::query()->create([
                 'tenant_id' => $tenant->id,
                 'tier' => $tier,
-                'price' => self::TIER_PRICES[$tier],
+                'duration_months' => $duration,
+                'price' => $this->tierPrice($tier, $duration),
                 'status' => Subscription::STATUS_PENDING,
                 'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
             ]);
 
-            $invoice = $this->createInvoice($subscription, $tier, $subdomain, $tenant->name);
+            $invoice = $this->createInvoice($subscription, $tier, $duration, $subdomain, $tenant->name);
 
             $this->notifyRegistrationInvoice($invoice);
 
@@ -240,10 +263,11 @@ class TenantRegistrationService
     private function createInvoice(
         Subscription $subscription,
         string $tier,
+        int $duration,
         string $subdomain,
         string $storeName,
     ): SubscriptionInvoice {
-        $amount = self::TIER_PRICES[$tier];
+        $amount = $this->tierPrice($tier, $duration);
         $gateway = $amount > 0 ? 'duitku' : 'manual';
 
         // gateway_ref = merchantOrderId Duitku. WAJIB unik PER INVOICE, bukan
@@ -336,12 +360,20 @@ class TenantRegistrationService
         return $this->guard->normalize($subdomain);
     }
 
-    public function defaultMarginConfig(): array
+    public function defaultMarginConfig(?string $tier = null): array
     {
         return [
             'markup_type' => 'percent',
-            'markup_value' => 10,
+            'markup_value' => $this->tiers->tenantMarkupDefault(
+                $tier !== null ? new Tenant(['tier' => $tier]) : null
+            ),
         ];
+    }
+
+    /** Harga paket untuk tier + durasi, dibaca dari `tier_pricing`. */
+    public function tierPrice(string $tier, int $duration): int
+    {
+        return $this->tiers->priceFor(new Tenant(['tier' => $tier]), $duration);
     }
 
     public function defaultTheme(): array

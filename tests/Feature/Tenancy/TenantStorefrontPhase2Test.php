@@ -30,23 +30,26 @@ class TenantStorefrontPhase2Test extends TestCase
         parent::tearDown();
     }
 
-    public function test_tenant_pricing_uses_gold_cost_plus_percent_markup(): void
+    public function test_tenant_pricing_uses_cost_basis_plus_percent_markup(): void
     {
         $tenant = $this->makeTenant([
             'margin_config' => [
                 'markup_type' => 'percent',
                 'markup_value' => 15,
             ],
+            'tier' => 'starter',
         ]);
         $layanan = Layanan::factory()->create([
-            'harga_gold' => 10000,
+            'harga' => 10000,
         ]);
 
         $price = app(TenantPricingService::class)->forLayanan($layanan, $tenant);
 
+        // modal platform = harga pokok ; modal tenant = ×1,04 (starter) ; jual = ×1,15
         $this->assertSame(10000, $price['modal']);
-        $this->assertSame(1500, $price['profit']);
+        $this->assertSame(10400, $price['modal_tenant']);
         $this->assertSame(11500, $price['sell_price']);
+        $this->assertSame(1100, $price['profit']);
     }
 
     public function test_tenant_pricing_uses_fixed_markup(): void
@@ -56,16 +59,18 @@ class TenantStorefrontPhase2Test extends TestCase
                 'markup_type' => 'fixed',
                 'markup_value' => 2500,
             ],
+            'tier' => 'starter',
         ]);
         $layanan = Layanan::factory()->create([
-            'harga_gold' => 10000,
+            'harga' => 10000,
         ]);
 
         $price = app(TenantPricingService::class)->forLayanan($layanan, $tenant, 2);
 
         $this->assertSame(20000, $price['modal']);
+        $this->assertSame(20800, $price['modal_tenant']);
         $this->assertSame(2500, $price['profit']);
-        $this->assertSame(22500, $price['sell_price']);
+        $this->assertSame(23300, $price['sell_price']);
     }
 
     public function test_tenant_home_requires_resolved_tenant(): void
