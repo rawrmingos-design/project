@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Tenancy\TierPricingResolver;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -56,6 +57,24 @@ class TierPricing extends Model
     public static function tierNames(): array
     {
         return [self::TIER_STARTER, self::TIER_BUSINESS, self::TIER_ENTERPRISE];
+    }
+
+    /**
+     * Buang cache resolver setiap kali baris paket berubah.
+     *
+     * Proses panjang (queue worker, reverb, schedule:run) tidak di-reset per
+     * request seperti PHP-FPM, jadi tanpa ini perubahan harga dari panel admin
+     * baru terasa setelah prosesnya mati. Admin menyimpan satu baris → cache
+     * seluruh resolver dibuang, request berikutnya membaca angka baru.
+     */
+    protected static function booted(): void
+    {
+        $flush = static function (): void {
+            app(TierPricingResolver::class)->flush();
+        };
+
+        static::saved($flush);
+        static::deleted($flush);
     }
 
     public function priceForDuration(int $months): int

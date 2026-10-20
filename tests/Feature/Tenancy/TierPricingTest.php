@@ -53,6 +53,53 @@ class TierPricingTest extends TestCase
         $this->assertSame(2.0, (float) TierPricing::query()->where('tier', 'enterprise')->value('platform_markup_percent'));
     }
 
+    /**
+     * Regresi: dulu resolver tidak di-bind, jadi tiap `app()` menghasilkan objek
+     * baru dan flush() mengosongkan objek yang salah. Akibatnya admin mengubah
+     * markup di panel tetapi harga modal tenant tidak bergerak sama sekali —
+     * janji utama fitur ini. Tes ini memakai jalur yang persis dipakai runtime:
+     * satu service, satu resolver, ubah baris lewat model (seperti Filament).
+     */
+    public function test_ubah_markup_di_panel_langsung_menggeser_modal_tenant(): void
+    {
+        $this->seedTiers();
+
+        $tenant = $this->makeTenant('starter');
+        $layanan = Layanan::factory()->create(['harga' => 68900]);
+
+        $service = app(TenantPricingService::class);
+
+        // 68.900 × 1,04 = 71.656
+        $before = $service->forLayanan($layanan, $tenant);
+        $this->assertSame(71656, $before['modal_tenant']);
+
+        // Admin menyimpan dari panel: pakai model, bukan DB::table, supaya event
+        // `saved` yang membuang cache benar-benar teruji.
+        // 6%, sengaja masih di bawah markup jual tenant (8%) supaya yang diuji
+        // adalah propagasi angka, bukan guard markup-minimum.
+        TierPricing::query()->where('tier', 'starter')->first()
+            ->update(['platform_markup_percent' => 6]);
+
+        // 68.900 × 1,06 = 73.034 — tanpa flush manual di tes.
+        $after = $service->forLayanan($layanan, $tenant->fresh());
+        $this->assertSame(73034, $after['modal_tenant']);
+
+        // Harga jual customer TIDAK ikut naik: markup tenant tetap 8%.
+        $this->assertSame(74412, $after['sell_price']);
+        // Jadi profit tenant turun, sesuai janji "modal makin murah tiap naik tier".
+        $this->assertLessThan($before['profit'], $after['profit']);
+    }
+
+    public function test_resolver_dipakai_sebagai_instance_yang_sama(): void
+    {
+        // scoped(): flush() harus mengenai instance yang dipegang service,
+        // kalau tidak, perubahan harga tidak akan pernah terlihat.
+        $this->assertSame(
+            app(TierPricingResolver::class),
+            app(TierPricingResolver::class),
+        );
+    }
+
     public function test_seeder_idempoten_tidak_menimpa_angka_admin(): void
     {
         $this->seedTiers();

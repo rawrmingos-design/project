@@ -27,6 +27,7 @@ use App\Tenancy\Contracts\CloudflareDnsClientInterface;
 use App\Tenancy\Contracts\DnsResolverInterface;
 use App\Tenancy\NativeDnsResolver;
 use App\Tenancy\SubdomainAvailabilityGuard;
+use App\Tenancy\TierPricingResolver;
 use App\Tenancy\TenantContext;
 use Spatie\MediaLibrary\MediaCollections\Events\CollectionHasBeenClearedEvent;
 use Spatie\MediaLibrary\MediaCollections\Events\MediaHasBeenAddedEvent;
@@ -56,6 +57,16 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(SubdomainAvailabilityGuard::class);
+
+        // Satu instance per request/job.
+        //
+        // Resolver menyimpan cache baris tier_pricing. Kalau tidak di-bind, tiap
+        // `app(TierPricingResolver::class)` menghasilkan objek BARU, sehingga
+        // flush() mengosongkan cache objek yang berbeda dari yang dipegang
+        // TenantPricingService — akibatnya perubahan harga dari panel admin tidak
+        // pernah terlihat sampai proses PHP-nya mati. `scoped` membuat flush()
+        // benar-benar mengenai instance yang dipakai.
+        $this->app->scoped(TierPricingResolver::class);
 
         $this->app->booting(function (): void {
             $this->registerLivewireUpdateRoutes();
