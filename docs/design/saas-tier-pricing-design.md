@@ -172,27 +172,37 @@ murah = untung tenant lebih besar). Semua angka bisa diubah admin dari panel.
 > Kalau memang mau diskon nyata di 3 bulan, angkanya harus diturunkan (mis. −20% →
 > 264.000 / 348.000 / 429.600) dan harga bulanan acuan naik. Lihat **O7**.
 
-### 4.2 `platform_settings` — key-value
+### 4.2 ~~`platform_settings` — key-value~~ — **TIDAK DIBUAT: digantikan `setting_webs`**
 
 ```
 id · key (unique) · value (text, nullable) · type (string|int|bool|json)
    · group (branding|billing|tenant|feature) · timestamps
 ```
 
-Key yang dipindah dari `.env` / konstanta:
+Rencana awal tabel key-value baru. **Dibatalkan** karena `setting_webs` sudah
+persis tabel itu: satu baris, ~80 kolom, halaman Settings ber-whitelist, dan
+`DatabaseSettingsBridge` yang meneruskan nilai ke config web + queue worker.
+Membuat tabel kedua berarti dua sumber kebenaran untuk hal yang sama — kesalahan
+yang dulu terjadi pada `telegram_required_channels` (input panel diabaikan
+karena `.env` masih dibaca).
 
-| key | asal | nilai awal |
-|---|---|---|
-| `tenant.saas_enabled` | `config/tenancy.php:16` | true |
-| `tenant.subdomain_guard_enabled` | `config/tenancy.php:33` | true |
-| `billing.renewal_enabled` | `config/billing.php:24` | false |
-| `billing.reminder_days_before` | `config/billing.php:30` | 3 |
-| `billing.grace_days` | `config/billing.php:36` | 3 |
-| `billing.late_fee` | `config/billing.php:43` | 10000 |
-| `billing.payment_link_lifetime_minutes` | `config/billing.php:50` | 1440 |
-| `platform.name` | keras di blade | — |
-| `platform.tagline` | keras di blade | — |
-| `tenant.register_title` | `register.blade.php:7` | — |
+Pemetaan key rencana → kolom nyata yang dipakai:
+
+| key rencana | kolom `setting_webs` |
+|---|---|
+| `tenant.saas_enabled` | `saas_enabled` (kebalikan `tenancy.disabled`) |
+| `tenant.subdomain_guard_enabled` | `subdomain_guard_enabled` |
+| `billing.renewal_enabled` | `billing_renewal_enabled` |
+| `billing.reminder_days_before` | `billing_reminder_days_before` |
+| `billing.grace_days` | `billing_grace_days` |
+| `billing.late_fee` | `billing_late_fee` |
+| `billing.payment_link_lifetime_minutes` | `billing_payment_link_minutes` |
+| `platform.name` / `tenant.register_title` | `judul_web` |
+| `platform.tagline` | `deskripsi_web` |
+
+Semua kolom **nullable**: NULL = admin belum pernah mengisi → config `.env`
+tidak ditimpa. Backfill migrasi mengisi nilai `.env` yang sedang berlaku supaya
+panel tidak tampil kosong dan tidak ada perilaku yang berubah saat deploy.
 
 ### 4.3 ~~`platform_credentials` (terenkripsi)~~ — **DITOLAK, tidak dikerjakan**
 
@@ -267,20 +277,36 @@ tenants             (sudah ada: tier, margin_config, settings JSON)
 ## 6. Gate fitur per tier
 
 ```
-tabel tier_features (rekomendasi) atau platform_settings key `feature.gates` (JSON)
-  starter    : subdomain, flash_sale, social_proof, warna, 1 tema, PWA
-  business   : + custom_domain, atur_metode, seo_pixel, kupon, 3 tema, staff_3
-  enterprise : + semua tema, staff_unlimited, APK/TWA, laporan API
+SUMBER: kolom `tier_pricing.features` (JSON, diatur admin dari panel "Kemitraan").
+BUKAN tabel tier_features terpisah, BUKAN platform_settings.
+
+  starter    : subdomain, flash_sale, social_proof, theme_color, payment_methods
+  business   : + custom_domain, coupon
+  enterprise : + all_themes, api_report
 ```
 
-Enforcement **fail-closed di controller**, bukan hanya menyembunyikan UI:
+Enforcement **fail-closed di server**, bukan hanya menyembunyikan UI:
 
 ```php
-abort_unless(app(TierEntitlements::class)->has('custom_domain'), 403);
+app(TierEntitlements::class)->authorize($tenant, 'custom_domain'); // abort 403
 ```
 
-Sudah siap di-gate (backend jalan): custom domain · atur metode & kategori · warna tema.
-Belum: SEO & Pixel · kupon (`vouchers` belum punya `tenant_id`).
+Aturan yang mengikat implementasi:
+
+- **Fitur tidak dikenal = TIDAK dimiliki.** Salah tulis satu kunci di JSON tidak
+  boleh otomatis membuka fitur berbayar untuk semua tier.
+- **Tier yang daftar fiturnya belum diatur** memakai peta `TierEntitlements::DEFAULTS`,
+  bukan kosong — supaya fail-closed tidak mengunci platform yang sedang berjalan.
+- **Label tampilan di JSON** ("Semua fitur Business") tidak dianggap kunci gate;
+  hanya `^[a-z][a-z0-9_]*$`.
+- **Gateway pembayaran TIDAK dibedakan per tier.** Semua gateway terbuka untuk
+  semua tenant; yang mengatur tampilan metode per toko adalah
+  `TenantPaymentMethodSetting.is_visible`.
+
+Sudah ter-gate: `theme_color` (`SettingsController::update`) · `custom_domain`
+(form tenant di panel — field dinonaktifkan, karena `visible` saja tetap menyimpan
+nilai). Belum: `flash_sale`, `social_proof`, `coupon`, `all_themes`, `api_report`
+— kuncinya sudah ada, titik enforcement-nya belum.
 
 ---
 
@@ -351,7 +377,7 @@ kredensial gateway: ia hanya memilih metode yang platform sediakan
 kredensial dibaca dari baris `setting_webs` milik platform. Lihat §4.3 dan §4.3b
 untuk alasan lengkap, termasuk penolakan enkripsi.
 
-### O4 — Gate fitur: JSON di `platform_settings` atau tabel `tier_features`?
+### O4 — Gate fitur: JSON di `platform_settings` atau tabel `tier_features`? → **DIPUTUS: JSON di `tier_pricing.features`**
 
 **DIPUTUS: JSON di kolom `tier_pricing.features`** (bukan tabel terpisah).
 Sudah dikerjakan di Langkah 4 sebagai `App\Tenancy\TierEntitlements`, dengan
