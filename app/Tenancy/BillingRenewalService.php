@@ -300,8 +300,11 @@ class BillingRenewalService
             return $price;
         }
 
-        // B5: harga tier SEKARANG, bukan harga saat daftar.
-        return (int) (TenantRegistrationService::TIER_PRICES[(string) $subscription->tier] ?? 0);
+        // B5: harga tier SEKARANG, bukan harga saat daftar — dan untuk durasi
+        // yang benar-benar dibeli langganan ini.
+        $months = (int) ($subscription->duration_months ?? 3);
+
+        return app(TenantRegistrationService::class)->tierPrice((string) $subscription->tier, $months);
     }
 
     /** Invoice pending yang tautannya masih hidup. */

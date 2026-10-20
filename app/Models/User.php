@@ -203,6 +203,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
     {
         return $this->role === 'Platinum';
     }
+
+    /** Pemilik toko tenant — peran tersendiri, BUKAN reseller H2H. */
+    public function isTenantOwner(): bool
+    {
+        return $this->role === 'tenant_owner';
+    }
     
     public function isPremiumTier(): bool
     {
