@@ -61,6 +61,7 @@ class DatabaseSettingsBridge
             $this->applyTelegram($merged);
             $this->applyOrderFlags($merged);
             $this->applyWhatsappChannels($merged);
+            $this->applySaasPolicy($merged);
         } catch (\Throwable $e) {
             // DB tidak tersedia: pakai default, jangan jatuhkan proses.
             Log::warning('DatabaseSettingsBridge: DB config load failed, using defaults.', [
@@ -164,5 +165,49 @@ class DatabaseSettingsBridge
             'bot.openwa_session_id' => $config->openwa_session_id ?? null,
             'bot.openwa_webhook_secret' => $config->openwa_webhook_secret ?? null,
         ]);
+    }
+
+    /**
+     * Kebijakan SaaS & billing dari panel.
+     *
+     * Aturan penting di sini: kolom yang NULL berarti "belum diisi admin", dan
+     * dalam keadaan itu config dibiarkan apa adanya (nilai .env tetap berlaku).
+     * Jangan pakai `?? default`, karena itu akan menimpa .env dengan default
+     * begitu kolom kosong — misalnya `billing_renewal_enabled` yang di .env
+     * `true` bisa berubah jadi `false` hanya karena admin belum pernah membuka
+     * halaman setelan.
+     *
+     * `saas_enabled` adalah kebalikan dari `tenancy.disabled`, jadi pemetaannya
+     * dibalik: satu saklar di panel, dua nama di kode lama.
+     */
+    private function applySaasPolicy(object $config): void
+    {
+        if (($config->saas_enabled ?? null) !== null) {
+            config(['tenancy.disabled' => ! (bool) $config->saas_enabled]);
+        }
+
+        if (($config->subdomain_guard_enabled ?? null) !== null) {
+            config(['tenancy.subdomain_guard_enabled' => (bool) $config->subdomain_guard_enabled]);
+        }
+
+        if (($config->billing_renewal_enabled ?? null) !== null) {
+            config(['billing.renewal_enabled' => (bool) $config->billing_renewal_enabled]);
+        }
+
+        if (($config->billing_reminder_days_before ?? null) !== null) {
+            config(['billing.reminder_days_before' => max(0, (int) $config->billing_reminder_days_before)]);
+        }
+
+        if (($config->billing_grace_days ?? null) !== null) {
+            config(['billing.grace_days' => max(0, (int) $config->billing_grace_days)]);
+        }
+
+        if (($config->billing_late_fee ?? null) !== null) {
+            config(['billing.late_fee' => max(0, (int) $config->billing_late_fee)]);
+        }
+
+        if (($config->billing_payment_link_minutes ?? null) !== null) {
+            config(['billing.payment_link_lifetime_minutes' => max(1, (int) $config->billing_payment_link_minutes)]);
+        }
     }
 }

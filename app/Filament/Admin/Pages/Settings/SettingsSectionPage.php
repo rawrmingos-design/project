@@ -1513,6 +1513,71 @@ abstract class SettingsSectionPage extends Page implements HasForms
                     ->collapsed()
                     ->extraAttributes($this->onboardingSectionAttributes('bank-account')),
                     
+                // Kebijakan SaaS & penagihan tenant (semua bisa diubah tanpa deploy)
+                Section::make('Kebijakan SaaS')
+                    ->description('Saklar platform yang dulu hanya bisa diubah lewat .env. Perubahan di sini langsung berlaku pada request berikutnya, tanpa deploy dan tanpa restart.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('saas_enabled')
+                            ->label('Aktifkan SaaS (toko tenant + pendaftaran mandiri)')
+                            ->helperText('Mati = subdomain toko dan halaman pendaftaran tenant tidak dilayani (404). Harga & data tenant tidak dihapus.')
+                            ->default(true),
+
+                        Toggle::make('subdomain_guard_enabled')
+                            ->label('Pemeriksaan nama subdomain')
+                            ->helperText('Mati = pendaftaran tidak memeriksa nama terlarang / bentrok Cloudflare. Berguna saat DNS sedang bermasalah.')
+                            ->default(true),
+                    ])
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('saas-policy')),
+
+                Section::make('Penagihan Tenant')
+                    ->description('Penagihan otomatis perpanjangan paket tenant. Matikan bila billing ditangani manual.')
+                    ->columns(2)
+                    ->schema([
+                        Toggle::make('billing_renewal_enabled')
+                            ->label('Aktifkan penagihan otomatis')
+                            ->helperText('Mati = tidak ada invoice perpanjangan dan tidak ada suspend otomatis. Data tenant tetap utuh.')
+                            ->default(false),
+
+                        TextInput::make('billing_reminder_days_before')
+                            ->label('Terbitkan invoice H-berapa')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(90)
+                            ->suffix('hari')
+                            ->helperText('Berapa hari SEBELUM periode berakhir invoice perpanjangan dibuat. Bayar di jendela ini tanpa denda.')
+                            ->default(3),
+
+                        TextInput::make('billing_grace_days')
+                            ->label('Masa tenggang setelah jatuh tempo')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(90)
+                            ->suffix('hari')
+                            ->helperText('Selama masa ini tagihan sudah kena denda, tetapi toko masih aktif.')
+                            ->default(3),
+
+                        TextInput::make('billing_late_fee')
+                            ->label('Denda keterlambatan')
+                            ->numeric()
+                            ->minValue(0)
+                            ->prefix('Rp')
+                            ->helperText('Satu angka flat untuk seluruh masa tenggang, tidak bertambah per hari.')
+                            ->default(10000),
+
+                        TextInput::make('billing_payment_link_minutes')
+                            ->label('Umur tautan pembayaran')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(10080)
+                            ->suffix('menit')
+                            ->helperText('Batas dari gateway pembayaran. Invoice diterbitkan ulang harian sampai dibayar atau tenant disuspend.')
+                            ->default(1440),
+                    ])
+                    ->collapsible()
+                    ->extraAttributes($this->onboardingSectionAttributes('billing-policy')),
+
                 // Tier Markup Settings
                 Section::make('Tier Markup Settings')
                     ->description('Set default markup percentage for each selling tier')

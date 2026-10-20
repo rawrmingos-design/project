@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Billing;
 
+use App\Services\Settings\DatabaseSettingsBridge;
 use App\Tenancy\BillingRenewalService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,11 @@ class SuspendOverdueSubscriptionsCommand extends Command
 
     public function handle(BillingRenewalService $service): int
     {
+        // Sama seperti billing:renew-subscriptions: jalur console tidak memasang
+        // DatabaseSettingsBridge, jadi saklar & tenggang dari panel harus dibaca
+        // di sini dulu supaya nilai .env tidak menang.
+        app(DatabaseSettingsBridge::class)->apply();
+
         if (! config('billing.renewal_enabled', false)) {
             $this->warn('Penagihan otomatis dimatikan (billing.renewal_enabled = false). Tidak ada yang dikerjakan.');
 

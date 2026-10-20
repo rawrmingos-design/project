@@ -56,6 +56,13 @@ class SettingWeb extends Model
         'bot_order_wa_enabled' => 'boolean',
         'bot_order_tg_enabled' => 'boolean',
         'use_separate_bot_wa' => 'boolean',
+        'saas_enabled' => 'boolean',
+        'subdomain_guard_enabled' => 'boolean',
+        'billing_renewal_enabled' => 'boolean',
+        'billing_reminder_days_before' => 'integer',
+        'billing_grace_days' => 'integer',
+        'billing_late_fee' => 'integer',
+        'billing_payment_link_minutes' => 'integer',
     ];
 
     public function setTiktokAccessTokenAttribute(mixed $value): void

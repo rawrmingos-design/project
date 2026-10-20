@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Billing;
 
+use App\Services\Settings\DatabaseSettingsBridge;
 use App\Tenancy\BillingRenewalService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -15,6 +16,12 @@ class RenewSubscriptionsCommand extends Command
 
     public function handle(BillingRenewalService $service): int
     {
+        // Command ini dijalankan `schedule:run` sebagai proses CONSOLE, sedangkan
+        // DatabaseSettingsBridge hanya dipasang pada jalur web. Tanpa panggilan
+        // ini, admin mematikan penagihan dari panel tetapi cron tetap jalan
+        // memakai nilai .env — saklar di panel jadi tidak berpengaruh.
+        app(DatabaseSettingsBridge::class)->apply();
+
         if (! config('billing.renewal_enabled', false)) {
             $this->warn('Penagihan otomatis dimatikan (billing.renewal_enabled = false). Tidak ada yang dikerjakan.');
 
