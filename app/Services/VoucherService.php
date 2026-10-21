@@ -61,6 +61,12 @@ class VoucherService
 
             $affected = $voucherRow !== null ? $voucherRow->increment('stock') : 0;
 
+            // used_count ikut dikembalikan supaya batas pakai per pembeli tidak
+            // termakan order yang gagal.
+            if ($voucherRow !== null && (int) $voucherRow->used_count > 0) {
+                $voucherRow->decrement('used_count');
+            }
+
             $locked->forceFill(['voucher_stock_restored_at' => now()])->saveQuietly();
 
             if ($affected > 0) {

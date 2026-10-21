@@ -253,6 +253,46 @@ class OrderController extends Controller
         return app(TenantContext::class)->get();
     }
 
+    /**
+     * Batas pemakaian per pembeli.
+     *
+     * Dihitung dari `pembelians.voucher` — riwayat nyata, bukan penghitung di
+     * `vouchers`, karena `used_count` global tidak bisa menjawab "berapa kali
+     * ORANG INI memakainya".
+     *
+     * Dua jebakan yang sudah diperhitungkan:
+     * - `pembelians.user_id` berisi UID GAME, bukan id user pembeli
+     *   (lihat `$pembelian->user_id = $request->uid`). Pembelinya dicatat di
+     *   kolom `username`.
+     * - `pembelians.tenant_id` ada di skema tetapi tidak diisi alur checkout
+     *   web, jadi menyaringnya membuat hitungan selalu 0 dan batas tidak
+     *   pernah aktif.
+     *
+     * Order yang gagal/dibatalkan tidak dihitung: kalau dihitung, pembeli yang
+     * kena gangguan provider akan kehilangan jatahnya tanpa pernah menerima
+     * produk.
+     */
+    private function assertVoucherUsableByBuyer(Voucher $voucher, ?User $user): void
+    {
+        $batas = $voucher->max_uses_per_user;
+
+        if ($batas === null || (int) $batas <= 0 || $user === null || $user->username === null) {
+            return;
+        }
+
+        $dipakai = Pembelian::query()
+            ->where('voucher', $voucher->kode)
+            ->where('username', $user->username)
+            ->whereNotIn('status', ['Batal', 'Gagal', 'Expired'])
+            ->count();
+
+        if ($dipakai >= (int) $batas) {
+            throw new \Exception(
+                'Kupon ini hanya bisa dipakai ' . (int) $batas . ' kali per akun, dan batasnya sudah tercapai.'
+            );
+        }
+    }
+
     private function tenantPriceQuantity(Request $request): int
     {
         if (! in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)) {
@@ -431,6 +471,12 @@ class OrderController extends Controller
             app(\App\Services\Voucher\VoucherResolver::class)
                 ->resolve($this->currentTenant(), $request->voucher)
                 ?->increment('stock');
+
+            // used_count ikut dikembalikan, kalau tidak batas pakai per pembeli
+            // akan berkurang oleh order yang gagal.
+            app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($this->currentTenant(), $request->voucher)
+                ?->decrement('used_count');
         }
 
         if ($pointsReserved && Auth::check()) {
@@ -1048,7 +1094,9 @@ class OrderController extends Controller
                     $voucher = app(\App\Services\Voucher\VoucherResolver::class)
                         ->resolveForUpdate($this->currentTenant(), $request->voucher);
                     if (!$voucher || ! $voucher->isUsable()) throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
+                    $this->assertVoucherUsableByBuyer($voucher, $user);
                     $voucher->decrement('stock');
+                    $voucher->increment('used_count');
                 }
 
                 // Deduct Balance
@@ -1128,7 +1176,9 @@ class OrderController extends Controller
                         if (!$voucherGw || ! $voucherGw->isUsable()) {
                             throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                         }
+                        $this->assertVoucherUsableByBuyer($voucherGw, Auth::user());
                         $voucherGw->decrement('stock');
+                        $voucherGw->increment('used_count');
                         $voucherReserved = true;
                     });
                 } catch (\Exception $e) {
