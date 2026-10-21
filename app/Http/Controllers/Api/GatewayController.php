@@ -108,7 +108,12 @@ class GatewayController extends Controller
             'amount' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $voucher = Voucher::query()->where('kode', $validated['code'])->first();
+        // Scope tenant: kode milik tenant lain tidak boleh tervalidasi di sini.
+        $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+            ->resolve(
+                app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
+                $validated['code']
+            );
 
         if (! $voucher) {
             return response()->json([

@@ -231,7 +231,11 @@ class CheckoutOrderService
             $baseAmount = $this->resolveServiceAmount($service, $user, $request);
             $voucherCode = trim((string) $request->input('voucher', ''));
             if ($voucherCode !== '') {
-                $voucher = Voucher::query()->where('kode', $voucherCode)->lockForUpdate()->first();
+                $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                    ->resolveForUpdate(
+                        app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
+                        $voucherCode
+                    );
                 if (! $voucher || ! $voucher->isUsable()) {
                     throw ValidationException::withMessages([
                         'voucher' => 'Voucher tidak valid atau sudah kadaluarsa.',

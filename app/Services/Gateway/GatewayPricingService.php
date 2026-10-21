@@ -222,7 +222,13 @@ class GatewayPricingService
             return 0;
         }
 
-        $voucher = Voucher::query()->where('kode', $voucherCode)->first();
+        // Scope tenant: alur gateway (bot/WA/TG) juga harus memakai voucher
+        // milik toko yang sedang melayani, bukan voucher tenant lain.
+        $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+            ->resolve(
+                app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
+                $voucherCode
+            );
         if (! $voucher || ! $voucher->isUsable()) {
             throw ValidationException::withMessages([
                 'voucher' => 'Voucher tidak valid atau sudah kadaluarsa.',

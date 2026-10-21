@@ -49,7 +49,8 @@ class OrderController extends Controller
 
         $potongan = 0;
         if ($request->voucher) {
-            $voucher = Voucher::where('kode', $request->voucher)->first();
+            $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher);
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {
@@ -88,7 +89,8 @@ class OrderController extends Controller
     {
         $request->validate(['voucher' => 'required', 'service' => 'required|numeric']);
         
-        $voucher = Voucher::where('kode', $request->voucher)->first();
+        $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+            ->resolve(app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null, $request->voucher);
         if (!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan']);
         if ($voucher->stock <= 0) return response()->json(['status' => false, 'message' => 'Voucher sudah habis']);
         if ($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa']);
@@ -162,7 +164,8 @@ class OrderController extends Controller
         }
 
         if ($request->voucher) {
-            $voucher = Voucher::where('kode', $request->voucher)->first();
+            $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher);
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {

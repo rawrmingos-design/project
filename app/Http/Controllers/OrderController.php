@@ -238,6 +238,21 @@ class OrderController extends Controller
         return app()->bound(TenantContext::class) && app(TenantContext::class)->has();
     }
 
+    /**
+     * Tenant yang sedang melayani request ini, atau null untuk situs platform.
+     *
+     * Dipakai untuk meng-scope voucher: tanpa ini, kode buatan satu tenant
+     * berlaku di toko tenant lain.
+     */
+    private function currentTenant(): ?\App\Models\Tenant
+    {
+        if (! $this->hasTenantContext()) {
+            return null;
+        }
+
+        return app(TenantContext::class)->get();
+    }
+
     private function tenantPriceQuantity(Request $request): int
     {
         if (! in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)) {
@@ -305,8 +320,12 @@ class OrderController extends Controller
         $this->applyTenantPricing($data, $request);
 
         if ($request->voucher) {
-            $voucher = Voucher::where('kode', $request->voucher)->first();
-            $data->harga -= $this->calculateVoucherDiscountAmount($data->harga, $voucher);
+            // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
+            $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($this->currentTenant(), $request->voucher);
+            if ($voucher !== null) {
+                $data->harga -= $this->calculateVoucherDiscountAmount($data->harga, $voucher);
+            }
         }
 
         // OPTIMIZATION: Cache methods query for 60 minutes to reduce DB load
@@ -407,7 +426,11 @@ class OrderController extends Controller
         }
 
         if ($voucherReserved && filled($request->voucher)) {
-            Voucher::where('kode', $request->voucher)->increment('stock');
+            // Scope tenant: tanpa ini, rollback bisa menambah stok voucher
+            // tenant lain yang kebetulan kodenya sama.
+            app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($this->currentTenant(), $request->voucher)
+                ?->increment('stock');
         }
 
         if ($pointsReserved && Auth::check()) {
@@ -713,8 +736,12 @@ class OrderController extends Controller
 
         // voucher
         if ($request->voucher) {
-            $voucher = Voucher::where('kode', $request->voucher)->first();
-            $dataLayanan->harga -= $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher);
+            // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
+            $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($this->currentTenant(), $request->voucher);
+            if ($voucher !== null) {
+                $dataLayanan->harga -= $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher);
+            }
         }
 
 
@@ -894,7 +921,8 @@ class OrderController extends Controller
 
         // Voucher Logic (Calculation Only)
         if ($request->voucher) {
-            $voucher = Voucher::where('kode', $request->voucher)->first();
+            $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($this->currentTenant(), $request->voucher);
             Log::debug('Voucher found', [
                 'voucher_code' => $request->voucher,
                 'voucher_id' => $voucher->id ?? null,
@@ -1017,7 +1045,8 @@ class OrderController extends Controller
 
                 // Voucher Stock Decrement
                 if ($request->voucher) {
-                    $voucher = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
+                    $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+                        ->resolveForUpdate($this->currentTenant(), $request->voucher);
                     if (!$voucher || ! $voucher->isUsable()) throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                     $voucher->decrement('stock');
                 }
@@ -1094,7 +1123,8 @@ class OrderController extends Controller
             if ($request->voucher) {
                 try {
                     DB::transaction(function () use ($request, &$voucherReserved) {
-                        $voucherGw = Voucher::where('kode', $request->voucher)->lockForUpdate()->first();
+                        $voucherGw = app(\App\Services\Voucher\VoucherResolver::class)
+                            ->resolveForUpdate($this->currentTenant(), $request->voucher);
                         if (!$voucherGw || ! $voucherGw->isUsable()) {
                             throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                         }

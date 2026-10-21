@@ -54,9 +54,12 @@ class VoucherService
                 return;
             }
 
-            $affected = Voucher::query()
-                ->where('kode', $voucherCode)
-                ->increment('stock');
+            // Scope tenant order ini. Tanpa itu, dua tenant yang memakai kode
+            // sama akan saling menambah stok saat order gagal.
+            $voucherRow = app(\App\Services\Voucher\VoucherResolver::class)
+                ->resolve($locked->tenant_id, $voucherCode);
+
+            $affected = $voucherRow !== null ? $voucherRow->increment('stock') : 0;
 
             $locked->forceFill(['voucher_stock_restored_at' => now()])->saveQuietly();
 
