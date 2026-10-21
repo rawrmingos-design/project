@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Voucher;
 use App\Models\Layanan;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class VoucherController extends Controller
 {
@@ -16,8 +17,11 @@ class VoucherController extends Controller
     
     public function store(Request $request)
     {
+        // Voucher yang dibuat dari panel admin selalu milik platform, jadi
+        // keunikannya hanya dibanding voucher platform lain. Tanpa `where`,
+        // kode yang sudah dipakai seorang tenant akan salah ditolak.
         $request->validate([
-            'kode' => 'required|unique:vouchers,kode',
+            'kode' => ['required', Rule::unique('vouchers', 'kode')->whereNull('tenant_id')],
             'promo' => 'required|numeric|min:0|max:100',
             'stock' => 'required|numeric|min:0',
             'max_potongan' => 'required|numeric|min:0',
@@ -49,8 +53,14 @@ class VoucherController extends Controller
             'voucher' => 'required'
         ]);
         
-        $voucher = Voucher::where('kode', $request->voucher)->first();
-        
+        // Resolusi terpusat: di situs tenant hanya voucher tenant itu dan
+        // voucher platform yang boleh ditemukan.
+        $voucher = app(\App\Services\Voucher\VoucherResolver::class)
+            ->resolve(
+                app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
+                $request->voucher
+            );
+
         if(!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan'], 404);
         if($voucher->stock <= 0) return response()->json(['status' => false, 'message' => 'Voucher sudah tidak valid'], 404);
         if($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa'], 422);

@@ -3,9 +3,12 @@
 namespace App\Filament\Admin\Resources\Vouchers\Schemas;
 
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Services\Get;
+use Illuminate\Validation\Rules\Unique;
 
 class VoucherForm
 {
@@ -16,14 +19,44 @@ class VoucherForm
                 Section::make('Voucher Information')
                     ->columns(2)
                     ->schema([
+                        // Pemilik voucher menentukan cakupannya:
+                        // kosong = platform (berlaku di semua toko),
+                        // terisi = hanya toko tenant itu.
+                        Select::make('tenant_id')
+                            ->label('Pemilik')
+                            ->relationship('tenant', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Platform (berlaku di semua toko)')
+                            ->helperText('Kosongkan untuk voucher platform. Pilih tenant supaya kode hanya berlaku di tokonya.')
+                            ->columnSpanFull(),
+
                         TextInput::make('kode')
                             ->label('Voucher Code')
                             ->required()
-                            ->unique(ignoreRecord: true)
                             ->maxLength(255)
                             ->placeholder('e.g., DISCOUNT50')
-                            ->helperText('Unique voucher code for users to redeem'),
-                            
+                            // Keunikan per cakupan: dua tenant boleh memakai kode
+                            // yang sama; dalam satu cakupan harus unik. Tanpa
+                            // where(), validasi ini menolak kode yang sah.
+                            ->unique(
+                                ignoreRecord: true,
+                                modifyRuleUsing: fn (Unique $rule, Get $get) => $rule
+                                    ->where(fn ($query) => $get('tenant_id')
+                                        ? $query->where('tenant_id', $get('tenant_id'))
+                                        : $query->whereNull('tenant_id'))
+                            )
+                            ->helperText('Kode unik dalam cakupan pemiliknya'),
+
+                        Select::make('layanan_id')
+                            ->label('Produk')
+                            ->relationship('layanan', 'layanan')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Semua produk')
+                            ->helperText('Kosongkan untuk semua produk. Isi untuk membatasi ke satu produk.')
+                            ->columnSpanFull(),
+
                         TextInput::make('promo')
                             ->label('Discount Percentage')
                             ->required()

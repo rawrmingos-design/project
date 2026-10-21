@@ -20,6 +20,22 @@ class VouchersTable
     {
         return $table
             ->columns([
+                // Pemilik voucher menentukan cakupan: "Platform" berlaku di
+                // semua toko, nama tenant berarti kode itu hanya berlaku di
+                // tokonya. Tanpa kolom ini admin tidak bisa membedakan keduanya.
+                TextColumn::make('tenant.name')
+                    ->label('Pemilik')
+                    ->placeholder('Platform')
+                    ->badge()
+                    ->color(fn ($state) => $state === null ? 'gray' : 'info')
+                    ->sortable(),
+
+                TextColumn::make('layanan.layanan')
+                    ->label('Produk')
+                    ->placeholder('Semua produk')
+                    ->limit(28)
+                    ->toggleable(),
+
                 TextColumn::make('kode')
                     ->label('Voucher Code')
                     ->searchable()

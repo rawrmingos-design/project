@@ -69,6 +69,7 @@ use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
 use App\Http\Controllers\Tenant\SettingsController as TenantSettingsController;
+use App\Http\Controllers\Tenant\VoucherController as TenantVoucherController;
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
@@ -172,6 +173,13 @@ Route::middleware(['tenant.resolve', 'tenant.inactive', 'tenant.required', 'xss'
         Route::get('/dashboard', TenantDashboardController::class)->name('dashboard');
         Route::get('/settings', [TenantSettingsController::class, 'edit'])->name('settings');
         Route::post('/settings', [TenantSettingsController::class, 'update'])->name('settings.update');
+
+        // Kupon milik tenant. Dikelola dari situs toko, bukan panel Filament:
+        // `User::canAccessPanel()` hanya untuk role Admin, jadi tenant_owner
+        // tidak punya akses panel.
+        Route::get('/vouchers', [TenantVoucherController::class, 'index'])->name('vouchers');
+        Route::post('/vouchers', [TenantVoucherController::class, 'store'])->name('vouchers.store');
+        Route::delete('/vouchers/{id}', [TenantVoucherController::class, 'destroy'])->name('vouchers.destroy');
     });
     Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
         ->missing(fn () => redirect('/', 302))
