@@ -24,8 +24,16 @@ use Illuminate\Support\Facades\Schema;
  * - `used_count`    penghitung pemakaian nyata; sebelumnya tidak ada yang
  *                   menghitung, jadi "stock" adalah satu-satunya kendali.
  *
- * Keunikan kode: unique `(tenant_id, kode)`. Tanpa `nullsNotDistinct()`, dua
- * voucher PLATFORM berkode sama tetap lolos karena NULL != NULL di SQL.
+ * Keunikan kode: unique `(tenant_id, kode)`.
+ *
+ * BATASAN YANG DISADARI: MySQL tidak punya `NULLS NOT DISTINCT` (itu fitur
+ * PostgreSQL), jadi indeks ini TIDAK menahan dua voucher PLATFORM berkode sama
+ * — NULL != NULL di SQL, sehingga dua baris `tenant_id NULL, kode 'X'` sama-sama
+ * lolos. Keunikan voucher platform karena itu dijaga di level aplikasi
+ * (`VoucherController`, `VoucherForm`, `Tenant\VoucherController`), dan
+ * functional index `COALESCE(tenant_id, 0)` sengaja tidak dipakai supaya tidak
+ * bergantung pada versi MySQL. Untuk voucher milik tenant, indeks ini berlaku
+ * penuh.
  */
 return new class extends Migration
 {
