@@ -260,13 +260,15 @@ class OrderController extends Controller
      * `vouchers`, karena `used_count` global tidak bisa menjawab "berapa kali
      * ORANG INI memakainya".
      *
-     * Dua jebakan yang sudah diperhitungkan:
-     * - `pembelians.user_id` berisi UID GAME, bukan id user pembeli
-     *   (lihat `$pembelian->user_id = $request->uid`). Pembelinya dicatat di
-     *   kolom `username`.
-     * - `pembelians.tenant_id` ada di skema tetapi tidak diisi alur checkout
-     *   web, jadi menyaringnya membuat hitungan selalu 0 dan batas tidak
-     *   pernah aktif.
+     * Jebakan yang sudah diperhitungkan: `pembelians.user_id` berisi UID GAME,
+     * bukan id user pembeli (lihat `$pembelian->user_id = $request->uid`).
+     * Pembelinya dicatat di kolom `username`. Versi pertama guard ini memakai
+     * `user_id`, sehingga hitungannya selalu 0 dan batas tidak pernah aktif.
+     *
+     * `pembelians.tenant_id` TIDAK disaring, meskipun kolomnya terisi lewat
+     * trait `BelongsToTenant`. Alasannya: kode voucher + username sudah cukup
+     * menjawab "berapa kali orang ini memakai kupon ini", dan filter tambahan
+     * akan mengubah hitungan kalau order lama tercatat dengan tenant_id NULL.
      *
      * Order yang gagal/dibatalkan tidak dihitung: kalau dihitung, pembeli yang
      * kena gangguan provider akan kehilangan jatahnya tanpa pernah menerima
