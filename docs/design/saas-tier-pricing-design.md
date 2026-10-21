@@ -305,8 +305,65 @@ Aturan yang mengikat implementasi:
 
 Sudah ter-gate: `theme_color` (`SettingsController::update`) · `custom_domain`
 (form tenant di panel — field dinonaktifkan, karena `visible` saja tetap menyimpan
-nilai). Belum: `flash_sale`, `social_proof`, `coupon`, `all_themes`, `api_report`
-— kuncinya sudah ada, titik enforcement-nya belum.
+nilai) · `coupon` (`Tenant\VoucherController::authorizeOwner`, GET **dan** POST —
+menyembunyikan menu saja tidak cukup). Belum: `flash_sale`, `social_proof`,
+`all_themes`, `api_report` — kuncinya sudah ada, titik enforcement-nya belum.
+
+### 6.1 Kupon voucher — siapa menanggung diskon
+
+Diskon kupon ditanggung **tenant**, bukan platform. Ini bukan pilihan gaya:
+`promo` adalah persen dari harga jual, sedangkan margin tenant dihitung dari
+harga pokok, jadi keduanya bergerak ke arah berbeda.
+
+Angka nyata (provider 100.000, platform 2%, tenant 5%):
+
+```
+harga jual ke customer        105.000
+modal tenant (beli platform)  102.000
+margin tenant                   3.000   <- 2,857% dari harga jual
+voucher promo 20%              -21.000
+------------------------------------------------
+dibayar customer               84.000
+margin tenant tersisa         -18.000   <- rugi
+```
+
+Karena itu **tidak ada cap buatan** (keputusan pemilik platform: tenant yang
+menanggung, jadi tenant yang menentukan). Yang ada hanya lantai harga:
+`harga_setelah_diskon − modal_tenant >= 0`. Di bawah lantai itu order
+**ditolak**, bukan dipotong diam-diam — harga yang dijanjikan ke customer harus
+sama dengan yang dibayarnya.
+
+Lantai ini **per produk**, karena `layanans` tidak punya `tenant_id` (satu
+katalog dipakai semua tenant) dan margin tiap produk berbeda. Halaman kupon
+tenant menampilkan saran batas aman dari produk bermargin paling tipis, tetapi
+penentunya tetap validasi saat checkout.
+
+Sebelum diperbaiki, platform yang menanggung: `calculateOrderProfitAmount()`
+memakai `tenant_profit` yang dihitung **sebelum** voucher, jadi profit tenant
+tetap penuh dan selisihnya hilang dari platform. Diverifikasi dengan tes
+(profit tersimpan 3.000 padahal seharusnya 1.425).
+
+### 6.2 Isolasi kupon antar tenant
+
+`vouchers` semula hanya global milik platform, dan **11 titik** memanggil
+`Voucher::where('kode', ...)` tanpa scope — kode buatan satu tenant berlaku di
+toko tenant lain. Semua sekarang lewat `App\Services\Voucher\VoucherResolver`:
+
+| Jalur | Titik |
+|---|---|
+| `OrderController` (web) | 6 |
+| `Api\OrderController` | 2 |
+| `Api\GatewayController` | 1 |
+| `CheckoutOrderService` | 1 |
+| `GatewayPricingService` | 1 |
+| `VoucherService` (restore stok) | 1 |
+
+Skema: `tenant_id` NULL = voucher platform (berlaku lintas toko), terisi = milik
+tenant itu. `layanan_id` NULL = semua produk. Unique `(tenant_id, kode)`; tenant
+boleh memakai kode yang sama dengan tenant lain, tidak boleh dengan platform.
+
+Urutan resolusi: voucher tenant **menang** atas voucher platform berkode sama,
+supaya tenant bisa memakai kode umum seperti `PROMO10`.
 
 ---
 
@@ -429,6 +486,14 @@ Memperluas `setting_webs` (bukan `platform_settings` baru): 7 kolom nullable
 **Langkah 5 — ~~`platform_credentials` terenkripsi~~** — ❌ **DIBATALKAN**
 Premisnya salah (tenant tidak pernah memegang kredensial gateway) dan enkripsi
 kredensial ditolak pemilik platform. Lihat §4.3 dan §4.3b.
+
+**Langkah 6 — kupon/voucher milik tenant** — ✅ **SELESAI**
+`vouchers` dapat `tenant_id`, `layanan_id`, `max_uses_per_user`, `used_count`,
+unique `(tenant_id, kode)`. Resolusi dipusatkan di `VoucherResolver` (11 titik,
+bukan 5 seperti perkiraan awal — lihat §6.2). Diskon ditanggung tenant dan
+dijaga lantai harga `harga_setelah_diskon >= modal_tenant` (§6.1). Halaman
+`/vouchers` untuk pemilik toko, karena panel Filament hanya untuk role Admin.
+`max_uses_per_user` benar-benar ditegakkan dari riwayat `pembelians`.
 
 ---
 
