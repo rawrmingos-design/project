@@ -928,6 +928,25 @@ class OrderController extends Controller
 
         $baseServiceAmount = max(0, (int) round((float) $dataLayanan->harga));
         $gatewayFeeAmount = $this->calculateMethodFeeAmount($baseServiceAmount, $dataMethod);
+
+        // Diskon voucher adalah biaya TENANT, bukan platform.
+        //
+        // `applyTenantPricing()` di atas menghitung margin tenant dari harga
+        // SEBELUM voucher, dan `calculateOrderProfitAmount()` memakai nilai itu
+        // apa adanya — sehingga diskon tidak pernah mengurangi bagian tenant.
+        // Akibatnya platform yang menanggung diskonnya.
+        //
+        // Di sini margin dihitung ulang dari harga setelah diskon. Kalau harga
+        // sudah turun di bawah modal tenant, transaksi ditolak: tenant tidak
+        // punya cara menutup selisih itu, dan membiarkannya berarti platform
+        // membayar diskon yang bukan keputusannya.
+        $marginError = $this->applyTenantMarginAfterDiscount($dataLayanan, $baseServiceAmount);
+        if ($marginError !== null) {
+            $this->restoreCheckoutReservations($flashSaleReserved, false, false, false, $request, $dataLayanan, 0, $order_id ?? '');
+
+            return $this->orderErrorResponse($marginError, 'VOUCHER_BELOW_TENANT_MARGIN');
+        }
+
         $amountBeforePoint = (int) round($baseServiceAmount + $gatewayFeeAmount);
         $pointUsage = $this->resolvePointUsage($amountBeforePoint, (int) $request->use_point);
         $usedPoints = $pointUsage['used_points'];
@@ -1902,11 +1921,55 @@ class OrderController extends Controller
         return $context;
     }
 
+    /**
+     * Hitung ulang margin tenant dari harga SETELAH diskon voucher.
+     *
+     * Kenapa perlu: `applyTenantPricing()` menghitung `tenant_profit` dari harga
+     * sebelum voucher, dan `calculateOrderProfitAmount()` memakai nilai itu apa
+     * adanya. Artinya tanpa perhitungan ulang di sini, diskon tidak pernah
+     * mengurangi bagian tenant — platform yang menanggungnya.
+     *
+     * Aturan yang ditegakkan:
+     * - margin tenant = harga setelah diskon − modal tenant
+     * - kalau hasilnya negatif, transaksi DITOLAK (return pesan), karena tenant
+     *   menjual di bawah modalnya dan tidak punya cara menutup selisihnya
+     *
+     * Hanya berlaku di konteks tenant. Order platform (tanpa tenant) tidak
+     * berubah perilakunya.
+     */
+    private function applyTenantMarginAfterDiscount($dataLayanan, int $amountAfterDiscount): ?string
+    {
+        if (! $this->hasTenantContext() || ! is_numeric($dataLayanan->tenant_modal_harga ?? null)) {
+            return null;
+        }
+
+        $modalTenant = (int) round((float) $dataLayanan->tenant_modal_harga);
+        $marginBaru = $amountAfterDiscount - $modalTenant;
+
+        if ($marginBaru < 0) {
+            return sprintf(
+                'Harga setelah diskon (Rp %s) di bawah harga beli toko dari platform (Rp %s). Kurangi diskon voucher atau naikkan markup toko.',
+                number_format($amountAfterDiscount, 0, ',', '.'),
+                number_format($modalTenant, 0, ',', '.'),
+            );
+        }
+
+        $dataLayanan->tenant_profit = $marginBaru;
+        $dataLayanan->profit = $marginBaru;
+
+        return null;
+    }
+
     private function calculateOrderProfitAmount(int $amount, $dataLayanan, array $providerContext, array $gatewayMeta = [], $dataMethod = null): int
     {
         $normalizedAmount = max(0, $amount);
 
         if ($this->hasTenantContext() && is_numeric($dataLayanan->tenant_profit ?? null)) {
+            // Margin tenant sudah dihitung ulang setelah diskon voucher di
+            // applyTenantMarginAfterDiscount(). Kalau nilainya negatif (modal
+            // tenant lebih besar dari yang dibayar customer), order seharusnya
+            // sudah ditolak di atas; di sini dijaga agar tidak pernah dikreditkan
+            // sebagai angka negatif ke saldo owner.
             return max(0, (int) round((float) $dataLayanan->tenant_profit));
         }
 
