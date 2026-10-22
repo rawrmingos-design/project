@@ -63,9 +63,10 @@ class VoucherController extends Controller
         ]);
 
         // Keunikan per cakupan: tenant boleh memakai kode yang sama dengan
-        // tenant lain, tapi tidak dengan kode platform atau kodenya sendiri.
+        // platform maupun tenant lain, karena kuponnya tidak pernah bertemu.
+        // Yang dilarang hanya duplikat di dalam toko itu sendiri.
         $bentrok = Voucher::query()
-            ->availableTo($tenant->id)
+            ->ownedBy($tenant->id)
             ->whereRaw('LOWER(kode) = ?', [strtolower($validated['kode'])])
             ->exists();
 
@@ -89,7 +90,7 @@ class VoucherController extends Controller
 
         return redirect()
             ->route('tenant.vouchers')
-            ->with('success', 'Kupon dibuat. Diskon akan mengurangi margin toko Anda, bukan pendapatan platform.');
+            ->with('success', 'Kupon dibuat dan hanya berlaku di toko Anda.');
     }
 
     public function destroy(Request $request, TenantContext $tenantContext, TierEntitlements $entitlements, int $id)

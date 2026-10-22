@@ -53,8 +53,9 @@ class VoucherController extends Controller
             'voucher' => 'required'
         ]);
         
-        // Resolusi terpusat: di situs tenant hanya voucher tenant itu dan
-        // voucher platform yang boleh ditemukan.
+        // Resolusi terpusat: di situs tenant hanya voucher MILIK TENANT ITU yang
+        // boleh ditemukan; di situs platform hanya voucher platform. Kupon tidak
+        // pernah menyeberang (lihat Voucher::scopeAvailableTo).
         $voucher = app(\App\Services\Voucher\VoucherResolver::class)
             ->resolve(
                 app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,

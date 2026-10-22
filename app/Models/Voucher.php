@@ -51,10 +51,18 @@ class Voucher extends Model
     }
 
     /**
-     * Voucher yang boleh dipakai di situs sebuah tenant.
+     * Voucher yang boleh dipakai di sebuah situs — ISOLASI KETAT.
      *
-     * Milik tenant itu sendiri, ATAU milik platform (tenant_id NULL) yang
-     * memang berlaku lintas toko.
+     * Situs platform hanya melihat voucher platform; toko tenant hanya melihat
+     * voucher miliknya sendiri. Tidak ada voucher yang menyeberang.
+     *
+     * Kenapa bukan "voucher platform berlaku di semua toko" (perilaku lama):
+     * kupon platform yang dipakai di toko tenant memotong MARGIN TENANT, bukan
+     * margin platform, karena `applyTenantMarginAfterDiscount()` tidak
+     * membedakan pemilik kupon. Artinya promo platform membuat tenant nombok
+     * tanpa pernah menyetujuinya — dan kalau promo itu melewati lantai modal
+     * tenant, ordernya ditolak di toko tenant padahal jalan di situs platform.
+     * Isolasi menghapus pertanyaan "siapa menanggung" sepenuhnya.
      */
     public function scopeAvailableTo(Builder $query, ?int $tenantId): Builder
     {
@@ -62,9 +70,7 @@ class Voucher extends Model
             return $query->whereNull('tenant_id');
         }
 
-        return $query->where(function (Builder $q) use ($tenantId): void {
-            $q->where('tenant_id', $tenantId)->orWhereNull('tenant_id');
-        });
+        return $query->where('tenant_id', $tenantId);
     }
 
     public function scopeOwnedBy(Builder $query, int $tenantId): Builder

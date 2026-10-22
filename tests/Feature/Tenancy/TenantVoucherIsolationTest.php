@@ -177,9 +177,14 @@ class TenantVoucherIsolationTest extends TestCase
         $this->assertSame($sebelum, Pembelian::query()->count(), 'tidak ada order dibuat di toko B');
     }
 
-    public function test_voucher_platform_berlaku_di_kedua_toko(): void
+    public function test_voucher_platform_tidak_berlaku_di_toko_tenant(): void
     {
-        Voucher::create([
+        // Perubahan perilaku yang disengaja. Dulu kupon platform berlaku di
+        // semua toko, sehingga promo platform memotong margin tenant yang tidak
+        // pernah menyetujuinya — dan ordernya bisa ditolak di toko tenant saat
+        // promo melewati lantai modal. Sekarang kupon hanya berlaku di tempat
+        // ia dibuat.
+        $voucher = Voucher::create([
             'tenant_id' => null,
             'kode' => 'PROMO-PLATFORM',
             'promo' => 1.5,
@@ -188,13 +193,16 @@ class TenantVoucherIsolationTest extends TestCase
             'max_potongan' => 0,
         ]);
 
+        $sebelum = Pembelian::query()->count();
+
         $this->checkout($this->tenantA, $this->pembeliA, 'PROMO-PLATFORM')
-            ->assertOk()->assertJson(['status' => true]);
+            ->assertOk()->assertJson(['status' => false]);
 
         $this->checkout($this->tenantB, $this->pembeliB, 'PROMO-PLATFORM')
-            ->assertOk()->assertJson(['status' => true]);
+            ->assertOk()->assertJson(['status' => false]);
 
-        $this->assertSame(2, Pembelian::query()->count());
+        $this->assertSame($sebelum, Pembelian::query()->count(), 'tidak ada order dibuat di toko mana pun');
+        $this->assertSame(10, (int) $voucher->fresh()->stock, 'stok kupon platform tidak tersentuh');
     }
 
     public function test_stok_dipotong_pada_voucher_tenant_yang_benar(): void

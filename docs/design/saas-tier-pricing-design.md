@@ -343,7 +343,23 @@ memakai `tenant_profit` yang dihitung **sebelum** voucher, jadi profit tenant
 tetap penuh dan selisihnya hilang dari platform. Diverifikasi dengan tes
 (profit tersimpan 3.000 padahal seharusnya 1.425).
 
-### 6.2 Isolasi kupon antar tenant
+### 6.2 Isolasi kupon — KETAT, satu arah
+
+**Aturan final (keputusan pemilik platform): kupon hanya berlaku di tempat ia
+dibuat.** Kupon platform hanya di situs platform; kupon tenant hanya di toko
+tenant itu. Tidak ada kupon yang menyeberang.
+
+Kenapa bukan "kupon platform berlaku di semua toko" (perilaku sebelumnya):
+`applyTenantMarginAfterDiscount()` tidak membedakan pemilik kupon, jadi kupon
+platform yang dipakai di toko tenant memotong **margin tenant** — tenant nombok
+untuk promo yang tidak pernah ia setujui. Lebih jauh, kalau diskon melewati
+lantai modal tenant, ordernya **ditolak** di toko tenant padahal jalan di situs
+platform. Isolasi menghapus pertanyaan "siapa menanggung" sepenuhnya, sehingga
+§6.1 hanya berlaku untuk kupon milik tenant.
+
+Konsekuensi yang diterima: kode yang sama boleh hidup berdampingan di platform
+dan tiap tenant, karena cakupannya tidak pernah bertemu. Keunikan hanya dijaga
+di dalam satu cakupan.
 
 `vouchers` semula hanya global milik platform, dan **11 titik** memanggil
 `Voucher::where('kode', ...)` tanpa scope — kode buatan satu tenant berlaku di
@@ -358,12 +374,21 @@ toko tenant lain. Semua sekarang lewat `App\Services\Voucher\VoucherResolver`:
 | `GatewayPricingService` | 1 |
 | `VoucherService` (restore stok) | 1 |
 
-Skema: `tenant_id` NULL = voucher platform (berlaku lintas toko), terisi = milik
-tenant itu. `layanan_id` NULL = semua produk. Unique `(tenant_id, kode)`; tenant
-boleh memakai kode yang sama dengan tenant lain, tidak boleh dengan platform.
+Skema: `tenant_id` NULL = voucher platform, terisi = milik tenant itu. Keduanya
+**tidak saling terlihat**. `layanan_id` NULL = semua produk.
 
-Urutan resolusi: voucher tenant **menang** atas voucher platform berkode sama,
-supaya tenant bisa memakai kode umum seperti `PROMO10`.
+### 6.2a FK `nullOnDelete` adalah jebakan, bukan kenyamanan
+
+FK `vouchers.tenant_id` semula `nullOnDelete`. Untuk tabel biasa itu wajar, tapi
+TIDAK untuk voucher: `tenant_id NULL` secara definisi berarti "kupon platform".
+Menghapus tenant karena itu mengubah kuponnya menjadi kupon platform — promo
+satu toko tiba-tiba berlaku di seluruh platform, dan platform yang nombok.
+
+Sudah diganti `cascadeOnDelete` lewat migrasi
+`2026_10_23_000000_vouchers_tenant_cascade_delete`, plus hook
+`Tenant::booted()` untuk jalur aplikasi (hook Eloquent tidak jalan untuk
+`DELETE` massal, dan SQLite di tes tidak menegakkan FK). Keduanya diuji
+terpisah: mematikan hook membuat tes gagal.
 
 ---
 
@@ -494,6 +519,13 @@ bukan 5 seperti perkiraan awal — lihat §6.2). Diskon ditanggung tenant dan
 dijaga lantai harga `harga_setelah_diskon >= modal_tenant` (§6.1). Halaman
 `/vouchers` untuk pemilik toko, karena panel Filament hanya untuk role Admin.
 `max_uses_per_user` benar-benar ditegakkan dari riwayat `pembelians`.
+
+**Langkah 7 — isolasi kupon ketat** — ✅ **SELESAI**
+Kupon hanya berlaku di tempat ia dibuat; tidak ada lagi kupon platform yang
+berlaku lintas toko. FK `vouchers.tenant_id` diganti `cascadeOnDelete` supaya
+kupon tenant tidak "naik pangkat" jadi kupon platform saat tenantnya dihapus.
+Mengubah perilaku ini memecah 3 tes lama yang sengaja mengunci perilaku
+sebelumnya; ketiganya diperbarui dengan alasan tertulis di masing-masing tes.
 
 ---
 

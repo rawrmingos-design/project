@@ -12,13 +12,13 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * Isolasi voucher per tenant.
+ * Isolasi KETAT voucher: kupon hanya berlaku di tempat ia dibuat.
  *
- * Yang dijaga: kode buatan satu tenant tidak boleh berlaku di toko tenant lain,
- * dan voucher platform (tenant_id NULL) tetap bisa dipakai lintas toko.
+ * Yang dijaga: kode buatan satu tenant tidak berlaku di toko tenant lain, dan
+ * voucher platform (tenant_id NULL) TIDAK berlaku di toko tenant mana pun.
  *
- * Sebelum perubahan ini, `Voucher::where('kode', ...)` tidak punya scope sama
- * sekali — satu kode buatan siapa pun berlaku di semua toko.
+ * Sebelum `vouchers.tenant_id` ada, `Voucher::where('kode', ...)` tidak punya
+ * scope sama sekali — satu kode buatan siapa pun berlaku di semua toko.
  */
 class VoucherTenantScopeTest extends TestCase
 {
@@ -86,12 +86,18 @@ class VoucherTenantScopeTest extends TestCase
         );
     }
 
-    public function test_voucher_platform_berlaku_di_semua_toko(): void
+    public function test_voucher_platform_tidak_berlaku_di_toko_tenant(): void
     {
-        $this->makeVoucher(null, 'SEMUA-TOKO');
+        // Perubahan perilaku yang disengaja: kupon platform dulu berlaku lintas
+        // toko, sehingga promo platform memotong margin tenant yang tidak
+        // menyetujuinya. Sekarang kupon hanya berlaku di tempat ia dibuat.
+        $this->makeVoucher(null, 'PROMO-PLATFORM');
 
-        $this->assertNotNull($this->resolver->resolve($this->tenantA, 'SEMUA-TOKO'));
-        $this->assertNotNull($this->resolver->resolve($this->tenantB, 'SEMUA-TOKO'));
+        $this->assertNull($this->resolver->resolve($this->tenantA, 'PROMO-PLATFORM'));
+        $this->assertNull($this->resolver->resolve($this->tenantB, 'PROMO-PLATFORM'));
+
+        // Tetap berlaku di situs platform — di situlah ia dibuat.
+        $this->assertNotNull($this->resolver->resolve(null, 'PROMO-PLATFORM'));
     }
 
     public function test_situs_platform_tidak_menemukan_voucher_tenant(): void
@@ -104,20 +110,19 @@ class VoucherTenantScopeTest extends TestCase
         );
     }
 
-    public function test_voucher_tenant_menang_atas_voucher_platform_berkode_sama(): void
+    public function test_kode_sama_di_platform_dan_tenant_tidak_saling_mengganggu(): void
     {
-        $this->makeVoucher(null, 'PROMO10', ['promo' => 20]);
+        $milikPlatform = $this->makeVoucher(null, 'PROMO10', ['promo' => 20]);
         $milikTenant = $this->makeVoucher($this->tenantA->id, 'PROMO10', ['promo' => 3]);
 
-        $hasil = $this->resolver->resolve($this->tenantA, 'PROMO10');
+        // Cakupan tidak pernah bertemu, jadi masing-masing dapat versinya sendiri
+        // tanpa perlu aturan "siapa menang".
+        $this->assertSame($milikTenant->id, $this->resolver->resolve($this->tenantA, 'PROMO10')?->id);
+        $this->assertSame($milikPlatform->id, $this->resolver->resolve(null, 'PROMO10')?->id);
 
-        $this->assertSame($milikTenant->id, $hasil->id);
-        $this->assertSame(3.0, (float) $hasil->promo);
-
-        // Tenant B tidak punya voucher sendiri -> dapat versi platform.
-        $diB = $this->resolver->resolve($this->tenantB, 'PROMO10');
-        $this->assertNull($diB->tenant_id);
-        $this->assertSame(20.0, (float) $diB->promo);
+        // Tenant B tidak punya kupon sendiri -> tidak dapat apa pun, termasuk
+        // versi platform.
+        $this->assertNull($this->resolver->resolve($this->tenantB, 'PROMO10'));
     }
 
     public function test_kode_kosong_tidak_menemukan_apa_pun(): void
@@ -150,15 +155,17 @@ class VoucherTenantScopeTest extends TestCase
         $this->assertSame(1000, $this->makeVoucher(null, 'F', ['promo' => 100])->discountFor(1000));
     }
 
-    public function test_hapus_tenant_tidak_menghapus_voucher_platform(): void
+    public function test_hapus_tenant_ikut_menghapus_kuponnya(): void
     {
         $milikTenant = $this->makeVoucher($this->tenantA->id, 'IKUT-HAPUS');
         $milikPlatform = $this->makeVoucher(null, 'TETAP');
 
-        // nullOnDelete: voucher tenant ikut kehilangan tenant_id, bukan hilang.
+        // Perubahan perilaku yang disengaja: dulu `nullOnDelete` membuat kupon
+        // tenant naik jadi kupon platform, sehingga promo satu toko berlaku di
+        // seluruh platform. Sekarang kuponnya ikut mati.
         $this->tenantA->delete();
 
-        $this->assertNull($milikTenant->fresh()->tenant_id);
-        $this->assertNotNull($milikPlatform->fresh());
+        $this->assertNull($milikTenant->fresh(), 'kupon tenant ikut terhapus');
+        $this->assertNotNull($milikPlatform->fresh(), 'kupon platform tidak tersentuh');
     }
 }

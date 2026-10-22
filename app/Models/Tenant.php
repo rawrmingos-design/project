@@ -110,6 +110,26 @@ class Tenant extends Model
         return $this->hasManyThrough(SubscriptionInvoice::class, Subscription::class);
     }
 
+    /**
+     * Kupon milik tenant ikut mati bersama tenantnya.
+     *
+     * Tanpa ini, FK `nullOnDelete` pada `vouchers.tenant_id` mengubah kupon
+     * milik tenant yang dihapus menjadi kupon PLATFORM (tenant_id NULL): promo
+     * yang dulu hanya untuk satu toko tiba-tiba berlaku di situs platform, dan
+     * platform yang menanggung diskonnya.
+     *
+     * Ditaruh di sini (bukan di Voucher) karena pemicunya adalah penghapusan
+     * Tenant. FK di DB nyata diperbaiki terpisah oleh migrasi
+     * `2026_10_23_000000_vouchers_tenant_cascade_delete`; hook ini yang membuat
+     * perilakunya sama di SQLite (tes) dan MySQL.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (Tenant $tenant): void {
+            Voucher::query()->where('tenant_id', $tenant->id)->delete();
+        });
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

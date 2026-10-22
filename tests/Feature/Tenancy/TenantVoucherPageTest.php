@@ -94,7 +94,7 @@ class TenantVoucherPageTest extends TestCase
         $this->assertSame(20, (int) $voucher->stock);
     }
 
-    public function test_tidak_bisa_memakai_kode_yang_sama_dengan_voucher_platform(): void
+    public function test_boleh_memakai_kode_yang_sama_dengan_voucher_platform(): void
     {
         [$owner, $tenant] = $this->makeTenant('toko-biz', 'business');
 
@@ -107,13 +107,29 @@ class TenantVoucherPageTest extends TestCase
             'max_potongan' => 0,
         ]);
 
+        // Perubahan perilaku yang disengaja: dengan isolasi ketat, kupon platform
+        // tidak pernah terlihat di toko tenant, jadi kode yang sama tidak
+        // bertabrakan. Sebelumnya ini ditolak karena kupon platform ikut
+        // dianggap "terpakai" di toko tenant.
         $this->actingAs($owner)
             ->post("https://{$tenant->subdomain}.topupengine.test/vouchers", [
                 'kode' => 'PROMO10',
                 'promo' => 2,
                 'stock' => 5,
             ])
-            ->assertSessionHasErrors('kode');
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            1,
+            Voucher::query()->ownedBy($tenant->id)->where('kode', 'PROMO10')->count(),
+            'kupon tenant dibuat'
+        );
+
+        $this->assertSame(
+            1,
+            Voucher::query()->platform()->where('kode', 'PROMO10')->count(),
+            'kupon platform tidak tersentuh'
+        );
     }
 
     public function test_kode_yang_sama_dengan_tenant_lain_tetap_boleh(): void

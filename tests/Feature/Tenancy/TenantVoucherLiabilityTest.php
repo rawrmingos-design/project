@@ -175,7 +175,11 @@ class TenantVoucherLiabilityTest extends TestCase
     public function test_voucher_yang_bikin_harga_di_bawah_modal_tenant_ditolak(): void
     {
         // 5% dari 105.000 = 5.250 → customer bayar 99.750 < modal 102.000.
+        // Kupon milik tenant: dengan isolasi ketat, kupon platform tidak
+        // terlihat di toko tenant, jadi aturan "tenant menanggung diskon" hanya
+        // bisa diuji lewat kupon tenant.
         $voucher = Voucher::create([
+            'tenant_id' => $this->tenant->id,
             'kode' => 'KEBABLASAN',
             'promo' => 5,
             'stock' => 10,
@@ -197,6 +201,7 @@ class TenantVoucherLiabilityTest extends TestCase
     {
         // 1,5% dari 105.000 = 1.575 → customer bayar 103.425 > modal 102.000.
         $voucher = Voucher::create([
+            'tenant_id' => $this->tenant->id,
             'kode' => 'AMAN',
             'promo' => 1.5,
             'stock' => 10,
@@ -223,6 +228,7 @@ class TenantVoucherLiabilityTest extends TestCase
 
         // Diskon yang masih aman tapi tidak nol: 1,5% → 1.575
         Voucher::create([
+            'tenant_id' => $this->tenant->id,
             'kode' => 'AMAN',
             'promo' => 1.5,
             'stock' => 10,
