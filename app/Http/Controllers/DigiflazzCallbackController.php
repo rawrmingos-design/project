@@ -67,7 +67,7 @@ class DigiflazzCallbackController extends Controller
                     // untuk order yang sudah di-reset. Callback SUKSES bersifat otoritatif
                     // (produk sudah terkirim & saldo terpotong di Digiflazz), jadi jangan
                     // dibuang. Adopsi invoice tsb lalu lewati pipeline normal agar status +
-                    // SN tersinkron. Hanya untuk SUKSES ber-SN pada order yang BELUM Sukses;
+                    // SN tersinkron. Hanya untuk SUKSES ber-SN pada order yang sudah GAGAL (final);
                     // callback non-sukses tetap diabaikan supaya kegagalan attempt lama tidak
                     // menimpa attempt baru.
                     $staleIncomingStatus = PembelianStatus::normalize($data['status'] ?? null);
@@ -76,7 +76,7 @@ class DigiflazzCallbackController extends Controller
 
                     if ($staleIncomingStatus === PembelianStatus::SUCCESS
                         && $staleSnValue !== ''
-                        && $staleCurrentStatus !== PembelianStatus::SUCCESS) {
+                        && $staleCurrentStatus === PembelianStatus::FAILED) {
                         Log::warning("Digiflazz callback reconciling stale SUCCESS for {$refId}", [
                             'event' => $event,
                             'order_id' => $staleInvoice->order_id,
