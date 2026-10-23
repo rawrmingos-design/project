@@ -636,6 +636,35 @@ class CheckoutOrderService
         return array_filter($payment, static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '');
     }
 
+    /**
+     * Tenant aktif, atau null di situs platform.
+     *
+     * Selalu lewat `app()->bound()` supaya aman di konteks tanpa container
+     * tenant (command, queue, tes platform).
+     */
+    private function currentTenant(): ?\App\Models\Tenant
+    {
+        if (! app()->bound(\App\Tenancy\TenantContext::class)) {
+            return null;
+        }
+
+        return app(\App\Tenancy\TenantContext::class)->get();
+    }
+
+    /**
+     * Harga dasar untuk checkout bot/API.
+     *
+     * Urutannya sengaja SAMA dengan jalur web (`OrderController`): harga per-peran
+     * → flash sale menimpanya → `applyTenantPricing()` menimpa lagi dengan harga
+     * jual tenant → qty untuk kategori joki.
+     *
+     * Kenapa harus lewat `TenantPricingService`: sebelumnya fungsi ini berhenti di
+     * `harga_member`/`harga_gold`, sehingga di toko tenant pembeli lewat bot
+     * Telegram/WhatsApp dan API reseller ditagih HARGA PLATFORM, sementara pembeli
+     * lewat website ditagih HARGA TENANT. Dua harga untuk barang yang sama, dan
+     * margin tenant hilang di jalur bot. Terukur: web 110.000 vs API 100.000
+     * (markup toko 10%, markup platform business 2%).
+     */
     private function resolveServiceAmount(Layanan $service, ?User $user, Request $request): int
     {
         $amount = match ($user?->role ?? 'Guest') {
@@ -650,6 +679,15 @@ class CheckoutOrderService
             $amount = $service->harga_flash_sale;
         }
 
+        // Situs platform tidak berubah perilakunya: tanpa konteks tenant,
+        // `hasTenantContext()` false dan harga tetap harga per-peran.
+        $tenant = $this->currentTenant();
+        if ($tenant !== null) {
+            $service->harga = $amount;
+            app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($service, $tenant);
+            $amount = $service->harga;
+        }
+
         if (in_array((string) $request->input('ktg_tipe'), ['joki', 'jokigendong', 'vilogml'], true)) {
             $amount *= max(1, (int) $request->input('qty', 1));
         }
@@ -657,8 +695,23 @@ class CheckoutOrderService
         return max(0, (int) round((float) $amount));
     }
 
+    /**
+     * Profit yang dicatat untuk order bot/API.
+     *
+     * Di konteks tenant, `resolveServiceAmount()` sudah memanggil
+     * `TenantPricingService::applyToLayanan()`, yang mengisi `tenant_profit` =
+     * harga jual tenant − modal tenant. Nilai itu yang dipakai, sama seperti
+     * `calculateOrderProfitAmount()` di jalur web.
+     *
+     * Tanpa ini, order bot mencatat `profit_member` (milik platform) sehingga
+     * margin tenant tercatat 0. Terukur: 0, padahal seharusnya 8.000.
+     */
     private function resolveProfitAmount(Layanan $service, ?User $user, int $feeAmount): int
     {
+        if ($this->currentTenant() !== null && is_numeric($service->tenant_profit ?? null)) {
+            return max(0, (int) round((float) $service->tenant_profit));
+        }
+
         $profit = match ($user?->role ?? 'Guest') {
             'Member' => $service->profit_member,
             'Platinum' => $service->profit_platinum,

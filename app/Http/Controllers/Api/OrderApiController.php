@@ -244,6 +244,21 @@ class OrderApiController extends Controller
         } else {
             $harga = $service->harga;
         }
+
+        // Toko tenant: harga harus harga jual tenant, sama seperti website.
+        //
+        // Tanpa ini, reseller yang memesan ke toko tenant ditagih harga platform
+        // (mis. 100.000) padahal pembeli website di toko yang sama ditagih harga
+        // tenant (mis. 110.000). Modal tenant pun tidak pernah dihitung, sehingga
+        // profit yang tercatat = harga − modal platform, bukan margin tenant.
+        //
+        // Situs platform tidak berubah: tanpa tenant, blok ini dilewati.
+        $tenant = app(\App\Tenancy\TenantContext::class)->get();
+        if ($tenant !== null) {
+            $service->harga = $harga;
+            app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($service, $tenant);
+            $harga = $service->harga;
+        }
        
        
        if($user->balance < $harga){
@@ -494,9 +509,15 @@ class OrderApiController extends Controller
                 $pembelian->zone = $zoneId;
                 $pembelian->layanan = $service->layanan;
                 $pembelian->harga = $harga;
-                $pembelian->profit = is_numeric($modalPrice)
-                    ? max(0, (int) round($harga - (float) $modalPrice))
-                    : (int) round($harga * ENV("MARGIN_PROFIT"));
+                // Toko tenant: `applyToLayanan()` sudah mengisi `tenant_profit`
+                // (harga jual tenant − modal tenant), jadi itu yang dicatat —
+                // sama seperti jalur web. Tanpa ini, profit memakai modal
+                // platform dan margin tenant salah tercatat.
+                $pembelian->profit = is_numeric($service->tenant_profit ?? null)
+                    ? max(0, (int) round((float) $service->tenant_profit))
+                    : (is_numeric($modalPrice)
+                        ? max(0, (int) round($harga - (float) $modalPrice))
+                        : (int) round($harga * ENV("MARGIN_PROFIT")));
                 $pembelian->status = $resolvedOrderStatus;
                 $pembelian->active_layanan_id = $service->id;
                 $pembelian->active_provider_code = $providerCode;

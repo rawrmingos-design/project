@@ -42,9 +42,32 @@ class OrderController extends Controller
             $harga = $layanan->harga_flash_sale;
         }
 
+        // Toko tenant: harga dan modal diambil dari `TenantPricingService`, sama
+        // seperti jalur web. Dua hal bergantung pada ini:
+        //
+        // 1. Harga yang ditagih. Tanpa blok ini, pratinjau harga di bot memakai
+        //    harga platform, sementara checkout web menagih harga jual tenant —
+        //    pembeli melihat dua angka berbeda untuk produk yang sama.
+        //
+        // 2. Lantai modal. Diskon kupon dihitung dari harga ini, jadi kalau
+        //    patokannya harga platform, `harga - potongan` bisa jatuh di bawah
+        //    modal tenant. Terukur: kupon 50% menghasilkan Rp 50.000 padahal
+        //    modal tenant Rp 102.000 — toko rugi Rp 52.000 per transaksi.
+        $modalTenant = null;
+        $tenant = app(\App\Tenancy\TenantContext::class)->get();
+        if ($tenant !== null) {
+            $layanan->harga = $harga;
+            app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($layanan, $tenant);
+            $harga = $layanan->harga;
+            $modalTenant = (int) round((float) $layanan->tenant_modal_harga);
+        }
+
         if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
             $qty = max(1, (int)$request->qty);
             $harga *= $qty;
+            if ($modalTenant !== null) {
+                $modalTenant *= $qty;
+            }
         }
 
         $potongan = 0;
@@ -58,6 +81,14 @@ class OrderController extends Controller
                 }
                 $harga -= $potongan;
             }
+        }
+
+        // Lantai modal tenant: kupon tidak boleh membuat toko menjual di bawah
+        // harga belinya. Jalur web sudah menolak transaksi seperti ini di
+        // `applyTenantMarginAfterDiscount()`; pratinjau harga bot harus memberi
+        // angka yang sama, bukan angka yang mustahil dipakai saat checkout.
+        if ($modalTenant !== null && $harga < $modalTenant) {
+            $harga = $modalTenant;
         }
 
         $methods = Cache::remember('payment_methods_price_calc_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), 3600, function () {

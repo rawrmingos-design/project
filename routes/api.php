@@ -49,8 +49,14 @@ Route::prefix('v1')->middleware(['add.api.version'])->group(function () {
         ->middleware(['throttle:reseller-api-category', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/variant', [OrderApiController::class,'listVariant'])
         ->middleware(['throttle:reseller-api-variant', 'auth.api', 'reseller.ip.enforce']);
+    // `tenant.resolve` WAJIB di sini: tanpa itu, reseller yang memesan ke toko
+    // tenant tidak pernah terdeteksi berada di tenant mana, sehingga
+    // `TenantContext` kosong dan order ditagih harga platform — padahal pembeli
+    // website di toko yang sama ditagih harga jual tenant. Middleware hanya
+    // dipasang di route order (bukan seluruh grup) supaya endpoint reseller lain
+    // tidak berubah perilakunya.
     Route::post('/order', [OrderApiController::class,'order'])
-        ->middleware(['throttle:reseller-api-order', 'auth.api', 'reseller.ip.enforce']);
+        ->middleware(['tenant.resolve', 'throttle:reseller-api-order', 'auth.api', 'reseller.ip.enforce']);
     Route::post('/status-order/{invoice}', [OrderApiController::class,'statusOrder'])
         ->middleware(['throttle:reseller-api-status', 'auth.api', 'reseller.ip.enforce']);
 
