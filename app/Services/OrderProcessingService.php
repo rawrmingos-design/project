@@ -60,29 +60,37 @@ class OrderProcessingService
         $sku = $providerRoute['sku'];
         $credentials = $providerRoute['credentials'] ?? [];
 
-        // SAFETY: cek status (retry_status) Digiflazz hanya aman untuk order
-        // yang transaksinya masih HIDUP di Digiflazz (Pending/Processing) dan
-        // sudah punya provider_order_id terkonfirmasi. Endpoint /v1/transaction
-        // Digiflazz MEMBUAT transaksi baru bila ref_id final/belum pernah ada,
-        // sehingga cek status untuk order Gagal/Sukses atau belum-terkirim bisa
-        // memicu transaksi tak sengaja. Tolak di sini, jangan sentuh Digiflazz.
+        // SAFETY: cek status (retry_status) Digiflazz = KIRIM-ULANG ref. Hanya aman
+        // bila ref sudah DIKONFIRMASI Digiflazz (provider_order_id terisi) DAN
+        // transaksi masih < 90 hari (Digiflazz MENGHAPUS ref > 90 hari, sehingga
+        // kirim-ulang jadi transaksi BARU). Dalam kondisi itu kirim-ulang bersifat
+        // idempotent (balikan status + SN), jadi order Gagal pun boleh dicek untuk
+        // sinkronisasi. Di luar itu (tanpa ref, sudah Sukses, atau lewat margin
+        // umur) tolak di sini -- jangan sentuh Digiflazz. Margin aman 80 hari.
         if ($this->dispatchMode === 'retry_status' && strtolower(trim((string) $providerCode)) === 'digiflazz') {
             $currentStatus = PembelianStatus::normalize($pembelian->status);
             $digiflazzRef = trim((string) ($pembelian->provider_order_id ?? ''));
+            $ageDays = $pembelian->created_at ? $pembelian->created_at->diffInDays(now()) : 9999;
+            $statusDapatDicek = in_array($currentStatus, [
+                PembelianStatus::PENDING,
+                PembelianStatus::PROCESSING,
+                PembelianStatus::FAILED,
+            ], true);
 
-            if ($digiflazzRef === '' || ! in_array($currentStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
+            if ($digiflazzRef === '' || ! $statusDapatDicek || $ageDays > 80) {
                 Log::warning('OrderProcessingService: cek status Digiflazz dilewati demi keamanan.', [
                     'order_id' => $pembelian->order_id,
                     'display_order_id' => $pembelian->display_order_id,
                     'status' => $pembelian->status,
                     'provider_order_id' => $digiflazzRef,
+                    'age_days' => $ageDays,
                 ]);
 
                 return [
                     'success' => false,
                     'order_status' => $pembelian->status,
                     'transaction_id' => $digiflazzRef !== '' ? $digiflazzRef : null,
-                    'message' => 'Cek status Digiflazz hanya untuk order Pending/Processing yang sudah terkirim ke provider. Untuk order final, cek via dashboard Digiflazz.',
+                    'message' => 'Cek status Digiflazz hanya untuk order yang sudah terkirim ke provider (punya ref), belum Sukses, dan berumur < 80 hari. Selain itu cek via dashboard Digiflazz.',
                     'sn' => null,
                     'provider' => $providerCode,
                     'provider_status' => null,
