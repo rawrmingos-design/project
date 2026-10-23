@@ -68,6 +68,32 @@
                 </label>
             </div>
 
+            <div class="rounded-xl border border-white/10 bg-slate-950/60 p-4 text-sm">
+                <p class="font-semibold text-slate-200">Batas markup paket Anda</p>
+                <p class="mt-1 text-slate-400">
+                    Minimal <span class="font-mono text-white">{{ rtrim(rtrim(number_format($minimumMarkup, 2, ',', '.'), '0'), ',') }}%</span>
+                    — di bawah ini harga jual tidak menutup harga beli dari platform, jadi profit toko nol.
+                    Maksimal <span class="font-mono text-white">{{ rtrim(rtrim(number_format($maximumMarkup, 2, ',', '.'), '0'), ',') }}%</span>
+                    — di atas ini harga jual jauh di atas pasar.
+                </p>
+
+                @if ($markupPreview)
+                    <p class="mt-3 text-slate-300">
+                        Contoh untuk harga pokok <span class="font-mono text-white">Rp 10.000</span>:
+                        modal Anda <span class="font-mono text-white">Rp {{ number_format($markupPreview['modal'], 0, ',', '.') }}</span>,
+                        harga jual <span class="font-mono text-white">Rp {{ number_format($markupPreview['sell'], 0, ',', '.') }}</span>,
+                        profit <span class="font-mono {{ $markupPreview['profit'] > 0 ? 'text-emerald-300' : 'text-red-300' }}">Rp {{ number_format($markupPreview['profit'], 0, ',', '.') }}</span>
+                        (markup efektif {{ $markupPreview['effective'] }}%).
+                    </p>
+
+                    @if ($markupPreview['profit'] <= 0)
+                        <p class="mt-2 text-red-300">
+                            Profit Anda nol. Naikkan markup di atas {{ rtrim(rtrim(number_format($minimumMarkup, 2, ',', '.'), '0'), ',') }}% supaya toko tidak menjual di bawah modal.
+                        </p>
+                    @endif
+                @endif
+            </div>
+
             <button class="rounded-xl bg-purple-500 px-5 py-3 font-bold text-white hover:bg-purple-400">Simpan Pengaturan</button>
         </form>
     </main>

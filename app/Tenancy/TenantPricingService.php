@@ -79,6 +79,38 @@ class TenantPricingService
     }
 
     /**
+     * Markup platform untuk tier tenant ini (persen).
+     *
+     * Ini juga batas bawah markup tenant: markup di bawahnya membuat tenant
+     * menjual di bawah harga belinya sendiri.
+     */
+    public function platformMarkupPercent(?Tenant $tenant = null): float
+    {
+        return $this->tiers->platformMarkupPercent($tenant);
+    }
+
+    /**
+     * Markup tenant terendah yang masih menghasilkan profit > 0.
+     *
+     * Sama dengan markup platform. Dipakai form settings supaya tenant melihat
+     * angka yang benar-benar berlaku, bukan `min:0` yang menyesatkan.
+     */
+    public function minimumTenantMarkupPercent(?Tenant $tenant = null): float
+    {
+        return $this->platformMarkupPercent($tenant);
+    }
+
+    /**
+     * Batas atas markup tenant yang masuk akal (persen).
+     *
+     * Bukan larangan bisnis — tenant boleh memilih markup besar. Tapi markup
+     * di atas ini membuat harga jual berkali-kali lipat harga pasar, dan itu
+     * hampir selalu salah input (mis. 10000 alih-alih 10). Form memberi
+     * peringatan, validasi menolak, supaya toko tidak mati diam-diam.
+     */
+    public const MAX_REASONABLE_MARKUP_PERCENT = 300.0;
+
+    /**
      * Harga jual customer + persen markup efektif.
      *
      * `percent` → harga pokok × (1 + markup/100). Markup dijamin di atas markup
