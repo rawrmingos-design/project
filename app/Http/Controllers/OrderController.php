@@ -304,16 +304,36 @@ class OrderController extends Controller
         return max(1, (int) $request->qty);
     }
 
-    private function applyTenantPricing($layanan, Request $request): void
+    /**
+     * Terapkan quantity + harga tenant dalam SATU langkah.
+     *
+     * Sebelum ini controller mengalikan `harga *= qty` lebih dulu, lalu
+     * `TenantPricingService::forLayanan()` mengalikan `harga * quantity` lagi
+     * (karena `quantity` diteruskan ke sana). Hasilnya qty berlipat kuadrat:
+     * qty 2 ditagih 4×, qty 4 ditagih 16×.
+     *
+     * Sekarang pengali quantity hanya terjadi di SATU tempat:
+     *  - ada tenant  → `TenantPricingService` yang mengalikan (dia sudah
+     *                  menerima `quantity`), jadi controller tidak mengali lagi.
+     *  - tanpa tenant → tidak ada service yang mengalikan, jadi controller
+     *                  mengalikan langsung seperti perilaku lama.
+     */
+    private function applyQuantityAwarePricing($layanan, Request $request): void
     {
+        $qty = $this->tenantPriceQuantity($request);
+
         if (! $this->hasTenantContext() || ! $layanan instanceof Layanan) {
+            if ($qty > 1) {
+                $layanan->harga *= $qty;
+            }
+
             return;
         }
 
         app(TenantPricingService::class)->applyToLayanan(
             $layanan,
             app(TenantContext::class)->get(),
-            $this->tenantPriceQuantity($request),
+            $qty,
         );
     }
 
@@ -350,16 +370,8 @@ class OrderController extends Controller
             $data->harga = $data->harga_flash_sale;
         }
 
-        if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $qty = $request->qty;
-            if ($qty <= 0) {
-                $qty = 1;
-            }
-
-            $data->harga *= $qty;
-        }
-
-        $this->applyTenantPricing($data, $request);
+        // Quantity ditangani `applyQuantityAwarePricing()` di bawah, tepat sekali.
+        $this->applyQuantityAwarePricing($data, $request);
 
         if ($request->voucher) {
             // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
@@ -773,16 +785,8 @@ class OrderController extends Controller
 
             $dataLayanan->harga = $dataLayanan->harga_flash_sale;
         }
-        // qty
-        if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $qty = $request->qty;
-            if ($qty <= 0) {
-                $qty = 1;
-            }
-
-            $dataLayanan->harga *= $qty;
-        }
-        $this->applyTenantPricing($dataLayanan, $request);
+        // qty — ditangani `applyQuantityAwarePricing()` tepat sekali di bawah.
+        $this->applyQuantityAwarePricing($dataLayanan, $request);
 
         // voucher
         if ($request->voucher) {
@@ -961,13 +965,9 @@ class OrderController extends Controller
             }
         }
 
-        // Joki Quantity Logic
-        if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $qty = $request->qty > 0 ? $request->qty : 1;
-            $dataLayanan->harga *= $qty;
-        }
-
-        $this->applyTenantPricing($dataLayanan, $request);
+        // Joki Quantity Logic — ditangani `applyQuantityAwarePricing()` di bawah,
+        // supaya tidak dikalikan dua kali bersama `quantity` di service.
+        $this->applyQuantityAwarePricing($dataLayanan, $request);
 
         // Voucher Logic (Calculation Only)
         if ($request->voucher) {
