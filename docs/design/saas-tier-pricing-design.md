@@ -368,14 +368,46 @@ toko tenant lain. Semua sekarang lewat `App\Services\Voucher\VoucherResolver`:
 | Jalur | Titik |
 |---|---|
 | `OrderController` (web) | 6 |
-| `Api\OrderController` | 2 |
+| `Api\OrderController` | 2 (+1 lantai harga) |
 | `Api\GatewayController` | 1 |
 | `CheckoutOrderService` | 1 |
 | `GatewayPricingService` | 1 |
 | `VoucherService` (restore stok) | 1 |
 
 Skema: `tenant_id` NULL = voucher platform, terisi = milik tenant itu. Keduanya
-**tidak saling terlihat**. `layanan_id` NULL = semua produk.
+**tidak saling terlihat**. `layanan_id` NULL = semua produk, terisi = hanya
+produk itu.
+
+### 6.1a Cakupan produk: dua mode, dan ditegakkan di resolver
+
+`layanan_id` dulu **kosmetik**: `Voucher::appliesToLayanan()` ada tapi tidak
+pernah dipanggil dari mana pun, jadi kupon "untuk Produk A" tetap memotong
+Produk B di web, bot, gateway, dan API. Sekarang cakupan ditegakkan di
+`VoucherResolver::resolve()/resolveForUpdate()` — satu titik yang dilewati
+semua jalur — dengan `layananId = null` berarti "tidak sedang menilai satu
+produk" (dipakai jalur pengembalian stok, yang harus tetap menemukan kuponnya
+supaya stok kembali).
+
+Produk yang sudah dihapus **tidak** mengubah kuponnya menjadi "semua produk":
+`layanan_id` sengaja tanpa FK, jadi nilainya tetap dan kupon itu tidak berlaku
+di mana pun. UI menampilkannya sebagai "produk sudah dihapus", bukan "semua
+produk".
+
+### 6.1b Lantai harga: di bawah harga jual platform = GAGAL
+
+Kalau diskon membuat harga jatuh di bawah harga jual platform (harga beli
+tenant), transaksi **ditolak** — bukan dinaikkan diam-diam ke lantai. Pembeli
+melihat angka di layar, jadi angka itu harus angka yang benar-benar ditagih.
+
+Ruang diskon nyata lebih sempit dari markup toko, karena lantainya = modal
+tenant (harga pokok × markup platform), bukan harga jual tenant. Contoh modal
+100.000, markup platform 3%, markup toko 10%: jual 110.000, lantai 103.000,
+jadi promo maksimal ~6,36% — bukan 10%.
+
+Diperiksa lewat `TenantPricingService::floorViolation()`, dipakai web
+(`applyTenantMarginAfterDiscount`), bot (`Api\OrderController::price`), dan
+`CheckoutOrderService` (Telegram/WhatsApp/gateway). Di situs platform lantai
+tidak berlaku (tidak ada tenant), karena diskon di sana uang platform sendiri.
 
 ### 6.2a FK `nullOnDelete` adalah jebakan, bukan kenyamanan
 

@@ -26,10 +26,32 @@ class VoucherResolver
 {
     /**
      * @param  Tenant|int|null  $tenant  null = situs platform (tanpa tenant)
+     * @param  int|null  $layananId  Produk yang sedang dibeli. Kalau diisi, kupon
+     *                              yang dibuat untuk produk lain dianggap TIDAK
+     *                              ADA, sehingga semua jalur (web, bot, API,
+     *                              validasi kupon) menolaknya dengan pesan sama.
+     *                              `null` = pemanggil tidak sedang menilai satu
+     *                              produk (mis. pengembalian stok saat checkout
+     *                              gagal), jadi cakupan produk tidak disaring —
+     *                              kalau disaring di sana, rollback justru tidak
+     *                              menemukan kuponnya dan stok tidak kembali.
      */
-    public function resolve(Tenant|int|null $tenant, ?string $code): ?Voucher
+    public function resolve(Tenant|int|null $tenant, ?string $code, ?int $layananId = null): ?Voucher
     {
-        return $this->query($tenant, $code, false);
+        $voucher = $this->query($tenant, $code, false);
+
+        if ($voucher === null) {
+            return null;
+        }
+
+        // Cakupan produk ditegakkan di sini, bukan di masing-masing pemanggil:
+        // `appliesToLayanan()` sebelumnya tidak pernah dipanggil sama sekali,
+        // jadi kupon produk A memotong produk B di semua jalur.
+        if ($layananId !== null && $voucher->rejectionReason($layananId) !== null) {
+            return null;
+        }
+
+        return $voucher;
     }
 
     /**
@@ -38,9 +60,19 @@ class VoucherResolver
      * Dipakai di dalam transaksi checkout: tanpa lock, dua pembeli bersamaan
      * bisa memakai stok terakhir.
      */
-    public function resolveForUpdate(Tenant|int|null $tenant, ?string $code): ?Voucher
+    public function resolveForUpdate(Tenant|int|null $tenant, ?string $code, ?int $layananId = null): ?Voucher
     {
-        return $this->query($tenant, $code, true);
+        $voucher = $this->query($tenant, $code, true);
+
+        if ($voucher === null) {
+            return null;
+        }
+
+        if ($layananId !== null && $voucher->rejectionReason($layananId) !== null) {
+            return null;
+        }
+
+        return $voucher;
     }
 
     private function query(Tenant|int|null $tenant, ?string $code, bool $lock): ?Voucher

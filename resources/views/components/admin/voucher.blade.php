@@ -108,6 +108,26 @@
                         </div>
                         <div class="row mb-3">
                             <div class="col-lg-3">
+                                <label for="layananId" class="form-label">Applies To</label>
+                            </div>
+                            <div class="col-lg-9">
+                                {{-- Kosong = semua produk. Ini benar-benar ditegakkan
+                                     di VoucherResolver, bukan sekadar kolom form. --}}
+                                <select class="form-select" id="layananId" name="layanan_id">
+                                    <option value="">All products</option>
+                                    @foreach (($layanans ?? []) as $layanan)
+                                        <option value="{{ $layanan->id }}" @selected((string) old('layanan_id') === (string) $layanan->id)>
+                                            {{ $layanan->layanan }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <div class="form-text">
+                                    Leave empty to apply to every product. Pick one product to limit this voucher to it only.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-lg-3">
                                 <label for="stock" class="form-label">Voucher Stock</label>
                             </div>
                             <div class="col-lg-9">
@@ -162,6 +182,7 @@
                                     <th>Piece</th>
                                     <th>Min Transaction</th>
                                     <th>Max Cuts</th>
+                                    <th>Applies To</th>
                                     <th>Stock</th>
                                     <th>Expired</th>
                                     <th>Date</th>
@@ -176,6 +197,17 @@
                                         <td>{{ $data->promo }} %</td>
                                         <td>{{ $data->mintrx }}</td>
                                         <td>{{ $data->max_potongan }}</td>
+                                        <td>
+                                            {{-- Sama seperti daftar tenant: produk yang
+                                                 sudah dihapus BUKAN "semua produk". --}}
+                                            @if ($data->layanan_id === null)
+                                                All products
+                                            @elseif ($data->layanan !== null)
+                                                {{ $data->layanan->layanan }}
+                                            @else
+                                                <span class="text-warning">Product deleted (not usable)</span>
+                                            @endif
+                                        </td>
                                         <td>{{ $data->stock }}</td>
                                         <td>{{ $data->expired_at ? $data->expired_at->format('d M Y H:i') : '-' }}</td>
                                         <td>{{ $data->created_at }}</td>

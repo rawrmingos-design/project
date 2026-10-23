@@ -106,20 +106,23 @@ class GatewayController extends Controller
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:64'],
             'amount' => ['nullable', 'integer', 'min:0'],
+            // Opsional: kalau dikirim, cakupan produk kupon ikut dinilai.
+            'service_id' => ['nullable', 'integer'],
         ]);
 
         // Scope tenant: kode milik tenant lain tidak boleh tervalidasi di sini.
         $voucher = app(\App\Services\Voucher\VoucherResolver::class)
             ->resolve(
                 app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
-                $validated['code']
+                $validated['code'],
+                isset($validated['service_id']) ? (int) $validated['service_id'] : null
             );
 
         if (! $voucher) {
             return response()->json([
                 'ok' => false,
                 'error_code' => 'VOUCHER_NOT_FOUND',
-                'message' => 'Voucher tidak ditemukan.',
+                'message' => 'Voucher tidak ditemukan atau tidak berlaku untuk produk ini.',
                 'data' => null,
             ], 404);
         }

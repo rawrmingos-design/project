@@ -129,7 +129,21 @@
                                 <td class="px-4 py-3 font-mono font-bold">{{ $voucher->kode }}</td>
                                 <td class="px-4 py-3 font-mono">{{ rtrim(rtrim(number_format($voucher->promo, 2, ',', '.'), '0'), ',') }}%</td>
                                 <td class="px-4 py-3 font-mono">{{ $voucher->stock }}</td>
-                                <td class="px-4 py-3">{{ $voucher->layanan?->layanan ?? 'Semua produk' }}</td>
+                                {{-- Jangan pakai `?? 'Semua produk'`: kupon yang
+                                     `layanan_id`-nya terisi tapi produknya sudah
+                                     dihapus BUKAN kupon semua produk — dia tidak
+                                     berlaku di mana pun. Menampilkannya sebagai
+                                     "Semua produk" membuat penjual menyangka
+                                     kuponnya jalan padahal selalu ditolak. --}}
+                                <td class="px-4 py-3">
+                                    @if ($voucher->layanan_id === null)
+                                        <span class="text-slate-300">Semua produk</span>
+                                    @elseif ($voucher->layanan !== null)
+                                        {{ $voucher->layanan->layanan }}
+                                    @else
+                                        <span class="text-amber-300">Produk sudah dihapus (kupon tidak berlaku)</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3 font-mono text-slate-400">
                                     {{ $voucher->expired_at?->format('d/m/Y H:i') ?? '—' }}
                                 </td>

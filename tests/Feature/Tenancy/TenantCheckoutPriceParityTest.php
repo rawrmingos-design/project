@@ -240,6 +240,12 @@ class TenantCheckoutPriceParityTest extends TestCase
      */
     public function test_kupon_bot_tidak_boleh_menembus_modal_tenant(): void
     {
+        // Aturan yang berlaku: kalau diskon membuat harga jatuh di bawah lantai
+        // (harga jual platform / harga beli tenant), transaksi GAGAL. Versi
+        // pertama tes ini menerima "harga dinaikkan ke lantai", dan itu keliru:
+        // pembeli melihat angka di layar, jadi angka itu harus angka yang
+        // benar-benar ditagih.
+
         // Kupon 50% milik tenant.
         \App\Models\Voucher::create([
             'tenant_id' => $this->tenant->id,
@@ -261,16 +267,24 @@ class TenantCheckoutPriceParityTest extends TestCase
             ]
         );
 
-        $harga = (int) ($response->json('harga') ?? 0);
+        $this->assertFalse(
+            (bool) $response->json('status'),
+            'kupon yang menjatuhkan harga di bawah modal tenant harus membuat '
+            . 'transaksi GAGAL, bukan dinaikkan diam-diam ke lantai. Respons: '
+            . $response->getContent()
+        );
 
-        $this->assertGreaterThanOrEqual(
-            $modalTenant,
-            $harga,
-            sprintf(
-                'harga bot setelah kupon (Rp %s) tidak boleh di bawah modal tenant (Rp %s)',
-                number_format($harga, 0, ',', '.'),
-                number_format($modalTenant, 0, ',', '.')
-            )
+        $this->assertSame(
+            'VOUCHER_BELOW_TENANT_MARGIN',
+            $response->json('error_code'),
+            'kegagalan harus menyebut alasannya, bukan pesan umum'
+        );
+
+        $this->assertStringContainsString(
+            number_format($modalTenant, 0, ',', '.'),
+            (string) $response->json('message'),
+            'pesan harus menyebut lantai (Rp ' . number_format($modalTenant, 0, ',', '.') . ') '
+            . 'supaya penjual tahu batasnya'
         );
     }
 

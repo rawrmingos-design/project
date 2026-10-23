@@ -231,10 +231,13 @@ class CheckoutOrderService
             $baseAmount = $this->resolveServiceAmount($service, $user, $request);
             $voucherCode = trim((string) $request->input('voucher', ''));
             if ($voucherCode !== '') {
+                // `$service->id` = produk yang dibeli; kupon untuk produk lain
+                // dianggap tidak ada, jadi tidak bisa dipakai lewat bot/WA.
                 $voucher = app(\App\Services\Voucher\VoucherResolver::class)
                     ->resolveForUpdate(
                         app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
-                        $voucherCode
+                        $voucherCode,
+                        (int) $service->id
                     );
                 if (! $voucher || ! $voucher->isUsable()) {
                     throw ValidationException::withMessages([
@@ -260,6 +263,20 @@ class CheckoutOrderService
                 $discount = max(0, $discount);
 
                 $baseAmount = max(0, $baseAmount - $discount);
+
+                // Lantai harga: kalau diskon membuat harga jatuh di bawah harga
+                // jual platform (harga beli tenant), tolak — jangan dinaikkan
+                // diam-diam. Sebelum ini hanya website yang memeriksa lantai,
+                // jadi kupon yang sama bisa lolos lewat bot/WA.
+                $floorViolation = app(\App\Tenancy\TenantPricingService::class)
+                    ->floorViolation($service, $baseAmount, $this->resolveQuantityForFloor($request));
+
+                if ($floorViolation !== null) {
+                    throw ValidationException::withMessages([
+                        'voucher' => $floorViolation,
+                    ]);
+                }
+
                 $voucher->decrement('stock');
             }
 
@@ -634,6 +651,19 @@ class CheckoutOrderService
         ];
 
         return array_filter($payment, static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '');
+    }
+
+    /**
+     * Qty untuk perhitungan lantai harga. Hanya kategori joki yang dikali qty,
+     * sama seperti `resolveServiceAmount()`.
+     */
+    private function resolveQuantityForFloor(Request $request): int
+    {
+        if (in_array((string) $request->input('ktg_tipe'), ['joki', 'jokigendong', 'vilogml'], true)) {
+            return max(1, (int) $request->input('qty', 1));
+        }
+
+        return 1;
     }
 
     /**

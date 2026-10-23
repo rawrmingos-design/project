@@ -86,6 +86,11 @@ class Voucher extends Model
     /**
      * Batas cakupan produk: voucher tanpa `layanan_id` berlaku untuk semua
      * produk tenant; kalau diisi, hanya produk itu.
+     *
+     * `layanan_id` TIDAK memakai foreign key, jadi produk yang dihapus tidak
+     * bisa mengubah arti kupon ini secara diam-diam. Membandingkan nilai apa
+     * adanya berarti kupon untuk produk yang sudah tidak ada tidak berlaku di
+     * mana pun — jauh lebih aman daripada berubah jadi "semua produk".
      */
     public function appliesToLayanan(?int $layananId): bool
     {
@@ -94,6 +99,20 @@ class Voucher extends Model
         }
 
         return $layananId !== null && (int) $this->layanan_id === (int) $layananId;
+    }
+
+    /**
+     * Kenapa kupon ini tidak boleh dipakai untuk produk tertentu, atau null
+     * kalau boleh. Dipusatkan supaya website, bot, dan API memberi pesan yang
+     * sama — bukan tiga variasi.
+     */
+    public function rejectionReason(?int $layananId): ?string
+    {
+        if ($this->appliesToLayanan($layananId)) {
+            return null;
+        }
+
+        return 'Kupon ini hanya berlaku untuk produk tertentu, bukan produk yang Anda pilih.';
     }
 
     /**

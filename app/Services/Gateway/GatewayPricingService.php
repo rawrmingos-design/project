@@ -113,7 +113,7 @@ class GatewayPricingService
         }
 
         $baseAmount = $this->resolveBaseAmount($service, $category, $user, $payload);
-        $discount = $this->resolveVoucherDiscount($baseAmount, $payload);
+        $discount = $this->resolveVoucherDiscount($baseAmount, $payload, (int) $service->id);
         $amountAfterDiscount = max(0, $baseAmount - $discount);
         $feeAmount = $this->methodFee($amountAfterDiscount, $method);
         // Tripay menambah fee sisi customer di atas jumlah yang diterima merchant
@@ -215,7 +215,7 @@ class GatewayPricingService
         return max(0, (int) round((float) $amount));
     }
 
-    private function resolveVoucherDiscount(int $baseAmount, array $payload): int
+    private function resolveVoucherDiscount(int $baseAmount, array $payload, ?int $layananId = null): int
     {
         $voucherCode = trim((string) ($payload['voucher'] ?? ''));
         if ($voucherCode === '') {
@@ -227,7 +227,9 @@ class GatewayPricingService
         $voucher = app(\App\Services\Voucher\VoucherResolver::class)
             ->resolve(
                 app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null,
-                $voucherCode
+                $voucherCode,
+                // Cakupan produk: kupon untuk produk lain tidak berlaku di sini.
+                $layananId
             );
         if (! $voucher || ! $voucher->isUsable()) {
             throw ValidationException::withMessages([

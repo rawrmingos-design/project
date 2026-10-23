@@ -12,7 +12,16 @@ class VoucherController extends Controller
 {
     public function create()
     {
-        return view('components.admin.voucher', ['vouchers' => Voucher::orderBy('created_at', 'desc')->get()]);
+        return view('components.admin.voucher', [
+            // `layanan_id` kosong = kupon platform untuk SEMUA produk; kalau
+            // diisi, kupon hanya berlaku di produk itu (ditegakkan di
+            // `VoucherResolver`, bukan sekadar tampilan form).
+            'layanans' => Layanan::query()->orderBy('layanan')->get(['id', 'layanan']),
+            'vouchers' => Voucher::query()
+                ->whereNull('tenant_id')
+                ->orderBy('created_at', 'desc')
+                ->get(),
+        ]);
     }
     
     public function store(Request $request)
@@ -26,9 +35,12 @@ class VoucherController extends Controller
             'stock' => 'required|numeric|min:0',
             'max_potongan' => 'required|numeric|min:0',
             'expired_at' => 'nullable|date',
+            // Kosong = berlaku di semua produk. Diisi = hanya produk itu.
+            'layanan_id' => ['nullable', 'integer', 'exists:layanans,id'],
         ]);
 
         $voucher = new Voucher();
+        $voucher->layanan_id = $request->filled('layanan_id') ? (int) $request->layanan_id : null;
         $voucher->kode = $request->kode;
         $voucher->promo = $request->promo;
         $voucher->stock = $request->stock;
@@ -234,6 +246,7 @@ class VoucherController extends Controller
             'stock' => 'required|numeric|min:0',
             'max_potongan' => 'required|numeric|min:0',
             'expired_at' => 'nullable|date',
+            'layanan_id' => ['nullable', 'integer', 'exists:layanans,id'],
         ]);
 
         Voucher::where('id', $id)->update([
@@ -243,6 +256,7 @@ class VoucherController extends Controller
             'mintrx' => $request->mintrx,
             'max_potongan' => $request->max_potongan,
             'expired_at' => $request->expired_at ?: null,
+            'layanan_id' => $request->filled('layanan_id') ? (int) $request->layanan_id : null,
         ]);
         
         return back()->with('success', 'Berhasil update kode promo');

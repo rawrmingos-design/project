@@ -53,27 +53,24 @@ class OrderController extends Controller
         //    patokannya harga platform, `harga - potongan` bisa jatuh di bawah
         //    modal tenant. Terukur: kupon 50% menghasilkan Rp 50.000 padahal
         //    modal tenant Rp 102.000 — toko rugi Rp 52.000 per transaksi.
-        $modalTenant = null;
         $tenant = app(\App\Tenancy\TenantContext::class)->get();
         if ($tenant !== null) {
             $layanan->harga = $harga;
             app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($layanan, $tenant);
             $harga = $layanan->harga;
-            $modalTenant = (int) round((float) $layanan->tenant_modal_harga);
         }
 
         if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
             $qty = max(1, (int)$request->qty);
             $harga *= $qty;
-            if ($modalTenant !== null) {
-                $modalTenant *= $qty;
-            }
         }
 
         $potongan = 0;
         if ($request->voucher) {
+            // `$layanan->id` diteruskan supaya kupon yang dibuat untuk produk
+            // lain tidak ikut memotong di sini.
             $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher);
+                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher, (int) ($layanan->id ?? 0) ?: null);
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {
@@ -83,12 +80,24 @@ class OrderController extends Controller
             }
         }
 
-        // Lantai modal tenant: kupon tidak boleh membuat toko menjual di bawah
-        // harga belinya. Jalur web sudah menolak transaksi seperti ini di
-        // `applyTenantMarginAfterDiscount()`; pratinjau harga bot harus memberi
-        // angka yang sama, bukan angka yang mustahil dipakai saat checkout.
-        if ($modalTenant !== null && $harga < $modalTenant) {
-            $harga = $modalTenant;
+        // Lantai harga: kalau diskon membuat harga jatuh di bawah harga jual
+        // platform (harga beli tenant), transaksi GAGAL.
+        //
+        // Sengaja gagal, bukan dinaikkan diam-diam ke lantai: pembeli melihat
+        // angka di layar, dan angka itu harus angka yang benar-benar ditagih.
+        // Jalur web sudah menolak kasus ini, jadi dulu bot bisa memotong lebih
+        // dalam daripada website untuk kupon yang sama.
+        $floorViolation = app(\App\Tenancy\TenantPricingService::class)
+            ->floorViolation($layanan, $harga, in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true) ? max(1, (int) $request->qty) : 1);
+
+        if ($floorViolation !== null) {
+            return response()->json([
+                'status' => false,
+                'harga' => null,
+                'potongan' => $potongan,
+                'message' => $floorViolation,
+                'error_code' => 'VOUCHER_BELOW_TENANT_MARGIN',
+            ]);
         }
 
         $methods = Cache::remember('payment_methods_price_calc_v1:' . \App\Support\PaymentCatalogAccess::currentTenantId(), 3600, function () {
@@ -119,10 +128,14 @@ class OrderController extends Controller
     public function validateVoucher(Request $request)
     {
         $request->validate(['voucher' => 'required', 'service' => 'required|numeric']);
-        
+
+        // Cakupan produk ikut dinilai di sini. Tanpa `layanan_id`, kupon yang
+        // dibuat untuk produk lain dinyatakan sah di bot, lalu baru ditolak
+        // (atau lebih buruk: tetap memotong) saat checkout — pembeli melihat
+        // dua jawaban berbeda untuk kupon yang sama.
         $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-            ->resolve(app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null, $request->voucher);
-        if (!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan']);
+            ->resolve(app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null, $request->voucher, (int) $request->service);
+        if (!$voucher) return response()->json(['status' => false, 'message' => 'Voucher tidak ditemukan atau tidak berlaku untuk produk ini']);
         if ($voucher->stock <= 0) return response()->json(['status' => false, 'message' => 'Voucher sudah habis']);
         if ($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa']);
 
@@ -195,8 +208,9 @@ class OrderController extends Controller
         }
 
         if ($request->voucher) {
+            // `$item->id` diteruskan supaya cakupan produk kupon ditegakkan.
             $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher);
+                ->resolve(\App\Tenancy\TenantContext::class !== '' ? (app()->bound(\App\Tenancy\TenantContext::class) ? app(\App\Tenancy\TenantContext::class)->id() : null) : null, $request->voucher, (int) ($item->id ?? 0) ?: null);
             if ($voucher && $voucher->isUsable()) {
                 $potongan = $harga * ($voucher->promo / 100);
                 if ($voucher->max_potongan > 0 && $potongan > $voucher->max_potongan) {

@@ -363,8 +363,10 @@ class OrderController extends Controller
 
         if ($request->voucher) {
             // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
+            // `$data->id` = produk yang sedang dibeli; kupon milik produk lain
+            // tidak boleh memotong di sini.
             $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                ->resolve($this->currentTenant(), $request->voucher);
+                ->resolve($this->currentTenant(), $request->voucher, (int) $data->id);
             if ($voucher !== null) {
                 $data->harga -= $this->calculateVoucherDiscountAmount($data->harga, $voucher);
             }
@@ -786,7 +788,7 @@ class OrderController extends Controller
         if ($request->voucher) {
             // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
             $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                ->resolve($this->currentTenant(), $request->voucher);
+                ->resolve($this->currentTenant(), $request->voucher, (int) $dataLayanan->id);
             if ($voucher !== null) {
                 $dataLayanan->harga -= $this->calculateVoucherDiscountAmount($dataLayanan->harga, $voucher);
             }
@@ -970,7 +972,7 @@ class OrderController extends Controller
         // Voucher Logic (Calculation Only)
         if ($request->voucher) {
             $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                ->resolve($this->currentTenant(), $request->voucher);
+                ->resolve($this->currentTenant(), $request->voucher, (int) $dataLayanan->id);
             Log::debug('Voucher found', [
                 'voucher_code' => $request->voucher,
                 'voucher_id' => $voucher->id ?? null,
@@ -1094,7 +1096,7 @@ class OrderController extends Controller
                 // Voucher Stock Decrement
                 if ($request->voucher) {
                     $voucher = app(\App\Services\Voucher\VoucherResolver::class)
-                        ->resolveForUpdate($this->currentTenant(), $request->voucher);
+                        ->resolveForUpdate($this->currentTenant(), $request->voucher, (int) $dataLayanan->id);
                     if (!$voucher || ! $voucher->isUsable()) throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                     $this->assertVoucherUsableByBuyer($voucher, $user);
                     $voucher->decrement('stock');
@@ -1174,7 +1176,7 @@ class OrderController extends Controller
                 try {
                     DB::transaction(function () use ($request, &$voucherReserved) {
                         $voucherGw = app(\App\Services\Voucher\VoucherResolver::class)
-                            ->resolveForUpdate($this->currentTenant(), $request->voucher);
+                            ->resolveForUpdate($this->currentTenant(), $request->voucher, (int) $dataLayanan->id);
                         if (!$voucherGw || ! $voucherGw->isUsable()) {
                             throw new \Exception('Voucher tidak valid atau sudah kadaluarsa');
                         }

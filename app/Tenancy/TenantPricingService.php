@@ -121,6 +121,59 @@ class TenantPricingService
         return [(int) round($modalPlatform * (1 + ($percent / 100))), round($percent, 2)];
     }
 
+    /**
+     * Lantai harga: harga jual platform untuk produk ini (harga beli tenant).
+     *
+     * `null` kalau tidak sedang di toko tenant — di situs platform tidak ada
+     * lantai, karena diskon di sana adalah uang platform sendiri.
+     */
+    public function priceFloor(Layanan $layanan, int $quantity = 1): ?int
+    {
+        $tenant = app(TenantContext::class)->get();
+
+        if ($tenant === null) {
+            return null;
+        }
+
+        // `applyToLayanan()` menimpa `layanan.harga` dengan HARGA JUAL tenant.
+        // Kalau nilai itu dipakai di sini, markup platform terhitung dua kali
+        // (110.000 × 1,03 = 113.300) dan lantainya jadi terlalu tinggi. Kalau
+        // `tenant_modal_harga` sudah ada, itu modal tenant yang benar — sama
+        // yang dipakai jalur web di `applyTenantMarginAfterDiscount()`.
+        if (is_numeric($layanan->tenant_modal_harga ?? null)) {
+            return (int) round((float) $layanan->tenant_modal_harga * max(1, $quantity));
+        }
+
+        $harga = max(0, (int) round((float) ($layanan->harga ?? 0)));
+        $platformMarkup = $this->tiers->platformMarkupPercent($tenant);
+
+        return (int) round(($harga * max(1, $quantity)) * (1 + ($platformMarkup / 100)));
+    }
+
+    /**
+     * Pesan penolakan kalau harga setelah diskon jatuh di bawah lantai, atau
+     * `null` kalau masih aman.
+     *
+     * Dipusatkan supaya website, bot Telegram/WhatsApp, gateway, dan API
+     * reseller memberi jawaban yang sama. Sebelum ini hanya website yang
+     * memeriksanya (`applyTenantMarginAfterDiscount()`), jadi kupon yang sama
+     * bisa lolos di bot dan membuat toko menjual di bawah harga belinya.
+     */
+    public function floorViolation(Layanan $layanan, int $amountAfterDiscount, int $quantity = 1): ?string
+    {
+        $floor = $this->priceFloor($layanan, $quantity);
+
+        if ($floor === null || $amountAfterDiscount >= $floor) {
+            return null;
+        }
+
+        return sprintf(
+            'Harga setelah diskon (Rp %s) di bawah harga jual platform (Rp %s). Kurangi diskon voucher atau naikkan markup toko.',
+            number_format($amountAfterDiscount, 0, ',', '.'),
+            number_format($floor, 0, ',', '.'),
+        );
+    }
+
     /** Markup jual efektif (persen) untuk halaman pengaturan tenant. */
     public function effectiveMarkupPercent(?Tenant $tenant, int $modalPlatform = 10000): float
     {
