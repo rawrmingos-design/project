@@ -144,6 +144,7 @@ class ResetDomainService
                 'active_provider_sku' => $nextProviderSku,
                 'profit' => $nextProfit,
                 'active_attempt_token' => null,
+                'provider_order_id' => null, // reset: hindari poller mengejar ref attempt lama (bug reset-sync)
                 'active_attempt_reference' => $nextAttemptReference,
                 'status' => PembelianStatus::preferredDatabaseLabel(PembelianStatus::PENDING),
                 'reset_status' => 'requested',
