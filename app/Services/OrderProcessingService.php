@@ -59,6 +59,37 @@ class OrderProcessingService
         $providerCode = $providerRoute['provider_code'];
         $sku = $providerRoute['sku'];
         $credentials = $providerRoute['credentials'] ?? [];
+
+        // SAFETY: cek status (retry_status) Digiflazz hanya aman untuk order
+        // yang transaksinya masih HIDUP di Digiflazz (Pending/Processing) dan
+        // sudah punya provider_order_id terkonfirmasi. Endpoint /v1/transaction
+        // Digiflazz MEMBUAT transaksi baru bila ref_id final/belum pernah ada,
+        // sehingga cek status untuk order Gagal/Sukses atau belum-terkirim bisa
+        // memicu transaksi tak sengaja. Tolak di sini, jangan sentuh Digiflazz.
+        if ($this->dispatchMode === 'retry_status' && strtolower(trim((string) $providerCode)) === 'digiflazz') {
+            $currentStatus = PembelianStatus::normalize($pembelian->status);
+            $digiflazzRef = trim((string) ($pembelian->provider_order_id ?? ''));
+
+            if ($digiflazzRef === '' || ! in_array($currentStatus, [PembelianStatus::PENDING, PembelianStatus::PROCESSING], true)) {
+                Log::warning('OrderProcessingService: cek status Digiflazz dilewati demi keamanan.', [
+                    'order_id' => $pembelian->order_id,
+                    'display_order_id' => $pembelian->display_order_id,
+                    'status' => $pembelian->status,
+                    'provider_order_id' => $digiflazzRef,
+                ]);
+
+                return [
+                    'success' => false,
+                    'order_status' => $pembelian->status,
+                    'transaction_id' => $digiflazzRef !== '' ? $digiflazzRef : null,
+                    'message' => 'Cek status Digiflazz hanya untuk order Pending/Processing yang sudah terkirim ke provider. Untuk order final, cek via dashboard Digiflazz.',
+                    'sn' => null,
+                    'provider' => $providerCode,
+                    'provider_status' => null,
+                    'raw' => null,
+                ];
+            }
+        }
         
         // Prepare parameters
         $uid = $pembelian->user_id;
