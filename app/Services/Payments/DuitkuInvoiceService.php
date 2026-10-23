@@ -26,8 +26,12 @@ class DuitkuInvoiceService
             $duitkuPaymentMethodCode = $this->mapPaymentMethodCode($requestedPaymentMethodCode);
             $merchantOrderId = 'DUITKU-' . $order->order_id;
             $amount = (int) $order->harga;
+            // FIX: nickname/username akun game disaring dulu sebelum masuk payload Duitku.
+            // customerVaName Duitku hanya menerima huruf/angka/spasi; underscore & simbol
+            // memicu 500 "object reference not set", dan nickname dengan UTF-8 rusak
+            // bikin json_encode() balik false -> body kosong -> 400 "non-empty body required".
             $customerName = trim((string) ($order->nickname ?: $order->username ?: 'Customer'));
-            $customerName = $customerName !== '' ? $customerName : 'Customer';
+            $customerName = $this->sanitizeCustomerName($customerName);
             [$firstName, $lastName] = $this->splitCustomerName($customerName);
             $email = trim((string) ($order->email_pembeli ?: 'customer@example.com'));
             $phoneNumber = $this->phoneForOrder($order);
@@ -202,6 +206,26 @@ class DuitkuInvoiceService
         return $phone !== '' ? $phone : '081234567890';
     }
 
+    /**
+     * Bersihkan nama customer/nickname agar aman dikirim ke Duitku.
+     *
+     * customerVaName Duitku hanya menerima huruf, angka, dan spasi. Karakter lain
+     * (underscore, simbol, emoji, glyph gaming) memicu NullReferenceException 500 di
+     * server Duitku, dan byte UTF-8 yang tidak valid membuat json_encode() balik false
+     * sehingga body request kosong (400 "A non-empty request body is required").
+     *
+     * Sengaja TIDAK memakai modifier /u agar nickname dengan UTF-8 rusak pun ikut
+     * terpangkas byte per byte, bukannya membuat preg_replace gagal dan meloloskan
+     * string rusak apa adanya.
+     */
+    private function sanitizeCustomerName(string $name): string
+    {
+        $name = (string) preg_replace('/[^A-Za-z0-9 ]/', ' ', $name);
+        $name = trim((string) preg_replace('/\s+/', ' ', $name));
+
+        return $name !== '' ? $name : 'Customer';
+    }
+
     private function splitCustomerName(string $name): array
     {
         $parts = preg_split('/\s+/', trim($name), 2) ?: [];
@@ -212,5 +236,3 @@ class DuitkuInvoiceService
         ];
     }
 }
-
-

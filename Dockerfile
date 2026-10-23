@@ -2,7 +2,7 @@
 # Dockerfile — Laravel App (PHP 8.4 FPM Alpine)
 # =====================================================
 
-FROM php:8.4-fpm-alpine AS base
+FROM php:8.4.27-fpm-alpine AS base
 
 # ---------------------------------------------------------------------------
 # Use install-php-extensions (handles all deps automatically on Alpine)
