@@ -63,20 +63,47 @@ class DigiflazzCallbackController extends Controller
                 $staleInvoice = $this->findPotentialStaleInvoice($refId);
 
                 if ($staleInvoice) {
-                    Log::debug("Digiflazz callback ignored for stale attempt reference {$refId}", [
-                        'event' => $event,
-                        'order_id' => $staleInvoice->order_id,
-                        'active_attempt_reference' => $staleInvoice->active_attempt_reference,
-                        'provider_order_id' => $staleInvoice->provider_order_id,
-                    ]);
+                    // REKONSILIASI: Digiflazz kadang mengirim callback dengan ref LAMA (base)
+                    // untuk order yang sudah di-reset. Callback SUKSES bersifat otoritatif
+                    // (produk sudah terkirim & saldo terpotong di Digiflazz), jadi jangan
+                    // dibuang. Adopsi invoice tsb lalu lewati pipeline normal agar status +
+                    // SN tersinkron. Hanya untuk SUKSES ber-SN pada order yang BELUM Sukses;
+                    // callback non-sukses tetap diabaikan supaya kegagalan attempt lama tidak
+                    // menimpa attempt baru.
+                    $staleIncomingStatus = PembelianStatus::normalize($data['status'] ?? null);
+                    $staleSnValue = trim((string) ($data['sn'] ?? ''));
+                    $staleCurrentStatus = PembelianStatus::normalize($staleInvoice->status);
+
+                    if ($staleIncomingStatus === PembelianStatus::SUCCESS
+                        && $staleSnValue !== ''
+                        && $staleCurrentStatus !== PembelianStatus::SUCCESS) {
+                        Log::warning("Digiflazz callback reconciling stale SUCCESS for {$refId}", [
+                            'event' => $event,
+                            'order_id' => $staleInvoice->order_id,
+                            'active_attempt_reference' => $staleInvoice->active_attempt_reference,
+                            'provider_order_id' => $staleInvoice->provider_order_id,
+                            'incoming_ref' => $refId,
+                        ]);
+
+                        $invoice = $staleInvoice; // adopsi, lalu lanjut ke pipeline normal di bawah
+                    } else {
+                        Log::debug("Digiflazz callback ignored for stale attempt reference {$refId}", [
+                            'event' => $event,
+                            'order_id' => $staleInvoice->order_id,
+                            'active_attempt_reference' => $staleInvoice->active_attempt_reference,
+                            'provider_order_id' => $staleInvoice->provider_order_id,
+                        ]);
+
+                        return;
+                    }
                 } else {
                     Log::error("Digiflazz callback: invoice not found for ref_id {$refId}", [
                         'event' => $event,
                         'payload' => $payload,
                     ]);
-                }
 
-                return;
+                    return;
+                }
             }
 
             $incomingStatus = PembelianStatus::normalize($data['status'] ?? null);
@@ -268,6 +295,7 @@ class DigiflazzCallbackController extends Controller
                     ->orWhere('display_order_id', $refId)
                     ->orWhere('active_attempt_reference', $refId);
             })
+            ->lockForUpdate()
             ->first();
     }
 
