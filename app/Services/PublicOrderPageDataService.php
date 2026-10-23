@@ -8,6 +8,8 @@ use App\Models\Layanan;
 use App\Support\CustomInputDefaults;
 use App\Support\GtmDataLayerBuilder;
 use App\Services\CheckId\CheckIdResolver;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantPricingService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -37,7 +39,13 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:v5:{$kategori->kode}:{$role}";
+
+        // Cache key WAJIB memuat tenant. Tanpa itu, toko yang hit pertama
+        // melayani semua toko lain sampai TTL habis (300 detik), dan harga
+        // tenant satu tampil di toko tenant lain.
+        $cacheKey = 'inertia_order_page:v6:'
+            . app(TenantContext::class)->id()
+            . ":{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -183,32 +191,72 @@ class PublicOrderPageDataService
             $query->whereIn('id', $allowedProductIds);
         }
 
+        // `harga_pokok` = `layanans.harga`, anchor modal platform (design doc §5).
+        // `harga` = harga per-peran, hanya dipakai untuk situs platform.
         match ($role) {
-            'Member' => $query->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
-            'Platinum' => $query->select('id', 'layanan', 'harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
-            'Gold', 'Admin' => $query->select('id', 'layanan', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
-            default => $query->select('id', 'layanan', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
+            'Member' => $query->select('id', 'layanan', 'harga AS harga_pokok', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
+            'Platinum' => $query->select('id', 'layanan', 'harga AS harga_pokok', 'harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
+            'Gold', 'Admin' => $query->select('id', 'layanan', 'harga AS harga_pokok', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
+            default => $query->select('id', 'layanan', 'harga AS harga_pokok', 'harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale', 'product_logo'),
         };
+
+        // Harga jual tenant HARUS menggantikan harga per-peran. Tanpa ini,
+        // etalase menampilkan harga platform, dan toko tenant menjual dengan
+        // margin nol: modal tenant (harga platform + markup platform) lebih
+        // besar dari harga yang ditampilkan.
+        //
+        // `harga*` tetap dipakai sebagai titik awal supaya situs platform tidak
+        // berubah perilakunya — di sana tidak ada TenantContext, jadi pricing
+        // tidak menyentuh apa pun.
+        $tenant = app(TenantContext::class)->get();
+        $pricing = $tenant ? app(TenantPricingService::class) : null;
 
         return $query
             ->orderBy('harga', 'asc')
             ->get()
-            ->map(fn ($item) => [
-                'id' => $item->id,
-                'name' => $item->layanan,
-                'price' => (int) $item->harga,
-                'isFlashSale' => (bool) $item->is_flash_sale,
-                'flashPrice' => (int) ($item->harga_flash_sale ?? 0),
-                'flashStock' => (int) ($item->stock_flash_sale ?? 0),
-                'flashExpiresAt' => $item->expired_flash_sale ? Carbon::parse($item->expired_flash_sale)->toIso8601String() : null,
-                'productLogo' => $this->publicAssetPath($item->product_logo),
-            ])
+            ->map(function ($item) use ($tenant, $pricing) {
+                $price = (int) $item->harga;
+                $flashPrice = (int) ($item->harga_flash_sale ?? 0);
+                $modalTenant = null;
+
+                if ($pricing !== null) {
+                    // Anchor modal = `layanans.harga` (bukan harga per-peran),
+                    // sesuai `docs/design/saas-tier-pricing-design.md` §5.
+                    $layanan = new Layanan([
+                        'harga' => (int) ($item->harga_pokok ?? 0),
+                    ]);
+                    $layanan->id = $item->id;
+
+                    $computed = $pricing->forLayanan($layanan, $tenant);
+                    $price = $computed['sell_price'];
+                    $modalTenant = $computed['modal_tenant'];
+
+                    // Flash sale tetap diskon milik tenant: potong dari harga
+                    // jual tenant, dan jangan pernah di bawah modal tenant.
+                    if ($flashPrice > 0) {
+                        $flashPrice = max($flashPrice, $modalTenant);
+                    }
+                }
+
+                return [
+                    'id' => $item->id,
+                    'name' => $item->layanan,
+                    'price' => $price,
+                    'isFlashSale' => (bool) $item->is_flash_sale,
+                    'flashPrice' => $flashPrice,
+                    'flashStock' => (int) ($item->stock_flash_sale ?? 0),
+                    'flashExpiresAt' => $item->expired_flash_sale ? Carbon::parse($item->expired_flash_sale)->toIso8601String() : null,
+                    'productLogo' => $this->publicAssetPath($item->product_logo),
+                ];
+            })
             ->values();
     }
 
     private function loadPackages(int $categoryId, string $role)
     {
         $priceColumn = $this->priceColumnForRole($role);
+        $tenant = app(TenantContext::class)->get();
+        $pricing = $tenant ? app(TenantPricingService::class) : null;
 
         return DB::table('pakets')
             ->join('paket_layanans', 'paket_layanans.paket_id', '=', 'pakets.id')
@@ -221,6 +269,7 @@ class PublicOrderPageDataService
                 'pakets.nama AS paket_nama',
                 'layanans.id',
                 'layanans.layanan',
+                'layanans.harga AS harga_pokok',
                 "layanans.{$priceColumn} AS harga",
                 'layanans.is_flash_sale',
                 'layanans.harga_flash_sale',
@@ -231,20 +280,37 @@ class PublicOrderPageDataService
             ->orderBy('harga')
             ->get()
             ->groupBy('paket_id')
-            ->map(function ($items) {
+            ->map(function ($items) use ($tenant, $pricing) {
                 $first = $items->first();
 
                 return [
                     'name' => $first->paket_nama,
-                    'items' => $items->map(fn ($layanan) => [
-                        'id' => $layanan->id,
-                        'name' => $layanan->layanan,
-                        'price' => (int) $layanan->harga,
-                        'productLogo' => $this->publicAssetPath($layanan->product_logo),
-                        'isFlashSale' => (bool) $layanan->is_flash_sale,
-                        'flashPrice' => (int) ($layanan->harga_flash_sale ?? 0),
-                        'flashExpiresAt' => $layanan->expired_flash_sale ? Carbon::parse($layanan->expired_flash_sale)->toIso8601String() : null,
-                    ])->values()->all(),
+                    'items' => $items->map(function ($layanan) use ($tenant, $pricing) {
+                        $price = (int) $layanan->harga;
+                        $flashPrice = (int) ($layanan->harga_flash_sale ?? 0);
+
+                        if ($pricing !== null) {
+                            $model = new Layanan(['harga' => (int) $layanan->harga_pokok]);
+                            $model->id = $layanan->id;
+
+                            $computed = $pricing->forLayanan($model, $tenant);
+                            $price = $computed['sell_price'];
+
+                            if ($flashPrice > 0) {
+                                $flashPrice = max($flashPrice, $computed['modal_tenant']);
+                            }
+                        }
+
+                        return [
+                            'id' => $layanan->id,
+                            'name' => $layanan->layanan,
+                            'price' => $price,
+                            'productLogo' => $this->publicAssetPath($layanan->product_logo),
+                            'isFlashSale' => (bool) $layanan->is_flash_sale,
+                            'flashPrice' => $flashPrice,
+                            'flashExpiresAt' => $layanan->expired_flash_sale ? Carbon::parse($layanan->expired_flash_sale)->toIso8601String() : null,
+                        ];
+                    })->values()->all(),
                 ];
             })
             ->values()
