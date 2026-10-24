@@ -281,7 +281,7 @@ class ProviderStatusUpdateService
         $providerOrder = trim((string) ($pembelian->provider_order_id ?? ''));
         $activeAttemptReference = trim((string) ($pembelian->active_attempt_reference ?? ''));
 
-        if ($activeAttemptToken === '' && $providerOrder === '' && $activeAttemptReference === '') {
+        if ($activeAttemptToken === '' && $providerOrder === '') {
             return false;
         }
 
