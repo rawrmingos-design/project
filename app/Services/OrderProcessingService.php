@@ -180,6 +180,16 @@ class OrderProcessingService
     {
         if ($this->dispatchMode === 'retry_status'
             && strtolower(trim((string) $pembelian->active_provider_code)) === 'digiflazz') {
+            // Cek status harus menatap attempt AKTIF (active_attempt_reference) =
+            // attempt terkini (_001/_002). provider_order_id bisa nyangkut di attempt
+            // lama pada order warisan, sehingga cek status salah menanyakan ref base.
+            // Guard di process() sudah memastikan ada attempt terdispatch (poid terisi)
+            // + status hidup + umur < 80 hari sebelum sampai sini.
+            $activeRef = trim((string) ($pembelian->active_attempt_reference ?? ''));
+            if ($activeRef !== '') {
+                return $activeRef;
+            }
+
             $providerOrderId = trim((string) ($pembelian->provider_order_id ?? ''));
             if ($providerOrderId !== '') {
                 return $providerOrderId;
