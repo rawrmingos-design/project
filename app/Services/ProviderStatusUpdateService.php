@@ -279,12 +279,17 @@ class ProviderStatusUpdateService
 
         $activeAttemptToken = trim((string) ($pembelian->active_attempt_token ?? ''));
         $providerOrder = trim((string) ($pembelian->provider_order_id ?? ''));
+        $activeAttemptReference = trim((string) ($pembelian->active_attempt_reference ?? ''));
 
-        if ($activeAttemptToken === '' && $providerOrder === '') {
+        if ($activeAttemptToken === '' && $providerOrder === '' && $activeAttemptReference === '') {
             return false;
         }
 
-        return $providerOrderId !== $activeAttemptToken && $providerOrderId !== $providerOrder;
+        // Respons untuk attempt AKTIF (active_attempt_reference) jangan dicap stale,
+        // walau provider_order_id/token masih menunjuk attempt lama (order warisan).
+        return $providerOrderId !== $activeAttemptToken
+            && $providerOrderId !== $providerOrder
+            && $providerOrderId !== $activeAttemptReference;
     }
 
     private function nextResetStatus(Pembelian $pembelian, string $incomingStatus): string
