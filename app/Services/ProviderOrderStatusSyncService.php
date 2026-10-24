@@ -28,19 +28,39 @@ class ProviderOrderStatusSyncService
             ->with(['activeLayanan', 'pembayaran'])
             ->whereIn('status', PembelianStatus::pendingLabels())
             ->where('active_provider_code', $provider)
-            ->whereNotNull('provider_order_id')
+            // `provider_order_id` di-NULL-kan saat reset (ResetDomainService) dan baru
+            // terisi lagi setelah attempt baru dikirim. Filter ini dulu wajib terisi,
+            // sehingga attempt yang sedang berjalan tidak pernah ikut di-poll sama
+            // sekali. Cukup salah satu referensi yang ada.
+            ->where(function ($query): void {
+                $query->whereNotNull('provider_order_id')
+                    ->orWhereNotNull('active_attempt_reference');
+            })
             ->whereHas('pembayaran', fn ($query) => $query->whereIn('status', ['Lunas', 'PAID', 'Paid', 'Success']))
             ->orderBy('id')
             ->chunkById(100, function ($orders) use ($client, $provider, $statusUpdater, &$updated, &$failed): void {
                 foreach ($orders as $order) {
+                    // `provider_order_id` kosong selama attempt hasil reset belum
+                    // berhasil dikirim. Tanpa fallback ini, polling akan menanyakan
+                    // string kosong lalu mencatat kegagalan transport yang tidak
+                    // pernah terjadi.
+                    $reference = trim((string) ($order->provider_order_id ?? ''));
+                    if ($reference === '') {
+                        $reference = trim((string) ($order->active_attempt_reference ?? ''));
+                    }
+
+                    if ($reference === '') {
+                        continue;
+                    }
+
                     $response = $provider === 'digiflazz'
                         ? (new DigiFlazzController())->status(
-                            (string) $order->provider_order_id,
+                            $reference,
                             (string) $order->active_provider_sku,
                             (string) $order->user_id,
                             (string) $order->zone,
                         )
-                        : $client->status($order->provider_order_id);
+                        : $client->status($reference);
 
                     $providerMessage = trim((string) data_get($response, 'data.message', ''));
 
