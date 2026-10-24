@@ -206,6 +206,102 @@ class TenantPricingService
         );
     }
 
+    /**
+     * Harga untuk satu role di satu produk — satu-satunya tempat aturan ini
+     * boleh tinggal.
+     *
+     * Sebelum ini, lima tempat menyalin `match($role) { 'Gold' => harga_gold, ... }`
+     * lalu menaruh hasilnya ke `$layanan->harga`. Karena `applyToLayanan()`
+     * membaca `$layanan->harga` sebagai ANCHOR MODAL, harga jual platform
+     * diperlakukan sebagai modal dan dimarkup lagi. Terukur di staging: etalase
+     * 110.000 sementara pratinjau web 118.800 dan pratinjau API 116.600 untuk
+     * produk yang sama.
+     *
+     * @return array{
+     *     unit: int, amount: int, modal: int, modal_tenant: int,
+     *     profit: int, is_tenant: bool
+     * }
+     */
+    public function priceForRole(Layanan $layanan, ?string $role = null, ?Tenant $tenant = null, int $quantity = 1): array
+    {
+        $quantity = max(1, $quantity);
+        $tenant ??= app(TenantContext::class)->get();
+
+        // Harga pokok = `layanans.harga` (anchor modal, design doc §5). Selalu
+        // dibaca dari atribut asli, tidak pernah dari nilai yang mungkin sudah
+        // ditimpa `applyToLayanan()`.
+        $unit = max(0, (int) round((float) ($layanan->getOriginal('harga') ?? $layanan->harga ?? 0)));
+
+        if ($tenant !== null) {
+            $price = $this->forLayanan($layanan, $tenant, $quantity);
+
+            return [
+                'unit' => $price['sell_price'],
+                'amount' => $price['sell_price'],
+                'modal' => $price['modal'],
+                'modal_tenant' => $price['modal_tenant'],
+                'profit' => $price['profit'],
+                'is_tenant' => true,
+            ];
+        }
+
+        // Situs platform: murni role -> kolom harga, tanpa markup apa pun.
+        $column = match (strtolower(trim((string) $role))) {
+            'platinum' => 'harga_platinum',
+            'gold', 'admin' => 'harga_gold',
+            'member' => 'harga_member',
+            default => 'harga_member',
+        };
+
+        $roleUnit = (int) round((float) ($layanan->{$column} ?? 0));
+        $modal = $unit * $quantity;
+
+        return [
+            'unit' => $roleUnit,
+            'amount' => $roleUnit * $quantity,
+            'modal' => $modal,
+            'modal_tenant' => $modal,
+            'profit' => ($roleUnit * $quantity) - $modal,
+            'is_tenant' => false,
+        ];
+    }
+
+    /**
+     * Harga flash sale untuk produk ini, atau `null` kalau tidak sedang aktif.
+     *
+     * Dipisah supaya tidak ada lagi jalur yang menimpanya dengan markup penuh —
+     * `OrderController::price()` dulu set `harga = harga_flash_sale` lalu
+     * menimpanya di baris berikutnya, sehingga harga flash hilang di pratinjau
+     * padahal terlihat di etalase.
+     *
+     * Di toko tenant, harga flash dijepit di atas modal tenant: diskon flash
+     * milik tenant, tapi toko tidak boleh menjual di bawah harga belinya.
+     */
+    public function flashSalePrice(Layanan $layanan, ?Tenant $tenant = null, ?int $modalTenant = null): ?int
+    {
+        if ((int) ($layanan->is_flash_sale ?? 0) !== 1) {
+            return null;
+        }
+
+        $expired = $layanan->expired_flash_sale;
+        if ($expired === null || strtotime((string) $expired) < time()) {
+            return null;
+        }
+
+        if ((int) ($layanan->stock_flash_sale ?? 0) <= 0) {
+            return null;
+        }
+
+        $flash = max(0, (int) round((float) ($layanan->harga_flash_sale ?? 0)));
+
+        $tenant ??= app(TenantContext::class)->get();
+        if ($tenant === null || $modalTenant === null) {
+            return $flash;
+        }
+
+        return max($flash, $modalTenant);
+    }
+
     /** Markup jual efektif (persen) untuk halaman pengaturan tenant. */
     public function effectiveMarkupPercent(?Tenant $tenant, int $modalPlatform = 10000): float
     {

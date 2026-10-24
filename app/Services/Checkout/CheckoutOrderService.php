@@ -697,29 +697,46 @@ class CheckoutOrderService
      */
     private function resolveServiceAmount(Layanan $service, ?User $user, Request $request): int
     {
-        $amount = match ($user?->role ?? 'Guest') {
-            'Member' => $service->harga_member,
-            'Platinum' => $service->harga_platinum,
-            'Gold', 'Admin' => $service->harga_gold,
-            default => $service->harga_member,
-        };
+        $qty = in_array((string) $request->input('ktg_tipe'), ['joki', 'jokigendong', 'vilogml'], true)
+            ? max(1, (int) $request->input('qty', 1))
+            : 1;
 
-        if ($service->is_flash_sale == 1 && $service->expired_flash_sale >= now() && $service->stock_flash_sale > 0) {
+        // Satu sumber harga: beratribut sama dengan etalase, pratinjau web, dan
+        // pratinjau API. Sebelumnya di sini `match($role)` memilih harga jual
+        // platform, lalu blok tenant menaruhnya ke `$service->harga` yang dibaca
+        // `applyToLayanan()` sebagai ANCHOR MODAL — harga jual diperlakukan
+        // sebagai modal dan dimarkup lagi.
+        $price = app(\App\Tenancy\TenantPricingService::class)->priceForRole(
+            $service,
+            $user?->role ?? 'Guest',
+            $this->currentTenant(),
+            $qty,
+        );
+
+        $amount = $price['amount'];
+
+        // `applyToLayanan()` memberi atribut ini di jalur lain; di sini diisi
+        // eksplisit supaya `priceFloor()`/`floorViolation()` membaca modal tenant
+        // yang benar.
+        $service->modal_harga = $price['modal'];
+        $service->tenant_modal_harga = $price['modal_tenant'];
+        $service->tenant_profit = $price['profit'];
+
+        // Stok flash sale baru dikurangi setelah harga benar-benar dipakai.
+        // Pemanggil berada di dalam `DB::transaction`, jadi kalau order gagal
+        // pengurangan ini ikut rollback.
+        $flashUnit = app(\App\Tenancy\TenantPricingService::class)->flashSalePrice($service);
+
+        if ($flashUnit !== null) {
             $service->decrement('stock_flash_sale');
-            $amount = $service->harga_flash_sale;
-        }
 
-        // Situs platform tidak berubah perilakunya: tanpa konteks tenant,
-        // `hasTenantContext()` false dan harga tetap harga per-peran.
-        $tenant = $this->currentTenant();
-        if ($tenant !== null) {
-            $service->harga = $amount;
-            app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($service, $tenant);
-            $amount = $service->harga;
-        }
+            $flashAmount = $flashUnit * $qty;
 
-        if (in_array((string) $request->input('ktg_tipe'), ['joki', 'jokigendong', 'vilogml'], true)) {
-            $amount *= max(1, (int) $request->input('qty', 1));
+            if ($price['is_tenant']) {
+                $flashAmount = max($flashAmount, $price['modal_tenant']);
+            }
+
+            $amount = $flashAmount;
         }
 
         return max(0, (int) round((float) $amount));

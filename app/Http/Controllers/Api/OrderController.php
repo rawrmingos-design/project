@@ -31,38 +31,37 @@ class OrderController extends Controller
             ], 404);
         }
 
-        $harga = match($role) {
-            'Member' => $layanan->harga_member,
-            'Platinum' => $layanan->harga_platinum,
-            'Gold', 'Admin' => $layanan->harga_gold,
-            default => $layanan->harga_member
-        };
+        // Satu sumber harga: `TenantPricingService::priceForRole()`. Sebelumnya
+        // `match($role)` di sini memilih harga jual platform, lalu blok tenant di
+        // bawahnya menaruhnya ke `$layanan->harga` yang dibaca
+        // `applyToLayanan()` sebagai ANCHOR MODAL — harga jual diperlakukan
+        // sebagai modal, lalu dimarkup lagi. Terukur: 116.600 padahal etalase
+        // 110.000 untuk produk yang sama.
+        $price = app(\App\Tenancy\TenantPricingService::class)->priceForRole(
+            $layanan,
+            $role,
+            app()->bound(\App\Tenancy\TenantContext::class)
+                ? app(\App\Tenancy\TenantContext::class)->get()
+                : null,
+            in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)
+                ? max(1, (int) $request->qty)
+                : 1,
+        );
 
-        if ($layanan->is_flash_sale == 1 && $layanan->expired_flash_sale >= now() && $layanan->stock_flash_sale > 0) {
-            $harga = $layanan->harga_flash_sale;
-        }
+        $harga = $price['amount'];
+        $layanan->modal_harga = $price['modal'];
+        $layanan->tenant_modal_harga = $price['modal_tenant'];
+        $layanan->tenant_profit = $price['profit'];
 
-        // Toko tenant: harga dan modal diambil dari `TenantPricingService`, sama
-        // seperti jalur web. Dua hal bergantung pada ini:
-        //
-        // 1. Harga yang ditagih. Tanpa blok ini, pratinjau harga di bot memakai
-        //    harga platform, sementara checkout web menagih harga jual tenant —
-        //    pembeli melihat dua angka berbeda untuk produk yang sama.
-        //
-        // 2. Lantai modal. Diskon kupon dihitung dari harga ini, jadi kalau
-        //    patokannya harga platform, `harga - potongan` bisa jatuh di bawah
-        //    modal tenant. Terukur: kupon 50% menghasilkan Rp 50.000 padahal
-        //    modal tenant Rp 102.000 — toko rugi Rp 52.000 per transaksi.
-        $tenant = app(\App\Tenancy\TenantContext::class)->get();
-        if ($tenant !== null) {
-            $layanan->harga = $harga;
-            app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($layanan, $tenant);
-            $harga = $layanan->harga;
-        }
+        $flashUnit = app(\App\Tenancy\TenantPricingService::class)->flashSalePrice($layanan);
+        if ($flashUnit !== null) {
+            $flashAmount = $flashUnit * max(1, in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true) ? (int) $request->qty : 1);
 
-        if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $qty = max(1, (int)$request->qty);
-            $harga *= $qty;
+            if ($price['is_tenant']) {
+                $flashAmount = max($flashAmount, $price['modal_tenant']);
+            }
+
+            $harga = $flashAmount;
         }
 
         $potongan = 0;
@@ -143,12 +142,18 @@ class OrderController extends Controller
         $role = $user ? $user->role : 'Guest';
         $layanan = Layanan::find($request->service);
         
-        $harga = match($role) {
-            'Member' => $layanan->harga_member,
-            'Platinum' => $layanan->harga_platinum,
-            'Gold', 'Admin' => $layanan->harga_gold,
-            default => $layanan->harga_member
-        };
+        // `mintrx` harus dibandingkan dengan harga yang BENAR-BENAR ditagih.
+        // Kalau di sini dipakai harga platform sementara checkout menagih harga
+        // tenant, kupon yang sama bisa lolos di bot lalu ditolak (atau lebih
+        // buruk, memotong) saat checkout.
+        $harga = app(\App\Tenancy\TenantPricingService::class)->priceForRole(
+            $layanan,
+            $role,
+            app()->bound(\App\Tenancy\TenantContext::class)
+                ? app(\App\Tenancy\TenantContext::class)->get()
+                : null,
+            1,
+        )['amount'];
 
         if ($voucher->mintrx && $harga < $voucher->mintrx) {
             return response()->json(['status' => false, 'message' => 'Minimal transaksi Rp ' . number_format($voucher->mintrx, 0, ',', '.')]);
@@ -192,19 +197,35 @@ class OrderController extends Controller
         $user = Auth::guard('sanctum')->user();
         $role = $user ? $user->role : 'Guest';
 
-        $harga = match($role) {
-            'Member' => $item->harga_member,
-            'Platinum' => $item->harga_platinum,
-            'Gold', 'Admin' => $item->harga_gold,
-            default => $item->harga_member
-        };
+        // Sama seperti `price()`: satu sumber harga, supaya angka di konfirmasi
+        // dan angka di tagihan tidak pernah berbeda.
+        $qty = in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)
+            ? max(1, (int) $request->qty)
+            : 1;
 
-        if ($item->is_flash_sale == 1 && $item->expired_flash_sale >= now() && $item->stock_flash_sale > 0) {
-            $harga = $item->harga_flash_sale;
-        }
+        $price = app(\App\Tenancy\TenantPricingService::class)->priceForRole(
+            $item,
+            $role,
+            app()->bound(\App\Tenancy\TenantContext::class)
+                ? app(\App\Tenancy\TenantContext::class)->get()
+                : null,
+            $qty,
+        );
 
-        if (in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'])) {
-            $harga *= max(1, (int)$request->qty);
+        $harga = $price['amount'];
+        $item->modal_harga = $price['modal'];
+        $item->tenant_modal_harga = $price['modal_tenant'];
+        $item->tenant_profit = $price['profit'];
+
+        $flashUnit = app(\App\Tenancy\TenantPricingService::class)->flashSalePrice($item);
+        if ($flashUnit !== null) {
+            $flashAmount = $flashUnit * $qty;
+
+            if ($price['is_tenant']) {
+                $flashAmount = max($flashAmount, $price['modal_tenant']);
+            }
+
+            $harga = $flashAmount;
         }
 
         if ($request->voucher) {

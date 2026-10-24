@@ -342,19 +342,21 @@ class OrderController extends Controller
         $query = Layanan::where('id', $request->nominal)
             ->where('status', 'available');
 
-        if ($this->hasTenantContext()) {
-            $query->select('id', 'harga_gold', 'harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
-        } elseif (Auth::check()) {
-            if (Auth::user()->role == "Member") {
-                $query->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
-            } elseif (Auth::user()->role == "Platinum") {
-                $query->select('harga_platinum AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
-            } elseif (Auth::user()->role == "Gold" || Auth::user()->role == "Admin") {
-                $query->select('harga_gold AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
-            }
-        } else {
-            $query->select('harga_member AS harga', 'is_flash_sale', 'expired_flash_sale', 'harga_flash_sale', 'stock_flash_sale');
-        }
+        // Anchor modal SELALU `layanans.harga` (design doc §5), jadi kolom itu
+        // harus ikut terbaca. Cabang tenant dulu mengambil `harga_gold AS harga`
+        // dan membuang `harga`, sehingga `applyToLayanan()` membaca harga jual
+        // platform sebagai modal lalu memarkupnya lagi.
+        $query->select(
+            'id',
+            'harga',
+            'harga_member',
+            'harga_platinum',
+            'harga_gold',
+            'is_flash_sale',
+            'expired_flash_sale',
+            'harga_flash_sale',
+            'stock_flash_sale',
+        );
 
         $data = $query->first();
 
@@ -366,12 +368,42 @@ class OrderController extends Controller
             ], 404);
         }
 
-        if ($data->is_flash_sale == 1 && $data->expired_flash_sale >= date('Y-m-d H:i:s') && $data->stock_flash_sale > 0) {
-            $data->harga = $data->harga_flash_sale;
-        }
+        // Satu sumber harga, dipakai juga oleh etalase, bot, dan API.
+        $role = Auth::check() ? Auth::user()->role : 'Guest';
+        $qty = $this->tenantPriceQuantity($request);
 
-        // Quantity ditangani `applyQuantityAwarePricing()` di bawah, tepat sekali.
-        $this->applyQuantityAwarePricing($data, $request);
+        $price = app(TenantPricingService::class)->priceForRole(
+            $data,
+            $role,
+            $this->hasTenantContext() ? app(TenantContext::class)->get() : null,
+            $qty,
+        );
+
+        $data->harga = $price['amount'];
+        $data->modal_harga = $price['modal'];
+        $data->tenant_modal_harga = $price['modal_tenant'];
+        $data->tenant_profit = $price['profit'];
+
+        // Flash sale diterapkan SETELAH harga dasar, bukan sebelumnya. Dulu
+        // urutannya terbalik: harga flash dipasang lalu ditimpa markup penuh,
+        // sehingga pembeli melihat harga flash di etalase tapi harga normal di
+        // pratinjau.
+        //
+        // Harga flash adalah harga PER UNIT, jadi harus dikali quantity dulu.
+        // Setelah itu barulah dijepit di atas modal tenant (yang juga sudah
+        // dihitung untuk quantity yang sama) — membandingkan harga total dengan
+        // modal per-unit akan menjepit terlalu tinggi.
+        $flashUnit = app(TenantPricingService::class)->flashSalePrice($data);
+
+        if ($flashUnit !== null) {
+            $flashAmount = $flashUnit * $qty;
+
+            if ($price['is_tenant']) {
+                $flashAmount = max($flashAmount, $price['modal_tenant']);
+            }
+
+            $data->harga = $flashAmount;
+        }
 
         if ($request->voucher) {
             // Resolusi terpusat: voucher tenant dulu, lalu voucher platform.
