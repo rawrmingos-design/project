@@ -453,9 +453,12 @@
                 color: #fff5e6;
             }
 
-            .public-dashboard-credits__amount strong,
-            .public-dashboard-table__invoice-link {
+            .public-dashboard-credits__amount strong {
                 color: var(--warna_3);
+            }
+
+            .public-dashboard-table__invoice-link {
+                color: #ffffff;
             }
 
             .public-dashboard-button--primary,
