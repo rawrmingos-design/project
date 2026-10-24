@@ -130,9 +130,13 @@ class OrderApiController extends Controller
            $route = app(\App\Services\ProviderRoutingService::class)->findBestProvider($s);
            $variantCode = trim((string) ($route['sku'] ?? $s->provider_id));
 
+            // Admin diperlakukan seperti Gold, sama dengan `Api\OrderController`.
+            // Sebelumnya Admin jatuh ke `else` dan ditagih `$s->harga` — modal
+            // mentah provider, tanpa margin. `hasResellerAccess()` mengizinkan
+            // Admin, jadi Admin benar-benar bisa memesan lewat jalur ini.
             if ($user->role == 'Platinum') {
                 $harga = $s->harga_platinum;
-            } elseif ($user->role == 'Gold') {
+            } elseif ($user->role == 'Gold' || $user->role == 'Admin') {
                 $harga = $s->harga_gold;
             } elseif ($user->role == 'Member') {
                 $harga = $s->harga_member;
@@ -235,9 +239,12 @@ class OrderApiController extends Controller
            );
        }
 
+       // Admin diperlakukan seperti Gold, sama dengan `Api\OrderController`.
+       // Sebelumnya Admin jatuh ke `else` dan ditagih `$service->harga` — modal
+       // mentah provider, tanpa margin.
        if ($user->role == 'Platinum') {
            $harga = $service->harga_platinum;
-        } elseif ($user->role == 'Gold') {
+        } elseif ($user->role == 'Gold' || $user->role == 'Admin') {
             $harga = $service->harga_gold;
         } elseif ($user->role == 'Member') {
             $harga = $service->harga_member;
@@ -245,17 +252,34 @@ class OrderApiController extends Controller
             $harga = $service->harga;
         }
 
-        // Toko tenant: harga harus harga jual tenant, sama seperti website.
+        // Harga untuk pembeli di TOKO TENANT berbeda dari harga untuk reseller
+        // H2H, dan keduanya harus dihormati.
         //
-        // Tanpa ini, reseller yang memesan ke toko tenant ditagih harga platform
-        // (mis. 100.000) padahal pembeli website di toko yang sama ditagih harga
-        // tenant (mis. 110.000). Modal tenant pun tidak pernah dihitung, sehingga
-        // profit yang tercatat = harga − modal platform, bukan margin tenant.
+        // `TenantCheckoutPriceParityTest` mengunci aturan ini: pembeli di toko
+        // tenant yang memesan lewat jalur API harus ditagih HARGA JUAL TENANT,
+        // sama dengan lewat web — bukan harga platform. Tanpa blok ini, pembeli
+        // di toko yang sama membayar dua harga berbeda tergantung jalurnya.
         //
-        // Situs platform tidak berubah: tanpa tenant, blok ini dilewati.
+        // Reseller H2H tidak terpengaruh: `reseller_integrations` tidak punya
+        // `tenant_id` (lihat t_9ad6f44c), jadi reseller selalu memanggil dari
+        // domain platform. Kalau reseller memanggil lewat subdomain tenant, dia
+        // memang bertindak sebagai pembeli toko itu, bukan sebagai reseller.
+        //
+        // `if` (bukan `elseif`) karena blok ini melanjutkan, bukan menggantikan,
+        // perhitungan di atas: `$harga` berisi harga dasar, lalu blok ini
+        // menggantinya dengan harga jual tenant lewat `TenantPricingService`.
         $tenant = app(\App\Tenancy\TenantContext::class)->get();
         if ($tenant !== null) {
-            $service->harga = $harga;
+            // Anchor modal = `$modalPrice` (modal provider dari route), BUKAN
+            // `$harga`. `$harga` di atas sudah dipilih menurut role user, jadi
+            // memakainya di sini membuat markup platform diterapkan di atas
+            // harga jual — markup terhitung dua kali dan profit tenant salah.
+            // Kalau `$modalPrice` tidak tersedia, pakai `harga` provider
+            // (kolom modal), bukan harga per-peran.
+            $service->harga = is_numeric($modalPrice)
+                ? (int) round((float) $modalPrice)
+                : (int) round((float) $service->harga);
+
             app(\App\Tenancy\TenantPricingService::class)->applyToLayanan($service, $tenant);
             $harga = $service->harga;
         }
@@ -509,10 +533,13 @@ class OrderApiController extends Controller
                 $pembelian->zone = $zoneId;
                 $pembelian->layanan = $service->layanan;
                 $pembelian->harga = $harga;
-                // Toko tenant: `applyToLayanan()` sudah mengisi `tenant_profit`
-                // (harga jual tenant − modal tenant), jadi itu yang dicatat —
-                // sama seperti jalur web. Tanpa ini, profit memakai modal
-                // platform dan margin tenant salah tercatat.
+                // Profit = margin tenant bila ada konteks tenant.
+                //
+                // `applyToLayanan()` sudah mengisi `tenant_profit` = harga jual
+                // tenant − modal tenant. Itu angka yang benar untuk toko tenant.
+                // Tanpa cabang ini, profit dihitung `harga − modalPrice` dari
+                // modal provider, sehingga markup tetap dianggap milik tenant —
+                // terukur 10.000 padahal seharusnya 7.000.
                 $pembelian->profit = is_numeric($service->tenant_profit ?? null)
                     ? max(0, (int) round((float) $service->tenant_profit))
                     : (is_numeric($modalPrice)
