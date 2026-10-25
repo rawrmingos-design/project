@@ -37,7 +37,7 @@ class PublicOrderPageDataService
         app(CustomInputDefaults::class)->ensureExists($kategori);
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
-        $cacheKey = "inertia_order_page:v5:{$kategori->kode}:{$role}";
+        $cacheKey = "inertia_order_page:v6:{$kategori->kode}:{$role}";
 
         return Cache::remember($cacheKey, 300, function () use ($kategori, $role) {
             $category = Kategori::query()
@@ -60,7 +60,8 @@ class PublicOrderPageDataService
                     'kategoris.tipe',
                     'kategoris.meta_title',
                     'kategoris.meta_description',
-                    'kategoris.schema_markup'
+                    'kategoris.schema_markup',
+                    'kategoris.payment_gateway'
                 )
                 ->where('kategoris.kode', $kategori->kode)
                 ->firstOrFail();
@@ -83,7 +84,7 @@ class PublicOrderPageDataService
                 $hasPackageMembership ? $packagedProductIds : null,
             );
             $ratings = $this->loadRatings($category->id);
-            $methods = $this->loadMethods();
+            $methods = $this->loadMethods($category);
             $gtmBuilder = app(GtmDataLayerBuilder::class);
             $gtmOrderItemCatalog = $this->buildGtmCatalogFromProducts($gtmBuilder, $products, $category);
             $gtmViewItemPayload = null;
@@ -289,9 +290,26 @@ class PublicOrderPageDataService
             ->values();
     }
 
-    private function loadMethods()
+    private function loadMethods($category = null)
     {
         $methods = app(\App\Services\PaymentMethodCatalogService::class)->getVisibleMethods();
+
+        // Kunci gateway per kategori (game): kalau kategori punya payment_gateway,
+        // hanya tampilkan metode milik gateway itu. Saldo member selalu diizinkan
+        // karena bukan gateway pihak ketiga.
+        $lockedGateway = $category !== null
+            ? trim((string) ($category->payment_gateway ?? ''))
+            : '';
+
+        if ($lockedGateway !== '') {
+            $methods = collect($methods)->filter(function (\App\Models\Method $method) use ($lockedGateway) {
+                if ($method->isSaldoMethod()) {
+                    return true;
+                }
+
+                return strcasecmp(trim((string) $method->payment), $lockedGateway) === 0;
+            })->values();
+        }
 
         return collect($methods)->map(fn (\App\Models\Method $method) => [
                 'id'         => $method->id,

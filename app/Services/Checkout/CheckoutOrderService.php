@@ -160,6 +160,9 @@ class CheckoutOrderService
 
                     $dispatchCategory = Kategori::query()
                         ->findOrFail($dispatchService->kategori_id);
+
+                    $this->assertGatewayAllowedForCategory($dispatchMethod, $dispatchCategory);
+
                     $dispatchOrderType = $this->orderType(
                         (string) $request->input(
                             'ktg_tipe',
@@ -221,6 +224,8 @@ class CheckoutOrderService
                     'payment_method' => 'Metode pembayaran tidak valid atau tidak aktif.',
                 ]);
             }
+
+            $this->assertGatewayAllowedForCategory($method, $category);
 
             if ($this->isSaldoMethod($method) && ! $user) {
                 throw ValidationException::withMessages([
@@ -630,6 +635,30 @@ class CheckoutOrderService
         ];
 
         return array_filter($payment, static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '');
+    }
+
+    /**
+     * Kunci gateway per kategori (game). Kalau kategori punya payment_gateway,
+     * metode yang dipilih wajib memakai gateway itu. Saldo member selalu
+     * diizinkan (bukan gateway pihak ketiga). Tanpa kunci -> semua gateway boleh.
+     */
+    private function assertGatewayAllowedForCategory(Method $method, Kategori $category): void
+    {
+        $lockedGateway = trim((string) ($category->payment_gateway ?? ''));
+
+        if ($lockedGateway === '') {
+            return;
+        }
+
+        if ($method->isSaldoMethod()) {
+            return;
+        }
+
+        if (strcasecmp(trim((string) $method->payment), $lockedGateway) !== 0) {
+            throw ValidationException::withMessages([
+                'payment_method' => 'Metode pembayaran ini tidak tersedia untuk produk tersebut. Silakan pilih metode lain.',
+            ]);
+        }
     }
 
     private function resolveServiceAmount(Layanan $service, ?User $user, Request $request): int

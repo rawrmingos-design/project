@@ -385,6 +385,17 @@ class KategoriForm
                         ->label('Wajib Mengisi User ID')
                         ->helperText('Nonaktifkan jika produk tidak memerlukan ID game pelanggan. Contoh: Roblox (kode redeem), Google Play Gift Card.')
                         ->default(true),
+
+                    Select::make('payment_gateway')
+                        ->label('Kunci Payment Gateway')
+                        ->placeholder('Semua gateway (tanpa kunci)')
+                        ->options([
+                            'duitku' => 'Duitku',
+                            'tokopay' => 'Tokopay',
+                            'tripay' => 'Tripay',
+                            'paydisini' => 'Paydisini',
+                        ])
+                        ->helperText('Kosongkan = semua metode pembayaran aktif tampil (perilaku default). Pilih satu gateway untuk membatasi metode khusus game ini — Saldo member tetap bisa dipakai.'),
                 ]),
                 
             Section::make('Deskripsi')
