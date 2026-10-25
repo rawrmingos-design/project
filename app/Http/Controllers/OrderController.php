@@ -203,6 +203,31 @@ class OrderController extends Controller
         // Dynamic payment display categories (from PaymentDisplayCategoryService)
         $paymentCategories = app(PaymentDisplayCategoryService::class)->getCategoriesForOrderPage();
 
+        // Kunci gateway per game (jalur legacy/blade): kalau kategori punya
+        // payment_gateway, batasi metode di tiap display-category ke gateway itu
+        // (Saldo tetap). Pakai clone supaya koleksi yang di-cache getCategoriesForOrderPage
+        // (dipakai lintas game) tidak ikut termutasi.
+        $lockedGateway = trim((string) ($kategori->payment_gateway ?? ''));
+        if ($lockedGateway !== '') {
+            $paymentCategories = $paymentCategories
+                ->map(function ($paymentCategory) use ($lockedGateway) {
+                    $filteredMethods = $paymentCategory->methods->filter(function ($method) use ($lockedGateway) {
+                        if ($method->isSaldoMethod()) {
+                            return true;
+                        }
+
+                        return strcasecmp(trim((string) $method->payment), $lockedGateway) === 0;
+                    })->values();
+
+                    $clonedCategory = clone $paymentCategory;
+                    $clonedCategory->setRelation('methods', $filteredMethods);
+
+                    return $clonedCategory;
+                })
+                ->filter(fn ($paymentCategory) => $paymentCategory->methods->isNotEmpty())
+                ->values();
+        }
+
         $gtmBuilder = app(GtmDataLayerBuilder::class);
         $gtmOrderItemCatalog = $gtmBuilder->buildCatalog($layanan, $data);
         $gtmViewItemPayload = null;
@@ -827,6 +852,28 @@ class OrderController extends Controller
 
         if (!$dataLayanan) {
             return $this->orderErrorResponse('Layanan tidak ditemukan atau tidak tersedia.', 'SERVICE_UNAVAILABLE');
+        }
+
+        // Kunci gateway per game (jalur legacy): tolak metode yang gateway-nya
+        // tidak sesuai kunci kategori. Saldo (code SALDO / payment manual) selalu
+        // diizinkan. Tanpa kunci -> semua gateway boleh.
+        $lockKategori = Kategori::query()->find((int) $dataLayanan->kategori_id);
+        $lockedGateway = trim((string) ($lockKategori->payment_gateway ?? ''));
+        if ($lockedGateway !== '') {
+            $lockMethod = $this->resolveSelectedMethod((string) $request->payment_method);
+
+            if ($lockMethod) {
+                $lockMethodPayment = trim((string) ($lockMethod->payment ?? ''));
+                $lockMethodCode = strtoupper(trim((string) ($lockMethod->code ?? '')));
+                $isSaldoLock = $lockMethodCode === 'SALDO' || strcasecmp($lockMethodPayment, 'manual') === 0;
+
+                if (! $isSaldoLock && strcasecmp($lockMethodPayment, $lockedGateway) !== 0) {
+                    return $this->orderErrorResponse(
+                        'Metode pembayaran ini tidak tersedia untuk produk tersebut. Silakan pilih metode lain.',
+                        'PAYMENT_METHOD_NOT_ALLOWED'
+                    );
+                }
+            }
         }
 
         if (! in_array($request->ktg_tipe, ['joki', 'jokigendong', 'vilogml'], true)) {
