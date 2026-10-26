@@ -36,7 +36,9 @@
         <section class="mt-10">
             <div class="flex items-center justify-between gap-4">
                 <h3 class="text-xl font-bold">Pilih Layanan</h3>
-                <p class="text-sm text-slate-400">Harga tenant memakai modal Gold + markup toko.</p>
+                <p class="text-sm text-slate-400">
+                    Harga jual = harga pokok platform + markup platform {{ rtrim(rtrim(number_format($pricing['platform_markup_percent'], 2, ',', '.'), '0'), ',') }}% (jadi modal toko), lalu markup toko {{ rtrim(rtrim(number_format($pricing['tenant_markup_percent'], 2, ',', '.'), '0'), ',') }}% di atasnya.
+                </p>
             </div>
 
             <div class="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
