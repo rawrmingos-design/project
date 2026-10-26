@@ -115,6 +115,27 @@ class GatewayPricingService
         $baseAmount = $this->resolveBaseAmount($service, $category, $user, $payload);
         $discount = $this->resolveVoucherDiscount($baseAmount, $payload, (int) $service->id);
         $amountAfterDiscount = max(0, $baseAmount - $discount);
+
+        $orderType = (string) ($payload['ktg_tipe'] ?? $category->tipe ?? 'game');
+        $quantityForFloor = in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true)
+            ? max(1, (int) ($payload['qty'] ?? 1))
+            : 1;
+
+        // LANTAI HARGA. Sebelum ini jalur gateway (bot Telegram/WhatsApp) sama
+        // sekali tidak memeriksa lantai modal tenant: kupon yang membuat harga
+        // jatuh di bawah harga beli toko tetap lolos di sini dan baru meledak
+        // saat checkout — atau lebih buruk, tidak meledak sama sekali di jalur
+        // yang tidak melewati CheckoutOrderService. Ditolak, bukan di-clamp,
+        // supaya harga yang tampil selalu sama dengan yang ditagih.
+        $floorViolation = app(\App\Tenancy\TenantPricingService::class)
+            ->floorViolation($service, $amountAfterDiscount, $quantityForFloor);
+
+        if ($floorViolation !== null) {
+            throw ValidationException::withMessages([
+                'voucher' => $floorViolation,
+            ]);
+        }
+
         $feeAmount = $this->methodFee($amountAfterDiscount, $method);
         // Tripay menambah fee sisi customer di atas jumlah yang diterima merchant
         // (lihat response create: amount_received = 1157, amount = 1916, fee_customer = 759).
@@ -196,23 +217,43 @@ class GatewayPricingService
 
     private function resolveBaseAmount(Layanan $service, Kategori $category, ?User $user, array $payload): int
     {
-        $amount = match ($user?->role ?? 'Guest') {
-            'Member' => $service->harga_member,
-            'Platinum' => $service->harga_platinum,
-            'Gold', 'Admin' => $service->harga_gold,
-            default => $service->harga_member,
-        };
-
-        if ($this->isFlashSaleActive($service)) {
-            $amount = $service->harga_flash_sale;
-        }
-
         $orderType = (string) ($payload['ktg_tipe'] ?? $category->tipe ?? 'game');
-        if (in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true)) {
-            $amount *= max(1, (int) ($payload['qty'] ?? 1));
+        $qty = in_array($orderType, ['joki', 'jokigendong', 'vilogml'], true)
+            ? max(1, (int) ($payload['qty'] ?? 1))
+            : 1;
+
+        // SATU SUMBER HARGA — sama dengan web, api v2, dan etalase.
+        //
+        // Sebelum ini blok di sini menyalin `match($role) { 'Member' =>
+        // harga_member, ... }`, jadi di toko tenant bot Telegram/WhatsApp
+        // menagih harga PLATFORM sementara web menagih harga tenant. Terukur:
+        // gateway 106.000 vs web 110.000 untuk produk yang sama.
+        //
+        // `priceForRole()` juga mengembalikan `modal_tenant`, yang dipakai
+        // untuk memeriksa lantai harga setelah diskon — pemeriksaan yang dulu
+        // tidak ada sama sekali di jalur gateway.
+        $tenant = app()->bound(\App\Tenancy\TenantContext::class)
+            ? app(\App\Tenancy\TenantContext::class)->get()
+            : null;
+
+        $role = $user?->role ?? 'Guest';
+
+        $price = app(\App\Tenancy\TenantPricingService::class)
+            ->priceForRole($service, $role, $tenant, $qty);
+
+        $amount = (int) $price['amount'];
+
+        // Flash sale TETAP diterapkan paling akhir (per unit, dikali qty), dan
+        // dijepit di atas modal tenant oleh `flashSalePrice()`. Dulu harga flash
+        // ditimpa markup penuh karena urutannya terbalik.
+        $flash = app(\App\Tenancy\TenantPricingService::class)
+            ->flashSalePrice($service, $tenant, (int) ($price['modal_tenant'] ?? 0));
+
+        if ($flash !== null) {
+            $amount = (int) $flash * $qty;
         }
 
-        return max(0, (int) round((float) $amount));
+        return max(0, $amount);
     }
 
     private function resolveVoucherDiscount(int $baseAmount, array $payload, ?int $layananId = null): int

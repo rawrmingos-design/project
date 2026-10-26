@@ -154,7 +154,20 @@ class TenantPricingService
     }
 
     /**
-     * Lantai harga: harga jual platform untuk produk ini (harga beli tenant).
+     * Lantai harga untuk quantity ini: harga jual platform (= harga beli tenant).
+     *
+     * SATUAN, bukan total per-atribut. Setiap penulis `tenant_modal_harga`
+     * (`applyToLayanan`, `OrderController`, `Api\OrderController`,
+     * `CheckoutOrderService`) menyimpan nilai TOTAL untuk quantity yang dipesan.
+     * Membacanya lalu mengalikan `quantity` LAGI membuat lantainya dua kali lipat
+     * untuk qty > 1 — terukur: pesanan joki qty 2 dengan modal 206.000 ditolak
+     * karena lantainya dihitung 412.000, sehingga pratinjau API selalu gagal
+     * untuk qty ≥ 2 padahal harganya benar.
+     *
+     * Karena itu lantai dihitung dari HARGA POKOK ASLI (`getOriginal('harga')`),
+     * bukan dari atribut yang mungkin sudah ditimpa harga jual. Dengan begitu
+     * hasilnya tidak bergantung pada urutan pemanggilan atau sisa atribut dari
+     * jalur sebelumnya.
      *
      * `null` kalau tidak sedang di toko tenant — di situs platform tidak ada
      * lantai, karena diskon di sana adalah uang platform sendiri.
@@ -167,19 +180,17 @@ class TenantPricingService
             return null;
         }
 
-        // `applyToLayanan()` menimpa `layanan.harga` dengan HARGA JUAL tenant.
-        // Kalau nilai itu dipakai di sini, markup platform terhitung dua kali
-        // (110.000 × 1,03 = 113.300) dan lantainya jadi terlalu tinggi. Kalau
-        // `tenant_modal_harga` sudah ada, itu modal tenant yang benar — sama
-        // yang dipakai jalur web di `applyTenantMarginAfterDiscount()`.
-        if (is_numeric($layanan->tenant_modal_harga ?? null)) {
-            return (int) round((float) $layanan->tenant_modal_harga * max(1, $quantity));
-        }
+        $quantity = max(1, $quantity);
 
-        $harga = max(0, (int) round((float) ($layanan->harga ?? 0)));
+        // Harga pokok: selalu dari atribut ASLI. `applyToLayanan()` menimpa
+        // `harga` dengan harga jual tenant, jadi membacanya di sini akan
+        // menerapkan markup platform dua kali (110.000 × 1,03 = 113.300, bukan
+        // 103.000) dan menolak diskon yang sebenarnya aman.
+        $harga = max(0, (int) round((float) ($layanan->getOriginal('harga') ?? $layanan->harga ?? 0)));
+
         $platformMarkup = $this->tiers->platformMarkupPercent($tenant);
 
-        return (int) round(($harga * max(1, $quantity)) * (1 + ($platformMarkup / 100)));
+        return (int) round(($harga * $quantity) * (1 + ($platformMarkup / 100)));
     }
 
     /**
