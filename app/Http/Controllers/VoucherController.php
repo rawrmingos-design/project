@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Voucher;
 use App\Models\Layanan;
+use App\Tenancy\TenantPricingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -79,21 +80,40 @@ class VoucherController extends Controller
         if($voucher->isExpired()) return response()->json(['status' => false, 'message' => 'Voucher sudah kadaluarsa'], 422);
 
         if(isset($request->service)){
-            if(Auth::check()){
-                if(Auth::user()->role == "Member"){
-                    $service = Layanan::where('id', $request->service)->select('harga_member AS harga')->first();
-                }else if(Auth::user()->role == "Platinum"){
-                    $service = Layanan::where('id', $request->service)->select('harga_platinum AS harga')->first();
-                } else if(Auth::user()->role == "Gold"  || Auth::user()->role == "Admin"){
-                    $service = Layanan::where('id', $request->service)->select('harga_gold AS harga')->first();
-                }
-        }else{
-            $service = Layanan::where('id', $request->service)->select('harga_member AS harga')->first();
-        }
-            
+            // SATU SUMBER HARGA. Sebelum ini blok di sini menyalin
+            // `match($role) { 'Gold' => harga_gold, ... }` dan tidak pernah
+            // memanggil `TenantPricingService`, jadi di toko tenant potongan
+            // kupon dihitung dari harga PLATFORM (100.000) padahal yang
+            // ditagih harga jual tenant (105.000):
+            //   - mintrx dibandingkan ke angka yang lebih kecil -> kupon yang
+            //     sebenarnya sah DITOLAK di layar pratinjau
+            //   - potongan dihitung dari angka yang salah -> nominal di layar
+            //     berbeda dari nominal yang dipotong saat checkout
+            //   - lantai modal tenant tidak pernah diperiksa -> pratinjau
+            //     menyatakan sah kupon yang akan gagal di checkout
+            // `priceForRole()` sudah jadi tempat tunggal aturan ini, dan ia
+            // membaca anchor modal dari `getOriginal('harga')` sehingga aman
+            // dipanggil berkali-kali.
+            $layanan = Layanan::query()->find($request->service);
+
+            if ($layanan === null) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'Produk tidak ditemukan',
+                ], 404);
+            }
+
+            $tenant = app()->bound(\App\Tenancy\TenantContext::class)
+                ? app(\App\Tenancy\TenantContext::class)->get()
+                : null;
+
+            $role = Auth::check() ? Auth::user()->role : 'Guest';
+            $price = app(TenantPricingService::class)->priceForRole($layanan, $role, $tenant, 1);
+            $basePrice = (int) $price['amount'];
+
             // Minimal transaksi dibandingkan dengan harga SEBELUM diskon supaya
             // konsisten dengan validasi jalur order (OrderController@store).
-            if ($voucher->mintrx && $voucher->mintrx > $service->harga) {
+            if ($voucher->mintrx && $voucher->mintrx > $basePrice) {
                 return response()->json([
                     'status'  => false,
                     'title'   => 'Ooops!',
@@ -101,19 +121,35 @@ class VoucherController extends Controller
                 ], 422);
             }
 
-            $potongan = $service->harga * ($voucher->promo / 100);
+            $potongan = $basePrice * ($voucher->promo / 100);
             $maxPotongan = (float) ($voucher->max_potongan ?? 0);
 
             if($maxPotongan > 0 && $potongan > $maxPotongan){
                 $potongan = $maxPotongan;
             }
 
-            $service->harga = $service->harga - $potongan;
-            
+            $hargaAkhir = (int) max(0, round($basePrice - $potongan));
+
+            // Lantai harga: kupon tidak boleh membuat transaksi jatuh di bawah
+            // harga beli tenant. Ditolak, BUKAN dinaikkan diam-diam — harga di
+            // layar harus sama dengan harga yang ditagih. Di situs platform
+            // `priceFloor()` mengembalikan null, jadi tidak ada perubahan
+            // perilaku di sana.
+            $floorViolation = app(TenantPricingService::class)
+                ->floorViolation($layanan, $hargaAkhir, 1);
+
+            if ($floorViolation !== null) {
+                return response()->json([
+                    'status'  => false,
+                    'title'   => 'Ooops!',
+                    'message' => $floorViolation,
+                ], 422);
+            }
+
             return response()->json([
                 'status' => true,
                 'message' => 'Voucher ditemukan',
-                'harga' => $service->harga
+                'harga' => $hargaAkhir
             ]);
         }
         
@@ -131,15 +167,24 @@ class VoucherController extends Controller
 
         $role = Auth::check() ? Auth::user()->role : 'Guest';
 
-        $service = Layanan::where('id', $request->service)
-            ->select('harga_member', 'harga_platinum', 'harga_gold')
-            ->first();
+        $service = Layanan::query()->find($request->service);
 
-        $basePrice = match ($role) {
-            'Platinum' => (float) $service->harga_platinum,
-            'Gold', 'Admin' => (float) $service->harga_gold,
-            default => (float) $service->harga_member,
-        };
+        if ($service === null) {
+            return response()->json(['status' => false, 'message' => 'Produk tidak ditemukan'], 404);
+        }
+
+        // Satu sumber harga, sama seperti `confirm()`. `best()` dulu memilih
+        // kolom `harga_member`/`harga_gold`/`harga_platinum` langsung, jadi di
+        // toko tenant `base_price` yang dikirim ke UI adalah harga platform —
+        // daftar promo menampilkan potongan yang tidak akan pernah didapat
+        // pembeli, dan urutannya pun salah karena selisihnya dihitung dari
+        // angka yang bukan harga jual tenant.
+        $tenant = app()->bound(\App\Tenancy\TenantContext::class)
+            ? app(\App\Tenancy\TenantContext::class)->get()
+            : null;
+
+        $basePrice = (float) app(TenantPricingService::class)
+            ->priceForRole($service, $role, $tenant, 1)['amount'];
 
         $vouchers = Voucher::query()
             ->where('stock', '>', 0)
