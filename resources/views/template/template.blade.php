@@ -87,6 +87,35 @@
         <script type="application/ld+json">{!! json_encode($faqSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @endif
 
+    {{-- SEO: Organization (sitewide) --}}
+    <script type="application/ld+json">{!! json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => $config ? $config->judul_web : 'ISTANATOPUP',
+        'url' => url('/id'),
+        'logo' => asset($config ? $config->logo_favicon : 'assets/logo/favicon.webp'),
+        'sameAs' => [
+            'https://www.tiktok.com/@istanatopup',
+            'https://instagram.com/istanatopupstore',
+            'https://www.youtube.com/@istanatopup',
+            'https://www.facebook.com/istanatopup',
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    {{-- SEO: WebSite + Sitelinks Searchbox (homepage saja) --}}
+    @if(in_array(trim(request()->path(), '/'), ['id', '']))
+    <script type="application/ld+json">{!! json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        'name' => $config ? $config->judul_web : 'ISTANATOPUP',
+        'url' => url('/id'),
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => url('/id/search') . '?q={search_term_string}',
+            'query-input' => 'required name=search_term_string',
+        ],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    @endif
+
     {{-- Shared tracking bootstrap: GTM / GA / Meta Pixel / pushDataLayerEvent --}}
     @php
         $legacyTrackingSettings = isset($config)
