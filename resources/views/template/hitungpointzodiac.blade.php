@@ -10,7 +10,7 @@
  <section id="zodiac" class="relative overflow-hidden lg:py-24 md:py-16 py-12">
         <div class="mx-auto w-full max-w-xl space-y-8 px-4 pt-24 pb-48">
           <div>
-            <h2 class="mt-2 text-center text-3xl font-bold tracking-tight text-white">Kalkulator Zodiac</h2>
+            <h1 class="mt-2 text-center text-3xl font-bold tracking-tight text-white">Kalkulator Zodiac Mobile Legends</h1>
             <p class="mt-2 text-center text-sm text-white">
               Digunakan untuk mengetahui total maksimal diamond yang dibutuhkan untuk mendapatkan skin Zodiac.
             </p>
@@ -62,6 +62,38 @@
     document.addEventListener("DOMContentLoaded", updateValues);
 </script>
     
+
+<section class="mx-auto w-full max-w-xl space-y-8 px-4 pb-20 text-white">
+  <div class="space-y-3">
+    <h2 class="text-xl font-bold">Tentang Kalkulator Zodiac Mobile Legends</h2>
+    <p class="text-sm leading-relaxed text-murky-200">
+      Skin Zodiac adalah skin spesial Mobile Legends berdasarkan rasi bintang yang diperoleh lewat event gacha diamond. Kalkulator Zodiac ISTANATOPUP membantumu menghitung total diamond maksimal yang dibutuhkan untuk mendapatkan skin Zodiac, supaya kamu bisa menyiapkan budget top up diamond dengan tepat.
+    </p>
+  </div>
+
+  <div class="space-y-2 rounded-md border border-primary-500 bg-murky-700 p-4 text-center">
+    <p class="text-sm text-murky-200">Sudah tahu target diamond-mu? Top up diamond Mobile Legends dengan harga murah &amp; proses otomatis 24 jam.</p>
+    <a href="/id/mobile-legends" class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400">Top Up Diamond Mobile Legends</a>
+  </div>
+
+  <div class="space-y-4">
+    <h2 class="text-xl font-bold">Pertanyaan Umum (FAQ)</h2>
+    <div class="space-y-4">
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Apa itu skin Zodiac di Mobile Legends?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Skin Zodiac adalah skin spesial MLBB berdasarkan rasi bintang yang diperoleh lewat event gacha diamond. Gunakan kalkulator di atas untuk menghitung total diamond maksimal yang dibutuhkan.</p>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Berapa diamond yang dibutuhkan untuk mendapatkan skin Zodiac?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Total diamond maksimal dapat dihitung dengan kalkulator di atas. Masukkan data sesuai event, lalu klik Hitung untuk mengetahui estimasi diamond maksimal yang diperlukan.</p>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Apakah Kalkulator Zodiac ini gratis?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Ya, Kalkulator Zodiac Mobile Legends dari ISTANATOPUP 100% gratis dan dapat digunakan kapan saja tanpa perlu login.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
 @include('../footer')
 @push('custom_script')

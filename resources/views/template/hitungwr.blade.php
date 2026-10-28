@@ -10,7 +10,7 @@
  <section id="winrate" class="relative overflow-hidden lg:py-24 md:py-16 py-12">
         <div class="mx-auto w-full max-w-xl space-y-8 px-4 pt-10 pb-48">
           <div class="flex flex-col gap-y-2">
-            <h2 class="mt-2 text-center text-3xl font-bold tracking-tight text-white">Kalkulator Win Rate</h2>
+            <h1 class="mt-2 text-center text-3xl font-bold tracking-tight text-white">Kalkulator Win Rate Mobile Legends</h1>
             <p class="mt-2 text-center text-sm text-white">
               Digunakan untuk menghitung total jumlah pertandingan yang harus diambil untuk mencapai target tingkat kemenangan yang diinginkan.
             </p>
@@ -108,6 +108,55 @@
 </script>
     
 
+
+<section class="mx-auto w-full max-w-xl space-y-8 px-4 pb-20 text-white">
+  <div class="space-y-3">
+    <h2 class="text-xl font-bold">Cara Menghitung Win Rate Mobile Legends</h2>
+    <p class="text-sm leading-relaxed text-murky-200">
+      Win rate (tingkat kemenangan) di Mobile Legends dihitung dari jumlah match yang kamu menangkan dibagi total match dikali 100%. Untuk menaikkan win rate, kamu perlu menang beruntun tanpa kalah. Kalkulator Win Rate ISTANATOPUP membantumu mengetahui berapa kemenangan beruntun yang dibutuhkan untuk mencapai target win rate &mdash; cukup masukkan total pertandingan, win rate saat ini, dan target win rate, lalu klik <strong>Hitung</strong>.
+    </p>
+  </div>
+
+  <div class="space-y-3 rounded-md bg-murky-700 p-4">
+    <h2 class="text-base font-bold">Contoh Perhitungan Win Rate</h2>
+    <p class="text-sm leading-relaxed text-murky-200">
+      Misalnya kamu sudah bermain <strong>200 match</strong> dengan win rate <strong>55%</strong> (110 menang, 90 kalah), dan ingin naik ke <strong>60%</strong>. Dengan kalkulator di atas, hasilnya kamu perlu sekitar <strong class="text-primary-500">25 kemenangan beruntun tanpa kalah</strong>. Semakin tinggi target dan semakin banyak total match, semakin besar kemenangan beruntun yang dibutuhkan &mdash; jadi menjaga win rate sejak awal jauh lebih mudah daripada memperbaikinya di kemudian hari.
+    </p>
+  </div>
+
+  <div class="space-y-3">
+    <h2 class="text-xl font-bold">Tips Menaikkan Win Rate di Mobile Legends</h2>
+    <ul class="list-disc space-y-2 pl-5 text-sm leading-relaxed text-murky-200">
+      <li>Fokus pada 2&ndash;3 hero yang benar-benar kamu kuasai agar permainan lebih konsisten.</li>
+      <li>Hindari lanjut push rank saat sedang <em>tilt</em> atau kalah beruntun.</li>
+      <li>Prioritaskan objektif tim (Lord, Turtle, turret) daripada sekadar mengejar kill.</li>
+      <li>Main bersama party untuk koordinasi yang lebih baik.</li>
+    </ul>
+  </div>
+
+  <div class="space-y-2 rounded-md border border-primary-500 bg-murky-700 p-4 text-center">
+    <p class="text-sm text-murky-200">Siap naikkan rank? Isi diamond-mu dulu dengan harga murah &amp; proses otomatis 24 jam.</p>
+    <a href="/id/mobile-legends" class="inline-flex items-center justify-center rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-white duration-300 hover:bg-primary-400">Top Up Diamond Mobile Legends</a>
+  </div>
+
+  <div class="space-y-4">
+    <h2 class="text-xl font-bold">Pertanyaan Umum (FAQ)</h2>
+    <div class="space-y-4">
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Bagaimana cara menghitung win rate Mobile Legends?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Win rate dihitung dari jumlah kemenangan dibagi total pertandingan dikali 100%. Gunakan kalkulator di atas untuk mengetahui berapa kemenangan beruntun tanpa kalah yang dibutuhkan agar mencapai target win rate yang kamu inginkan.</p>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Berapa match yang dibutuhkan untuk menaikkan win rate di MLBB?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Tergantung total pertandingan dan win rate saat ini. Masukkan total match, win rate sekarang, dan target win rate ke kalkulator, lalu klik Hitung untuk melihat estimasi kemenangan beruntun yang diperlukan.</p>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-sm font-semibold">Apakah Kalkulator Win Rate ini gratis?</h3>
+        <p class="text-sm leading-relaxed text-murky-200">Ya, Kalkulator Win Rate Mobile Legends dari ISTANATOPUP 100% gratis dan dapat digunakan kapan saja tanpa perlu login.</p>
+      </div>
+    </div>
+  </div>
+</section>
 
 @include('../footer')
 @push('custom_script')
