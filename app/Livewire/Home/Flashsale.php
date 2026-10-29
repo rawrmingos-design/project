@@ -24,7 +24,7 @@ class Flashsale extends Component
                     'kategoris.kode AS kode_game',
                     'kategoris.nama AS kategori_nama',
                     'layanans.judul_flash_sale',
-                    'layanans.harga',
+                    'layanans.harga_member AS harga',
                     'layanans.harga_flash_sale',
                     'layanans.stock_flash_sale',
                     'layanans.expired_flash_sale',
