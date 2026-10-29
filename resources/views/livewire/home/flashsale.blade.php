@@ -1,7 +1,10 @@
 <div>
 @if($flashsale->count() > 0)
 @php
-    $marqueeItems = $flashsale->concat($flashsale);
+    $flashCount = $flashsale->count();
+    // Jalan (marquee) hanya kalau produk cukup banyak sampai memenuhi baris; kalau sedikit tampil statis 1 per 1.
+    $animateMarquee = $flashCount > 4;
+    $marqueeItems = $animateMarquee ? $flashsale->concat($flashsale) : $flashsale;
     $countdownTarget = optional($flashsale->sortBy('expired_flash_sale')->first())->expired_flash_sale;
 @endphp
 <div class="container">
@@ -40,9 +43,9 @@
                 <div data-run-marquee="true" data-run-marquee-vertical="false" class="flex shrink-0 justify-around [gap:var(--gap)] data-[run-marquee-vertical=true]:animate-marquee-vertical data-[run-marquee=true]:animate-marquee data-[run-marquee]:flex-row data-[run-marquee-vertical=true]:flex-col group-hover:[animation-play-state:paused]">
                     <div class=" flex">
                         <div
-                            class="assdafsdvsvasgdsgsdgwgreragwgwrgeargwrgergegsvdsDVSVcsdvdszvsbwtergerg43t34f34343ff34g34gG2">
-                            <div id="special_deals">
-                                <div class="list swiper-wrapper marquee-content">
+                            class="{{ $animateMarquee ? 'assdafsdvsvasgdsgsdgwgreragwgwrgeargwrgergegsvdsDVSVcsdvdszvsbwtergerg43t34f34343ff34g34gG2' : 'flex w-full flex-wrap justify-center' }}">
+                            <div id="special_deals" style="width:100%;">
+                                <div class="list swiper-wrapper marquee-content" style="{{ $animateMarquee ? 'display:flex;flex-wrap:nowrap;gap:10px;' : 'display:flex;flex-wrap:wrap;justify-content:center;gap:10px;transform:none;' }}">
                                         @foreach ($marqueeItems as $fs)
                                             <a class="swiper-slide-link"
                                                 href="{{ url('/id') }}/{{ $fs->kode_game }}">
