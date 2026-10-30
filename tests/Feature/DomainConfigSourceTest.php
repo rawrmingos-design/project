@@ -89,6 +89,58 @@ class DomainConfigSourceTest extends TestCase
     }
 
     /**
+     * Penjaga: scanner harus benar-benar MENANGKAP pelanggaran nyata.
+     *
+     * Tanpa tes ini, memperbaiki bug path dengan cara apa pun (termasuk
+     * mengembalikan [] selalu) akan membuat dua tes di atas hijau tanpa
+     * membuktikan apa pun. Diuji di root sementara lewat setBasePath supaya
+     * tidak bergantung pada nilai base_path() environment tertentu.
+     */
+    public function test_scanner_menangkap_pelanggaran_nyata_dan_mengabaikan_config_app(): void
+    {
+        $root = sys_get_temp_dir().'/dcs-'.uniqid('', true);
+
+        foreach (['app', 'routes', 'config'] as $directory) {
+            @mkdir($root.'/'.$directory, 0777, true);
+        }
+
+        // Diizinkan: definisi config memang harus memakai env().
+        file_put_contents($root.'/config/app.php', "<?php\nreturn ['docs_domain' => env('DOCS_DOMAIN')];\n");
+
+        // Pelanggaran: env() dipakai di luar file config.
+        file_put_contents($root.'/app/BadDomainReader.php', "<?php\n\$host = env('DOCS_DOMAIN');\n");
+
+        // Komentar tidak boleh dianggap pelanggaran.
+        file_put_contents($root.'/routes/web.php', "<?php\n// jangan pakai env('DOCS_DOMAIN') di sini\n");
+
+        $originalBase = base_path();
+        $this->app->setBasePath($root);
+
+        try {
+            $reflection = new \ReflectionClass($this);
+            $method = $reflection->getMethod('scanForEnvDomainReads');
+            $method->setAccessible(true);
+
+            $offenders = $method->invoke($this, "env('DOCS_DOMAIN'");
+        } finally {
+            $this->app->setBasePath($originalBase);
+            @unlink($root.'/config/app.php');
+            @unlink($root.'/app/BadDomainReader.php');
+            @unlink($root.'/routes/web.php');
+            @rmdir($root.'/app');
+            @rmdir($root.'/routes');
+            @rmdir($root.'/config');
+            @rmdir($root);
+        }
+
+        $this->assertSame(
+            ['app/BadDomainReader.php:2'],
+            $offenders,
+            'Scanner wajib melaporkan env() di app/ dan mengabaikan config/app.php serta baris komentar.'
+        );
+    }
+
+    /**
      * Cari pemakaian env() untuk domain di seluruh app/config/routes,
      * kecuali file definisi config yang memang seharusnya memakai env().
      *
@@ -116,7 +168,12 @@ class DomainConfigSourceTest extends TestCase
                     continue;
                 }
 
-                $relative = ltrim(str_replace($base, '', $file->getPathname()), '/');
+                // Potong prefiks base sekali saja dengan substr, JANGAN str_replace.
+                // `str_replace($base, '', $path)` mengganti SEMUA kemunculan $base:
+                // untuk base `/app` dan file `/app/config/app.php` hasilnya
+                // `/config.php` -> `config.php`, sehingga allowlist `config/app.php`
+                // tidak pernah cocok dan tes melaporkan pelanggaran palsu.
+                $relative = ltrim(substr($file->getPathname(), strlen($base)), '/');
 
                 if (in_array($relative, self::ALLOWED_CONFIG_FILES, true)) {
                     continue;
