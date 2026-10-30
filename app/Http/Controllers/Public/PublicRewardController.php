@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Reward;
 use App\Models\RewardRedemption;
 use App\Services\RewardService;
+use App\Support\PublicThemeRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,7 +29,7 @@ class PublicRewardController extends Controller
 
         $tierRank = self::TIER_RANK;
 
-        return view('template.rewards.catalog', compact('user', 'rewards', 'tierRank'));
+        return $this->page('template.rewards.catalog', compact('user', 'rewards', 'tierRank'));
     }
 
     /** Detail hadiah + form alamat pengiriman. */
@@ -39,7 +40,7 @@ class PublicRewardController extends Controller
         $user = Auth::user();
         $tierRank = self::TIER_RANK;
 
-        return view('template.rewards.show', compact('user', 'reward', 'tierRank'));
+        return $this->page('template.rewards.show', compact('user', 'reward', 'tierRank'));
     }
 
     /** Proses penukaran. */
@@ -79,6 +80,24 @@ class PublicRewardController extends Controller
             ->orderByDesc('created_at')
             ->paginate(15);
 
-        return view('template.rewards.history', compact('user', 'redemptions'));
+        return $this->page('template.rewards.history', compact('user', 'redemptions'));
+    }
+
+    /**
+     * Render halaman hadiah dengan sikap tema yang eksplisit
+     * (kontrak PublicThemeSurfaceContractTest).
+     *
+     * Fitur hadiah saat ini hanya memiliki view legacy Blade. Gate renderer tetap
+     * dikonsultasikan: untuk theme default (legacy) halaman ini memang Blade, dan
+     * untuk theme modern (Inertia) pun di-serve Blade yang sama sampai versi
+     * Inertia-nya dibuat. Flag diteruskan ke view agar bisa menyesuaikan nanti.
+     */
+    private function page(string $view, array $data)
+    {
+        $data['isLegacyTheme'] = PublicThemeRegistry::rendersLegacyBlade(
+            PublicThemeRegistry::activeForEnvironment()
+        );
+
+        return view($view, $data);
     }
 }
