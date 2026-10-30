@@ -155,7 +155,7 @@
                         </article>
                         <article class="public-dashboard-stat public-dashboard-stat--neutral">
                             <strong id="legacy-stat-total-sales">{{ number_format((int) ($legacyActivePeriod['totalSales'] ?? 0), 0, ',', '.') }}</strong>
-                            <span>Total Penjualan</span>
+                            <span>Total Pembelian</span>
                         </article>
                     </div>
 

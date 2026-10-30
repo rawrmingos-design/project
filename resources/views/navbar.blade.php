@@ -90,7 +90,10 @@ document.addEventListener('alpine:init', () => {
             <div class="flex flex-1 items-center justify-end gap-2">
                 <div class="relative w-full hidden md:flex">
     <div class="relative w-full space-y-2">
-        <input 
+        <span class="pointer-events-none absolute left-2.5 top-2 z-[61] text-white/70">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" class="h-5 w-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path></svg>
+        </span>
+        <input
             type="text"
             class="inline-block h-9 w-full rounded-md bg-muted/50 pl-9 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 placeholder:text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
             placeholder="Cari Game, Item, Voucher" 
@@ -192,12 +195,12 @@ document.addEventListener('alpine:init', () => {
                                 x-on:click.outside="close($refs.button)"
                                 :id="$id('languange-dropdown')"
                                 style="display: none;"
-                                class="absolute right-0 z-10 mt-2 w-48 origin-top-right divide-y divide-gray-100 rounded-lg bg-secondary  shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none transform opacity-100 scale-100"
+                                class="absolute right-0 z-10 mt-2 w-48 origin-top-right divide-y divide-white/10 rounded-lg bg-primary-x shadow-lg ring-1 ring-white/10 focus:outline-none transform opacity-100 scale-100"
                                 id="languange-dropdown-1"
                             >
                                 
                                  <div class="px-4 py-3" role="none">
-                            <p class="text-sm" role="none">Telah masuk sebagai</p>
+                            <p class="text-sm text-white/70" role="none">Telah masuk sebagai</p>
                             <p class="truncate text-sm font-medium text-white" role="none">
                                 {{Str::title(Auth()->user()->username)}}
                             </p>
@@ -454,12 +457,12 @@ document.addEventListener('alpine:init', () => {
                                 x-on:click.outside="close($refs.button)"
                                 :id="$id('languange-dropdown')"
                                 style="display: none;"
-                                class="absolute right-0 z-10 mt-2 w-48 origin-top-right divide-y divide-gray-100 rounded-lg bg-secondary  shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none transform opacity-100 scale-100"
+                                class="absolute right-0 z-10 mt-2 w-48 origin-top-right divide-y divide-white/10 rounded-lg bg-primary-x shadow-lg ring-1 ring-white/10 focus:outline-none transform opacity-100 scale-100"
                                 id="languange-dropdown-1"
                             >
                                 
                                  <div class="px-4 py-3" role="none">
-                            <p class="text-sm" role="none">Telah masuk sebagai</p>
+                            <p class="text-sm text-white/70" role="none">Telah masuk sebagai</p>
                             <p class="truncate text-sm font-medium text-white" role="none">
                                 {{Str::title(Auth()->user()->username)}}
                             </p>

@@ -202,7 +202,8 @@
         $isInvoiceRoute = request()->is('id/invoices*');
         $isDepositInvoiceRoute = request()->routeIs('deposit.invoice');
         $isHistoryRoute = request()->routeIs(['reload', 'riwayat']);
-        $needsSearchUi = $isHomepageRoute || $isLegacyOrderRoute;
+        $isDashboardSearchRoute = request()->is(['id/dashboard*', 'id/rewards*', 'id/settings*', 'id/invoices*', 'id/deposit*', 'id/reseller*', 'id/harga*']);
+        $needsSearchUi = $isHomepageRoute || $isLegacyOrderRoute || $isDashboardSearchRoute;
         $needsJquery = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
         $needsSweetAlert = $isInvoiceRoute || $isLegacyOrderRoute;
         $needsToastrStyles = $isInvoiceRoute || $isDepositInvoiceRoute || $isHistoryRoute;
@@ -662,9 +663,47 @@
     @if($needsSearchUi)
         <script>
             (function () {
-            var endpoint = "{{ url('/id/cari/index') }}";
-            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            var token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            var endpoint = "{{ url('/id/search/products') }}";
+            var productBase = "{{ url('/id') }}";
+            var escapeHtml = function (value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            };
+            var absUrl = function (value) {
+                var raw = String(value || '');
+                if (raw === '') {
+                    return '';
+                }
+                if (raw.indexOf('http://') === 0 || raw.indexOf('https://') === 0) {
+                    return raw;
+                }
+                return "{{ rtrim(url('/'), '/') }}" + '/' + raw.replace(/^\/+/, '');
+            };
+            var renderItems = function (items) {
+                if (!items || !items.length) {
+                    return '';
+                }
+                return items.map(function (item) {
+                    var href = productBase + '/' + encodeURIComponent(String(item.slug || ''));
+                    var thumb = absUrl(item.thumbnail);
+                    var thumbHtml = thumb
+                        ? '<img src="' + escapeHtml(thumb) + '" alt="" loading="lazy" class="h-10 w-10 shrink-0 rounded-md object-cover bg-white/10">'
+                        : '<span class="h-10 w-10 shrink-0 rounded-md bg-white/10"></span>';
+                    return '<li>'
+                        + '<a href="' + escapeHtml(href) + '" class="flex items-center gap-3 px-3 py-2 text-sm text-white hover:bg-white/10">'
+                        + thumbHtml
+                        + '<span class="min-w-0 flex-1">'
+                        + '<span class="block truncate font-medium text-white">' + escapeHtml(item.name) + '</span>'
+                        + '<span class="block truncate text-xs text-white/60">' + escapeHtml(item.subtitle) + '</span>'
+                        + '</span>'
+                        + '</a>'
+                        + '</li>';
+                }).join('');
+            };
             var pairs = [
                 {
                     input: document.getElementById('searchProds'),
@@ -716,34 +755,33 @@
                     pair.result.innerHTML = '<li class="p-3 text-sm text-white/70">Mencari produk...</li>';
                     pair.result.classList.add('show');
 
-                    fetch(endpoint, {
-                        method: 'POST',
+                    fetch(endpoint + '?q=' + encodeURIComponent(keyword), {
+                        method: 'GET',
                         headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                            'X-Requested-With': 'XMLHttpRequest',
-                            'X-CSRF-TOKEN': token
-                        },
-                        body: 'data=' + encodeURIComponent(keyword)
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
                     })
                     .then(function (response) {
                         if (!response.ok) {
                             throw new Error('Search request failed.');
                         }
-                        return response.text();
+                        return response.json();
                     })
-                    .then(function (html) {
+                    .then(function (payload) {
                         if (currentNonce !== requestNonce) {
                             return;
                         }
 
-                        var cleaned = String(html || '').trim();
-                        if (!cleaned) {
+                        var items = payload && payload.items ? payload.items : [];
+                        var markup = renderItems(items);
+                        if (!markup) {
                             pair.result.innerHTML = '<li class="p-4 text-sm text-white/70">Produk tidak ditemukan.</li>';
                             pair.result.classList.add('show');
                             return;
                         }
 
-                        pair.result.innerHTML = cleaned;
+                        pair.result.innerHTML = markup;
                         pair.result.classList.add('show');
                     })
                     .catch(function () {
