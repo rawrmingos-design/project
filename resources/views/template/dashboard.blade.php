@@ -110,6 +110,18 @@
                             @endif
                         </div>
                     </article>
+
+                    <article class="public-dashboard-card public-dashboard-card--credits">
+                        <div class="public-dashboard-credits">
+                            <p class="public-dashboard-credits__label">Poin</p>
+                            <p class="public-dashboard-credits__amount">
+                                {{ number_format((int) ($dashboardUser?->point_balance ?? 0), 0, ',', '.') }} poin
+                            </p>
+                        </div>
+                        <div class="public-dashboard-credits__actions">
+                            <a href="{{ route('rewards.catalog') }}" class="public-dashboard-button public-dashboard-button--primary">Tukar Hadiah</a>
+                        </div>
+                    </article>
                 </section>
 
                 <section class="public-dashboard-stats" id="legacy-dashboard-stats" data-period-stats='@json($legacyPeriodStats)' data-period-default="{{ $legacyActivePeriodKey ?: '1d' }}">

@@ -50,6 +50,7 @@ use App\Http\Controllers\Public\OrderPageController as PublicOrderPageController
 use App\Http\Controllers\Public\InvoicePageController as PublicInvoicePageController;
 use App\Http\Controllers\Public\LeaderboardPageController as PublicLeaderboardPageController;
 use App\Http\Controllers\Public\CalculatorPageController as PublicCalculatorPageController;
+use App\Http\Controllers\Public\PublicRewardController;
 use App\Http\Controllers\Public\ProductSearchController as PublicProductSearchController;
 use App\Http\Controllers\Public\TransactionLookupPageController as PublicTransactionLookupPageController;
 use App\Http\Controllers\Public\ArticlePageController as PublicArticlePageController;
@@ -205,6 +206,12 @@ Route::prefix('id')->middleware(['xss', 'sanitize', 'bangjeff.legacy.redirect'])
 
     Route::middleware(['auth', 'xss', 'sanitize'])->group(function () {
         Route::get('/dashboard', PublicDashboardPageController::class)->middleware(['non-admin.public-dashboard', 'reseller.redirect'])->name('dashboard');
+
+        // Hadiah — tukar poin dengan hadiah fisik
+        Route::get('/rewards', [PublicRewardController::class, 'index'])->name('rewards.catalog');
+        Route::get('/rewards/riwayat', [PublicRewardController::class, 'history'])->name('rewards.history');
+        Route::get('/rewards/{reward:slug}', [PublicRewardController::class, 'show'])->name('rewards.show');
+        Route::post('/rewards/{reward:slug}/redeem', [PublicRewardController::class, 'redeem'])->middleware('throttle:20,1')->name('rewards.redeem');
         Route::get('/settings',                                                      [PublicSettingsPageController::class, 'index'])->name('editProfile');
         Route::post('/settings',                                                     [PublicSettingsPageController::class, 'updateProfile'])->name('saveEditProfile');
         Route::get('/settings/whatsapp/status',                                      [PublicSettingsPageController::class, 'whatsappLinkStatus'])->middleware('throttle:security-settings')->name('settings.whatsapp.status');
