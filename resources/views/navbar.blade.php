@@ -95,7 +95,7 @@ document.addEventListener('alpine:init', () => {
         </span>
         <input
             type="text"
-            class="inline-block h-9 w-full rounded-md bg-muted/50 pl-9 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 placeholder:text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
+            class="inline-block h-9 w-full rounded-md bg-muted/50 pl-11 text-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 placeholder:text-white focus:outline-none disabled:cursor-not-allowed disabled:opacity-75"
             placeholder="Cari Game, Item, Voucher" 
             id="searchProdsdekstop" 
             role="combobox" 
