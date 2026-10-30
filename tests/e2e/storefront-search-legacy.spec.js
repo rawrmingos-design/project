@@ -14,24 +14,24 @@ const { test, expect } = require('@playwright/test');
  * 2. panel pencarian mobile transparan: `bg-opacity-80` membuat latar menembus
  *    konten di belakangnya. `bg-opacity-80` dihapus supaya `bg-murky-700` solid.
  *
- * Catatan: endpoint `POST /id/cari/index` di produksi diblokir Cloudflare
- * (410 Gone) di luar kode aplikasi, jadi di sini permintaannya di-mock — yang
- * diuji adalah geometri/nilai CSS, bukan isi hasil dari origin.
+ * Catatan: endpoint lama `POST /id/cari/index` sudah pensiun (410 Gone).
+ * Navbar kini memanggil `GET /id/search/products?q=` yang mengembalikan JSON
+ * `{items:[{slug,name,subtitle,thumbnail}]}`, lalu dirender di sisi klien.
+ * Permintaan ini di-mock — yang diuji adalah geometri/nilai CSS, bukan isi
+ * hasil dari origin.
  */
 
 const GAME_SLUG = 'e2e-game';
 const SEARCH_URL = `/id/${GAME_SLUG}`;
-/** Cocokkan endpoint pencarian dengan atau tanpa trailing slash. */
-const SEARCH_ENDPOINT = /\/id\/cari\/index\/?$/;
+/** Cocokkan endpoint pencarian produk (JSON), dengan query string apa pun. */
+const SEARCH_ENDPOINT = /\/id\/search\/products(\?|\/|$)/;
 
-/** Potongan hasil pencarian yang cukup untuk memicu kelas `show`. */
-const SEARCH_RESULT_HTML = `
-    <li class="py-1">
-        <a href="/id/${GAME_SLUG}" class="flex items-center gap-3 px-3 py-2">
-            <span class="text-sm text-white">E2E Game</span>
-        </a>
-    </li>
-`;
+/** Payload JSON satu hasil — cukup untuk memicu kelas `show` dan satu tautan. */
+const SEARCH_RESULT_JSON = JSON.stringify({
+    items: [
+        { slug: GAME_SLUG, name: 'E2E Game', subtitle: 'Topup', thumbnail: '' },
+    ],
+});
 
 /** Tutup prompt PWA/popup yang bisa menutupi navbar. */
 async function dismissOverlays(page) {
@@ -79,7 +79,7 @@ function overlapLosers(selector) {
 test.describe('Storefront search results stacking (tema legacy Blade)', () => {
     test.beforeEach(async ({ page }) => {
         await page.route(SEARCH_ENDPOINT, (route) =>
-            route.fulfill({ status: 200, contentType: 'text/html', body: SEARCH_RESULT_HTML })
+            route.fulfill({ status: 200, contentType: 'application/json', body: SEARCH_RESULT_JSON })
         );
 
         await page.setViewportSize({ width: 1280, height: 900 });
