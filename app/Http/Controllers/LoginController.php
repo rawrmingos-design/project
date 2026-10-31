@@ -21,6 +21,21 @@ class LoginController extends Controller
     use ResolvesAuthCaptchaRuntime;
     use HandlesLoginRedirect;
 
+    /**
+     * Role yang boleh masuk lewat halaman login publik.
+     *
+     * `tenant_owner` WAJIB ada di sini. R1 menambahkan role itu ke enum `users`
+     * supaya pemilik toko tidak lagi diberi role `Gold` (harga jual tenant
+     * dihitung dari `harga_gold`), tapi allowlist ini tidak ikut diperbarui —
+     * akibatnya pemilik toko tidak bisa login sama sekali: password benar,
+     * tetap di-logout dengan pesan "Username / password mismatch".
+     *
+     * `Admin` sengaja TIDAK ada di daftar: admin ditolak eksplisit di atas dan
+     * diarahkan ke panel Filament, bukan ke situs publik.
+     */
+    private const PUBLIC_LOGIN_ROLES = ['Member', 'Platinum', 'Gold', 'tenant_owner'];
+
+
     public function create(Request $request, SeoMetadataService $seoMetadataService)
     {
         $this->rememberLoginRedirect($request);
@@ -72,27 +87,29 @@ class LoginController extends Controller
                 return redirect()->route('login')->withErrors(['error' => 'Username / password mismatch']);
             }
 
-            // Cek apakah role pengguna adalah Member, Platinum, atau Gold
-            if (in_array($user->role, ['Member', 'Platinum', 'Gold'])) {
-                if (filled($user->two_factor_secret)) {
-                    $code = preg_replace('/\D+/', '', (string) $request->input('two_factor_code', ''));
-                    if (strlen($code) !== 6) {
-                        Auth::logout();
-                        throw ValidationException::withMessages([
-                            'two_factor_code' => ['Kode autentikator wajib diisi untuk akun ini.'],
-                        ]);
-                    }
+            // Pemilik toko punya dashboard sendiri di subdomain tokonya.
+            // `route('dashboard')` di host platform menunjuk dashboard pembeli
+            // (PublicDashboardPageController), bukan dashboard tenant — jadi
+            // redirectAfterLogin() akan melempar owner ke halaman yang salah.
+            if ($user->role === 'tenant_owner') {
+                $this->verifyTwoFactorIfEnabled($user, $request);
 
-                    $google2fa = new Google2FA();
-                    $isValidCode = $google2fa->verifyKey((string) $user->two_factor_secret, $code, 2);
+                $request->session()->regenerate();
 
-                    if (! $isValidCode) {
-                        Auth::logout();
-                        throw ValidationException::withMessages([
-                            'two_factor_code' => ['Kode autentikator tidak valid.'],
-                        ]);
-                    }
+                $storeUrl = $this->storeDashboardUrl($user);
+
+                if ($storeUrl === null) {
+                    // Toko belum ada / subdomain kosong: tetap login, jangan
+                    // gagalkan autentikasi hanya karena data tenant belum lengkap.
+                    return $this->redirectAfterLogin($request);
                 }
+
+                return redirect()->away($storeUrl);
+            }
+
+            // Cek apakah role pengguna termasuk yang boleh login di situs publik.
+            if (in_array($user->role, self::PUBLIC_LOGIN_ROLES, true)) {
+                $this->verifyTwoFactorIfEnabled($user, $request);
 
                 $request->session()->regenerate();
                 return $this->redirectAfterLogin($request);
@@ -105,6 +122,78 @@ class LoginController extends Controller
         throw ValidationException::withMessages([
             'error' => ['Username / password mismatch'],
         ]);
+    }
+
+    /**
+     * Verifikasi kode autentikator kalau akun memakai 2FA.
+     *
+     * Dipakai dua jalur (tenant_owner dan pembeli) supaya aturan 2FA tidak
+     * punya dua salinan yang bisa menyimpang — pemilik toko juga wajib 2FA
+     * kalau akunnya mengaktifkannya.
+     */
+    private function verifyTwoFactorIfEnabled($user, Request $request): void
+    {
+        if (! filled($user->two_factor_secret)) {
+            return;
+        }
+
+        $code = preg_replace('/\D+/', '', (string) $request->input('two_factor_code', ''));
+
+        if (strlen($code) !== 6) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'two_factor_code' => ['Kode autentikator wajib diisi untuk akun ini.'],
+            ]);
+        }
+
+        $google2fa = new Google2FA();
+
+        if (! $google2fa->verifyKey((string) $user->two_factor_secret, $code, 2)) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'two_factor_code' => ['Kode autentikator tidak valid.'],
+            ]);
+        }
+    }
+
+    /**
+     * URL dashboard toko milik user, atau null kalau tokonya belum ada.
+     *
+     * Skema diambil dari `config('app.url')` — bukan diasumsikan `https` —
+     * supaya redirect tidak menunjuk skema yang tidak dipakai situs ini.
+     * `SESSION_DOMAIN` harus mencakup domain ini, kalau tidak owner akan
+     * mendarat di dashboard toko dalam keadaan belum login.
+     */
+    private function storeDashboardUrl($user): ?string
+    {
+        $tenant = \App\Models\Tenant::query()
+            ->where('owner_user_id', $user->id)
+            ->first();
+
+        $subdomain = trim((string) ($tenant?->subdomain ?? ''));
+
+        if ($subdomain === '') {
+            return null;
+        }
+
+        $appUrl = (string) config('app.url');
+        $baseHost = strtolower((string) parse_url($appUrl, PHP_URL_HOST));
+
+        if ($baseHost === '') {
+            return null;
+        }
+
+        $scheme = (string) parse_url($appUrl, PHP_URL_SCHEME);
+        $scheme = $scheme !== '' ? $scheme : 'https';
+
+        // `$baseHost` bisa punya port (mis. `localhost:8000`) saat pengembangan;
+        // port harus ikut di belakang host tenant, bukan di tengah subdomain.
+        $port = parse_url($appUrl, PHP_URL_PORT);
+        $authority = $subdomain . '.' . $baseHost . ($port !== null ? ':' . $port : '');
+
+        return $scheme . '://' . $authority . '/dashboard';
     }
 
     public function destroy(Request $request)
