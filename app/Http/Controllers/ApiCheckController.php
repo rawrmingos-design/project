@@ -389,6 +389,38 @@ class ApiCheckController extends Controller
         }
     }
 
+    /**
+     * Opsi curl untuk request cekid.
+     *
+     * Dipisah supaya bisa diuji tanpa memanggil jaringan, dan supaya aturannya
+     * berdiri sendiri: PIN koneksi ke IP tertentu hanya kalau dikonfigurasi,
+     * dengan host + port yang diambil dari base_url itu sendiri.
+     *
+     * @return array<string, mixed>
+     */
+    private function selfHostedCurlOptions(string $baseUrl): array
+    {
+        $resolveIp = trim((string) config('providers.check_id.selfhosted.resolve_ip', ''));
+
+        if ($resolveIp === '') {
+            return [];
+        }
+
+        $host = (string) parse_url($baseUrl, PHP_URL_HOST);
+
+        if ($host === '') {
+            return [];
+        }
+
+        $port = (int) config('providers.check_id.selfhosted.resolve_port', 443);
+
+        return [
+            'curl' => [
+                CURLOPT_RESOLVE => ["{$host}:{$port}:{$resolveIp}"],
+            ],
+        ];
+    }
+
     private function connectSelfHosted(string $parsedGame, string $userId, ?string $zoneId = null): array
     {
         if (! (bool) config('providers.check_id.selfhosted.enabled', false)) {
@@ -411,11 +443,17 @@ class ApiCheckController extends Controller
         $url = $baseUrl . '/api/check';
 
         try {
-            $response = Http::acceptJson()
+            $request = Http::acceptJson()
                 ->withHeaders(['x-api-key' => $apiKey])
                 ->connectTimeout((int) config('providers.check_id.selfhosted.connect_timeout', 3))
-                ->timeout((int) config('providers.check_id.selfhosted.timeout', 5))
-                ->get($url, [
+                ->timeout((int) config('providers.check_id.selfhosted.timeout', 5));
+
+            // Kalau cekid berada di host yang sama dengan engine, panggil Nginx
+            // lokalnya langsung. Host + SNI tetap nama publik, jadi sertifikat
+            // tetap divalidasi; yang dihindari hanya lompatan lewat Cloudflare.
+            $request = $request->withOptions($this->selfHostedCurlOptions($baseUrl));
+
+            $response = $request->get($url, [
                     'slug' => $slug,
                     'id' => $userId,
                     'zone' => $zoneId ?? '',

@@ -73,6 +73,28 @@ return [
             'api_key' => env('CHECK_ID_SELFHOSTED_API_KEY'),
             'timeout' => env('CHECK_ID_SELFHOSTED_TIMEOUT', 12),
             'connect_timeout' => env('CHECK_ID_SELFHOSTED_CONNECT_TIMEOUT', 5),
+
+            /*
+            |------------------------------------------------------------------
+            | Pin koneksi ke IP tertentu (bypass Cloudflare)
+            |------------------------------------------------------------------
+            |
+            | Cekid duduk di belakang Cloudflare. Kalau engine berjalan di host
+            | yang sama dengan cekid, memanggil lewat nama publik berarti
+            | keluar-masuk internet hanya untuk mendarat di Nginx lokal: satu
+            | titik rapuh yang sudah terbukti menghasilkan 523/timeout
+            | intermiten, plus latensi yang mendorong request melewati batas
+            | timeout engine.
+            |
+            | Isi `resolve_ip` = IP Nginx Proxy Manager di jaringan Docker
+            | (mis. 172.18.0.1). Host di URL DAN SNI TETAP nama publik, jadi
+            | TLS tetap divalidasi terhadap sertifikat asli dan
+            | resolveSelfHostedBaseUrl() tidak dilonggarkan.
+            |
+            | Kosongkan (default) untuk perilaku lama: resolve DNS biasa.
+            */
+            'resolve_ip' => env('CHECK_ID_SELFHOSTED_RESOLVE_IP'),
+            'resolve_port' => env('CHECK_ID_SELFHOSTED_RESOLVE_PORT', 443),
         ],
     ],
 
