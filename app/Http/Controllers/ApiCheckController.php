@@ -48,14 +48,52 @@ class ApiCheckController extends Controller
 
     /** Kode negara (ISO-2) -> nama tampil untuk badge region. */
     private const GOPAY_COUNTRY_NAMES = [
+        // Asia Tenggara
         'ID' => 'Indonesia',
         'MY' => 'Malaysia',
         'SG' => 'Singapore',
         'PH' => 'Philippines',
         'TH' => 'Thailand',
         'VN' => 'Vietnam',
-        'BR' => 'Brazil',
+        'KH' => 'Cambodia',
+        'LA' => 'Laos',
+        'MM' => 'Myanmar',
+        'BN' => 'Brunei',
+        'TL' => 'Timor-Leste',
+        // Asia lain
+        'IN' => 'India',
+        'BD' => 'Bangladesh',
+        'PK' => 'Pakistan',
+        'NP' => 'Nepal',
+        'LK' => 'Sri Lanka',
+        'TW' => 'Taiwan',
+        'HK' => 'Hong Kong',
+        'MO' => 'Macau',
+        'JP' => 'Japan',
+        'KR' => 'South Korea',
+        'CN' => 'China',
+        'MN' => 'Mongolia',
+        // Timur Tengah
+        'TR' => 'Turkey',
+        'SA' => 'Saudi Arabia',
+        'AE' => 'United Arab Emirates',
+        'QA' => 'Qatar',
+        'KW' => 'Kuwait',
+        'IQ' => 'Iraq',
+        'EG' => 'Egypt',
+        // Amerika
         'US' => 'United States',
+        'BR' => 'Brazil',
+        'MX' => 'Mexico',
+        'AR' => 'Argentina',
+        'CO' => 'Colombia',
+        'PE' => 'Peru',
+        'CL' => 'Chile',
+        // Lainnya
+        'RU' => 'Russia',
+        'AU' => 'Australia',
+        'NZ' => 'New Zealand',
+        'GB' => 'United Kingdom',
     ];
 
     public function check($user_id = null, $zone_id = null, $game = null): array

@@ -595,8 +595,8 @@ test.describe('Public storefront order flow', () => {
 
         const warning = page.locator('#account-region-warning:visible');
         await expect(warning).toBeVisible();
-        await expect(warning).toContainText('Your account from region MY');
-        await expect(warning).toContainText('Only region ID allowed.');
+        await expect(warning).toContainText('region Malaysia (MY)');
+        await expect(warning).toContainText('region Indonesia (ID)');
         await expect(checkout).toBeDisabled();
     });
 

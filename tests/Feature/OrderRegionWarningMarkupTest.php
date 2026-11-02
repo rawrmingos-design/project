@@ -152,12 +152,12 @@ class OrderRegionWarningMarkupTest extends TestCase
 
         $this->assertStringContainsString("account-region-warning", $script);
         $this->assertStringContainsString(
-            "Your account from region ",
+            "terdaftar di region ",
             $script,
             'Copy peringatan region harus ada di skrip halaman order.'
         );
         $this->assertStringContainsString(
-            "Only region ID allowed.",
+            "region Indonesia (ID)",
             $script,
             'Copy peringatan region harus memuat batasan region ID.'
         );

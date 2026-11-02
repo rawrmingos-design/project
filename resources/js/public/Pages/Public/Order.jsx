@@ -2519,7 +2519,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
             }
 
             if (accountRegionBlocked) {
-                return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
+                return 'Maaf, akun ini terdaftar di region ' + (accountLookup?.accountRegion?.reported || accountLookup?.accountRegion?.code || '') + ' (' + (accountLookup?.accountRegion?.code || '') + '). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).';
             }
 
             if (!selectedMethodCode || !selectedMethod) {
@@ -2597,7 +2597,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
         }
 
         if (accountRegionBlocked) {
-            return 'Your account from region ' + (accountLookup?.accountRegion?.code || accountLookup?.accountRegion?.reported || '') + ' we cannot processed it. Only region ID allowed.';
+            return 'Maaf, akun ini terdaftar di region ' + (accountLookup?.accountRegion?.reported || accountLookup?.accountRegion?.code || '') + ' (' + (accountLookup?.accountRegion?.code || '') + '). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).';
         }
 
         if (category.customInputs.zone && !String(zone || '').trim()) {
@@ -3084,7 +3084,7 @@ export default function Order({ meta, category, products, packages, paymentMetho
                                         </div>
                                     ) : (
                                         <div id="account-region-warning" role="alert" className="account-pill account-pill--bangjeff-error">
-                                            <span className="account-pill__line">Your account from region <strong>{accountLookup.accountRegion.code}</strong> we cannot processed it. Only region ID allowed.</span>
+                                            <span className="account-pill__line">Maaf, akun ini terdaftar di region <strong>{accountLookup.accountRegion.reported} ({accountLookup.accountRegion.code})</strong>. Pesanan hanya dapat diproses untuk akun region Indonesia (ID).</span>
                                         </div>
                                     )
                                 ) : (

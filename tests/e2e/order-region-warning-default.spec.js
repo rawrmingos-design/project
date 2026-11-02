@@ -56,8 +56,8 @@ test.describe('Order layout default — peringatan region akun non-ID', () => {
 
         const regionWarning = warning(page);
         await expect(regionWarning).toBeVisible();
-        await expect(regionWarning).toContainText('Your account from region MY');
-        await expect(regionWarning).toContainText('we cannot processed it. Only region ID allowed.');
+        await expect(regionWarning).toContainText('region Malaysia (MY)');
+        await expect(regionWarning).toContainText('region Indonesia (ID)');
 
         await expect(orderButton(page)).toBeDisabled();
     });

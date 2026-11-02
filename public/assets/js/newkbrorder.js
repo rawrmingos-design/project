@@ -477,7 +477,7 @@ $(".product-list").off("click").on("click", (function () {
     } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
     if (!h && !y) return void showToast("Silahkan isi nomor WhatsApp atau email terlebih dahulu");
     if (y && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
-    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Your account from region " + (window.__accountRegion.code || window.__accountRegion.reported) + " we cannot processed it. Only region ID allowed.", "error");
+    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Maaf, akun ini terdaftar di region " + (window.__accountRegion.reported || window.__accountRegion.code) + " (" + window.__accountRegion.code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).", "error");
     $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",
@@ -756,6 +756,7 @@ $(document).ready(function () {
     function clearAccountRegionWarning() {
         $("[id='account-region-warning']").text("").attr("hidden", "hidden").hide();
         setOrderButtonDisabled(false);
+        setRegionLock(false);
     }
 
     // Tombol "Pesan Sekarang" dimatikan selama akun terdeteksi non-ID. Semua
@@ -764,6 +765,29 @@ $(document).ready(function () {
         $("[id='order-check']")
             .prop("disabled", disabled)
             .attr("aria-disabled", disabled ? "true" : "false");
+    }
+
+    // Akun di luar region ID tidak boleh memilih nominal/denom maupun metode
+    // pembayaran. Kunci kedua section + batalkan pilihan yang sudah dibuat.
+    function setRegionLock(locked) {
+        ["section-nominal", "section-payment-channel"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.pointerEvents = locked ? "none" : "";
+            el.style.opacity = locked ? "0.5" : "";
+            if (locked) {
+                el.setAttribute("aria-disabled", "true");
+            } else {
+                el.removeAttribute("aria-disabled");
+            }
+        });
+
+        if (locked) {
+            $(".product-list").removeClass("active");
+            $(".method-list").removeClass("active");
+            $("#nominal").val("");
+            $("#metode").val("");
+        }
     }
 
     function escapeAccountHtml(value) {
@@ -801,19 +825,35 @@ $(document).ready(function () {
             // dan tombol "Pesan Sekarang" dimatikan sampai akun diganti.
             var code = escapeAccountHtml(region.code);
             var reported = escapeAccountHtml(region.reported);
-            $display.html("Valid: " + safeName + " \u00b7 " + reported).addClass("text-red-500");
+            $display.html(
+                '<span class="flex w-full flex-wrap items-center gap-x-2">'
+                + '<span>Valid: ' + safeName + '</span>'
+                + '<span class="ml-auto font-normal">Region: ' + reported + '(' + code + ')</span>'
+                + '</span>'
+            ).addClass("text-red-500");
             $("[id='account-region-warning']")
-                .html("Your account from region " + code + " we cannot processed it. Only region ID allowed.")
+                .html("Maaf, akun ini terdaftar di region " + reported + " (" + code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).")
                 .removeAttr("hidden")
                 .show();
             setOrderButtonDisabled(true);
+            setRegionLock(true);
             return;
         }
 
         clearAccountRegionWarning();
 
-        var suffix = region && region.known ? " \u00b7 " + escapeAccountHtml(region.reported) + " \ud83c\uddee\ud83c\udde9" : "";
-        $display.html("Valid: " + safeName + suffix).addClass("text-green-500");
+        if (region && region.known) {
+            var reportedOk = escapeAccountHtml(region.reported);
+            var codeOk = escapeAccountHtml(region.code);
+            $display.html(
+                '<span class="flex w-full flex-wrap items-center gap-x-2">'
+                + '<span>Valid: ' + safeName + '</span>'
+                + '<span class="ml-auto font-normal text-white/80">Region: ' + reportedOk + '(' + codeOk + ')</span>'
+                + '</span>'
+            ).addClass("text-green-500");
+        } else {
+            $display.html("Valid: " + safeName).addClass("text-green-500");
+        }
     }
 
     function canCheckAccount(kategoriTipe) {
