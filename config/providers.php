@@ -88,6 +88,9 @@ return [
             // Peta kunci game internal -> kode game GoPay. Tambah sesuai kebutuhan.
             'game_codes' => [
                 'mobile_legends' => 'MOBILE_LEGENDS',
+                // Slug yang benar-benar dikirim resolver (CheckIdResolver memetakan
+                // kategori 'mobile-legends' -> slug cekid 'mobile-legends-up').
+                'mobile_legends_up' => 'MOBILE_LEGENDS',
                 'mobile_legends_bang_bang' => 'MOBILE_LEGENDS',
                 'mobilelegend' => 'MOBILE_LEGENDS',
                 'mlbb' => 'MOBILE_LEGENDS',
@@ -106,6 +109,12 @@ return [
             // Peta kunci game internal -> parameter VCGamers.
             'games' => [
                 'mobile_legends' => [
+                    'provider_code' => 'mobile-legends',
+                    'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
+                    'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
+                ],
+                // Slug yang benar-benar dikirim resolver (mobile-legends-up).
+                'mobile_legends_up' => [
                     'provider_code' => 'mobile-legends',
                     'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
                     'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
