@@ -110,6 +110,9 @@ class PembelianNotificationHelper
             'status' => $record->status,
             'sn' => $record->keterangan_sn ?: ($record->voucher ?: 'Sedang Diproses'),
             'note' => $note,
+            // Alasan gagal/batal: untuk order gagal, callback provider (mis. Digiflazz)
+            // menyimpan pesan kegagalannya di `keterangan_sn`. Fallback generik bila kosong.
+            'reason' => trim((string) $record->keterangan_sn) ?: 'Transaksi gagal atau kedaluwarsa.',
         ];
     }
 

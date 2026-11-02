@@ -90,8 +90,13 @@ class WhatsappNotificationService
     protected function replaceVariables(string $content, array $data): string
     {
         foreach ($data as $key => $value) {
-            $content = str_replace('{' . $key . '}', $value, $content);
+            $content = str_replace('{' . $key . '}', (string) $value, $content);
         }
+
+        // Safety net: buang placeholder sisa yang tidak punya nilai (mis. {reason},
+        // {note}) supaya pelanggan tidak pernah menerima token mentah di pesan.
+        $content = preg_replace('/\{[a-z0-9_]+\}/i', '', $content);
+
         return $content;
     }
 
