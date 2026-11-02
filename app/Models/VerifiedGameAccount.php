@@ -12,5 +12,6 @@ class VerifiedGameAccount extends Model
         'zone_id',
         'nickname',
         'source',
+        'country_origin',
     ];
 }

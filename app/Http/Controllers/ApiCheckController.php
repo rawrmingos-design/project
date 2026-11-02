@@ -46,6 +46,18 @@ class ApiCheckController extends Controller
         'codm' => 'codm',
     ];
 
+    /** Kode negara (ISO-2) -> nama tampil untuk badge region. */
+    private const GOPAY_COUNTRY_NAMES = [
+        'ID' => 'Indonesia',
+        'MY' => 'Malaysia',
+        'SG' => 'Singapore',
+        'PH' => 'Philippines',
+        'TH' => 'Thailand',
+        'VN' => 'Vietnam',
+        'BR' => 'Brazil',
+        'US' => 'United States',
+    ];
+
     public function check($user_id = null, $zone_id = null, $game = null): array
     {
         if (! $user_id || ! $game) {
@@ -79,6 +91,31 @@ class ApiCheckController extends Controller
                 $data['data']['zone_id'] = $zone_id;
             }
 
+            // Region akun tersimpan (mis. dari GoPay) ikut dikembalikan dari cache,
+            // supaya badge region tetap tampil tanpa perlu hit provider lagi.
+            $cachedCountry = strtoupper(trim((string) ($dbCached->country_origin ?? '')));
+
+            // Backfill: akun yang di-cache sebelum fitur region ada belum punya
+            // country_origin. Ambil sekali dari GoPay (bila aktif + game terpetakan),
+            // simpan, lalu pakai. Gagal = diam-diam lanjut tanpa region.
+            if ($cachedCountry === '') {
+                $backfillRegion = $this->lookupRegionOnly($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+                if (is_array($backfillRegion)) {
+                    $cachedCountry = strtoupper(trim((string) ($backfillRegion['code'] ?? '')));
+                    if ($cachedCountry !== '') {
+                        $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, (string) $dbCached->nickname, (string) $dbCached->source, $cachedCountry);
+                    }
+                }
+            }
+
+            if ($cachedCountry !== '') {
+                $data['data']['account_region'] = [
+                    'code'     => $cachedCountry,
+                    'reported' => self::GOPAY_COUNTRY_NAMES[$cachedCountry] ?? $cachedCountry,
+                    'provider' => $dbCached->source ?: 'cache',
+                ];
+            }
+
             return $data;
         }
 
@@ -87,6 +124,21 @@ class ApiCheckController extends Controller
         $cacheKey = "check_id_v2_{$parsedGame}_{$user_id}_{$zone_id}";
 
         $result = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($parsedGame, $user_id, $zone_id) {
+            // GoPay Games checker (opt-in) — sumber region (countryOrigin). Cepat
+            // gagal bila nonaktif atau game tidak terpetakan, lalu lanjut ke chain.
+            $goPayResult = $this->connectGoPay($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+
+            if ($this->isSuccessfulResult($goPayResult)) {
+                return $goPayResult;
+            }
+
+            // VCGamers checker (opt-in) — cadangan GoPay, juga melaporkan region.
+            $vcgResult = $this->connectVcgamers($parsedGame, (string) $user_id, $zone_id ? (string) $zone_id : null);
+
+            if ($this->isSuccessfulResult($vcgResult)) {
+                return $vcgResult;
+            }
+
             // Self-hosted API is the preferred checker. It owns the live provider
             // metadata and avoids waiting on unrelated external APIs first.
             if ($this->selfHostedCircuitOpen($parsedGame)) {
@@ -159,7 +211,10 @@ class ApiCheckController extends Controller
                 ? $result['account_region']
                 : null;
 
-            $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, $nickname, $source);
+            $regionCode = is_array($accountRegion)
+                ? strtoupper(trim((string) ($accountRegion['code'] ?? '')))
+                : '';
+            $this->saveToDbCache($parsedGame, (string) $user_id, $zone_id, $nickname, $source, $regionCode !== '' ? $regionCode : null);
 
             $data = [
                 'status' => ['code' => 200, 'message' => 'User found'],
@@ -219,23 +274,31 @@ class ApiCheckController extends Controller
      * Simpan hasil validasi yang sukses ke tabel DB persistent cache.
      * Menggunakan updateOrInsert agar idempotent.
      */
-    private function saveToDbCache(string $game, string $userId, ?string $zoneId, ?string $nickname, string $source): void
+    private function saveToDbCache(string $game, string $userId, ?string $zoneId, ?string $nickname, string $source, ?string $countryOrigin = null): void
     {
         if (! $nickname || ! Schema::hasTable('verified_game_accounts')) {
             return;
         }
 
         try {
+            $values = [
+                'nickname' => $nickname,
+                'source'   => $source,
+            ];
+
+            // Simpan region hanya bila provider melaporkannya. Jangan menimpa
+            // region tersimpan dengan null saat provider lain (tanpa region) menang.
+            if ($countryOrigin !== null && $countryOrigin !== '' && Schema::hasColumn('verified_game_accounts', 'country_origin')) {
+                $values['country_origin'] = $countryOrigin;
+            }
+
             VerifiedGameAccount::updateOrCreate(
                 [
                     'game'    => $game,
                     'user_id' => $userId,
                     'zone_id' => $zoneId ?? '',
                 ],
-                [
-                    'nickname' => $nickname,
-                    'source'   => $source,
-                ]
+                $values
             );
         } catch (\Throwable $e) {
             Log::warning('ApiCheckController:saveToDbCache - Failed to save.', [
@@ -271,6 +334,187 @@ class ApiCheckController extends Controller
         if ($failures >= 2) {
             Cache::put($key . ':open', true, now()->addSeconds(30));
         }
+    }
+
+    /**
+     * GoPay Games user-account checker. Mengembalikan nickname + region
+     * (countryOrigin). Opt-in via config; endpoint tidak resmi, jadi semua
+     * kegagalan dikembalikan sebagai failedResult (biar chain lanjut).
+     */
+    private function connectGoPay(string $parsedGame, string $userId, ?string $zoneId): array
+    {
+        if (! config('providers.check_id.gopay.enabled', false)) {
+            return $this->failedResult('GoPay check ID disabled.');
+        }
+
+        $codes = (array) config('providers.check_id.gopay.game_codes', []);
+        $gameCode = $codes[$parsedGame] ?? null;
+
+        if (! is_string($gameCode) || $gameCode === '') {
+            return $this->failedResult('GoPay does not map game: ' . $parsedGame . '.');
+        }
+
+        $url = trim((string) config('providers.check_id.gopay.base_url', 'https://gopay.co.id/games/v1/order/user-account'));
+
+        if ($url === '') {
+            return $this->failedResult('GoPay base URL is not configured.');
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->connectTimeout((int) config('providers.check_id.gopay.connect_timeout', 3))
+                ->timeout((int) config('providers.check_id.gopay.timeout', 6))
+                ->withHeaders([
+                    'X-Client'        => 'web-desktop',
+                    'X-Timestamp'     => (string) (int) round(microtime(true) * 1000),
+                    'x-captcha-token' => '',
+                    'Origin'          => 'https://gopay.co.id',
+                    'Referer'         => 'https://gopay.co.id/games',
+                ])
+                ->post($url, [
+                    'code' => $gameCode,
+                    'data' => [
+                        'userId' => $userId,
+                        'zoneId' => $zoneId ?? '',
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                return $this->failedResult('GoPay returned a non-200 response.');
+            }
+
+            return $this->normalizeGoPayResponse($response->json());
+        } catch (\Throwable $exception) {
+            Log::error('ApiCheckController:connectGoPay - Request failed.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return $this->failedResult('GoPay request failed.');
+        }
+    }
+
+    private function normalizeGoPayResponse(mixed $decoded): array
+    {
+        if (! is_array($decoded)) {
+            return $this->failedResult('GoPay returned an invalid payload.');
+        }
+
+        $nickname = trim((string) ($decoded['data']['username'] ?? ''));
+
+        if ($nickname === '') {
+            return $this->failedResult((string) ($decoded['message'] ?? 'User not found on GoPay.'));
+        }
+
+        $country = strtoupper(trim((string) ($decoded['data']['countryOrigin'] ?? '')));
+        $region = null;
+
+        if ($country !== '') {
+            $region = $this->normalizeAccountRegion([
+                'code'     => $country,
+                'reported' => self::GOPAY_COUNTRY_NAMES[$country] ?? $country,
+                'provider' => 'gopay',
+            ]);
+        }
+
+        return $this->successfulResult($nickname, 'gopay', $region);
+    }
+
+    /**
+     * VCGamers product check-id. Mengembalikan nickname (data.result) + region
+     * (data.region). Opt-in via config; semua kegagalan -> failedResult.
+     */
+    private function connectVcgamers(string $parsedGame, string $userId, ?string $zoneId): array
+    {
+        if (! config('providers.check_id.vcgamers.enabled', false)) {
+            return $this->failedResult('VCGamers check ID disabled.');
+        }
+
+        $games = (array) config('providers.check_id.vcgamers.games', []);
+        $game = $games[$parsedGame] ?? null;
+
+        if (! is_array($game) || empty($game['provider_code'])) {
+            return $this->failedResult('VCGamers does not map game: ' . $parsedGame . '.');
+        }
+
+        $url = trim((string) config('providers.check_id.vcgamers.base_url', 'https://apis.vcgamers.com/api/product/check-id'));
+
+        if ($url === '') {
+            return $this->failedResult('VCGamers base URL is not configured.');
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->connectTimeout((int) config('providers.check_id.vcgamers.connect_timeout', 3))
+                ->timeout((int) config('providers.check_id.vcgamers.timeout', 6))
+                ->post($url, [
+                    'check_provider' => 'rapidapi',
+                    'provider_code'  => (string) $game['provider_code'],
+                    'brand_id'       => (string) ($game['brand_id'] ?? ''),
+                    'category_id'    => (string) ($game['category_id'] ?? ''),
+                    'values'         => [
+                        ['key' => 'user_id', 'value' => $userId],
+                        ['key' => 'zone_id', 'value' => $zoneId ?? ''],
+                    ],
+                ]);
+
+            if (! $response->successful()) {
+                return $this->failedResult('VCGamers returned a non-200 response.');
+            }
+
+            return $this->normalizeVcgamersRegionResponse($response->json());
+        } catch (\Throwable $exception) {
+            Log::error('ApiCheckController:connectVcgamers - Request failed.', [
+                'message' => $exception->getMessage(),
+            ]);
+
+            return $this->failedResult('VCGamers request failed.');
+        }
+    }
+
+    private function normalizeVcgamersRegionResponse(mixed $decoded): array
+    {
+        if (! is_array($decoded)) {
+            return $this->failedResult('VCGamers returned an invalid payload.');
+        }
+
+        $success = ($decoded['code'] ?? null) === 200
+            && ($decoded['status'] ?? null) === 'success'
+            && ($decoded['data']['status'] ?? null) === true;
+
+        $nickname = trim((string) ($decoded['data']['result'] ?? ''));
+
+        if (! $success || $nickname === '') {
+            return $this->failedResult((string) ($decoded['message'] ?? 'User not found on VCGamers.'));
+        }
+
+        $country = strtoupper(trim((string) ($decoded['data']['region'] ?? '')));
+        $region = null;
+
+        if ($country !== '') {
+            $region = $this->normalizeAccountRegion([
+                'code'     => $country,
+                'reported' => self::GOPAY_COUNTRY_NAMES[$country] ?? $country,
+                'provider' => 'vcgamers',
+            ]);
+        }
+
+        return $this->successfulResult($nickname, 'vcgamers', $region);
+    }
+
+    /**
+     * Ambil region saja (best-effort) dari provider yang melaporkannya, berurut.
+     * Dipakai untuk backfill akun yang sudah tercache tanpa region.
+     */
+    private function lookupRegionOnly(string $parsedGame, string $userId, ?string $zoneId): ?array
+    {
+        foreach (['connectGoPay', 'connectVcgamers'] as $method) {
+            $result = $this->{$method}($parsedGame, $userId, $zoneId);
+            if ($this->isSuccessfulResult($result) && is_array($result['account_region'] ?? null)) {
+                return $result['account_region'];
+            }
+        }
+
+        return null;
     }
 
     private function connectPrimary(array $params): array

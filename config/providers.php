@@ -74,6 +74,59 @@ return [
             'timeout' => env('CHECK_ID_SELFHOSTED_TIMEOUT', 12),
             'connect_timeout' => env('CHECK_ID_SELFHOSTED_CONNECT_TIMEOUT', 5),
         ],
+
+        // GoPay Games user-account checker (opt-in). Mengembalikan nickname +
+        // countryOrigin (region akun), dipakai storefront untuk badge region
+        // dan blokir order non-ID. Endpoint tidak resmi/tidak berdokumen —
+        // bisa berubah/diblokir sewaktu-waktu, jadi hanya dijadikan provider
+        // tambahan dengan fallback ke provider lain. Default mati.
+        'gopay' => [
+            'enabled' => env('CHECK_ID_GOPAY_ENABLED', false),
+            'base_url' => env('CHECK_ID_GOPAY_BASE_URL', 'https://gopay.co.id/games/v1/order/user-account'),
+            'timeout' => env('CHECK_ID_GOPAY_TIMEOUT', 6),
+            'connect_timeout' => env('CHECK_ID_GOPAY_CONNECT_TIMEOUT', 3),
+            // Peta kunci game internal -> kode game GoPay. Tambah sesuai kebutuhan.
+            'game_codes' => [
+                'mobile_legends' => 'MOBILE_LEGENDS',
+                'mobile_legends_bang_bang' => 'MOBILE_LEGENDS',
+                'mobilelegend' => 'MOBILE_LEGENDS',
+                'mlbb' => 'MOBILE_LEGENDS',
+            ],
+        ],
+
+        // VCGamers product check-id (opt-in). Juga mengembalikan nickname +
+        // region. Dipakai sebagai cadangan GoPay. Endpoint tidak resmi; brand_id
+        // / category_id adalah konfigurasi teramati yang bisa berubah di sisi
+        // penyedia. Default mati.
+        'vcgamers' => [
+            'enabled' => env('CHECK_ID_VCGAMERS_ENABLED', false),
+            'base_url' => env('CHECK_ID_VCGAMERS_BASE_URL', 'https://apis.vcgamers.com/api/product/check-id'),
+            'timeout' => env('CHECK_ID_VCGAMERS_TIMEOUT', 6),
+            'connect_timeout' => env('CHECK_ID_VCGAMERS_CONNECT_TIMEOUT', 3),
+            // Peta kunci game internal -> parameter VCGamers.
+            'games' => [
+                'mobile_legends' => [
+                    'provider_code' => 'mobile-legends',
+                    'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
+                    'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
+                ],
+                'mobile_legends_bang_bang' => [
+                    'provider_code' => 'mobile-legends',
+                    'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
+                    'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
+                ],
+                'mobilelegend' => [
+                    'provider_code' => 'mobile-legends',
+                    'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
+                    'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
+                ],
+                'mlbb' => [
+                    'provider_code' => 'mobile-legends',
+                    'brand_id' => '8c1bec7b-36ae-4cc9-beae-c2e43c31173e',
+                    'category_id' => '7864c918-8ab6-4b4f-aa10-3f0781e7895d',
+                ],
+            ],
+        ],
     ],
 
     /*
