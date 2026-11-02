@@ -109,7 +109,7 @@ describe('peringatan region akun non-ID (tema default, jalur produksi)', () => {
 
         const warning = $('#account-region-warning');
         expect(warning.attr('hidden')).toBeUndefined();
-        expect(warning.text()).toBe('Maaf, akun ini terdaftar di region Malaysia (MY). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).');
+        expect(warning.text()).toBe('Akun ini terdaftar di region Malaysia (MY). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).');
         expect($('#order-check').prop('disabled')).toBe(true);
         expect(window.__accountRegion).toMatchObject({ known: true, code: 'MY', blocked: true });
     });

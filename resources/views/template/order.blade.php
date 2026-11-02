@@ -862,7 +862,7 @@
                                                 class="relative block w-full appearance-none rounded-none border border-murky-600 bg-murky-700 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 !rounded-md !border-0 !bg-murky-200 !text-murky-800 !placeholder-murky-800 accent-murky-800 !ring-0 placeholder:text-xs focus:!border-transparent focus:!bg-white focus:!ring-transparent"
                                                 type="{{ $field1Values[2] }}" id="user_id" name="user_id"
                                                 placeholder="{{ $field1Values[1] }}" />
-                                            <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold"></div>
+                                            <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold" style="grid-column:1 / -1"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -4111,8 +4111,8 @@
                                             type="{{ $field2Values[2] }}" name="zone_id" id="zone"
                                             placeholder="{{ $field2Values[1] }}" /></div>
                                 </div>
-                                <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold"></div>
-                                <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" hidden></div>
+                                <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold" style="grid-column:1 / -1"></div>
+                                <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" style="grid-column:1 / -1" hidden></div>
                             @endif
                         </div>
 
@@ -4126,8 +4126,8 @@
                                         class="relative block w-full appearance-none border border-murky-600 bg-melpa-800 px-3 py-2 text-xs text-white placeholder-murky-200 focus:z-10 focus:border-primary-500 focus:outline-none focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-75 rounded-md"
                                         type="{{ $field1Values[2] }}" id="user_id" name="user_id"
                                         placeholder="{{ $field1Values[1] }}" />
-                                    <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold"></div>
-                                    <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" hidden></div>
+                                    <div id="nickname-display" class="text-xs text-green-500 mt-1 font-bold" style="grid-column:1 / -1"></div>
+                                    <div id="account-region-warning" class="mt-2 w-full rounded-md border border-red-500 bg-red-500 px-3 py-2 text-xs font-bold text-white" style="grid-column:1 / -1" hidden></div>
                                 </div>
                             </div>
                         </div>

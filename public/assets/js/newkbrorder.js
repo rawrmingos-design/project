@@ -477,7 +477,7 @@ $(".product-list").off("click").on("click", (function () {
     } else if (!e && !a) return showToast("Mohon isi UID atau Zone"), void scrollToElement("section-input");
     if (!h && !y) return void showToast("Silahkan isi nomor WhatsApp atau email terlebih dahulu");
     if (y && !isValidOrderEmail(y)) return void showToast("Silahkan isi email yang valid untuk metode pembayaran ini");
-    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Maaf, akun ini terdaftar di region " + (window.__accountRegion.reported || window.__accountRegion.code) + " (" + window.__accountRegion.code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).", "error");
+    if (window.__accountRegion && window.__accountRegion.blocked) return void showToast("Akun ini terdaftar di region " + (window.__accountRegion.reported || window.__accountRegion.code) + " (" + window.__accountRegion.code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).", "error");
     $.ajax({
         url: window.routes.confirmationUrl,
         dataType: "JSON",
@@ -826,13 +826,13 @@ $(document).ready(function () {
             var code = escapeAccountHtml(region.code);
             var reported = escapeAccountHtml(region.reported);
             $display.html(
-                '<span class="flex w-full flex-wrap items-center gap-x-2">'
+                '<div class="grid grid-cols-2 gap-4">'
                 + '<span>Valid: ' + safeName + '</span>'
-                + '<span class="ml-auto font-normal">Region: ' + reported + '(' + code + ')</span>'
-                + '</span>'
+                + '<span class="font-normal">Region: ' + reported + '(' + code + ')</span>'
+                + '</div>'
             ).addClass("text-red-500");
             $("[id='account-region-warning']")
-                .html("Maaf, akun ini terdaftar di region " + reported + " (" + code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).")
+                .html("Akun ini terdaftar di region " + reported + " (" + code + "). Pesanan hanya dapat diproses untuk akun region Indonesia (ID).")
                 .removeAttr("hidden")
                 .show();
             setOrderButtonDisabled(true);
@@ -846,10 +846,10 @@ $(document).ready(function () {
             var reportedOk = escapeAccountHtml(region.reported);
             var codeOk = escapeAccountHtml(region.code);
             $display.html(
-                '<span class="flex w-full flex-wrap items-center gap-x-2">'
+                '<div class="grid grid-cols-2 gap-4">'
                 + '<span>Valid: ' + safeName + '</span>'
-                + '<span class="ml-auto font-normal text-white/80">Region: ' + reportedOk + '(' + codeOk + ')</span>'
-                + '</span>'
+                + '<span class="font-normal text-white/80">Region: ' + reportedOk + '(' + codeOk + ')</span>'
+                + '</div>'
             ).addClass("text-green-500");
         } else {
             $display.html("Valid: " + safeName).addClass("text-green-500");
