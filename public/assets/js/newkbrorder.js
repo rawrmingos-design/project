@@ -818,7 +818,7 @@ $(document).ready(function () {
     function renderAccountDisplay(username, region) {
         var $display = $("[id='nickname-display']");
         var safeName = escapeAccountHtml(username);
-        $display.removeClass("text-gray-500 text-green-500 text-red-500").attr("data-username", username);
+        $display.show().removeClass("text-gray-500 text-green-500 text-red-500").attr("data-username", username);
 
         if (region && region.known && !region.isId) {
             // Warning terpisah di bawah form UID (bukan cuma di teks validasi),
@@ -876,7 +876,7 @@ $(document).ready(function () {
 
             // Ensure UID is present. Zone is optional depending on game, but we send it anyway.
             if (uid && kategoriKode) {
-                $("#nickname-display").text("Checking ID...").removeClass("text-green-500 text-red-500").addClass("text-gray-500");
+                $("#nickname-display").show().text("Checking ID...").removeClass("text-green-500 text-red-500").addClass("text-gray-500");
 
                 $.ajax({
                     url: window.routes.checkAccount,
