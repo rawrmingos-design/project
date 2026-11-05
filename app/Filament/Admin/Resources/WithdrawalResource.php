@@ -105,9 +105,8 @@ class WithdrawalResource extends Resource
                             ->required(),
                     ])
                     ->action(function (array $data, Withdrawal $record) {
-                        $record->status = 'success';
-                        $record->bukti_transfer = $data['bukti_transfer'];
-                        $record->save();
+                        app(\App\Tenancy\TenantWithdrawalService::class)
+                            ->approve($record, $data['bukti_transfer'] ?? null);
                     })
                     ->requiresConfirmation(),
                     
@@ -117,17 +116,9 @@ class WithdrawalResource extends Resource
                     ->icon('heroicon-o-x-mark')
                     ->visible(fn (Withdrawal $record) => $record->status === 'pending')
                     ->action(function (Withdrawal $record) {
-                        $record->status = 'rejected';
-                        $record->save();
-                        
-                        // Refund balance if rejected
-                        $user = $record->user;
-                        if ($user) {
-                            $user->balance += $record->total_transfer;
-                            $user->save();
-                            
-                            // Optional: Notification?
-                        }
+                        // Lewat service supaya idempoten: klik "Tolak" dua kali
+                        // tidak boleh mengembalikan saldo dua kali.
+                        app(\App\Tenancy\TenantWithdrawalService::class)->reject($record);
                     })
                     ->requiresConfirmation(),
             ])

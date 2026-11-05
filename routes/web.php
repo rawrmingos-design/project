@@ -70,6 +70,7 @@ use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\RegistrationPageController as TenantRegistrationPageController;
 use App\Http\Controllers\Tenant\SettingsController as TenantSettingsController;
 use App\Http\Controllers\Tenant\VoucherController as TenantVoucherController;
+use App\Http\Controllers\Tenant\WithdrawalController as TenantWithdrawalController;
 use App\Http\Controllers\GoogleAuthController;
 
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
@@ -180,6 +181,10 @@ Route::middleware(['tenant.resolve', 'tenant.inactive', 'tenant.required', 'xss'
         Route::get('/vouchers', [TenantVoucherController::class, 'index'])->name('vouchers');
         Route::post('/vouchers', [TenantVoucherController::class, 'store'])->name('vouchers.store');
         Route::delete('/vouchers/{id}', [TenantVoucherController::class, 'destroy'])->name('vouchers.destroy');
+
+        // Pencairan komisi (manual): ajukan -> saldo dipotong -> admin transfer.
+        Route::get('/withdrawals', [TenantWithdrawalController::class, 'index'])->name('withdrawals');
+        Route::post('/withdrawals', [TenantWithdrawalController::class, 'store'])->name('withdrawals.store');
     });
     Route::get('/order/{kategori:kode}', PublicOrderPageController::class)
         ->missing(fn () => redirect('/', 302))
@@ -446,10 +451,6 @@ Route::middleware(['auth', 'check.role'])->group(function () {
     Route::post('/tarik-saldo',                                                  [TokoPayController::class, 'tarikSaldo'])->name('tarik-saldo');
     Route::get('/informasi-akun',                                                [TokoPayController::class, 'akun'])->name('informasi-akun');
     Route::get('/status-order',                                                  [TokoPayController::class, 'cekStatusOrder'])->name('status-order');
-    Route::get('/withdrawals', function () {
-        $withdrawals = Withdrawal::all();
-        return view('withdrawals', ['withdrawals' => $withdrawals]);
-    });
     Route::get('/kategori',                                                      [KategoriController::class, 'create'])->name('kategori');
     Route::post('/kategori',                                                     [KategoriController::class, 'store'])->name('kategori.post');
     Route::get('/kategori/hapus/{id}',                                           [KategoriController::class, 'delete'])->name('kategori.delete');

@@ -13,6 +13,7 @@
                 <p class="text-sm text-slate-400">Tenant Owner Dashboard</p>
                 <h1 class="text-3xl font-black">{{ $tenant->name }}</h1>
             </div>
+            <a href="{{ route('tenant.withdrawals') }}" class="rounded-xl bg-emerald-500 px-4 py-2 font-semibold text-white">Cairkan Komisi</a>
             <a href="{{ route('tenant.settings') }}" class="rounded-xl bg-purple-500 px-4 py-2 font-semibold text-white">Pengaturan Toko</a>
         </div>
 
@@ -32,6 +33,11 @@
             <div class="rounded-2xl border border-white/10 bg-slate-900 p-5">
                 <p class="text-sm text-slate-400">Total Komisi</p>
                 <p class="mt-2 text-2xl font-bold">Rp {{ number_format((int) $totalCommission, 0, ',', '.') }}</p>
+                @if ((int) ($pendingCommission ?? 0) > 0)
+                    <p class="mt-1 text-xs text-amber-300">
+                        + Rp {{ number_format((int) $pendingCommission, 0, ',', '.') }} menunggu order selesai
+                    </p>
+                @endif
             </div>
         </section>
 

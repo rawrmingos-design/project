@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pembelian;
+use App\Support\PembelianStatus;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,15 @@ class DashboardController extends Controller
             'orders' => $orders,
             'totalOrders' => Pembelian::query()->count(),
             'totalRevenue' => Pembelian::query()->sum('harga'),
-            'totalCommission' => Pembelian::query()->sum('profit'),
+            // Hanya komisi yang SUDAH dikredit. Memakai SUM(profit) seluruh order
+            // akan menjanjikan uang dari order yang masih `processing` atau gagal.
+            'totalCommission' => Pembelian::query()
+                ->whereNotNull('tenant_commission_credited_at')
+                ->sum('profit'),
+            'pendingCommission' => Pembelian::query()
+                ->whereNull('tenant_commission_credited_at')
+                ->whereIn('status', [PembelianStatus::PROCESSING, PembelianStatus::PENDING])
+                ->sum('profit'),
         ]);
     }
 }
