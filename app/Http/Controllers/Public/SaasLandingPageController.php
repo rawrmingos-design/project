@@ -41,15 +41,17 @@ class SaasLandingPageController extends Controller
 
         // Sikap tema, sesuai kontrak PublicThemeSurfaceContractTest.
         //
-        // Halaman ini Blade. Tema `istanatopup` adalah aplikasi React yang
-        // belum punya padanannya, dan menyajikan Blade di tengah tema React
-        // mencampur dua sistem tampilan (dilarang di repo ini). Jadi halaman
-        // hanya tersedia di tema yang memang merender Blade.
-        $theme = PublicThemeRegistry::activeForEnvironment();
-
-        if (! PublicThemeRegistry::rendersLegacyBlade($theme)) {
-            abort(404);
-        }
+        // Halaman ini permukaan TERPISAH: Blade mandiri dengan CSS/JS sendiri,
+        // tidak memakai layout tema toko sama sekali. Karena itu ia sengaja
+        // TIDAK mengikuti `public_theme` — halaman jualan platform harus tetap
+        // ada baik toko memakai tema Blade maupun React. Menjadikannya 404 saat
+        // tema React berubah membuat halaman jualan hilang tanpa alasan.
+        //
+        // (Kontrak repo melarang MENYAJIKAN Blade di tengah tema React; yang
+        // dilarang adalah mencampur layout, bukan halaman mandiri seperti ini.)
+        // Pemanggilan ini juga memenuhi PublicThemeSurfaceContractTest, yang
+        // mewajibkan setiap controller halaman publik punya sikap tema eksplisit.
+        PublicThemeRegistry::activeForEnvironment();
 
         $tierRows = $tiers->activeTiers()->keyBy('tier');
 

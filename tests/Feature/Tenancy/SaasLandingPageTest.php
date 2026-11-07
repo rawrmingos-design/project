@@ -209,3 +209,14 @@ test('halaman jualan TIDAK muncul di domain pelanggan', function () {
 
     $this->get('/sewa-web-topup')->assertNotFound();
 });
+
+test('halaman jualan tetap tampil walau tema toko memakai React', function () {
+    // Halaman ini permukaan terpisah dengan CSS/JS sendiri. Kalau ia ikut
+    // mati saat tema toko berganti ke React, halaman jualan platform hilang
+    // tanpa alasan — dan itu benar-benar terjadi di staging (404).
+    SettingWeb::query()->where('id', 1)->update([
+        'public_theme' => \App\Support\PublicThemeRegistry::ISTANATOPUP,
+    ]);
+
+    $this->get('/sewa-web-topup')->assertOk();
+});
