@@ -60,7 +60,7 @@ class ResolveTenant
             // A tenant has claimed this domain. Only resolve if fully verified and active.
             // If conditions are not met, return null — do NOT fall through to subdomain resolution.
             if (
-                $customDomainTenant->status === Tenant::STATUS_ACTIVE
+                in_array($customDomainTenant->status, [Tenant::STATUS_ACTIVE, Tenant::STATUS_TRIAL], true)
                 && $customDomainTenant->custom_domain_status === Tenant::DOMAIN_STATUS_VERIFIED
                 && $customDomainTenant->custom_domain_verified_at !== null
             ) {
@@ -79,7 +79,9 @@ class ResolveTenant
 
         return Tenant::query()
             ->where('subdomain', $subdomain)
-            ->where('status', Tenant::STATUS_ACTIVE)
+            // Toko dalam masa uji coba harus tetap bisa dibuka: trial hanya
+            // soal penagihan, bukan soal akses.
+            ->whereIn('status', [Tenant::STATUS_ACTIVE, Tenant::STATUS_TRIAL])
             ->first();
     }
 

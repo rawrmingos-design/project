@@ -54,9 +54,23 @@ class TenantProvisioningService
             // berpindah ke paid, jadi callback Duitku yang datang dua kali tidak
             // akan menumpuk bulan.
             if ($shouldNotifyActivated) {
-                $basis = ($subscription->current_period_end && $subscription->current_period_end->isFuture())
-                    ? $subscription->current_period_end   // masih berjalan → tambah penuh dari akhir periode
-                    : ($subscription->current_period_end ?: now()); // sudah lewat/kosong → dari akhir periode lama
+                // Konversi DARI TRIAL dihitung dari HARI PEMBAYARAN.
+                //
+                // Trial berakhir pada tanggal tetap (daftar + 3 hari). Kalau
+                // user membayar beberapa hari setelah trial habis dan periode
+                // dihitung dari tanggal trial berakhir, hari yang sudah lewat
+                // ikut terpotong — pelanggan baru membayar 3 bulan tapi hanya
+                // dapat 2 bulan 27 hari.
+                //
+                // Perpanjangan biasa TIDAK diubah: di sana telat bayar memang
+                // tidak memberi hari gratis (lihat BillingRenewalTest).
+                $dariTrial = $tenant->trial_ends_at !== null;
+
+                $basis = $dariTrial
+                    ? now()
+                    : (($subscription->current_period_end && $subscription->current_period_end->isFuture())
+                        ? $subscription->current_period_end   // masih berjalan → tambah penuh dari akhir periode
+                        : ($subscription->current_period_end ?: now())); // sudah lewat → dari akhir periode lama
 
                 // Durasi dari paket yang dibeli (3 atau 12 bulan). Sebelumnya
                 // selalu addMonth(), jadi semua paket efektif 1 bulan.
@@ -79,6 +93,10 @@ class TenantProvisioningService
 
             $tenant->forceFill([
                 'status' => Tenant::STATUS_ACTIVE,
+                // Trial selesai begitu sudah ada pembayaran. Menyisakan
+                // trial_ends_at akan membuat dashboard terus menampilkan
+                // "trial tersisa N hari" pada toko yang sudah berbayar.
+                'trial_ends_at' => null,
                 'margin_config' => $tenant->margin_config ?: app(TenantRegistrationService::class)->defaultMarginConfig(),
                 'theme' => $tenant->theme ?: app(TenantRegistrationService::class)->defaultTheme(),
             ])->save();

@@ -14,6 +14,7 @@ class Tenant extends Model
     use HasFactory;
 
     public const STATUS_PENDING_PAYMENT = 'pending_payment';
+    public const STATUS_TRIAL = 'trial';
     public const STATUS_ACTIVE = 'active';
     public const STATUS_SUSPENDED = 'suspended';
     public const STATUS_CANCELLED = 'cancelled';
@@ -139,5 +140,43 @@ class Tenant extends Model
     {
         return $this->custom_domain_status === self::DOMAIN_STATUS_VERIFIED
             && $this->custom_domain_verified_at !== null;
+    }
+
+    /**
+     * Toko sedang dalam masa uji coba gratis.
+     *
+     * Trial disimpan sebagai status SENDIRI (`trial`), bukan `active` +
+     * `trial_ends_at`, supaya penagihan bisa membedakan keduanya. Kalau trial
+     * memakai status `active`, mesin perpanjangan akan langsung menerbitkan
+     * invoice di hari pertama — "gratis 3 hari" jadi bohong.
+     */
+    public function isOnTrial(): bool
+    {
+        return $this->status === self::STATUS_TRIAL
+            && $this->trial_ends_at !== null
+            && $this->trial_ends_at->isFuture();
+    }
+
+    /**
+     * Sisa hari trial, dibulatkan ke atas. 0 kalau bukan trial.
+     *
+     * Dibulatkan ke atas supaya "kurang 2 jam lagi" tampil sebagai "1 hari",
+     * bukan "0 hari" yang terbaca seperti sudah habis.
+     */
+    public function trialDaysLeft(): int
+    {
+        if (! $this->isOnTrial()) {
+            return 0;
+        }
+
+        return max(0, (int) ceil(now()->floatDiffInDays($this->trial_ends_at, false)));
+    }
+
+    /**
+     * Toko bisa dipakai pembeli: aktif normal ATAU masih dalam masa trial.
+     */
+    public function isLive(): bool
+    {
+        return $this->isActive() || $this->isOnTrial();
     }
 }

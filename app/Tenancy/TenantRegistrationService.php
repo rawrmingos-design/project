@@ -29,6 +29,11 @@ class TenantRegistrationService
         $email = trim((string) ($data['email'] ?? ''));
         $duration = $this->normalizeDuration($data['duration_months'] ?? null);
 
+        // Uji coba gratis: hanya berlaku kalau diminta DAN saklar menyala.
+        // Saklar config = tombol darurat untuk mematikan trial tanpa deploy.
+        $trial = filter_var($data['trial'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            && (bool) config('tenancy.trial_enabled', true);
+
         // Semua tier bisa didaftarkan mandiri — tidak ada lagi daftar putih
         // SELF_SERVICE_TIERS. Yang menentukan hanya `is_active` di tier_pricing.
         // Tabel kosong BUKAN alasan menolak: resolver punya nilai fallback, dan
@@ -55,7 +60,7 @@ class TenantRegistrationService
 
         $this->assertSubdomainAvailable($subdomain);
 
-        return $this->createTenant($data, $subdomain, $tier, $duration);
+        return $this->createTenant($data, $subdomain, $tier, $duration, $trial);
     }
 
     /**
@@ -208,9 +213,9 @@ class TenantRegistrationService
         return $invoice;
     }
 
-    private function createTenant(array $data, string $subdomain, string $tier, int $duration): array
+    private function createTenant(array $data, string $subdomain, string $tier, int $duration, bool $trial = false): array
     {
-        return DB::transaction(function () use ($data, $subdomain, $tier, $duration): array {
+        return DB::transaction(function () use ($data, $subdomain, $tier, $duration, $trial): array {
             $owner = User::query()->create([
                 'name' => trim((string) $data['name']),
                 'username' => $this->uniqueUsername($subdomain),
@@ -227,7 +232,11 @@ class TenantRegistrationService
                 'name' => trim((string) $data['store_name']),
                 'subdomain' => $subdomain,
                 'tier' => $tier,
-                'status' => Tenant::STATUS_PENDING_PAYMENT,
+                // Trial = toko LANGSUNG bisa dipakai tanpa bayar. Statusnya
+                // sengaja bukan `active`: penagihan membedakan keduanya, dan
+                // `active` akan memicu invoice di hari pertama.
+                'status' => $trial ? Tenant::STATUS_TRIAL : Tenant::STATUS_PENDING_PAYMENT,
+                'trial_ends_at' => $trial ? now()->addDays($this->trialDays()) : null,
                 'margin_config' => $data['margin_config'] ?? $this->defaultMarginConfig($tier),
                 'theme' => $data['theme'] ?? $this->defaultTheme(),
                 'settings' => [
@@ -236,6 +245,35 @@ class TenantRegistrationService
             ]);
 
             $owner->forceFill(['tenant_id' => $tenant->id])->save();
+
+            // --- Jalur trial: berhenti di sini, TANPA invoice -------------
+            // Tidak ada tagihan sama sekali selama trial. Saat trial berakhir,
+            // BillingRenewalService yang menerbitkan invoice periode penuh.
+            if ($trial) {
+                $subscription = Subscription::query()->create([
+                    'tenant_id' => $tenant->id,
+                    'tier' => $tier,
+                    'duration_months' => $duration,
+                    'price' => $this->tierPrice($tier, $duration),
+                    'status' => Subscription::STATUS_ACTIVE,
+                    'current_period_start' => now(),
+                    // Akhir trial = akhir periode. Satu tanggal, satu arti.
+                    'current_period_end' => $tenant->trial_ends_at,
+                    'gateway_ref' => SubscriptionInvoice::freshGatewayRef(),
+                ]);
+
+                // Pemilik toko langsung bisa masuk dashboard.
+                $owner->forceFill(['role' => 'tenant_owner'])->save();
+
+                return [
+                    'owner' => $owner,
+                    'tenant' => $tenant,
+                    'subscription' => $subscription,
+                    'invoice' => null,
+                    'trial' => true,
+                    'resumed' => false,
+                ];
+            }
 
             $subscription = Subscription::query()->create([
                 'tenant_id' => $tenant->id,
@@ -255,9 +293,21 @@ class TenantRegistrationService
                 'tenant' => $tenant,
                 'subscription' => $subscription,
                 'invoice' => $invoice->fresh('subscription.tenant.owner'),
+                'trial' => false,
                 'resumed' => false,
             ];
         });
+    }
+
+    /**
+     * Panjang masa uji coba, dibatasi 1..30 hari.
+     *
+     * Nilai aneh dari env (0, minus, 999) tidak boleh menghasilkan trial
+     * seumur hidup atau trial yang langsung habis.
+     */
+    private function trialDays(): int
+    {
+        return max(1, min(30, (int) config('tenancy.trial_days', 3)));
     }
 
     private function createInvoice(

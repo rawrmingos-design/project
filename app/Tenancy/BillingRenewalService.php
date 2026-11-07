@@ -100,6 +100,52 @@ class BillingRenewalService
             return $stats;
         }
 
+        // ---------------------------------------------------------------
+        // Masa uji coba: JANGAN ditagih sama sekali.
+        //
+        // Trial memakai current_period_end = akhir trial. Tanpa penjagaan ini,
+        // trial 3 hari akan langsung ditagih di hari pertama karena jendela
+        // pengingat juga 3 hari. Trial juga tidak boleh kena denda: telat bayar
+        // bukan kesalahan user kalau memang belum pernah ditagih.
+        //
+        // Saat trial berakhir, yang terbit adalah invoice PERIODE PENUH
+        // (3/12 bulan) — bukan tagihan sisa hari.
+        // ---------------------------------------------------------------
+        if ($tenant->status === Tenant::STATUS_TRIAL) {
+            if ($periodEnd->isFuture()) {
+                // Trial masih berjalan.
+                return $stats;
+            }
+
+            // Trial baru saja berakhir → terbitkan tagihan periode penuh,
+            // tanpa denda, dan tanpa menunggu tenggang.
+            $amount = $this->basePrice($subscription);
+
+            if ($this->livePendingInvoice($subscription) !== null
+                || $this->hasRenewalForPeriod($subscription, $periodEnd)) {
+                return $stats;
+            }
+
+            $created = $this->createRenewalInvoice($subscription, $periodEnd, $amount, 0);
+            $stats['created']++;
+
+            // Setelah ditagih, trial selesai: pindah ke `pending_payment`.
+            // Kalau tetap `trial`, toko akan gratis selamanya karena tidak ada
+            // yang menutupnya — `suspendOverdue` hanya menyentuh tenant `active`,
+            // dan halaman penjelasan hanya untuk `pending_payment`/`suspended`.
+            // Dengan status ini, toko tertutup rapi + user melihat cara bayar.
+            $tenant->forceFill(['status' => Tenant::STATUS_PENDING_PAYMENT])->save();
+            $subscription->forceFill(['status' => Subscription::STATUS_PAST_DUE])->save();
+
+            $this->notifyOnce(
+                $created,
+                \App\Jobs\SendTenantNotificationJob::EVENT_RENEWAL_INVOICE,
+                'renewal_invoice',
+            );
+
+            return $stats;
+        }
+
         // Sudah lewat tenggang → bukan urusan penagihan lagi, tapi suspend.
         if ($periodEnd->copy()->addDays($graceDays)->lte(now())) {
             return $stats;
@@ -299,7 +345,6 @@ class BillingRenewalService
         if ($price > 0) {
             return $price;
         }
-
         // B5: harga tier SEKARANG, bukan harga saat daftar — dan untuk durasi
         // yang benar-benar dibeli langganan ini.
         $months = (int) ($subscription->duration_months ?? 3);

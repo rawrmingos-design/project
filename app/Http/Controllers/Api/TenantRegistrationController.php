@@ -69,13 +69,17 @@ class TenantRegistrationController extends Controller
         return response()->json([
             'status' => true,
             'resumed' => (bool) ($result['resumed'] ?? false),
+            'trial' => (bool) ($result['trial'] ?? false),
             'tenant' => [
                 'id' => $result['tenant']->id,
                 'name' => $result['tenant']->name,
                 'subdomain' => $result['tenant']->subdomain,
                 'status' => $result['tenant']->status,
+                'trial_ends_at' => $result['tenant']->trial_ends_at?->toIso8601String(),
             ],
-            'invoice' => [
+            // Jalur trial TIDAK punya invoice. Mengakses $result['invoice']->id
+            // di sini akan meledak, jadi cabangnya dipisah eksplisit.
+            'invoice' => $result['invoice'] === null ? null : [
                 'id' => $result['invoice']->id,
                 'amount' => $result['invoice']->amount,
                 'status' => $result['invoice']->status,

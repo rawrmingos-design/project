@@ -17,6 +17,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Uji Coba Gratis
+    |--------------------------------------------------------------------------
+    |
+    | Tenant baru boleh mencoba toko tanpa bayar selama N hari. Selama trial
+    | TIDAK ada invoice sama sekali: penagihan baru mulai saat trial berakhir,
+    | dan yang ditagih adalah periode penuh (3/12 bulan), bukan sisa hari.
+    |
+    | Dimatikan lewat config (bukan hapus kode) supaya bisa dimatikan mendadak
+    | kalau ada penyalahgunaan.
+    |
+    */
+
+    'trial_enabled' => env('SAAS_TRIAL_ENABLED', true),
+
+    'trial_days' => (int) env('SAAS_TRIAL_DAYS', 3),
+
+    /*
+    |--------------------------------------------------------------------------
     | Subdomain Guard
     |--------------------------------------------------------------------------
     |
