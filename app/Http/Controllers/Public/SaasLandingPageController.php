@@ -33,11 +33,22 @@ class SaasLandingPageController extends Controller
         // Hanya di host platform.
         //
         // Route ini global, sehingga tanpa penjagaan ini halaman jualan
-        // platform (lengkap dengan harga paket) ikut bisa dibuka di domain
-        // setiap pelanggan — mis. toko-pelanggan.com/sewa-web-topup.
-        // `tenant.required` tidak dipakai di route ini, jadi konteks tenant
-        // bisa kosong; di situlah halaman ini boleh tampil.
-        abort_if(app()->bound(\App\Tenancy\TenantContext::class) && app(\App\Tenancy\TenantContext::class)->get() !== null, 404);
+        // platform (lengkap dengan harga paket) bisa dibuka di domain setiap
+        // pelanggan — mis. toko-pelanggan.com/sewa-web-topup. Itu benar-benar
+        // terjadi di staging sebelum penjagaan ini ada.
+        //
+        // Penjagaannya berbasis HOST, bukan TenantContext: route ini tidak
+        // memakai middleware `tenant.resolve`, jadi konteks tenant selalu
+        // kosong di sini dan pengecekan konteks tidak akan pernah menangkap
+        // apa pun. Host platform = host `app.url`, aturan yang sama dengan
+        // `ResolvesTenantHost::publicHosts()`.
+        $host = strtolower($request->getHost());
+        $platformHost = strtolower((string) parse_url((string) config('app.url'), PHP_URL_HOST));
+
+        abort_if(
+            $platformHost === '' || ! in_array($host, [$platformHost, 'www.' . $platformHost], true),
+            404
+        );
 
         // Sikap tema, sesuai kontrak PublicThemeSurfaceContractTest.
         //

@@ -191,8 +191,9 @@ test('aset landing tersedia dan tidak kosong', function () {
 });
 
 test('halaman jualan TIDAK muncul di domain pelanggan', function () {
-    // Route ini global; tanpa penjagaan, harga paket platform bisa dibaca
-    // dari domain toko pelanggan.
+    // Route ini global. Tanpa penjagaan berbasis host, harga paket platform
+    // bisa dibaca dari domain toko pelanggan — dan itu benar-benar terjadi
+    // di staging sebelum penjagaannya diperbaiki.
     $tenant = \App\Models\Tenant::query()->create([
         'owner_user_id' => \App\Models\User::factory()->create(['role' => 'tenant_owner'])->id,
         'name' => 'Toko Pelanggan',
@@ -202,12 +203,24 @@ test('halaman jualan TIDAK muncul di domain pelanggan', function () {
         'margin_config' => ['markup_type' => 'percent', 'markup_value' => 10],
     ]);
 
-    // Simulasikan konteks tenant aktif (seperti request di domain pelanggan).
-    $context = new \App\Tenancy\TenantContext();
-    $context->set($tenant);
-    app()->instance(\App\Tenancy\TenantContext::class, $context);
+    $base = (string) parse_url((string) config('app.url'), PHP_URL_HOST);
 
-    $this->get('/sewa-web-topup')->assertNotFound();
+    // Host pelanggan: subdomain toko.
+    $this->get('https://toko-pelanggan.' . $base . '/sewa-web-topup')->assertNotFound();
+
+    // Host asing sama sekali.
+    $this->get('https://contoh-lain.test/sewa-web-topup')->assertNotFound();
+
+    // Host platform tetap boleh.
+    $this->get('https://' . $base . '/sewa-web-topup')->assertOk();
+});
+
+test('penjagaan host tidak bergantung pada ada tidaknya tenant', function () {
+    // Tidak ada tenant sama sekali: halaman tetap hanya hidup di host platform.
+    $base = (string) parse_url((string) config('app.url'), PHP_URL_HOST);
+
+    $this->get('https://bukan-platform.test/sewa-web-topup')->assertNotFound();
+    $this->get('https://' . $base . '/sewa-web-topup')->assertOk();
 });
 
 test('halaman jualan tetap tampil walau tema toko memakai React', function () {
