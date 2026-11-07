@@ -240,6 +240,19 @@ Route::prefix('id')->group(function () {
         ->name('password.update');
 });
 
+// Landing page SaaS (jual sewa web top-up).
+//
+// Sengaja DI LUAR grup `/id` dan di luar grup tenant: ini halaman jualan
+// platform, bukan halaman toko. Kalau ditaruh di grup `/id`, middleware
+// `tenant.inactive` + `bangjeff.legacy.redirect` ikut jalan dan halaman
+// terlempar 302 sebelum sempat dirender — dan URL-nya jadi `/id/...`.
+//
+// Host platform (`app.url`) sudah dilewati resolusi tenant lewat
+// `ResolvesTenantHost::publicHosts()`, jadi tidak perlu guard tambahan.
+Route::get('/sewa-web-topup', \App\Http\Controllers\Public\SaasLandingPageController::class)
+    ->middleware(['xss', 'sanitize'])
+    ->name('saas.landing');
+
 // Halaman platform di path `/id` juga dicegat: grup tenant hanya menangani `/`,
 // sedangkan `/id` (homepage, artikel, dashboard) hidup di grup ini. Tanpa
 // `tenant.inactive`, subdomain tenant non-aktif tetap menyajikan homepage
